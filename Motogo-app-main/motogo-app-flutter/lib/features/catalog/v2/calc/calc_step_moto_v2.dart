@@ -10,10 +10,12 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_sheet.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/net_image.dart';
 import '../../../loyalty/loyalty_provider.dart';
 import '../../catalog_provider.dart' show filteredMotoIdsProvider;
 import '../../moto_model.dart';
+import '../catalog_fit.dart';
 import '../catalog_text.dart';
 import 'calc_state.dart';
 
@@ -95,37 +97,55 @@ class _SelectedMoto extends ConsumerWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: MgColors.line),
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        CalcThumb(moto: moto, width: 96, height: 64),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(moto.model, style: MgType.title.copyWith(color: MgColors.ink)),
-            const SizedBox(height: 2),
-            Text(calcMeta(tr, moto), style: MgType.small.copyWith(color: MgColors.meta)),
-            const SizedBox(height: 4),
-            CalcFromPrice(moto: moto, pct: pct),
-            if (st != null) ...[
-              const SizedBox(height: 6),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                RepaintBoundary(
-                  child: MgPing(size: 8, color: st.$2 ? MgColors.neonLo : MgColors.pending, active: st.$2),
-                ),
-                const SizedBox(width: 6),
-                Flexible(child: Text(st.$1, style: MgType.meta.copyWith(color: st.$2 ? MgColors.link : MgColors.warn))),
-              ]),
-            ],
-            MgBtnText(
-              label: '${tr.tr('v2CalcDetail')} ›',
-              onTap: () {
-                ref.read(filteredMotoIdsProvider.notifier).state =
-                    siblings.contains(moto.id) ? siblings : [moto.id];
-                context.push('/moto/${moto.id}');
-              },
-            ),
-          ]),
-        ),
-      ]),
+      // Narrow card (320 dp, large text): the photo goes above the texts so
+      // the name / status never squeeze into a broken word.
+      child: LayoutBuilder(builder: (context, c) {
+        final base = DefaultTextStyle.of(context).style;
+        final words = [
+          catWordWidth(context, moto.model, base.merge(MgType.title)),
+          catWordWidth(context, calcMeta(tr, moto), base.merge(MgType.small)),
+          if (st != null) catWordWidth(context, st.$1, base.merge(MgType.meta)) + 14,
+        ].reduce((a, b) => a > b ? a : b);
+        final stacked = words > c.maxWidth - 108;
+        final texts = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          MgWordFit(child: Text(moto.model, style: MgType.title.copyWith(color: MgColors.ink))),
+          const SizedBox(height: 2),
+          Text(calcMeta(tr, moto), style: MgType.small.copyWith(color: MgColors.meta)),
+          const SizedBox(height: 4),
+          CalcFromPrice(moto: moto, pct: pct),
+          if (st != null) ...[
+            const SizedBox(height: 6),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              RepaintBoundary(
+                child: MgPing(size: 8, color: st.$2 ? MgColors.neonLo : MgColors.pending, active: st.$2),
+              ),
+              const SizedBox(width: 6),
+              Flexible(child: MgWordFit(child: Text(st.$1, style: MgType.meta.copyWith(color: st.$2 ? MgColors.link : MgColors.warn)))),
+            ]),
+          ],
+          MgBtnText(
+            label: '${tr.tr('v2CalcDetail')} ›',
+            onTap: () {
+              ref.read(filteredMotoIdsProvider.notifier).state =
+                  siblings.contains(moto.id) ? siblings : [moto.id];
+              context.push('/moto/${moto.id}');
+            },
+          ),
+        ]);
+        final thumb = CalcThumb(moto: moto, width: 96, height: 64);
+        if (stacked) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Align(alignment: AlignmentDirectional.centerStart, child: thumb),
+            const SizedBox(height: 10),
+            texts,
+          ]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          thumb,
+          const SizedBox(width: 12),
+          Expanded(child: texts),
+        ]);
+      }),
     );
   }
 }

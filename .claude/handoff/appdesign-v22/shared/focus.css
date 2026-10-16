@@ -1,0 +1,4 @@
+/* ===== MotoGo24 app v2.2 · shared/focus.css — the ONE universal focus ring (a11y, shared fixer 2026-10-16). Paste VERBATIM into the board's style
+   block right after the button reset. Two-tone (dark 2 px + white 2 px + neon 4 px) so it reads on white, canvas, photos AND the night surfaces;
+   exceptions keep their own ring: the AI FAB (rank ring), level-up "Pokračovat" (.luc-go) and nav tabs (.nv-t pill). Never remove an outline without it. */
+.mg :is(button,input,textarea,select,[role=button],[role=tab],[role=switch],[role=checkbox],[tabindex]:not([tabindex="-1"])):not(.ai-fab,.luc-go,.nv-t):focus-visible{outline:2px solid #0A1F14;outline-offset:2px;box-shadow:0 0 0 2px #FFFFFF,0 0 0 6px #74FB71}

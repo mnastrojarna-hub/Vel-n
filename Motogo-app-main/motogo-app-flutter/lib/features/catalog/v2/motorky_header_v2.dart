@@ -11,8 +11,10 @@ import '../../../core/v2/shell/mg_origin_chip.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
+import 'catalog_fit.dart';
 import 'catalog_mode.dart';
 import 'catalog_mode_switch_v2.dart';
 import 'catalog_price.dart';
@@ -65,32 +67,51 @@ class MotorkyHeaderV2 extends ConsumerWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         // „‹ Domů / Pobočka" po skoku z jiné záložky (V22 §6.2).
         const MgOriginChip(tab: 1),
-        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 4, children: [
-                Semantics(
-                  header: true,
-                  child: Text(tr.tr('v2TabBikes'), style: MgType.h2.copyWith(color: MgColors.onDark, height: 1)),
-                ),
-                if (count != null)
-                  MgBump(
-                    trigger: count,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: MgColors.neonA(0.16), borderRadius: BorderRadius.circular(999)),
-                      child: Text(catCount(tr, count!), style: MgType.tab(MgType.micro.copyWith(color: MgColors.neonText))),
+        LayoutBuilder(builder: (context, c) {
+          // The rank chip sits under the title next to the view toggle; when
+          // its label does not fit there (large text), it gets its own
+          // full-width line under the row instead of fading out.
+          final chipLabel = loyalty != null && loyalty.level >= 1
+              ? RankCopy.chip(tr, RankCopy.name(tr, loyalty.level, loyalty.rankName), loyalty.percent)
+              : null;
+          final chipStyle = DefaultTextStyle.of(context).style.merge(MgType.meta.copyWith(fontWeight: FontWeight.w800, height: 1));
+          // Chip = label + dot, gaps, padding, border; toggle = 94 + gap.
+          final chipW = chipLabel == null ? 0.0 : catLineWidth(context, chipLabel, chipStyle) + 44;
+          final chipInRow = chipW <= c.maxWidth - (find ? 102 : 0);
+          final chip = chipLabel == null ? null : MgRankChip(label: chipLabel);
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 4, children: [
+                    Semantics(
+                      header: true,
+                      child: Text(tr.tr('v2TabBikes'), style: MgType.h2.copyWith(color: MgColors.onDark, height: 1)),
                     ),
-                  ),
-              ]),
-              if (loyalty != null && loyalty.level >= 1) ...[
-                const SizedBox(height: 8),
-                MgRankChip(label: RankCopy.chip(tr, RankCopy.name(tr, loyalty.level, loyalty.rankName), loyalty.percent)),
-              ],
+                    if (count != null)
+                      MgBump(
+                        trigger: count,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: MgColors.neonA(0.16), borderRadius: BorderRadius.circular(999)),
+                          child: Text(catCount(tr, count!), style: MgType.tab(MgType.micro.copyWith(color: MgColors.neonText))),
+                        ),
+                      ),
+                  ]),
+                  if (chip != null && chipInRow) ...[
+                    const SizedBox(height: 8),
+                    chip,
+                  ],
+                ]),
+              ),
+              if (find) _ViewToggle(grid: grid, onGrid: onGrid),
             ]),
-          ),
-          if (find) _ViewToggle(grid: grid, onGrid: onGrid),
-        ]),
+            if (chip != null && !chipInRow) ...[
+              const SizedBox(height: 8),
+              Align(alignment: AlignmentDirectional.centerStart, child: chip),
+            ],
+          ]);
+        }),
         const SizedBox(height: 12),
         CatalogModeSwitchV2(mode: mode, onChanged: onMode),
         catAnimatedSize(context, !find
@@ -226,20 +247,38 @@ class _DatePill extends StatelessWidget {
               onTap: onTap,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-                child: Row(children: [
-                  MgIcon(MgIcons.calendarCheck, size: 20, color: MgColors.neon),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(label,
-                        style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark, height: 1.2))),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
+                child: LayoutBuilder(builder: (context, c) {
+                  // The hint chip stays beside the label only while the
+                  // label's longest word still fits ("Wanneer rijd je?" at
+                  // large text); otherwise it moves under the label.
+                  final base = DefaultTextStyle.of(context).style;
+                  final labelStyle = MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark, height: 1.2));
+                  final hintStyle = MgType.tab(MgType.meta.copyWith(color: MgColors.neonText));
+                  final side = c.maxWidth - 30 - 8 - (catLineWidth(context, hint, base.merge(hintStyle)) + 16) >=
+                      catWordWidth(context, label, base.merge(labelStyle));
+                  final text = MgWordFit(child: Text(label, style: labelStyle));
+                  final chip = Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(color: MgColors.neonA(0.14), borderRadius: BorderRadius.circular(999)),
-                    child: Text(hint, style: MgType.tab(MgType.meta.copyWith(color: MgColors.neonText))),
-                  ),
-                ]),
+                    child: MgWordFit(child: Text(hint, style: hintStyle)),
+                  );
+                  return Row(children: [
+                    MgIcon(MgIcons.calendarCheck, size: 20, color: MgColors.neon),
+                    const SizedBox(width: 10),
+                    if (side) ...[
+                      Expanded(child: text),
+                      const SizedBox(width: 8),
+                      chip,
+                    ] else
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          text,
+                          const SizedBox(height: 4),
+                          chip,
+                        ]),
+                      ),
+                  ]);
+                }),
               ),
             ),
           ),

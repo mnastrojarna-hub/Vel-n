@@ -1,0 +1,53 @@
+<!-- ===== MotoGo24 app v2.1 · shared/status-strip.html — the app shell's global FABs as ONE status strip (spec §3 C2, §11 rows 4–8).
+     Needs rank-theme.css (root .rk) + status-strip.js (stripVals). Board prop "globalniStav" (enum GS_OPTS below, section "Shell").
+     PART 1 = CSS (into the single helmet style block, after ai-fab), PART 2 = markup right BEFORE the nav (strip + "+n" list + confirm dialog).
+     The AI FAB rises by gs.lift (60) while the strip shows; the nav REZERVACE badge = gs.needs. Hidden on sheets / focused flows (board passes it).
+     GS_OPTS: "Nic", "SOS náhrada čeká", "Rozdělaná platba 14:52", "Rozdělaná platba · storno selže", "Chybí doklady", "Rozjetá trasa",
+              "Košík (2)", "Více najednou (platba + doklady + trasa)" -->
+
+<!-- PART 1 · CSS -->
+<style>
+.gs{position:absolute;left:16px;right:16px;bottom:106px;z-index:29;display:flex;align-items:center;gap:4px;height:52px;padding:0 4px;border-radius:999px;background:rgba(10,31,20,.95);border:1px solid rgba(116,251,113,.3);box-shadow:0 -8px 24px rgba(0,0,0,.25);color:#fff;font-family:Montserrat,sans-serif;animation:gsIn .3s cubic-bezier(.2,.8,.2,1) both}
+.rk .gs-b{flex:1;min-width:0;display:flex;align-items:center;gap:12px;height:48px;padding:0 4px;border:0;border-radius:999px;background:none;color:#fff;text-align:left;cursor:pointer}
+.rk .gs-b:active{background:rgba(255,255,255,.06)}
+.gs-i{flex:none;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%}
+.gs-i svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.gs-i.sos{background:#D92D20;color:#fff}
+.gs-i.pay{background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F}
+.gs-i.docs{background:#E9B44C;color:#3A2400}
+.gs-i.route{box-shadow:inset 0 0 0 1.5px #74FB71;color:#74FB71}
+.gs-i.cart{background:rgba(255,255,255,.10);color:#fff}
+.gs-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.gs-t b{font:800 14px/18px Montserrat,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-t span{font:600 12.5px/16px Montserrat,sans-serif;color:#B8D4C6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-b>.chv{flex:none;width:20px;height:20px;fill:none;stroke:#A8FF9F;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rk .gs-n{flex:none;display:flex;align-items:center;justify-content:center;min-width:44px;height:44px;padding:0 4px;border:0;border-radius:999px;background:none;cursor:pointer}
+.gs-n b{display:flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;background:rgba(116,251,113,.16);color:#A8FF9F;font:800 11.5px/1 Montserrat,sans-serif}
+.rk .gs-x{flex:none;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;border-radius:50%;background:#B91C1C;color:#fff;cursor:pointer}
+.gs-x svg,.gs-r .gs-x svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round}
+.gs-all{position:absolute;left:16px;right:16px;bottom:166px;z-index:29;display:flex;flex-direction:column;gap:4px;padding:8px;border-radius:20px;background:#fff;box-shadow:0 18px 40px -14px rgba(10,31,20,.6);font-family:Montserrat,sans-serif;animation:gsIn .3s cubic-bezier(.2,.8,.2,1) both}
+.gs-r{display:flex;align-items:center;gap:8px;animation:gsIn .3s cubic-bezier(.2,.8,.2,1) both}
+.rk .gs-r .gs-b{color:#1A2E22;height:56px}
+.gs-r .gs-t span{color:#4A6B5A}
+.gs-all .gs-i.route{box-shadow:inset 0 0 0 1.5px #0D6E0D;color:#0D6E0D}
+.gs-all .gs-i.cart{background:#E6F5EE;color:#1A2E22}
+.gs-all .chv{stroke:#0D6E0D}
+.rk .gs-ac{min-height:44px;border:0;border-radius:12px;background:#EEF7F2;color:#1A2E22;font:800 13.5px/1 Montserrat,sans-serif;cursor:pointer}
+.rk .gs-scr{position:absolute;inset:0;z-index:70;border:0;background:rgba(10,31,20,.55);animation:gsFade .25s ease both}
+.gs-dlg{position:absolute;left:24px;right:24px;bottom:220px;z-index:71;padding:24px 20px 16px;border-radius:22px;background:#fff;color:#1A2E22;box-shadow:0 24px 60px -12px rgba(0,0,0,.6);font-family:Montserrat,sans-serif;animation:gsPop .3s cubic-bezier(.2,1.2,.4,1) both}
+.gs-dlg h2{margin:0;font:800 20px/1.2 Montserrat,sans-serif}
+.gs-dlg p{margin:8px 0 0;font:600 14px/1.45 Montserrat,sans-serif;color:#4A6B5A}
+.gs-da{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:20px}
+.rk .gs-db{min-height:44px;padding:0 16px;border:0;border-radius:12px;background:#EEF7F2;color:#1A2E22;font:800 13.5px/1.2 Montserrat,sans-serif;cursor:pointer}
+.rk .gs-db.red{background:#B91C1C;color:#fff}
+@keyframes gsIn{from{opacity:0;transform:translateY(12px)}}
+@keyframes gsFade{from{opacity:0}}
+@keyframes gsPop{from{opacity:0;transform:translateY(12px) scale(.96)}}
+.rm .gs,.rm .gs-all,.rm .gs-r,.rm .gs-scr,.rm .gs-dlg{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.gs,.gs-all,.gs-r,.gs-scr,.gs-dlg{animation:none!important;transition:none!important}}
+</style>
+
+<!-- PART 2 · markup -->
+<sc-if value="{{ gs.all.show }}" hint-placeholder-val="{{ false }}"><div class="gs-all" role="group" aria-label="{{ gs.region }}"><sc-for list="{{ gs.all.rows }}" as="gsr" hint-placeholder-count="3"><div class="gs-r" style="{{ gsr.st }}"><button class="gs-b" onClick="{{ gsr.a }}" aria-label="{{ gsr.aria }}"><span class="{{ gsr.icCls }}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ gsr.ic }}"></path></svg></span><span class="gs-t"><b>{{ gsr.t }}</b><span>{{ gsr.s }}</span></span><svg class="chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button><sc-if value="{{ gsr.hasX }}" hint-placeholder-val="{{ false }}"><button class="gs-x" onClick="{{ gsr.x }}" aria-label="{{ gsr.xL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button></sc-if></div></sc-for><button class="gs-ac" onClick="{{ gs.all.close }}">{{ gs.all.closeL }}</button></div></sc-if>
+<sc-if value="{{ gs.show }}" hint-placeholder-val="{{ false }}"><div class="{{ gs.cls }}" role="region" aria-label="{{ gs.region }}"><button class="gs-b" onClick="{{ gs.a }}" aria-label="{{ gs.aria }}"><span class="{{ gs.icCls }}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="{{ gs.ic }}"></path></svg></span><span class="gs-t"><b>{{ gs.t }}</b><span class="tn">{{ gs.s }}</span></span><svg class="chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button><sc-if value="{{ gs.hasMore }}" hint-placeholder-val="{{ false }}"><button class="gs-n" onClick="{{ gs.moreA }}" aria-label="{{ gs.moreL }}" aria-expanded="{{ gs.moreOn }}"><b class="tn">{{ gs.more }}</b></button></sc-if><sc-if value="{{ gs.hasX }}" hint-placeholder-val="{{ false }}"><button class="gs-x" onClick="{{ gs.x }}" aria-label="{{ gs.xL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button></sc-if></div></sc-if>
+<sc-if value="{{ gs.cf.show }}" hint-placeholder-val="{{ false }}"><button class="gs-scr" onClick="{{ gs.cf.no }}" aria-hidden="true" tabindex="-1"></button><div class="gs-dlg" role="alertdialog" aria-modal="true" aria-labelledby="gs-dt" aria-describedby="gs-dp"><h2 id="gs-dt">{{ gs.cf.t }}</h2><p id="gs-dp">{{ gs.cf.p }}</p><div class="gs-da"><button class="gs-db" onClick="{{ gs.cf.no }}">{{ gs.cf.noL }}</button><button class="gs-db red" onClick="{{ gs.cf.yes }}">{{ gs.cf.yesL }}</button></div></div></sc-if>

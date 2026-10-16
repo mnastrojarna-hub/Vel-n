@@ -1,0 +1,125 @@
+<!-- ===== MotoGo24 app v2 · shared/ai-fab.html — global AI assistant button (bottom-right, every shell screen) + expand-into-chat panel.
+     Needs rank-theme.css + ai-fab.js (aiFabVals). Paste PART 1 into the board's single helmet style block (rules only, without the style tags); PART 2 right AFTER the nav
+     (or after the sticky bar on boards without nav), before toasts. Holes: `ai: aiFabVals({...})`. Localized (board prop "jazyk", 8 langs): FAB label, coach bubble, chat
+     header, every control name, greeting, chips, SOS chip and the app keys (v2.1, 2026-10-16). Mirrors ai_agent_screen.dart: photo button
+     → sheet (Vyfotit budíky / Vybrat z galerie), ≤ 3 thumbnails with ✕ + counter, SOS card when sosAllowed, error bubble + retry, thinking dots.
+     Tap targets ≥ 44 (coach ✕, close, chips, camera, thumbnail ✕ via ::after); focus = two-tone ring on the FAB (dark 2 + neon 6).
+     Placement (bottom = lowest obstruction + 12): tabs → 110 (nav 98) · + status strip → 170 · Detail sticky (136) → mini 44 @ 148 ·
+     Booking summary → mini 44 @ summary + 12 · hidden on payment/success/chat/keyboard/scanner/route-nav/login/sheets.
+     Look: dark glass disc, rank RING (material) + soft rank glow, chat-spark glyph, NO text, NO idle loop — never brighter than the CTA. -->
+
+<!-- PART 1 · CSS -->
+<style>
+.rk .ai-fab{position:absolute;right:16px;z-index:31;width:56px;height:56px;padding:2px;border-radius:50%;border:0;cursor:pointer;background:var(--rk-ring);box-shadow:0 0 0 1px var(--rk-ring2),0 0 18px -2px var(--rk-glow-a),0 8px 18px rgba(0,0,0,.35);transition:bottom .3s ease,transform .3s cubic-bezier(.3,1.3,.5,1),opacity .2s ease,width .3s ease,height .3s ease;-webkit-tap-highlight-color:transparent}
+.ai-fab>b{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;color:#74FB71;background:radial-gradient(circle at 30% 25%,#24563B,#0E2A1C 55%,#0A1F14)}
+.ai-fab svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:width .3s,height .3s}
+.ai-fab svg .sp{fill:currentColor;stroke:none}
+.rk .ai-fab:active{transform:scale(.92)}
+.rk .ai-fab:focus-visible{outline:2px solid #0A1F14;outline-offset:2px;box-shadow:0 0 0 6px #74FB71}
+.rk .ai-fab.mini{width:44px;height:44px;box-shadow:0 0 0 1px var(--rk-ring2),0 6px 14px rgba(0,0,0,.35)}
+.ai-fab.mini svg{width:21px;height:21px}
+.rk .ai-fab.peek{transform:translateX(26px);opacity:.85}
+.rk .ai-fab.off{transform:scale(.8);opacity:0;pointer-events:none}
+.rk .ai-fab.in{animation:aiIn .45s cubic-bezier(.2,1.4,.4,1) .6s both}
+.ai-coach{position:absolute;right:82px;z-index:31;display:flex;align-items:center;gap:6px;max-width:250px;padding:8px 8px 8px 16px;border-radius:16px 16px 6px 16px;background:#0E2A1C;border:1px solid rgba(116,251,113,.35);color:#E8F5EE;font:700 12.5px/1.35 Montserrat,sans-serif;box-shadow:0 10px 24px -8px rgba(0,0,0,.5);animation:aiCoach .5s cubic-bezier(.2,1.2,.4,1) 1.2s both}
+.rk .ai-coach button{flex:none;width:44px;height:44px;margin:-6px -4px -6px 0;border-radius:50%;border:0;background:rgba(255,255,255,.08);color:#CFE7DA;font:800 17px/1 Montserrat,sans-serif;cursor:pointer}
+.ai-ct{display:flex;flex-direction:column;gap:2px}
+.ai-ct b{font:800 11px/14px Montserrat,sans-serif;letter-spacing:.04em;color:#A8FF9F;text-transform:uppercase}
+.rk .ai-scrim{position:absolute;inset:0;z-index:44;background:rgba(10,31,20,.55);border:0;animation:aiFade .25s ease both}
+.ai-chat{position:absolute;right:12px;z-index:45;width:366px;max-height:560px;display:flex;flex-direction:column;border-radius:24px;overflow:hidden;color:#E8F5EE;font-family:Montserrat,sans-serif;background:radial-gradient(150% 110% at 100% 0,var(--rk-aura) 0,#0E2A1C 55%,#0A1F14 100%);border:1px solid rgba(116,251,113,.28);box-shadow:0 24px 60px -12px rgba(0,0,0,.6);transform-origin:100% 100%;animation:aiOpen .35s cubic-bezier(.2,0,0,1) both}
+.ai-hd{display:flex;align-items:center;gap:10px;padding:16px 12px 12px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.ai-hd b{display:block;font:800 15px/1.2 Montserrat,sans-serif;color:#fff}
+.ai-hd small{display:block;font:600 11.5px/1.3 Montserrat,sans-serif;color:#A8FF9F}
+.rk .ai-x{margin-left:auto;flex:none;width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.08);color:#fff;font:800 20px/1 Montserrat,sans-serif;cursor:pointer}
+/* §6.1: the shared AI chat close and the coach close draw the ✕ icon (never a "×" glyph) */
+.rk .ai-x svg,.rk .ai-coach button svg{display:block;width:20px;height:20px;margin:auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.rk .ai-coach button svg{width:18px;height:18px}
+.ai-body{display:flex;flex-direction:column;gap:10px;padding:16px 16px 8px;overflow:auto}
+.ai-m{max-width:86%;padding:10px 12px;border-radius:16px;font:600 13.5px/1.45 Montserrat,sans-serif;animation:aiMsg .3s ease both}
+.ai-m.bot{align-self:flex-start;background:rgba(255,255,255,.07);border:1px solid rgba(116,251,113,.18);border-bottom-left-radius:6px}
+.ai-m.me{align-self:flex-end;background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;border-bottom-right-radius:6px}
+.ai-m.note{align-self:center;max-width:100%;padding:4px 10px;background:none;border:0;color:#9FC4B1;font:600 11.5px/1.35 Montserrat,sans-serif;text-align:center}
+.ai-typ{align-self:flex-start;display:flex;align-items:center;gap:4px;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.07)}
+.ai-typ span{margin-left:6px;font:700 12.5px/1 Montserrat,sans-serif;color:#9FC4B1}
+.ai-typ i{width:7px;height:7px;border-radius:50%;background:#A8FF9F;animation:aiDot 1s ease-in-out infinite}
+.ai-typ i:nth-child(2){animation-delay:.15s}.ai-typ i:nth-child(3){animation-delay:.3s}
+.ai-chips{display:flex;flex-wrap:wrap;gap:8px;padding:8px 16px 12px}
+.rk .ai-chip{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid rgba(116,251,113,.4);background:rgba(116,251,113,.08);color:#E8F5EE;font:700 12.5px/1.2 Montserrat,sans-serif;cursor:pointer;animation:aiMsg .3s ease both}
+.rk .ai-chip.sos{background:#D92D20;border-color:#D92D20;color:#fff;font-weight:800}
+.ai-in{display:flex;gap:8px;padding:12px 12px 16px;border-top:1px solid rgba(255,255,255,.08)}
+.ai-in input{flex:1;min-width:0;height:46px;padding:0 12px;border-radius:14px;border:1.5px solid rgba(116,251,113,.3);background:rgba(255,255,255,.06);color:#fff;font:600 14px Montserrat,sans-serif;outline:none}
+.ai-in input:focus{border-color:#74FB71;box-shadow:0 0 0 4px rgba(116,251,113,.18)}
+.rk .ai-send{flex:none;width:46px;height:46px;border-radius:50%;border:0;background:linear-gradient(135deg,#8DFF86,#37CF63);color:#08230F;cursor:pointer}
+.ai-send svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+/* v2.1 · error bubble + retry, SOS card (app _buildBubble isSosHint: redBg, #FCA5A5 border, #B91C1C / #991B1B), photo attach */
+.ai-m.err{display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:92%;border-color:rgba(255,179,179,.45);background:rgba(217,45,32,.16)}
+.ai-m.err>svg{flex:none;width:20px;height:20px;fill:none;stroke:#FFB3B3;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ai-m.err>span{flex:1 1 170px;min-width:0}
+.rk .ai-rt{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.08);color:#fff;font:800 12.5px/1.2 Montserrat,sans-serif;cursor:pointer}
+.rk .ai-sos{align-self:stretch;display:flex;align-items:center;gap:12px;min-height:56px;padding:12px;border-radius:14px;border:1px solid #FCA5A5;background:#FEF2F2;color:#B91C1C;text-align:left;cursor:pointer;animation:aiMsg .3s ease both}
+.rk .ai-sos:active{transform:scale(.98)}
+.ai-sos-i{flex:none;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#D92D20;color:#fff}
+.ai-sos svg{flex:none;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ai-sos-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ai-sos-t b{font:800 14px/1.25 Montserrat,sans-serif;color:#B91C1C}
+.ai-sos-t small{font:600 12.5px/1.35 Montserrat,sans-serif;color:#991B1B}
+.ai-mph{display:flex;gap:4px;margin-bottom:6px}
+.ai-mph i{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(8,35,15,.16);color:#08230F;font:800 11px/1 Montserrat,sans-serif;font-style:normal}
+.ai-att{display:flex;align-items:center;gap:12px;padding:12px 16px 0}
+.ai-th{position:relative;flex:none;width:56px;height:56px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 25%,#24563B,#0E2A1C);border:1px solid rgba(116,251,113,.3);color:#A8FF9F;animation:aiMsg .3s ease both}
+.ai-th>svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ai-th b{position:absolute;left:6px;bottom:4px;font:800 11px/1 Montserrat,sans-serif;color:#E8F5EE}
+.rk .ai-thx{position:absolute;top:-10px;right:-10px;width:28px;height:28px;border-radius:50%;border:2px solid #0E2A1C;background:#1A2E22;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.rk .ai-thx::after{content:'';position:absolute;inset:-8px}
+.ai-thx svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round}
+.ai-cnt{margin-left:auto;font:800 11.5px/1 Montserrat,sans-serif;color:#9FC4B1}
+.ai-src{display:flex;flex-direction:column;gap:4px;margin:0 12px;padding:8px;border-radius:16px;background:#0A1F14;border:1px solid rgba(116,251,113,.28);animation:aiMsg .3s ease both}
+.rk .ai-so{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border-radius:12px;border:0;background:none;color:#E8F5EE;font:700 14px/1.2 Montserrat,sans-serif;text-align:left;cursor:pointer}
+.rk .ai-so:active{background:rgba(255,255,255,.08)}
+.ai-so svg{flex:none;width:20px;height:20px;fill:none;stroke:#A8FF9F;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rk .ai-so.x{justify-content:center;color:#9FC4B1;font-weight:800}
+.rk .ai-cam{position:relative;flex:none;width:44px;height:46px;border-radius:14px;border:1.5px solid rgba(116,251,113,.3);background:rgba(255,255,255,.06);color:#9FC4B1;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:color .18s,border-color .18s}
+.rk .ai-cam.on{color:#74FB71;border-color:#74FB71}
+.ai-cam svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ai-cam b{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#74FB71;color:#08230F;font:800 11px/18px Montserrat,sans-serif;text-align:center}
+@keyframes aiIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes aiCoach{from{opacity:0;transform:translateX(12px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes aiOpen{from{opacity:.3;transform:scale(.14);border-radius:40px}to{opacity:1;transform:none;border-radius:24px}}
+@keyframes aiFade{from{opacity:0}to{opacity:1}}
+@keyframes aiMsg{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes aiDot{0%,100%{transform:none;opacity:.5}50%{transform:translateY(-3px);opacity:1}}
+/* v2.2 focused screens (route navigation, planner, POI pick, submit / add place, ride recorder, ride detail, place / route maps, address map):
+   AI = 44 px disc in the screen's top bar, right side (PART 3) — same ring + glyph as the FAB, no glow, no loop; hidden only under modal sheets / dialogs */
+.rk .ai-tb{flex:none;position:relative;width:44px;height:44px;padding:2px;border:0;border-radius:50%;background:var(--rk-ring);box-shadow:0 0 0 1px var(--rk-ring2),0 4px 12px rgba(0,0,0,.25);cursor:pointer;transition:transform .15s ease}
+.rk .ai-tb:active{transform:scale(.92)}
+.ai-tb>b{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;color:#74FB71;background:radial-gradient(circle at 30% 25%,#24563B,#0E2A1C 55%,#0A1F14)}
+.ai-tb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.rm .ai-fab,.rm .ai-fab svg,.rm .ai-coach,.rm .ai-scrim,.rm .ai-chat,.rm .ai-m,.rm .ai-chip,.rm .ai-typ i,.rm .ai-sos,.rm .ai-th,.rm .ai-src,.rm .ai-cam{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.ai-fab,.ai-fab svg,.ai-coach,.ai-scrim,.ai-chat,.ai-m,.ai-chip,.ai-typ i,.ai-sos,.ai-th,.ai-src,.ai-cam{animation:none!important;transition:none!important}}
+</style>
+
+<!-- PART 2 · markup -->
+<sc-if value="{{ ai.showFab }}" hint-placeholder-val="{{ true }}">
+<button class="{{ ai.cls }}" style="{{ ai.st }}" onClick="{{ ai.a }}" aria-label="{{ ai.aria }}" title="{{ ai.aria }}"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7A2.5 2.5 0 0 1 7 4.5h8.5A2.5 2.5 0 0 1 18 7v6a2.5 2.5 0 0 1-2.5 2.5H10l-3.8 3.3v-3.3H7A2.5 2.5 0 0 1 4.5 13z"></path><path d="M8.6 10h.01M11.3 10h.01M14 10h.01"></path><path class="sp" d="M19.6 1.8l.75 1.75 1.75.75-1.75.75-.75 1.75-.75-1.75-1.75-.75 1.75-.75z"></path></svg></b></button>
+</sc-if>
+<sc-if value="{{ ai.coach.show }}" hint-placeholder-val="{{ false }}">
+<div class="ai-coach" style="{{ ai.coach.st }}" role="status"><span class="ai-ct"><b>{{ ai.aria }}</b><span>{{ ai.coach.t }}</span></span><button onClick="{{ ai.coach.a }}" aria-label="{{ ai.coach.x }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+</sc-if>
+<sc-if value="{{ ai.chat.show }}" hint-placeholder-val="{{ false }}">
+<button class="ai-scrim" onClick="{{ ai.chat.close }}" aria-hidden="true" tabindex="-1"></button>
+<div class="ai-chat" style="{{ ai.chat.st }}" role="dialog" aria-modal="true" aria-label="{{ ai.aria }}">
+<div class="ai-hd"><svg viewBox="0 0 800 800" width="32" height="32" aria-hidden="true" style="flex:none;display:block;border-radius:9px"><rect width="800" height="800" rx="215" fill="#000"></rect><g transform="translate(185 114) scale(1.005)"><g transform="translate(0 450) scale(0.1 -0.1)" fill="#74FB71" fill-rule="evenodd"><path d="M1008 4282 c-111 -77 -258 -200 -258 -216 0 -14 1361 -1376 1375 -1376 5 0 243 233 527 517 l517 517 17 -15 c10 -8 50 -53 89 -100 106 -127 205 -293 250 -420 l13 -36 -164 -164 c-90 -90 -164 -169 -164 -176 l0 -13 434 0 435 0 7 12 c20 31 -21 259 -78 438 -98 307 -266 577 -500 806 -156 153 -362 305 -390 288 -7 -4 -232 -226 -501 -493 -268 -267 -491 -487 -495 -489 -4 -1 -230 221 -502 493 -272 272 -499 495 -505 495 -5 -1 -54 -31 -107 -68z"></path><path d="M522 3812 c-170 -214 -323 -593 -363 -896 l-11 -89 5 -241 5 -241 21 -93 c89 -399 263 -723 536 -998 293 -296 641 -477 1075 -561 l95 -18 235 0 235 0 100 19 c325 60 606 181 861 372 103 76 315 288 390 389 85 115 174 267 223 381 23 54 46 108 51 119 44 99 107 379 112 500 l3 70 -875 3 -875 2 -230 -230 -230 -231 15 -9 c9 -6 332 -9 804 -9 433 0 790 -2 793 -5 7 -7 -58 -133 -110 -214 -146 -225 -356 -413 -597 -533 -107 -54 -255 -103 -388 -131 l-107 -22 -175 1 -175 0 -110 22 c-713 148 -1215 757 -1216 1476 0 118 15 247 40 354 33 133 125 361 147 361 6 0 77 -20 158 -45 82 -25 156 -45 166 -45 l18 0 -289 288 c-160 158 -294 288 -298 290 -5 2 -22 -14 -39 -36z"></path></g></g></svg><span><b>{{ ai.chat.title }}</b><small>{{ ai.chat.sub }}</small></span><button class="ai-x" onClick="{{ ai.chat.close }}" aria-label="{{ ai.chat.closeL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></div>
+<div class="ai-body" aria-live="polite">
+<sc-for list="{{ ai.chat.msgs }}" as="m" hint-placeholder-count="2"><sc-if value="{{ m.txt }}" hint-placeholder-val="{{ true }}"><div class="{{ m.cls }}"><sc-if value="{{ m.hasPh }}" hint-placeholder-val="{{ false }}"><span class="ai-mph" role="img" aria-label="{{ m.phT }}"><sc-for list="{{ m.ph }}" as="q" hint-placeholder-count="2"><i aria-hidden="true">{{ q.n }}</i></sc-for></span></sc-if>{{ m.t }}</div></sc-if><sc-if value="{{ m.sos }}" hint-placeholder-val="{{ false }}"><button class="ai-sos" onClick="{{ m.a }}"><span class="ai-sos-i" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM5.6 5.6l3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6"></path></svg></span><span class="ai-sos-t"><b>{{ m.sosT }}</b><small>{{ m.sosS }}</small></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button></sc-if><sc-if value="{{ m.err }}" hint-placeholder-val="{{ false }}"><div class="ai-m bot err" role="alert"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v5M12 16.5v.5"></path></svg><span>{{ m.t }}</span><button class="ai-rt" onClick="{{ m.retry }}">{{ m.retryL }}</button></div></sc-if></sc-for>
+<sc-if value="{{ ai.chat.typing }}" hint-placeholder-val="{{ false }}"><div class="ai-typ" role="status"><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i><span>{{ ai.chat.thinking }}</span></div></sc-if>
+</div>
+<div class="ai-chips"><sc-for list="{{ ai.chat.chips }}" as="c" hint-placeholder-count="3"><button class="{{ c.cls }}" style="{{ c.st }}" onClick="{{ c.a }}">{{ c.l }}</button></sc-for></div>
+<sc-if value="{{ ai.chat.att.show }}" hint-placeholder-val="{{ false }}"><div class="ai-att"><sc-for list="{{ ai.chat.att.list }}" as="q" hint-placeholder-count="2"><span class="ai-th" style="{{ q.st }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17a8 8 0 1 1 16 0M12 17l3.5-5M7 13.5h.01M8.5 10h.01M12 8.5h.01M15.5 10h.01"></path></svg><b class="tn" aria-hidden="true">{{ q.n }}</b><button class="ai-thx" onClick="{{ q.x }}" aria-label="{{ q.xa }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button></span></sc-for><span class="ai-cnt tn" aria-live="polite">{{ ai.chat.att.cnt }}</span></div></sc-if>
+<sc-if value="{{ ai.chat.src.show }}" hint-placeholder-val="{{ false }}"><div class="ai-src" role="group" aria-label="{{ ai.chat.src.aria }}"><button class="ai-so" onClick="{{ ai.chat.src.cam }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3L9.5 4.5h5L16.2 7h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path></svg>{{ ai.chat.src.camT }}</button><button class="ai-so" onClick="{{ ai.chat.src.gal }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 15l4.5-4.5 4 4 2.5-2.5L20 17M15.5 9.5h.01"></path></svg>{{ ai.chat.src.galT }}</button><button class="ai-so x" onClick="{{ ai.chat.src.close }}">{{ ai.chat.src.cancel }}</button></div></sc-if>
+<div class="ai-in"><button class="{{ ai.chat.camCls }}" onClick="{{ ai.chat.cam }}" aria-label="{{ ai.chat.camL }}" aria-expanded="{{ ai.chat.srcOpen }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.3L9.5 4.5h5L16.2 7h2.3A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"></path></svg><sc-if value="{{ ai.chat.hasN }}" hint-placeholder-val="{{ false }}"><b class="tn" aria-hidden="true">{{ ai.chat.camN }}</b></sc-if></button><input type="text" value="{{ ai.chat.val }}" onInput="{{ ai.chat.input }}" placeholder="{{ ai.chat.ph }}" aria-label="{{ ai.chat.inL }}"><button class="ai-send" onClick="{{ ai.chat.send }}" aria-label="{{ ai.chat.sendL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"></path></svg></button></div>
+</div>
+</sc-if>
+
+<!-- PART 3 · focused-screen top-bar disc (route nav, planner, POI pick, submit, recorder, ride detail, maps): put it as the LAST item of the
+     screen's top-bar row; the board passes `bottom` = viewport bottom + 12 for these screens so the chat opens inside the same viewport. -->
+<button class="ai-tb" onClick="{{ ai.a }}" aria-label="{{ ai.aria }}" title="{{ ai.aria }}"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7A2.5 2.5 0 0 1 7 4.5h8.5A2.5 2.5 0 0 1 18 7v6a2.5 2.5 0 0 1-2.5 2.5H10l-3.8 3.3v-3.3H7A2.5 2.5 0 0 1 4.5 13z"></path><path d="M8.6 10h.01M11.3 10h.01M14 10h.01"></path></svg></b></button>

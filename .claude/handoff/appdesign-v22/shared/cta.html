@@ -1,0 +1,48 @@
+<!-- ===== MotoGo24 app v2 · shared/cta.html — canonical rank-themed PRIMARY action (owner point 8: "unmistakable, always visible, live price").
+     Needs rank-theme.css (.rk-cta + tier fx). PART 1 = rules for the board's single helmet style block (without the style tags).
+     PART 2 = in-card hero CTA · PART 3 = sticky bottom bar (Detail REZERVOVAT · price, Booking ZAPLATIT · price) · PART 4 = catalogue card action.
+     Rules: ONE looping primary per screen (others add class "still"); the primary is never placed next to another filled button; the AI FAB sits
+     ≥ 12 px above the sticky bar as a 44 px mini without glow; Apple Pay / Google Pay buttons are NEVER rank-styled. -->
+
+<!-- PART 1 · CSS -->
+<style>
+.rk-sticky{position:absolute;left:0;right:0;bottom:0;z-index:28;padding:10px 16px 34px;border-radius:20px 20px 0 0;background:rgba(10,31,20,.96);box-shadow:0 -8px 24px rgba(0,0,0,.25);font-family:Montserrat,sans-serif;animation:skIn .3s ease both}
+.rk-sticky::before{content:'';position:absolute;left:24px;right:24px;top:0;height:1px;background:linear-gradient(90deg,rgba(116,251,113,0),rgba(116,251,113,.38),rgba(116,251,113,0))}
+.sk-ctx{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px;margin-bottom:8px;color:#CFE7DA;font:700 12.5px/1.3 Montserrat,sans-serif}
+.sk-ctx b{color:#fff;font-weight:800}
+.sk-ctx .sk-blk{color:#FFD36B;font-weight:800}
+.rk .sk-more{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:44px;margin:-8px -8px -8px 0;padding:0 8px;color:#A8FF9F;font:800 12.5px/1 Montserrat,sans-serif;background:none;border:0;cursor:pointer}
+.sk-more .sk-ar{font-size:11px}
+/* AI docked into the sticky bar (Detail, Booking): on a screen with a sticky primary the assistant lives in the bar's context row — always
+   reachable, never floating over scrolled rows (FabAvoid: the bar is the obstruction anyway). Same ring + glyph as the FAB, no glow loop. */
+.rk .ai-dock{position:relative;flex:none;width:44px;height:44px;margin:-8px -4px -8px 4px;padding:2px;border-radius:50%;border:0;background:var(--rk-ring);box-shadow:0 0 0 1px var(--rk-ring2);cursor:pointer;transition:transform .15s ease}
+.rk .ai-dock:active{transform:scale(.92)}
+.rk .ai-dock:focus-visible{outline:3px solid #74FB71;outline-offset:2px}
+.ai-dock>b{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;color:#74FB71;background:radial-gradient(circle at 30% 25%,#24563B,#0E2A1C 55%,#0A1F14)}
+.ai-dock svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.ai-dock svg .sp{fill:currentColor;stroke:none}
+.sk-ctx>.sk-more{margin-left:auto}
+.rk .rk-cta .px{text-transform:none;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:0}
+.rk .rk-cta .sep{opacity:1;font-weight:700}   /* a11y v2.2: full label colour (≥ 4.58:1 on every rank fill; .55 gave 2.3–3.1:1) */
+.rk .rk-cta.auto{width:auto}
+.rk .rk-cta.ghost{animation:none;background:rgba(255,255,255,.05);border-color:rgba(116,251,113,.6);color:#fff;box-shadow:none}
+.rk .rk-cta.ghost .rk-fx{display:none}
+@keyframes skIn{from{transform:translateY(105%)}}
+.rm .rk-sticky{animation:none!important}
+@media (prefers-reduced-motion:reduce){.rk-sticky{animation:none!important}}
+</style>
+
+<!-- PART 2 · hero CTA (inside the one dark hero card) -->
+<button class="rk-cta" onClick="{{ cta.a }}"><span class="rk-fx" aria-hidden="true"><i></i><i></i><i></i></span><span class="rk-lbl"><svg class="rk-gc" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18M4.2 15.5 3 7l5 4 4-6.5L16 11l5-4-1.2 8.5z"></path></svg><svg class="rk-gl" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5c-3.6-1-6.2-4.1-6.6-8.3M12 20.5c3.6-1 6.2-4.1 6.6-8.3M6 14.4c-1.7.1-3-.6-3.6-2 1.6-.3 3 .3 3.6 2zM5.4 10.6c-1.6-.3-2.5-1.5-2.6-3 1.5.1 2.5 1.2 2.6 3zM6.2 7.1c-1.3-.9-1.7-2.2-1.3-3.6 1.3.6 1.8 1.9 1.3 3.6zM18 14.4c1.7.1 3-.6 3.6-2-1.6-.3-3 .3-3.6 2zM18.6 10.6c1.6-.3 2.5-1.5 2.6-3-1.5.1-2.5 1.2-2.6 3zM17.8 7.1c1.3-.9 1.7-2.2 1.3-3.6-1.3.6-1.8 1.9-1.3 3.6z"></path></svg>{{ cta.label }}<svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></button>
+
+<!-- PART 3 · sticky bar: context line + full-width 60 px CTA "REZERVOVAT · 10 189 Kč" (Detail) / "ZAPLATIT · 10 189 Kč" (Booking).
+     sk.aiDock = true docks the AI assistant into the context row (Detail, Booking) instead of a floating mini FAB.
+     sk = { noBlk (= !hasBlk), ctx (e.g. "pá 23. 10. → ne 25. 10. · 3 dny"), hasBlk, blk (single missing thing, amber), more ("Rozpis", the ▴ is an aria-hidden glyph), moreExp ("true" while the receipt sheet is open), moreA, cls ("rk-cta lg" |
+            "rk-cta lg ghost" when blocked), a, label ("REZERVOVAT" | "DOPLNIT ↓" …), hasPx, px ("10 189 Kč") } -->
+<div class="rk-sticky" role="region" aria-label="Rezervace">
+<div class="sk-ctx"><sc-if value="{{ sk.hasBlk }}" hint-placeholder-val="{{ false }}"><span class="sk-blk">{{ sk.blk }}</span></sc-if><sc-if value="{{ sk.noBlk }}" hint-placeholder-val="{{ true }}"><span>{{ sk.ctx }}</span></sc-if><button class="sk-more" onClick="{{ sk.moreA }}" aria-expanded="{{ sk.moreExp }}">{{ sk.more }}<span class="sk-ar" aria-hidden="true">▴</span></button><sc-if value="{{ sk.aiDock }}" hint-placeholder-val="{{ true }}"><button class="ai-dock" onClick="{{ ai.a }}" aria-label="{{ ai.aria }}" title="{{ ai.aria }}"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7A2.5 2.5 0 0 1 7 4.5h8.5A2.5 2.5 0 0 1 18 7v6a2.5 2.5 0 0 1-2.5 2.5H10l-3.8 3.3v-3.3H7A2.5 2.5 0 0 1 4.5 13z"></path><path d="M8.6 10h.01M11.3 10h.01M14 10h.01"></path><path class="sp" d="M19.6 1.8l.75 1.75 1.75.75-1.75.75-.75 1.75-.75-1.75-1.75-.75 1.75-.75z"></path></svg></b></button></sc-if></div>
+<button class="{{ sk.cls }}" onClick="{{ sk.a }}"><span class="rk-fx" aria-hidden="true"><i></i><i></i><i></i></span><span class="rk-lbl"><svg class="rk-gc" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18M4.2 15.5 3 7l5 4 4-6.5L16 11l5-4-1.2 8.5z"></path></svg><svg class="rk-gl" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5c-3.6-1-6.2-4.1-6.6-8.3M12 20.5c3.6-1 6.2-4.1 6.6-8.3M6 14.4c-1.7.1-3-.6-3.6-2 1.6-.3 3 .3 3.6 2zM5.4 10.6c-1.6-.3-2.5-1.5-2.6-3 1.5.1 2.5 1.2 2.6 3zM6.2 7.1c-1.3-.9-1.7-2.2-1.3-3.6 1.3.6 1.8 1.9 1.3 3.6zM18 14.4c1.7.1 3-.6 3.6-2-1.6-.3-3 .3-3.6 2zM18.6 10.6c1.6-.3 2.5-1.5 2.6-3-1.5.1-2.5 1.2-2.6 3zM17.8 7.1c1.3-.9 1.7-2.2 1.3-3.6-1.3.6-1.8 1.9-1.3 3.6z"></path></svg>{{ sk.label }}<sc-if value="{{ sk.hasPx }}" hint-placeholder-val="{{ true }}"><span class="sep">·</span><span class="px">{{ sk.px }}</span></sc-if></span></button>
+</div>
+
+<!-- PART 4 · catalogue card action (48 px, auto width; loops ONLY on the card in view — all others add "still") -->
+<button class="{{ c.ctaCls }}" onClick="{{ c.open }}" aria-label="{{ c.openAria }}"><span class="rk-fx" aria-hidden="true"><i></i><i></i><i></i></span><span class="rk-lbl">{{ c.ctaLabel }}<svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span></button>

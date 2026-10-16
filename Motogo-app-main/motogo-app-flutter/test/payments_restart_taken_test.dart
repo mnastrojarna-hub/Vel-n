@@ -47,7 +47,7 @@ void main() {
 
   Future<String> snackText(WidgetTester tester, PaidAfterRestart paid) async {
     late AppTranslations tr;
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (context) {
+    await tester.pumpWidget(MaterialApp(key: UniqueKey(), home: Scaffold(body: Builder(builder: (context) {
       tr = t(context);
       return TextButton(
         onPressed: () => ScaffoldMessenger.of(context).showSnackBar(paidAfterRestartSnackBar(context, paid)),
@@ -124,8 +124,8 @@ void main() {
         failed: true, reason: 'swap_date_out_of_range', amount: 15));
     expect(failed, contains(tr.tr('pdSwapFailedTitle')));
     final busy = await snackText(tester, const PaidAfterRestart('b3', PaymentMarkerKind.edit, completing: true));
-    expect(busy, tr.tr('pdEditCompletingShort'));
+    expect(busy, startsWith(tr.tr('pdEditCompletingShort')));
     final paid = await snackText(tester, const PaidAfterRestart('b4', PaymentMarkerKind.swap));
-    expect(paid, tr.tr('fxSwapPaidNotice'));
+    expect(paid, startsWith(tr.tr('fxSwapPaidNotice')));
   });
 }

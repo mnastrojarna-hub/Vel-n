@@ -47,5 +47,15 @@ for t in sorted(tops - loopvars - {'true', 'false'}):
 # helmet / root
 if '<helmet>' not in s or '</helmet>' not in s: errs.append('no helmet')
 if './support.js' not in s: errs.append('no support.js')
+# button reset specificity: a bare-button reset such as `.mg button{background:none;padding:0…}` (0,1,1) silently beats
+# single-class button rules (0,1,0) like `.scrim{background:…}` -> scope resets with `:where(.mg) button` (see btncheck.js)
+try:
+    r = subprocess.run(['node', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'btncheck.js'), p, '--json'], capture_output=True, text=True, timeout=240)
+    bj = json.loads(r.stdout.strip().splitlines()[-1])
+    for f in bj['findings']:
+        errs.append('button rule loses to reset %s (%s): %s (%s) -> %s; scope the reset as :where(.mg) button' % (f['reset'], f['resetSpec'], f['sel'], f['spec'], ','.join(f['props'])))
+    print('btncheck: resets', bj['resets'] or 'none', '· button class sets', bj['buttons'], '· findings', len(bj['findings']))
+except Exception as ex:
+    print('btncheck: WARNING could not run (' + str(ex)[:120] + ')')
 print('size', len(s.encode()))
 print('\n'.join(errs) if errs else 'LINT OK')

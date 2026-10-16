@@ -6,6 +6,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 
 /// v2 look of `ManualCard` (V-branch): the SAME open / search / download
 /// closures (`launchUrl` modes + the "not available" snackbar live in the
@@ -35,7 +36,9 @@ class ManualCardV2Look extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr.tr('manualDefaultTitle'), style: MgType.title.copyWith(color: MgColors.ink)),
+            // "Gebruikershandleiding" / "Bedienungsanleitung" at large text:
+            // scale a little rather than split the word.
+            MgWordFit(minScale: 0.7, child: Text(tr.tr('manualDefaultTitle'), style: MgType.title.copyWith(color: MgColors.ink))),
             if (fileName != tr.tr('manualDefaultTitle'))
               Text(fileName,
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.small.copyWith(color: MgColors.meta)),

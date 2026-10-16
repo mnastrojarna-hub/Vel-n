@@ -188,7 +188,8 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                 IgnorePointer(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                     Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                      if (m.category != null && m.category!.isNotEmpty) _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
+                      if (m.category != null && m.category!.isNotEmpty)
+                        _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
                       if (lic.isNotEmpty) _Tag(lic),
                       if (branch != null)
                         Row(mainAxisSize: MainAxisSize.min, children: [
@@ -303,8 +304,8 @@ class _Tag extends StatelessWidget {
           border: neon ? null : Border.all(color: MgColors.white(0.18)),
         ),
         child: Text(text,
-            style: MgType.micro
-                .copyWith(fontWeight: FontWeight.w800, color: neon ? MgColors.onNeon : MgColors.onDark, letterSpacing: neon ? 0.4 : 0)),
+            style: MgType.micro.copyWith(
+                fontWeight: FontWeight.w800, color: neon ? MgColors.onNeon : MgColors.onDark, letterSpacing: neon ? 0.4 : 0)),
       );
 }
 
@@ -336,16 +337,16 @@ class _PriceBlock extends StatelessWidget {
           Text.rich(TextSpan(children: [
             TextSpan(
               text: price.value,
-              style: MgType.tab(
-                  MgType.h1.copyWith(color: MgColors.neon, height: 1, shadows: [Shadow(color: MgColors.neonA(0.25), blurRadius: 18)])),
+              style: MgType.tab(MgType.h1.copyWith(
+                  color: MgColors.neon, height: 1, shadows: [Shadow(color: MgColors.neonA(0.25), blurRadius: 18)])),
             ),
             if (price.unit != null)
               TextSpan(text: ' ${price.unit}', style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkLead)),
           ])),
           if (price.struck != null)
             Text(price.struck!,
-                style: MgType.tab(MgType.small
-                    .copyWith(color: MgColors.white(0.66), decoration: TextDecoration.lineThrough, decorationColor: MgColors.white(0.66)))),
+                style: MgType.tab(MgType.small.copyWith(
+                    color: MgColors.white(0.66), decoration: TextDecoration.lineThrough, decorationColor: MgColors.white(0.66)))),
         ]),
         const SizedBox(height: 4),
         MgWordFit(child: Text(price.sub, style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w600, color: MgColors.onDarkLead)))),

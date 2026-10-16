@@ -157,7 +157,12 @@ class CalcBars extends StatelessWidget {
                   ),
                   if (labels != null) ...[
                     const SizedBox(height: 4),
-                    Text(labels![i], maxLines: 1, style: MgType.micro.copyWith(color: MgColors.meta, fontSize: 10)),
+                    // Weekday ("Mon", "dom") scales down in a narrow bar
+                    // instead of being cut.
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(labels![i], maxLines: 1, style: MgType.micro.copyWith(color: MgColors.meta, fontSize: 10)),
+                    ),
                   ],
                 ]),
               ),

@@ -8,7 +8,25 @@
 Týdenní limit účtu byl ~97 %, dokupování je vypnuté. Úlohy byly zastaveny ručně a vše rozpracované je uložené (STAV níže).
 
 ## STAV (doplněno při zastavení)
-<!--STAV-->
+Zastaveno 16. 10. 2026 ~23:15 (Praha) při týdenním limitu ~95 %. Úlohy jsou ZASTAVENÉ, ne dokončené.
+
+**1. Appka v2 Android** (`app-v2-android-impl.js`, run `wf_e1861c88-6ac`)
+- Hotovo: Plan, Foundation, všechny obrazovky (home, catalog, booking, reservations, profile, routes, rides), Integrate (router/shell za `appV2UiProvider`, pravidlo 6 v CLAUDE.md, verze 4.2.0), Verify kolo 1 (parity, render 8 jazyků, code, design).
+- Opravy kola 1: hotové shared, home, booking. Přerušené uprostřed: catalog, profile (soubory `lib/features/catalog/v2/**` mohou být rozpracované; ověř `flutter analyze` + testy). Nezačaté: reservations, routes, rides (+ položky „shell/navigation/kill-switch“).
+- Seznam všech issues kola 1 a reporty oprav: `reports/impl.json` (labely `verify:*:r1`, `fix:*:r1`).
+- Pak Verify kolo 2 (+ případně 3).
+
+**2. Návrh v2.2 (plátno)** (`app-design-v22.js`, run `wf_d9683d5a-72e`)
+- Hotovo: Understand, Spec (DESIGN_V22.md), build 12 ploch, Verify kolo 1, opravy shared + TrasaDetail, MotoKatalog, SOS, Booking, Profil, MotoDetail, Reservation.
+- Přerušené: Stavy, TrasyHub (ostatní plochy s nálezy možná nezačaté — viz `reports/design-v22.json`). Pak Verify kolo 2.
+- Publikováno na plátno ve stavu k zastavení (13 ploch, verze 18; lint Stavy + TrasyHub OK).
+
+**3. Platby – doplňky majitele** (`payments-followup-wf_5c9a0341-972.js`, run `wf_5c9a0341-972`)
+- Hotovo: implementace (storno pro rata, zaokrouhlení i na webu, „Motorka je mezitím obsazená“ + automatické vrácení), verify ux kola 1–3, fix kola 1–2.
+- Přerušené: verify:money kolo 2 a fix kolo 3. Poslední známé nálezy (ux r2): guard.js na webu zapíše nový čas vyzvednutí i při neúspěšné změně (blocker), náhled doplatku na webu skrývá řádek zaokrouhlení (major) — ověř, zda je fix r3 stihl opravit.
+- Pozn.: 16. 10. ~19–21 h byl plný disk → implement agent nedoběhl, zbytek doplnily fix kola. Vše znovu ověřit (deno testy, PG s drafty p1–p4 2×, app testy).
+
+**Stav repa:** Android `flutter analyze` při zastavení: 147 issues, 0 errors. Vše commitnuté na větvi (WIP). Diff od vydané appky: Android 4.2.0 (v2 za přepínačem), iOS jen ne-v2 změny (chybové stavy, platby, recenze).
 
 ## Kde co je
 | Co | Kde |

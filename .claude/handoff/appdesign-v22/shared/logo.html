@@ -1,0 +1,44 @@
+<!-- ===== MotoGo24 app v2 · shared/logo.html — the REAL logo (assets/logo.webp = black tile, neon MG mark, "MOTO GO 24") + LogoRow.
+     The logo is NEVER recoloured: rank = wide ring + glow + progress arc AROUND it (lib/core/widgets/logo_header.dart).
+     Needs rank-theme.css (.rk-frame/.rk-arc/.rk-lv/.rk-crown/.rk-laurel). Holes: rk = rankTheme(level) + board-set rk.open (→ /loyalty demo)
+     + logoSub = logoSubVal(lang) (localized subtitle, board prop "jazyk"; PART 0).
+     PART 0 = JS (paste VERBATIM inside renderVals()), PART 1 = CSS (paste the rules, without the style tags, into the board's single helmet style block),
+     PART 2 = LogoRow markup (header), PART 3 = bare tile (any other place: chat avatar, level-up). -->
+
+<!-- PART 0 · JS — logoSubVal(lang) → LogoRow subtitle (shown uppercase 11/700 = the type-scale minimum, +1.2 px tracking). Montserrat Bold ≈
+     cs 150 · en 153 · de 145 · es 146 · fr 150 · nl 118 · pl 207 · uk 158 px (10 px values × 1.1). A header that leaves < 210 px for the text lets it wrap
+     instead of clipping (Main: .hd .lg-tx small{white-space:normal;max-width:160px}); the title "MOTO GO 24" never changes.
+function logoSubVal(lang) {
+  const M = { cs: 'Půjčovna motorek', en: 'Motorcycle rental', de: 'Motorrad-Verleih', es: 'Alquiler de motos', fr: 'Location de motos', nl: 'Motorverhuur', pl: 'Wypożyczalnia motocykli', uk: 'Прокат мотоциклів' };
+  return M[String(lang || 'cs').slice(0, 2)] || M.cs;
+}
+-->
+
+<!-- PART 1 · CSS -->
+<style>
+.lg-row{display:flex;align-items:center;gap:14px;min-width:0}
+.rk .lg-btn{flex:none;display:inline-flex;padding:8px;margin:-8px;border-radius:24px;background:none;border:0;cursor:pointer;transition:transform .15s ease}
+.rk .lg-btn:active{transform:scale(.92)}
+.rk .lg-btn:focus-visible{outline:3px solid #74FB71;outline-offset:2px}
+.lg-tile{display:block;width:52px;height:52px;border-radius:14px}
+.lg-tx{min-width:0;display:flex;flex-direction:column;gap:3px}
+.lg-tx b{font:900 22px/1.05 Montserrat,sans-serif;letter-spacing:-.5px;color:#fff;white-space:nowrap}
+.lg-tx small{font:700 11px/1.2 Montserrat,sans-serif;letter-spacing:1.2px;color:rgba(255,255,255,.62);white-space:nowrap;text-transform:uppercase}
+</style>
+
+<!-- PART 2 · LogoRow (tap ring → /loyalty, as today) -->
+<div class="lg-row">
+<button class="lg-btn" onClick="{{ rk.open }}" aria-label="{{ rk.aria }}">
+<span class="rk-frame">
+<svg class="lg-tile" viewBox="0 0 800 800" aria-hidden="true"><rect width="800" height="800" rx="215" fill="#000"></rect><g transform="translate(185 114) scale(1.005)"><g transform="translate(0 450) scale(0.1 -0.1)" fill="#74FB71" fill-rule="evenodd"><path d="M1008 4282 c-111 -77 -258 -200 -258 -216 0 -14 1361 -1376 1375 -1376 5 0 243 233 527 517 l517 517 17 -15 c10 -8 50 -53 89 -100 106 -127 205 -293 250 -420 l13 -36 -164 -164 c-90 -90 -164 -169 -164 -176 l0 -13 434 0 435 0 7 12 c20 31 -21 259 -78 438 -98 307 -266 577 -500 806 -156 153 -362 305 -390 288 -7 -4 -232 -226 -501 -493 -268 -267 -491 -487 -495 -489 -4 -1 -230 221 -502 493 -272 272 -499 495 -505 495 -5 -1 -54 -31 -107 -68z"></path><path d="M522 3812 c-170 -214 -323 -593 -363 -896 l-11 -89 5 -241 5 -241 21 -93 c89 -399 263 -723 536 -998 293 -296 641 -477 1075 -561 l95 -18 235 0 235 0 100 19 c325 60 606 181 861 372 103 76 315 288 390 389 85 115 174 267 223 381 23 54 46 108 51 119 44 99 107 379 112 500 l3 70 -875 3 -875 2 -230 -230 -230 -231 15 -9 c9 -6 332 -9 804 -9 433 0 790 -2 793 -5 7 -7 -58 -133 -110 -214 -146 -225 -356 -413 -597 -533 -107 -54 -255 -103 -388 -131 l-107 -22 -175 1 -175 0 -110 22 c-713 148 -1215 757 -1216 1476 0 118 15 247 40 354 33 133 125 361 147 361 6 0 77 -20 158 -45 82 -25 156 -45 166 -45 l18 0 -289 288 c-160 158 -294 288 -298 290 -5 2 -22 -14 -39 -36z"></path></g></g><text x="400" y="600" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="800" font-size="62" fill="#fff" textLength="420" lengthAdjust="spacingAndGlyphs">MOTO GO 24</text></svg>
+<svg class="rk-arc" viewBox="0 0 76 76" aria-hidden="true"><rect class="tr" x="1.25" y="1.25" width="73.5" height="73.5" rx="25"></rect><rect class="pr" x="1.25" y="1.25" width="73.5" height="73.5" rx="25" pathLength="100" style="{{ rk.arcSt }}"></rect></svg>
+<span class="rk-crown" aria-hidden="true"><svg viewBox="0 0 24 16"><path d="M2 14.5h20M3 12.5 2 4l5 3.6L12 1l5 6.6L22 4l-1 8.5z" fill="currentColor" stroke="#5A4510" stroke-width="1" stroke-linejoin="round"></path></svg></span>
+<span class="rk-laurel" aria-hidden="true"><svg viewBox="0 0 86 30" fill="currentColor"><path d="M6 2C8 14 20 25 40 28M80 2C78 14 66 25 46 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path><ellipse cx="7" cy="7" rx="4.6" ry="2" transform="rotate(80 7 7)"></ellipse><ellipse cx="11" cy="15" rx="4.6" ry="2" transform="rotate(58 11 15)"></ellipse><ellipse cx="18" cy="21.5" rx="4.6" ry="2" transform="rotate(38 18 21.5)"></ellipse><ellipse cx="27.5" cy="26" rx="4.6" ry="2" transform="rotate(18 27.5 26)"></ellipse><ellipse cx="79" cy="7" rx="4.6" ry="2" transform="rotate(-80 79 7)"></ellipse><ellipse cx="75" cy="15" rx="4.6" ry="2" transform="rotate(-58 75 15)"></ellipse><ellipse cx="68" cy="21.5" rx="4.6" ry="2" transform="rotate(-38 68 21.5)"></ellipse><ellipse cx="58.5" cy="26" rx="4.6" ry="2" transform="rotate(-18 58.5 26)"></ellipse></svg></span>
+<span class="rk-lv" aria-hidden="true">{{ rk.level }}</span>
+</span>
+</button>
+<div class="lg-tx"><b>MOTO GO 24</b><small>{{ logoSub }}</small></div>
+</div>
+
+<!-- PART 3 · bare logo tile (no ring) — e.g. AI chat avatar 28 px, receipt header: set width/height inline -->
+<svg viewBox="0 0 800 800" width="28" height="28" aria-hidden="true" style="display:block;border-radius:8px"><rect width="800" height="800" rx="215" fill="#000"></rect><g transform="translate(185 114) scale(1.005)"><g transform="translate(0 450) scale(0.1 -0.1)" fill="#74FB71" fill-rule="evenodd"><path d="M1008 4282 c-111 -77 -258 -200 -258 -216 0 -14 1361 -1376 1375 -1376 5 0 243 233 527 517 l517 517 17 -15 c10 -8 50 -53 89 -100 106 -127 205 -293 250 -420 l13 -36 -164 -164 c-90 -90 -164 -169 -164 -176 l0 -13 434 0 435 0 7 12 c20 31 -21 259 -78 438 -98 307 -266 577 -500 806 -156 153 -362 305 -390 288 -7 -4 -232 -226 -501 -493 -268 -267 -491 -487 -495 -489 -4 -1 -230 221 -502 493 -272 272 -499 495 -505 495 -5 -1 -54 -31 -107 -68z"></path><path d="M522 3812 c-170 -214 -323 -593 -363 -896 l-11 -89 5 -241 5 -241 21 -93 c89 -399 263 -723 536 -998 293 -296 641 -477 1075 -561 l95 -18 235 0 235 0 100 19 c325 60 606 181 861 372 103 76 315 288 390 389 85 115 174 267 223 381 23 54 46 108 51 119 44 99 107 379 112 500 l3 70 -875 3 -875 2 -230 -230 -230 -231 15 -9 c9 -6 332 -9 804 -9 433 0 790 -2 793 -5 7 -7 -58 -133 -110 -214 -146 -225 -356 -413 -597 -533 -107 -54 -255 -103 -388 -131 l-107 -22 -175 1 -175 0 -110 22 c-713 148 -1215 757 -1216 1476 0 118 15 247 40 354 33 133 125 361 147 361 6 0 77 -20 158 -45 82 -25 156 -45 166 -45 l18 0 -289 288 c-160 158 -294 288 -298 290 -5 2 -22 -14 -39 -36z"></path></g></g><text x="400" y="600" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="800" font-size="62" fill="#fff" textLength="420" lengthAdjust="spacingAndGlyphs">MOTO GO 24</text></svg>
