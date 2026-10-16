@@ -116,10 +116,24 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   /// „Zkusit znovu" a cestou zpět místo nekonečného spinneru.
   String? _loadError;
 
+  /// Záložka z adresy (`?tab=swap` — „Vybrat jinou motorku" po nezapsané výměně).
+  String? _wantTab;
+  bool _wantTabRead = false;
+
   @override
   void initState() {
     super.initState();
     _loadBooking();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_wantTabRead) return;
+    _wantTabRead = true;
+    try {
+      _wantTab = GoRouterState.of(context).uri.queryParameters['tab'];
+    } catch (_) {/* mimo router (test) */}
   }
 
   Future<void> _loadBooking() async {
@@ -177,6 +191,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerBootsSize = res.passengerBootsSize;
         _passengerGlovesSize = res.passengerGlovesSize;
         _ownGear = _ownGearInitial = res.ownGearEffective;
+        // „Vybrat jinou motorku" → záložka Výměna (jen kde ji obrazovka nabízí).
+        if (_wantTab == 'swap' &&
+            (res.status == 'reserved' || res.status == 'active') &&
+            res.paymentStatus == 'paid') {
+          _tab = 'swap';
+        }
+        _wantTab = null;
       });
       _loadDiscountType(res);
       _loadOriginalExtras();

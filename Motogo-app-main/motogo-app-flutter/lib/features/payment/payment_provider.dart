@@ -284,6 +284,10 @@ class PaymentOutcome {
   final String ctaLabel;
   /// Route, kam vede primární tlačítko (Routes.reservations / shop / sosDone…).
   final String ctaRoute;
+  /// Vedlejší tlačítko (např. „Ponechat současnou motorku" vedle „Vybrat jinou
+  /// motorku") — null = jen primární. Když je, vede sem i zavření / systémové „zpět".
+  final String? secondaryLabel;
+  final String? secondaryRoute;
   /// „K vyzvednutí“ po zaplacené úpravě / výměně motorky (null = nezobrazovat).
   final PickupInfo? pickup;
 
@@ -316,6 +320,8 @@ class PaymentOutcome {
     this.nextStepNote,
     required this.ctaLabel,
     required this.ctaRoute,
+    this.secondaryLabel,
+    this.secondaryRoute,
     this.pickup,
     this.verifyBookingId,
     this.verifyOrderId,

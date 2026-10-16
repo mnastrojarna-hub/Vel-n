@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/paid_change_queue.dart';
 import '../../../core/theme.dart';
-import '../../payment/paid_change_outcomes.dart' show paidChangeFailureText;
+import '../../payment/paid_change_outcomes.dart'
+    show paidChangeFailureText, paidChangeFailureTitle, isTakenReason, swapPickRoute;
 import '../reservation_provider.dart';
 
 /// Řádek v detailu rezervace, dokud se zaplacená výměna / úprava zapisuje
@@ -56,22 +58,35 @@ class _PaidChangeBannerState extends ConsumerState<PaidChangeBanner> {
     final failed = _entries.where((e) => e.isFailed).firstOrNull;
     if (failed != null) {
       final f = failed.failure ?? const {};
+      final reason = f['reason']?.toString();
+      Future<void> ack() async {
+        await PaidChangeQueue.acknowledge(failed.key);
+        _load();
+      }
+      // Výměnu zmařila jiná rezervace (motorka mezitím obsazená) → vybrat jinou / ponechat.
+      final offerOther = failed.isSwap && isTakenReason(reason);
       return _box(
         color: MotoGoColors.redBg,
         border: MotoGoColors.red,
         icon: '!',
-        title: tr.tr(failed.isSwap ? 'pdSwapFailedTitle' : 'pdEditFailedTitle'),
+        title: paidChangeFailureTitle(tr, swap: failed.isSwap, reason: reason),
         text: paidChangeFailureText(tr,
-            reason: f['reason']?.toString(),
+            reason: reason,
             refund: '${f['refund'] ?? 'auto'}',
             amount: (f['amount'] as num?)?.toDouble() ?? failed.charge),
-        action: TextButton(
-          onPressed: () async {
-            await PaidChangeQueue.acknowledge(failed.key);
-            _load();
-          },
-          child: Text(tr.tr('pdUnderstood')),
-        ),
+        action: offerOther
+            ? Wrap(alignment: WrapAlignment.end, spacing: 4, children: [
+                TextButton(onPressed: ack, child: Text(tr.tr('pdKeepCurrentMoto'))),
+                TextButton(
+                  onPressed: () async {
+                    final router = GoRouter.of(context);
+                    await ack();
+                    router.push(swapPickRoute(widget.bookingId));
+                  },
+                  child: Text(tr.tr('pdPickOtherMoto')),
+                ),
+              ])
+            : TextButton(onPressed: ack, child: Text(tr.tr('pdUnderstood'))),
       );
     }
     final swap = _entries.first.isSwap;

@@ -22,6 +22,17 @@ String paidChangeReasonText(AppTranslations tr, String? reason) {
   return tr.tr(key);
 }
 
+/// Motorku mezitím obsadila jiná rezervace (ta má přednost — odpověď majitele
+/// 2026-10-16): výměna / úprava se nezapsala, doplatek se vrací.
+bool isTakenReason(String? reason) => reason == 'new_moto_unavailable' || reason == 'moto_unavailable';
+
+/// Titulek trvalého selhání: „Motorka je mezitím obsazená" / „Výměnu (úpravu) se nepodařilo dokončit".
+String paidChangeFailureTitle(AppTranslations tr, {required bool swap, String? reason}) =>
+    tr.tr(isTakenReason(reason) ? 'pdTakenTitle' : (swap ? 'pdSwapFailedTitle' : 'pdEditFailedTitle'));
+
+/// Výběr jiné motorky rovnou na záložce Výměna (úprava rezervace, `?tab=swap`).
+String swapPickRoute(String bookingId) => '/reservations/$bookingId/edit?tab=swap';
+
 /// Důvody, jejichž text sám říká, co se děje s penězi (bez věty o vratce).
 const _selfContained = {'other_account', 'gone', 'refunded', 'stale_payment', 'expired'};
 
@@ -65,16 +76,22 @@ PaymentOutcome completingOutcome(
   );
 }
 
-/// Zaplacenou změnu trvale nejde zapsat — doplatek se vrací.
+/// Zaplacenou změnu trvale nejde zapsat — doplatek se vrací. Výměna, kterou
+/// zmařila jiná rezervace (motorka mezitím obsazená): „Vybrat jinou motorku"
+/// (záložka Výměna) nebo „Ponechat současnou motorku" (detail rezervace).
 PaymentOutcome changeFailedOutcome(AppTranslations tr,
-        {required bool swap, required String bookingId, required PaidChangeResult r, required double charge}) =>
-    PaymentOutcome(
-      kind: PaymentOutcomeKind.failed,
-      title: tr.tr(swap ? 'pdSwapFailedTitle' : 'pdEditFailedTitle'),
-      subtitle: paidChangeFailureText(tr, reason: r.reason, refund: r.refund, amount: r.amount ?? charge),
-      ctaLabel: tr.tr('psOpenReservation'),
-      ctaRoute: '/reservations/$bookingId',
-    );
+    {required bool swap, required String bookingId, required PaidChangeResult r, required double charge}) {
+  final offerOther = swap && isTakenReason(r.reason);
+  return PaymentOutcome(
+    kind: PaymentOutcomeKind.failed,
+    title: paidChangeFailureTitle(tr, swap: swap, reason: r.reason),
+    subtitle: paidChangeFailureText(tr, reason: r.reason, refund: r.refund, amount: r.amount ?? charge),
+    ctaLabel: tr.tr(offerOther ? 'pdPickOtherMoto' : 'psOpenReservation'),
+    ctaRoute: offerOther ? swapPickRoute(bookingId) : '/reservations/$bookingId',
+    secondaryLabel: offerOther ? tr.tr('pdKeepCurrentMoto') : null,
+    secondaryRoute: offerOther ? '/reservations/$bookingId' : null,
+  );
+}
 
 /// Řádek s dorovnáním na výsledkové obrazovce („Zaplaceno 15 Kč (z toho
 /// dorovnání 8 Kč)"), nebo null bez dorovnání.

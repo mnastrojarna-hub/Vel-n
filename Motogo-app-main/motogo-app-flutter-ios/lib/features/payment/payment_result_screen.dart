@@ -190,6 +190,11 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
     final nextStep = _notPaid ? null : outcome?.nextStepNote;
     final ctaLabel = outcome?.ctaLabel ?? tr.tr('successCta');
     final ctaRoute = outcome?.ctaRoute ?? Routes.reservations;
+    // Vedlejší volba (např. „Ponechat současnou motorku") — zavření i „zpět" vedou sem,
+    // ne na primární akci (ta by zákazníka poslala rovnou do výběru jiné motorky).
+    final secondaryLabel = _notPaid ? null : outcome?.secondaryLabel;
+    final secondaryRoute = _notPaid ? null : outcome?.secondaryRoute;
+    final closeRoute = secondaryRoute ?? ctaRoute;
 
     return BackButtonListener(
       // Systémové „zpět" vede vždy na cíl CTA — i když je obrazovka jediná v
@@ -198,14 +203,14 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
       onBackButtonPressed: () async {
         // Nad obrazovkou je jiná trasa (dialog, Zprávy) → ať se zavře ona.
         if (!isTopmostRoute(context)) return false;
-        _goNext(ctaRoute);
+        _goNext(closeRoute);
         return true;
       },
       child: PopScope(
         // Hardwarové „zpět" nesmí vrátit na platební obrazovku — vede na CTA cíl.
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _goNext(ctaRoute);
+          if (!didPop) _goNext(closeRoute);
         },
         child: Scaffold(
           backgroundColor: MotoGoColors.dark,
@@ -320,6 +325,18 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
                           ),
                         ),
                       ),
+                      if (secondaryLabel != null && secondaryRoute != null) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () => _goNext(secondaryRoute),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white38),
+                          ),
+                          child: Text(secondaryLabel),
+                        ),
+                      ],
                       if (pending) ...[
                         const SizedBox(height: 12),
                         OutlinedButton(
@@ -351,7 +368,7 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
                   button: true,
                   label: tr.tr('close'),
                   child: IconButton(
-                    onPressed: () => _goNext(ctaRoute),
+                    onPressed: () => _goNext(closeRoute),
                     iconSize: 26,
                     color: Colors.white70,
                     tooltip: tr.tr('close'),
