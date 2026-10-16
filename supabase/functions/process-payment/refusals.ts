@@ -107,6 +107,7 @@ export const CS: Record<string, string> = {
   change_failed_staff: 'Zaplacenou úpravu nešlo zapsat automaticky. Obsluha ji zkontroluje a doplatek případně vrátí do 2 pracovních dnů – nemusíš nic dělat.',
   // odpověď majitele 2026-10-16: nová rezervace má přednost před zaplacenou výměnou
   change_failed_taken: 'Motorka je mezitím obsazená – během tvé platby si ji zarezervoval někdo jiný a nová rezervace má přednost, takže výměnu nešlo zapsat. Tvoje původní rezervace platí beze změny a doplatek ti automaticky vracíme na kartu. Můžeš si vybrat jinou motorku, nebo si nechat tu současnou.',
+  change_failed_taken_staff: 'Motorka je mezitím obsazená – během tvé platby si ji zarezervoval někdo jiný a nová rezervace má přednost, takže výměnu nešlo zapsat. Tvoje původní rezervace platí beze změny. Doplatek ti vrátí obsluha do 2 pracovních dnů – nemusíš nic dělat.',
   stale_payment: 'Tuhle starší platbu už nejde automaticky zapsat do rezervace. Obsluha ji zkontroluje a doplatek případně vrátí do 2 pracovních dnů – nemusíš nic dělat ani platit znovu.',
   stale_payment_refunded: 'Z téhle platby už jsme peníze vrátili, proto ji do rezervace nezapisujeme. Nemusíš nic dělat.',
   payment_not_found: 'Platbu jsme nenašli – otevři prosím rezervaci znovu.',

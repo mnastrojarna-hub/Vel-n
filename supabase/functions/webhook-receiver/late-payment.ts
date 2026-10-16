@@ -15,7 +15,9 @@ export async function refundLatePaymentOnCancelled(sb: Sb, stripe: Stripe, booki
   let errMsg: string | null = null
   try {
     await stripe.refunds.create(
-      { payment_intent: piId, metadata: { booking_id: bookingId, reason: 'late_payment_cancelled_booking' } },
+      // mg_source: charge.refunded ji pozná jako NAŠI vratku (ne „storno přes Stripe portál") —
+      // stav rezervace nemění, žádný dobropis (k platbě nevznikl doklad) ani storno mail.
+      { payment_intent: piId, metadata: { mg_source: 'late_payment', booking_id: bookingId, reason: 'late_payment_cancelled_booking' } },
       { idempotencyKey: `mg-late-cancelled-${piId}` },
     )
     refunded = true

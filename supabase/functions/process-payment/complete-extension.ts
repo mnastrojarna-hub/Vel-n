@@ -39,9 +39,12 @@ type StripeAny = any
 type Who = { kind: string; userId?: string | null }
 export type CompleteDeps = { stripe?: StripeAny; auth?: (req: Request) => Promise<Who> }
 
-/** Text trvalého selhání: obsazená motorka má vlastní větu (nová rezervace má přednost). */
-const failedText = (reason: string | null | undefined, staff: boolean) =>
-  staff ? CS.change_failed_staff : (reason && TAKEN_REASONS.has(reason) ? CS.change_failed_taken : CS.change_failed)
+/** Text trvalého selhání: obsazená motorka má vlastní větu (nová rezervace má přednost) —
+ *  i když doplatek vrací obsluha (vratka ze Stripe selhala / přibalená e-shop objednávka). */
+export const failedText = (reason: string | null | undefined, staff: boolean) => {
+  const taken = !!reason && TAKEN_REASONS.has(reason)
+  return staff ? (taken ? CS.change_failed_taken_staff : CS.change_failed_staff) : (taken ? CS.change_failed_taken : CS.change_failed)
+}
 
 /** Web: Checkout Session doplatku → {piId, metadata, paidCzk} nebo hotová odpověď (nezaplaceno / cizí). */
 export async function resolveWebSession(stripe: StripeAny, sessionId: string):

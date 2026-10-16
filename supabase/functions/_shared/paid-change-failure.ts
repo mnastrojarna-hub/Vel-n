@@ -11,8 +11,10 @@
 // Vratka jde VŽDY přímo ze Stripe z PaymentIntentu TÉTO platby (mg_source
 // unapplied_change, charge.refunded ji do stavu rezervace nepromítá). K nezapsané změně
 // nevznikl žádný doklad (DP), proto nevzniká ani dobropis, stav platby rezervace se
-// nemění a uložený PaymentIntent rezervace (původní platba — z něj se vrací při stornu)
-// se NEpřepisuje. (Oprava 2026-10-16: dřív šla vratka u živé rezervace přes
+// nemění. Ukládá-li rezervace jako svou platbu právě tento doplatek (appka — process-payment
+// ho uloží už při založení), vrátí se do bookings.stripe_payment_intent_id poslední platba,
+// ze které se ještě dá vracet (storno z ní vychází; process-refund si navíc u vyčerpané
+// uložené platby najde jinou sám). (Oprava 2026-10-16: dřív šla vratka u živé rezervace přes
 // process-refund — ten přepsal bookings.stripe_payment_intent_id na doplatek, označil
 // rezervaci jako „vráceno“ a vystavil dobropis bez DP; pozdější storno pak z původní
 // platby nevrátilo nic.)
@@ -20,10 +22,30 @@
 // rezervace už jezdí na nové motorce bez záznamu této platby) → žádná automatická
 // vratka, obsluha zkontroluje, jestli je změna zapsaná, a případně vrátí ručně.
 import type { Sb } from './extension-apply-types.ts'
+import { lastRefundableIntent, type BookingIntentsStripe } from './booking-intents.ts'
 
 type StripeRefundLike = {
-  refunds: { create: (p: Record<string, unknown>, o?: Record<string, unknown>) => Promise<{ id: string }> }
-  checkout?: { sessions: { retrieve: (id: string) => Promise<{ payment_intent?: string | { id?: string } | null }> } }
+  refunds: {
+    create: (p: Record<string, unknown>, o?: Record<string, unknown>) => Promise<{ id: string }>
+    list?: BookingIntentsStripe['refunds']['list']
+  }
+  checkout?: { sessions: { retrieve: (id: string) => Promise<{ payment_intent?: string | { id?: string } | null; metadata?: Record<string, string> | null }> } }
+  paymentIntents?: BookingIntentsStripe['paymentIntents']
+}
+
+/** Po vrácení doplatku: když rezervace jako „svou" platbu ukládá právě vrácený doplatek
+ *  (process-payment ho uložil při založení, appka), vrátit tam poslední platbu, ze které se
+ *  ještě dá vracet (storno / vratka obsluhy z ní vychází). Jen když tam pořád je tenhle doplatek. */
+async function restoreStoredIntent(sb: Sb, stripe: StripeRefundLike, bookingId: string, piId: string): Promise<string | null> {
+  if (!stripe.paymentIntents?.search || !stripe.refunds.list) return null
+  try {
+    const { data } = await sb.from('bookings').select('stripe_payment_intent_id').eq('id', bookingId).maybeSingle()
+    if (!data || data.stripe_payment_intent_id !== piId) return null
+    const keep = await lastRefundableIntent(stripe as unknown as BookingIntentsStripe, sb, bookingId, piId)
+    if (!keep) return null
+    await sb.from('bookings').update({ stripe_payment_intent_id: keep }).eq('id', bookingId).eq('stripe_payment_intent_id', piId)
+    return keep
+  } catch { return null }
 }
 
 /** Důvody, kdy rezervace už neběží (zrušená / ukončená / vrácená). */
@@ -66,7 +88,10 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
 }): Promise<FailureMode> {
   const url = Deno.env.get('SUPABASE_URL') ?? ''
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  const reqData = { booking_id: a.bookingId, payment_ref: a.payRef, paid_czk: a.paidCzk, code: a.code, reason: a.reason, via: a.via }
+  // expect_refund: co se s doplatkem stane (souběžný dotaz complete_extension ho ukáže, než
+  // první dokončovatel zapíše skutečný výsledek do response_data).
+  const expect: FailureMode = a.paidCzk > 0 ? (a.autoRefund !== false && !a.review && !!a.stripe ? 'auto' : 'staff') : 'none'
+  const reqData = { booking_id: a.bookingId, payment_ref: a.payRef, paid_czk: a.paidCzk, code: a.code, reason: a.reason, via: a.via, expect_refund: expect }
 
   // 1) Zámek „jednou na platbu": vlož svůj řádek a ověř, že je PRVNÍ.
   let myId: string | null = null
@@ -102,12 +127,23 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
           }, { idempotencyKey: `mg-pcf-${piId}` })
           refundId = r?.id ?? null
           mode = 'auto'
-        } catch { /* zůstává 'staff' */ }
+        } catch {
+          // Platba už je celá vrácená (souběžný dokončovatel bez zámku) → 'auto', jinak 'staff'.
+          try {
+            const rl = a.stripe.refunds.list ? await a.stripe.refunds.list({ payment_intent: piId, limit: 100 }) : null
+            const back = (rl?.data || []).filter((x) => x.status === 'succeeded' || x.status === 'pending').reduce((s2, x) => s2 + Number(x.amount || 0), 0)
+            if (back >= Math.round(a.paidCzk * 100)) mode = 'auto'
+          } catch { /* zůstává 'staff' */ }
+        }
       }
     }
   }
+  const keptPi = mode === 'auto' && piId && a.stripe ? await restoreStoredIntent(sb, a.stripe, a.bookingId, piId) : null
   if (myId) {
-    try { await sb.from('debug_log').update({ response_data: { refund: mode, refund_id: refundId, payment_intent_id: piId } }).eq('id', myId) } catch { /* ignore */ }
+    try {
+      await sb.from('debug_log').update({ response_data: { refund: mode, refund_id: refundId, payment_intent_id: piId, kept_payment_intent_id: keptPi } })
+        .eq('id', myId)
+    } catch { /* ignore */ }
   }
 
   // 3) Interní upozornění obsluze (ne zákazníkovi) — uloží se i s booking_id (Velín).

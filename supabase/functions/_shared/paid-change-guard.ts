@@ -70,16 +70,25 @@ export async function historyHasRef(sb: Sb, bookingId: string, payRef: string): 
   } catch { return false }
 }
 
-/** Už vyhodnocené trvalé selhání (paid_change_failed) — {reason, refund} prvního záznamu. */
-export async function failureRow(sb: Sb, payRef: string): Promise<{ reason: string; refund: string } | null> {
+/** Už vyhodnocené trvalé selhání (paid_change_failed) — {reason, refund} prvního záznamu
+ *  (stejné pořadí jako zámek v paid-change-failure: created_at, id). Výsledek vratky ještě
+ *  nezapsaný (první dokončovatel právě vrací, < 2 min) → očekávaný výsledek z request_data
+ *  (`expect_refund`), ne „obsluha" — automatická vratka doběhne během pár sekund. */
+export async function failureRow(sb: Sb, payRef: string, nowMs = Date.now()): Promise<{ reason: string; refund: string } | null> {
   try {
-    const { data } = await sb.from('debug_log').select('request_data, response_data')
+    const { data } = await sb.from('debug_log').select('request_data, response_data, created_at')
       .eq('action', 'paid_change_failed').eq('request_data->>payment_ref', payRef)
-      .order('created_at', { ascending: true }).limit(1)
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1)
     if (!Array.isArray(data) || data.length === 0) return null
     const rq = (data[0].request_data || {}) as Record<string, unknown>
     const rs = (data[0].response_data || {}) as Record<string, unknown>
-    return { reason: String(rq.reason || 'change_failed'), refund: String(rs.refund || 'staff') }
+    let refund = rs.refund ? String(rs.refund) : ''
+    if (!refund) {
+      const ageMs = nowMs - Date.parse(String(data[0].created_at || ''))
+      const fresh = Number.isFinite(ageMs) && ageMs < 2 * 60_000
+      refund = fresh && rq.expect_refund ? String(rq.expect_refund) : 'staff'
+    }
+    return { reason: String(rq.reason || 'change_failed'), refund }
   } catch { return null }
 }
 

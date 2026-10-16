@@ -115,6 +115,22 @@ async function chargeRoundingNeedsRetry(supabase: any, table: 'bookings' | 'shop
   } catch { return true }
 }
 
+/** D1: dorovnání se nepodařilo zapsat (přechodná chyba DB) → 500 HNED, ještě PŘED potvrzením
+ *  platby. Jinak by potvrzení vystavilo doklad na cenu bez dorovnání (7 Kč při stržených 15)
+ *  a opakovaná událost by pak zvedla cenu už zaplacené rezervace (mail „rezervace upravena
+ *  +8 Kč" a další DP). Stripe událost zopakuje — dorovnání i potvrzení proběhnou spolu
+ *  (všechny kroky jsou idempotentní). */
+// deno-lint-ignore no-explicit-any
+async function roundingRetry(supabase: any, ref: string | null, id: string): Promise<Response> {
+  try {
+    await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'charge_rounding_retry', component: 'stripe',
+      status: 'error', request_data: { id, payment_ref: ref } })
+  } catch { /* ignore */ }
+  return new Response(JSON.stringify({ received: true, retry: 'charge_rounding_pending' }), {
+    status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}
+
 /** Byl řádek zaplacený už PŘED touto událostí? (pak jde o druhou událost téže platby,
  *  nebo o druhou platbu — refundDuplicateCharges rozliší podle Stripe). */
 // deno-lint-ignore no-explicit-any
@@ -257,7 +273,7 @@ Deno.serve(async (req: Request) => {
           try { await syncCardsForCustomer(supabase, session.customer as string) } catch (e) { console.warn('[webhook] card sync failed:', (e as Error).message) }
         }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) retryNeeded = true
+        if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) return await roundingRetry(supabase, stripePaymentIntentId || session.id, resolvedBookingId)
         // D4 (oprava 2026-10-16): doplatek úpravy rezervaci NEpotvrzuje přes confirm_payment
         // (ten zrušenou rezervaci „oživil" — zákazník by ji dostal zpět za cenu doplatku).
         // Zrušená / ukončená rezervace → změna se nezapíše a doplatek se vrátí.
@@ -299,7 +315,7 @@ Deno.serve(async (req: Request) => {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
       } else if (paymentType === 'shop' && resolvedOrderId) {
-        if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, stripePaymentIntentId || session.id)) retryNeeded = true
+        if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, stripePaymentIntentId || session.id)) return await roundingRetry(supabase, stripePaymentIntentId || session.id, resolvedOrderId)
         const wasPaid = await rowPaid(supabase, 'shop_orders', resolvedOrderId)
         await confirmShopPayment(supabase, resolvedOrderId, session.id, stripePaymentIntentId)
         if (wasPaid && stripePaymentIntentId) {
@@ -310,7 +326,7 @@ Deno.serve(async (req: Request) => {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
       } else if (paymentType === 'sos' && resolvedBookingId) {
-        if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) retryNeeded = true
+        if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) return await roundingRetry(supabase, stripePaymentIntentId || session.id, resolvedBookingId)
         const wasPaid = await rowPaid(supabase, 'bookings', resolvedBookingId)
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, session.id, stripePaymentIntentId)
         if (wasPaid && stripePaymentIntentId) {
@@ -354,7 +370,7 @@ Deno.serve(async (req: Request) => {
       const piCustomer = typeof paymentIntent.customer === 'string' ? paymentIntent.customer
         : ((paymentIntent.customer as { id?: string } | null)?.id || null)
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) retryNeeded = true
+        if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) return await roundingRetry(supabase, paymentIntent.id, resolvedBookingId)
         // D4: doplatek úpravy NEpotvrzuje rezervaci přes confirm_payment (viz checkout.session.completed).
         const ext = paymentType === 'extension'
           ? await prepareExtensionPayment(supabase, resolvedBookingId, paymentIntent.id, null) : null
@@ -379,7 +395,7 @@ Deno.serve(async (req: Request) => {
           catch (e) { console.warn('[webhook] bundled shop confirm (intent) failed:', e) }
         }
       } else if (paymentType === 'shop' && resolvedOrderId) {
-        if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, paymentIntent.id)) retryNeeded = true
+        if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, paymentIntent.id)) return await roundingRetry(supabase, paymentIntent.id, resolvedOrderId)
         const wasPaid = await rowPaid(supabase, 'shop_orders', resolvedOrderId)
         await confirmShopPayment(supabase, resolvedOrderId, paymentIntent.id)
         if (wasPaid) {
@@ -387,7 +403,7 @@ Deno.serve(async (req: Request) => {
             table: 'shop_orders', refId: resolvedOrderId, type: 'shop' })
         }
       } else if (paymentType === 'sos' && resolvedBookingId) {
-        if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) retryNeeded = true
+        if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) return await roundingRetry(supabase, paymentIntent.id, resolvedBookingId)
         const wasPaid = await rowPaid(supabase, 'bookings', resolvedBookingId)
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, paymentIntent.id)
         if (wasPaid) {
@@ -570,8 +586,10 @@ Deno.serve(async (req: Request) => {
       //    + debug_log warning k ručnímu prověření (dobropis vystaví admin).
       // D4: vratka DVOJÍ platby (duplicate-payment) se do stavu rezervace nepromítá —
       // rezervaci platí ponechaná platba; jen finanční událost výše.
-      // Totéž u vratky doplatku, který se do zrušené / ukončené rezervace nezapsal (unapplied_change).
-      const dupRefund = ['duplicate_payment', 'unapplied_change'].includes(((latestRefund?.metadata || {}) as Record<string, string>).mg_source || '')
+      // Totéž u vratky doplatku, který se do rezervace nezapsal (unapplied_change), a u vratky
+      // pozdní platby už zrušené rezervace (late_payment — k platbě nevznikl doklad).
+      const latestSource = ((latestRefund?.metadata || {}) as Record<string, string>).mg_source || ''
+      const dupRefund = ['duplicate_payment', 'unapplied_change', 'late_payment'].includes(latestSource)
       if (linkedBooking && dupRefund) {
         try {
           await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'charge_refunded_duplicate', component: 'stripe',
@@ -605,10 +623,17 @@ Deno.serve(async (req: Request) => {
           // 1) UPDATE booking: payment_status dle reality na Stripe (plně/částečně
           //    vráceno) + stripe_refund_id; cancellation pole JEN u externího
           //    plného refundu (skutečné storno přes Stripe portál).
-          const bkPatch: Record<string, any> = {
-            payment_status: fullyRefunded ? 'refunded' : 'partial_refund',
+          //    Vratka z process-refund (mg_source): stav nastavuje process-refund sám — vrací
+          //    i z více plateb (storno 50 % = celý malý doplatek + zbytek z původní platby),
+          //    takže „tahle charge je celá vrácená" ≠ rezervace vrácená celá. Webhook jen
+          //    zastoupí stav, dokud ho process-refund nezapsal (stále 'paid'), aby recovery
+          //    volání níže (bez částky) nevytvořilo další vratku; stripe_refund_id jen prázdné.
+          const fromProcessRefund = latestSource === 'process-refund'
+          const bkPatch: Record<string, any> = {}
+          if (!fromProcessRefund || linkedBooking.payment_status === 'paid') {
+            bkPatch.payment_status = fullyRefunded ? 'refunded' : 'partial_refund'
           }
-          if (latestRefund?.id) bkPatch.stripe_refund_id = latestRefund.id
+          if (latestRefund?.id && (!fromProcessRefund || !linkedBooking.stripe_refund_id)) bkPatch.stripe_refund_id = latestRefund.id
           if (shouldCancel) {
             bkPatch.status = 'cancelled'
             bkPatch.cancelled_at = new Date().toISOString()
@@ -617,7 +642,7 @@ Deno.serve(async (req: Request) => {
               ? `Refund přes Stripe portál (${refundReason})`
               : 'Refund přes Stripe portál'
           }
-          await supabase.from('bookings').update(bkPatch).eq('id', linkedBooking.id)
+          if (Object.keys(bkPatch).length) await supabase.from('bookings').update(bkPatch).eq('id', linkedBooking.id)
 
           await supabase.from('debug_log').insert({
             source: 'webhook-receiver',

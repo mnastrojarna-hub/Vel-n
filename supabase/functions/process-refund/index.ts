@@ -7,7 +7,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { authClassify, forbidden } from '../_shared/auth.ts'
-import { refundRemainder, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
+import { refundRemainder, otherRefundableIntents, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -1230,6 +1230,29 @@ Deno.serve(async (req: Request) => {
       console.warn('[process-refund] PI lookup failed:', (e as Error).message)
     }
 
+    // Uložená platba nemá z čeho vracet (nikdy nezaplacený PI opuštěného doplatku, nebo
+    // doplatek nezapsané změny, který se už celý vrátil přímo ze Stripe — oprava 2026-10-16),
+    // ale rezervace má jiné úspěšné platby kartou → hlavní vratka z nejstarší z nich (typicky
+    // původní platba rezervace), zbytek níže z ostatních. Dřív: no_op → 'refunded' bez vrácení
+    // peněz, resp. ruční vratka převodem, i když peníze leží na kartě. Jen storno / vratka
+    // obsluhy s částkou (zákaznická vratka z appky jde dál jen z uložené platby).
+    if (booking_id && !isCustomer && amount && amount > 0 && (chargedHaleru === 0 || refundableHaleru === 0)) {
+      try {
+        const cands = (await otherRefundableIntents(stripe as unknown as OtherIntentsStripe, supabase, booking_id, stripePaymentIntentId))
+          .filter((c) => c.refundableHaleru > 0)
+        if (cands.length) {
+          await dlog('main_pi_retargeted', 'info', { stored_payment_intent_id: stripePaymentIntentId, payment_intent_id: cands[0].id,
+            stored_charged_haleru: chargedHaleru, refundable_haleru: cands[0].refundableHaleru })
+          stripePaymentIntentId = cands[0].id
+          chargedHaleru = cands[0].refundableHaleru
+          refundableHaleru = cands[0].refundableHaleru
+          refundableCZK = refundableHaleru / 100
+        }
+      } catch (e) {
+        await dlog('main_pi_retarget_failed', 'error', { error: (e as Error).message })
+      }
+    }
+
     // PI existuje, ale Stripe na něm NIKDY nepřijal peníze → rezervace byla
     // reálně zaplacená jinak (QR/převod/hotově; stale PI z opuštěného pokusu
     // o kartu, který si starší verze uložila do bookings.stripe_payment_intent_id).
@@ -1341,7 +1364,7 @@ Deno.serve(async (req: Request) => {
     const requestedHaleru = amount && amount > 0 ? Math.round(amount * 100) : null
     if (booking_id && !isCustomer && requestedHaleru != null && effectiveAmountHaleru != null && requestedHaleru > effectiveAmountHaleru) {
       extra = await refundRemainder(stripe as unknown as OtherIntentsStripe, supabase, {
-        bookingId: booking_id, mainPi: stripePaymentIntentId, remainingHaleru: requestedHaleru - effectiveAmountHaleru, reason,
+        bookingId: booking_id, mainPi: stripePaymentIntentId, mainRefundId: refund.id, remainingHaleru: requestedHaleru - effectiveAmountHaleru, reason,
       })
       await dlog(extra.error ? 'stripe_refund_remainder_partial' : 'stripe_refund_remainder', extra.error ? 'error' : 'info', {
         requested_haleru: requestedHaleru, main_haleru: effectiveAmountHaleru, extra: extra.refunds, left_haleru: extra.leftHaleru, error: extra.error || null,
