@@ -5,6 +5,7 @@
 // zákazníkovi AUTOMATICKY vrátí, původní rezervace zůstane beze změny a obsluha dostane
 // viditelný záznam: debug_log `paid_change_failed` + interní e-mail na info@ (uloží ho
 // send-email do sent_emails s booking_id → Velín, Dokumenty → Zaslané maily / Dashboard).
+// Zákazník dostane krátký e-mail v jazyce rezervace (paid-change-customer-mail.ts).
 // Jen JEDNOU na platbu (payRef) — první zapsaný řádek debug_log vyhrává, souběžný
 // webhook / complete_extension skončí jako 'duplicate'; Stripe vratka má navíc klíč
 // mg-pcf-<pi> a Stripe druhou vratku plně vrácené platby nepřipustí.
@@ -23,6 +24,7 @@
 // vratka, obsluha zkontroluje, jestli je změna zapsaná, a případně vrátí ručně.
 import type { Sb } from './extension-apply-types.ts'
 import { lastRefundableIntent, type BookingIntentsStripe } from './booking-intents.ts'
+import { sendPaidChangeCustomerMail } from './paid-change-customer-mail.ts'
 
 type StripeRefundLike = {
   refunds: {
@@ -171,5 +173,14 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
       }),
     })
   } catch { /* ignore */ }
+
+  // 4) Zákazníkovi krátký e-mail v jazyce rezervace (přímá vratka ze Stripe nic neposílá a web
+  // ani appku nemusí znovu otevřít): co se stalo, rezervace platí beze změny, co s doplatkem,
+  // co dál. Jednou na platbu (jsme za zámkem); u nejednoznačného stavu (review, stará platba, zápis
+  // po 3 dnech pokusů stále nedoběhl) ne — tam teprve rozhodne obsluha, jestli změnu zapíše, nebo vrátí.
+  const ambiguous = !!a.review || a.reason.startsWith('retry_exhausted') || a.reason.startsWith('stale_payment')
+  if (!ambiguous && (mode === 'auto' || mode === 'staff')) {
+    await sendPaidChangeCustomerMail(sb, { bookingId: a.bookingId, amount: a.paidCzk, taken: TAKEN_REASONS.has(a.reason), staff: mode === 'staff' })
+  }
   return mode
 }

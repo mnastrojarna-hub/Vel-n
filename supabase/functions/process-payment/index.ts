@@ -63,6 +63,16 @@ function safeRedirect(u: string | undefined | null): string | null {
   } catch { return null }
 }
 
+/** Web: odpuštěný doplatek (≤ 1 Kč) server už zapsal — `waived=1` řekne webu, že nic neplatil
+ *  a změnu nemá zapisovat znovu ani ukazovat „Platba potvrzena". Starší web parametr ignoruje. */
+function waivedRedirect(u: string): string {
+  try {
+    const p = new URL(u)
+    p.searchParams.set('waived', '1')
+    return p.toString()
+  } catch { return u }
+}
+
 /** Web úprava rezervace (hosted Checkout): návrat ze Stripe nese id Checkout Session, aby se web
  *  zeptal serveru na výsledek (`complete_extension` se session_id) — i u jádra webu, které
  *  success_url skládá samo bez session_id. */
@@ -244,7 +254,9 @@ Deno.serve(async (req: Request) => {
     const explicitCancelUrl = (body as Record<string, unknown>).cancel_url as string | undefined
     // D1/D4 (2026-10-16): nová appka posílá `card_min: true` (umí dorovnání na 15 Kč
     // a odpuštění do 1 Kč) a `attempt_id` (jedno klepnutí „Zaplatit" = jeden klíč).
-    // Hosted Checkout (web) nikdy nedorovnává.
+    // `card_min` platí jen pro PaymentIntent appky. Hosted Checkout (web) dorovnává sám na
+    // serveru (po SQL 20261016p1): `checkoutRounding` + samostatná položka „Dorovnání…" na
+    // stránce Stripe; odpuštění do 1 Kč zapíše změnu bez platby (waiveExtensionFlow).
     const rawBody = body as unknown as Record<string, unknown>
     const cardMin = rawBody.card_min === true && paymentMode === 'intent'
     const attemptId = sanitizeAttemptId(rawBody.attempt_id)
@@ -877,7 +889,7 @@ Deno.serve(async (req: Request) => {
           }
           return await waiveExtensionFlow(supabase, { bookingId: booking_id, change: c, srv: waiveSrv,
             due: dueClass.due, saved: savedCardReq, attemptId,
-            redirect: webCheckout ? (safeRedirect(explicitSuccessUrl) || `${SITE_URL}/upravit-rezervaci?paid_booking=${booking_id}`) : null })
+            redirect: webCheckout ? waivedRedirect(safeRedirect(explicitSuccessUrl) || `${SITE_URL}/upravit-rezervaci?paid_booking=${booking_id}`) : null })
         }
         metadata.due = String(dueClass.due)
         metadata.card_rounding = String(dueClass.rounding)

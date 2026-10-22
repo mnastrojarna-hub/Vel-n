@@ -9,6 +9,7 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 
 /// Section label of the light Profil page (V22 §7.7 #2): dark eyebrow pill
 /// with the 16 px gutter (the board rendered MŮJ ÚČET flush at x = 0).
@@ -115,9 +116,14 @@ class PfRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Text(title,
-                  style: MgType.title.copyWith(
-                      fontWeight: tone == PfRowTone.normal ? FontWeight.w700 : FontWeight.w800, color: titleColor)),
+              // A long single word ("Geschäftsbedingungen", 320 dp, large
+              // text) scales down instead of breaking in half (verify:render).
+              MgWordFit(
+                minScale: 0.7,
+                child: Text(title,
+                    style: MgType.title.copyWith(
+                        fontWeight: tone == PfRowTone.normal ? FontWeight.w700 : FontWeight.w800, color: titleColor)),
+              ),
               if (value != null && value!.isNotEmpty) ...[
                 const SizedBox(height: 2),
                 Row(children: [
@@ -126,9 +132,11 @@ class PfRow extends StatelessWidget {
                     const SizedBox(width: 4),
                   ],
                   Flexible(
-                    child: Text(value!,
-                        style: MgType.small.copyWith(
-                            color: valueColor, fontWeight: valueWarn ? FontWeight.w700 : FontWeight.w600)),
+                    child: MgWordFit(
+                      child: Text(value!,
+                          style: MgType.small.copyWith(
+                              color: valueColor, fontWeight: valueWarn ? FontWeight.w700 : FontWeight.w600)),
+                    ),
                   ),
                 ]),
               ],

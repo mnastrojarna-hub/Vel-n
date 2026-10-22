@@ -7,9 +7,11 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../payment/widgets/card_rounding_note.dart';
 import '../reservation_edit_price_calc.dart';
 import '../reservation_models.dart';
+import 'res_fit_v2.dart';
 
 /// "Rozdíl ceny" of the edit (V22 `.ed-rc`): the SAME lines under the SAME
 /// conditions as today's price overview, fed by the screen's
@@ -74,18 +76,26 @@ class ResEditPriceV2 extends StatelessWidget {
           margin: const EdgeInsets.only(top: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(gradient: MgGradients.darkCta, borderRadius: BorderRadius.circular(14)),
-          child: Row(children: [
-            Expanded(
-              child: Text(totalLabel.toUpperCase(),
-                  style: MgType.eyebrow.copyWith(color: MgColors.neonText)),
-            ),
-            MgBump(
-              trigger: diff.round(),
-              child: Text('${diff > 0 ? "+" : ""}${Money.czk(diff)}',
-                  style: MgType.tab(MgType.h2.copyWith(
-                      color: diff > 0 ? MgColors.errDark : diff < 0 ? MgColors.neon : MgColors.onDark))),
-            ),
-          ]),
+          // Popisek vedle částky, jen když se vejde celým slovem (de
+          // „RÜCKERSTATTUNG", fr „REMBOURSEMENT" na 320 dp) — jinak nad ní.
+          child: LayoutBuilder(builder: (context, c) {
+            final amountText = '${diff > 0 ? "+" : ""}${Money.czk(diff)}';
+            final amountStyle = MgType.tab(MgType.h2.copyWith(
+                color: diff > 0 ? MgColors.errDark : diff < 0 ? MgColors.neon : MgColors.onDark));
+            final labelStyle = MgType.eyebrow.copyWith(color: MgColors.neonText);
+            final label = MgWordFit(minScale: 0.85, child: Text(totalLabel.toUpperCase(), style: labelStyle));
+            final amount = MgBump(trigger: diff.round(), child: Text(amountText, style: amountStyle));
+            final inline = resWordsFit(context, totalLabel.toUpperCase(), labelStyle,
+                c.maxWidth - 12 - resLineWidth(context, amountText, amountStyle), minScale: 0.85);
+            if (inline) {
+              return Row(children: [Expanded(child: label), const SizedBox(width: 12), amount]);
+            }
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              label,
+              const SizedBox(height: 4),
+              Align(alignment: AlignmentDirectional.centerEnd, child: amount),
+            ]);
+          }),
         ),
         // Minimum karty (D1): doplatek 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
         if (diff > 0)

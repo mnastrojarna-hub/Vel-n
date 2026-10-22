@@ -65,7 +65,8 @@ export const CS: Record<string, string> = {
   voucher_unavailable: 'Poukaz {voucher_code} mezitím vypršel nebo byl použitý jinde, takže rezervaci s ním zaplatit nejde. Nic jsme nestrhli. Vytvoř si prosím rezervaci znovu – bez poukazu, nebo s jiným.',
   below_minimum: 'Zbývá zaplatit {due} Kč, ale kartou jde zaplatit nejméně 15 Kč. Tahle verze aplikace drobnou částku neumí dorovnat – aktualizuj prosím aplikaci MotoGo24 a zkus to znovu. Nic jsme nestrhli.',
   below_minimum_app: 'Kartou jde zaplatit nejméně 15 Kč – zbývá {due} Kč. Zaplať 15 Kč, rozdíl uvidíš na dokladu jako dorovnání. Nic jsme nestrhli.',
-  below_minimum_web: 'Kartou jde zaplatit nejméně 15 Kč – zbývá {due} Kč. Uprav prosím rezervaci nebo objednávku, nebo ji dokonči v aplikaci MotoGo24, která drobnou částku dorovná. Nic jsme nestrhli.',
+  // web před nasazením SQL 20261016p1 (po něm web dorovná sám) — web ukazuje vlastní přeložený text
+  below_minimum_web: 'Kartou jde zaplatit nejméně 15 Kč – zbývá {due} Kč, a tuhle částku teď kartou zaplatit nejde. Nic jsme nestrhli.',
   below_minimum_generic: 'Kartou jde zaplatit nejméně 15 Kč. Nic jsme nestrhli – aktualizuj prosím aplikaci MotoGo24 a zkus to znovu.',
   below_minimum_operator: 'Minimální částka platby kartou je 15 Kč – zadej prosím alespoň 15 Kč.',
   // odpuštění do 1 Kč jen u ceny, kterou server ověří (jinak se platí kartou 15 Kč)

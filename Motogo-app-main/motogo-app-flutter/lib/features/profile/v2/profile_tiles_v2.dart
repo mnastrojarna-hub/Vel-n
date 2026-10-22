@@ -11,9 +11,11 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../catalog/catalog_provider.dart' show branchesProvider, motorcyclesProvider;
 import '../../documents/docs_gate_provider.dart';
 import '../../messages/messages_provider.dart' show adminUnreadCountProvider;
+import 'profile_fit.dart';
 import 'profile_v2_parts.dart';
 
 /// "Můj účet" tiles 2 × 3 (V21 §1.2): Zprávy (+ red count), Moje doklady
@@ -59,102 +61,133 @@ class ProfileTilesV2 extends ConsumerWidget {
       }
     }
 
-    final tiles = <Widget>[
-      _Tile(
+    final specs = <_TileSpec>[
+      (
         icon: MgIcons.chat,
         label: tr.tr('messagesTitle'),
         sub: unread > 0 ? pfPlural(tr, 'v2PfMsgNew', unread) : tr.tr('v2PfMsgNone'),
+        tone: _Tone.meta,
         badge: unread,
         onTap: () => context.push(Routes.messages),
       ),
-      _Tile(
+      (
         icon: MgIcons.idCard,
         label: tr.tr('documents'),
         sub: docsSub,
         tone: docsTone,
+        badge: 0,
         onTap: () => context.push(Routes.docs),
       ),
-      _Tile(
+      (
         icon: MgIcons.receipt,
         label: tr.tr('invoicesTitle'),
         sub: tr.tr('v2PfTileInvoicesSub'),
+        tone: _Tone.meta,
+        badge: 0,
         onTap: () => context.push(Routes.invoices),
       ),
-      _Tile(
+      (
         icon: MgIcons.docs,
         label: tr.tr('contracts'),
         sub: tr.tr('v2PfTileContractsSub'),
+        tone: _Tone.meta,
+        badge: 0,
         onTap: () => context.push(Routes.contracts),
       ),
-      _Tile(
+      (
         icon: MgIcons.card,
         label: tr.tr('paymentMethods'),
         sub: tr.tr('v2PfTilePaySub'),
+        tone: _Tone.meta,
+        badge: 0,
         onTap: onPaymentMethods,
       ),
-      _Tile(
+      (
         icon: MgIcons.pin,
         label: tr.tr('branchesLabel'),
         sub: branchNames.isEmpty ? tr.tr('v2PfTileBranchesSub') : branchNames.join(' · '),
+        tone: _Tone.meta,
+        badge: 0,
         onTap: () => context.push(Routes.branchesInfo),
       ),
     ];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        for (var r = 0; r < tiles.length; r += 2) ...[
-          if (r > 0) const SizedBox(height: 10),
-          IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Expanded(child: MgReveal(index: r, sessionKey: 'pf-tiles', child: tiles[r])),
-              const SizedBox(width: 10),
-              Expanded(child: MgReveal(index: r + 1, sessionKey: 'pf-tiles', child: tiles[r + 1])),
-            ]),
-          ),
-        ],
-        if (eshop) ...[
-          const SizedBox(height: 10),
-          MgReveal(
-            index: 5,
-            sessionKey: 'pf-tiles',
-            child: _Tile(
-              icon: MgIcons.bag,
-              label: tr.tr('eshopMenu'),
-              sub: tr.tr('v2PfShopSub'),
-              wide: true,
-              onTap: () => context.push(Routes.shop),
+      // 2 × 3 grid while every word fits its half (scaled to 0.85 at most);
+      // otherwise (de / nl / uk at 320 dp, large text) one wide tile per row
+      // — a label never breaks inside a word (verify:render).
+      child: LayoutBuilder(builder: (context, box) {
+        final grid = specs.every((x) => _Tile.fitsCell(context, x, (box.maxWidth - 10) / 2));
+        _Tile tile(_TileSpec x) => _Tile(spec: x, wide: !grid);
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (grid)
+            for (var r = 0; r < specs.length; r += 2) ...[
+              if (r > 0) const SizedBox(height: 10),
+              IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(child: MgReveal(index: r, sessionKey: 'pf-tiles', child: tile(specs[r]))),
+                  const SizedBox(width: 10),
+                  Expanded(child: MgReveal(index: r + 1, sessionKey: 'pf-tiles', child: tile(specs[r + 1]))),
+                ]),
+              ),
+            ]
+          else
+            for (var i = 0; i < specs.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              MgReveal(index: i, sessionKey: 'pf-tiles', child: tile(specs[i])),
+            ],
+          if (eshop) ...[
+            const SizedBox(height: 10),
+            MgReveal(
+              index: 5,
+              sessionKey: 'pf-tiles',
+              child: _Tile(
+                spec: (
+                  icon: MgIcons.bag,
+                  label: tr.tr('eshopMenu'),
+                  sub: tr.tr('v2PfShopSub'),
+                  tone: _Tone.meta,
+                  badge: 0,
+                  onTap: () => context.push(Routes.shop),
+                ),
+                wide: true,
+              ),
             ),
-          ),
-        ],
-      ]),
+          ],
+        ]);
+      }),
     );
   }
 }
 
+typedef _TileSpec = ({String icon, String label, String? sub, _Tone tone, int badge, VoidCallback onTap});
+
 enum _Tone { meta, ok, warn }
 
 class _Tile extends StatelessWidget {
-  final String icon;
-  final String label;
-  final String? sub;
-  final _Tone tone;
-  final int badge;
+  final _TileSpec spec;
   final bool wide;
-  final VoidCallback onTap;
-  const _Tile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.sub,
-    this.tone = _Tone.meta,
-    this.badge = 0,
-    this.wide = false,
-  });
+  const _Tile({required this.spec, this.wide = false});
+
+  static const _minScale = 0.85;
+  static final _labelStyle = MgType.ctaCompact.copyWith(letterSpacing: 0, height: 1.25, color: MgColors.ink);
+
+  /// true when the label and the status of [x] keep whole words in a grid
+  /// cell [cell] wide (12 padding + 1 border each side, 20 reserved for the
+  /// chevron next to the last line, 18 for the ✓).
+  static bool fitsCell(BuildContext context, _TileSpec x, double cell) {
+    final w = cell - 26;
+    final sub = x.sub;
+    if (!pfWordsFit(context, x.label, _labelStyle, sub == null ? w - 20 : w, minScale: _minScale)) return false;
+    return sub == null ||
+        pfWordsFit(context, sub, MgType.meta, w - 20 - (x.tone == _Tone.ok ? 18 : 0), minScale: _minScale);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final subColor = switch (tone) {
+    final x = spec;
+    final subColor = switch (x.tone) {
       _Tone.ok => MgColors.link,
       _Tone.warn => MgColors.warn,
       _Tone.meta => MgColors.lead,
@@ -168,14 +201,14 @@ class _Tile extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: MgColors.line),
         ),
-        child: Center(child: MgIcon(icon, size: 24, color: MgColors.link)),
+        child: Center(child: MgIcon(x.icon, size: 24, color: MgColors.link)),
       ),
-      if (badge > 0)
+      if (x.badge > 0)
         Positioned(
           top: -6,
           right: -8,
           child: MgPop(
-            trigger: badge,
+            trigger: x.badge,
             playOnMount: true,
             child: Container(
               constraints: const BoxConstraints(minWidth: 20),
@@ -188,24 +221,36 @@ class _Tile extends StatelessWidget {
               ),
               child: Center(
                 widthFactor: 1,
-                child: Text(badge > 9 ? '9+' : '$badge',
+                child: Text(x.badge > 9 ? '9+' : '${x.badge}',
                     style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w800, height: 1, color: MgColors.onDark))),
               ),
             ),
           ),
         ),
     ]);
+    // Grid tile: the chevron sits bottom-end → only the LAST text block
+    // keeps 20 px free next to it (the label gets the full width).
+    final chevronGap = EdgeInsetsDirectional.only(end: wide ? 0 : 20);
+    final label = MgWordFit(minScale: _minScale, child: Text(x.label, style: _labelStyle));
     final texts = Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Text(label, style: MgType.ctaCompact.copyWith(letterSpacing: 0, height: 1.25, color: MgColors.ink)),
-      if (sub != null) ...[
+      if (x.sub == null) Padding(padding: chevronGap, child: label) else label,
+      if (x.sub != null) ...[
         const SizedBox(height: 2),
-        Row(children: [
-          Flexible(child: Text(sub!, style: MgType.meta.copyWith(color: subColor))),
-          if (tone == _Tone.ok) ...[
-            const SizedBox(width: 4),
-            const MgIcon(MgIcons.check, size: 14, color: MgColors.link, stroke: 2.6),
-          ],
-        ]),
+        Padding(
+          padding: chevronGap,
+          child: Row(children: [
+            Flexible(
+              child: MgWordFit(
+                minScale: _minScale,
+                child: Text(x.sub!, style: MgType.meta.copyWith(color: subColor)),
+              ),
+            ),
+            if (x.tone == _Tone.ok) ...[
+              const SizedBox(width: 4),
+              const MgIcon(MgIcons.check, size: 14, color: MgColors.link, stroke: 2.6),
+            ],
+          ]),
+        ),
       ],
     ]);
     final body = wide
@@ -213,20 +258,21 @@ class _Tile extends StatelessWidget {
             iconBox,
             const SizedBox(width: 12),
             Expanded(child: texts),
+            const SizedBox(width: 8),
             const MgIcon(MgIcons.chevronRight, size: 16, color: MgColors.meta),
           ])
         : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             iconBox,
             const SizedBox(height: 8),
-            Padding(padding: const EdgeInsetsDirectional.only(end: 20), child: texts),
+            texts,
           ]);
     return MgFabAvoid(
       kind: MgAvoidKind.tap,
       child: Semantics(
         button: true,
-        label: badge > 0 ? '$label, $badge' : label,
+        label: x.badge > 0 ? '${x.label}, ${x.badge}' : x.label,
         child: MgPress(
-          onTap: onTap,
+          onTap: x.onTap,
           child: Container(
             constraints: BoxConstraints(minHeight: wide ? 72 : 112),
             padding: const EdgeInsets.all(12),

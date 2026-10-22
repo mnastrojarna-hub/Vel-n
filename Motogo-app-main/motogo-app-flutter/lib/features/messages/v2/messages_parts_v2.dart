@@ -9,6 +9,7 @@ import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../messages_provider.dart';
 import '../../profile/v2/profile_v2_parts.dart' show PfAnimatedSize;
 
@@ -66,7 +67,13 @@ class MsgSegmentsV2 extends StatelessWidget {
                       duration: MgMotion.of(context, MgMotion.color),
                       style: DefaultTextStyle.of(context).style.merge(MgType.ctaCompact.copyWith(
                           letterSpacing: 0, color: on ? rank.ctaLabel : MgColors.onDarkLead)),
-                      child: Text(label, textAlign: TextAlign.center, maxLines: 2),
+                      // One long word ("Benachrichtigungen", large text)
+                      // scales down instead of breaking (verify:render).
+                      child: MgWordFit(
+                        minScale: 0.6,
+                        alignment: Alignment.center,
+                        child: Text(label, textAlign: TextAlign.center, maxLines: 2),
+                      ),
                     ),
                   ),
                 ),

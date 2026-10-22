@@ -86,7 +86,10 @@ void main() {
     for (final lang in ['de', 'pl', 'uk']) {
       await pumpV2(
         t,
-        _scaled(1.3, 136, MotoCardGridV2(moto: kBmw, price: price, availability: 'Frei in deinem Zeitraum', onOpen: () {})),
+        // The list pairs cards in an IntrinsicHeight row (the card body is
+        // Expanded) — same here.
+        _scaled(1.3, 136,
+            IntrinsicHeight(child: MotoCardGridV2(moto: kBmw, price: price, availability: 'Frei in deinem Zeitraum', onOpen: () {}))),
         lang: lang,
         size: const Size(320, 690),
       );

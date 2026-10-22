@@ -11,6 +11,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/states/mg_support_row.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../routes/ride_booking_section.dart';
 import '../res_actions.dart';
@@ -21,6 +22,7 @@ import '../widgets/res_rating_card.dart';
 import 'res_coted_v2.dart';
 import 'res_detail_hero_v2.dart';
 import 'res_docs_v2.dart';
+import 'res_fit_v2.dart';
 import 'res_money_v2.dart';
 import 'res_sections_v2.dart';
 import 'res_status_v2.dart';
@@ -101,12 +103,25 @@ class ResDetailV2View extends ConsumerWidget {
             ),
             if (tiles.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Row(children: [
-                for (var i = 0; i < tiles.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  Expanded(child: _ActionTile(icon: tiles[i].$1, label: tiles[i].$2, onTap: tiles[i].$3, destructive: tiles[i].$4)),
-                ],
-              ]),
+              // Vedle sebe jen když se popisky vejdou celými slovy (de
+              // „Reservierung bearbeiten" na 320 dp) — jinak pod sebou.
+              LayoutBuilder(builder: (context, c) {
+                final w = (c.maxWidth - 8 * (tiles.length - 1)) / tiles.length - _ActionTile.chrome;
+                final row = tiles.every((x) => resWordsFit(context, x.$2, _ActionTile.style, w, minScale: 0.85));
+                Widget tile(int i) =>
+                    _ActionTile(icon: tiles[i].$1, label: tiles[i].$2, onTap: tiles[i].$3, destructive: tiles[i].$4);
+                if (!row) {
+                  return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    for (var i = 0; i < tiles.length; i++) ...[if (i > 0) const SizedBox(height: 8), tile(i)],
+                  ]);
+                }
+                return Row(children: [
+                  for (var i = 0; i < tiles.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    Expanded(child: tile(i)),
+                  ],
+                ]);
+              }),
             ],
           ]),
         ),
@@ -160,6 +175,11 @@ class _ActionTile extends StatelessWidget {
   final bool destructive;
   const _ActionTile({required this.icon, required this.label, required this.onTap, required this.destructive});
 
+  static final style = MgType.small.copyWith(fontWeight: FontWeight.w800);
+
+  /// Horizontal padding + border + icon + gap around the label.
+  static const chrome = 24 + 2 + 20 + 8.0;
+
   @override
   Widget build(BuildContext context) {
     final c = destructive ? MgColors.err : MgColors.link;
@@ -181,9 +201,13 @@ class _ActionTile extends StatelessWidget {
             MgIcon(icon, size: 20, color: c),
             const SizedBox(width: 8),
             Flexible(
-              child: Text(label,
-                  textAlign: TextAlign.center,
-                  style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: destructive ? MgColors.err : MgColors.ink)),
+              child: MgWordFit(
+                minScale: 0.85,
+                alignment: Alignment.center,
+                child: Text(label,
+                    textAlign: TextAlign.center,
+                    style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: destructive ? MgColors.err : MgColors.ink)),
+              ),
             ),
           ]),
         ),

@@ -10,7 +10,9 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../profile/v2/profile_fit.dart';
 import '../../profile/v2/profile_v2_parts.dart' show PfSectionLabel;
 import '../document_models.dart';
 import '../invoices_screen.dart' show InvoiceTile;
@@ -145,31 +147,40 @@ class InvoiceRowV2 extends StatelessWidget {
               border: Border.all(color: creditNote ? MgColors.errBorder : MgColors.line),
               boxShadow: MgShadows.card,
             ),
-            child: Row(children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: creditNote ? MgColors.errBg : MgColors.well,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: creditNote ? MgColors.errBorder : MgColors.line),
+            // The amount sits right of the title; when a title word would
+            // not fit beside it ("Endrechnung" at 320 dp, large text) it moves
+            // under the date instead (verify:render).
+            child: LayoutBuilder(builder: (context, box) {
+              final titleStyle = MgType.title.copyWith(fontWeight: FontWeight.w700, color: fg);
+              final amountStyle = MgType.tab(MgType.title.copyWith(fontWeight: FontWeight.w900, color: fg));
+              final room = box.maxWidth - 40 - 12 - 4 - 18;
+              final side = amount == null ||
+                  pfWordsFit(context, title, titleStyle, room - 8 - pfLineWidth(context, amount!, amountStyle), minScale: 0.85);
+              final amountText = amount == null ? null : Text(amount!, style: amountStyle);
+              return Row(children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: creditNote ? MgColors.errBg : MgColors.well,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: creditNote ? MgColors.errBorder : MgColors.line),
+                  ),
+                  child: Center(child: MgIcon(iconFor(type), size: 22, color: creditNote ? MgColors.err : MgColors.link)),
                 ),
-                child: Center(child: MgIcon(iconFor(type), size: 22, color: creditNote ? MgColors.err : MgColors.link)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: MgType.title.copyWith(fontWeight: FontWeight.w700, color: fg)),
-                  Text(date, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
-                ]),
-              ),
-              if (amount != null) ...[
-                const SizedBox(width: 8),
-                Text(amount!, style: MgType.tab(MgType.title.copyWith(fontWeight: FontWeight.w900, color: fg))),
-              ],
-              const SizedBox(width: 4),
-              const MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.meta),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    MgWordFit(minScale: 0.85, child: Text(title, style: titleStyle)),
+                    Text(date, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
+                    if (!side && amountText != null) ...[const SizedBox(height: 2), amountText],
+                  ]),
+                ),
+                if (side && amountText != null) ...[const SizedBox(width: 8), amountText],
+                const SizedBox(width: 4),
+                const MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.meta),
+              ]);
+            }),
           ),
         ),
       ),

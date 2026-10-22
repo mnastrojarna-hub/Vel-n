@@ -132,10 +132,14 @@ foreach (['validationUnavailable','amountMismatch','authRequired','forbidden','n
     $v = t('editRez.pay.' . $k);
     if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
 }
-// below_minimum u NOVÉ rezervace (do nasazení SQL 20261016p1): text pro rezervaci, ne pro úpravu
-// (scan.js mapuje kód na editRez.pay.belowMinimum — na této stránce ho nahradí rez.pay.belowMinimum).
-$v = t('rez.pay.belowMinimum');
-if (is_string($v)) $rezI18n['editRez.pay.belowMinimum'] = $v;
+// Texty pro NOVOU rezervaci, ne pro úpravu (scan.js mapuje kódy na editRez.pay.* — na této
+// stránce je nahradí rez.pay.*: below_minimum do nasazení SQL 20261016p1, platba už běží,
+// ověření, cena, přihlášení / účet, nenalezená / zrušená rezervace).
+foreach (['belowMinimum','roundingUnavailable','inProgress','duplicate','validationUnavailable','amountMismatch',
+          'authRequired','forbidden','notFound','wrongStatus'] as $k) {
+    $v = t('rez.pay.' . $k);
+    if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
+}
 // Minimální platba kartou (odpověď majitele 2026-10-16, „i web") — js/card-rounding.js.
 foreach (['pay.card.round', 'pay.card.roundNote', 'rez.card.waive'] as $k) {
     $v = t($k);

@@ -8,6 +8,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
+import 'res_fit_v2.dart';
 import 'res_status_v2.dart';
 
 /// Compact dark header of the edit (V22 `.ed-h`): back (chooser → back to
@@ -45,7 +46,7 @@ class ResEditHeaderV2 extends StatelessWidget {
               const SizedBox(height: 4),
               Semantics(
                 header: true,
-                child: Text(title, style: MgType.h2.copyWith(color: MgColors.onDark)),
+                child: MgWordFit(minScale: 0.75, child: Text(title, style: MgType.h2.copyWith(color: MgColors.onDark))),
               ),
               Text('${booking.motoName} · ${booking.shortId}',
                   maxLines: 1,
@@ -62,36 +63,56 @@ class ResEditHeaderV2 extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: MgColors.white(0.12)),
           ),
-          child: Row(children: [
-            ClipRRect(
+          // Termín a stav vedle štítku TEĎ a ceny, jen když se vejdou celými
+          // slovy (fr / nl / en na 320 dp s velkým písmem) — jinak štítek a
+          // cena nahoře a termín se stavem pod nimi přes celou šířku.
+          child: LayoutBuilder(builder: (context, c) {
+            final photo = ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(width: 44, height: 32, child: ResBikePhoto(url: booking.motoImage, thumbWidth: 160)),
-            ),
-            const SizedBox(width: 8),
-            Container(
+            );
+            final nowStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText);
+            final now = Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: MgColors.neonA(0.16), borderRadius: BorderRadius.circular(999)),
-              child: Text(tr.tr('v2ResEditNow'), style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText)),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                MgWordFit(
-                  minScale: 0.8,
-                  child: Text(resRangeShort(tr, booking),
-                      style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkBody))),
-                ),
-                MgWordFit(
-                  minScale: 0.75,
-                  child: Text('${isActive ? tr.active : tr.upcoming} · $days',
-                      style: MgType.meta.copyWith(color: MgColors.onDarkMeta)),
-                ),
-              ]),
-            ),
-            const SizedBox(width: 8),
-            Text(Money.czk(booking.totalPrice),
-                style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w900, color: MgColors.onDark))),
-          ]),
+              child: Text(tr.tr('v2ResEditNow'), style: nowStyle),
+            );
+            final priceStyle = MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w900, color: MgColors.onDark));
+            final price = Text(Money.czk(booking.totalPrice), style: priceStyle);
+            final rangeStyle = MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkBody));
+            final stateStyle = MgType.meta.copyWith(color: MgColors.onDarkMeta);
+            final state = '${isActive ? tr.active : tr.upcoming} · $days';
+            final lines = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              MgWordFit(minScale: 0.8, child: Text(resRangeShort(tr, booking), style: rangeStyle)),
+              MgWordFit(minScale: 0.75, child: Text(state, style: stateStyle)),
+            ]);
+            final textW = c.maxWidth - 44 - 8 - (resLineWidth(context, tr.tr('v2ResEditNow'), nowStyle) + 16) - 8 - 8 -
+                resLineWidth(context, Money.czk(booking.totalPrice), priceStyle);
+            final inline = resWordsFit(context, state, stateStyle, textW, minScale: 0.85) &&
+                resWordsFit(context, resRangeShort(tr, booking), rangeStyle, textW, minScale: 0.85);
+            if (inline) {
+              return Row(children: [
+                photo,
+                const SizedBox(width: 8),
+                now,
+                const SizedBox(width: 8),
+                Expanded(child: lines),
+                const SizedBox(width: 8),
+                price,
+              ]);
+            }
+            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              photo,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [now, const SizedBox(width: 8), const Spacer(), price]),
+                  const SizedBox(height: 4),
+                  lines,
+                ]),
+              ),
+            ]);
+          }),
         ),
       ]),
     );

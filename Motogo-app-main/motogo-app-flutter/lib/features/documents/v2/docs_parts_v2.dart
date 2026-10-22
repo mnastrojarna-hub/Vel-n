@@ -7,7 +7,14 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../../profile/v2/profile_fit.dart';
 import '../../profile/v2/profile_v2_parts.dart' show PfAnimatedSize;
+
+/// How a [DocCardV2] is laid out: [column] = illustration on top (two cards
+/// side by side, or one per row when a word would not fit the half), [row]
+/// = compact illustration left of the texts (one card per row).
+enum DocCardLayout { column, row }
 
 /// Document card in the dark docs hero (board `.dcard`): illustration,
 /// title, Ověřeno / Neověřeno chip and the action (Smazat / Skenovat) —
@@ -18,6 +25,7 @@ class DocCardV2 extends StatelessWidget {
   final bool verified;
   final VoidCallback onReset;
   final VoidCallback? onScan;
+  final DocCardLayout layout;
   const DocCardV2({
     super.key,
     required this.icon,
@@ -25,70 +33,103 @@ class DocCardV2 extends StatelessWidget {
     required this.verified,
     required this.onReset,
     this.onScan,
+    this.layout = DocCardLayout.column,
   });
+
+  static const _minScale = 0.85;
+  static final _titleStyle = MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
+  static final _chipStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800);
+  static final _actionStyle = MgType.small.copyWith(fontWeight: FontWeight.w800);
+
+  bool get _hasAction => verified || onScan != null;
+
+  /// true when title, chip and action keep whole words in a card [width]
+  /// wide (verify:render — "Zweryfiko|wano", "Führersch|ein" at 320 dp).
+  bool fits(BuildContext context, double width) {
+    final tr = t(context);
+    // 12 padding + 1 border each side; row: 72 illustration + 12 gap.
+    final w = width - 26 - (layout == DocCardLayout.row ? 84 : 0);
+    bool ok(String text, TextStyle style, double room) => pfWordsFit(context, text, style, room, minScale: _minScale);
+    return ok(title, _titleStyle, w) &&
+        ok(verified ? tr.tr('verified') : tr.tr('notVerified'), _chipStyle, w - 34) &&
+        (!_hasAction || ok(verified ? tr.tr('deleteDoc') : tr.tr('scan'), _actionStyle, w - 20));
+  }
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final card = Container(
+    final texts = <Widget>[
+      MgWordFit(minScale: _minScale, child: Text(title, style: _titleStyle)),
+      const SizedBox(height: 6),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: verified ? MgColors.neonA(0.18) : MgColors.warnDark.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          MgIcon(verified ? MgIcons.check : MgIcons.warn,
+              size: 14, color: verified ? MgColors.neonText : MgColors.warnDark),
+          const SizedBox(width: 4),
+          Flexible(
+            child: MgWordFit(
+              minScale: _minScale,
+              child: Text(verified ? tr.tr('verified') : tr.tr('notVerified'),
+                  style: _chipStyle.copyWith(color: verified ? MgColors.neonText : MgColors.warnDark)),
+            ),
+          ),
+        ]),
+      ),
+      if (_hasAction)
+        Semantics(
+          button: true,
+          child: MgPress(
+            onTap: verified ? onReset : onScan,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                MgIcon(verified ? MgIcons.trash : MgIcons.camera,
+                    size: 16, color: verified ? MgColors.errDark : MgColors.neonText),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: MgWordFit(
+                    minScale: _minScale,
+                    child: Text(verified ? tr.tr('deleteDoc') : tr.tr('scan'),
+                        style: _actionStyle.copyWith(color: verified ? MgColors.errDark : MgColors.neonText)),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+    ];
+    return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: MgColors.white(0.06),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: verified ? MgColors.neonA(0.35) : MgColors.warnDark.withValues(alpha: 0.45)),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _Illustration(icon: icon, ok: verified),
-        const SizedBox(height: 8),
-        Text(title, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: verified ? MgColors.neonA(0.18) : MgColors.warnDark.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            MgIcon(verified ? MgIcons.check : MgIcons.warn,
-                size: 14, color: verified ? MgColors.neonText : MgColors.warnDark),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(verified ? tr.tr('verified') : tr.tr('notVerified'),
-                  style: MgType.micro.copyWith(
-                      fontWeight: FontWeight.w800, color: verified ? MgColors.neonText : MgColors.warnDark)),
-            ),
-          ]),
-        ),
-        if (verified || onScan != null)
-          Semantics(
-            button: true,
-            child: MgPress(
-              onTap: verified ? onReset : onScan,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  MgIcon(verified ? MgIcons.trash : MgIcons.camera,
-                      size: 16, color: verified ? MgColors.errDark : MgColors.neonText),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(verified ? tr.tr('deleteDoc') : tr.tr('scan'),
-                        style: MgType.small.copyWith(
-                            fontWeight: FontWeight.w800, color: verified ? MgColors.errDark : MgColors.neonText)),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-      ]),
+      child: layout == DocCardLayout.row
+          ? Row(children: [
+              SizedBox(width: 72, child: _Illustration(icon: icon, ok: verified, compact: true)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: texts)),
+            ])
+          : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _Illustration(icon: icon, ok: verified),
+              const SizedBox(height: 8),
+              ...texts,
+            ]),
     );
-    return card;
   }
 }
 
 class _Illustration extends StatelessWidget {
   final String icon;
   final bool ok;
-  const _Illustration({required this.icon, required this.ok});
+  final bool compact;
+  const _Illustration({required this.icon, required this.ok, this.compact = false});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -98,16 +139,20 @@ class _Illustration extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           gradient: const LinearGradient(colors: [MgColors.glow, Color(0xFF13301F)]),
         ),
-        child: Stack(children: [
-          Positioned(left: 12, top: 12, child: MgIcon(icon, size: 28, color: ok ? MgColors.neon : MgColors.warnDark)),
-          for (final (l, t, r) in const [(48.0, 16.0, 12.0), (48.0, 30.0, 34.0), (12.0, 48.0, 48.0)])
-            Positioned(
-              left: l,
-              top: t,
-              right: r,
-              child: Container(height: 6, decoration: BoxDecoration(color: MgColors.white(0.18), borderRadius: BorderRadius.circular(2))),
-            ),
-        ]),
+        child: compact
+            ? Center(child: MgIcon(icon, size: 28, color: ok ? MgColors.neon : MgColors.warnDark))
+            : Stack(children: [
+                Positioned(left: 12, top: 12, child: MgIcon(icon, size: 28, color: ok ? MgColors.neon : MgColors.warnDark)),
+                for (final (l, t, r) in const [(48.0, 16.0, 12.0), (48.0, 30.0, 34.0), (12.0, 48.0, 48.0)])
+                  Positioned(
+                    left: l,
+                    top: t,
+                    right: r,
+                    child: Container(
+                        height: 6,
+                        decoration: BoxDecoration(color: MgColors.white(0.18), borderRadius: BorderRadius.circular(2))),
+                  ),
+              ]),
       );
 }
 

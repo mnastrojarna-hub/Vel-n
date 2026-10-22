@@ -9,11 +9,13 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../documents/booking_doc_viewer.dart';
 import '../res_actions.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import '../widgets/res_modification_history.dart';
+import 'res_fit_v2.dart';
 
 /// "Dokumenty" (one white band): the SAME documents as today's detail —
 /// completed: final invoice, contract, then the signed protocols; during
@@ -88,14 +90,31 @@ class _DocRow extends StatelessWidget {
           decoration: BoxDecoration(
             border: divider ? const Border(bottom: BorderSide(color: MgColors.line)) : null,
           ),
-          child: Row(children: [
-            MgIconTileLight(icon),
-            const SizedBox(width: 12),
-            Expanded(child: Text(label, style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink))),
-            const SizedBox(width: 8),
-            Text(tr.tr('v2ResOpenDoc'), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
-            const MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.link),
-          ]),
+          // „Otevřít" vedle názvu jen když se název vejde celými slovy
+          // (nl „Overdrachtsprotocol" na 320 dp) — jinak pod názvem.
+          child: LayoutBuilder(builder: (context, c) {
+            final labelStyle = MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink);
+            final openStyle = MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.link);
+            final open = Text(tr.tr('v2ResOpenDoc'), style: openStyle);
+            final rest = c.maxWidth - 36 - 12 - 18; // dlaždice ikony 36 + mezera + šipka
+            final inline = resWordsFit(context, label, labelStyle,
+                rest - 8 - resLineWidth(context, tr.tr('v2ResOpenDoc'), openStyle), minScale: 0.85);
+            final title = MgWordFit(minScale: 0.8, child: Text(label, style: labelStyle));
+            return Row(children: [
+              MgIconTileLight(icon),
+              const SizedBox(width: 12),
+              Expanded(
+                child: inline
+                    ? title
+                    : Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [title, open]),
+                      ),
+              ),
+              if (inline) ...[const SizedBox(width: 8), open],
+              const MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.link),
+            ]);
+          }),
         ),
       ),
     );
@@ -142,7 +161,10 @@ class _ResHistoryV2State extends ConsumerState<ResHistoryV2> {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr.tr('v2ResHistory'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+                  MgWordFit(
+                    minScale: 0.8,
+                    child: Text(tr.tr('v2ResHistory'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+                  ),
                   if (n > 0) Text(tr.trArgs('v2ResHistoryCount', {'n': n}), style: MgType.meta.copyWith(color: MgColors.meta)),
                 ]),
               ),

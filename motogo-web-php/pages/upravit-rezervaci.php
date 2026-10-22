@@ -75,7 +75,8 @@ $keys = [
     // odpověď majitele 2026-10-16: výsledek zaplacené změny ze serveru + minimální platba kartou
     'editRez.paid.takenTitle','editRez.paid.takenBody','editRez.paid.takenBodyStaff','editRez.paid.pickOther',
     'editRez.paid.keepCurrent','editRez.paid.close','editRez.paid.failedTitle','editRez.paid.failedBody',
-    'editRez.paid.failedBodyStaff','editRez.paid.notPaid',
+    'editRez.paid.failedBodyStaff','editRez.paid.notPaid','editRez.paid.waived','editRez.paid.why.date',
+    'editRez.paid.why.license','editRez.paid.why.closed','editRez.paid.refundAuto','editRez.paid.refundStaff',
     'editRez.card.round','editRez.card.waive','editRez.card.roundShort','editRez.card.waiveShort',
     'editRez.loc.pickup','editRez.loc.return','editRez.loc.atRental','editRez.loc.delivery','editRez.loc.deliveryReturn',
     'editRez.loc.addrPlaceholder','editRez.loc.mapBtn','editRez.loc.routing','editRez.loc.geocodeFail',

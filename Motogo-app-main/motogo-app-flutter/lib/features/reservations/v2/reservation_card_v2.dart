@@ -15,6 +15,7 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
+import 'res_fit_v2.dart';
 import 'res_status_v2.dart';
 
 /// v2 reservation card (V22 `.ls-c`): photo with status pill / needs-action
@@ -71,13 +72,35 @@ class ReservationCardV2 extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(flex: 15, child: _info(tr.date, r.dateRange)),
-              const SizedBox(width: 8),
-              Expanded(flex: 8, child: _info(tr.tr('resDuration'), resDays(tr, r.dayCount))),
-              const SizedBox(width: 8),
-              Expanded(flex: 10, child: _info(tr.tr('total'), Money.czk(r.totalPrice), price: true)),
-            ]),
+            // Termín · Délka · Celkem v jednom řádku, jen když se popisky
+            // vejdou celé (es „DURACIÓN", uk „ТРИВАЛІСТЬ" na 320 / 360 dp
+            // s velkým písmem) — jinak termín nahoře přes celou šířku.
+            child: LayoutBuilder(builder: (context, c) {
+              final date = _info(tr.date, r.dateRange);
+              final days = _info(tr.tr('resDuration'), resDays(tr, r.dayCount));
+              final total = _info(tr.tr('total'), Money.czk(r.totalPrice), price: true);
+              final unit = (c.maxWidth - 16) / 33;
+              bool fits(String label, int flex) =>
+                  resLineFits(context, label.toUpperCase(), _infoLabel, unit * flex, minScale: _infoMinScale);
+              if (fits(tr.date, 15) && fits(tr.tr('resDuration'), 8) && fits(tr.tr('total'), 10)) {
+                return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(flex: 15, child: date),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 8, child: days),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 10, child: total),
+                ]);
+              }
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                date,
+                const SizedBox(height: 10),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: days),
+                  const SizedBox(width: 8),
+                  Expanded(child: total),
+                ]),
+              ]);
+            }),
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -85,7 +108,7 @@ class ReservationCardV2 extends ConsumerWidget {
             // Úzký telefon (320 dp): tlačítka pod sebou na celou šířku, ať se
             // „Wiederherstellen" / „Редагувати" nikdy nedělí uprostřed slova.
             child: LayoutBuilder(builder: (context, c) {
-              if (c.maxWidth >= 300) return Row(children: _actions(context, tr, st));
+              if (c.maxWidth >= 300 && _actionsFit(context, tr, st, c.maxWidth)) return Row(children: _actions(context, tr, st));
               return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _stacked(context, tr, st));
             }),
           ),
@@ -110,24 +133,30 @@ class ReservationCardV2 extends ConsumerWidget {
           ),
         ),
       ),
+      // Stav vlevo, „Nezaplaceno" / ověřování vpravo; když se oba nevejdou
+      // celé do řádku (de „BEVORSTEHEND" na 320 dp), štítek platby pod stav.
       Positioned(
         top: 10,
         left: 10,
-        right: needsBadgeWidth,
-        child: Align(alignment: Alignment.centerLeft, child: ResStatusPill(status: st, live: false)),
-      ),
-      if (payFlag != ResPayFlag.none)
-        Positioned(
-          top: 10,
-          right: 10,
-          child: ResPhotoChip(
-            label: tr.tr(payFlag == ResPayFlag.verifying ? 'psPendingTitle' : 'payStatusUnpaid'),
-            icon: payFlag == ResPayFlag.verifying ? MgIcons.clock : MgIcons.card,
-            iconColor: MgColors.warnDark,
-            border: MgColors.warnDark.withValues(alpha: 0.6),
-            textColor: MgColors.warnDark,
-          ),
+        right: 10,
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            ResStatusPill(status: st, live: false),
+            if (payFlag != ResPayFlag.none)
+              ResPhotoChip(
+                label: tr.tr(payFlag == ResPayFlag.verifying ? 'psPendingTitle' : 'payStatusUnpaid'),
+                icon: payFlag == ResPayFlag.verifying ? MgIcons.clock : MgIcons.card,
+                iconColor: MgColors.warnDark,
+                border: MgColors.warnDark.withValues(alpha: 0.6),
+                textColor: MgColors.warnDark,
+              ),
+          ],
         ),
+      ),
       Positioned(
         left: 12,
         right: 12,
@@ -167,17 +196,15 @@ class ReservationCardV2 extends ConsumerWidget {
     ]);
   }
 
-  double get needsBadgeWidth => payFlag == ResPayFlag.none ? 10 : 150;
+  static final _infoLabel = MgType.micro.copyWith(letterSpacing: 0.4, color: MgColors.meta);
+  static const _infoMinScale = 0.7;
 
   Widget _info(String label, String value, {bool price = false}) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MgWordFit(
-            minScale: 0.7,
-            child: Text(label.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: MgType.micro.copyWith(letterSpacing: 0.4, color: MgColors.meta)),
+            minScale: _infoMinScale,
+            child: Text(label.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: _infoLabel),
           ),
           const SizedBox(height: 4),
           Text(value,
@@ -226,6 +253,34 @@ class ReservationCardV2 extends ConsumerWidget {
 }
 
 extension on ReservationCardV2 {
+  /// true when [_actions] fit one row of [width] with every word whole
+  /// (the buttons' `MgWordFit` scales labels to 80 % at most): de
+  /// „Wiederherstellen" / uk „Редагувати" at 360 dp with large text → stack.
+  bool _actionsFit(BuildContext context, AppTranslations tr, ResStatus st, double width) {
+    final cta = MgType.ctaCompact.copyWith(letterSpacing: 0.3);
+    const ctaPad = 27.0, ghostPad = 35.0, gap = 8.0;
+    bool ctaFits(String l, double w) => resWordsFit(context, l.toUpperCase(), cta, w - ctaPad, minScale: 0.8);
+    bool ghostFits(String l, double w) => resWordsFit(context, l, MgType.button, w - ghostPad, minScale: 0.8);
+    final half = (width - gap) / 2;
+    final r = reservation;
+    switch (st) {
+      case ResStatus.aktivni:
+        if (r.sosAllowed) {
+          // Detail na šířku popisku (jeden řádek), Upravit zbytek, SOS 56 dp.
+          final detailW = resLineWidth(context, tr.detail.toUpperCase(), cta) + ctaPad;
+          if (onEdit == null) return detailW + gap + 56 <= width;
+          return ghostFits(tr.edit, width - detailW - gap - gap - 56);
+        }
+        return ctaFits(tr.detail, onEdit == null ? width : half) && (onEdit == null || ghostFits(tr.edit, half));
+      case ResStatus.nadchazejici:
+        return ctaFits(tr.detail, onEdit == null ? width : half) && (onEdit == null || ghostFits(tr.edit, half));
+      case ResStatus.dokoncene:
+        return ctaFits(tr.tr('rideDetail'), half) && ghostFits(tr.tr('rateBtn'), half);
+      case ResStatus.cancelled:
+        return ctaFits(tr.detail, half) && ghostFits(tr.tr('restoreBtn'), half);
+    }
+  }
+
   /// The same actions as [_actions], one per row (narrow phones).
   List<Widget> _stacked(BuildContext context, AppTranslations tr, ResStatus st) {
     final r = reservation;

@@ -3,6 +3,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../v2/res_edit_gear_v2.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
@@ -708,12 +709,13 @@ class ResModificationHistory extends StatelessWidget {
       Row(children: [
         const Text('📋', style: TextStyle(fontSize: 14)),
         const SizedBox(width: 6),
-        Text(t(context).tr('reservationTimeline'),
+        // v2 vzhled: zalomí se místo přetečení (fr na 320 dp, velké písmo).
+        resV2RowText(context, Text(t(context).tr('reservationTimeline'),
             style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
-                color: MotoGoColors.g400)),
+                color: MotoGoColors.g400))),
       ]),
       const SizedBox(height: 8),
       ...events.asMap().entries.map((e) {

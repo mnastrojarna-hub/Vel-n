@@ -341,7 +341,8 @@
 
       // 2a) DOPLATEK (net>0) — přes stávající edit-platbu; COMMIT až po úspěšné platbě.
       if (net > 0.5) {
-        try { localStorage.setItem(SWAP_KEY + b.id, JSON.stringify({ base: base, swapDate: swapDate, ts: Date.now() })); } catch (e) {}
+        // n = doplatek (paid.js ho ukáže u „Motorka je mezitím obsazená", když výsledek ještě nezná server)
+        try { localStorage.setItem(SWAP_KEY + b.id, JSON.stringify({ base: base, swapDate: swapDate, ts: Date.now(), n: net })); } catch (e) {}
         var sd = await window.sb.auth.getSession();
         var stok = sd && sd.data && sd.data.session && sd.data.session.access_token;
         if (!stok) throw new Error('no-auth');
@@ -379,7 +380,7 @@
         // proto web výměnu NEzapisuje sám (zapsal by ji bez dorovnání a doklad by nesedl
         // se zaplacenou částkou), jen počká, až ji server zapíše.
         var _cr = Number((pj && pj.card_rounding) || 0);
-        if (_cr) { try { localStorage.setItem(SWAP_KEY + b.id, JSON.stringify({ base: base, swapDate: swapDate, ts: Date.now(), r: _cr })); } catch (e) {} }
+        if (_cr) { try { localStorage.setItem(SWAP_KEY + b.id, JSON.stringify({ base: base, swapDate: swapDate, ts: Date.now(), r: _cr, n: net })); } catch (e) {} }
         window.location.href = checkout;
         return;
       }
@@ -434,6 +435,7 @@
         if (done.error || !done.data ||
             (done.data.success === false && code !== 'already_split' && code !== 'invalid_new_moto')) {
           console.error('[editRez] swap commit after payment failed', done.error, done.data);
+          ER._swapCommitErr = code || null; // paid.js: obsazená motorka → „Motorka je mezitím obsazená"
           return false;
         }
         // Po návratu na seznam ukáže jádro (_paidPickup) pobočku NOVÉ motorky.

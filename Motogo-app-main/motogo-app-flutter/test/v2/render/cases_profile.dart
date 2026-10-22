@@ -84,6 +84,9 @@ List<RenderCase> profileRenderCases() => [
       _p('hub', 'legend', () => const PfHubHarness(), () => profileOverrides(loyalty: loyaltyAt(20)), level: 20),
       _p('hub', 'guest_rank', () => const PfHubHarness(), () => profileOverrides(loyalty: null), level: 0),
       _p('hub', 'form_open', () => const PfHubHarness(expanded: true), () => profileOverrides()),
+      // Empty dates → the dropdown hints (Den / Měsíc / Rok …) must fit too.
+      _p('hub', 'form_open_new', () => const PfHubHarness(expanded: true),
+          () => profileOverrides(profile: kProfileNew, docs: PfDocs.none, unread: 0, loyalty: loyaltyAt(1)), level: 1),
       _p('permissions', 'loading', () => _permsView(loading: true), () => const [], loading: true),
       _p('permissions', 'ok', () => _permsView(), () => const []),
       _p('permissions', 'required_denied', () => _permsView(required: true), () => const [], level: 10),

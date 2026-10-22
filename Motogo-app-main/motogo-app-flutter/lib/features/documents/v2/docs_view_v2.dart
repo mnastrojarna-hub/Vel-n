@@ -72,29 +72,7 @@ class DocsViewV2 extends StatelessWidget {
             if (loading)
               const DocCardsSkeletonV2()
             else if (v != null)
-              IntrinsicHeight(
-                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Expanded(
-                    child: DocCardV2(
-                      icon: MgIcons.idCard,
-                      title: tr.tr('idCardPassport'),
-                      verified: v.hasIdOrPassport,
-                      onReset: () => onReset('id_card'),
-                      onScan: v.hasIdOrPassport ? null : onScan,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: DocCardV2(
-                      icon: MgIcons.license,
-                      title: tr.tr('driversLicense'),
-                      verified: v.hasLicense,
-                      onReset: () => onReset('drivers_license'),
-                      onScan: v.hasLicense ? null : onScanDl,
-                    ),
-                  ),
-                ]),
-              ),
+              _DocCards(v: v, onReset: onReset, onScan: onScan, onScanDl: onScanDl),
             const SizedBox(height: 12),
             const DocTipsV2(),
             const SizedBox(height: 4),
@@ -155,6 +133,55 @@ class DocsViewV2 extends StatelessWidget {
           ),
         ),
     ];
+  }
+}
+
+/// The two document cards (OP/Pas, ŘP): side by side while every word fits
+/// the half; otherwise one per row — compact (illustration left) or, when
+/// even that is too narrow (large text), the full card (verify:render).
+class _DocCards extends StatelessWidget {
+  final DocsScreenStatus v;
+  final ValueChanged<String> onReset;
+  final VoidCallback onScan;
+  final VoidCallback onScanDl;
+  const _DocCards({required this.v, required this.onReset, required this.onScan, required this.onScanDl});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    List<DocCardV2> cards([DocCardLayout layout = DocCardLayout.column]) => [
+          DocCardV2(
+            icon: MgIcons.idCard,
+            title: tr.tr('idCardPassport'),
+            verified: v.hasIdOrPassport,
+            onReset: () => onReset('id_card'),
+            onScan: v.hasIdOrPassport ? null : onScan,
+            layout: layout,
+          ),
+          DocCardV2(
+            icon: MgIcons.license,
+            title: tr.tr('driversLicense'),
+            verified: v.hasLicense,
+            onReset: () => onReset('drivers_license'),
+            onScan: v.hasLicense ? null : onScanDl,
+            layout: layout,
+          ),
+        ];
+    return LayoutBuilder(builder: (context, box) {
+      final pair = cards();
+      if (pair.every((c) => c.fits(context, (box.maxWidth - 10) / 2))) {
+        return IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: pair[0]),
+            const SizedBox(width: 10),
+            Expanded(child: pair[1]),
+          ]),
+        );
+      }
+      final rows = cards(DocCardLayout.row);
+      final list = rows.every((c) => c.fits(context, box.maxWidth)) ? rows : pair;
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [list[0], const SizedBox(height: 10), list[1]]);
+    });
   }
 }
 

@@ -1,8 +1,12 @@
 // verify:render cases — catalog v2 (ported from catalog_test.dart):
-// Motorky (find / grid / empty / error / loading / banner), the date and
-// filter sheets, the calculator in every board state + its bike picker
-// sheet, the bike detail (dates / calendar / loading / error / gone /
-// availability states / loyalty failure / guest / pager).
+// Motorky (find / grid with + without dates / empty / error / loading /
+// banner), the date and filter sheets, the calculator in every board state
+// + its bike picker sheet, the bike detail (dates / calendar / loading /
+// error / gone / availability states / loyalty failure / guest / pager;
+// "more_open" lives in cases_extra.dart). Release gate = both text scales:
+// MG_VERIFY_RENDER=1 MG_VERIFY_SCALE=1.0|1.3 flutter test
+// test/v2/render/render_catalog_test.dart (+ the always-on component
+// matrix test/v2/screens/catalog_fit_matrix_test.dart).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +33,11 @@ Future<void> _openSheet(WidgetTester t, Future<void> Function(BuildContext) open
   open(t.element(find.byType(MotorkyScreenV2)));
   await t.pump();
   await t.pump(const Duration(milliseconds: 400));
+}
+
+Future<void> _toGrid(WidgetTester t) async {
+  await t.tap(find.byWidgetPredicate((w) => w is CatPathIcon && w.d == CatPathIcon.grid));
+  await t.pump(const Duration(milliseconds: 300));
 }
 
 Future<void> _expandCalendar(WidgetTester t) async {
@@ -72,10 +81,9 @@ List<RenderCase> catalogRenderCases() {
     m('find_nodates', () => catalogOverrides()),
     m('find_banner', () => catalogOverrides(banner: banner)),
     m('find_dates', () => catalogOverrides(filter: dated, filtered: available)),
-    m('grid', () => catalogOverrides(filter: dated, filtered: available), after: (t) async {
-      await t.tap(find.byWidgetPredicate((w) => w is CatPathIcon && w.d == CatPathIcon.grid));
-      await t.pump(const Duration(milliseconds: 300));
-    }),
+    m('grid', () => catalogOverrides(filter: dated, filtered: available), after: _toGrid),
+    // Grid without dates: "Dnes volná" badge + "od … /den" prices.
+    m('grid_nodates', () => catalogOverrides(), after: _toGrid),
     m('empty', () => catalogOverrides(filter: dated, filtered: const [])),
     m('error', () => catalogOverrides(filteredError: Exception('net'))),
     m('loading', () => catalogOverrides(filteredLoading: true), loading: true),

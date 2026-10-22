@@ -83,7 +83,9 @@ class MotoCardGridV2 extends StatelessWidget {
                   ),
                 ),
                 // Badge bounded by the card (left + right): a long label
-                // ("Frei in deinem Zeitraum") wraps to 2 lines, never clips.
+                // ("Frei in deinem Zeitraum") scales a little to stay on 2
+                // lines, else takes a 3rd ("Wolny w twoim terminie" at large
+                // text, 320 dp) — never clipped, never cut.
                 if (availability != null)
                   Positioned(
                     top: 8,
@@ -100,7 +102,8 @@ class MotoCardGridV2 extends StatelessWidget {
                           Flexible(
                             child: MgWordFit(
                               minScale: 0.8,
-                              child: Text(availability!, maxLines: 2, style: MgType.micro.copyWith(color: MgColors.onDark, height: 1.2)),
+                              fitLines: 2,
+                              child: Text(availability!, maxLines: 3, style: MgType.micro.copyWith(color: MgColors.onDark, height: 1.2)),
                             ),
                           ),
                         ]),

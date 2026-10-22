@@ -7,6 +7,9 @@
  * dosadí Stripe do success_url (swap.js a gear.js ho posílají, k ostatním webovým úpravám ho
  * přidá process-payment). Server změnu zapíše (idempotentně, stejně jako webhook), nebo řekne,
  * proč ne; vratku i upozornění obsluhy (debug_log + e-mail) už vyřídil sám.
+ * Odpuštěný doplatek do 1 Kč (server změnu zapsal hned, bez platby) vrací server s `waived=1` →
+ * „Změna uložena bez platby", klient nic nezapisuje. Druh nezapsané změny (`change_kind`) říká
+ * server, takže „Vybrat jinou motorku" funguje i v jiném prohlížeči (výměna i změna motorky).
  * Klientský zápis (swap.js / gear.js / jádro) zůstává jen jako záloha: změna se nevešla do
  * metadat (state client_apply) nebo server akci ještě nezná (starší nasazení). Když ani záloha
  * výsledek nezná, ukáže se „platba proběhla, změnu dokončujeme" — nikdy chyba s kontaktem.
@@ -21,13 +24,23 @@
   if (!ER) return;
 
   var TAKEN = { new_moto_unavailable: 1, moto_unavailable: 1 };
+  // Konkrétní důvod nezapsané změny (jinak obecné „rezervace se mezitím změnila").
+  var WHY = { swap_date_out_of_range: 'date', license_insufficient: 'license', booking_cancelled: 'closed',
+    booking_completed: 'closed', wrong_status: 'closed', not_paid: 'closed', not_found: 'closed' };
   var SWAP_KEY = 'editRez_swap_pending_';
   var POLL = 20;          // max. pokusů (~40 s), dokud server hlásí pending / retry
   var POLL_MS = 2000;
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function t(k, p) { return MG.t(k, p); }
-  function price(n) { return n == null || !isFinite(Number(n)) ? '' : (MG.formatPrice ? MG.formatPrice(Number(n)) : Math.round(n) + ' Kč'); }
+  /** Vrácený doplatek přesně v Kč (vratka jde v CZK, ne v zobrazovací měně webu): „15 Kč", „7,50 Kč". */
+  function price(n) {
+    if (n == null || n === '' || !isFinite(Number(n))) return '';
+    var v = Math.round(Number(n) * 100) / 100;
+    var parts = (Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(v)) : v.toFixed(2)).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return parts.join(',') + ' Kč';
+  }
 
   /** Id Checkout Session z návratové adresy (doslovný zástupný text Stripe se ignoruje). */
   function sessionIdFromUrl() {
@@ -52,6 +65,18 @@
     return res.status === 503 ? { state: 'retry' } : null;
   }
 
+  /** `waived=1`: doplatek do 1 Kč server neúčtoval a změnu už zapsal (process-payment). */
+  function waivedFromUrl() {
+    try { return new URL(window.location.href).searchParams.get('waived') === '1'; } catch (e) { return false; }
+  }
+
+  /** Výsledek „nešlo zapsat" ze serveru → co ukázat (druh změny říká server, záloha = lokální záznam výměny). */
+  function failedOutcome(r, sw, id) {
+    var ck = r.change_kind || (sw ? 'swap' : null);
+    return { kind: TAKEN[r.reason] ? 'taken' : 'failed', reason: r.reason || null, staff: r.refund === 'staff',
+      amount: r.amount, swap: ck === 'swap', moto: ck === 'moto', id: id };
+  }
+
   function swapPending(id) {
     try { var raw = localStorage.getItem(SWAP_KEY + id); return raw ? (JSON.parse(raw) || {}) : null; } catch (e) { return null; }
   }
@@ -66,8 +91,20 @@
   ER._applyPendingAfterPayment = async function (id) {
     ER._paidOutcome = null;
     ER._paidByServer = false;
+    ER._swapCommitErr = null;
     var sid = sessionIdFromUrl();
     var sw = swapPending(id);
+    if (!sid && waivedFromUrl()) {
+      // Nic se neplatilo a změnu zapsal server — klient ji nezapisuje znovu, místo „Platba potvrzena…"
+      // rovnou „uloženo bez platby".
+      ER._paidByServer = true;
+      if (sw && sw.base && sw.base.p_new_moto_id) ER._lastSwapMoto = sw.base.p_new_moto_id;
+      clearPending(id);
+      var ap = document.querySelector('#edit-rez-content .edit-rez-card p');
+      if (ap) ap.textContent = t('editRez.paid.waived');
+      ER._paidOutcome = { kind: 'waived', id: id };
+      return true;
+    }
     if (sid) {
       var r = null;
       for (var i = 0; i < POLL; i++) {
@@ -90,7 +127,7 @@
         }
         clearPending(id); // změnu zapisuje / vyhodnotil server — klient ji už nezapisuje
         if (r.state === 'failed') {
-          ER._paidOutcome = { kind: TAKEN[r.reason] ? 'taken' : 'failed', staff: r.refund === 'staff', amount: r.amount, swap: !!sw, id: id };
+          ER._paidOutcome = failedOutcome(r, sw, id);
         } else if (r.state === 'not_paid') {
           ER._paidOutcome = { kind: 'notPaid', id: id };
         } else {
@@ -102,8 +139,32 @@
     var ok = false;
     try { ok = inner ? await inner.apply(this, arguments) : false; } catch (e) { ok = false; }
     if (!ok) {
-      // Výsledek neznámý (klientský zápis neprošel) — změnu dopíše / vyhodnotí server sám
-      // (webhook): žádná chyba s kontaktem, jen „platba proběhla, dokončujeme".
+      // Klientský zápis neprošel. Server (webhook) změnu vyhodnotí sám — zeptat se ho ještě
+      // (~20 s), ať zákazník nedostane „dokončujeme" u změny, která se nikdy nezapíše.
+      var last = null;
+      for (var j = 0; sid && j < 10; j++) {
+        try { last = await askServer(sid); } catch (e) { last = null; }
+        if (!last || (last.state !== 'pending' && last.state !== 'retry')) break;
+        await sleep(POLL_MS);
+      }
+      if (last && (last.state === 'applied' || last.state === 'already_applied')) {
+        ER._paidByServer = true;
+        if (sw && sw.base && sw.base.p_new_moto_id) ER._lastSwapMoto = sw.base.p_new_moto_id;
+        clearPending(id);
+        return true;
+      }
+      if (last && last.state === 'failed') {
+        clearPending(id);
+        ER._paidOutcome = failedOutcome(last, sw, id);
+        return true;
+      }
+      if (sw && TAKEN[ER._swapCommitErr]) {
+        // Výměnu odmítla obsazená motorka (klientský pokus) — server dojde ke stejnému výsledku
+        // a doplatek webové výměny vrátí automaticky (webová výměna nemá přibalené zboží).
+        ER._paidOutcome = { kind: 'taken', reason: ER._swapCommitErr, staff: false, amount: sw.n, swap: true, id: id };
+        return true;
+      }
+      // Výsledek pořád neznámý — změnu dopíše / vyhodnotí server sám: žádná chyba s kontaktem.
       ER._paidOutcome = { kind: 'finishing', id: id };
       return true;
     }
@@ -135,7 +196,12 @@
       body = t(o.staff ? 'editRez.paid.takenBodyStaff' : 'editRez.paid.takenBody', { amount: amount });
     } else if (o.kind === 'failed') {
       title = t('editRez.paid.failedTitle');
-      body = t(o.staff ? 'editRez.paid.failedBodyStaff' : 'editRez.paid.failedBody', { amount: amount });
+      var why = WHY[o.reason];
+      body = why
+        ? t('editRez.paid.why.' + why) + ' ' + t(o.staff ? 'editRez.paid.refundStaff' : 'editRez.paid.refundAuto', { amount: amount })
+        : t(o.staff ? 'editRez.paid.failedBodyStaff' : 'editRez.paid.failedBody', { amount: amount });
+    } else if (o.kind === 'waived') {
+      body = t('editRez.paid.waived');
     } else if (o.kind === 'notPaid') {
       body = t('editRez.paid.notPaid');
     } else {
@@ -152,7 +218,14 @@
     var row = document.createElement('div');
     row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px';
     function close() { if (sec.parentNode) sec.parentNode.removeChild(sec); }
-    if (o.kind === 'taken' && o.swap && o.id) {
+    if (o.kind === 'taken' && o.moto && o.id) {
+      // změna motorky v termínu (jádro, záložka „moto") — vybrat jinou tamtéž
+      row.appendChild(button(t('editRez.paid.pickOther'), 'btn btngreen-small', async function () {
+        close();
+        if (ER._resumeEdit) await ER._resumeEdit(o.id, 'moto');
+      }));
+      row.appendChild(button(t('editRez.paid.keepCurrent'), 'btn btndark', close));
+    } else if (o.kind === 'taken' && o.swap && o.id) {
       row.appendChild(button(t('editRez.paid.pickOther'), 'btn btngreen-small', async function () {
         close();
         if (ER._resumeEdit) await ER._resumeEdit(o.id, 'swap');
@@ -177,6 +250,8 @@
     var o = ER._paidOutcome;
     ER._paidOutcome = null;
     if (!o) return innerPickup ? innerPickup.apply(this, arguments) : undefined;
+    // Uloženo bez platby: blok „K vyzvednutí" jako po zaplacené změně + nahoře potvrzení.
+    if (o.kind === 'waived' && innerPickup) innerPickup.apply(this, arguments);
     renderOutcome(o);
   };
 
@@ -192,5 +267,5 @@
   };
 
   // Test hook (node): výběr výsledku bez DOM.
-  ER._paidTest = { sessionIdFromUrl: sessionIdFromUrl, renderOutcome: renderOutcome };
+  ER._paidTest = { sessionIdFromUrl: sessionIdFromUrl, renderOutcome: renderOutcome, price: price, failedOutcome: failedOutcome };
 })();

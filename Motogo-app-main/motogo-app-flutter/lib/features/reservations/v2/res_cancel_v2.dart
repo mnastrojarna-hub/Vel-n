@@ -5,6 +5,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_dialog.dart';
 import '../../../core/v2/widgets/mg_inputs.dart';
@@ -56,7 +57,9 @@ class ResCancelConfirmV2 extends StatelessWidget {
             border: Border.all(color: border),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr.tr('stornoConditions'), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+            MgWordFit(
+              child: Text(tr.tr('stornoConditions'), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+            ),
             const SizedBox(height: 2),
             Text(tr.tr('stornoRules'), style: MgType.meta.copyWith(color: MgColors.body2)),
             const SizedBox(height: 6),
@@ -64,12 +67,15 @@ class ResCancelConfirmV2 extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 12),
+        // Nápověda (fr / nl / uk / es s velkým písmem) se vejde celá:
+        // pole má 2 řádky a roste až na 4.
         TextField(
           enabled: !loading,
-          maxLines: 2,
+          minLines: 2,
+          maxLines: 4,
           onChanged: onReason,
           style: MgType.body.copyWith(color: MgColors.ink),
-          decoration: mgInputDecoration(context, hint: tr.tr('cancelReasonHint')),
+          decoration: mgInputDecoration(context, hint: tr.tr('cancelReasonHint')).copyWith(hintMaxLines: 4),
         ),
       ]),
       safe: MgBtnGhostLight(label: t(context).back, onTap: loading ? null : onKeep),

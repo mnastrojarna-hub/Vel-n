@@ -16,12 +16,14 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../documents/docs_gate_provider.dart';
 import '../../home/nickname_provider.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../../loyalty/loyalty_ranks_screen.dart' show openLoyaltyRanks;
 import '../../loyalty/v2/loyalty_info_sheet_v2.dart';
 import '../../loyalty/v2/loyalty_status_parts_v2.dart';
+import 'profile_fit.dart';
 
 /// Profil header "Můj klub" (V21 §1.2, V22 §2.4): dark rank hero — avatar in
 /// the tier ring + arc (→ ranks), gear (→ Nastavení), name, nickname chip
@@ -158,27 +160,7 @@ class _RankStrip extends StatelessWidget {
           border: Border.all(color: MgColors.neonA(0.18)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: Text(tr.tr('loyaltyMyRank').toUpperCase(),
-                  style: MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary)),
-            ),
-            Semantics(
-              button: true,
-              child: MgPress(
-                onTap: () => showLoyaltyInfoSheetV2(context),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const MgIcon(MgIcons.info, size: 16, color: MgColors.neonText),
-                    const SizedBox(width: 4),
-                    Text(tr.tr('loyaltyInfoBtn'),
-                        style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText)),
-                  ]),
-                ),
-              ),
-            ),
-          ]),
+          _StripTop(eyebrow: tr.tr('loyaltyMyRank').toUpperCase(), info: tr.tr('loyaltyInfoBtn')),
           Semantics(
             button: true,
             label: RankCopy.aria(tr, status.level, rankName, status.percent),
@@ -221,6 +203,45 @@ class _RankStrip extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+/// Eyebrow left, "O programu" right (as designed); when a word of the
+/// eyebrow would not fit beside the button (fr / nl / de, large text) the
+/// button moves under it instead of the eyebrow breaking in half
+/// (verify:render).
+class _StripTop extends StatelessWidget {
+  final String eyebrow;
+  final String info;
+  const _StripTop({required this.eyebrow, required this.info});
+
+  static final _eyebrowStyle = MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary);
+  static final _infoStyle = MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText);
+
+  @override
+  Widget build(BuildContext context) {
+    final label = MgWordFit(child: Text(eyebrow, style: _eyebrowStyle));
+    final button = Semantics(
+      button: true,
+      child: MgPress(
+        onTap: () => showLoyaltyInfoSheetV2(context),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const MgIcon(MgIcons.info, size: 16, color: MgColors.neonText),
+            const SizedBox(width: 4),
+            Text(info, style: _infoStyle),
+          ]),
+        ),
+      ),
+    );
+    return LayoutBuilder(builder: (context, box) {
+      final room = box.maxWidth - 20 - pfLineWidth(context, info, _infoStyle);
+      if (pfWordsFit(context, eyebrow, _eyebrowStyle, room)) {
+        return Row(children: [Expanded(child: label), button]);
+      }
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [label, button]);
+    });
   }
 }
 

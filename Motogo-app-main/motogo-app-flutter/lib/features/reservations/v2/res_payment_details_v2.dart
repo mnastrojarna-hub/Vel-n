@@ -8,11 +8,13 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_toast.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../documents/document_models.dart';
 import '../../documents/invoices_screen.dart' show InvoiceTile;
 import '../../payment/card_minimum.dart' show kcExact;
 import '../reservation_models.dart';
 import '../widgets/res_payment_details_tab.dart' show PaymentDetails;
+import 'res_fit_v2.dart';
 
 /// v2 look of `ResPaymentDetailsTab` ("Platební údaje" inside Peníze). The
 /// tab keeps the fetch (`paymentDetailsProvider`) and every derived value;
@@ -103,17 +105,58 @@ class ResPaymentDetailsV2 extends StatelessWidget {
   Widget _row(String label, String value, {bool bold = false, Color? color}) => Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: MgColors.line))),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Text(label, style: MgType.small.copyWith(color: MgColors.lead))),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(value,
-                textAlign: TextAlign.right,
-                style: MgType.tab(MgType.small.copyWith(
-                    fontWeight: bold ? FontWeight.w900 : FontWeight.w700, color: color ?? MgColors.ink))),
-          ),
-        ]),
+        child: _LabelValue(
+          label: label,
+          value: Text(value,
+              textAlign: TextAlign.right,
+              style: MgType.tab(MgType.small.copyWith(
+                  fontWeight: bold ? FontWeight.w900 : FontWeight.w700, color: color ?? MgColors.ink))),
+          valueText: value,
+          valueStyle: MgType.small.copyWith(fontWeight: bold ? FontWeight.w900 : FontWeight.w700),
+        ),
       );
+}
+
+/// Label vlevo a hodnota vpravo v jednom řádku, jen když se popisek vejde
+/// celými slovy (de „Reservierungsnummer", „Zahlungsmethode" na 320 dp s
+/// velkým písmem) — jinak hodnota pod popiskem (nikdy přetečení ani slovo
+/// rozdělené uprostřed).
+class _LabelValue extends StatelessWidget {
+  final String label;
+  final Widget value;
+  final String valueText;
+  final TextStyle valueStyle;
+  final double trailing;
+  const _LabelValue({
+    required this.label,
+    required this.value,
+    required this.valueText,
+    required this.valueStyle,
+    this.trailing = 0,
+  });
+
+  static final _labelStyle = MgType.small.copyWith(color: MgColors.lead);
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
+        final labelText = MgWordFit(minScale: 0.85, child: Text(label, style: _labelStyle));
+        final valueW = resLineWidth(context, valueText, valueStyle);
+        // Hodnota dostane, co potřebuje (max. 60 %), popisek zbytek.
+        final valueSlot = valueW.clamp(0.0, c.maxWidth * 0.6) + trailing;
+        final inline = resWordsFit(context, label, _labelStyle, c.maxWidth - 12 - valueSlot, minScale: 0.85);
+        if (inline) {
+          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: labelText),
+            const SizedBox(width: 12),
+            ConstrainedBox(constraints: BoxConstraints(maxWidth: valueSlot), child: value),
+          ]);
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          labelText,
+          const SizedBox(height: 2),
+          Align(alignment: AlignmentDirectional.centerEnd, child: value),
+        ]);
+      });
 }
 
 /// Long ID row — tap copies it (same as today's `_CopyRow`).
@@ -138,17 +181,21 @@ class _CopyRowV2 extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 44),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: MgColors.line))),
-          child: Row(children: [
-            Text(label, style: MgType.small.copyWith(color: MgColors.lead)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(value,
-                  textAlign: TextAlign.right,
-                  style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink))),
-            ),
-            const SizedBox(width: 6),
-            const MgIcon(MgIcons.copy, size: 16, color: MgColors.meta),
-          ]),
+          child: _LabelValue(
+            label: label,
+            valueText: value,
+            valueStyle: MgType.small.copyWith(fontWeight: FontWeight.w700),
+            trailing: 22,
+            value: Row(mainAxisSize: MainAxisSize.min, children: [
+              Flexible(
+                child: Text(value,
+                    textAlign: TextAlign.right,
+                    style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink))),
+              ),
+              const SizedBox(width: 6),
+              const MgIcon(MgIcons.copy, size: 16, color: MgColors.meta),
+            ]),
+          ),
         ),
       ),
     );

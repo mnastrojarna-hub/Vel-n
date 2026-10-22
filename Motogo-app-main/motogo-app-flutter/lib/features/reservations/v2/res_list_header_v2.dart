@@ -12,6 +12,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
+import 'res_fit_v2.dart';
 
 /// Compact dark rank header of the Rezervace tab (V22 `.ls-h`): logo in the
 /// tier ring, "Moje rezervace" + "Přehled všech rezervací", a "Živě" pill
@@ -42,25 +43,31 @@ class ResListHeaderV2 extends ConsumerWidget {
       ambientKey: 'reservations',
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Padding(padding: const EdgeInsets.all(4), child: frame),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Semantics(
-                header: true,
-                child: MgWordFit(
-                  minScale: 0.75,
-                  child: Text(tr.tr('myReservations'), style: MgType.h2.copyWith(color: MgColors.onDark)),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(tr.tr('resOverview'), style: MgType.small.copyWith(color: MgColors.onDarkSecondary)),
-            ]),
-          ),
-          const SizedBox(width: 8),
-          const _LivePill(),
-        ]),
+        LayoutBuilder(builder: (context, c) {
+          final titleStyle = MgType.h2.copyWith(color: MgColors.onDark);
+          final heading = Semantics(
+            header: true,
+            child: MgWordFit(minScale: 0.75, child: Text(tr.tr('myReservations'), style: titleStyle)),
+          );
+          final sub = Text(tr.tr('resOverview'), style: MgType.small.copyWith(color: MgColors.onDarkSecondary));
+          // „Živě" vedle nadpisu jen když se nadpis vejde celými slovy
+          // (de / fr / nl / pl / uk na 320 dp, velké písmo) — jinak pod ním.
+          final pillW = resLineWidth(context, tr.tr('v2ResLive'), _LivePill.style) + 36;
+          final inline = resWordsFit(context, tr.tr('myReservations'), titleStyle, c.maxWidth - 52 - 10 - 8 - pillW, minScale: 0.75);
+          return Row(children: [
+            Padding(padding: const EdgeInsets.all(4), child: frame),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                heading,
+                const SizedBox(height: 2),
+                sub,
+                if (!inline) ...[const SizedBox(height: 8), const _LivePill()],
+              ]),
+            ),
+            if (inline) ...[const SizedBox(width: 8), const _LivePill()],
+          ]);
+        }),
         if (status != null) ...[
           const SizedBox(height: 12),
           MgRankChip(
@@ -75,6 +82,8 @@ class ResListHeaderV2 extends ConsumerWidget {
 
 class _LivePill extends StatelessWidget {
   const _LivePill();
+
+  static final style = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText);
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +102,7 @@ class _LivePill extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           const MgPing(size: 8, color: MgColors.neon),
           const SizedBox(width: 6),
-          Text(tr.tr('v2ResLive'), style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText)),
+          Text(tr.tr('v2ResLive'), style: style),
         ]),
       ),
     );

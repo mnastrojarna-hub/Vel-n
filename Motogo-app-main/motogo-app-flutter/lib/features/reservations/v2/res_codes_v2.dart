@@ -6,6 +6,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_toast.dart';
@@ -154,7 +155,7 @@ class ResCodesV2 extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
+            MgWordFit(child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
             if (!sent)
               Text(value, style: MgType.meta.copyWith(color: MgColors.warnDark))
             else if (sub != null)

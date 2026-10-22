@@ -8,6 +8,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
 
 /// Shared bits of the v2 reservations look (PLAN §2.4): status words and
@@ -124,22 +125,26 @@ class ResPhotoChip extends StatelessWidget {
     return Semantics(
       label: semanticLabel ?? label,
       excludeSemantics: true,
+      // Dlouhý štítek („Moto de remplacement pour incident SOS" na 320 dp)
+      // se zalomí do 2 řádků celými slovy místo useknutí.
       child: Container(
-        height: 26,
-        padding: const EdgeInsets.fromLTRB(6, 0, 9, 0),
+        constraints: const BoxConstraints(minHeight: 26),
+        padding: const EdgeInsets.fromLTRB(6, 3, 9, 3),
         decoration: BoxDecoration(
           color: MgColors.nightA(0.82),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(13),
           border: Border.all(color: border),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           MgIcon(icon, size: 14, color: iconColor, stroke: 2.2),
           const SizedBox(width: 4),
           Flexible(
-            child: Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: textColor ?? MgColors.onDark)),
+            child: MgWordFit(
+              child: Text(label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: textColor ?? MgColors.onDark)),
+            ),
           ),
         ]),
       ),

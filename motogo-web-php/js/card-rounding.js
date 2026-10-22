@@ -18,9 +18,19 @@
     if (p) Object.keys(p).forEach(function (x) { s = s.split('{' + x + '}').join(String(p[x])); });
     return s;
   }
+  /** Částka dorovnání / platby kartou VŽDY přesně v Kč (Stripe účtuje v CZK; zobrazovací měna webu
+   *  by zaokrouhlila 7,50 → 8 a z 14,60 udělala dorovnání „0 Kč"): celé Kč bez desetin, jinak „7,50 Kč". */
   function fp(n) {
+    var v = Math.round((Number(n) || 0) * 100) / 100;
+    var whole = Math.abs(v - Math.round(v)) < 0.005;
+    var parts = (whole ? String(Math.round(v)) : v.toFixed(2)).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return parts.join(',') + ' Kč';
+  }
+  /** Původní částka u tlačítka „Zaplatit" (v zobrazovací měně jako jádro rezervace). */
+  function fpDisplay(n) {
     if (typeof MG.formatPrice === 'function') { var s = MG.formatPrice(n); if (s) return s; }
-    return Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' Kč';
+    return fp(n);
   }
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
@@ -84,7 +94,11 @@
     var st = document.createElement('style');
     st.textContent = '.mg-card-round{margin:.35rem 0 0;font-size:.9rem;line-height:1.35;color:#3a4a40}'
       + '.mg-card-round-line{font-weight:600}.mg-card-round-note{opacity:.85}'
-      + '.erez-card-note{display:block;margin-top:.35rem;font-size:.88rem;font-weight:500;color:#3a4a40}';
+      + '.erez-card-note{display:block;margin-top:.35rem;font-size:.88rem;font-weight:500;color:#3a4a40}'
+      // krok platby rezervace: věta patří pod částku a tlačítko „Zaplatit" na každé šířce (na mobilu
+      // řadí main.css volbu platby 1 / částku 2 / zpět 3 — bez order by věta skočila nad volbu platby)
+      + '.rez-step2-actions>.mg-card-round{order:2;flex:0 0 auto;width:100%;text-align:center}'
+      + '@media(min-width:769px){.rez-step2-actions>.mg-card-round{text-align:right}}';
     (document.head || document.documentElement).appendChild(st);
   } catch (e) { /* noop */ }
 
@@ -111,11 +125,17 @@
     var online = !m || m.value === 'online'; // QR platba převodem minimum karty nemá
     var html = online && isFinite(due) ? MG.cardNoteLines(due, 'rez') : '';
     place(amt.parentNode, 'mg-card-round-rez', html);
-    payAmount(amt, html && MG.cardCharge(due).kind === 'round' ? fp(MIN) : null, isFinite(due) ? fp(due) : null);
+    payAmount(amt, html ? chargeText(due) : null, isFinite(due) ? fpDisplay(due) : null);
   }
 
-  /** Částka u tlačítka „Zaplatit": s dorovnáním 15 Kč (stejně jako na stránce Stripe);
-   *  bez dorovnání se vrátí původní částka (jen když ji změnil tenhle soubor). */
+  /** Co se opravdu zaplatí kartou: dorovnání → 15 Kč, odpuštění (do 1 Kč) → 0 Kč, jinak nic neměnit. */
+  function chargeText(due) {
+    var k = MG.cardCharge(due).kind;
+    return k === 'round' ? fp(MIN) : (k === 'waive' ? fp(0) : null);
+  }
+
+  /** Částka u tlačítka „Zaplatit": s dorovnáním 15 Kč (stejně jako na stránce Stripe), odpuštěná
+   *  částka do 1 Kč 0 Kč; jinak se vrátí původní částka (jen když ji změnil tenhle soubor). */
   function payAmount(el, roundText, normalText) {
     if (!el) return;
     if (roundText) {
@@ -135,7 +155,7 @@
     var dl = tot.closest ? tot.closest('dl') : null;
     var html = due > 0 ? MG.cardNoteLines(due, 'shop') : '';
     place(dl || tot, 'mg-card-round-shop', html);
-    payAmount(document.querySelector('[data-checkout-pay]'), html && MG.cardCharge(due).kind === 'round' ? fp(MIN) : null, tot.textContent);
+    payAmount(document.querySelector('[data-checkout-pay]'), html ? chargeText(due) : null, tot.textContent);
   }
 
   var pending = false;

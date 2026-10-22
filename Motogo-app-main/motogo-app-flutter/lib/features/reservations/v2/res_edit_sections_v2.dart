@@ -8,6 +8,8 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'res_fit_v2.dart';
 
 /// v2 shell of `EditCard` (white card, 1 px line, r16) with the SAME outer
 /// gutter, so the edit sections drop into the v2 page unchanged.
@@ -140,11 +142,21 @@ class EditCalendarSectionV2 extends StatelessWidget {
         ]),
         if (tab == 'shorten' && !isActive) ...[
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: MgChoiceChip(label: tr.tr('shortenStart'), selected: shortenDir == 'start', onTap: onShortenStart)),
-            const SizedBox(width: 8),
-            Expanded(child: MgChoiceChip(label: tr.tr('shortenEnd'), selected: shortenDir == 'end', onTap: onShortenEnd)),
-          ]),
+          // Vedle sebe jen když se popisky vejdou celými slovy (fr / uk na
+          // 320 dp s velkým písmem) — jinak pod sebou.
+          LayoutBuilder(builder: (context, c) {
+            final start = MgChoiceChip(label: tr.tr('shortenStart'), selected: shortenDir == 'start', onTap: onShortenStart);
+            final end = MgChoiceChip(label: tr.tr('shortenEnd'), selected: shortenDir == 'end', onTap: onShortenEnd);
+            // Chip: padding 2×14 + rámeček + ✓ 16 + 6 (vybraný).
+            final w = (c.maxWidth - 8) / 2 - 52;
+            final style = MgType.small.copyWith(fontWeight: FontWeight.w800);
+            final row = resWordsFit(context, tr.tr('shortenStart'), style, w, minScale: 0.8) &&
+                resWordsFit(context, tr.tr('shortenEnd'), style, w, minScale: 0.8);
+            if (!row) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [start, const SizedBox(height: 8), end]);
+            }
+            return Row(children: [Expanded(child: start), const SizedBox(width: 8), Expanded(child: end)]);
+          }),
         ],
         const SizedBox(height: 12),
         Container(
@@ -188,10 +200,19 @@ class EditCalendarSectionV2 extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: MgColors.lineInput, width: 1.5),
         ),
+        // Celá slova (uk „ПОВЕРНЕННЯ", cs „VYZVEDNUTÍ" v půlce 320 dp s
+        // velkým písmem): radši menší než rozdělené.
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label.toUpperCase(), style: MgType.micro.copyWith(letterSpacing: 0.4, color: MgColors.meta)),
+          MgWordFit(
+            minScale: 0.7,
+            child: Text(label.toUpperCase(), maxLines: 2, style: MgType.micro.copyWith(letterSpacing: 0.4, color: MgColors.meta)),
+          ),
           const SizedBox(height: 2),
-          Text(value, style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+          MgWordFit(
+            minScale: 0.8,
+            fitLines: 1,
+            child: Text(value, style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+          ),
         ]),
       );
 }
@@ -239,9 +260,15 @@ class EditRiderHeaderV2 extends StatelessWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 MgIcon(ownGear ? MgIcons.checkCircle : MgIcons.check, size: 18, color: ownGear ? MgColors.link : MgColors.meta),
                 const SizedBox(width: 6),
-                Text(ownGearLabel,
-                    style: MgType.small.copyWith(
-                        fontWeight: FontWeight.w700, color: ownGear ? MgColors.ink : MgColors.lead)),
+                // Delší popisek (de „Ich habe meine eigene Ausrüstung") se
+                // zalomí v mezeře místo přetečení vpravo.
+                Flexible(
+                  child: MgWordFit(
+                    child: Text(ownGearLabel,
+                        style: MgType.small.copyWith(
+                            fontWeight: FontWeight.w700, color: ownGear ? MgColors.ink : MgColors.lead)),
+                  ),
+                ),
               ]),
             ),
           ),

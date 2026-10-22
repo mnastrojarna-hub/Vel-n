@@ -8,6 +8,7 @@ import '../../../core/widgets/moto_fx.dart';
 import '../../booking/booking_models.dart';
 import '../../../core/currency.dart';
 import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_gear_v2.dart';
 import '../v2/res_edit_sections_v2.dart';
 
 // ignore_for_file: library_private_types_in_public_api
@@ -238,6 +239,24 @@ class EditGearSizePicker extends StatelessWidget {
           color: selectedSize != null ? MotoGoColors.green : MotoGoColors.g200,
           width: selectedSize != null ? 2 : 1)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // v2 vzhled (kill-switch app_v2_ui): tytéž texty, pravá část se při
+        // nedostatku místa zalomí pod název (uk / nl na 320 dp přetékalo).
+        if (MgV2.on(context))
+          EditGearHeaderV2(
+            icon: AnimatedScale(
+              scale: selectedSize != null ? 1.25 : 1.0,
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutBack,
+              child: Icon(icon, size: 16, color: MotoGoColors.greenDarker)),
+            label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+            trailing: [
+              if (selectedSize != null)
+                Text(t(context).trArgs('chosenSize', {'size': selectedSize}),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
+              Text(t(context).tr('gearFree').toUpperCase(), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
+            ],
+          )
+        else
         Row(children: [
           AnimatedScale(
             scale: selectedSize != null ? 1.25 : 1.0,

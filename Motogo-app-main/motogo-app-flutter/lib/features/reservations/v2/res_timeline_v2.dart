@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
 
 enum _Node { done, current, future, cancelled }
@@ -165,11 +166,17 @@ class _NodeCell extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 6),
-        Text(label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            style: MgType.micro.copyWith(
-                fontWeight: FontWeight.w800, color: strong ? MgColors.ink : MgColors.meta, height: 1.15)),
+        // Celá slova („Повернення", „Devolución" ve čtvrtině 320 dp s velkým
+        // písmem): radši menší než rozdělené.
+        MgWordFit(
+          minScale: 0.7,
+          alignment: Alignment.topCenter,
+          child: Text(label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: MgType.micro.copyWith(
+                  fontWeight: FontWeight.w800, color: strong ? MgColors.ink : MgColors.meta, height: 1.15)),
+        ),
         if (sub != null) ...[
           const SizedBox(height: 2),
           Text(sub!,

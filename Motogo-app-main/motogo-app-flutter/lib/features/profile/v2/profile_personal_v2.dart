@@ -7,6 +7,8 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'profile_fit.dart';
 import 'profile_personal_form_v2.dart';
 import 'profile_v2_parts.dart';
 
@@ -74,20 +76,22 @@ class ProfilePersonalV2 extends StatelessWidget {
     return MgCard(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(tr.tr('personalInfo'), style: MgType.section.copyWith(color: MgColors.ink)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _EditButton(
-            label: open ? tr.tr('close') : tr.tr('edit'),
-            icon: open ? MgIcons.close : MgIcons.edit,
-            onTap: onToggle,
-          ),
-        ]),
+        // Title left, Upravit right (as designed); when a word of the title
+        // would not fit beside the button (de / fr / nl / uk, large text) the
+        // button moves under it instead of the title breaking (verify:render).
+        LayoutBuilder(builder: (context, box) {
+          final label = open ? tr.tr('close') : tr.tr('edit');
+          final title = tr.tr('personalInfo');
+          final head = Semantics(
+            header: true,
+            child: MgWordFit(child: Text(title, style: MgType.section.copyWith(color: MgColors.ink))),
+          );
+          final button = _EditButton(label: label, icon: open ? MgIcons.close : MgIcons.edit, onTap: onToggle);
+          if (pfWordsFit(context, title, MgType.section, box.maxWidth - 8 - _EditButton.widthFor(context, label))) {
+            return Row(children: [Expanded(child: head), const SizedBox(width: 8), button]);
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [head, const SizedBox(height: 8), button]);
+        }),
         const SizedBox(height: 12),
         PfAnimatedSize(
           child: open
@@ -105,6 +109,11 @@ class _EditButton extends StatelessWidget {
   final VoidCallback onTap;
   const _EditButton({required this.label, required this.icon, required this.onTap});
 
+  static final _labelStyle = MgType.ctaCompact.copyWith(letterSpacing: 0, color: MgColors.link);
+
+  /// Painted width: 2 × 14 padding + 2 × 1.5 border + 18 icon + 6 + label.
+  static double widthFor(BuildContext context, String label) => 55 + pfLineWidth(context, label, _labelStyle);
+
   @override
   Widget build(BuildContext context) => Semantics(
         button: true,
@@ -121,7 +130,7 @@ class _EditButton extends StatelessWidget {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               MgIcon(icon, size: 18, color: MgColors.link),
               const SizedBox(width: 6),
-              Text(label, style: MgType.ctaCompact.copyWith(letterSpacing: 0, color: MgColors.link)),
+              Text(label, style: _labelStyle),
             ]),
           ),
         ),
@@ -148,7 +157,7 @@ class _Summary extends StatelessWidget {
       [_s('zip'), _s('city')].whereType<String>().join(' '),
       _s('country'),
     ].whereType<String>().where((e) => e.trim().isNotEmpty).join(', ');
-    Widget f(String label, String? value, {bool wide = false, bool lock = false}) =>
+    _Field f(String label, String? value, {bool wide = false, bool lock = false}) =>
         _Field(label: label, value: value, fill: tr.tr('v2PfFill'), lock: lock, wide: wide);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       f(tr.tr('fullNameLabel'), _s('full_name'), wide: true),
@@ -169,16 +178,24 @@ class _Summary extends StatelessWidget {
   }
 }
 
+/// Two fields side by side; stacked when a word of either would not fit its
+/// half (e.g. "Führerscheinnummer" at 320 dp — verify:render).
 class _Pair extends StatelessWidget {
-  final Widget a, b;
+  final _Field a, b;
   const _Pair(this.a, this.b);
 
   @override
-  Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(child: a),
-        const SizedBox(width: 16),
-        Expanded(child: b),
-      ]);
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
+        final half = (box.maxWidth - 16) / 2;
+        if (!a.fits(context, half) || !b.fits(context, half)) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [a, b]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: a),
+          const SizedBox(width: 16),
+          Expanded(child: b),
+        ]);
+      });
 }
 
 class _Field extends StatelessWidget {
@@ -189,27 +206,30 @@ class _Field extends StatelessWidget {
   final bool wide;
   const _Field({required this.label, required this.value, required this.fill, this.lock = false, this.wide = false});
 
+  TextStyle get _valueStyle => value == null
+      ? MgType.body.copyWith(
+          fontWeight: FontWeight.w800,
+          color: MgColors.warn,
+          decoration: TextDecoration.underline,
+          decorationStyle: TextDecorationStyle.dashed,
+          decorationColor: MgColors.warnBorder)
+      : MgType.body.copyWith(color: MgColors.ink);
+
+  /// Label and value keep whole words in [width] (label scaled to 0.85 at most).
+  bool fits(BuildContext context, double width) =>
+      pfWordsFit(context, label, MgType.meta, width, minScale: 0.85) &&
+      pfWordsFit(context, value ?? fill, _valueStyle, width - (lock ? 22 : 0));
+
   @override
   Widget build(BuildContext context) {
-    final missing = value == null;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: MergeSemantics(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: MgType.meta.copyWith(color: MgColors.meta)),
+          MgWordFit(minScale: 0.85, child: Text(label, style: MgType.meta.copyWith(color: MgColors.meta))),
           const SizedBox(height: 2),
           Row(children: [
-            Flexible(
-              child: Text(missing ? fill : value!,
-                  style: missing
-                      ? MgType.body.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: MgColors.warn,
-                          decoration: TextDecoration.underline,
-                          decorationStyle: TextDecorationStyle.dashed,
-                          decorationColor: MgColors.warnBorder)
-                      : MgType.body.copyWith(color: MgColors.ink)),
-            ),
+            Flexible(child: Text(value ?? fill, style: _valueStyle)),
             if (lock) ...[const SizedBox(width: 6), const MgIcon(MgIcons.lock, size: 16, color: MgColors.meta)],
           ]),
         ]),

@@ -7,6 +7,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../reservation_models.dart';
 import '../widgets/res_location_row.dart';
@@ -117,10 +118,11 @@ class ResGearV2 extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: MgColors.line),
                 ),
+                // Název se při nedostatku místa (fr na 320 dp) zalomí v mezeře.
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   MgIcon(g.$1, size: 16, color: MgColors.link),
                   const SizedBox(width: 6),
-                  Text(g.$2, style: MgType.small.copyWith(color: MgColors.body2)),
+                  Flexible(child: MgWordFit(child: Text(g.$2, style: MgType.small.copyWith(color: MgColors.body2)))),
                   const SizedBox(width: 4),
                   Text(g.$3, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
                 ]),

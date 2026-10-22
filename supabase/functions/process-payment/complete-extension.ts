@@ -19,8 +19,9 @@
 //     (unconfirmed = requires_action / requires_confirmation: 3D Secure ještě běží —
 //      appka položku fronty NEmaže, dokud platba neskončí zaplacením nebo zrušením)
 //   {success:false, state:'retry',    code:'apply_failed' | 'rounding_unavailable'}  HTTP 503
-//   {success:false, state:'failed',   code:'change_failed', reason, refund:'auto'|'staff', amount}
-//     (reason new_moto_unavailable = motorku mezitím obsadila jiná rezervace — ta má přednost)
+//   {success:false, state:'failed',   code:'change_failed', reason, refund:'auto'|'staff', amount, change_kind?}
+//     (reason new_moto_unavailable = motorku mezitím obsadila jiná rezervace — ta má přednost;
+//      change_kind 'swap' | 'moto' | 'edit' = co se nezapsalo — web podle toho nabídne další krok)
 //   {success:false, state:'failed',   code:'stale_payment', reason:'refunded'|'stale_payment', refund}  HTTP 409
 //   {success:false, state:'not_paid', code:'not_paid'}
 //   chyby: 401 auth_required · 403 forbidden · 404 not_found · 409 not_extension · 503 stripe_unavailable
@@ -44,6 +45,18 @@ export type CompleteDeps = { stripe?: StripeAny; auth?: (req: Request) => Promis
 export const failedText = (reason: string | null | undefined, staff: boolean) => {
   const taken = !!reason && TAKEN_REASONS.has(reason)
   return staff ? (taken ? CS.change_failed_taken_staff : CS.change_failed_staff) : (taken ? CS.change_failed_taken : CS.change_failed)
+}
+
+/** Druh zaplacené změny z metadat (web podle něj nabídne „Vybrat jinou motorku" na správné
+ *  záložce i bez lokálního záznamu prohlížeče): výměna (`_swap`), změna motorky v termínu
+ *  (`p_new_moto_id`), jiná úprava. Bez čitelného payloadu → null (pole se neposílá). */
+export function changeKind(md: Record<string, string | undefined>): 'swap' | 'moto' | 'edit' | null {
+  try {
+    const c = JSON.parse(chgFromMetadata(md) || 'null') as Record<string, unknown> | null
+    if (!c || typeof c !== 'object') return null
+    if (c._swap && typeof c._swap === 'object') return 'swap'
+    return c.p_new_moto_id ? 'moto' : 'edit'
+  } catch { return null }
 }
 
 /** Web: Checkout Session doplatku → {piId, metadata, paidCzk} nebo hotová odpověď (nezaplaceno / cizí). */
@@ -118,6 +131,8 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   }
 
   const paidCzk = web?.paidCzk ?? (pi.amount_received || pi.amount || 0) / 100
+  const kind = changeKind(md)
+  const kindField = kind ? { change_kind: kind } : {}
   // Web Checkout nenese attempt_id / chg_hash (ty má jen PaymentIntent z appky) → lhůta 72 h.
   const el = await paidChangeEligibility(sb, { ...pi, metadata: md }, { bookingId, requireNewCode: !web,
     maxAgeH: web ? PREVIOUS_MAX_AGE_H : QUEUE_MAX_AGE_H, stripe })
@@ -132,7 +147,7 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
       const staff = el.refund === 'staff' || el.refund === 'none'
       return respond(200, {
         success: false, state: 'failed', code: 'change_failed', reason: el.reason,
-        error: failedText(el.reason, staff), refund: staff ? 'staff' : 'auto', amount: paidCzk, booking_id: bookingId,
+        error: failedText(el.reason, staff), refund: staff ? 'staff' : 'auto', amount: paidCzk, booking_id: bookingId, ...kindField,
       })
     }
     if (el.kind === 'refunded') {
@@ -174,6 +189,6 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   const staff = mode === 'staff' || mode === 'none'
   return respond(200, {
     success: false, state: 'failed', code: 'change_failed', reason: r.reason, error: failedText(r.reason, staff),
-    refund: staff ? 'staff' : 'auto', amount: paidCzk, booking_id: bookingId,
+    refund: staff ? 'staff' : 'auto', amount: paidCzk, booking_id: bookingId, ...kindField,
   })
 }

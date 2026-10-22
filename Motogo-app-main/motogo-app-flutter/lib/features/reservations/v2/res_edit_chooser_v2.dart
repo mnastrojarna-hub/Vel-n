@@ -5,6 +5,8 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'res_fit_v2.dart';
 
 /// What the customer wants to change (V22 edit chooser "Co chceš změnit?").
 /// extend / shorten / move / swap = today's four tabs; time / place / moto
@@ -69,8 +71,15 @@ class ResEditChooserV2 extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text(tr.tr('v2ResEditWhatSub'), style: MgType.body.copyWith(color: MgColors.lead)),
         const SizedBox(height: 16),
+        // Dvě dlaždice vedle sebe, jen když se všechny názvy i podtitulky
+        // vejdou celými slovy (nl „Overdrachtsplek", de „Stornobedingungen"
+        // na 320 / 360 dp) — jinak jeden sloupec s ikonou vlevo.
         LayoutBuilder(builder: (context, c) {
-          final w = (c.maxWidth - 8) / 2;
+          final half = (c.maxWidth - 8) / 2 - _Tile.pad;
+          final two = intents.every((x) =>
+              resWordsFit(context, resEditIntentTitle(tr, x), _Tile.titleStyle, half, minScale: 0.85) &&
+              resWordsFit(context, _sub(tr, x), _Tile.subStyle, half, minScale: 0.85));
+          final w = two ? (c.maxWidth - 8) / 2 : c.maxWidth;
           return Wrap(spacing: 8, runSpacing: 8, children: [
             for (var i = 0; i < intents.length; i++)
               SizedBox(
@@ -81,6 +90,7 @@ class ResEditChooserV2 extends StatelessWidget {
                     icon: _icon(intents[i]),
                     title: resEditIntentTitle(tr, intents[i]),
                     sub: _sub(tr, intents[i]),
+                    wide: !two,
                     onTap: () => onPick(intents[i]),
                   ),
                 ),
@@ -96,11 +106,23 @@ class _Tile extends StatelessWidget {
   final String icon;
   final String title;
   final String sub;
+  final bool wide;
   final VoidCallback onTap;
-  const _Tile({required this.icon, required this.title, required this.sub, required this.onTap});
+  const _Tile({required this.icon, required this.title, required this.sub, required this.wide, required this.onTap});
+
+  static final titleStyle = MgType.title.copyWith(color: MgColors.ink);
+  static final subStyle = MgType.small.copyWith(color: MgColors.meta);
+
+  /// Inner padding + border of a tile.
+  static const pad = 24 + 2.0;
 
   @override
   Widget build(BuildContext context) {
+    final texts = Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      MgWordFit(minScale: 0.85, child: Text(title, style: titleStyle)),
+      const SizedBox(height: 2),
+      MgWordFit(minScale: 0.85, child: Text(sub, style: subStyle)),
+    ]);
     return Semantics(
       button: true,
       label: '$title, $sub',
@@ -108,7 +130,7 @@ class _Tile extends StatelessWidget {
       child: MgPress(
         onTap: onTap,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 104),
+          constraints: BoxConstraints(minHeight: wide ? 72 : 104),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -119,13 +141,17 @@ class _Tile extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: MgColors.line),
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-            MgIcon(icon, size: 22, color: MgColors.link),
-            const SizedBox(height: 8),
-            Text(title, style: MgType.title.copyWith(color: MgColors.ink)),
-            const SizedBox(height: 2),
-            Text(sub, style: MgType.small.copyWith(color: MgColors.meta)),
-          ]),
+          child: wide
+              ? Row(children: [
+                  MgIcon(icon, size: 22, color: MgColors.link),
+                  const SizedBox(width: 12),
+                  Expanded(child: texts),
+                ])
+              : Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                  MgIcon(icon, size: 22, color: MgColors.link),
+                  const SizedBox(height: 8),
+                  texts,
+                ]),
         ),
       ),
     );

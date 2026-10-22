@@ -242,9 +242,6 @@ export async function handleWebBookingCheckout(
     },
     quantity: 1
   }]
-  if (rounding) {
-    lineItems.push({ price_data: { currency, unit_amount: Math.round(rounding.r * 100), product_data: { name: roundingLabel(body.locale) } }, quantity: 1 })
-  }
   const sessionMetadata: Record<string, string> = { booking_id: body.booking_id!, type: 'booking', source: 'web',
     ...(rounding ? { due: String(rounding.due), card_rounding: String(rounding.r) } : {}) }
 
@@ -284,6 +281,11 @@ export async function handleWebBookingCheckout(
       }
       sessionMetadata.shop_order_id = shopOrderId
     }
+  }
+  // Dorovnání až za přibalené zboží a dopravu — počítá se z celé platby (rezervace + e-shop),
+  // na stránce Stripe tak nevypadá, že patří jen k rezervaci.
+  if (rounding) {
+    lineItems.push({ price_data: { currency, unit_amount: Math.round(rounding.r * 100), product_data: { name: roundingLabel(body.locale) } }, quantity: 1 })
   }
 
   // Platební metody hosted Checkoutu (webová „stránka stripe"): JEN `['card']`.
