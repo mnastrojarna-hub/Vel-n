@@ -78,11 +78,11 @@ class RideCardV2 extends StatelessWidget {
                     if (days >= 2) RideBadgeV2(kind: RideBadgeKind.days, label: recDaysV2(tr, days)),
                   ]),
                   const SizedBox(height: 6),
-                  // Celý název (až 3 řádky), slovo se nikdy nerozdělí (de „Aufgezeichnete").
+                  // Celý název (až 4 řádky), slovo se nikdy nerozdělí (de „Aufgezeichnete").
                   MgWordFit(
                     minScale: 0.8,
                     child: Text(name,
-                        maxLines: 3,
+                        maxLines: 4,
                         overflow: TextOverflow.ellipsis,
                         style: MgType.title.copyWith(color: MgColors.ink)),
                   ),

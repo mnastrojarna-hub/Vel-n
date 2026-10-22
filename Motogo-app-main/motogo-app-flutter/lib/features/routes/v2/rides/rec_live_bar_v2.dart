@@ -38,6 +38,9 @@ class RecLiveBarV2 extends StatelessWidget {
       final ts = MediaQuery.textScalerOf(context).scale(1);
       final avail = c.maxWidth - 44 - 50 - (rec.canStop ? 50 : 0);
       final stacked = avail < 120 * ts;
+      // „Ukončit" s popiskem v druhém řádku, nebo vedle textu na lištách od
+      // 300 dp při běžném písmu (jinak jen 44px ikona, popisek v sémantice).
+      final stopLabel = rec.canStop && (stacked || (c.maxWidth >= 300 && ts <= 1.05));
       final text = Semantics(
         button: onOpen != null,
         liveRegion: true,
@@ -80,7 +83,7 @@ class RecLiveBarV2 extends StatelessWidget {
         RecPauseDiscV2(paused: rec.isManualPaused, onTap: onPause),
         const SizedBox(width: 6),
         if (rec.canStop) ...[
-          RecStopButtonV2(onTap: onStop, iconOnly: true),
+          RecStopButtonV2(onTap: onStop, iconOnly: !stopLabel),
           const SizedBox(width: 6),
         ],
       ];
@@ -112,7 +115,8 @@ class RecLiveBarV2 extends StatelessWidget {
 String recBarLineV2(AppTranslations tr, RideRecorderState rec, RecPhaseV2 ph) {
   final mode = tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto');
   return switch (ph.tone) {
-    RecToneV2.rec => recLiveBitsV2(tr, rec, avg: false).take(2).join(' · '),
+    // Než přibude první kilometr: jen režim (vlastní / z výpůjčky).
+    RecToneV2.rec => rec.liveKm <= 0 && rec.liveMovingSec <= 0 ? mode : recLiveBitsV2(tr, rec, avg: false).take(2).join(' · '),
     RecToneV2.paused => [if (ph.since != null) ph.since!, recLiveBitsV2(tr, rec, avg: false).first].join(' · '),
     RecToneV2.armed => mode,
     RecToneV2.warn => tr.tr('v2RtRecGps'),
