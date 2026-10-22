@@ -510,7 +510,7 @@ return [
     'rez.agree.photo' => 'Souhlasím s využitím fotografií pro marketingové účely',
 
     // ===== Rezervace — CTA / cena =====
-    'rez.cta.continue' => 'Pokračovat v rezervaci →',
+    'rez.cta.continue' => 'Pokračovat →',
     'rez.cta.continuePay' => 'Pokračovat k platbě',
     'rez.totalPrice' => 'Celková cena: {price}',
     'rez.discount' => 'Sleva: −{amount}',

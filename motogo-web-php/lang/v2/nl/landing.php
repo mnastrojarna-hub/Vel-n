@@ -45,9 +45,9 @@ return ['pages' => ['landing' => [
         'reasons_less' => 'Toon minder',
         'reasons' => [
             // 2026-10-22: flexibilita rezervace do popředí (jako CS)
-            ['icon' => 'swap', 'title' => 'Je data altijd gratis verzetten', 'text' => 'Slecht weer of andere plannen? Verzet je reservering naar andere dagen, zonder kosten.'],
+            ['icon' => 'swap', 'title' => 'Je data altijd gratis verzetten', 'text' => 'Slecht weer of andere plannen? Verzet je reservering naar andere dagen, zonder kosten, altijd tot de huur begint.'],
             ['icon' => 'resize', 'title' => 'Verlengen of inkorten', 'text' => 'Verlengen kan altijd zonder wijzigingskosten (je betaalt alleen de extra dagen), inkorten is gratis tot 7 dagen vooraf.'],
-            ['icon' => 'edit', 'title' => 'Je reservering altijd aanpassen', 'text' => 'Voeg uitrusting of laarzen toe, wijzig de ophaaltijd of -plek, online en in de app.'],
+            ['icon' => 'edit', 'title' => 'Je reservering altijd aanpassen', 'text' => 'Tot de huur begint voeg je uitrusting of laarzen toe of wijzig je de ophaaltijd of -plek, online en in de app.'],
             ['icon' => 'card', 'title' => 'Zonder borg', 'text' => 'We blokkeren niets op je kaart.'],
             ['icon' => 'shield', 'title' => 'Schade 100% gedekt', 'text' => 'Contractuele dekking: bij een ongeval is je eigen risico € 0.*'],
             ['icon' => 'helmet', 'title' => 'Uitrusting inbegrepen', 'text' => 'Motorkleding, veiligheidshesje, EHBO-set en schijfremslot. In Mezná ook regenkleding.'],
@@ -72,16 +72,16 @@ return ['pages' => ['landing' => [
         'reasons_note' => '* Mits je de huurvoorwaarden naleeft (algemene voorwaarden, art. 7).',
         // Pruh garancí pod hero (landing-guarantee.php)
         'guar_title' => 'MotoGo24-garanties',
-        'guar_lead' => 'Plannen veranderen: je past je reservering altijd aan, ook als het weer omslaat.',
+        'guar_lead' => 'Plannen veranderen: tot de huur begint pas je je reservering altijd aan, ook als het weer omslaat.',
         'guarantees' => [
             ['icon' => 'shield', 'title' => '€ 0 eigen risico', 'text' => 'als je het contract naleeft*'],
-            ['icon' => 'swap', 'title' => 'Gratis data verzetten', 'text' => 'altijd, bijv. bij slecht weer'],
+            ['icon' => 'swap', 'title' => 'Gratis data verzetten', 'text' => 'altijd tot de huur begint'],
             ['icon' => 'resize', 'title' => 'Altijd verlengen', 'text' => 'zonder wijzigingskosten'],
             ['icon' => 'calendar', 'title' => 'Gratis inkorten', 'text' => 'tot 7 dagen vooraf'],
             ['icon' => 'edit', 'title' => 'Altijd aanpassen', 'text' => 'uitrusting, tijd en ophaalplek'],
             ['icon' => 'card', 'title' => 'Zonder borg', 'text' => 'we blokkeren niets'],
         ],
-        'guar_note' => '* Mits je de huurvoorwaarden naleeft (algemene voorwaarden, art. 7).',
+        'guar_note' => '* Mits je de huurvoorwaarden naleeft (algemene voorwaarden, art. 7). Data verzetten en wijzigen kan altijd tot de huur begint.',
         'panel_rating' => '{r} · {n} reviews op Google',
         'reviews_title' => 'Wat motorrijders zeggen',
         'reviews_count' => '{n} reviews',

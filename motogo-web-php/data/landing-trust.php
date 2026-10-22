@@ -18,9 +18,9 @@ function lpTrustDefaults() {
         'reasons_less' => 'Zobrazit méně',
         // 2026-10-22: flexibilita rezervace do popředí (majitel: „nic není závazné, zvlášť při nepřízni počasí“)
         'reasons' => [
-            ['icon' => 'swap', 'title' => 'Termín posuneš kdykoliv zdarma', 'text' => 'Pokazí se počasí nebo plány? Přesuň rezervaci na jiné dny — bez poplatku.'],
+            ['icon' => 'swap', 'title' => 'Termín posuneš kdykoliv zdarma', 'text' => 'Pokazí se počasí nebo plány? Přesuň rezervaci na jiné dny — bez poplatku, kdykoliv do začátku pronájmu.'],
             ['icon' => 'resize', 'title' => 'Prodloužíš i zkrátíš', 'text' => 'Prodloužení kdykoliv bez poplatku za změnu (doplatíš jen dny navíc), zkrácení zdarma 7 a víc dní předem.'],
-            ['icon' => 'edit', 'title' => 'Rezervaci upravíš kdykoliv', 'text' => 'Přidáš výbavu nebo boty, změníš čas či místo převzetí — online i v aplikaci.'],
+            ['icon' => 'edit', 'title' => 'Rezervaci upravíš kdykoliv', 'text' => 'Až do začátku pronájmu přidáš výbavu nebo boty, změníš čas či místo převzetí — online i v aplikaci.'],
             ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'Nic ti neblokujeme na kartě.'],
             ['icon' => 'shield', 'title' => '100% smluvní krytí škod', 'text' => 'Při nehodě je tvoje spoluúčast 0 Kč.*'],
             ['icon' => 'helmet', 'title' => 'Výbava v ceně', 'text' => 'Motooblečení, vesta, lékárnička a kotoučový zámek. V Mezné i nepromoky.'],
@@ -45,16 +45,16 @@ function lpTrustDefaults() {
         'reasons_note' => '* Při dodržení podmínek nájmu (VOP čl. 7).',
         // Pruh garancí hned pod hero (landing-guarantee.php)
         'guar_title' => 'Garance MotoGo24',
-        'guar_lead' => 'Plány se mění — rezervaci kdykoliv upravíš, i když se pokazí počasí.',
+        'guar_lead' => 'Plány se mění — až do začátku pronájmu rezervaci kdykoliv upravíš, i když se pokazí počasí.',
         'guarantees' => [
             ['icon' => 'shield', 'title' => '0 Kč spoluúčast', 'text' => 'při dodržení smlouvy*'],
-            ['icon' => 'swap', 'title' => 'Posun termínu zdarma', 'text' => 'kdykoliv, třeba kvůli počasí'],
+            ['icon' => 'swap', 'title' => 'Posun termínu zdarma', 'text' => 'kdykoliv do začátku pronájmu'],
             ['icon' => 'resize', 'title' => 'Prodloužení kdykoliv', 'text' => 'bez poplatku za změnu'],
             ['icon' => 'calendar', 'title' => 'Zkrácení zdarma', 'text' => '7 a víc dní předem'],
             ['icon' => 'edit', 'title' => 'Úpravy kdykoliv', 'text' => 'výbava, čas i místo převzetí'],
             ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'nic ti neblokujeme'],
         ],
-        'guar_note' => '* Při dodržení podmínek nájmu (VOP čl. 7).',
+        'guar_note' => '* Při dodržení podmínek nájmu (VOP čl. 7). Posun termínu a úpravy rezervace kdykoliv do začátku pronájmu.',
         'panel_rating' => '{r} · {n} hodnocení na Google',
         'reviews_title' => 'Co o nás říkají motorkáři',
         'reviews_count' => '{n} hodnocení',

@@ -44,9 +44,9 @@ return ['pages' => ['landing' => [
         'reasons_less' => 'Weniger anzeigen',
         'reasons' => [
             // 2026-10-22: flexibilita rezervace do popředí (jako CS)
-            ['icon' => 'swap', 'title' => 'Termin jederzeit gratis verschieben', 'text' => 'Wetter oder Pläne ändern sich? Verschieb deine Reservierung auf andere Tage, ohne Gebühr.'],
+            ['icon' => 'swap', 'title' => 'Termin jederzeit gratis verschieben', 'text' => 'Wetter oder Pläne ändern sich? Verschieb deine Reservierung auf andere Tage, ohne Gebühr, jederzeit bis Mietbeginn.'],
             ['icon' => 'resize', 'title' => 'Verlängern und verkürzen', 'text' => 'Verlängern jederzeit ohne Änderungsgebühr (du zahlst nur die zusätzlichen Tage), verkürzen kostenlos mindestens 7 Tage vorher.'],
-            ['icon' => 'edit', 'title' => 'Reservierung jederzeit anpassen', 'text' => 'Ausrüstung oder Stiefel hinzufügen, Abholzeit oder Abholort ändern, online und in der App.'],
+            ['icon' => 'edit', 'title' => 'Reservierung jederzeit anpassen', 'text' => 'Bis Mietbeginn Ausrüstung oder Stiefel hinzufügen, Abholzeit oder Abholort ändern, online und in der App.'],
             ['icon' => 'card', 'title' => 'Keine Kaution', 'text' => 'Wir blockieren nichts auf deiner Karte.'],
             ['icon' => 'shield', 'title' => 'Schäden zu 100 % gedeckt', 'text' => 'Vertragliche Deckung: Bei einem Unfall beträgt deine Selbstbeteiligung 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Ausrüstung inklusive', 'text' => 'Motorradbekleidung, Warnweste, Verbandskasten und Bremsscheibenschloss. In Mezná auch Regenkombis.'],
@@ -71,16 +71,16 @@ return ['pages' => ['landing' => [
         'reasons_note' => '* Bei Einhaltung der Mietbedingungen (AGB, Art. 7).',
         // Pruh garancí pod hero (landing-guarantee.php)
         'guar_title' => 'MotoGo24-Garantien',
-        'guar_lead' => 'Pläne ändern sich: Deine Reservierung passt du jederzeit an, auch wenn das Wetter umschlägt.',
+        'guar_lead' => 'Pläne ändern sich: Bis Mietbeginn passt du deine Reservierung jederzeit an, auch wenn das Wetter umschlägt.',
         'guarantees' => [
             ['icon' => 'shield', 'title' => '0 € Selbstbeteiligung', 'text' => 'bei Einhaltung des Vertrags*'],
-            ['icon' => 'swap', 'title' => 'Termin gratis verschieben', 'text' => 'jederzeit, z. B. wegen Wetter'],
+            ['icon' => 'swap', 'title' => 'Termin gratis verschieben', 'text' => 'jederzeit bis Mietbeginn'],
             ['icon' => 'resize', 'title' => 'Jederzeit verlängern', 'text' => 'ohne Änderungsgebühr'],
             ['icon' => 'calendar', 'title' => 'Gratis verkürzen', 'text' => 'mindestens 7 Tage vorher'],
             ['icon' => 'edit', 'title' => 'Jederzeit anpassen', 'text' => 'Ausrüstung, Zeit und Abholort'],
             ['icon' => 'card', 'title' => 'Keine Kaution', 'text' => 'wir blockieren nichts'],
         ],
-        'guar_note' => '* Bei Einhaltung der Mietbedingungen (AGB, Art. 7).',
+        'guar_note' => '* Bei Einhaltung der Mietbedingungen (AGB, Art. 7). Terminverschiebung und Änderungen jederzeit bis Mietbeginn.',
         'panel_rating' => '{r} · {n} Bewertungen auf Google',
         'reviews_title' => 'Das sagen Motorradfahrer über uns',
         'reviews_count' => '{n} Bewertungen',

@@ -363,7 +363,7 @@ return [
     'rez.agree.photo' => 'Ik ga akkoord met het gebruik van foto\'s voor marketingdoeleinden',
 
     // ===== Reservering — CTA / prijs =====
-    'rez.cta.continue' => 'Doorgaan met reservering →',
+    'rez.cta.continue' => 'Doorgaan →',
     'rez.cta.continuePay' => 'Doorgaan naar betaling',
     'rez.totalPrice' => 'Totale prijs: {price}',
     'rez.discount' => 'Korting: −{amount}',

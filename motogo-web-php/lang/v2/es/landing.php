@@ -44,9 +44,9 @@ return ['pages' => ['landing' => [
         'reasons_less' => 'Mostrar menos',
         'reasons' => [
             // 2026-10-22: flexibilita rezervace do popředí (jako CS)
-            ['icon' => 'swap', 'title' => 'Cambia la fecha gratis, cuando quieras', 'text' => '¿Cambia el tiempo o tus planes? Pasa tu reserva a otros días, sin coste.'],
+            ['icon' => 'swap', 'title' => 'Cambia la fecha gratis, cuando quieras', 'text' => '¿Cambia el tiempo o tus planes? Pasa tu reserva a otros días, sin coste, en cualquier momento antes de que empiece el alquiler.'],
             ['icon' => 'resize', 'title' => 'Alarga o acorta', 'text' => 'Alarga cuando quieras sin cargo por cambio (solo pagas los días extra); acorta gratis con 7 días o más de antelación.'],
-            ['icon' => 'edit', 'title' => 'Modifica tu reserva cuando quieras', 'text' => 'Añade equipo o botas, cambia la hora o el lugar de recogida, online o en la app.'],
+            ['icon' => 'edit', 'title' => 'Modifica tu reserva cuando quieras', 'text' => 'Hasta que empiece el alquiler, añade equipo o botas, cambia la hora o el lugar de recogida, online o en la app.'],
             ['icon' => 'card', 'title' => 'Sin fianza', 'text' => 'No te bloqueamos nada en la tarjeta.'],
             ['icon' => 'shield', 'title' => 'Daños cubiertos al 100 %', 'text' => 'Cobertura contractual: si tienes un accidente, tu franquicia es 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Equipo incluido', 'text' => 'Ropa de moto, chaleco, botiquín y candado de disco. En Mezná, también ropa de lluvia.'],
@@ -71,16 +71,16 @@ return ['pages' => ['landing' => [
         'reasons_note' => '* Cumpliendo las condiciones de alquiler (condiciones generales, art. 7).',
         // Pruh garancí pod hero (landing-guarantee.php)
         'guar_title' => 'Garantías MotoGo24',
-        'guar_lead' => 'Los planes cambian: modifica tu reserva cuando quieras, aunque haga mal tiempo.',
+        'guar_lead' => 'Los planes cambian: hasta que empiece el alquiler, modifica tu reserva cuando quieras, aunque haga mal tiempo.',
         'guarantees' => [
             ['icon' => 'shield', 'title' => 'Franquicia 0 €', 'text' => 'si cumples el contrato*'],
-            ['icon' => 'swap', 'title' => 'Cambio de fecha gratis', 'text' => 'cuando quieras, p. ej. por mal tiempo'],
+            ['icon' => 'swap', 'title' => 'Cambio de fecha gratis', 'text' => 'hasta el inicio del alquiler'],
             ['icon' => 'resize', 'title' => 'Alarga cuando quieras', 'text' => 'sin cargo por cambio'],
             ['icon' => 'calendar', 'title' => 'Acorta gratis', 'text' => 'con 7 días o más de antelación'],
             ['icon' => 'edit', 'title' => 'Cambios cuando quieras', 'text' => 'equipo, hora y lugar de recogida'],
             ['icon' => 'card', 'title' => 'Sin fianza', 'text' => 'no te bloqueamos nada'],
         ],
-        'guar_note' => '* Cumpliendo las condiciones de alquiler (condiciones generales, art. 7).',
+        'guar_note' => '* Cumpliendo las condiciones de alquiler (condiciones generales, art. 7). Cambio de fecha y modificaciones en cualquier momento antes del inicio del alquiler.',
         'panel_rating' => '{r} · {n} reseñas en Google',
         'reviews_title' => 'Lo que dicen los moteros',
         'reviews_count' => '{n} reseñas',

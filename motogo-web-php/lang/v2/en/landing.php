@@ -44,9 +44,9 @@ return ['pages' => ['landing' => [
         'reasons_less' => 'Show less',
         'reasons' => [
             // 2026-10-22: flexibilita rezervace do popředí (jako CS)
-            ['icon' => 'swap', 'title' => 'Free date changes, any time', 'text' => 'Weather or plans changed? Move your booking to other days at no charge.'],
+            ['icon' => 'swap', 'title' => 'Free date changes, any time', 'text' => 'Weather or plans changed? Move your booking to other days at no charge, any time before your rental starts.'],
             ['icon' => 'resize', 'title' => 'Extend or shorten', 'text' => 'Extend any time with no change fee (you only pay for the extra days); shorten for free 7 or more days ahead.'],
-            ['icon' => 'edit', 'title' => 'Change your booking any time', 'text' => 'Add gear or boots, change the pick-up time or place, online or in the app.'],
+            ['icon' => 'edit', 'title' => 'Change your booking any time', 'text' => 'Right up until your rental starts, add gear or boots or change the pick-up time or place, online or in the app.'],
             ['icon' => 'card', 'title' => 'No deposit', 'text' => 'Nothing gets blocked on your card.'],
             ['icon' => 'shield', 'title' => '100% damage cover', 'text' => 'Contractual cover: if you have an accident, your excess is €0.*'],
             ['icon' => 'helmet', 'title' => 'Gear included', 'text' => 'Riding gear, vest, first-aid kit and disc lock. In Mezná, rain gear too.'],
@@ -71,16 +71,16 @@ return ['pages' => ['landing' => [
         'reasons_note' => '* Provided the rental conditions are met (General Terms, Art. 7).',
         // Pruh garancí pod hero (landing-guarantee.php)
         'guar_title' => 'MotoGo24 guarantees',
-        'guar_lead' => 'Plans change: you can adjust your booking any time, even if the weather turns bad.',
+        'guar_lead' => 'Plans change: right up until your rental starts, you can adjust your booking any time, even if the weather turns bad.',
         'guarantees' => [
             ['icon' => 'shield', 'title' => '€0 excess', 'text' => 'when you keep to the contract*'],
-            ['icon' => 'swap', 'title' => 'Free date changes', 'text' => 'any time, e.g. due to weather'],
+            ['icon' => 'swap', 'title' => 'Free date changes', 'text' => 'any time before the rental starts'],
             ['icon' => 'resize', 'title' => 'Extend any time', 'text' => 'no change fee'],
             ['icon' => 'calendar', 'title' => 'Shorten for free', 'text' => '7+ days ahead'],
             ['icon' => 'edit', 'title' => 'Changes any time', 'text' => 'gear, pick-up time & place'],
             ['icon' => 'card', 'title' => 'No deposit', 'text' => 'nothing blocked on your card'],
         ],
-        'guar_note' => '* Provided the rental conditions are met (General Terms, Art. 7).',
+        'guar_note' => '* Provided the rental conditions are met (General Terms, Art. 7). Date changes and booking edits any time before the rental starts.',
         'panel_rating' => '{r} · {n} reviews on Google',
         'reviews_title' => 'What riders say',
         'reviews_count' => '{n} reviews',

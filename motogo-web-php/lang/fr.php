@@ -377,7 +377,7 @@ return [
     'rez.agree.photo' => 'J\'accepte l\'utilisation des photos à des fins marketing',
 
     // ===== Réservation — CTA / prix =====
-    'rez.cta.continue' => 'Poursuivre la réservation →',
+    'rez.cta.continue' => 'Continuer →',
     'rez.cta.continuePay' => 'Continuer vers le paiement',
     'rez.totalPrice' => 'Prix total : {price}',
     'rez.discount' => 'Remise : −{amount}',
