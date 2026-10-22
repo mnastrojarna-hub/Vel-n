@@ -44,9 +44,9 @@ return ['pages' => ['landing' => [
         'reasons_less' => 'Afficher moins',
         'reasons' => [
             // 2026-10-22: flexibilita rezervace do popředí (jako CS)
-            ['icon' => 'swap', 'title' => 'Décale tes dates gratuitement, à tout moment', 'text' => 'La météo ou tes plans changent ? Décale ta réservation à d\'autres jours, sans frais.'],
+            ['icon' => 'swap', 'title' => 'Décale tes dates gratuitement, à tout moment', 'text' => 'La météo ou tes plans changent ? Décale ta réservation à d\'autres jours, sans frais, à tout moment avant le début de la location.'],
             ['icon' => 'resize', 'title' => 'Prolonge ou raccourcis', 'text' => 'Prolongation à tout moment sans frais de modification (tu ne paies que les jours en plus), raccourcissement gratuit 7 jours avant ou plus.'],
-            ['icon' => 'edit', 'title' => 'Modifie ta réservation à tout moment', 'text' => 'Ajoute de l\'équipement ou des bottes, change l\'heure ou le lieu du retrait, en ligne ou dans l\'appli.'],
+            ['icon' => 'edit', 'title' => 'Modifie ta réservation à tout moment', 'text' => 'Jusqu\'au début de la location, ajoute de l\'équipement ou des bottes, change l\'heure ou le lieu du retrait, en ligne ou dans l\'appli.'],
             ['icon' => 'card', 'title' => 'Sans caution', 'text' => 'On ne bloque rien sur ta carte.'],
             ['icon' => 'shield', 'title' => 'Dommages couverts à 100 %', 'text' => 'Couverture contractuelle : en cas d\'accident, ta franchise est de 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Équipement inclus', 'text' => 'Tenue moto, gilet réfléchissant, trousse de secours et bloque-disque. À Mezná, aussi des tenues de pluie.'],
@@ -71,16 +71,16 @@ return ['pages' => ['landing' => [
         'reasons_note' => '* Si les conditions de location sont respectées (conditions générales, art. 7).',
         // Pruh garancí pod hero (landing-guarantee.php)
         'guar_title' => 'Garanties MotoGo24',
-        'guar_lead' => 'Les plans changent : modifie ta réservation à tout moment, même si la météo se gâte.',
+        'guar_lead' => 'Les plans changent : jusqu\'au début de la location, modifie ta réservation à tout moment, même si la météo se gâte.',
         'guarantees' => [
             ['icon' => 'shield', 'title' => 'Franchise 0 €', 'text' => 'si tu respectes le contrat*'],
-            ['icon' => 'swap', 'title' => 'Report de dates gratuit', 'text' => 'à tout moment, p. ex. pour la météo'],
+            ['icon' => 'swap', 'title' => 'Report de dates gratuit', 'text' => 'jusqu\'au début de la location'],
             ['icon' => 'resize', 'title' => 'Prolongation à tout moment', 'text' => 'sans frais de modification'],
             ['icon' => 'calendar', 'title' => 'Raccourcir gratuitement', 'text' => '7 jours avant ou plus'],
             ['icon' => 'edit', 'title' => 'Modifs à tout moment', 'text' => 'équipement, heure et lieu de retrait'],
             ['icon' => 'card', 'title' => 'Sans caution', 'text' => 'on ne bloque rien'],
         ],
-        'guar_note' => '* Si les conditions de location sont respectées (conditions générales, art. 7).',
+        'guar_note' => '* Si les conditions de location sont respectées (conditions générales, art. 7). Report de dates et modifications à tout moment avant le début de la location.',
         'panel_rating' => '{r} · {n} avis sur Google',
         'reviews_title' => 'Ce qu\'en disent les motards',
         'reviews_count' => '{n} avis',

@@ -45,9 +45,9 @@ return ['pages' => ['landing' => [
         'reasons_less' => 'Pokaż mniej',
         'reasons' => [
             // 2026-10-22: flexibilita rezervace do popředí (jako CS)
-            ['icon' => 'swap', 'title' => 'Termin przesuniesz zawsze za darmo', 'text' => 'Psuje się pogoda albo zmieniły się plany? Przenieś rezerwację na inne dni, bez opłat.'],
+            ['icon' => 'swap', 'title' => 'Termin przesuniesz zawsze za darmo', 'text' => 'Psuje się pogoda albo zmieniły się plany? Przenieś rezerwację na inne dni, bez opłat, w każdej chwili przed rozpoczęciem wynajmu.'],
             ['icon' => 'resize', 'title' => 'Przedłużysz i skrócisz', 'text' => 'Przedłużenie w każdej chwili bez opłaty za zmianę (dopłacasz tylko za dodatkowe dni), skrócenie bezpłatnie 7 i więcej dni wcześniej.'],
-            ['icon' => 'edit', 'title' => 'Rezerwację zmienisz w każdej chwili', 'text' => 'Dodasz wyposażenie lub buty, zmienisz godzinę czy miejsce odbioru, online i w aplikacji.'],
+            ['icon' => 'edit', 'title' => 'Rezerwację zmienisz w każdej chwili', 'text' => 'Do rozpoczęcia wynajmu dodasz wyposażenie lub buty, zmienisz godzinę czy miejsce odbioru, online i w aplikacji.'],
             ['icon' => 'card', 'title' => 'Bez kaucji', 'text' => 'Niczego nie blokujemy na twojej karcie.'],
             ['icon' => 'shield', 'title' => 'Szkody pokryte w 100%', 'text' => 'Ochrona z umowy: przy wypadku twój udział własny wynosi 0 zł.*'],
             ['icon' => 'helmet', 'title' => 'Wyposażenie w cenie', 'text' => 'Odzież motocyklowa, kamizelka, apteczka i blokada tarczy. W oddziale Mezná także odzież przeciwdeszczowa.'],
@@ -72,16 +72,16 @@ return ['pages' => ['landing' => [
         'reasons_note' => '* Pod warunkiem przestrzegania zasad wynajmu (OWU, art. 7).',
         // Pruh garancí pod hero (landing-guarantee.php)
         'guar_title' => 'Gwarancje MotoGo24',
-        'guar_lead' => 'Plany się zmieniają: rezerwację zmienisz w każdej chwili, nawet gdy popsuje się pogoda.',
+        'guar_lead' => 'Plany się zmieniają: do rozpoczęcia wynajmu rezerwację zmienisz w każdej chwili, nawet gdy popsuje się pogoda.',
         'guarantees' => [
             ['icon' => 'shield', 'title' => 'Udział własny 0 zł', 'text' => 'przy przestrzeganiu umowy*'],
-            ['icon' => 'swap', 'title' => 'Bezpłatna zmiana terminu', 'text' => 'zawsze, np. z powodu pogody'],
+            ['icon' => 'swap', 'title' => 'Bezpłatna zmiana terminu', 'text' => 'zawsze do rozpoczęcia wynajmu'],
             ['icon' => 'resize', 'title' => 'Przedłużenie kiedy chcesz', 'text' => 'bez opłaty za zmianę'],
             ['icon' => 'calendar', 'title' => 'Bezpłatne skrócenie', 'text' => '7 i więcej dni wcześniej'],
             ['icon' => 'edit', 'title' => 'Zmiany kiedy chcesz', 'text' => 'wyposażenie, godzina i miejsce odbioru'],
             ['icon' => 'card', 'title' => 'Bez kaucji', 'text' => 'niczego nie blokujemy'],
         ],
-        'guar_note' => '* Pod warunkiem przestrzegania zasad wynajmu (OWU, art. 7).',
+        'guar_note' => '* Pod warunkiem przestrzegania zasad wynajmu (OWU, art. 7). Zmiana terminu i rezerwacji w każdej chwili przed rozpoczęciem wynajmu.',
         'panel_rating' => '{r} · opinie w Google: {n}',
         'reviews_title' => 'Co mówią motocykliści',
         'reviews_count' => 'Opinie: {n}',
