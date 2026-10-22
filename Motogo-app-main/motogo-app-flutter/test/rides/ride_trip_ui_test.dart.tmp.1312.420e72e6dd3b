@@ -1,0 +1,216 @@
+// Starý vzhled jízd a cest (SPEC §8–§9): karta jízdy (rozsah, dny, v sedle,
+// stav záznamu), statistiky, etapy, karta cesty, sloučení, detail cesty,
+// výpůjčka v detailu rezervace, řádek „Cesta" — 8 jazyků × 320 / 412 ×
+// písmo 1.0 / 1.3 bez přetečení + chování a pomocné funkce.
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
+import 'package:motogo_app/features/routes/ride_booking_section.dart';
+import 'package:motogo_app/features/routes/ride_card.dart';
+import 'package:motogo_app/features/routes/ride_map.dart';
+import 'package:motogo_app/features/routes/ride_merge_screen.dart';
+import 'package:motogo_app/features/routes/ride_model.dart';
+import 'package:motogo_app/features/routes/ride_share.dart';
+import 'package:motogo_app/features/routes/ride_stage_list.dart';
+import 'package:motogo_app/features/routes/ride_stats_grid.dart';
+import 'package:motogo_app/features/routes/ride_trip.dart';
+import 'package:motogo_app/features/routes/ride_trip_card.dart';
+import 'package:motogo_app/features/routes/ride_trip_detail_screen.dart';
+import 'package:motogo_app/features/routes/ride_trip_row.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/png_http.dart';
+import 'support/ui_fixtures.dart';
+import 'support/ui_harness.dart';
+
+List<RideTrip> _trips(List<UserRide> rides) =>
+    [for (final i in groupRides(rides)) if (i is RideListItemTrip) i.trip];
+
+Widget _list(List<UserRide> rides) {
+  final multi = rides.firstWhere((r) => r.id == 'multi');
+  return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    RideCard(ride: multi),
+    RideCard(ride: rides.firstWhere((r) => r.id == 'solo')),
+    for (final tr in _trips(rides)) RideTripCard(trip: tr),
+    const RideMergeRow(),
+    RideStatsGrid(ride: multi),
+    const SizedBox(height: 12),
+    RideStageList(stages: multi.stages),
+    const SizedBox(height: 12),
+    RideTripRow(ride: rides.firstWhere((r) => r.id == 't1')),
+    RideTripRow(ride: rides.firstWhere((r) => r.id == 'solo')),
+    const BookingRidesSection(bookingId: 'b1'),
+  ]);
+}
+
+void main() {
+  setUpAll(() async {
+    await loadRidesFont();
+    HttpOverrides.global = RidesPngHttpOverrides();
+  });
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  final rides = ridesFixture();
+  final booking = {'b1': rides.where((r) => r.bookingId == 'b1').toList()};
+  final recOnMulti = recStates()['own_auto_stop']!.copyWith(rideId: 'multi');
+
+  for (final lang in kRpLangs) {
+    for (final w in kRpWidths) {
+      for (final scale in kRpScales) {
+        testWidgets('jízdy a cesty $lang ${w.toInt()} ×$scale', (tester) async {
+          final ov = ridesUiOverrides(rec: recOnMulti, rides: rides, booking: booking);
+          await pumpRides(tester, _list(rides), lang: lang, width: w, scale: scale, height: 1400, overrides: ov);
+          await expectCleanRides(tester);
+          for (final screen in <Widget>[
+            const RideMergeScreen(preselectRideId: 'solo'),
+            const RideTripDetailScreen(rideId: 't1'),
+            const RideTripDetailScreen(rideId: 'b2'),
+            const RideTripDetailScreen(rideId: 'solo'), // cesta neexistuje
+          ]) {
+            await tester.pumpWidget(const SizedBox());
+            await pumpRides(tester, screen, lang: lang, width: w, scale: scale, overrides: ov, scroll: false);
+            await expectCleanRides(tester);
+          }
+        });
+      }
+    }
+  }
+
+  testWidgets('karta jízdy: rozsah dat, dny, stav záznamu, v sedle místo celkem', (tester) async {
+    final multi = rides.firstWhere((r) => r.id == 'multi');
+    await pumpRides(tester, RideCard(ride: multi), overrides: ridesUiOverrides(rec: recOnMulti, rides: rides));
+    await expectCleanRides(tester);
+    expect(find.text('28.–30. 9. 2026'), findsOneWidget);
+    expect(find.text('3 dny'), findsOneWidget);
+    expect(find.text('❚❚ Pozastaveno'), findsOneWidget);
+    expect(find.text('17 h'), findsOneWidget); // 61 200 s v sedle
+    expect(find.text('21 h 30 min'), findsNothing); // celkový čas se už neukazuje
+  });
+
+  testWidgets('statistiky: pauzy, bez signálu, dny, legenda přesunu, na cestě bez pauz', (tester) async {
+    final multi = rides.firstWhere((r) => r.id == 'multi');
+    await pumpRides(tester, RideStatsGrid(ride: multi), overrides: ridesUiOverrides());
+    await expectCleanRides(tester);
+    final tr = t(tester.element(find.byType(RideStatsGrid)));
+    expect(find.text(tr.tr('rpStatOnRoad')), findsOneWidget);
+    expect(find.text(tr.tr('rpStatPauses')), findsOneWidget);
+    expect(find.textContaining('× · '), findsOneWidget);
+    expect(find.text(tr.tr('rpStatDays')), findsOneWidget);
+    expect(find.text(tr.tr('rideStatGap')), findsOneWidget);
+    expect(find.textContaining(tr.tr('rpPauseLegend')), findsOneWidget);
+    expect(find.textContaining(tr.tr('rpGapNotice')), findsOneWidget);
+    expect(find.text(tr.tr('rideStatPoints')), findsNothing);
+    // Jízda ze starého serveru: „celkový čas", bez pauz a dnů.
+    final old = rides.firstWhere((r) => r.id == 'b2');
+    await pumpRides(tester, RideStatsGrid(ride: old), overrides: ridesUiOverrides());
+    await expectCleanRides(tester);
+    expect(find.text(tr.tr('rideStatDuration')), findsOneWidget);
+    expect(find.text(tr.tr('rpStatPauses')), findsNothing);
+    expect(find.text(tr.tr('rpStatDays')), findsNothing);
+  });
+
+  testWidgets('etapy: den, den v týdnu, km, v sedle, max, nastoupáno', (tester) async {
+    final multi = rides.firstWhere((r) => r.id == 'multi');
+    await pumpRides(tester, RideStageList(stages: multi.stages), overrides: ridesUiOverrides());
+    await expectCleanRides(tester);
+    expect(find.textContaining('Den 2'), findsOneWidget);
+    expect(find.textContaining('Út 29. 9.'), findsOneWidget);
+    expect(find.textContaining('288 km · 5 h 50 min v sedle'), findsOneWidget);
+    expect(find.textContaining('max 143 km/h'), findsOneWidget);
+    expect(find.textContaining('⛰ 4210 m'), findsOneWidget);
+  });
+
+  testWidgets('sloučení: výběr, „Sloučit (n)", méně než 2 → vysvětlení', (tester) async {
+    await pumpRides(tester, const RideMergeScreen(preselectRideId: 'solo'),
+        overrides: ridesUiOverrides(rides: rides), scroll: false);
+    await expectCleanRides(tester);
+    expect(find.text('Sloučit (1)'), findsOneWidget);
+    await tester.tap(find.text('Sloučit (1)'));
+    await tester.pump();
+    expect(find.text('Vyber aspoň dvě jízdy.'), findsOneWidget);
+    await tester.tap(find.textContaining('Šumava s kamarády'));
+    await tester.pump();
+    expect(find.text('Sloučit (2)'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Šumava s kamarády')), findsOneWidget);
+  });
+
+  testWidgets('sloučení na starém serveru: jasná poznámka', (tester) async {
+    await pumpRides(tester, const RideMergeScreen(), overrides: ridesUiOverrides(rides: ridesFixture(v2: false)), scroll: false);
+    await expectCleanRides(tester);
+    expect(find.textContaining('server ještě nemá potřebnou aktualizaci'), findsOneWidget);
+  });
+
+  testWidgets('detail cesty: název, rozsah, jízdy v cestě, akce; zaniklá cesta to řekne', (tester) async {
+    await pumpRides(tester, const RideTripDetailScreen(rideId: 't2'),
+        overrides: ridesUiOverrides(rides: rides), scroll: false);
+    await expectCleanRides(tester);
+    expect(find.textContaining('Šumava s kamarády'), findsOneWidget);
+    expect(find.text('Rozdělit cestu'), findsOneWidget);
+    expect(find.text('Přejmenovat cestu'), findsOneWidget);
+    await pumpRides(tester, const RideTripDetailScreen(rideId: 'solo'),
+        overrides: ridesUiOverrides(rides: rides), scroll: false);
+    await expectCleanRides(tester);
+    expect(find.textContaining('Tahle cesta už neexistuje'), findsOneWidget);
+  });
+
+  testWidgets('řádek Cesta: člen → součást + vyjmout; samostatná → přidat do cesty', (tester) async {
+    await pumpRides(tester,
+        Column(children: [
+          RideTripRow(ride: rides.firstWhere((r) => r.id == 't1')),
+          RideTripRow(ride: rides.firstWhere((r) => r.id == 'solo')),
+        ]),
+        overrides: ridesUiOverrides(rides: rides));
+    await expectCleanRides(tester);
+    expect(find.text('Součást cesty Šumava s kamarády'), findsOneWidget);
+    expect(find.text('Vyjmout z cesty'), findsOneWidget);
+    expect(find.text('Přidat do cesty…'), findsOneWidget);
+    // Starý server: „Přidat do cesty…" se nenabízí.
+    await pumpRides(tester, RideTripRow(ride: ridesFixture(v2: false).last),
+        overrides: ridesUiOverrides(rides: ridesFixture(v2: false)));
+    await expectCleanRides(tester);
+    expect(find.text('Přidat do cesty…'), findsNothing);
+  });
+
+  testWidgets('výpůjčka v detailu rezervace: součet + karta cesty', (tester) async {
+    await pumpRides(tester, const BookingRidesSection(bookingId: 'b1'),
+        overrides: ridesUiOverrides(rides: rides, booking: booking));
+    await expectCleanRides(tester);
+    expect(find.textContaining('Celkem za výpůjčku: 2 jízdy · 285 km'), findsOneWidget);
+    expect(find.byType(RideTripCard), findsOneWidget);
+    expect(find.textContaining('Výpůjčka Husqvarna 701 SM'), findsOneWidget);
+  });
+
+  test('mapa: pauzy ≠ mezery, přesun během pauzy čárkovaně', () {
+    final multi = rides.firstWhere((r) => r.id == 'multi');
+    final gaps = [for (final s in multi.segments) if (s.gapBefore != null) s.gapBefore!];
+    expect(gaps.where((g) => g.isPause).length, 4); // oběd, 2 noci, trajekt
+    expect(gaps.where((g) => !g.isPause).length, 1); // výpadek za jízdy
+    expect(gaps.where(rideIsMovedPause).length, 1); // trajekt
+    expect(rideHasMovedPause(multi.segments), isTrue);
+    expect(rideHasMovedPause(rides.firstWhere((r) => r.id == 'solo').segments), isFalse);
+    expect(rideDashes(gaps.first.from, gaps.first.to).length, 8);
+    expect(multi.pauseCount, 4);
+    expect(multi.hasGaps, isTrue);
+  });
+
+  test('etapy cesty: jízdy bez etap = etapa každá', () {
+    final rental = _trips(rides).firstWhere((t) => t.isRental);
+    final st = rideTripStages(rental);
+    expect(st.length, 2);
+    expect(st.first.km, 142.6);
+    expect(rideDisplayStages(st).length, 2);
+  });
+
+  testWidgets('sdílení: v sedle místo celkového času, cesta s 🧳', (tester) async {
+    late String rideText, tripText;
+    await pumpRides(tester, Builder(builder: (c) {
+      rideText = rideShareText(c, rides.firstWhere((r) => r.id == 'multi'));
+      tripText = rideTripShareText(c, _trips(rides).firstWhere((t) => !t.isRental));
+      return const SizedBox();
+    }), overrides: ridesUiOverrides());
+    expect(rideText, contains('28.–30. 9. 2026 · 3 dny · 812 km · 17 h v sedle'));
+    expect(tripText, startsWith('🧳 Šumava s kamarády\n11.–12. 10. 2026 · 2 dny · 285 km · 4 h 40 min v sedle'));
+  });
+}

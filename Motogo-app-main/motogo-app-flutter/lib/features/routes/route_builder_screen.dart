@@ -18,6 +18,7 @@ import 'routes_model.dart';
 import 'routes_map_provider.dart';
 import 'routes_provider.dart';
 import 'submit_common.dart';
+import 'route_builder_sheets.dart';
 import 'all_pois_screen.dart';
 import 'my_experiences_provider.dart';
 import '../../core/widgets/map_tile_errors.dart';
@@ -62,6 +63,11 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   /// Zastávky se od otevření změnily a nejsou uložené → odchod jen po
   /// potvrzení (zpět / swipe by úpravy potichu zahodily).
   bool _edited = false;
+
+  /// Název a popis, které zákazník už zadal (uložením / návrhem) — druhý
+  /// list se jimi předvyplní, nic se nepíše dvakrát.
+  late final RouteNameMemory _names =
+      RouteNameMemory.fromRoute(widget.route, ownStops: widget.initialStops != null);
 
   Future<void> _leave() async {
     if (_edited) {
@@ -824,109 +830,12 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
           SnackBar(content: Text(t(context).tr('routeSubmitNeedPoints'))));
       return;
     }
-    final nameCtrl = TextEditingController(
-        text: widget.route.id == 'custom' ? '' : widget.route.name);
-    final descCtrl = TextEditingController();
-    var busy = false;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (sheetCtx) => StatefulBuilder(
-        builder: (sheetCtx, setSheet) => SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-                20, 16, 20, MediaQuery.of(sheetCtx).viewInsets.bottom + 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MgSheetTitleRow(center: false, title: Text(
-                  t(sheetCtx).tr('routeSaveTitle'),
-                  style: const TextStyle(
-                      fontSize: MotoGoTypo.sizeH2,
-                      fontWeight: MotoGoTypo.w900,
-                      color: MotoGoColors.black,
-                      decoration: TextDecoration.none),
-                )),
-                const SizedBox(height: 6),
-                Text(
-                  t(sheetCtx).tr('routeSaveHint'),
-                  style: const TextStyle(
-                      fontSize: MotoGoTypo.sizeMd,
-                      fontWeight: MotoGoTypo.w600,
-                      color: MotoGoColors.g500,
-                      decoration: TextDecoration.none),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nameCtrl,
-                  decoration:
-                      InputDecoration(labelText: t(sheetCtx).tr('routeSaveName')),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descCtrl,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                      labelText: t(sheetCtx).tr('routeSaveDesc')),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            if (nameCtrl.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
-                                  content:
-                                      Text(t(sheetCtx).tr('poiSubmitNameReq'))));
-                              return;
-                            }
-                            setSheet(() => busy = true);
-                            final ok = await _saveMyRoute(
-                                nameCtrl.text.trim(), descCtrl.text.trim());
-                            if (!sheetCtx.mounted) return;
-                            if (ok) {
-                              Navigator.of(sheetCtx).pop();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    content:
-                                        Text(t(context).tr('routeSaved'))));
-                              }
-                            } else {
-                              setSheet(() => busy = false);
-                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
-                                  content: Text(t(sheetCtx).tr('routeSaveErr'))));
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: MotoGoColors.green,
-                      foregroundColor: MotoGoColors.black,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(MotoGoRadius.pill)),
-                    ),
-                    child: Text(
-                      t(sheetCtx).tr(busy ? 'submitSending' : 'routeSaveBtn'),
-                      style: const TextStyle(
-                          fontSize: MotoGoTypo.sizeXl,
-                          fontWeight: MotoGoTypo.w800),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    showRouteSaveSheet(context, names: _names, onSubmit: _saveMyRoute, onDone: () async {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(t(context).tr('routeSaved'))));
+      }
+    });
   }
 
   Future<bool> _saveMyRoute(String name, String desc) async {
@@ -985,98 +894,9 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
           SnackBar(content: Text(t(context).tr('routeSubmitNeedPoints'))));
       return;
     }
-    final nameCtrl = TextEditingController(
-        text: widget.route.id == 'custom' ? '' : widget.route.name);
-    final descCtrl = TextEditingController();
-    var busy = false;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (sheetCtx) => StatefulBuilder(
-        builder: (sheetCtx, setSheet) => SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-                20, 16, 20, MediaQuery.of(sheetCtx).viewInsets.bottom + 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MgSheetTitleRow(center: false, title: Text(
-                  t(sheetCtx).tr('routeSuggestTitle'),
-                  style: const TextStyle(
-                      fontSize: MotoGoTypo.sizeH2,
-                      fontWeight: MotoGoTypo.w900,
-                      color: MotoGoColors.black,
-                      decoration: TextDecoration.none),
-                )),
-                const SizedBox(height: 12),
-                const SubmitIntroBanner(),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nameCtrl,
-                  decoration:
-                      InputDecoration(labelText: t(sheetCtx).tr('poiSubmitName')),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descCtrl,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                      labelText: t(sheetCtx).tr('routeSubmitDescLabel')),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            if (nameCtrl.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
-                                  content:
-                                      Text(t(sheetCtx).tr('poiSubmitNameReq'))));
-                              return;
-                            }
-                            setSheet(() => busy = true);
-                            final ok = await _submitSuggestion(
-                                nameCtrl.text.trim(), descCtrl.text.trim());
-                            if (!sheetCtx.mounted) return;
-                            if (ok) {
-                              Navigator.of(sheetCtx).pop();
-                              if (mounted) await showSubmitSuccess(context);
-                            } else {
-                              setSheet(() => busy = false);
-                              ScaffoldMessenger.of(sheetCtx).showSnackBar(SnackBar(
-                                  content: Text(t(sheetCtx).tr('poiSubmitErr'))));
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: MotoGoColors.green,
-                      foregroundColor: MotoGoColors.black,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(MotoGoRadius.pill)),
-                    ),
-                    child: Text(
-                      t(sheetCtx).tr(busy ? 'submitSending' : 'poiSubmitSend'),
-                      style: const TextStyle(
-                          fontSize: MotoGoTypo.sizeXl,
-                          fontWeight: MotoGoTypo.w800),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    showRouteSuggestSheet(context, names: _names, onSubmit: _submitSuggestion, onDone: () async {
+      if (mounted) await showSubmitSuccess(context);
+    });
   }
 
   /// Uloží poskládanou trasu jako zákaznický návrh (stejné flow jako
