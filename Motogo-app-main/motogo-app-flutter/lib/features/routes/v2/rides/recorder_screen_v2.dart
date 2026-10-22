@@ -18,19 +18,21 @@ import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/error_feedback.dart' show openFixSettings;
 import '../../ride_actions.dart';
 import '../../ride_recorder.dart';
-import '../record_dock_v2.dart' show trasyConfirmStopRide;
 import 'recorder_parts_v2.dart';
+import 'ride_pause_actions_v2.dart';
+import 'ride_phase_v2.dart';
 
 /// Opens the full-screen recorder on the root navigator (no router change;
 /// system back = pop, leaving keeps the recording running).
 Future<void> openRideRecorderV2(BuildContext context) =>
     Navigator.of(context, rootNavigator: true).push(MaterialPageRoute<void>(builder: (_) => const RecorderScreenV2()));
 
-/// "Záznam jízdy" (DESIGN_V22 §4.2 D; dark, outdoor). Reads
-/// `rideRecorderProvider`; start / stop go through the shared
-/// `toggleManualRide` (PM-4 — same permission handling and result messages
-/// as everywhere), the switch is the existing auto-record `setEnabled`.
-/// A rental (automatic) recording has no stop — it ends with the rental.
+/// "Záznam jízdy" (DESIGN_V22 §4.2 D; dark, outdoor) + SPEC §9.2. Reads
+/// `rideRecorderProvider`. Dock: idle → ZAZNAMENAT JÍZDU (`toggleManualRide`,
+/// PM-4); recording → ❚❚ POZASTAVIT / ▶ POKRAČOVAT (own AND rental) +
+/// "Ukončit záznam" for a manual ride (confirm FIRST, busy only while the
+/// stop runs — r1); a guard pause (home / long) → POKRAČOVAT V CESTĚ +
+/// "Ukončit a uložit". A rental ends with the return (note under the card).
 class RecorderScreenV2 extends ConsumerStatefulWidget {
   const RecorderScreenV2({super.key});
 
@@ -40,6 +42,7 @@ class RecorderScreenV2 extends ConsumerStatefulWidget {
 
 class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
   bool _hint = false;
+  bool _how = false;
   bool _busy = false;
 
   Future<void> _run(Future<void> Function() action) async {
@@ -52,29 +55,53 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final rec = ref.watch(rideRecorderProvider);
-    final live = rec.recording;
+  /// r1: the question first (nothing busy while it is open), then the stop.
+  Future<void> _stop() async {
+    if (_busy) return;
+    final paused = ref.read(rideRecorderProvider).isPaused;
+    if (!await trasyConfirmStop(context, paused: paused) || !mounted) return;
+    await _run(() => toggleManualRide(context, ref, running: true));
+  }
 
-    final Widget action;
-    if (!live) {
-      action = MgCta(
+  Widget _action(AppTranslations tr, RideRecorderState rec) {
+    if (!rec.recording) {
+      return MgCta(
         label: tr.tr('v2RideRecStart'),
         loop: !_busy,
         busy: _busy,
         semanticLabel: tr.tr('v2RtRecA11y'),
         onTap: () => _run(() => toggleManualRide(context, ref, running: false)),
       );
-    } else if (rec.manual) {
-      action = RecorderStopButtonV2(
-        busy: _busy,
-        onTap: () => _run(() => trasyConfirmStopRide(context, ref)),
-      );
-    } else {
-      action = MgBtnGhostDark(label: tr.back, icon: MgIcons.chevronLeft, onTap: () => Navigator.of(context).maybePop());
     }
+    final Widget primary;
+    Widget? secondary;
+    if (rec.needsDecision) {
+      primary = MgCta(
+        label: tr.tr('v2RpResumeTripCta'),
+        busy: _busy,
+        semanticLabel: tr.tr('v2RpA11yResume'),
+        onTap: () => _run(() => rideTogglePauseV2(context, ref)),
+      );
+      secondary = MgBtnGhostDark(label: tr.tr('v2RpEndSave'), icon: MgIcons.stopFilled, onTap: _busy ? null : _stop);
+    } else {
+      primary = RecorderPauseButtonV2(
+        paused: rec.isManualPaused,
+        busy: _busy,
+        onTap: () => _run(() => rideTogglePauseV2(context, ref)),
+      );
+      if (rec.canStop) secondary = RecorderStopButtonV2(onTap: _busy ? null : _stop);
+    }
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      primary,
+      if (secondary != null) ...[const SizedBox(height: 10), secondary],
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    final rec = ref.watch(rideRecorderProvider);
+    final live = rec.recording;
 
     return Scaffold(
       backgroundColor: MgColors.night,
@@ -150,9 +177,28 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                     const SizedBox(height: 12),
                   ],
                   RecorderLiveCardV2(rec: rec),
+                  if (live && rec.needsDecision) ...[
+                    const SizedBox(height: 12),
+                    MgStateBanner(
+                      dark: true,
+                      tone: MgTone.info,
+                      icon: MgIcons.gps,
+                      title: RecPhaseV2.of(tr, rec).title,
+                      text: recHintV2(tr, rec),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  // Jak funguje automatická pauza (vysvětlení stavu).
+                  RecorderHowV2(
+                    open: _how,
+                    onTap: () => setState(() => _how = !_how),
+                    text: live ? recHintV2(tr, rec) : tr.tr('v2RpHintAuto'),
+                  ),
                   const SizedBox(height: 16),
                   if (live && !rec.manual) ...[
                     RecorderNoteV2(icon: MgIcons.key, text: tr.tr('v2RideRecAutoNote')),
+                    const SizedBox(height: 10),
+                    RecorderNoteV2(icon: MgIcons.flag, text: tr.tr('v2RpRentalEnds')),
                     const SizedBox(height: 10),
                   ],
                   RecorderNoteV2(icon: MgIcons.info, text: tr.tr('v2RideRecAfter')),
@@ -175,7 +221,7 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                 ],
               ),
             ),
-            MgDock(child: action),
+            MgDock(child: _action(tr, rec)),
           ]),
         ),
       ),

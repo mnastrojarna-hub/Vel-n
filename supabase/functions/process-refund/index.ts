@@ -1241,16 +1241,6 @@ Deno.serve(async (req: Request) => {
       console.warn('[process-refund] PI lookup failed:', (e as Error).message)
     }
 
-    // Uložená platba nemá z čeho vracet (nikdy nezaplacený PI opuštěného doplatku, nebo
-    // doplatek nezapsané změny, který se už celý vrátil přímo ze Stripe — oprava 2026-10-16),
-    // nebo stojí MIMO cenu rezervace (doplatek změny, kterou webhook ještě nezapsal, platba
-    // vrácená jen jako peníze mimo cenu — oprava f1 2026-10-22), ale rezervace má jiné úspěšné
-    // platby kartou → hlavní vratka z nejstarší z nich (typicky původní platba rezervace),
-    // zbytek níže z ostatních. Platba mimo cenu a žádná jiná platba kartou (rezervace placená
-    // QR / převodem / hotově) → ruční vratka (dobropis + refund_pending). Dřív: no_op →
-    // 'refunded' bez vrácení peněz, resp. storno část ceny z ještě nezapsaného doplatku. Jen
-    // vratka s částkou — storno, obsluha i zákaznická vratka z appky (oprava f2 2026-10-22:
-    // dřív jen z uložené platby, tj. z posledního doplatku oříznutá na jeho zbytek).
     // Vratka obsluhy / služby BEZ částky (Velín plné storno — bookingMessageHelpers isFull,
     // BookingDetail „Potvrdit vrácení" na celou cenu) = celý zůstatek plateb V CENĚ rezervace
     // (uložená platba, patří-li do ceny, + ostatní platby) a dál stejná cesta jako vratka s částkou
@@ -1268,6 +1258,16 @@ Deno.serve(async (req: Request) => {
       if (balH != null && balH > 0) { reqAmount = balH / 100; fullBalance = true }
     }
 
+    // Uložená platba nemá z čeho vracet (nikdy nezaplacený PI opuštěného doplatku, nebo
+    // doplatek nezapsané změny, který se už celý vrátil přímo ze Stripe — oprava 2026-10-16),
+    // nebo stojí MIMO cenu rezervace (doplatek změny, kterou webhook ještě nezapsal, platba
+    // vrácená jen jako peníze mimo cenu — oprava f1 2026-10-22), ale rezervace má jiné úspěšné
+    // platby kartou → hlavní vratka z nejstarší z nich (typicky původní platba rezervace),
+    // zbytek níže z ostatních. Platba mimo cenu a žádná jiná platba kartou (rezervace placená
+    // QR / převodem / hotově) → ruční vratka (dobropis + refund_pending). Dřív: no_op →
+    // 'refunded' bez vrácení peněz, resp. storno část ceny z ještě nezapsaného doplatku. Jen
+    // vratka s částkou — storno, obsluha i zákaznická vratka z appky (oprava f2 2026-10-22:
+    // dřív jen z uložené platby, tj. z posledního doplatku oříznutá na jeho zbytek).
     if (booking_id && (chargedHaleru === 0 || refundableHaleru === 0 || storedPi)) {
       try {
         const src = await mainSource(stripe as unknown as OtherIntentsStripe, supabase, {

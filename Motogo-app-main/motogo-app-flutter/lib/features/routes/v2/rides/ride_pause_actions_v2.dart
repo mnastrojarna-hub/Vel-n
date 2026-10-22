@@ -51,12 +51,15 @@ Future<bool> trasyConfirmStop(BuildContext context, {bool paused = false}) async
   return ok == true;
 }
 
-/// Asks first, then the existing stop (`toggleManualRide(running: true)`,
-/// PM-4 — the same "Uloženo / Příliš krátká / Nepodařilo se" results).
-/// Nothing is busy while the question is open.
+/// The existing stop (`toggleManualRide(running: true)`, PM-4 — the same
+/// "Uloženo / Příliš krátká / Nepodařilo se" results). Ask first.
+Future<void> trasyStopNowV2(BuildContext context, WidgetRef ref) => toggleManualRide(context, ref, running: true);
+
+/// Asks first, then the existing stop. Nothing is busy while the question
+/// is open.
 Future<void> trasyConfirmStopRide(BuildContext context, WidgetRef ref) async {
   final paused = ref.read(rideRecorderProvider).isPaused;
   if (await trasyConfirmStop(context, paused: paused) && context.mounted) {
-    await toggleManualRide(context, ref, running: true);
+    await trasyStopNowV2(context, ref);
   }
 }

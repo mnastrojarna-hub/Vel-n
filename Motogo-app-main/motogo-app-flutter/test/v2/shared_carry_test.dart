@@ -84,7 +84,7 @@ void _seed(ProviderContainer c) {
   c.read(bookingEntryFilterProvider.notifier).state = (_s, _e);
 }
 
-Future<ProviderContainer> _pumpAuth(WidgetTester tester, {String? saved}) async {
+Future<GoRouter> _pumpAuth(WidgetTester tester, {String? saved}) async {
   SharedPreferences.setMockInitialValues({if (saved != null) 'mg_saved_email': saved});
   tester.view.physicalSize = const Size(412, 915) * 2;
   tester.view.devicePixelRatio = 2;
@@ -95,7 +95,7 @@ Future<ProviderContainer> _pumpAuth(WidgetTester tester, {String? saved}) async 
   ]);
   await tester.pumpWidget(_app(router, v2: false));
   await tester.pumpAndSettle();
-  return ProviderScope.containerOf(tester.element(find.byType(LoginScreen)));
+  return router;
 }
 
 String _field(WidgetTester tester, Finder of) =>
@@ -172,6 +172,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(RegisterScreen), findsOneWidget);
       expect(find.widgetWithText(TextField, 'stary@ucet.cz'), findsNothing);
+    });
+
+    testWidgets('registrace → „účet existuje, Přihlásit“ (go s ?email=) vyplní už otevřené přihlášení', (tester) async {
+      final router = await _pumpAuth(tester, saved: 'stary@ucet.cz');
+      await tester.ensureVisible(find.byType(LoginRegisterButton));
+      await tester.tap(find.byType(LoginRegisterButton));
+      await tester.pumpAndSettle();
+      router.go(Uri(path: Routes.login, queryParameters: {'email': 'zabrany@ucet.cz'}).toString());
+      await tester.pumpAndSettle();
+      expect(find.byType(RegisterScreen), findsNothing);
+      expect(_field(tester, find.byType(LoginEmailField)), 'zabrany@ucet.cz');
     });
 
     testWidgets('přihlášení s e-mailem z registrace (?email=) má přednost před zapamatovaným', (tester) async {

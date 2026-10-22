@@ -43,7 +43,7 @@ class RecPhaseV2 {
     final since = s == null ? null : tr.trArgs('v2RpSince', {'time': recSinceV2(s, now: now)});
     if (rec.gpsLost) {
       return RecPhaseV2(
-          status: tr.tr('v2RtRecGps').toUpperCase(), chip: tr.tr('v2RtRecGps'), title: tr.tr('eoRideGpsLost'), tone: RecToneV2.warn);
+          status: tr.tr('rideRecording').toUpperCase(), chip: tr.tr('rideRecording'), title: tr.tr('v2RtRecGps'), tone: RecToneV2.warn);
     }
     if (rec.isArmed) {
       return RecPhaseV2(

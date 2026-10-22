@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/widgets/mg_nav_controls.dart' show MgBackTap;
 import '../ride_recorder.dart';
+import 'rides/ride_pause_sheet_v2.dart';
+import 'rides/ride_phase_v2.dart';
 
 /// Navigation top-bar controls in the v2 look (no decorative motion on the
 /// navigation screen): back = photo-style disc (keeps the ride running —
@@ -63,8 +66,9 @@ class NavStopsChipV2 extends StatelessWidget {
       );
 }
 
-/// "● REC" while a ride recording runs (display only, static red dot — the
-/// navigation is never covered by the record bar).
+/// "● REC" / "❚❚ PAUZA" while a ride recording runs (SPEC §9.2): no
+/// decorative motion on the navigation screen (static dot); tap (44 px) =
+/// the v2 recording sheet (phase, numbers, pause / resume, stop).
 class NavRecChipV2 extends ConsumerWidget {
   const NavRecChipV2({super.key});
 
@@ -72,28 +76,47 @@ class NavRecChipV2 extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rec = ref.watch(rideRecorderProvider);
     if (!rec.recording) return const SizedBox.shrink();
+    final tr = t(context);
+    final ph = RecPhaseV2.of(tr, rec);
+    final paused = ph.tone == RecToneV2.paused || ph.tone == RecToneV2.armed;
+    final label = tr.tr(paused ? 'v2RpNavPause' : 'v2RpNavRec');
+    final dot = switch (ph.tone) {
+      RecToneV2.warn => MgColors.warnDark,
+      RecToneV2.rec => MgColors.sosDot,
+      _ => null,
+    };
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: Semantics(
-        label: t(context).tr('rideRecording'),
+        button: true,
+        label: '${ph.chip}. ${tr.tr('v2RpNavA11y')}',
         excludeSemantics: true,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 32),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: MgColors.nightA(0.85),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: MgColors.white(0.25)),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(color: rec.gpsLost ? MgColors.warnDark : MgColors.sosDot, shape: BoxShape.circle),
+        child: MgPress(
+          scale: 0.94,
+          onTap: () => showRidePauseSheetV2(context),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            child: Center(
+              widthFactor: 1,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: MgColors.nightA(0.85),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: MgColors.white(0.25)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (dot != null)
+                    Container(width: 9, height: 9, decoration: BoxDecoration(color: dot, shape: BoxShape.circle))
+                  else
+                    const MgIcon(MgIcons.pause, size: 12, color: MgColors.onDark, stroke: 2.8),
+                  const SizedBox(width: 6),
+                  Text(label, style: MgType.meta.copyWith(fontWeight: FontWeight.w900, color: MgColors.onDark, letterSpacing: 0.6)),
+                ]),
+              ),
             ),
-            const SizedBox(width: 6),
-            Text('REC', style: MgType.meta.copyWith(fontWeight: FontWeight.w900, color: MgColors.onDark, letterSpacing: 0.6)),
-          ]),
+          ),
         ),
       ),
     );
