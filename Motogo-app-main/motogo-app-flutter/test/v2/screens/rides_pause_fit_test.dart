@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' show FlutterMap;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/widgets/map_tile_errors.dart';
 import 'package:motogo_app/features/routes/v2/rides/recorder_parts_v2.dart';
@@ -80,8 +81,14 @@ Future<List<String>> _run(WidgetTester t, _Unit u, String lang) async {
         out.add('$id: exception $first @ $loc');
       }
       final maps = find.byType(FlutterMap, skipOffstage: false).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
-      for (final f in inspectFrame(t.binding.renderViews.first, lang, size, ignore: maps)) {
-        if (f.fail) out.add('$id: ${f.kind} "${f.text}" ${f.detail}');
+      // The shared bottom nav (shell code) is checked by its own matrix.
+      final navs = find.byType(V2NavBar).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
+      for (final f in inspectFrame(t.binding.renderViews.first, lang, size, ignore: maps, nav: navs)) {
+        if (f.fail) {
+          out.add('$id: ${f.kind} "${f.text}" ${f.detail}');
+        } else if (Platform.environment['MG_FIT_ALL'] != null && f.kind != 'czech-text') {
+          debugPrint('WARN: $id: ${f.kind} "${f.text}" ${f.detail}');
+        }
       }
       await t.pumpWidget(const SizedBox());
       MapTileErrors.retry();

@@ -75,7 +75,7 @@ class RideTripCardV2 extends StatelessWidget {
                   const SizedBox(height: 6),
                   MgWordFit(
                     minScale: 0.8,
-                    child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
+                    child: Text(name, maxLines: 3, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
                   ),
                   const SizedBox(height: 2),
                   Text(range, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),

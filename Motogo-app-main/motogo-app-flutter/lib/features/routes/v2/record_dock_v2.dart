@@ -12,6 +12,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../ride_actions.dart';
 import '../ride_recorder.dart';
 import 'rides/rec_live_bar_v2.dart';
@@ -116,17 +117,26 @@ class TrasyRecordDockV2 extends ConsumerWidget {
     );
   }
 
+  /// Context line above the Místa selection: phase + km / since (short —
+  /// the full numbers are on the recorder screen); wraps, never cut.
   Widget _liveLine(AppTranslations tr, RideRecorderState rec) {
     final ph = RecPhaseV2.of(tr, rec);
+    final bit = switch (ph.tone) {
+      RecToneV2.rec => recLiveBitsV2(tr, rec, avg: false).first,
+      RecToneV2.paused => ph.since,
+      _ => null,
+    };
     return Row(children: [
       RecGlyphV2(tone: ph.tone, size: 16),
       const SizedBox(width: 8),
       Flexible(
-        child: Text(
-          '${ph.chip} · ${recBarLineV2(tr, rec, ph)}',
-          maxLines: 2,
-          style: MgType.tab(MgType.small.copyWith(
-              fontWeight: FontWeight.w800, color: ph.tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead)),
+        child: MgWordFit(
+          minScale: 0.65,
+          child: Text(
+            [ph.chip, if (bit != null) bit].join(' · '),
+            style: MgType.tab(MgType.small.copyWith(
+                fontWeight: FontWeight.w800, color: ph.tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead)),
+          ),
         ),
       ),
     ]);

@@ -12,7 +12,9 @@ import 'package:motogo_app/features/routes/v2/rides/ride_dialogs_v2.dart';
 import 'package:motogo_app/features/routes/v2/rides/ride_share_v2.dart';
 
 import '../screens/rides_cases.dart';
+import '../screens/rides_pause_cases.dart';
 import '../support/fakes_rides.dart';
+import '../support/fakes_rides_pause.dart';
 import 'cases_core.dart' show launcher, tapOpen;
 import 'render_harness.dart';
 
@@ -39,8 +41,13 @@ List<RenderCase> ridesRenderCases() {
   add('detail', detailCases());
   add('recorder', recorderCases());
   add('point', pointCases(), scaffold: true);
+  // Pauza / auto-pauza / cesty (SPEC §9.2): recorder in every phase, trips.
+  add('recorder-pause', pauseRecorderCases());
+  add('trips', pausePageCases());
   out.addAll([
     RenderCase('rides', 'recorder', 'manual-stop-confirm', () => const RecorderScreenV2(), () => ridesOverrides(recorder: kRecManual),
+        scaffold: false, after: _tapStop, end: ridesEnd),
+    RenderCase('rides', 'recorder', 'paused-stop-confirm', () => const RecorderScreenV2(), () => tripOverrides(recorder: kRecManualPaused),
         scaffold: false, after: _tapStop, end: ridesEnd),
     RenderCase(
         'rides',

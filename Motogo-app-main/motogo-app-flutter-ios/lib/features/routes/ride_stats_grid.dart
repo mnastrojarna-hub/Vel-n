@@ -14,9 +14,13 @@ import 'ride_model.dart';
 /// Čas „na cestě" je u nového serveru BEZ pauz (noci, oběd); u jízdy ze
 /// starého serveru je to celkový čas (proto jiný popisek).
 class RideStatsGrid extends StatelessWidget {
-  const RideStatsGrid({super.key, required this.ride, this.showText = true});
+  const RideStatsGrid({super.key, required this.ride, this.showText = true, this.days});
 
   final UserRide ride;
+
+  /// Dny na cestě zvenku (cesta = sjednocení dní jejích jízd, ne kalendář
+  /// od první do poslední — sloučené jízdy můžou být měsíce od sebe).
+  final int? days;
 
   /// Motorka a popis jízdy (u cesty se nezobrazují — patří jednotlivým jízdám).
   final bool showText;
@@ -28,6 +32,7 @@ class RideStatsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final r = ride;
+    final days = this.days ?? r.days;
     final cells = <(String, String, String)>[
       ('📏', rideKm(r.distanceKm), tr.tr('rideStatDistance')),
       ('🏍️', r.movingSec > 0 ? rideDuration(r.movingMin) : '—', tr.tr('rideStatMoving')),
@@ -46,7 +51,7 @@ class RideStatsGrid extends StatelessWidget {
           tr.tr('rpStatPauses')
         ),
       if (r.gapSec > 0) ('📵', rideDuration(r.gapMin), tr.tr('rideStatGap')),
-      if (r.days >= 2) ('📅', '${r.days}', tr.tr('rpStatDays')),
+      if (days >= 2) ('📅', '$days', tr.tr('rpStatDays')),
       ('📍', '${r.stops.length}', tr.tr('rideStatStops')),
       ('📷', '${r.photoCount}', tr.tr('rideStatPhotos')),
     ];

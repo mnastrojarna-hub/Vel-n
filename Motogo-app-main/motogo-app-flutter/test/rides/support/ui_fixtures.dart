@@ -88,7 +88,8 @@ UserRide multiDayRide({String id = 'multi', bool recording = false}) {
   ts += 13 * 3600; // noc
   pts.add(_p(lat, lng, ts, -1));
   ride(25);
-  final end = DateTime.fromMillisecondsSinceEpoch((ts * 1000).round());
+  // Konec třetí den odpoledne (časy stopy jsou zhuštěné, na součty nemají vliv).
+  final end = DateTime(2026, 9, 30, 15);
   double st(int d, int h) => DateTime(2026, 9, 28 + d, h).millisecondsSinceEpoch / 1000;
   return UserRide.fromJson({
     'id': id,

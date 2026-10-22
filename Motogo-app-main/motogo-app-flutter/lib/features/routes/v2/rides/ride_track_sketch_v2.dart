@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart' show LatLng;
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../ride_model.dart';
 
 /// Blue-grey of a move during a pause (ferry, trailer — SPEC §9.1).
@@ -199,11 +200,12 @@ class RideBadgeV2 extends StatelessWidget {
           MgIcon(icon, size: 12, color: fg, stroke: kind == RideBadgeKind.paused ? 2.8 : 2),
           const SizedBox(width: 4),
         ],
+        // Štítek celý (zmenší se), nikdy „TRAVESÍA · 3 d…".
         Flexible(
-          child: Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.2)),
+          child: MgWordFit(
+            minScale: 0.7,
+            child: Text(label, maxLines: 1, softWrap: false, style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.2)),
+          ),
         ),
       ]),
     );
@@ -222,9 +224,12 @@ class RideMetaV2 extends StatelessWidget {
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
         MgIcon(icon, size: 15, color: dark ? MgColors.neon : MgColors.routeGreen),
         const SizedBox(width: 4),
-        Text(text,
-            style: MgType.tab(MgType.small.copyWith(
-                fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
-                color: dark ? MgColors.onDarkBody : (strong ? MgColors.ink : MgColors.body2)))),
+        // Úzká karta + velké písmo: hodnota se zalomí, nikdy nepřeteče.
+        Flexible(
+          child: Text(text,
+              style: MgType.tab(MgType.small.copyWith(
+                  fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
+                  color: dark ? MgColors.onDarkBody : (strong ? MgColors.ink : MgColors.body2)))),
+        ),
       ]);
 }

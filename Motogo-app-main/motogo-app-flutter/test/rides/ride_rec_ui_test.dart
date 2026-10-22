@@ -4,7 +4,6 @@
 // pause / resume / stop; Ukončit jen u vlastní jízdy; popisky pro čtečku;
 // reduced motion = nic se neanimuje.
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
@@ -52,8 +51,6 @@ void main() {
       for (final scale in kRpScales) {
         testWidgets('ovládání záznamu $lang ${w.toInt()} ×$scale', (tester) async {
           for (final e in recStates().entries) {
-            // Čistý strom (jinak by otevřený sheet z minulé fáze zůstal viset).
-            await tester.pumpWidget(const SizedBox());
             await pumpRides(tester, _all((_) async {}),
                 lang: lang, width: w, scale: scale, overrides: ridesUiOverrides(rec: e.value));
             await tester.pump(const Duration(milliseconds: 60));
@@ -187,7 +184,6 @@ void main() {
 
   testWidgets('reduced motion: všechny fáze se ustálí (žádná smyčka)', (tester) async {
     for (final e in recStates().entries) {
-      await tester.pumpWidget(const SizedBox());
       await pumpRides(tester, _all((_) async {}), reducedMotion: true, overrides: ridesUiOverrides(rec: e.value));
       await tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate,
           const Duration(seconds: 5));

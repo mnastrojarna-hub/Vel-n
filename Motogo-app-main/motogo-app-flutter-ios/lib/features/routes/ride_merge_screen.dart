@@ -187,7 +187,7 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
           ].join(' · ')
         ),
       RideListItemTrip(:final trip) => (
-          '🧳 ${rideTripDefaultName(trip, tr)}',
+          '${trip.isRental ? '🏍️' : '🧳'} ${rideTripDefaultName(trip, tr)}',
           [
             rideDateRange(trip.from, trip.to),
             rideRidesLabel(trip.rides.length, tr),

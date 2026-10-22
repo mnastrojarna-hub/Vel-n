@@ -167,7 +167,7 @@ class _RideTripDetailScreenState extends ConsumerState<RideTripDetailScreen> {
                   ),
                 ),
               const SizedBox(height: 12),
-              RideStatsGrid(ride: a, showText: false),
+              RideStatsGrid(ride: a, showText: false, days: trip.days),
               const SizedBox(height: 12),
               RideStageList(stages: rideTripStages(trip)),
               const SizedBox(height: 12),
@@ -187,11 +187,27 @@ class _RideTripDetailScreenState extends ConsumerState<RideTripDetailScreen> {
                 ),
               ])),
               const SizedBox(height: 12),
-              _card(Column(children: [
-                _action(Icons.edit_outlined, tr.tr('rpTripRename'), () => _rename(trip)),
-                _action(Icons.call_split, tr.tr('rpTripSplit'), () => _split(trip)),
-                _action(Icons.delete_outline, tr.tr('rpTripDelete'), () => _delete(trip), danger: true),
-              ]), pad: const EdgeInsets.symmetric(vertical: 4)),
+              // Material (ne barevný Container) — ListTile kreslí pozadí a vlnku na
+              // nejbližší Material.
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(MotoGoRadius.card),
+                  boxShadow: MotoGoShadows.cardSmall,
+                ),
+                child: Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(MotoGoRadius.card),
+                  clipBehavior: Clip.antiAlias,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(children: [
+                      _action(Icons.edit_outlined, tr.tr('rpTripRename'), () => _rename(trip)),
+                      _action(Icons.call_split, tr.tr('rpTripSplit'), () => _split(trip)),
+                      _action(Icons.delete_outline, tr.tr('rpTripDelete'), () => _delete(trip), danger: true),
+                    ]),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               Semantics(header: true, child: Text(tr.tr('rpTripMembers'), style: _title.copyWith(fontSize: MotoGoTypo.sizeXl))),
               const SizedBox(height: 10),
@@ -213,8 +229,8 @@ class _RideTripDetailScreenState extends ConsumerState<RideTripDetailScreen> {
       height: 1.35,
       decoration: TextDecoration.none);
 
-  Widget _card(Widget child, {EdgeInsets pad = const EdgeInsets.fromLTRB(14, 10, 8, 10)}) => Container(
-        padding: pad,
+  Widget _card(Widget child) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(MotoGoRadius.card),

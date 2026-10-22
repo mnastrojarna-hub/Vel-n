@@ -201,8 +201,12 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                     RecorderNoteV2(icon: MgIcons.flag, text: tr.tr('v2RpRentalEnds')),
                     const SizedBox(height: 10),
                   ],
-                  RecorderNoteV2(icon: MgIcons.info, text: tr.tr('v2RideRecAfter')),
-                  const SizedBox(height: 16),
+                  // Během záznamu jsou km a čas vidět živě výš — poznámka „uvidíš po
+                  // uložení" platí jen před startem.
+                  if (!live) ...[
+                    RecorderNoteV2(icon: MgIcons.info, text: tr.tr('v2RideRecAfter')),
+                    const SizedBox(height: 16),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     decoration: BoxDecoration(

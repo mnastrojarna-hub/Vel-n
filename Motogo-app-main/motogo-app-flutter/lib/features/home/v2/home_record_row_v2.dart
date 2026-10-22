@@ -141,9 +141,11 @@ class HomeRecordRowV2 extends ConsumerWidget {
         // Úzký telefon: „Ukončit" jen jako 44px ikona (popisek v sémantice),
         // ať má stav záznamu místo a slova se nedělí.
         child: LayoutBuilder(builder: (context, c) {
-          final iconOnly = c.maxWidth < 360;
+          // Velké písmo = „užší" řádek: popis pod ikonou přes celou šířku.
+          final ts = MediaQuery.textScalerOf(context).scale(1);
+          final iconOnly = c.maxWidth < 360 * ts;
           return Row(children: [
-            Expanded(child: main(c.maxWidth < (live ? 340 : 300))),
+            Expanded(child: main(c.maxWidth < (live ? 340 : 300) * ts)),
             if (live) RecPauseDiscV2(paused: rec.isManualPaused, dark: false, onTap: () => rideTogglePauseV2(context, ref)),
             if (manual) ...[
               const SizedBox(width: 6),

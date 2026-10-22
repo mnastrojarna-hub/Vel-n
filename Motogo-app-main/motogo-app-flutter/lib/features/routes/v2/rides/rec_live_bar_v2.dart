@@ -32,8 +32,58 @@ class RecLiveBarV2 extends StatelessWidget {
       RecToneV2.paused => MgColors.white(0.28),
     };
     return LayoutBuilder(builder: (context, c) {
-      // Úzká lišta: „Ukončit" jen jako 44px ikona (popisek v sémantice).
-      final narrow = c.maxWidth < 300;
+      // Vedle textu: ❚❚ (50) + ■ jen ikonou (50, popisek v sémantice).
+      // Když na stav nezbude aspoň ~120 px (úzký telefon, velké písmo),
+      // ovládání jde do druhého řádku a text má celou šířku.
+      final ts = MediaQuery.textScalerOf(context).scale(1);
+      final avail = c.maxWidth - 44 - 50 - (rec.canStop ? 50 : 0);
+      final stacked = avail < 120 * ts;
+      final text = Semantics(
+        button: onOpen != null,
+        liveRegion: true,
+        label: '${ph.chip}, $sub',
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onOpen,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 8, 6, stacked ? 2 : 8),
+            child: Row(children: [
+              RecGlyphV2(tone: ph.tone),
+              const SizedBox(width: 8),
+              Expanded(
+                // Titul vždy celý na jeden řádek (zmenší se), řádek pod
+                // ním se zalomí jen mezi slovy.
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  MgWordFit(
+                    minScale: 0.6,
+                    child: Text(ph.chip.toUpperCase(),
+                        maxLines: 1,
+                        softWrap: false,
+                        style: MgType.ctaCompact.copyWith(color: MgColors.onDark, letterSpacing: 0.5)),
+                  ),
+                  const SizedBox(height: 2),
+                  MgWordFit(
+                    minScale: 0.75,
+                    child: Text(sub,
+                        style: MgType.tab(MgType.small.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: ph.tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead))),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      );
+      final controls = <Widget>[
+        RecPauseDiscV2(paused: rec.isManualPaused, onTap: onPause),
+        const SizedBox(width: 6),
+        if (rec.canStop) ...[
+          RecStopButtonV2(onTap: onStop, iconOnly: true),
+          const SizedBox(width: 6),
+        ],
+      ];
       return Container(
         constraints: const BoxConstraints(minHeight: 56),
         decoration: BoxDecoration(
@@ -41,67 +91,28 @@ class RecLiveBarV2 extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: edge, width: 1.5),
         ),
-        child: Row(children: [
-          Expanded(
-            child: Semantics(
-              button: onOpen != null,
-              liveRegion: true,
-              label: '${ph.chip}, $sub',
-              excludeSemantics: true,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onOpen,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
-                  child: Row(children: [
-                    RecGlyphV2(tone: ph.tone),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      // Titul vždy celý na jeden řádek (zmenší se), řádek
-                      // pod ním smí na 2 řádky bez dělení slov.
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                        MgWordFit(
-                          minScale: 0.6,
-                          child: Text(ph.chip.toUpperCase(),
-                              maxLines: 1,
-                              softWrap: false,
-                              style: MgType.ctaCompact.copyWith(color: MgColors.onDark, letterSpacing: 0.5)),
-                        ),
-                        const SizedBox(height: 2),
-                        MgWordFit(
-                          minScale: 0.75,
-                          child: Text(sub,
-                              maxLines: 2,
-                              style: MgType.tab(MgType.small.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: ph.tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead))),
-                        ),
-                      ]),
-                    ),
-                  ]),
+        child: stacked
+            ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                text,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: controls),
                 ),
-              ),
-            ),
-          ),
-          RecPauseDiscV2(paused: rec.isManualPaused, onTap: onPause),
-          const SizedBox(width: 6),
-          if (rec.canStop) ...[
-            RecStopButtonV2(onTap: onStop, iconOnly: narrow),
-            const SizedBox(width: 6),
-          ],
-        ]),
+              ])
+            : Row(children: [Expanded(child: text), ...controls]),
       );
     });
   }
 }
 
-/// Second line of a live bar / row: riding → "12,3 km · 45 min v sedle";
+/// Second line of a live bar / row (the day and Ø are on the recorder
+/// screen): riding → "12,3 km · 45 min v sedle";
 /// paused → "od 20:14 · 12,3 km"; armed → the mode (ruční / výpůjčka);
 /// GPS lost → "Slabý nebo žádný GPS signál".
 String recBarLineV2(AppTranslations tr, RideRecorderState rec, RecPhaseV2 ph) {
   final mode = tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto');
   return switch (ph.tone) {
-    RecToneV2.rec => recLiveLineV2(tr, rec),
+    RecToneV2.rec => recLiveBitsV2(tr, rec, avg: false).take(2).join(' · '),
     RecToneV2.paused => [if (ph.since != null) ph.since!, recLiveBitsV2(tr, rec, avg: false).first].join(' · '),
     RecToneV2.armed => mode,
     RecToneV2.warn => tr.tr('v2RtRecGps'),

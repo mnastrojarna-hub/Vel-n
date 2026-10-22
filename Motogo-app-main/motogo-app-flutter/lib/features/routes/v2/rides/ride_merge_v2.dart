@@ -179,7 +179,7 @@ class _MergeTile extends StatelessWidget {
       RideListItemTrip(:final trip) => (
           trip.aggregate,
           tripNameV2(tr, trip),
-          '${tr.trArgs('v2RpTripCard', {'days': recDaysV2(tr, trip.days)})} · ${recRidesV2(tr, trip.rides.length)}'
+          tr.trArgs('v2RpTripCard', {'days': recDaysV2(tr, trip.days)})
         ),
     };
     final range = rideDateRange(r.startedAt, r.endedAt ?? r.lastFixAt ?? r.startedAt);
@@ -214,7 +214,10 @@ class _MergeTile extends StatelessWidget {
                     child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
                   ),
                   const SizedBox(height: 2),
-                  Text('$range · ${rideKm(r.distanceKm)}', style: MgType.tab(MgType.small.copyWith(color: MgColors.meta))),
+                  Text(
+                    [range, rideKm(r.distanceKm), if (item case RideListItemTrip(:final trip)) recRidesV2(tr, trip.rides.length)].join(' · '),
+                    style: MgType.tab(MgType.small.copyWith(color: MgColors.meta)),
+                  ),
                 ]),
               ),
               SizedBox(

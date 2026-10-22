@@ -69,8 +69,9 @@ void main() {
             const RideTripDetailScreen(rideId: 'b2'),
             const RideTripDetailScreen(rideId: 'solo'), // cesta neexistuje
           ]) {
-            await tester.pumpWidget(const SizedBox());
-            await pumpRides(tester, screen, lang: lang, width: w, scale: scale, overrides: ov, scroll: false);
+            // Vysoké okno = celý seznam se postaví (ListView staví líně).
+            await pumpRides(tester, screen,
+                lang: lang, width: w, scale: scale, overrides: ov, scroll: false, height: 2600);
             await expectCleanRides(tester);
           }
         });
@@ -144,7 +145,7 @@ void main() {
 
   testWidgets('detail cesty: název, rozsah, jízdy v cestě, akce; zaniklá cesta to řekne', (tester) async {
     await pumpRides(tester, const RideTripDetailScreen(rideId: 't2'),
-        overrides: ridesUiOverrides(rides: rides), scroll: false);
+        overrides: ridesUiOverrides(rides: rides), scroll: false, height: 2400);
     await expectCleanRides(tester);
     expect(find.textContaining('Šumava s kamarády'), findsOneWidget);
     expect(find.text('Rozdělit cestu'), findsOneWidget);

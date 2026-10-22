@@ -105,13 +105,19 @@ Future<void> pumpRides(
   bool reducedMotion = false,
   List<Override> overrides = const [],
   bool scroll = true,
+  GlobalKey? boundaryKey,
 }) async {
+  // Čistý strom: nový ProviderScope (přepisy providerů se jinak nemění)
+  // a žádný sheet / dialog z minulého vykreslení.
+  await tester.pumpWidget(const SizedBox());
   tester.view.physicalSize = Size(width, height) * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(ProviderScope(
     overrides: overrides,
-    child: MaterialApp(
+    child: RepaintBoundary(
+      key: boundaryKey,
+      child: MaterialApp(
       debugShowCheckedModeBanner: false,
       locale: Locale(lang),
       supportedLocales: supportedLocales,
@@ -134,6 +140,7 @@ Future<void> pumpRides(
             ? SingleChildScrollView(padding: const EdgeInsets.all(16), child: child)
             : child,
       ),
+    ),
     ),
   ));
 }
