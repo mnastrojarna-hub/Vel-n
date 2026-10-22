@@ -27,6 +27,8 @@ Future<void> _pumpScanner(WidgetTester t, String? mode, DocsScreenStatus? s, {St
 }
 
 void main() {
+  setUpAll(loadMontserrat);
+
   group('resolveDocScanPlan', () {
     test('today\'s modes stay the full flow', () {
       for (final m in [null, 'all', 'dl_only']) {
@@ -116,12 +118,14 @@ void main() {
       expect(find.text(AppTranslations('cs').tr('dlOnly')), findsOneWidget);
     });
 
-    testWidgets('today\'s modes unchanged: full flow choice, dl_only = 2 steps', (t) async {
-      final tr = AppTranslations('cs');
+    testWidgets('today\'s full flow unchanged: choice incl. "only ŘP"', (t) async {
       await _pumpScanner(t, null, st(gate(idF: true, idB: true, dlF: true)));
-      expect(find.text(tr.tr('dlOnly')), findsOneWidget);
+      expect(find.text(AppTranslations('cs').tr('dlOnly')), findsOneWidget);
+    });
+
+    testWidgets('today\'s dl_only unchanged: both ŘP sides (1/2)', (t) async {
       await _pumpScanner(t, 'dl_only', st(gate(idF: true, idB: true, dlF: true)));
-      expect(find.text('${tr.tr('frontSide')}  1/2'), findsOneWidget);
+      expect(find.text('${AppTranslations('cs').tr('frontSide')}  1/2'), findsOneWidget);
     });
   });
 }

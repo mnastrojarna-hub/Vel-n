@@ -50,7 +50,9 @@ class _RideTripRowState extends ConsumerState<RideTripRow> {
     final trip = rideTripOf(rides, widget.ride.id);
     if (trip == null) {
       if (!rideTripsAvailable(rides)) return const SizedBox.shrink();
-      return Align(
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
           style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: MotoGoColors.greenDarker),
@@ -59,10 +61,12 @@ class _RideTripRowState extends ConsumerState<RideTripRow> {
           label: Text(tr.tr('rpTripAddTo'),
               style: const TextStyle(fontSize: MotoGoTypo.sizeLg, fontWeight: MotoGoTypo.w800)),
         ),
+      ),
       );
     }
     final name = rideTripDefaultName(trip, tr);
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(MotoGoRadius.card),
