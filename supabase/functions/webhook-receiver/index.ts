@@ -15,6 +15,7 @@ import { applyChargeRounding } from '../_shared/charge-rounding.ts'
 import { refundLatePaymentOnCancelled } from './late-payment.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { prepareExtensionPayment, refundDuplicateCharges, markPaidAfterChange } from './extension-payment.ts'
+import { syncRefundBooking, webhookRecoveryBody } from '../_shared/refund-recovery.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -585,8 +586,8 @@ Deno.serve(async (req: Request) => {
       //    metadata.mg_source, bookings.stripe_refund_id nebo existujícího
       //    dobropisu s tímto refund id): dobropis, mail i stavy řeší flow, které
       //    refund vyvolalo (zkrácení/výměna/úprava/storno). Webhook NIKDY neruší
-      //    rezervaci; jen dosynchronizuje payment_status a bezpečně (bez amount →
-      //    process-refund už žádný Stripe refund nevytvoří) dohraje credit_note,
+      //    rezervaci; jen dosynchronizuje payment_status a bezpečně (recovery důvod
+      //    `webhook_refund_retry` → process-refund žádný Stripe refund nevytvoří) dohraje credit_note,
       //    pokud process-refund spadl po refunds.create(). Storno mail jen pokud
       //    už rezervace cancelled JE (safety-net původního scénáře 2).
       // B) EXTERNÍ refund (Stripe portál) na PLNOU částku: skutečné storno zvenku
@@ -635,23 +636,22 @@ Deno.serve(async (req: Request) => {
           //    Vratka z process-refund (mg_source): stav nastavuje process-refund sám — vrací
           //    i z více plateb (storno 50 % = celý malý doplatek + zbytek z původní platby),
           //    takže „tahle charge je celá vrácená" ≠ rezervace vrácená celá. Webhook jen
-          //    zastoupí stav, dokud ho process-refund nezapsal (stále 'paid'), aby recovery
-          //    volání níže (bez částky) nevytvořilo další vratku; stripe_refund_id jen prázdné.
+          //    zastoupí stav, dokud je rezervace stále 'paid' — compare-and-set (oprava f3:
+          //    read-then-write přepsal mezitím zapsané 'partial_refund' na 'refunded');
+          //    'refund_pending' nepřepisuje; stripe_refund_id jen do prázdného. Viz syncRefundBooking.
           const fromProcessRefund = latestSource === 'process-refund'
-          const bkPatch: Record<string, any> = {}
-          if (!fromProcessRefund || linkedBooking.payment_status === 'paid') {
-            bkPatch.payment_status = fullyRefunded ? 'refunded' : 'partial_refund'
-          }
-          if (latestRefund?.id && (!fromProcessRefund || !linkedBooking.stripe_refund_id)) bkPatch.stripe_refund_id = latestRefund.id
-          if (shouldCancel) {
-            bkPatch.status = 'cancelled'
-            bkPatch.cancelled_at = new Date().toISOString()
-            bkPatch.cancelled_by_source = 'stripe_portal'
-            bkPatch.cancellation_reason = refundReason
+          const cancelPatch: Record<string, any> | null = shouldCancel ? {
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            cancelled_by_source: 'stripe_portal',
+            cancellation_reason: refundReason
               ? `Refund přes Stripe portál (${refundReason})`
-              : 'Refund přes Stripe portál'
-          }
-          if (Object.keys(bkPatch).length) await supabase.from('bookings').update(bkPatch).eq('id', linkedBooking.id)
+              : 'Refund přes Stripe portál',
+          } : null
+          await syncRefundBooking(supabase, {
+            bookingId: linkedBooking.id, currentStatus: linkedBooking.payment_status, currentRefundId: linkedBooking.stripe_refund_id,
+            fromProcessRefund, fullyRefunded, refundId: latestRefund?.id || null, cancelPatch,
+          })
 
           await supabase.from('debug_log').insert({
             source: 'webhook-receiver',
@@ -667,11 +667,12 @@ Deno.serve(async (req: Request) => {
             },
           }).then(() => {}, () => {})
 
-          // 2) Dohrát credit_note (safety-net pro spadlý process-refund) — BEZ
-          //    amount: payment_status je teď 'partial_refund'/'refunded', takže
-          //    process-refund jde do idempotentní already-refunded větve (jen
-          //    ensureCreditNotePdf / createCreditNoteForExistingRefund, žádný
-          //    nový Stripe refund). U externího ČÁSTEČNÉHO refundu nevoláme —
+          // 2) Dohrát credit_note (safety-net pro spadlý process-refund) — RECOVERY-ONLY
+          //    volání (důvod `webhook_refund_retry` → větev `/_retry$/`: jen
+          //    ensureCreditNotePdf / createCreditNoteForExistingRefund, NIKDY nový Stripe
+          //    refund). Oprava f3: dřív bez důvodu — rezervace ve stavu 'refund_pending'
+          //    (storno z Velínu, čekající vratka) prošla bránou a process-refund vrátil
+          //    PODRUHÉ celý zbytek uložené platby. U externího ČÁSTEČNÉHO refundu nevoláme —
           //    dobropis k ručnímu vystavení (viz debug_log warning výše).
           if (internalRefund || fullyRefunded) {
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-refund`, {
@@ -680,7 +681,7 @@ Deno.serve(async (req: Request) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
               },
-              body: JSON.stringify({ booking_id: linkedBooking.id }),
+              body: JSON.stringify(webhookRecoveryBody(linkedBooking.id, latestRefund?.id || null)),
             }).catch(e => console.warn('Webhook process-refund recovery failed:', e?.message))
           }
 

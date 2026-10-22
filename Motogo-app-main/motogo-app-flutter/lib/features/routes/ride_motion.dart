@@ -214,6 +214,8 @@ RidePair rideClassifyPair(List<double> p, List<double> q) {
 bool rideIsMovingPair(List<double> p, List<double> q) =>
     rideClassifyPair(p, q).kind == RidePairKind.moving;
 
+typedef _K = RideMotionConfig;
+
 /// Verdikt pomalého úseku (stav `pending` automatu).
 enum RidePendingVerdict { none, stop, walk, release }
 
@@ -222,8 +224,6 @@ enum RidePendingVerdict { none, stop, walk, release }
 class RideMotionDetector {
   const RideMotionDetector(this.cfg);
   final RideMotionConfig cfg;
-
-  static const _c = RideMotionConfig;
 
   static double? _v(RideFix a, RideFix b) {
     final dt = b.ts - a.ts;
@@ -276,27 +276,29 @@ class RideMotionDetector {
     final out = anchor == null
         ? 0
         : good.where((f) => rideFixPtDistM(f, anchor) > rStill).length;
-    final allowed = good.length >= 5 ? math.max(1, good.length ~/ 10) : 0;
+    // Jeden ojedinělý skok GPS (nebo ~10 %) stání nezkazí.
+    final allowed = math.max(1, good.length ~/ 10);
     if (dur >= cfg.stopPauseS && out <= allowed) return RidePendingVerdict.stop;
     final dops = [for (final f in fixes) if (f.kmh != null) f.kmh!];
     final path = ridePathLenM(pathPts);
     final avg = path / dur * 3.6;
     final med = rideMedian(dops);
     if (dur >= cfg.walkPauseS &&
-        dops.every((k) => k <= _c.slowKmh) &&
-        path >= _c.walkMinPathM &&
-        ((dops.length >= _c.walkMinFixes && med! >= _c.walkMinKmh && med <= _c.walkMaxKmh) ||
-            (dops.isEmpty && avg <= _c.walkMaxKmh))) {
+        dops.every((k) => k <= _K.slowKmh) &&
+        path >= _K.walkMinPathM &&
+        ((dops.length >= _K.walkMinFixes && med! >= _K.walkMinKmh && med <= _K.walkMaxKmh) ||
+            (dops.isEmpty && avg <= _K.walkMaxKmh))) {
       return RidePendingVerdict.walk;
     }
-    if (dur >= _c.slowRideAfterS &&
-        path >= _c.slowRidePathM &&
-        ((med != null && med > _c.slowRideMedianKmh) || avg > _c.slowRideAvgKmh)) {
+    if (dur >= _K.slowRideAfterS &&
+        path >= _K.slowRidePathM &&
+        // Doppler má přednost (skok GPS by průměr z dráhy nafoukl).
+        (med != null ? med > _K.slowRideMedianKmh : avg > _K.slowRideAvgKmh)) {
       return RidePendingVerdict.release;
     }
-    if (dur >= _c.pendingMaxS) {
+    if (dur >= _K.pendingMaxS) {
       final near = anchor == null || lastFix == null ||
-          rideFixPtDistM(lastFix, anchor) <= _c.silenceStillM;
+          rideFixPtDistM(lastFix, anchor) <= _K.silenceStillM;
       return near ? RidePendingVerdict.stop : RidePendingVerdict.walk;
     }
     return RidePendingVerdict.none;
@@ -318,32 +320,32 @@ class RideMotionDetector {
       final x = ring[n - 2];
       if ((x.kmh ?? 0) >= cfg.resumeKmh &&
           (y.kmh ?? 0) >= cfg.resumeKmh &&
-          y.ts - x.ts <= _c.pairGapS &&
-          _far(y, anchor, _c.resumeAnchorM)) {
+          y.ts - x.ts <= _K.pairGapS &&
+          _far(y, anchor, _K.resumeAnchorM)) {
         return n - 2;
       }
     }
-    bool still(RideFix f) => f.kmh != null && f.kmh! < _c.slowKmh;
-    if (y.good && !still(y) && _far(y, anchor, _c.resumeNoDopM)) {
+    bool still(RideFix f) => f.kmh != null && f.kmh! < _K.slowKmh;
+    if (y.good && !still(y) && _far(y, anchor, _K.resumeNoDopM)) {
       for (var i = 0; i < n - 1; i++) {
         final x = ring[i];
         final dt = y.ts - x.ts;
-        if (!x.good || still(x) || dt <= 0 || dt > _c.resumeNoDopWindowS) continue;
+        if (!x.good || still(x) || dt <= 0 || dt > _K.resumeNoDopWindowS) continue;
         final d = rideDistM(x.lat, x.lng, y.lat, y.lng);
-        if (d >= _c.resumeNoDopM && d / dt * 3.6 < 250) return i;
+        if (d >= _K.resumeNoDopM && d / dt * 3.6 < 250) return i;
       }
     }
     var first = -1;
     final dops = <double>[];
     for (var i = 0; i < n; i++) {
       final f = ring[i];
-      if (f.ts < y.ts - _c.slowResumeWindowS || f.kmh == null) continue;
+      if (f.ts < y.ts - _K.slowResumeWindowS || f.kmh == null) continue;
       if (first < 0) first = i;
       dops.add(f.kmh!);
     }
-    if (dops.length >= _c.slowResumeMinFixes &&
-        rideMedian(dops)! >= _c.slowResumeKmh &&
-        _far(y, anchor, _c.slowResumeAnchorM)) {
+    if (dops.length >= _K.slowResumeMinFixes &&
+        rideMedian(dops)! >= _K.slowResumeKmh &&
+        _far(y, anchor, _K.slowResumeAnchorM)) {
       return first;
     }
     return null;
@@ -353,7 +355,7 @@ class RideMotionDetector {
   /// posledním fixem) s Dopplerem ≥ 8 km/h, jinak první fix spouštěče.
   int preRollStart(List<RideFix> ring, int trigger) {
     var j = ring.length - 1;
-    while (j >= 0 && ring[j].kmh != null && ring[j].kmh! >= _c.prerollStartKmh) {
+    while (j >= 0 && ring[j].kmh != null && ring[j].kmh! >= _K.prerollStartKmh) {
       j--;
     }
     return j + 1 <= ring.length - 1 ? j + 1 : trigger;

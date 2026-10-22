@@ -19,7 +19,8 @@ import 'catalog_text.dart';
 /// photo pager (swipe / side tap zones, segments), availability pill,
 /// category · licence · branch, name, "Základní údaje" chips, the card price
 /// and the rank CTA. EVERY tap target opens the detail through [onOpen] —
-/// the caller's existing logic (sibling ids + `context.push('/moto/:id')`).
+/// the caller's existing logic (sibling ids + `context.push('/moto/:id')`) —
+/// except the CTA when the caller gives [onCta] (dates set → REZERVOVAT).
 class MotoCardFullV2 extends StatefulWidget {
   final Motorcycle moto;
   final CatCardPrice price;
@@ -31,6 +32,9 @@ class MotoCardFullV2 extends StatefulWidget {
   final bool live;
   final String ctaLabel;
   final VoidCallback onOpen;
+
+  /// CTA action; null = [onOpen].
+  final VoidCallback? onCta;
   final double height;
 
   const MotoCardFullV2({
@@ -40,6 +44,7 @@ class MotoCardFullV2 extends StatefulWidget {
     required this.availability,
     required this.ctaLabel,
     required this.onOpen,
+    this.onCta,
     this.live = false,
     this.height = 560,
   });
@@ -218,7 +223,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                   Widget cta(bool expand) => MgFabAvoid(
                         child: MgCta(
                           label: widget.ctaLabel,
-                          onTap: widget.onOpen,
+                          onTap: widget.onCta ?? widget.onOpen,
                           size: MgCtaSize.sm48,
                           expand: expand,
                           arrow: true,

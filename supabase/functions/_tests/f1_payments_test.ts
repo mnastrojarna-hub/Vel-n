@@ -119,9 +119,10 @@ Deno.test('f1/3: storno 100 % s uloženým doplatkem, který webhook ještě nez
   eq(src, { kind: 'retarget', piId: 'pi_orig', refundableHaleru: 300000, outside: 'pending' })
   // zbytek storna ani vratka obsluhy ho nebere
   eq((await otherRefundableIntents(f.stripe as never, d, BID, 'pi_orig')).map((c) => c.id), [])
-  // zákaznická vratka z appky z čekajícího doplatku → obsluha (nic automaticky)
+  // zákaznická vratka z appky (oprava f2): z čekajícího doplatku ne — z původní platby jako u obsluhy
   eq(await mainSource(f.stripe as never, d, { bookingId: BID, storedPiId: 'pi_e', storedPi: pend, storedRefunds: [],
-    chargedHaleru: 1500, refundableHaleru: 1500, isCustomer: true, amount: 100, nowMs: NOW } as never), { kind: 'customer_staff' })
+    chargedHaleru: 1500, refundableHaleru: 1500, isCustomer: true, amount: 100, nowMs: NOW } as never),
+    { kind: 'retarget', piId: 'pi_orig', refundableHaleru: 300000, outside: 'pending' })
   // rezervace placená převodem + čekající doplatek → ruční vratka (ne z doplatku)
   const q = fakeStripe([pend])
   eq(await mainSource(q.stripe as never, d, { bookingId: BID, storedPiId: 'pi_e', storedPi: pend, storedRefunds: [],

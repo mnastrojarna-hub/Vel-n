@@ -10,6 +10,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../booking/booking_entry.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
@@ -17,6 +18,7 @@ import 'calc/calc_body_v2.dart';
 import 'catalog_date_sheet_v2.dart';
 import 'catalog_filter_sheet_v2.dart';
 import 'catalog_mode.dart';
+import 'catalog_mode_sync.dart';
 import 'catalog_price.dart';
 import 'catalog_text.dart';
 import 'moto_card_full_v2.dart';
@@ -57,8 +59,25 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
   }
 
   void _setMode(CatalogMode m) {
-    if (m != _mode) setState(() => _mode = m);
+    if (m != _mode) {
+      // One trip for both modes: carry the dates / branch of the mode the
+      // customer is leaving (owner 2026-10-22, nothing picked twice).
+      if (m == CatalogMode.calc) {
+        catCarryListToCalc(ref);
+      } else {
+        catCarryCalcToList(ref);
+      }
+      setState(() => _mode = m);
+    }
     if (ref.read(catalogModeProvider) != m) ref.read(catalogModeProvider.notifier).state = m;
+  }
+
+  /// Card CTA "REZERVOVAT" with dates set: straight into the booking form
+  /// with this bike and the list's dates (PM-3) — the list already shows
+  /// only bikes free in them; photo / name still open the detail.
+  void _book(List<Motorcycle> motos, Motorcycle m, DateTime s, DateTime e) {
+    ref.read(filteredMotoIdsProvider.notifier).state = motos.map((m) => m.id).toList();
+    startBookingFromSelection(context, ref, m, s, e);
   }
 
   /// Načíst katalog znovu (zdroj i odvozený filtrovaný seznam) — jako dřív.
@@ -87,6 +106,11 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
     // shared mode — follow them.
     ref.listen<CatalogMode>(catalogModeProvider, (_, next) {
       if (next != _mode) setState(() => _mode = next);
+    });
+    // Dates picked elsewhere while the calculator is shown (its "Detail ›")
+    // are already answered there too.
+    ref.listen<CatalogFilter>(catalogFilterProvider, (prev, next) {
+      if (_mode == CatalogMode.calc) catCalcFollowFilter(ref, prev, next);
     });
     final mode = _mode;
     final motosAsync = ref.watch(filteredMotorcyclesProvider);
@@ -195,6 +219,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
               ctaLabel: cta,
               height: h,
               onOpen: () => _open(motos, motos[i]),
+              onCta: hasDates ? () => _book(motos, motos[i], s, e) : null,
             ),
           ),
           childCount: motos.length,

@@ -1191,8 +1191,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               'reason': motoChanged && !datesChanged ? 'moto_swap' : 'edit_shortening',
             }).timeout(const Duration(seconds: 30));
             final rd = refundRes.data;
-            refundOk = rd is Map && rd['success'] == true;
-            if (!refundOk) debugPrint('[Edit] refund failed: $rd');
+            // Vráceno jen částečně (zbytek dokončí obsluha) = jako neúspěch:
+            // neslibovat celou částku, ukázat pdRefundManual.
+            refundOk = rd is Map && rd['success'] == true && !refundFellShort(rd, -effDiff);
+            if (!refundOk) debugPrint('[Edit] refund failed / partial: $rd');
           } catch (e) {
             debugPrint('[Edit] refund error: $e');
           }

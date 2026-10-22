@@ -79,8 +79,9 @@ Deno.test('BLOCKER: výměna nezapsaná (motorka obsazená) → doplatek vrácen
     refundableHaleru: 300000, effectiveAmountHaleru: 150000, leftHaleru: 0 }), 'partial_refund')
   eq(refundedStatus({ refundStatus: 'succeeded', isCustomer: false, bookingTotalPrice: 3000, amount: 3000,
     refundableHaleru: 300000, effectiveAmountHaleru: 300000, leftHaleru: 0 }), 'refunded')
-  // zákaznická vratka ani vratka bez částky se nepřesměrovává
-  eq(await pickMainIntent(f.stripe as never, d, { bookingId: BID, storedPi: 'pi_x', chargedHaleru: 1500, refundableHaleru: 0, isCustomer: true, amount: 100 }), null)
+  // zákaznická vratka z appky se od opravy f2 přesměrovává stejně; vratka bez částky ne
+  eq(await pickMainIntent(f.stripe as never, d, { bookingId: BID, storedPi: 'pi_x', chargedHaleru: 1500, refundableHaleru: 0, isCustomer: true, amount: 100 }),
+    { piId: 'pi_orig', refundableHaleru: 300000 })
   eq(await pickMainIntent(f.stripe as never, d, { bookingId: BID, storedPi: 'pi_x', chargedHaleru: 1500, refundableHaleru: 0, isCustomer: false, amount: 0 }), null)
 })
 

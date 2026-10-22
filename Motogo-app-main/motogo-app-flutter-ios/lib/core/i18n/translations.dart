@@ -82,6 +82,7 @@ import 'translations_ext_42_refix3_b.dart';
 import 'translations_ext_43_payments.dart';
 import 'translations_ext_44_payfix.dart';
 import 'translations_ext_45_payments.dart';
+import 'translations_ext_46_booking_prefill.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -164,6 +165,7 @@ final translations = _mergeAll([
   translationsExt43Payments,
   translationsExt44Payfix,
   translationsExt45Payments,
+  translationsExt46BookingPrefill,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

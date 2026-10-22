@@ -5,8 +5,9 @@ import '../../moto_model.dart';
 
 /// State of the v2 price calculator (PLAN §2.2.4): IN MEMORY only. It never
 /// touches `bookingDraftProvider` / `catalogFilterProvider` until the user
-/// taps REZERVOVAT (→ `startBookingFromSelection`) or "Zobrazit volné
-/// motorky" (→ the same date write as the catalog date picker).
+/// taps REZERVOVAT (→ `startBookingFromSelection`), "Zobrazit volné
+/// motorky" / "Detail ›" or switches to "Najít motorku" (→ the same date
+/// write as the catalog date picker, `catalog_mode_sync.dart`).
 ///
 /// No pickup time here (owner 2026-10-22): the time is chosen only in the
 /// booking form; the calculator prices the standard pickup (the form's

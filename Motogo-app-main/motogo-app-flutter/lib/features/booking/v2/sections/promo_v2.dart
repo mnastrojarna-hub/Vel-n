@@ -7,6 +7,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_space.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../booking_models.dart';
+import '../../my_vouchers.dart' show MyVoucher;
 import '../booking_v2_parts.dart';
 
 /// v2 look of `BookingFormPromoSection` (V branch): "Zadat kód" opens the
@@ -18,7 +19,19 @@ class BookingPromoV2 extends StatelessWidget {
   final VoidCallback onOpen;
   final void Function(AppliedDiscount) onRemove;
 
-  const BookingPromoV2({super.key, required this.discounts, required this.onOpen, required this.onRemove});
+  /// Vlastní neuplatněné dárkové poukazy — klepnutí = [onVoucher] (dialog
+  /// kód rovnou uplatní stejnou cestou jako napsaný; 2026-10-22).
+  final List<MyVoucher> vouchers;
+  final ValueChanged<String>? onVoucher;
+
+  const BookingPromoV2({
+    super.key,
+    required this.discounts,
+    required this.onOpen,
+    required this.onRemove,
+    this.vouchers = const [],
+    this.onVoucher,
+  });
 
   /// Same text as the old applied-code row.
   static String label(AppliedDiscount d) => d.type == DiscountType.percent
@@ -59,6 +72,7 @@ class BookingPromoV2 extends StatelessWidget {
             ),
           ),
         ),
+        if (vouchers.isNotEmpty && onVoucher != null) _vouchers(tr),
         for (final d in discounts)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -98,4 +112,41 @@ class BookingPromoV2 extends StatelessWidget {
       ]),
     );
   }
+
+  Widget _vouchers(AppTranslations tr) => Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr.tr('bkMyVouchers'), style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final v in vouchers)
+              Semantics(
+                button: true,
+                label: tr.trArgs('bkVoucherUseA11y', {'code': v.code, 'amount': bkMoney(v.amount)}),
+                excludeSemantics: true,
+                onTap: () => onVoucher!(v.code),
+                child: MgPress(
+                  onTap: () => onVoucher!(v.code),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: MgColors.tintOk,
+                      borderRadius: BorderRadius.circular(MgRadius.action),
+                      border: Border.all(color: MgColors.tintOkBorder),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      MgIcon(MgIcons.tag, size: 16, color: MgColors.link),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text('${v.code} · ${bkNb(bkMoney(v.amount))}',
+                            style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onTintOk))),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+          ]),
+        ]),
+      );
 }

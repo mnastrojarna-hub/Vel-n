@@ -8,6 +8,9 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../booking/booking_entry.dart';
+import '../booking/booking_models.dart' show BookingDraft;
+import '../booking/booking_provider.dart' show bookingDraftProvider;
+import '../booking/v2/booking_carry_v2.dart' show draftDatesFor, followDraftDates;
 import 'catalog_provider.dart';
 import 'moto_model.dart';
 import 'widgets/availability_calendar.dart';
@@ -23,6 +26,7 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
+import 'v2/catalog_date_sheet_v2.dart' show catClearDates, catSetDates;
 import 'v2/detail/moto_detail_view_v2.dart';
 
 /// Detail content for a single motorcycle.
@@ -56,15 +60,26 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
     super.initState();
     _pageCtrl = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final filter = ref.read(catalogFilterProvider);
-      if (filter.startDate != null && filter.endDate != null) {
+      // v2: termín rozpracované rezervace TÉTO motorky má přednost (2026-10-22).
+      final carried = MgV2.peek(context) ? draftDatesFor(ref, widget.motoId) : null;
+      final s = carried?.$1 ?? filter.startDate;
+      final e = carried?.$2 ?? filter.endDate;
+      if (s != null && e != null) {
         setState(() {
-          _selStart = filter.startDate;
-          _selEnd = filter.endDate;
+          _selStart = s;
+          _selEnd = e;
           _calendarExpanded = false;
         });
       }
     });
+  }
+
+  /// v2: termín změněný ve formuláři („Změnit“) se propíše do detailu pod ním.
+  void _followDraftDates(BookingDraft? prev, BookingDraft next) {
+    final r = followDraftDates(prev, next, widget.motoId);
+    if (r != null && (r.$1 != _selStart || r.$2 != _selEnd)) _pickRange(r.$1, r.$2);
   }
 
   @override
@@ -106,12 +121,29 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         _selEnd = null;
       });
 
+  /// v2: termín vybraný (nebo zrušený) v detailu platí pro celý katalog —
+  /// další motorky v pageru, seznam Motorek, pilulka na Domů (stejný zápis
+  /// jako výběr termínu v Motorkách; majitel 2026-10-22 „nic nevyplňovat
+  /// dvakrát“). Jen začátek (jednodenní výběr) zůstává v detailu.
+  void _pickRange(DateTime s, DateTime e) {
+    _onCalendarRange(s, e);
+    final f = ref.read(catalogFilterProvider);
+    if (f.startDate != s || f.endDate != e) catSetDates(ref, s, e);
+  }
+
+  void _pickReset() {
+    _onCalendarReset();
+    final f = ref.read(catalogFilterProvider);
+    if (f.startDate != null || f.endDate != null) catClearDates(ref);
+  }
+
   /// REZERVOVAT — jen začátek = jednodenní rezervace (PM-3).
   void _reserve(BuildContext ctx, Motorcycle moto) =>
       startBookingFromSelection(ctx, ref, moto, _selStart!, _selEnd ?? _selStart!);
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) ref.listen<BookingDraft>(bookingDraftProvider, _followDraftDates);
     final motosAsync = ref.watch(motorcyclesProvider);
     final bookedAsync = ref.watch(bookedDatesProvider(widget.motoId));
 
@@ -210,9 +242,9 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         totalPrice: totalPrice,
         calendarExpanded: _calendarExpanded,
         onToggleCalendar: _toggleCalendar,
-        onRangeSelected: _onCalendarRange,
+        onRangeSelected: _pickRange,
         onStartSelected: _onCalendarStart,
-        onReset: _onCalendarReset,
+        onReset: _pickReset,
         bookedAsync: bookedAsync,
         onReserve: _selStart != null ? () => _reserve(ctx, moto) : null,
       );
