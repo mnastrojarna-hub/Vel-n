@@ -5,7 +5,7 @@
 // zákazníkovi AUTOMATICKY vrátí, původní rezervace zůstane beze změny a obsluha dostane
 // viditelný záznam: debug_log `paid_change_failed` + interní e-mail na info@ (uloží ho
 // send-email do sent_emails s booking_id → Velín, Dokumenty → Zaslané maily / Dashboard).
-// Zákazník dostane krátký e-mail v jazyce rezervace (paid-change-customer-mail.ts).
+// Zákazníkovi se e-mail NEPOSÍLÁ (rozhodnutí majitele 2026-10-22) — výsledek vidí ve webu / appce.
 // Jen JEDNOU na platbu (payRef) — první zapsaný řádek debug_log vyhrává, souběžný
 // webhook / complete_extension skončí jako 'duplicate'; Stripe vratka má navíc klíč
 // mg-pcf-<pi> a Stripe druhou vratku plně vrácené platby nepřipustí.
@@ -24,7 +24,6 @@
 // vratka, obsluha zkontroluje, jestli je změna zapsaná, a případně vrátí ručně.
 import type { Sb } from './extension-apply-types.ts'
 import { lastRefundableIntent, type BookingIntentsStripe } from './booking-intents.ts'
-import { sendPaidChangeCustomerMail, type MailWhy } from './paid-change-customer-mail.ts'
 
 type StripeRefundLike = {
   refunds: {
@@ -73,15 +72,6 @@ export const CLOSED_BOOKING_REASONS = new Set(['booking_cancelled', 'booking_com
 export const TAKEN_REASONS = new Set(['new_moto_unavailable', 'moto_unavailable'])
 
 export type FailureMode = 'auto' | 'staff' | 'none' | 'duplicate'
-
-/** Který text dostane zákazník v e-mailu (stejné rozlišení jako web editRez.paid.why.* a appka). */
-export function mailWhy(reason: string): MailWhy {
-  if (TAKEN_REASONS.has(reason)) return 'taken'
-  if (CLOSED_BOOKING_REASONS.has(reason)) return 'closed'
-  if (reason === 'swap_date_out_of_range') return 'date'
-  if (reason === 'license_insufficient') return 'license'
-  return 'failed'
-}
 
 /** Druh změny z payloadu (metadata chg) — výměna motorky má v e-mailu odkaz rovnou na záložku Výměna. */
 export function changeKindOf(chg: string | null | undefined): 'swap' | 'edit' | null {
@@ -208,14 +198,5 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
     })
   } catch { /* ignore */ }
 
-  // 4) Zákazníkovi krátký e-mail v jazyce rezervace (přímá vratka ze Stripe nic neposílá a web
-  // ani appku nemusí znovu otevřít): co se stalo, rezervace platí beze změny, co s doplatkem,
-  // co dál. Jednou na platbu (jsme za zámkem); u nejednoznačného stavu (review, stará platba, zápis
-  // po 3 dnech pokusů stále nedoběhl) ne — tam teprve rozhodne obsluha, jestli změnu zapíše, nebo vrátí.
-  const ambiguous = !!a.review || a.reason.startsWith('retry_exhausted') || a.reason.startsWith('stale_payment')
-  if (!ambiguous && (mode === 'auto' || mode === 'staff')) {
-    await sendPaidChangeCustomerMail(sb, { bookingId: a.bookingId, amount: a.paidCzk, taken: TAKEN_REASONS.has(a.reason), staff: mode === 'staff',
-      why: mailWhy(a.reason), kind: a.kind ?? null })
-  }
   return mode
 }

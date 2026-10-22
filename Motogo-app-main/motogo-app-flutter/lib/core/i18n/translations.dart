@@ -106,6 +106,10 @@ import 'translations_ext_56_v2_routes_a.dart';
 import 'translations_ext_56_v2_routes_b.dart';
 import 'translations_ext_57_v2_rides_a.dart';
 import 'translations_ext_57_v2_rides_b.dart';
+import 'translations_ext_57_v2_rides_c.dart';
+import 'translations_ext_57_v2_rides_d.dart';
+import 'translations_ext_57_v2_rides_e.dart';
+import 'translations_ext_57_v2_rides_f.dart';
 import 'translations_ext_58_v2_fix_a.dart';
 import 'translations_ext_58_v2_fix_b.dart';
 import 'translations_ext_59_v2_late_info.dart';
@@ -217,6 +221,10 @@ final translations = _mergeAll([
   translationsExt56V2RoutesB,
   translationsExt57V2RidesA,
   translationsExt57V2RidesB,
+  translationsExt57V2RidesC,
+  translationsExt57V2RidesD,
+  translationsExt57V2RidesE,
+  translationsExt57V2RidesF,
   translationsExt58V2FixA,
   translationsExt58V2FixB,
   translationsExt59V2LateInfo,

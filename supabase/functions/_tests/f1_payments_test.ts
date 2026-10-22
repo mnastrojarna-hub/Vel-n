@@ -7,9 +7,8 @@
 //  5) e-mail zákazníkovi podle důvodu (zrušená rezervace ≠ „platí beze změny");
 //  6/12) web: proč se rezervace nedá zaplatit (kódy) + rezervace zdarma se zbožím = platba za zboží;
 //  10) Stripe položky webu v jazyce webu.
-import { handlePaidChangeFailure, mailWhy, changeKindOf } from '../_shared/paid-change-failure.ts'
+import { handlePaidChangeFailure, changeKindOf } from '../_shared/paid-change-failure.ts'
 import { otherRefundableIntents, outsidePrice } from '../_shared/booking-intents.ts'
-import { paidChangeCustomerMail } from '../_shared/paid-change-customer-mail.ts'
 import { mainSource } from '../process-refund/other-intents.ts'
 import { guardStoredIntent, findRecentLiveIntent, refundedOut } from '../process-payment/intent-guard.ts'
 import { webBookingMiss, freeShopPlan } from '../process-payment/web-booking-guards.ts'
@@ -174,47 +173,18 @@ Deno.test('f1/2: uložená karta — nedávná vrácená platba neblokuje (findR
     { refKey: 'booking_id', refId: BID, type: 'booking' }), { piId: 'pi_9', status: 'succeeded' })
 })
 
-// ── 5) e-mail zákazníkovi podle důvodu ──────────────────────────────────────────────────
-Deno.test('f1/5: e-mail — zrušená rezervace: bez „platí beze změny" a bez „zkuste znovu", odkaz na seznam', () => {
-  eq(mailWhy('booking_cancelled'), 'closed'); eq(mailWhy('booking_completed'), 'closed'); eq(mailWhy('not_paid'), 'closed')
-  eq(mailWhy('new_moto_unavailable'), 'taken'); eq(mailWhy('swap_date_out_of_range'), 'date'); eq(mailWhy('license_insufficient'), 'license')
-  eq(mailWhy('db_refused'), 'failed')
-  const m = paidChangeCustomerMail({ lang: 'cs', bookingId: BID, amount: 20.5, taken: false, staff: false, why: 'closed', site: 'https://www.motogo24.cz' })
-  ok(!m.html.includes('platí beze změny') && !m.html.includes('zkusit znovu'), 'zrušená: nic falešného')
-  ok(m.html.includes('skončila nebo byla zrušená') && m.html.includes('20,50 Kč'), 'důvod + částka 2 desetinná místa')
-  ok(m.html.includes('href="https://www.motogo24.cz/upravit-rezervaci"') && m.html.includes('Moje rezervace'), 'odkaz na seznam rezervací')
-  for (const lang of ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl', 'uk']) {
-    for (const why of ['closed', 'date', 'license'] as const) {
-      const x = paidChangeCustomerMail({ lang, bookingId: BID, amount: 15, taken: false, staff: true, why })
-      ok(x.lang === lang && !/\{\w+\}|undefined/.test(x.html + x.subject), `${lang}/${why}: doplněné texty`)
-      ok(!/info@|\+420|774/.test(x.html), `${lang}/${why}: bez kontaktů`)
-    }
-  }
-})
-Deno.test('f1/5: e-mail — den výměny uplynul / řidičák: konkrétní důvod; výměna → odkaz na záložku Výměna', () => {
-  const d = paidChangeCustomerMail({ lang: 'cs', bookingId: BID, amount: 15, taken: false, staff: false, why: 'date', kind: 'swap', site: 'https://x.cz' })
-  ok(d.html.includes('den výměny mezitím uplynul') && d.html.includes('platí beze změny'), 'date')
-  ok(!d.html.includes('rezervace mezitím změnila'), 'ne obecný důvod')
-  ok(d.html.includes('edit_booking=' + BID + '&amp;edit_tab=swap'), 'záložka Výměna')
-  const t = paidChangeCustomerMail({ lang: 'cs', bookingId: BID, amount: 15, taken: true, staff: false, kind: 'swap', site: 'https://x.cz' })
-  ok(t.html.includes('&amp;edit_tab=swap'), 'obsazená motorka u výměny → záložka Výměna')
-  const e = paidChangeCustomerMail({ lang: 'cs', bookingId: BID, amount: 15, taken: true, staff: false, kind: 'edit', site: 'https://x.cz' })
-  ok(!e.html.includes('edit_tab'), 'úprava → výchozí záložka')
-  const l = paidChangeCustomerMail({ lang: 'en', bookingId: BID, amount: 15, taken: false, staff: false, why: 'license' })
-  ok(l.html.includes('driving licence') && l.html.includes('stays unchanged'), 'license EN')
+// ── 5) zákazník e-mail nedostává (rozhodnutí majitele 2026-10-22), obsluha ano ─────────────
+Deno.test('f1/5: druh změny z payloadu (výměna / úprava)', () => {
   eq(changeKindOf('{"_swap":{"m":"x"}}'), 'swap'); eq(changeKindOf('{"p_new_end":"2026-11-13"}'), 'edit'); eq(changeKindOf(null), null)
 })
-Deno.test('f1/5: handlePaidChangeFailure — zrušená rezervace dostane e-mail bez „platí beze změny"', async () => {
+Deno.test('f1/5: handlePaidChangeFailure — zrušená rezervace: vratka, e-mail jen obsluze, zákazníkovi nic', async () => {
   const d = new FakeDb({ bookings: [{ ...bk({ stripe_payment_intent_id: 'pi_orig' }), language: 'cs' }], profiles: [{ id: 'u1', email: 'jan@example.com' }], debug_log: [] })
   const f = fakeStripe([pi('pi_orig', 300000, 100), pi('pi_c', 1500, 200, { booking_id: BID, type: 'extension' })])
   await withFetch(async (mails) => {
     eq(await handlePaidChangeFailure(d, { bookingId: BID, payRef: 'pi_c', paidCzk: 15, code: 'change_failed', reason: 'booking_cancelled',
       via: 'test', stripe: f.stripe, kind: 'swap' } as never), 'auto')
-    const c = mails.filter((m) => m.to === 'jan@example.com')
-    eq(c.length, 1)
-    const h = String(c[0].raw_html)
-    ok(!h.includes('platí beze změny') && !h.includes('zkusit znovu') && h.includes('zrušená'), h)
-    ok(h.includes('/upravit-rezervaci"') && !h.includes('edit_tab'), 'zrušená → seznam, ne záložka')
+    eq(mails.filter((m) => m.to === 'jan@example.com').length, 0)
+    eq(mails.filter((m) => m.to === 'info@motogo24.cz').length, 1)
   })
 })
 
