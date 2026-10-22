@@ -18,3 +18,7 @@
 # does not use — suppress R8 "Missing class" errors during minify.
 -dontwarn com.google.android.play.core.**
 -keep class com.google.android.play.core.** { *; }
+
+# Záznam jízdy (RideEngineKeeper): vlastní FlutterFragment vytváří builder
+# i FragmentManager (obnova stavu) reflexí přes konstruktor bez parametrů.
+-keep class com.motogo24.app.KeepEngineFlutterFragment { public <init>(); }

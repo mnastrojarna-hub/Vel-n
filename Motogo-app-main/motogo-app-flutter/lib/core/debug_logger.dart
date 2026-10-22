@@ -23,6 +23,7 @@ enum LogCategory {
   ui,           // button taps, form interactions
   lifecycle,    // app foreground/background/resume
   error,        // errors (also goes to crash_reports)
+  ride,         // záznam jízdy: GPS stream, mezery bez fixů, start/konec (Velín → jízda)
 }
 
 /// A single debug log entry.
