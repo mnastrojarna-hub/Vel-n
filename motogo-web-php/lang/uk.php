@@ -509,7 +509,7 @@ return [
     'rez.agree.photo' => 'Погоджуюся на використання фотографій у маркетингових цілях',
 
     // ===== Rezervace — CTA / cena =====
-    'rez.cta.continue' => 'Продовжити бронювання →',
+    'rez.cta.continue' => 'Продовжити →',
     'rez.cta.continuePay' => 'Перейти до оплати',
     'rez.totalPrice' => 'Загальна вартість: {price}',
     'rez.discount' => 'Знижка: −{amount}',

@@ -363,7 +363,7 @@ return [
     'rez.agree.photo' => 'Wyrażam zgodę na wykorzystanie zdjęć w celach marketingowych',
 
     // ===== Rezerwacja — CTA / cena =====
-    'rez.cta.continue' => 'Kontynuuj rezerwację →',
+    'rez.cta.continue' => 'Dalej →',
     'rez.cta.continuePay' => 'Przejdź do płatności',
     'rez.totalPrice' => 'Cena całkowita: {price}',
     'rez.discount' => 'Rabat: −{amount}',
