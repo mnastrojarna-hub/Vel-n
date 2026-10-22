@@ -2,7 +2,6 @@
 // (majitel 2026-10-22, audit „no double entry“ — area profile). Plán skenu
 // podle brány dokladů + skener v režimech missing* (8 jazyků); staré režimy
 // (celý tok, dl_only) beze změny.
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/features/documents/doc_scan_plan.dart';

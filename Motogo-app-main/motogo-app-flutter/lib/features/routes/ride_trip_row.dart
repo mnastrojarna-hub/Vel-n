@@ -53,15 +53,15 @@ class _RideTripRowState extends ConsumerState<RideTripRow> {
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: MotoGoColors.greenDarker),
-          onPressed: () => openRideMerge(context, preselectRideId: widget.ride.id),
-          icon: const Icon(Icons.add_link, size: 20),
-          label: Text(tr.tr('rpTripAddTo'),
-              style: const TextStyle(fontSize: MotoGoTypo.sizeLg, fontWeight: MotoGoTypo.w800)),
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(minimumSize: const Size(44, 44), foregroundColor: MotoGoColors.greenDarker),
+            onPressed: () => openRideMerge(context, preselectRideId: widget.ride.id),
+            icon: const Icon(Icons.add_link, size: 20),
+            label: Text(tr.tr('rpTripAddTo'),
+                style: const TextStyle(fontSize: MotoGoTypo.sizeLg, fontWeight: MotoGoTypo.w800)),
+          ),
         ),
-      ),
       );
     }
     final name = rideTripDefaultName(trip, tr);

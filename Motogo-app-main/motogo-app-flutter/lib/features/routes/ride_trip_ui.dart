@@ -6,7 +6,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import 'ride_provider.dart';
 import 'ride_server_api.dart';
-import 'ride_trip.dart';
 import 'ride_trip_api.dart';
 
 /// Společné kousky UI cest (starý vzhled; v2 je smí volat taky): hlášky

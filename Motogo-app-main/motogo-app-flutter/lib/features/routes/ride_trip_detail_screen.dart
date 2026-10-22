@@ -181,7 +181,8 @@ class _RideTripDetailScreenState extends ConsumerState<RideTripDetailScreen> {
                 ),
                 Switch(
                   value: trip.isPublic,
-                  activeColor: MotoGoColors.greenDark,
+                  activeThumbColor: MotoGoColors.greenDark,
+                  activeTrackColor: MotoGoColors.greenDark.withValues(alpha: 0.5),
                   onChanged: _busy ? null : (v) => _visibility(trip, v),
                 ),
               ])),

@@ -1,7 +1,7 @@
 /// v2 vzhled — Moje doklady: hlavní výzva skenuje jen chybějící strany
 /// dokladů (majitel 2026-10-22: zákazník nic nevyplňuje dvakrát), po
 /// kompletních dokladech jen vedlejší „naskenovat znovu“. Jen klíče `v2…`.
-const Map<String, Map<String, String>> translationsExt60V2DocsMissing = {
+const Map<String, Map<String, String>> translationsExt55V2ProfileDocscan = {
   'cs': {
     'v2DocsScanMissing': 'Doplnit chybějící',
     'v2DocsScanMissingHint': 'Vyfotíš jen to, co chybí: {what}',

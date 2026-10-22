@@ -17,6 +17,7 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import 'active_ride_provider.dart';
 import 'route_nav_status.dart';
+import 'ride_pause_sheet.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_nav_loop.dart';
@@ -1623,7 +1624,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     ],
                   ),
                 ),
-                if (MgV2.on(context)) const NavRecChipV2(),
+                if (MgV2.on(context)) const NavRecChipV2() else const RideNavRecChip(),
                 if (_stops.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
