@@ -1,9 +1,21 @@
 import { supabase } from '../../lib/supabase'
+import { isGearBooking, gearSizeSummary } from '../../lib/bookingKind'
 
 export const MSG_TEMPLATES = {
   reserved: (b) => `Vaše rezervace motorky ${b.motorcycles?.model || ''} (${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}) byla potvrzena. Smlouvu a fakturu najdete v sekci Dokumenty.`,
   active: (b) => `Motorka ${b.motorcycles?.model || ''} byla vydána. Přejeme příjemnou jízdu! V případě problému nás kontaktujte nebo použijte SOS tlačítko.`,
   completed: (b) => `Vaše jízda na ${b.motorcycles?.model || ''} byla dokončena. Děkujeme a těšíme se na příště! Konečnou fakturu najdete v sekci Dokumenty.`,
+}
+
+// Výpůjčka JEN výbavy (booking_kind 'gear') — bez motorky, SOS a jízdy; vždy s číslem rezervace (tykání jako
+// e-maily výbavy). Jen záložní text in-app zprávy (e-maily jdou ze šablon Velínu gear_*).
+const _gearNo = b => `#${String(b.id || '').slice(-8).toUpperCase()}`
+const _gearWhat = b => (gearSizeSummary(b) ? ` (${gearSizeSummary(b)})` : '')
+const _gearDates = b => `${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`
+export const GEAR_MSG_TEMPLATES = {
+  reserved: (b) => `Tvoje výpůjčka výbavy ${_gearNo(b)}${_gearWhat(b)} na ${_gearDates(b)} je potvrzená. Smlouvu a doklady najdeš v sekci Dokumenty.`,
+  active: (b) => `Výbava k výpůjčce ${_gearNo(b)} je předaná. Šťastnou cestu! Vrátit ji máš do ${new Date(b.end_date).toLocaleDateString('cs-CZ')} na stejnou pobočku.`,
+  completed: (b) => `Výpůjčka výbavy ${_gearNo(b)} je dokončená — díky za vrácení výbavy. Konečnou fakturu najdeš v sekci Dokumenty.`,
 }
 
 // Rozbalí skutečnou chybu z edge funkce — supabase.functions.invoke vrací jen
@@ -24,7 +36,7 @@ export async function logAudit(action, details) {
 }
 
 export async function sendBookingMessage(status, bk) {
-  const template = MSG_TEMPLATES[status]
+  const template = (isGearBooking(bk) ? GEAR_MSG_TEMPLATES : MSG_TEMPLATES)[status]
   if (!template || !bk.user_id) return
   try {
     let { data: thread } = await supabase.from('message_threads').select('id').eq('customer_id', bk.user_id).limit(1).single()

@@ -1,0 +1,50 @@
+/* ===== MotoGo24 — landing v2: cenová kotva, velké hodnocení, promo „jen výbava“ (2026-10-23) =====
+   Načítá lpPageMeta() (landing.php) — úvodní stránka, /pujcovna-motorek, pobočky, info stránky.
+   Garance (i kompaktní na detailu motorky) jsou v landing-trust.css, uklidňující řádek .lp-assure v landing.css. */
+
+/* --- Cenová kotva v hlavě karty garancí (renderLpAnchor, landing-guarantee.php) --- */
+.lp-anchor{margin:0 0 1rem;padding:1rem .95rem .9rem;border-radius:16px;background:#fff;box-shadow:0 0 0 1.5px #c9f2c9,0 14px 30px -22px rgba(10,31,20,.55);text-align:center}
+.lp-anchor-h{display:flex;flex-direction:column;align-items:center;gap:.2rem;margin:0 0 .6rem;line-height:1.1}
+.lp-anchor-was{font-size:clamp(1.35rem,6.4vw,2rem);font-weight:900;color:#b42318;letter-spacing:-.01em}
+.lp-anchor-now{font-size:clamp(1.7rem,8.4vw,2.7rem);font-weight:900;color:#0f2418;letter-spacing:-.01em}
+.lp-anchor-zero{color:#16a34a;white-space:nowrap}
+.lp-anchor-sub{margin:0 auto;max-width:44rem;font-size:.95rem;line-height:1.45;color:#2f4a39;text-wrap:balance}
+.lp-anchor-src{margin:.6rem auto 0;max-width:44rem;font-size:.7rem;line-height:1.4;color:#6b8577}
+@media(min-width:769px){
+  .lp-anchor{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"h sub" "h src";column-gap:1.75rem;align-items:center;padding:1.25rem 1.6rem;text-align:left}
+  .lp-anchor-h{grid-area:h;align-items:flex-start;margin:0}
+  .lp-anchor-sub{grid-area:sub;margin:0;max-width:none;font-size:1rem}
+  .lp-anchor-src{grid-area:src;margin:.45rem 0 0;max-width:none}
+}
+
+/* --- Velké hodnocení v akčním panelu (lpPanelRating(..., ['big' => true]), landing-trust.php) --- */
+.lp-rating--big{gap:.65rem;padding:.45rem .9rem .45rem .75rem;border-radius:14px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,180,0,.45);font-size:.88rem;line-height:1.2}
+.lp-rating-r{font-size:1.9rem;font-weight:900;line-height:1;color:#fff}
+.lp-rating-b{display:flex;flex-direction:column;gap:.2rem;min-width:0}
+.lp-rating--big .lp-stars i{width:19px;height:19px}
+.lp-rating--big:hover{box-shadow:inset 0 0 0 1.5px #ffb400}
+@media(min-width:900px){.lp-rating-r{font-size:2.2rem}}
+
+/* --- „Máš vlastní motorku? Půjč si jen výbavu“ (renderLpGearPromo, landing-gear-promo.php) --- */
+.lp-gearp{margin:1.4rem 0}
+.lp-gearp-card{position:relative;overflow:hidden;display:flow-root;padding:1.3rem 1.05rem 1.15rem;border-radius:22px;color:#e8f5ee;background:radial-gradient(120% 90% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%);box-shadow:0 18px 40px -16px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.22)}
+.lp-gearp-card :focus-visible{outline:3px solid #74fb71;outline-offset:3px}
+.lp-gearp-vis{float:right;display:grid;place-items:center;width:58px;height:58px;margin:0 0 .4rem .75rem;border-radius:18px;background:rgba(116,251,113,.1);color:#74fb71}
+.lp-gearp-vis .lp-ico2{width:34px;height:34px}
+.lp-gearp-body{min-width:0}
+.lp-gearp-eyebrow{display:inline-flex;margin:0 0 .5rem;padding:.22rem .6rem;border-radius:999px;background:rgba(116,251,113,.14);color:#74fb71;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.lp-main .lp-gearp h2{margin:0 0 .45rem;color:#fff;font-size:clamp(1.3rem,5.6vw,1.75rem);line-height:1.2;overflow-wrap:break-word}
+.lp-gearp-lead{margin:0 0 .75rem;color:#cfe7da;font-size:.95rem;line-height:1.5}
+.lp-gearp-price{margin:0 0 1rem}
+.lp-gearp-price .lp-chip{padding:.38rem .85rem;font-size:.92rem}
+.lp-gearp-cta{display:flex;flex-direction:column;align-items:stretch;gap:.8rem}
+.lp-gearp-moto{display:inline-flex;align-items:flex-start;gap:.45rem;color:#a8ff9f;font-weight:700;font-size:.9rem;line-height:1.35;text-decoration:none}
+.lp-gearp-moto .lp-ico{flex:0 0 auto;width:20px;height:20px}
+.lp-gearp-moto:hover{color:#fff}
+@media(min-width:769px){
+  .lp-gearp-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:1.75rem;align-items:center;padding:2rem 2.25rem}
+  .lp-gearp-vis{float:none;width:112px;height:112px;margin:0;border-radius:26px}
+  .lp-gearp-vis .lp-ico2{width:64px;height:64px}
+  .lp-gearp-cta{flex-direction:row;flex-wrap:wrap;align-items:center;gap:1.25rem}
+  .lp-gearp-cta .lp-btn{padding:.7rem 1.6rem}
+}

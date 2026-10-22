@@ -1,4 +1,5 @@
 import { FField, FLabel, FSelWrap } from './BookingsFilters'
+import { KIND_OPTIONS } from '../../lib/bookingKind'
 
 // quick = rychlé filtry z lišty — jen na telefonu, kde se lišta zkracuje (BookingsToolbarPhone)
 export default function BookingsExtendedFilters({ filters, setF, branches, resetFilters, quick = null }) {
@@ -12,6 +13,9 @@ export default function BookingsExtendedFilters({ filters, setF, branches, reset
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <FField label="Zákazník" value={filters.customer} onChange={v => setF('customer', v)} />
         <FField label="Model motorky" value={filters.motoModel} onChange={v => setF('motoModel', v)} />
+        <div><FLabel>Typ rezervace</FLabel>
+          <FSelWrap value={filters.kind || ''} onChange={v => setF('kind', v)} options={KIND_OPTIONS} />
+        </div>
         <div><FLabel>Pobočka</FLabel>
           <FSelWrap value={filters.branch} onChange={v => setF('branch', v)}
             options={[{ value: '', label: 'Všechny' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} />

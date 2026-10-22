@@ -2,6 +2,8 @@
 // ===== MotoGo24 Web PHP — Upravit rezervaci =====
 // PHP renderuje shell + i18n payload, JS řeší login + edit/cancel/extend/shorten flow.
 
+require_once __DIR__ . '/../landing.php'; // landingV2Enabled() — vzhled v2 (css/upravit-rezervaci-v2.css)
+
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.editReservation')]);
 
 // Předvyplnění z query stringu (např. po kliku z e-mailu).
@@ -219,6 +221,27 @@ $keys = [
     'rez.scan.recognizing','rez.scan.recognizingFrames','rez.scan.recognized','rez.scan.uploaded','rez.scan.docNo',
     'rez.scan.fileUploaded','rez.scan.cantUpload','rez.scan.uploadError',
     'rez.cam.docs.id','rez.cam.docs.license','rez.cam.close','rez.cam.hint','rez.cam.shoot','rez.cam.progress','rez.cam.frame',
+
+    // Jednotné pravidlo vratky (2026-10-22: čas do začátku rezervace) — js/pages-upravit-rezervaci-refund.js
+    'editRez.refund.whyLate','editRez.refund.whyStarted','editRez.refund.whyCap','editRez.refund.shortenAnyway',
+    'editRez.refund.capNote50','editRez.refund.capNote0','editRez.refund.ruleUpcoming','editRez.refund.ruleActive',
+    'editRez.refund.boxNote','editRez.refund.moveCapNote','editRez.move.errStarted','editRez.doc.type.gear_rental_contract',
+
+    // Výpůjčka jen výbavy (bookings.booking_kind='gear') — js/pages-upravit-rezervaci-gearbk*.js
+    'editRez.gearbk.title','editRez.gearbk.chip','editRez.gearbk.tabSizes','editRez.gearbk.tabRemove',
+    'editRez.gearbk.placeLabel','editRez.gearbk.docsLabel','editRez.gearbk.docsOk','editRez.gearbk.docsMissing',
+    'editRez.gearbk.docsCta','editRez.gearbk.docsHelp','editRez.gearbk.howLabel','editRez.gearbk.howSelf',
+    'editRez.gearbk.howStaffed','editRez.gearbk.gateNotice','editRez.gearbk.addItemNote',
+    'editRez.gearbk.closedRange','editRez.gearbk.dayClosed','editRez.gearbk.gapClosed','editRez.gearbk.unavailable',
+    'editRez.gearbk.legendClosed','editRez.gearbk.pendingText','editRez.gearbk.shortenHelpActive',
+    'editRez.gearbk.errStock','editRez.gearbk.errClosed','editRez.gearbk.errSize','editRez.gearbk.errLastItem',
+    'editRez.gearbk.errStarted','editRez.gearbk.errTooLong',
+    'editRez.gearbk.sizesTitle','editRez.gearbk.sizesIntro','editRez.gearbk.ssLimits','editRez.gearbk.sizesFree',
+    'editRez.gearbk.sizesPick','editRez.gearbk.sizesSave','editRez.gearbk.sizesSaved','editRez.gearbk.soldOut',
+    'editRez.gearbk.removeTitle','editRez.gearbk.removeIntro','editRez.gearbk.removePick','editRez.gearbk.removeServerCalc',
+    'editRez.gearbk.newPerDay','editRez.gearbk.removeCta','editRez.gearbk.removeConfirm','editRez.gearbk.removeYes',
+    'editRez.gearbk.removeLastNote','editRez.gearbk.removeSuccess','editRez.gearbk.removeSuccessNoRefund',
+    'editRez.gearbk.removeNoSaving','editRez.gearbk.ssTimeHint',
 ];
 $i18n = [];
 foreach ($keys as $k) {
@@ -271,7 +294,12 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gear.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-paid.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-refund.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-guard.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-gearbk.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-gearbk-view.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-gearbk-tabs.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-fixes.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gate.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-status.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
@@ -290,4 +318,9 @@ if (typeof MG.t !== "function") {
 renderPage(t('editRez.title'), $content . $js, '/upravit-rezervaci', [
     'description' => t('editRez.description'),
     'robots' => 'noindex,nofollow',
+    // opravy kalendáře z auditu 2026-10-22 + výpůjčka výbavy (vratky, velikosti, odebrání kusu);
+    // vzhled v2 (jako /rezervace) jen při landingV2Enabled() — ?landing=v1 zůstává beze změny
+    'styles' => landingV2Enabled()
+        ? ['/css/upravit-rezervaci-fix.css', '/css/upravit-rezervaci-v2.css'] : ['/css/upravit-rezervaci-fix.css'],
+    'body_class' => landingV2Enabled() ? 'erez-v2' : '',
 ]);

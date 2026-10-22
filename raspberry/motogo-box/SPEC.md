@@ -564,6 +564,17 @@ zůstává fail-open (jednotka otevírá i bez LTE, `protocol` bez dat = bez hra
 §10). Známé okno nasazení: starší software jednotky po nasazení DB/edge NEhradluje (motorka bez protokolu) až do hromadné
 aktualizace z Velína (§25 CONTRACT) — SQL/edge jsou pro něj aditivní.
 
+### Rozhodnutí majitele (2026-10-22) — výpůjčka výbavy bez motorky na kiosku (1.3.0)
+
+1. Výpůjčka jen výbavy (rezervace `booking_kind='gear'`, bez motorky) dostane na samoobslužné pobočce jen kód brány a kód šatny
+   — nikdy kód motorky. Šatna je celé převzetí i vrácení; hudba ani relace šatny „nečekají na kód motorky“.
+2. **Převzetí:** po zavření šatny protokol jen s výbavou (velikosti z ceníku výpůjčky v mezích samoobsluhy, „✕ Neberu“ smí, aspoň
+   jedna položka zůstane) a podpis prstem; identita = **kód šatny** téže rezervace; kóje se neotvírá, zámek přejímky končí podpisem.
+3. **Vrácení (varianta B):** zavření šatny u podepsané výpůjčky → displej se zeptá „Vracíš všechnu výbavu?“ — **Ano** = rezervace se
+   hned dokončí (server; čas vrácení = potvrzení) a kód šatny doběhne 15 min po zavření šatny (offline totéž hlídá jednotka),
+   **Ne** / bez odpovědi (2 min) = nic. Bez zámku přejímky.
+Detail CONTRACT §33 (událost `GEAR_RETURN_CONFIRMED`, offline hradlo `return_gate`, `/api/gear/return`, UI `handover-gear.js`).
+
 ### Rozhodnutí majitele (2026-10-10) — protokol převzetí jen na displeji + velikosti výbavy (1.2.11)
 
 1. **Protokol převzetí na samoobsluze se podepisuje JEN na displeji pobočky** — platí to, co zákazník podepíše na kiosku. Appka

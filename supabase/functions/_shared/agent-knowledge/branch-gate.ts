@@ -82,11 +82,12 @@ export async function loadGateCodeMask(sb: SupabaseClient): Promise<(s: string |
   } catch { return none }
 }
 
-/** Doplní `has_gate` do pobočky motorky u každé rezervace (motorcycles.branches). */
+/** Doplní `has_gate` do pobočky motorky u každé rezervace (motorcycles.branches);
+ *  u výpůjčky jen výbavy (bez motorky) do `gear_branch` (pobočka rezervace, customer-branch.ts). */
 export async function markBookingsGate(sb: SupabaseClient, bookings: Array<Record<string, unknown> | null | undefined>): Promise<void> {
   const brs = (bookings || []).map((b) => {
     const m = (b?.motorcycles as Record<string, unknown> | null) || null
-    return (m?.branches as Record<string, unknown> | null) || null
+    return (m?.branches as Record<string, unknown> | null) || (b?.gear_branch as Record<string, unknown> | null) || null
   }).filter((x): x is Record<string, unknown> => !!x)
   await markGateBranches(sb, brs)
 }

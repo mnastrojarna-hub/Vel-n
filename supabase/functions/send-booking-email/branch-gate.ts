@@ -115,8 +115,25 @@ export async function loadBranchGate(supabase: Sb, bookingId: string): Promise<B
     // jako appka ResPickupProcedure a web /potvrzeni `is_delivery`).
     if (bk?.pickup_method === 'delivery' || String(bk?.pickup_address || '').trim()) return null
     const m = Array.isArray(bk?.motorcycles) ? bk.motorcycles[0] : bk?.motorcycles
-    const branchId = m?.branch_id ? String(m.branch_id) : ''
+    let branchId = m?.branch_id ? String(m.branch_id) : ''
+    // Výpůjčka JEN výbavy (booking_kind='gear', 2026-10-23) nemá motorku → pobočka rezervace.
+    // Motorková rezervace sem nejde (má pobočku motorky) → chování beze změny.
+    if (!branchId) {
+      try {
+        const { data: gk } = await supabase.from('bookings').select('booking_kind, branch_id').eq('id', bookingId).maybeSingle()
+        if (gk?.booking_kind === 'gear' && gk.branch_id) branchId = String(gk.branch_id)
+      } catch { /* bez brány */ }
+    }
     if (!branchId) return null
+    return await loadGateForBranch(supabase, branchId)
+  } catch {
+    return null
+  }
+}
+
+/** Brána dané pobočky (NULL = bez brány / chyba). Výpůjčka výbavy volá přímo s bookings.branch_id. */
+export async function loadGateForBranch(supabase: Sb, branchId: string): Promise<BranchGate | null> {
+  try {
     const { data: code, error } = await supabase.rpc('_branch_gate_code', { p_branch_id: branchId })
     if (error || !code) return null
     let lockerDoor: number | null = null

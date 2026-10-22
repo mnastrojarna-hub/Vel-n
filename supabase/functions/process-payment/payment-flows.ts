@@ -11,6 +11,7 @@ import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
 import { settleStoredSession, type StripeCheckoutLike } from './checkout-guard.ts'
 import { roundingLabel, webLabels, fillLabel, shippingLabel } from './checkout-labels.ts'
 import { webBookingMiss, freeShopPlan, WEB_TXT } from './web-booking-guards.ts'
+import { isGearRow, gearBookingLabel, gearCheckoutUrls } from './gear-checkout.ts'
 
 // D1/D2 (2026-10-16): web (hosted Checkout) — zbytek rezervace / objednávky do 1 Kč se
 // neúčtuje (rezervace jde přes ověření karty bez platby, objednávka se potvrdí), 1–15 Kč
@@ -42,6 +43,8 @@ export async function handleWebBookingCheckout(
     // f1 (2026-10-22): proč — s kódem (web-booking-guards.ts; zaplaceno = potvrzení).
     return await webBookingMiss(supabaseAdmin, body.booking_id!)
   }
+  // Výpůjčka výbavy (2026-10-23): název položky + návrat na /pujceni-obleceni (gear-checkout.ts).
+  const gearBk = isGearRow(booking)
 
   // Pojistka jazyka (audit 2026-10-10): web volá set_booking_language hned po vytvoření
   // rezervace; kdyby to selhalo, zůstala by 'cs' a smlouva, VOP i e-maily po zaplacení
@@ -202,6 +205,7 @@ export async function handleWebBookingCheckout(
       booking_id: body.booking_id!, type: 'booking', source: 'web', action: 'verify_free_booking'
     }
     const returnOriginFree = resolveReturnOrigin(body.origin, body.locale)
+    const gearUrlsFree = gearBk ? gearCheckoutUrls(returnOriginFree, body.booking_id!, body.locale) : null
     const freeSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'setup',
@@ -209,8 +213,8 @@ export async function handleWebBookingCheckout(
       metadata: setupMetadata,
       setup_intent_data: { metadata: setupMetadata },
       client_reference_id: body.booking_id!,
-      success_url: withLangParam(`${returnOriginFree}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
-      cancel_url: withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
+      success_url: gearUrlsFree ? gearUrlsFree.success : withLangParam(`${returnOriginFree}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
+      cancel_url: gearUrlsFree ? gearUrlsFree.cancel : withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
       locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
     })
 
@@ -244,7 +248,7 @@ export async function handleWebBookingCheckout(
     price_data: {
       currency,
       unit_amount: amount,
-      product_data: { name: L.booking, description: fillLabel(L.bookingDesc, { num: body.booking_id!.slice(-8).toUpperCase() }) }
+      product_data: { name: gearBk ? gearBookingLabel(body.locale) : L.booking, description: fillLabel(L.bookingDesc, { num: body.booking_id!.slice(-8).toUpperCase() }) }
     },
     quantity: 1
   }] : []
@@ -304,6 +308,7 @@ export async function handleWebBookingCheckout(
   // metoda na hosted stránce nenabízí a rovnou naskočí zadání karty / peněženky. Shodné
   // s voucher/shop/SOS Session níže. (App native Payment Sheet v index.ts Link ZÁMĚRNĚ drží.)
   const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
+  const gearUrls = gearBk ? gearCheckoutUrls(returnOrigin, body.booking_id!, body.locale) : null
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
@@ -312,8 +317,8 @@ export async function handleWebBookingCheckout(
     metadata: sessionMetadata,
     payment_intent_data: { metadata: sessionMetadata },
     client_reference_id: body.booking_id!,
-    success_url: withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
-    cancel_url: withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
+    success_url: gearUrls ? gearUrls.success : withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
+    cancel_url: gearUrls ? gearUrls.cancel : withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
     locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
   })
 

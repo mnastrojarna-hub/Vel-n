@@ -25,6 +25,10 @@ import BookingDamagePanel from './booking/BookingDamagePanel'
 import { kioskReturnedAt } from './booking/kioskReturnHelpers'
 import { BOOKING_BRANCH_EMBED } from '../lib/bookingBranch'
 import { generateBookingDoc, bookingDocLang } from '../lib/docLanguage'
+import { isGearBooking, GEAR_TITLE } from '../lib/bookingKind'
+import GearModifyModal from './booking/GearModifyModal'
+import { GearOnlyPill } from './booking/GearBookingParts'
+import { gearActivationDocsOk, gearRestoreCheck } from './booking/gearBookingActions'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -122,7 +126,8 @@ export default function BookingDetail() {
       if (d && d.status === 'pending' && d.payment_status === 'paid') {
         const today = new Date().toISOString().slice(0, 10)
         const startLocal = d.start_date ? d.start_date.slice(0, 10) : ''
-        const newStatus = startLocal <= today ? 'active' : 'reserved'
+        // Výpůjčku výbavy Velín z prohlížeče NIKDY neaktivuje (aktivuje až předání: protokol / šatna) → jen reserved
+        const newStatus = startLocal <= today && !isGearBooking(d) ? 'active' : 'reserved'
         const update = { status: newStatus }
         if (newStatus === 'active') update.picked_up_at = new Date().toISOString()
         else update.confirmed_at = new Date().toISOString()
@@ -175,8 +180,12 @@ export default function BookingDetail() {
   async function changeStatus(newStatus) {
     setSaving(true)
 
-    // Kontrola dokladů před aktivací
-    if (newStatus === 'active' && booking?.user_id) {
+    // Kontrola dokladů před aktivací — výpůjčka výbavy: jen doklad totožnosti + 18+ (bez ŘP)
+    if (newStatus === 'active' && booking?.user_id && isGearBooking(booking)) {
+      if (!(await gearActivationDocsOk(booking.id)) && !window.confirm('POZOR: Zákazník nemá doklad totožnosti (OP líc + rub nebo pas) nebo mu není 18 let! Opravdu chcete výpůjčku aktivovat?')) {
+        setSaving(false); return
+      }
+    } else if (newStatus === 'active' && booking?.user_id) {
       const { data: prof } = await supabase.from('profiles')
         .select('license_group, docs_verified_at, docs_verification_status')
         .eq('id', booking.user_id).single()
@@ -227,10 +236,12 @@ export default function BookingDetail() {
             try { await generatePaymentReceipt(id, 'booking') } catch (e) { invoiceErrors.push(`DP: ${e.message}`) }
           }
         } catch (e) { console.error('[Invoice] check existing:', e.message) }
+        // Výpůjčka výbavy: tištěný předávací protokol je motorkový (Motocykl/VIN/km) → nevzniká;
+        // výbava se předává elektronickým protokolem (velikosti + podpis), smlouvu vybere edge podle druhu.
         Promise.allSettled([
           generateBookingDoc('rental_contract', id, bookingDocLang(booking)),
           generateBookingDoc('vop', id, bookingDocLang(booking)),
-          generateBookingDoc('handover_protocol', id, bookingDocLang(booking)),
+          ...(isGearBooking(booking) ? [] : [generateBookingDoc('handover_protocol', id, bookingDocLang(booking))]),
         ]).catch(() => {})
       } else if (newStatus === 'completed') {
         try {
@@ -341,12 +352,21 @@ export default function BookingDetail() {
         setError('Rezervaci nelze obnovit — termín zapůjčení je v minulosti.')
         setConfirm(null); setSaving(false); return
       }
+      // Výpůjčka výbavy nemá motorku (moto_id NULL → dotaz níže by spadl na 22P02): místo kolize
+      // motorky se ověří otevření pobočky (chyba) a volná výbava na skladu (varování, obsluha rozhodne).
+      if (isGearBooking(booking)) {
+        const chk = await gearRestoreCheck(booking, startLocal, endLocal)
+        if (chk.error || (chk.warning && !window.confirm(`${chk.warning}\n\nPřesto obnovit?`))) {
+          if (chk.error) setError(chk.error)
+          setConfirm(null); setSaving(false); return
+        }
+      }
       // Živá rezervace (pending/reserved/active) stejné motorky překrývající se byť jen
       // jedním dnem — včetně případu, kdy je kus u jiné rezervace přiřazen jako vozík
       // (trailer_moto_id). Sdílený den = kolize (shodně s check_booking_overlap).
       const endNext = new Date(endLocal); endNext.setDate(endNext.getDate() + 1)
       const endExclusive = endNext.toLocaleDateString('sv-SE')
-      const { data: conflicts, error: confErr } = await supabase.from('bookings')
+      const { data: conflicts, error: confErr } = isGearBooking(booking) ? { data: [], error: null } : await supabase.from('bookings')
         .select('id, start_date, end_date, status')
         .neq('id', id)
         .in('status', ['pending', 'reserved', 'active'])
@@ -533,7 +553,8 @@ export default function BookingDetail() {
       // 3) Cílový stav (stejná logika jako confirm_payment): dnes a dříve → active, jinak reserved.
       const today = new Date().toISOString().slice(0, 10)
       const startLocal = booking.start_date ? booking.start_date.slice(0, 10) : today
-      const newStatus = startLocal <= today ? 'active' : 'reserved'
+      // výbava se platbou neaktivuje (až předáním) → zpráva „potvrzeno“, ne „vydáno“
+      const newStatus = startLocal <= today && !isGearBooking(booking) ? 'active' : 'reserved'
 
       // 4) Doklady ZF + DP s ručními platebními údaji (dedup proti existujícím).
       //    Pokud admin vybral existující ZF, DP se na ni naváže; jinak vznikne nová ZF
@@ -579,9 +600,13 @@ export default function BookingDetail() {
         } catch { /* ignore → padne na docs-check níže */ }
         if (!docsOk) {
           try {
-            const { data: ds } = await supabase.rpc('check_booking_docs_status', {
-              p_user_id: booking.user_id, p_end_date: (booking.end_date || '').slice(0, 10), p_moto_id: booking.moto_id,
-            })
+            // Výpůjčka výbavy: kontrola dokladů PODLE REZERVACE (jen doklad totožnosti + 18+) — varianta
+            // podle uživatele/konce/motorky by s moto_id NULL vzala libovolnou rezervaci a chtěla ŘP.
+            const { data: ds } = isGearBooking(booking)
+              ? await supabase.rpc('check_booking_docs_status_for', { p_booking_id: id })
+              : await supabase.rpc('check_booking_docs_status', {
+                p_user_id: booking.user_id, p_end_date: (booking.end_date || '').slice(0, 10), p_moto_id: booking.moto_id,
+              })
             docsOk = (ds == null)
           } catch { /* ponech false → invoice_payment_receipt */ }
         }
@@ -662,8 +687,9 @@ export default function BookingDetail() {
       {/* Štítky stavu se zalamují do dalších řádků (dřív přetékaly mimo obrazovku — mobil i desktop při mnoha štítcích) */}
       <div className="flex flex-wrap items-center gap-3 gap-y-2 mb-5">
         <button onClick={() => navigate('/rezervace')} className="cursor-pointer max-lg:min-w-[40px] max-lg:min-h-[40px] max-lg:-ml-2" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
-        <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Rezervace</h2>
+        <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{isGearBooking(booking) ? GEAR_TITLE : 'Rezervace'}</h2>
         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>#{id?.slice(-8).toUpperCase()}</span>
+        {isGearBooking(booking) && <GearOnlyPill fs="text-sm" />}
         <StatusBadge status={getDisplayStatus(booking)} />
         {booking.booking_source && (
           <span className="inline-flex items-center gap-1 rounded-btn text-sm font-extrabold tracking-wide uppercase"
@@ -731,7 +757,8 @@ export default function BookingDetail() {
         <span className="text-sm" style={{ color: '#1a2e22' }}>Vytvořena: {booking.created_at ? new Date(booking.created_at).toLocaleString('cs-CZ') : '—'}</span>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
-        {TABS.map(t => (
+        {/* výpůjčka výbavy nemá polohu ani kalendář motorky */}
+        {TABS.filter(t => !isGearBooking(booking) || (t !== 'Mapa a poloha' && t !== 'Kalendář motorky')).map(t => (
           <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
@@ -749,7 +776,9 @@ export default function BookingDetail() {
       )}
       {tab === 'Detail' && <BookingDamagePanel booking={booking} onSaved={loadBooking} />}
       {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actionsAll} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
-      {showModifyModal && booking && <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />}
+      {showModifyModal && booking && (isGearBooking(booking)
+        ? <GearModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />
+        : <BookingModifyModal booking={booking} onClose={() => setShowModifyModal(false)} onSaved={() => { setShowModifyModal(false); loadBooking() }} />)}
       {tab === 'Mapa a poloha' && <BookingLiveMap bookingId={id} booking={booking} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
       {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} userId={booking?.user_id} />}
@@ -759,7 +788,9 @@ export default function BookingDetail() {
         message={confirm.refund
           ? 'Potvrď, že vratka byla ODESLÁNA převodem na účet zákazníka — rezervace se označí jako Vráceno (u částečné vratky jako Částečně vráceno).'
           : confirm.restore
-            ? 'Rezervace se obnoví do stavu Čeká na platbu / Nezaplaceno (bez automatického zrušení — platbu potvrď tlačítkem Potvrdit, nebo rezervaci zruš ručně). Před obnovením se ověří, že motorka není na termín (ani jeho část) mezitím zabookovaná.'
+            ? (isGearBooking(booking)
+              ? 'Výpůjčka výbavy se obnoví do stavu Čeká na platbu / Nezaplaceno (bez automatického zrušení — platbu potvrď tlačítkem Potvrdit, nebo ji zruš ručně). Před obnovením se ověří, že pobočka je v termínu otevřená a (při zapnuté kontrole skladu) výbava volná.'
+              : 'Rezervace se obnoví do stavu Čeká na platbu / Nezaplaceno (bez automatického zrušení — platbu potvrď tlačítkem Potvrdit, nebo rezervaci zruš ručně). Před obnovením se ověří, že motorka není na termín (ani jeho část) mezitím zabookovaná.')
             : `Změnit stav na "${confirm.label}"?`}
         danger={confirm.danger}
         onConfirm={() => confirm.refund ? confirmManualRefundSent() : confirm.restore ? handleRestore() : changeStatus(confirm.status)}

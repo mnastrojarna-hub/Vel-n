@@ -7,6 +7,8 @@ import { useState } from 'react'
 //  - added = přidáno při předání → při uložení se velikost propíše do rezervace (Logistika zboží,
 //    historie změn); deleted = smazáno z protokolu → z rezervace se odebere (jako nepřevzato).
 // Cena rezervace / booking_extras se protokolem nemění (stejně jako při odebrání).
+// `gearOnly` = výpůjčka JEN výbavy (booking_kind 'gear'): jen řidičské sloupce, kus se v protokolu
+// NEpřidává (každý kus je placený → přidání = „Upravit rezervaci“ s přepočtem ceny), aspoň jeden musí zůstat.
 
 export const GEAR_TYPES = [
   { key: 'helmet', label: 'Helma' },
@@ -20,7 +22,8 @@ const OTHER = '__other__'
 
 const btn = { borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: '1px solid #b6dccb', background: '#fff', padding: '6px 12px' }
 
-export default function ProtocolGearEditor({ accessories, setAccessories, sizesByType, canEdit, childSuffix = '' }) {
+export default function ProtocolGearEditor({ accessories, setAccessories, sizesByType, canEdit, childSuffix = '', gearOnly = false }) {
+  const canAdd = canEdit && !gearOnly
   const [adding, setAdding] = useState(false)
   const [slot, setSlot] = useState('')
   const [size, setSize] = useState('')
@@ -76,7 +79,9 @@ export default function ProtocolGearEditor({ accessories, setAccessories, sizesB
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Předané příslušenství</h3>
       <p style={{ fontSize: 12, color: '#4b5f52', marginBottom: 8 }}>
         Pokud zákazník dostal jinou velikost, změňte ji zde. Co si nevzal, odškrtněte — položka se z rezervace odebere.
-        {canEdit && ' Položku lze ✕ smazat z protokolu (z rezervace se také odebere) a výbavu navíc přidat tlačítkem „+ Přidat položku“.'}
+        {canEdit && (gearOnly
+          ? ' Položku lze ✕ smazat z protokolu (z rezervace se také odebere; aspoň jeden kus musí zůstat). Další kus přidejte přes „Upravit rezervaci“ (přepočet ceny).'
+          : ' Položku lze ✕ smazat z protokolu (z rezervace se také odebere) a výbavu navíc přidat tlačítkem „+ Přidat položku“.')}
         {' '}U zaškrtnutých položek se skutečnost propíše do rezervace a Logistiky zboží.
       </p>
       <div className="space-y-2">
@@ -132,7 +137,7 @@ export default function ProtocolGearEditor({ accessories, setAccessories, sizesB
         </div>
       )}
 
-      {canEdit && (adding ? (
+      {canAdd && (adding ? (
         <div className="mt-3 p-3 rounded-lg space-y-2" style={{ background: '#f0fdf4', border: '1px solid #86efac' }}>
           <div className="flex flex-wrap gap-2 items-center">
             <select value={slot} onChange={e => pickSlot(e.target.value)} className="max-sm:w-full" style={{ ...btn, fontWeight: 600, minWidth: 220 }}>

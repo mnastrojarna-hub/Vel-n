@@ -9,6 +9,7 @@ import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { TOOLS as SERVICE_TOOLS } from '../ai-moto-agent/tools-definitions.ts'
 import { executeTool as execServiceTool } from '../ai-moto-agent/tools-executor.ts'
 import { BOOKING_SELECT, bookingLine } from './context.ts'
+import { isGearBooking } from '../_shared/agent-knowledge/gear-booking.ts'
 
 const ADMIN_TOOLS = [
   {
@@ -48,7 +49,10 @@ async function customerOverview(sb: SupabaseClient, cid: string): Promise<unknow
     damage_flag: b.damage_flag, damage_note: b.damage_note, complaint_status: b.complaint_status,
     modification_history: b.modification_history, notes: b.notes,
     moto_box_number: (b.motorcycles as Record<string, unknown> | null)?.box_number,
-    branch: ((b.motorcycles as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.name,
+    branch: isGearBooking(b)
+      ? (b.booking_branch as Record<string, unknown> | null)?.name
+      : ((b.motorcycles as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.name,
+    ...(isGearBooking(b) ? { gear_only: true, gear_lines: b.gear_lines, gear_per_day: b.gear_per_day } : {}),
   }))
   return { profile: prof.data, bookings, sos_incidents: sos.data || [], complaints: compl.data || [], shop_orders: orders.data || [], sent_emails: mails.data || [] }
 }

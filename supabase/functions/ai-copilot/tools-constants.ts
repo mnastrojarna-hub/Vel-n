@@ -64,18 +64,22 @@ export async function fetchAllRows(makeQuery: () => any, pageSize = 1000): Promi
   }
 }
 
+// `bookings` = rezervace MOTOREK (analýzy flotily, kategorií, motorek); výpůjčky JEN VÝBAVY
+// (booking_kind='gear', 2026-10-23) zvlášť v `gearBookings` — do moto analýz nepatří, do obratu ano.
 export async function fetchAnalyticsRawData(sb: SB, months: number) {
   const since = new Date()
   since.setMonth(since.getMonth() - months)
-  const [bookings, mRes, lRes, profiles] = await Promise.all([
-    fetchAllRows(() => sb.from('bookings').select('id, user_id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status, is_test').gte('created_at', since.toISOString()).not('is_test', 'is', true).order('id')),
+  const [allBookings, mRes, lRes, profiles] = await Promise.all([
+    fetchAllRows(() => sb.from('bookings').select('id, user_id, moto_id, branch_id, start_date, end_date, total_price, status, created_at, booking_source, rating, payment_status, is_test, booking_kind').gte('created_at', since.toISOString()).not('is_test', 'is', true).order('id')),
     sb.from('motorcycles').select('id, model, brand, category, branch_id, status, purchase_price, mileage, acquired_at, created_at, is_trailer'),
     sb.from('branches').select('id, name, city, type'),
     fetchAllRows(() => sb.from('profiles').select('id, full_name, email, city, license_group, riding_experience, created_at, is_test_account').not('is_test_account', 'is', true).order('id')),
   ])
   // deno-lint-ignore no-explicit-any
   type Row = Record<string, any>
-  return { bookings, motorcycles: (mRes.data || []) as Row[], branches: (lRes.data || []) as Row[], profiles }
+  const bookings = allBookings.filter((b) => b.booking_kind !== 'gear')
+  const gearBookings = allBookings.filter((b) => b.booking_kind === 'gear')
+  return { bookings, gearBookings, motorcycles: (mRes.data || []) as Row[], branches: (lRes.data || []) as Row[], profiles }
 }
 
 export function diffDays(start: string, end: string): number {

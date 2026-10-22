@@ -34,9 +34,11 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
     case 'get_bookings_detail': {
       const limit = (input.limit as number) || 20
       let q = sb.from('bookings')
-        .select('id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit, created_via_ai, is_test')
+        .select('id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit, created_via_ai, is_test, booking_kind, branch_id, gear_lines, gear_per_day, helmet_size, jacket_size, pants_size, gloves_size, boots_size')
         .order('start_date', { ascending: false }).limit(limit)
       if (input.include_test !== true) q = q.eq('is_test', false)
+      // kind: 'moto' = rezervace motorek, 'gear' = výpůjčky JEN VÝBAVY (bez motorky, pobočka v branch_id)
+      if (input.kind === 'moto' || input.kind === 'gear') q = q.eq('booking_kind', input.kind)
       if (input.status) q = q.eq('status', input.status)
       if (input.date_from) q = q.gte('start_date', input.date_from)
       if (input.date_to) q = q.lte('start_date', input.date_to)
@@ -50,7 +52,7 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
       ])
       const mm: R = {}; for (const m of (motos || [])) mm[m.id] = m
       const pm: R = {}; for (const p of (profiles || [])) pm[p.id] = p
-      const enriched = bookings.map((b: R) => ({ ...b, motorcycle: mm[b.moto_id] || null, customer: pm[b.user_id] || null }))
+      const enriched = bookings.map((b: R) => ({ ...b, motorcycle: mm[b.moto_id] || null, customer: pm[b.user_id] || null, ...(b.booking_kind === 'gear' ? { gear_only: true } : {}) }))
       return { bookings: enriched, count: enriched.length }
     }
 

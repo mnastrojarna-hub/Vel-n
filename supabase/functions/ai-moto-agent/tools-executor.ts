@@ -7,6 +7,7 @@ import { kioskReleaseNote, pickupTimeLabel, pragueDateLabel, ssTime } from './bo
 import { BOOKING_BRANCH_SELECT, preferBookingBranch } from './customer-branch.ts'
 import { branchHasGate, markBookingsGate } from '../_shared/agent-knowledge/branch-gate.ts'
 import { readManual } from '../_shared/manual-reader.ts'
+import { GEAR_BOOKING_COLS, GEAR_BOOKING_TITLE_CS, gearItemsCs, isGearBooking } from '../_shared/agent-knowledge/gear-booking.ts'
 import { getBundledManualText } from '../_shared/manual-texts/index.ts'
 
 // Normalizace pro fuzzy hledání stroje: bez diakritiky, jen [a-z0-9] tokeny.
@@ -81,7 +82,7 @@ export async function executeTool(
           total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
           mileage_start, mileage_end, notes, booking_source,
           picked_up_at, handover_protocol_started_at, handover_protocol_filled_at,
-          late_pickup_discount_amount, sos_replacement,
+          late_pickup_discount_amount, sos_replacement, ${GEAR_BOOKING_COLS},
           motorcycles!moto_id(
             id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
             weight_kg, has_abs, has_asc, features, manual_url, manual_external_url, description,
@@ -109,13 +110,20 @@ export async function executeTool(
       const rows = (data as Array<Record<string, unknown>>).map((b) => {
         const m = b.motorcycles as Record<string, unknown> | null
         const out: Record<string, unknown> = { ...b }
+        // Výpůjčka JEN VÝBAVY (2026-10-23): bez motorky, pobočka z rezervace (gear_branch).
+        if (isGearBooking(b)) {
+          delete out.gear_branch
+          return { ...out, gear_only: true, title: GEAR_BOOKING_TITLE_CS, gear_items: gearItemsCs(b), branch: b.gear_branch ?? null,
+            gear_note: 'Výpůjčka JEN VÝBAVY bez motorky — žádná motorka, kóje, km ani SOS; kódy jen šatna (+ brána); doklady jen doklad totožnosti.' }
+        }
         if (String(b.pickup_time || '').startsWith('00:01')) out.pickup_time = pickupTimeLabel(b)
         if (ssTime(m, b.return_method, b.return_address)) out.return_time = 'bez času — kdykoli během posledního dne 24/7 kódem (ve smlouvě 24:00)'
         const gate = kioskReleaseNote(b, m)
         if (gate) out.kiosk_release = gate
         return out
       })
-      const active = rows.find(b => b.status === 'active')
+      // Aktivní MOTORKA má přednost před aktivní výpůjčkou jen výbavy.
+      const active = rows.find(b => b.status === 'active' && !isGearBooking(b)) || rows.find(b => b.status === 'active')
       if (active) return active
       if (rows.length > 1) return { multiple_bookings: rows, message: 'Zákazník má více rezervací. Zeptej se, o kterou motorku jde.' }
       return rows[0]
@@ -129,7 +137,8 @@ export async function executeTool(
       let q = supabaseAdmin
         .from('bookings')
         .select(`
-          id, status, payment_status, start_date, end_date,
+          id, status, payment_status, start_date, end_date, booking_kind, branch_id,
+          booking_branch:branches!branch_id(name, address, city, type, phone),
           motorcycles!moto_id(id, brand, model, box_number, branch_id,
             branches!branch_id(name, address, city, type, phone))
         `)
@@ -138,9 +147,11 @@ export async function executeTool(
       const { data: bks, error: bErr } = await q.order('start_date', { ascending: true }).limit(5)
       if (bErr) return { error: bErr.message }
       if (!bks || bks.length === 0) return { message: 'Zákazník nemá rezervaci, ke které by kódy existovaly.' }
-      const bk = (bks.find(b => b.status === 'active') || bks[0]) as Record<string, unknown>
+      const bk = (bks.find(b => b.status === 'active' && !isGearBooking(b)) || bks.find(b => b.status === 'active') || bks[0]) as Record<string, unknown>
       const moto = bk.motorcycles as Record<string, unknown> | null
-      const branch = (moto?.branches as Record<string, unknown> | null) || null
+      // Výpůjčka JEN VÝBAVY: pobočka z rezervace, jediný kód = šatna (accessories) + brána.
+      const gear = isGearBooking(bk)
+      const branch = gear ? ((bk.booking_branch as Record<string, unknown> | null) || null) : ((moto?.branches as Record<string, unknown> | null) || null)
 
       const { data: codes, error: cErr } = await supabaseAdmin
         .from('branch_door_codes')
@@ -166,14 +177,14 @@ export async function executeTool(
       // (get_booking_gate_info tu nejde — stojí na auth.uid(), service role by dostal
       // has_gate=false). Kód schránky jde zákazníkovi se stejnou zprávou jako kód
       // motorky → „doručen“ = kód motorky odeslaný u rezervace reserved/active.
-      const hasGate = await branchHasGate(supabaseAdmin, moto?.branch_id)
+      const hasGate = await branchHasGate(supabaseAdmin, gear ? bk.branch_id : moto?.branch_id)
       const liveBk = bk.status === 'reserved' || bk.status === 'active'
       const gateDelivered = hasGate && liveBk
-        && rows.some(c => c.code_type === 'motorcycle' && c.sent_to_customer === true)
+        && rows.some(c => c.code_type === (gear ? 'accessories' : 'motorcycle') && c.sent_to_customer === true)
       const gateSummary = !hasGate ? '' : gateDelivered
-        ? ' Pobočka má VJEZDOVOU BRÁNU: kód schránky s klíčem od brány dostal zákazník spolu s ostatními kódy (pořadí brána → šatna → motorka) — najde ho ve zprávě s kódy v appce (Zprávy / detail rezervace), v e-mailu a SMS; číslice NIKDY neříkej.'
+        ? ` Pobočka má VJEZDOVOU BRÁNU: kód schránky s klíčem od brány dostal zákazník spolu s ostatními kódy (pořadí ${gear ? 'brána → šatna' : 'brána → šatna → motorka'}) — najde ho ve zprávě s kódy v appce (Zprávy / detail rezervace), v e-mailu a SMS; číslice NIKDY neříkej.`
         : liveBk
-          ? ' Pobočka má VJEZDOVOU BRÁNU: kód schránky s klíčem od brány zákazník dostane spolu s kódem motorky (zatím odeslaný není) — číslice NIKDY neříkej.'
+          ? ` Pobočka má VJEZDOVOU BRÁNU: kód schránky s klíčem od brány zákazník dostane spolu s ${gear ? 'kódem šatny' : 'kódem motorky'} (zatím odeslaný není) — číslice NIKDY neříkej.`
           : ' Pobočka má VJEZDOVOU BRÁNU (kód schránky patří jen k platné rezervaci) — číslice NIKDY neříkej.'
       return {
         booking_id: bk.id,
@@ -181,6 +192,7 @@ export async function executeTool(
         branch: branch ? { name: branch.name, address: [branch.address, branch.city].filter(Boolean).join(', '), type: branch.type, phone: branch.phone } : null,
         box_number: moto?.box_number ?? null,
         self_service: branch?.type === 'samoobslužná',
+        ...(gear ? { gear_only: true, gear_note: 'Výpůjčka JEN VÝBAVY: k rezervaci patří jen kód šatny (+ u pobočky s bránou kód schránky); kód motorky ani kóje neexistují. Zadržení kódu = chybí platba nebo doklad totožnosti (fotky OP líc + rub nebo pasu, datum narození 18+) — ŘP se nepotřebuje.' } : {}),
         // ISO čas, od kdy kiosk rezervaci vydá (sleva za vyzvednutí od 12:00); null = bez omezení
         release_from: gated ? releaseFrom : null,
         // Brána se schránkou na klíč (jen příznak + stav doručení, NIKDY číslice)
@@ -208,7 +220,7 @@ export async function executeTool(
         .from('bookings')
         .select(`
           id, status, payment_status, start_date, end_date, total_price,
-          pickup_method, return_method, mileage_start, mileage_end, rating,
+          pickup_method, return_method, mileage_start, mileage_end, rating, ${GEAR_BOOKING_COLS},
           motorcycles!moto_id(id, model, brand, category, engine_cc)
         `)
         .eq('user_id', userId)
@@ -217,7 +229,10 @@ export async function executeTool(
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Zákazník nemá žádné rezervace.' }
-      return data
+      // Výpůjčka JEN VÝBAVY → čitelný popisek místo motorky
+      return (data as Array<Record<string, unknown>>).map((b) => isGearBooking(b)
+        ? { ...b, gear_only: true, title: GEAR_BOOKING_TITLE_CS, gear_items: gearItemsCs(b) }
+        : b)
     }
 
     case 'get_motorcycle_manual': {

@@ -3,6 +3,7 @@ import { encode as base64Encode } from 'https://deno.land/std@0.177.0/encoding/b
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
+import { EMAIL_SLUG_FALLBACKS, logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -235,12 +236,21 @@ serve(async (req) => {
       isMarketing = true
     } else if (template_slug) {
       // Load from email_templates table (vč. překladových cache sloupců)
-      const { data: tpl, error: tplErr } = await supabase
+      const loadTpl = (s: string) => supabase
         .from('email_templates')
         .select('slug, name, subject, body_html, active, subject_translations, body_translations')
-        .eq('slug', template_slug)
+        .eq('slug', s)
         .eq('active', true)
         .maybeSingle()
+      let { data: tpl, error: tplErr } = await loadTpl(template_slug)
+      // Náhradní šablona (2026-10-23): protokol výpůjčky výbavy (handover_protocol_gear_sent)
+      // bez vlastní šablony ve Velínu → obecný handover_protocol_sent, ať mail vždy odejde
+      // (submit-handover-protocol i Velín). Použití náhrady → debug_log email_template_fallback.
+      const fbSlug = EMAIL_SLUG_FALLBACKS[template_slug]
+      if ((tplErr || !tpl) && fbSlug) {
+        ({ data: tpl, error: tplErr } = await loadTpl(fbSlug))
+        if (tpl) await logGearTemplateFallback(supabase, 'send-email', { slug: template_slug, used: fbSlug, booking_id: booking_id || null })
+      }
 
       if (tplErr || !tpl) {
         return jsonResponse({

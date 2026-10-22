@@ -70,6 +70,9 @@
 
     var origStart = ER._normIso(b.start_date);
     var origEnd = ER._normIso(b.end_date);
+    // Probíhající rezervace: výměna nejdřív dnes (dřív šlo zvolit i den v minulosti).
+    var todayIso = ER._toIsoDate(new Date());
+    var minDate = origStart < todayIso && todayIso <= origEnd ? todayIso : origStart;
     var defTime = (b.pickup_time || '').toString().slice(0, 5) || '09:00';
     // samoobsluha ukládá 00:01 (= celý den) — jako výchozí čas výměny nabídnout běžných 09:00
     if (defTime === '00:01') defTime = '09:00';
@@ -80,7 +83,7 @@
       '<div class="erez-swap-controls" style="display:flex;flex-wrap:wrap;gap:16px;margin:12px 0">' +
         '<label style="display:flex;flex-direction:column;gap:4px;font-weight:600">' +
           '<span>' + MG.t('editRez.swap.pickDate') + '</span>' +
-          '<input type="date" id="erez-swap-date" min="' + esc(origStart) + '" max="' + esc(origEnd) + '" value="' + esc(origStart) + '" style="padding:8px;border:1px solid #ccc;border-radius:8px">' +
+          '<input type="date" id="erez-swap-date" min="' + esc(minDate) + '" max="' + esc(origEnd) + '" value="' + esc(minDate) + '" style="padding:8px;border:1px solid #ccc;border-radius:8px">' +
         '</label>' +
         '<label style="display:flex;flex-direction:column;gap:4px;font-weight:600">' +
           '<span>' + MG.t('editRez.swap.pickTime') + '</span>' +
@@ -115,8 +118,8 @@
     async function renderMotos() {
       var grid = document.getElementById('erez-swap-motos');
       if (!grid) return;
-      var swapDate = dateInput.value || origStart;
-      if (swapDate < origStart) swapDate = origStart;
+      var swapDate = dateInput.value || minDate;
+      if (swapDate < minDate) swapDate = minDate;
       if (swapDate > origEnd) swapDate = origEnd;
       grid.innerHTML = '<div class="edit-rez-loading"><span class="spinner"></span> ' + MG.t('editRez.moto.loading') + '</div>';
 
@@ -466,6 +469,8 @@
   // jako záložka "Výměna/Změna motorky" v jádru; backend vrací wrong_status / not_paid jinak.
   function shouldShow() {
     var b = ER.selectedBooking;
+    // Výpůjčka jen výbavy (gearbk.js) motorku nemá — výměna se nenabízí.
+    if (ER._isGear && ER._isGear(b)) return false;
     // Výměna dává smysl u nadcházející i PROBÍHAJÍCÍ rezervace (switch uprostřed), zaplacené.
     return !!b && (b.status === 'reserved' || b.status === 'active') &&
       (b.payment_status === 'paid' || b.payment_status === 'partial_refund' || b.payment_status === 'refund_pending');
@@ -494,6 +499,9 @@
       btn.classList.add('active');
       ER._renderTabSwap();
     });
+    // Návrat ze Stripe „Zpět“ (cancel_url edit_tab=swap): jádro záložku nezná a vykreslilo
+    // Detail — po vložení tlačítka otevřít obsah výměny (dřív svítila Výměna nad Detailem).
+    if (ER.tab === TAB && !document.getElementById('erez-swap-date')) ER._renderTabSwap();
   }
 
   function startObserver() {

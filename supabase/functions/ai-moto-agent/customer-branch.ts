@@ -9,6 +9,8 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { markBookingsGate } from '../_shared/agent-knowledge/branch-gate.ts'
 import { formatBranchLines } from './booking-context.ts'
+import { bookingTitle, formatGearBranchLines, isGearBooking } from './gear-context.ts'
+import { GEAR_BOOKING_COLS } from '../_shared/agent-knowledge/gear-booking.ts'
 
 const BRANCH_COLS = 'id, name, address, city, phone, type, is_open, notes, gps_lat, gps_lng'
 
@@ -17,26 +19,28 @@ export const BOOKING_BRANCH_SELECT = `booking_branch:branches!branch_id(${BRANCH
 
 type Row = Record<string, unknown>
 
-/** Pobočku rezervace propíše do motorcycles.branches (všechny formátovače čtou odtud). */
+/** Pobočku rezervace propíše do motorcycles.branches (všechny formátovače čtou odtud);
+ *  rezervace bez motorky (výpůjčka jen výbavy, 2026-10-23) ji drží v `gear_branch`. */
 export function preferBookingBranch(rows: Array<Row | null | undefined>): void {
   for (const b of rows) {
     if (!b) continue
     const bb = b.booking_branch as Row | null
     const m = b.motorcycles as Row | null
     if (bb && m) m.branches = bb
+    else if (bb && !m) b.gear_branch = bb
     delete b.booking_branch
   }
 }
 
 /** Název pobočky rezervace (pro výpisy více rezervací). */
 export function bookingBranchName(b: Row): string {
-  const br = ((b.motorcycles as Row | null)?.branches as Row | null) || null
+  const br = ((b.motorcycles as Row | null)?.branches as Row | null) || (b.gear_branch as Row | null) || null
   return br ? String(br.name || br.city || '?') : '?'
 }
 
 /** Kontext pro zákazníka BEZ aktivní/nadcházející rezervace: pending → poslední dokončená. */
 export async function customerBranchFallback(sb: SupabaseClient, userId: string): Promise<string> {
-  const sel = `id, status, start_date, end_date, ${BOOKING_BRANCH_SELECT},
+  const sel = `id, status, start_date, end_date, ${GEAR_BOOKING_COLS}, ${BOOKING_BRANCH_SELECT},
     motorcycles!moto_id(brand, model, branches!branch_id(${BRANCH_COLS}))`
   const today = new Date().toISOString().slice(0, 10)
   const [pend, done] = await Promise.all([
@@ -50,13 +54,14 @@ export async function customerBranchFallback(sb: SupabaseClient, userId: string)
   preferBookingBranch([b])
   await markBookingsGate(sb, [b])
   const m = b.motorcycles as Row | null
-  if (!(m?.branches)) return ''
-  const moto = `${m.brand || ''} ${m.model || ''}`.trim() || '?'
+  const gear = isGearBooking(b)
+  if (!(m?.branches) && !(gear && b.gear_branch)) return ''
+  const moto = bookingTitle(b)
   const why = b.status === 'pending'
     ? `rozpracovaná NEZAPLACENÁ rezervace #${String(b.id).slice(-8).toUpperCase()} (${moto}, ${b.start_date} – ${b.end_date}) — chystá se ji využít`
-    : `naposledy si půjčil ${moto} (${b.start_date} – ${b.end_date}, dokončeno)`
+    : `naposledy si půjčil ${gear ? `jen výbavu — ${moto}` : moto} (${b.start_date} – ${b.end_date}, dokončeno)`
   return `\n\n## POBOČKA ZÁKAZNÍKA (z jeho rezervací — ber ji jako výchozí):
 Zákazník teď nemá zaplacenou aktivní ani nadcházející rezervaci, ale ${why}.
-${formatBranchLines(m, false)}
+${gear ? formatGearBranchLines(b.gear_branch as Row) : formatBranchLines(m, false)}
 Na obecné dotazy (kde si motorku vyzvednu/vrátím, jak probíhá výdej a vrácení, mytí, tankování, kódy) odpovídej ROVNOU pro tuto pobočku — neptej se, kterou pobočku myslí, a nemluv obecně o obou. Jen když sám zmíní jinou pobočku nebo novou rezervaci jinde, řiď se jí (seznam v sekci POBOČKY).`
 }

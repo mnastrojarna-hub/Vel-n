@@ -34,6 +34,7 @@ const ROUTES: Record<string, string> = {
   '/rezervace': '/booking|/reservierung|/reserva|/reservation|/reservering|/rezerwacja|/booking',
   '/upravit-rezervaci': '/manage-booking|/reservierung-verwalten|/gestionar-reserva|/gerer-reservation|/reservering-beheren|/zarzadzaj-rezerwacja|/manage-booking',
   '/potvrzeni': '/confirmation|/bestaetigung|/confirmacion|/confirmation|/bevestiging|/potwierdzenie|/confirmation',
+  '/pujceni-obleceni': '/gear-rental|/ausruestung-mieten|/alquiler-de-equipo|/location-equipement|/uitrusting-huren|/wypozyczenie-odziezy|/gear-rental',
 }
 // Prefixy dynamických cest (UUID/slug za prefixem se nepřekládá)
 const PREFIXES: Record<string, string> = {
@@ -104,5 +105,6 @@ export function webLinksBlock(lang: unknown): string {
 - smlouva o pronájmu: ${u('/dokumenty/smlouva-o-pronajmu')}
 - ochrana osobních údajů (GDPR): ${u('/dokumenty/zasady-ochrany-osobnich-udaju')}
 - pobočky: ${u('/pobocky')} · kontakt: ${u('/kontakt')} · časté dotazy: ${u('/jak-pujcit/faq')}
-- dárkové poukazy: ${u('/poukazy')} · e-shop: ${u('/eshop')}`
+- dárkové poukazy: ${u('/poukazy')} · e-shop: ${u('/eshop')}
+- půjčení výbavy BEZ motorky (helma, bunda, kalhoty, rukavice, boty): ${u('/pujceni-obleceni')} (s pobočkou/termínem = pole \`order_url\` z \`get_gear_rental_offer\`)`
 }

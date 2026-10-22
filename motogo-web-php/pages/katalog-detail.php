@@ -126,7 +126,9 @@ if ($kcV2) {
         // (místo „Rezervovat online“ + „Spočítat cenu“); rezervace až po výběru termínu.
         . '</div><div class="lp-cta-row lp-cta-row--one md-cta" data-md-sentinel>'
         . '<a class="lp-btn lp-btn-primary md-date-btn" href="#termin">' . lpIcon('cal') . '<span data-cms-key="web.landing_katalog.detail_cta">' . $mdCta . '</span></a>'
-        . (lpPlain($mdT['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($mdT['assurance'])) . '</p>' : '')
+        // Uklidňující věta: „A · B“ → body s fajfkou (lpAssure, landing-sections.php; v CMS adminu nerozdělená)
+        . (function_exists('lpAssure') ? lpAssure($mdT['assurance'] ?? '')
+            : (lpPlain($mdT['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($mdT['assurance'])) . '</p>' : ''))
         . lpPanelRating($mdT) . '</div></div>';
     $mdSticky = '<div class="md-sticky" data-md-sticky aria-hidden="true"><span class="md-sticky-t"><span class="md-sticky-m">' . $model . '</span>'
         . ($mdFrom !== '' ? '<span class="md-sticky-v">' . $mdFrom . ' <small>' . $mdPd . '</small></span>' : '') . '</span>'
@@ -136,13 +138,16 @@ if ($kcV2) {
 // Short desc + features (auto-překlad popisku z translations JSONB sloupce)
 $motoDesc = localized($moto, 'description');
 $descHtml = '<div class="moto-shortdesc">';
+$mdDescHtml = '';
 if ($motoDesc !== '') {
     // Pokud Velín uložil rich-text HTML (tagy), pustíme přes sanitizer.
     // Jinak plain text → escape + zachovat odřádkování (nl2br).
     $rendered = (strpos($motoDesc, '<') !== false)
         ? sanitizeHtml($motoDesc)
         : '<p>' . nl2br(htmlspecialchars($motoDesc)) . '</p>';
-    $descHtml .= '<div class="wbox moto-desc-rich">' . $rendered . '</div><p>&nbsp;</p>';
+    // v2 (pořadí 2026-10-22): popis motorky až na konec informací ($mdDescHtml), v1 beze změny
+    if ($kcV2) $mdDescHtml = '<section class="moto-info md-info md-desc"><div class="moto-shortdesc"><div class="wbox moto-desc-rich">' . $rendered . '</div></div></section>';
+    else $descHtml .= '<div class="wbox moto-desc-rich">' . $rendered . '</div><p>&nbsp;</p>';
 }
 // Sekce „Základní údaje" — vybrané parametry řídí Velín přes sloupec short_desc_fields (text[]).
 $features = array_map(function ($i) { return '<strong>' . $i['label'] . ':</strong> ' . $i['value']; }, buildShortDescItems($moto));
@@ -273,7 +278,8 @@ if (!empty($allImages)) {
 }
 $galleryHtml .= $kcV2 ? '</div></div>' : '</div>';
 
-$infoHtml = $kcV2 ? '<section class="moto-info md-info">' . $descHtml . '</section>' : '<section class="moto-info gr2">' . $descHtml . $galleryHtml . '</section>';
+// v2: jen základní údaje + výbava a výhody (popis je v $mdDescHtml); prázdný blok se nevykreslí
+$infoHtml = $kcV2 ? ($descHtml !== '<div class="moto-shortdesc"></div>' ? '<section class="moto-info md-info md-info--split">' . $descHtml . '</section>' : '') : '<section class="moto-info gr2">' . $descHtml . $galleryHtml . '</section>';
 
 // Specs table (pořadí dle originálního webu)
 $specsRows = [];
@@ -321,10 +327,11 @@ if (!empty($moto['max_rental_days'])) {
 // Návod / dokumenty — na celý řádek (popis motorky je už pod fotkou v sekci moto-shortdesc)
 // Návod: PDF (manual_url ze storage) má přednost před externím odkazem (manual_external_url).
 $manualHref = !empty($moto['manual_url']) ? $moto['manual_url'] : (!empty($moto['manual_external_url']) ? $moto['manual_external_url'] : '');
-$descSpecsHtml = '';
-if ($manualHref !== '') {
-    $descSpecsHtml .= '<section class="moto-desc-block"><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p></section>';
-}
+$manualHtml = $manualHref !== ''
+    ? '<section class="moto-desc-block"><p><a class="btn btngreen" href="' . htmlspecialchars($manualHref) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p></section>'
+    : '';
+// v1: návod nad parametry; v2: pod parametry (připojí se za </section> níže)
+$descSpecsHtml = $kcV2 ? '' : $manualHtml;
 
 // Technická specifikace — na desktopu dvě tabulky vedle sebe, na mobilu zůstává jedna (původní layout)
 $descSpecsHtml .= '<section class="moto-specs"><h2>' . te('detail.specsTitle') . '</h2>';
@@ -356,6 +363,7 @@ if ($specsRows && $kcV2) {
         . '</div></div>';
 }
 $descSpecsHtml .= '</section>';
+if ($kcV2) $descSpecsHtml .= $manualHtml;
 
 // Pricing table — názvy dnů ze slovníku
 $days = [t('days.mon'), t('days.tue'), t('days.wed'), t('days.thu'), t('days.fri'), t('days.sat'), t('days.sun')];
@@ -381,10 +389,24 @@ $pricesHtml .= '</div>';
 // stránce. Default je 1 den, tj. ve výchozím stavu žádné omezení.
 $calId = 'detail-cal-' . $moto['id'];
 if ($kcV2) {
-    $pricesHtml .= '</section>' . renderKatalogCalc($sb, $motos, ['moto' => (string)$moto['id'], 'ctx' => 'detail']);
-    // v2: slider skutečných recenzí (sdílený s landingem; .lp-main = proměnné karuselu a hvězdiček)
-    $mdRev = renderLpReviews(lpReviewsData(), $mdT);
-    if ($mdRev !== '') $pricesHtml .= '<div class="lp-main md-rev">' . $mdRev . '</div>';
+    // v2 (pořadí 2026-10-22, zadání majitele): hero → garance → recenze → „Vyber si termín“ → ceník → informace
+    // → podobné → outro. Bloky se skládají až v $content níže; ceník je samostatná sekce.
+    $pricesHtml .= '</section>';
+    $mdCalcHtml = renderKatalogCalc($sb, $motos, ['moto' => (string)$moto['id'], 'ctx' => 'detail']);
+    // Garance (landing-guarantee.php, kompaktní varianta pro detail); .lp-main = styly nadpisu jako na landingu
+    $mdGuar = renderLpGuarantees($mdT, ['compact' => true]);
+    $mdGuarHtml = $mdGuar !== '' ? '<div class="lp-main md-guar">' . $mdGuar . '</div>' : '';
+    // Slider skutečných recenzí (sdílený s landingem; .lp-main = proměnné karuselu a hvězdiček) — nejvýš 3,
+    // recenze zmiňující tenhle model napřed (stabilní řazení PHP 8)
+    $mdR = lpReviewsData();
+    $mdModel = trim((string)($moto['model'] ?? ''));
+    if (!empty($mdR['items']) && is_array($mdR['items'])) {
+        $mdHit = function ($x) use ($mdModel) { return $mdModel !== '' && is_array($x) && mb_stripos((string)($x['text'] ?? ''), $mdModel) !== false ? 0 : 1; };
+        usort($mdR['items'], function ($a, $b) use ($mdHit) { return $mdHit($a) <=> $mdHit($b); });
+        $mdR['items'] = array_slice($mdR['items'], 0, 3);
+    }
+    $mdRev = renderLpReviews($mdR, $mdT);
+    $mdRevHtml = $mdRev !== '' ? '<div class="lp-main md-rev">' . $mdRev . '</div>' : '';
 }
 else $pricesHtml .= '<div class="moto-reservation"><h2>' . te('detail.availabilityTitle') . '</h2>' .
     '<p>' . te('detail.availabilityLead') . '</p>' .
@@ -603,8 +625,11 @@ $motoOutroHtml = '<section class="moto-detail-outro">'
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<article class="moto-detail ccontent' . ($kcV2 ? ' md' : '') . '" itemscope itemtype="https://schema.org/Product">' .
-        ($kcV2 ? '<header class="md-hero">' . $navHtml . $galleryHtml . $headerHtml . '</header>' : '<header>' . $navHtml . $headerHtml . '</header>') .
-        $infoHtml . $descSpecsHtml . $pricesHtml . $relatedHtml . $motoOutroHtml .
+        ($kcV2
+            ? '<header class="md-hero">' . $navHtml . $galleryHtml . $headerHtml . '</header>' . $mdGuarHtml . $mdRevHtml . $mdCalcHtml .
+                $pricesHtml . $infoHtml . $descSpecsHtml . $mdDescHtml
+            : '<header>' . $navHtml . $headerHtml . '</header>' . $infoHtml . $descSpecsHtml . $pricesHtml) .
+        $relatedHtml . $motoOutroHtml .
     '</article></div></main>' . ($kcV2 ? $mdSticky : '') . $calendarJs;
 
 // ===== Product + Vehicle (Motorcycle subtype) JSON-LD =====

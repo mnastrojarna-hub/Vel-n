@@ -4,7 +4,8 @@ Pořadí při podpisu (§4, rozhodnutí majitele: podpis se NIKDY neztratí): (1
 + stav manageru v JEDNÉ transakci, (2) pokus o okamžité odeslání edge funkci (45 s; úspěch i
 `already_filled` = hotovo, síť/5xx = zůstává `pending`, 4xx = `failed` + událost), (3) teprve pak
 otevření kóje (`then_open`). Identita podepisujícího = kód motorky téže rezervace (pole ve formuláři),
-pokud overlay nepřišel z právě zadaného kódu (platný `then_open`).
+pokud overlay nepřišel z právě zadaného kódu (platný `then_open`). Výpůjčka výbavy bez motorky (1.3.0, §33, `item.gear_only`):
+identita = kód ŠATNY téže rezervace, kóje se neotvírá, podpisem končí zámek přejímky, km se neposílají.
 """
 from __future__ import annotations
 
@@ -94,7 +95,12 @@ async def _verify_code(hm: "HandoverManager", booking_id: str, code: str | None,
     if own and (rr.error == pickup_gate.ERROR or pickup_gate.blocks(rr)):
         return None, {"error": pickup_gate.ERROR, "release_at": rr.release_at}
     same = rr.ok and own
-    if same and rr.kind == "motorcycle":
+    item = hm.items.get(booking_id)
+    gear = bool(item is not None and item.gear_only)
+    if same and gear and rr.kind == "accessories":     # výbava bez motorky: kód šatny téže rezervace, kóje se neotvírá
+        ctrl.pin_guard.register_success(masked)
+        return {"zone": item.zone, "booking_id": booking_id, "kind": "accessories", "open": False, "source": source}, {}
+    if same and not gear and rr.kind == "motorcycle":
         ctrl.pin_guard.register_success(masked)
         zc = cc.zone_for_code(ctrl, rr.door_id, rr.box_number, rr.kind)
         return {"zone": zc.number if zc else None, "booking_id": booking_id, "kind": "motorcycle", "source": source}, {}
@@ -102,7 +108,7 @@ async def _verify_code(hm: "HandoverManager", booking_id: str, code: str | None,
     if not same and guess:              # platný kód JINÉ rezervace (i před 12:00) = hádání, jako dřív
         until = ctrl.pin_guard.register_failure(masked)
         await ctrl.emit(Event(kind=EventKind.PIN_INVALID, success=False, level="warn", code_kind="invalid",
-                              booking_id=booking_id, message=f"Kód motorky k protokolu nesedí {masked}",
+                              booking_id=booking_id, message=f"Kód {'šatny' if gear else 'motorky'} k protokolu nesedí {masked}",
                               detail={"source": source, "code_masked": masked, "error": "code_mismatch"}))
         if until:
             await ctrl.emit(Event(kind=EventKind.PIN_LOCKOUT, success=False, level="warn",
@@ -158,12 +164,19 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
     lang = doc_lang(form.pop("lang", None))       # webserver přidá jazyk obrazovky do kopie formuláře (§28)
     _restore_declined_sizes(form, item.data)
     om = getattr(hm.ctrl, "odometer", None)       # km převzetí určuje jednotka, ne prohlížeč (rozhodnutí 2026-09-29)
-    km = om.pickup_mileage(item.data, item.moto_id) if om is not None else None
+    gear = bool(item.gear_only)                   # výbava bez motorky (§33): bez km, výbavy motorky a výbavy navíc
+    km = om.pickup_mileage(item.data, item.moto_id) if om is not None and not gear else None
     if km is not None:
         form["mileage"] = str(km)
+    if gear:
+        for key in ("mileage", "moto_equipment"):
+            form.pop(key, None)
+        form["gear_add"] = False
     payload = {"booking_id": bid, "form": form, "signature": signature, "signed_at": now_iso()}
     if lang:                                      # do trvalé fronty i edge (supabase_api rozbalí payload do těla requestu)
         payload["lang"] = lang
+    if gear:                                      # nápověda pro edge (rozhoduje bookings.booking_kind) + code_kind událostí fronty
+        payload["gear_only"] = True
     stored = True
     try:
         hm.ctrl.storage.protocol_queue_put(bid, payload, kv=(KV_HANDOVER, hm.state_dict()))
@@ -172,7 +185,8 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
         stored = False
     hm.refresh_queue()
     await hm.ctrl.emit(Event(kind=EventKind.PROTOCOL_SIGNED, zone=then_open.get("zone"), booking_id=bid,
-                             code_kind="motorcycle", message="Předávací protokol podepsán na displeji",
+                             code_kind="accessories" if gear else "motorcycle",
+                             message="Předávací protokol podepsán na displeji",
                              detail={"source": source, "signature_bytes": size, "stored": stored}))
     try:
         result = await upload_one(hm, bid, payload)
@@ -183,10 +197,15 @@ async def submit(hm: "HandoverManager", booking_id: str, form: Any, signature: A
         hm._save()  # noqa: SLF001
         return {**base, "error": "storage_failed"}
     hm.signed[bid] = hm.clock()
-    opened, err = await open_zone(hm, then_open, item)
+    if then_open.get("open") is False:            # výbava bez motorky: žádná kóje → přejímka končí podpisem
+        opened, err = None, None
+        hm.lock.release(bid, "protokol výbavy podepsán na displeji")
+    else:
+        opened, err = await open_zone(hm, then_open, item)
     hm._save()  # noqa: SLF001
     status = "already_filled" if result == "already_filled" else ("saved" if result == "saved" else "queued")
-    return {"ok": True, "status": status, "opened": opened, "error": err}
+    res = {"ok": True, "status": status, "opened": opened, "error": err}
+    return {**res, "gear_only": True} if gear else res
 
 
 async def upload_one(hm: "HandoverManager", booking_id: str, payload: dict) -> str:
@@ -205,7 +224,7 @@ async def upload_one(hm: "HandoverManager", booking_id: str, payload: dict) -> s
         hm.wake.set()
         return "queued"
     await hm.ctrl.emit(Event(kind=EventKind.PROTOCOL_UPLOAD_FAILED, success=False, level="error",
-                             booking_id=booking_id, code_kind="motorcycle",
+                             booking_id=booking_id, code_kind="accessories" if payload.get("gear_only") else "motorcycle",
                              message=f"Podpis protokolu z displeje odmítnut serverem ({res.get('error')})",
                              detail={"source": "protocol_queue", "error": res.get("error"), "booking_id": booking_id,
                                      "signature_bytes": signature_bytes(payload.get("signature"))}))

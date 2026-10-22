@@ -83,6 +83,11 @@ export function kioskReturnView(row, booking) {
   // Obsluha / cron dokončili dřív, než server stihl řádek přepnout (completed_elsewhere doběhne do minuty)
   if (b.status === 'completed' && ['parked', 'returning', 'out'].includes(state)) state = 'completed_elsewhere'
   const clock = kioskUnitClock(row) ? 'podle hodin jednotky' : 'podle času doručení na server (starší jednotka)'
+  // Výpůjčka JEN výbavy (kiosk 1.3.0, GEAR_RETURN_CONFIRMED): po zavření šatny zákazník na displeji potvrdí
+  // „Vracím všechno“ → dokončení hned, čas vrácení = okamžik potvrzení (žádné pravidlo posledního dne)
+  const gear = b.booking_kind === 'gear' || row.detail?.gear_only === true
+  if (gear && state === 'completed' && b.status === 'completed' && row.detail?.reverted !== true)
+    return { tone: TONES.green, title: 'Výbava vrácena — potvrzeno na displeji', hint: `Zákazník po zavření šatny potvrdil na displeji, že vrací všechnu výbavu; čas vrácení = okamžik potvrzení ${clock}. Kód šatny ještě 15 min po zavření šatny dobíhá.` }
   switch (state) {
     case 'returning':
       return { tone: TONES.blue, title: 'Probíhá vrácení', hint: 'Zákazník zadal na displeji kód motorky a stav tachometru — čeká se na zaparkování a zavření kóje.' }

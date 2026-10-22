@@ -7,6 +7,7 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { formatBookingContext, formatMultipleBookingsContext } from '../ai-moto-agent/booking-context.ts'
 import { loadGateCodeMask, markBookingsGate } from '../_shared/agent-knowledge/branch-gate.ts'
+import { gearBookingLabel, gearBranchOf, isGearBooking } from '../_shared/agent-knowledge/gear-booking.ts'
 
 export type Msg = { id: string; direction: string | null; content: string | null; created_at: string }
 
@@ -33,9 +34,15 @@ export const isInbound = (d: string | null) => ['customer', 'inbound'].includes(
 const isStaff = (d: string | null) => ['admin', 'outbound'].includes((d || '').toLowerCase())
 
 // Rezervace se čtou přes `*` — výčet sloupců už jednou shodil celý dotaz (neexistující `deposit`).
-export const BOOKING_SELECT = '*, motorcycles!moto_id(*, branches!branch_id(*))'
+// + pobočka REZERVACE (booking_branch) — výpůjčka jen výbavy (booking_kind='gear') nemá motorku.
+export const BOOKING_SELECT = '*, motorcycles!moto_id(*, branches!branch_id(*)), booking_branch:branches!branch_id(id, name, address, city, phone, type, is_open, notes, gps_lat, gps_lng)'
 
 export function bookingLine(b: Record<string, unknown>): string {
+  if (isGearBooking(b)) {
+    const ref = String(b.id || '').slice(-8).toUpperCase()
+    const br = gearBranchOf(b)
+    return `- #${ref} [id=${b.id}] ${gearBookingLabel(b)} | pobočka ${br?.name || '?'} | ${b.start_date} – ${b.end_date} | stav ${b.status}, platba ${b.payment_status || '?'} | cena ${b.total_price ?? '?'} Kč (${b.gear_per_day ?? '?'} Kč/den) | zdroj ${b.booking_source || '?'}${b.status === 'cancelled' ? ', zrušeno' : ''}`
+  }
   const m = (b.motorcycles as Record<string, unknown> | null) || {}
   const ref = String(b.id || '').slice(-8).toUpperCase()
   const disc = Number(b.discount_amount || 0) > 0 ? `, sleva ${b.discount_amount} Kč${b.discount_code ? ` (${b.discount_code})` : ''}` : ''
@@ -48,6 +55,8 @@ async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ c
     .eq('user_id', customerId).order('start_date', { ascending: false }).limit(20)
   if (error) return { ctx: `\n\n## KONTEXT REZERVACE: načtení selhalo (${error.message}) — použij get_customer_overview / get_active_booking.`, list: '' }
   const all = (data || []) as Array<Record<string, unknown>>
+  // Pobočka rezervace jen u výpůjčky výbavy (formátovače ji čtou z gear_branch); u motorek beze změny.
+  for (const b of all) { if (isGearBooking(b)) b.gear_branch = b.booking_branch; delete b.booking_branch }
   if (!all.length) return { ctx: '\n\n## KONTEXT REZERVACE:\nZákazník v DB nemá žádnou rezervaci (ani historickou).', list: '' }
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague' }).format(new Date())
   const live = all.filter((b) => ['active', 'reserved', 'pending'].includes(String(b.status)))
@@ -57,7 +66,7 @@ async function loadBookings(sb: SupabaseClient, customerId: string): Promise<{ c
   // Pobočka s vjezdovou branou → řádek „VJEZD BRANOU“ v kontextu (jen příznak, NIKDY kód).
   const marked = active ? [active] : upcoming.slice(0, 1)
   await markBookingsGate(sb, marked)
-  const gate = marked.some((b) => (((b.motorcycles as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.has_gate) === true)
+  const gate = marked.some((b) => ((((b.motorcycles as Record<string, unknown> | null)?.branches || b.gear_branch) as Record<string, unknown> | null)?.has_gate) === true)
   let ctx = ''
   if (active) ctx = formatBookingContext(active, upcoming.length ? upcoming : null)
   else if (upcoming.length === 1) ctx = formatBookingContext(upcoming[0], null)

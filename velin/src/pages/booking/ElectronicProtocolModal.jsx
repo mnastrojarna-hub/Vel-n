@@ -12,11 +12,16 @@ import { sendProtocolEmail } from './protocolEmail'
 import { loadAccessoryTypes } from '../BranchHelpers'
 import { useSaveErrorReveal } from './useSaveErrorReveal'
 import ProtocolGearEditor from './ProtocolGearEditor'
+import { isGearBooking, gearItems, gearSizeCatalog, gearSizeSummary, gearLinesWithSizes } from '../../lib/bookingKind'
+import { GEAR_HANDOVER_CHECKS, gearProtocolEmailVars } from './protocolGearOnly'
+import { buildGearProtocolHtml } from './protocolGearDoc'
 
 // Elektronický předávací protokol / protokol o poškození — vyplnění na tabletu
 // (checkboxy + volný text) a podpis perem. Uloží podepsané HTML do generated_documents.
 // `verifiedCode` — kód motorky, kterým byla rezervace při rychlém odbavení z Velína
 // nalezena (= ověření identity); protokol ho má předvyplněný a označený jako ověřený.
+// Výpůjčka JEN výbavy (booking_kind 'gear', protocolGearOnly.js): bez motocyklu, km, motorkových kontrol
+// a doplňků; identita = KÓD ŠATNY; velikosti z ceníku výbavy; aspoň jeden kus musí zůstat převzatý.
 export default function ElectronicProtocolModal({ open, type, bookingId, onClose, onSaved, verifiedCode = '' }) {
   const isDamage = type === 'damage_protocol'
   const [loading, setLoading] = useState(true)
@@ -50,6 +55,10 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   // přidané výbavě řidiče, childSuffix = popisek dětské velikosti u dětské motorky (jako listAccessoryItems)
   const [ownGear, setOwnGear] = useState(null)
   const [childSuffix, setChildSuffix] = useState('')
+  // Výpůjčka jen výbavy: pobočka rezervace (dokument) a proměnné e-mailu handover_protocol_gear_sent
+  const [gearOnly, setGearOnly] = useState(false)
+  const [gearBranch, setGearBranch] = useState(null)
+  const [gearBooking, setGearBooking] = useState(null)
   const custSig = useRef(null)
   const operSig = useRef(null)
   // < lg: chyba uložení se ukáže tam, kde operátor je (protokol má na telefonu ~2 800 px) — desktop beze změny
@@ -68,15 +77,29 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       v._customer_id = customer.id || booking.user_id || null
       setVars(v)
       const self = effBranch(booking)?.type === 'samoobslužná'   // pobočka rezervace, u NULL motorky
+      const gear = !isDamage && isGearBooking(booking)
+      setGearOnly(gear)
+      setGearBranch(gear ? effBranch(booking) : null)
+      setGearBooking(gear ? booking : null)
       setSelfService(self)
       setOwnGear(booking.own_gear ?? null)
       setDocLang(booking.language || 'cs')
       setChildSuffix(String(booking.motorcycles?.license_required || '').toUpperCase() === 'N' ? ' (dětská velikost)' : '')
       setAlreadySigned(!isDamage && self && booking.handover_protocol_filled_at ? booking.handover_protocol_filled_at : null)
-      setMileage(isDamage ? '' : (booking.mileage_start ? String(booking.mileage_start) : ''))
+      setMileage(isDamage || gear ? '' : (booking.mileage_start ? String(booking.mileage_start) : ''))
       // origSize drží velikost z rezervace — při uložení se propíše jen skutečná změna
-      setAccessories(listAccessoryItems(booking, booking.motorcycles || {}).map(i => ({ ...i, checked: true, origSize: i.size })))
-      if (!isDamage) {
+      // (výbava: jen řidičské sloupce, popisek bez „(řidič)“)
+      const accList = gear
+        ? gearItems(booking).map(i => ({ label: i.label, size: i.size, type: i.key, field: `${i.key}_size` }))
+        : listAccessoryItems(booking, booking.motorcycles || {})
+      setAccessories(accList.map(i => ({ ...i, checked: true, origSize: i.size })))
+      if (gear) {
+        // velikosti = aktivní ceník výbavy (gear_rental_prices), na samoobsluze ∩ limity (parita edge/kiosk/web)
+        try {
+          const { data: prices } = await supabase.from('gear_rental_prices').select('key, kind, sizes, is_active').eq('kind', 'item')
+          setSizesByType(gearSizeCatalog(prices || [], self))
+        } catch { setSizesByType({}) }
+      } else if (!isDamage) {
         try {
           const types = await loadAccessoryTypes()
           const map = {}; types.forEach(t => { map[t.key] = t.sizes || [] })
@@ -85,13 +108,14 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       }
       const init = {}
       if (isDamage) { DAMAGE_CHECKS.forEach(d => { init[d.key] = { checked: false, note: '' } }) }
+      else if (gear) { GEAR_HANDOVER_CHECKS.forEach(d => { init[d.key] = false }) }
       else { [...HANDOVER_CHECKS, ...EXTRA_GEAR_CHECKS].forEach(d => { init[d.key] = false }) }
       setChecks(init)
       setVisualState(''); setNotes(''); setDamageDesc(''); setMissingGear(''); setHandoverDamage({ checked: false, desc: '' })
       // Načti přístupový kód k motorce pro tuto rezervaci (pro ověření identity).
       setCodeInput(''); setCodeVerified(false); setCodeChecked(false)
       const { data: dc } = await supabase.from('branch_door_codes').select('door_code')
-        .eq('booking_id', bookingId).eq('code_type', 'motorcycle')
+        .eq('booking_id', bookingId).eq('code_type', gear ? 'accessories' : 'motorcycle')
         .order('created_at', { ascending: false }).limit(1)
       const code = dc?.[0]?.door_code || ''
       setMotoCode(code || verifiedCode)
@@ -112,9 +136,14 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
   async function handleSave() {
     // Identita: pokud má rezervace kód k motorce, musí se před uložením ověřit.
     if (motoCode && !codeVerified) {
-      setError('Ověřte kód k motorce (identita zákazníka) — zadejte kód, který zákazník obdržel, a klikněte na „Ověřit“.')
+      setError(`Ověřte ${gearOnly ? 'kód šatny' : 'kód k motorce'} (identita zákazníka) — zadejte kód, který zákazník obdržel, a klikněte na „Ověřit“.`)
       errReveal.reveal('top') // < lg: posun nahoru na chybu a kolonku kódu hned pod ní
       return
+    }
+    // Výpůjčka výbavy musí mít aspoň jeden převzatý kus — bez velikostí by zanikl kód šatny (DB guard to odmítne)
+    if (gearOnly && !accessories.some(a => a.field && !a.deleted && a.checked)) {
+      setError('Výpůjčka výbavy musí mít aspoň jeden převzatý kus. Když si zákazník nevezme nic, zrušte rezervaci (Storno).')
+      errReveal.reveal(); return
     }
     setSaving(true); setError(null)
     try {
@@ -139,6 +168,8 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           if (gone) removedUpd[a.field] = null
           else if (a.size && a.size !== a.origSize) upd[a.field] = a.size
         })
+        // Výpůjčka výbavy: změněná velikost i v naceněných řádcích (gear_lines → doklady, e-maily); ceny beze změny
+        if (gearOnly && Object.keys(upd).length > 0 && Array.isArray(gearBooking?.gear_lines)) upd.gear_lines = gearLinesWithSizes(gearBooking.gear_lines, upd)
         // Přidaná výbava řidiče u rezervace „vlastní výbava“ → zákazník si půjčuje (pravidlo _booking_needs_locker)
         if (ownGear === true && accessories.some(a => a.added && a.checked && !a.deleted && /^(helmet|jacket|pants|gloves)_size$/.test(a.field || ''))) upd.own_gear = false
         const hasSizeUpd = Object.keys(upd).length > 0
@@ -160,10 +191,12 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       // Do dokumentu: bez smazaných a bez přidaných, které si zákazník nakonec nevzal; přidané označit
       const docAccessories = accessories.filter(a => !a.deleted && !(a.added && !a.checked)).map(a => (a.added ? { ...a, label: `${a.label} — přidáno při předání` } : a))
       const form = { mileage, visualState, notes, damageDesc, missingGear, accessories: docAccessories, checks, damage: handoverDamage, identityCodeRequired: !!motoCode, identityVerified: codeVerified }
-      const html = buildElectronicProtocolHtml({ type, vars, form, signatures: { customer: customerSig, operator: operatorSig }, lang: docLang })
+      const html = gearOnly
+        ? buildGearProtocolHtml({ vars, form, signatures: { customer: customerSig }, lang: docLang, branch: gearBranch })
+        : buildElectronicProtocolHtml({ type, vars, form, signatures: { customer: customerSig, operator: operatorSig }, lang: docLang })
       const docId = crypto.randomUUID()
-      const docName = (isDamage ? 'Protokol o poškození' : 'Předávací protokol') + ' (elektronický)'
-      const filled = { ...vars, _signed_html: html, _doc_name: docName, _doc_type: type, _electronic: true, _signed_at: new Date().toISOString(), _lang: protocolLang(docLang) }
+      const docName = (isDamage ? 'Protokol o poškození' : gearOnly ? 'Předávací protokol výbavy' : 'Předávací protokol') + ' (elektronický)'
+      const filled = { ...vars, _signed_html: html, _doc_name: docName, _doc_type: type, _electronic: true, _signed_at: new Date().toISOString(), _lang: protocolLang(docLang), ...(gearOnly ? { _gear_only: true } : {}) }
       // PDF nahrajeme PŘED insertem, aby sync trigger (generated_documents → documents)
       // viděl reálnou cestu k souboru a zákazník dostal funkční dokument v appce.
       let pdfPath = null
@@ -199,12 +232,14 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       // (trigger zvedne motorcycles.mileage). Protokol o poškození → jen mileage_end
       // (pro „Najeto" v souhrnu, motorku neovlivní). Best-effort, neblokuje uložení.
       try {
-        const km = parseInt(String(mileage).replace(/[^\d]/g, ''), 10)
+        const km = gearOnly ? NaN : parseInt(String(mileage).replace(/[^\d]/g, ''), 10)   // výbava nemá km
         if (Number.isFinite(km) && km > 0) {
           await supabase.from('bookings').update(isDamage ? { mileage_end: km } : { mileage_start: km }).eq('id', bookingId)
         }
       } catch {}
-      const info = { html, type, docId, pdfPath, docName, bookingId, customerId: vars._customer_id, customerEmail: vars.customer_email || '', customerName: vars.customer_name || '', moto: `${vars.moto_model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || '' }
+      const info = { html, type, docId, pdfPath, docName, bookingId, customerId: vars._customer_id, customerEmail: vars.customer_email || '', customerName: vars.customer_name || '', moto: gearOnly ? 'Výpůjčka výbavy' : `${vars.moto_model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || '', gearOnly,
+        // výbava: proměnné e-mailu se skutečností z protokolu (změněné velikosti, nepřevzaté kusy)
+        gearVars: gearOnly ? gearProtocolEmailVars({ ...gearBooking, ...Object.fromEntries(accessories.filter(a => a.field).map(a => [a.field, !a.deleted && a.checked ? a.size : null])) }, docLang) : null }
       // Protokol se zákazníkovi odešle e-mailem AUTOMATICKY hned po uložení
       // (dřív jen z karty Doklady po ručním kliknutí — z odbavení odjezdu
       // se neposílal vůbec). Best-effort: selhání mailu uložení neshodí,
@@ -226,7 +261,10 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
     setSaving(false)
   }
 
-  const title = isDamage ? 'Protokol o poškození — elektronicky' : 'Předávací protokol — elektronicky'
+  const title = isDamage ? 'Protokol o poškození — elektronicky' : gearOnly ? 'Předávací protokol výbavy — elektronicky' : 'Předávací protokol — elektronicky'
+  // Hlavička: motorka (model, SPZ) / výpůjčka výbavy (kusy a velikosti)
+  const subjectLine = gearOnly ? `Výpůjčka výbavy${gearBooking && gearSizeSummary(gearBooking) ? ` · ${gearSizeSummary(gearBooking)}` : ''}` : `${vars?.moto_model} (${vars?.moto_spz})`
+  const codeName = gearOnly ? 'kód šatny' : 'kód k motorce'
   const cbStyle = { width: 22, height: 22, accentColor: '#3dba3a', cursor: 'pointer', flexShrink: 0 }
   const labelStyle = { fontSize: 14, color: '#0f1a14', cursor: 'pointer', lineHeight: 1.3 }
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #b6dccb', fontSize: 14 }
@@ -240,7 +278,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
         <div className="space-y-4">
           {vars && (
             <div className="p-3 rounded-card" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
-              <strong>{vars.customer_name}</strong> · {vars.moto_model} ({vars.moto_spz}) · {vars.rental_period}
+              <strong>{vars.customer_name}</strong> · {subjectLine} · {vars.rental_period}
             </div>
           )}
           <div className="p-3 rounded-card" style={{ background: '#dcfce7', color: '#166534', fontSize: 13 }}>
@@ -254,14 +292,14 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
           {error && !errReveal.nearActions && <div ref={errReveal.topRef} className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
           {vars && (
             <div className="p-3 rounded-card" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
-              <strong>{vars.customer_name}</strong> · {vars.moto_model} ({vars.moto_spz}) · {vars.rental_period}
+              <strong>{vars.customer_name}</strong> · {subjectLine} · {vars.rental_period}
             </div>
           )}
 
-          {/* Ověření identity — kód k motorce (jen Velín, ne app) */}
+          {/* Ověření identity — kód k motorce, u výpůjčky výbavy kód šatny (jen Velín, ne app) */}
           <div className="p-3 rounded-card" style={{ border: '2px solid #2563eb', background: '#eff6ff' }}>
-            <label style={{ fontSize: 12, fontWeight: 800, color: '#1e3a8a', display: 'block', marginBottom: 6 }}>Ověření identity — kód k motorce</label>
-            <p style={{ fontSize: 12, color: '#1e3a8a', marginBottom: 8 }}>Požádejte zákazníka o jeho přístupový kód k motorce (z aplikace / e-mailu) a ověřte ho. Spolu s nahranými doklady tím potvrdíte totožnost přebírajícího.</p>
+            <label style={{ fontSize: 12, fontWeight: 800, color: '#1e3a8a', display: 'block', marginBottom: 6 }}>Ověření identity — {codeName}</label>
+            <p style={{ fontSize: 12, color: '#1e3a8a', marginBottom: 8 }}>Požádejte zákazníka o jeho přístupový {codeName} (z aplikace / e-mailu) a ověřte ho. Spolu s nahranými doklady tím potvrdíte totožnost přebírajícího.</p>
             {verifiedCode && codeVerified ? (
               // Rychlé odbavení kódem: rezervace byla nalezena právě tímto kódem,
               // identita je ověřena — kolonka je vyplněná a zamčená.
@@ -275,7 +313,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
                   <input type="text" inputMode="numeric" value={codeInput}
                     onChange={e => { setCodeInput(e.target.value); setCodeVerified(false); setCodeChecked(false) }}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); verifyCode() } }}
-                    style={inputStyle} placeholder="Kód k motorce od zákazníka" />
+                    style={inputStyle} placeholder={gearOnly ? 'Kód šatny od zákazníka' : 'Kód k motorce od zákazníka'} />
                   <Button onClick={verifyCode}>Ověřit</Button>
                 </div>
                 {codeChecked && (codeVerified
@@ -283,14 +321,16 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
                   : <p style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginTop: 6 }}>✗ Kód nesouhlasí. Zkontrolujte kód u zákazníka.</p>)}
               </>
             ) : (
-              <p style={{ fontSize: 12, color: '#b45309' }}>Pro tuto rezervaci není vygenerován kód k motorce (např. dětská motorka nebo zadržený kód). Ověření kódem se přeskočí.</p>
+              <p style={{ fontSize: 12, color: '#b45309' }}>{gearOnly ? 'Pro tuto výpůjčku výbavy není vygenerován kód šatny (např. zadržený kód).' : 'Pro tuto rezervaci není vygenerován kód k motorce (např. dětská motorka nebo zadržený kód).'} Ověření kódem se přeskočí.</p>
             )}
           </div>
 
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: '#1a2e22', display: 'block', marginBottom: 6 }}>{isDamage ? 'Stav tachometru při vrácení (km)' : 'Stav km při předání'}</label>
-            <input type="number" inputMode="numeric" value={mileage} onChange={e => setMileage(e.target.value)} style={inputStyle} placeholder="km" />
-          </div>
+          {!gearOnly && (
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#1a2e22', display: 'block', marginBottom: 6 }}>{isDamage ? 'Stav tachometru při vrácení (km)' : 'Stav km při předání'}</label>
+              <input type="number" inputMode="numeric" value={mileage} onChange={e => setMileage(e.target.value)} style={inputStyle} placeholder="km" />
+            </div>
+          )}
 
           {isDamage && (
             <div>
@@ -303,7 +343,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
             <div>
               <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Kontrola předání</h3>
               <div className="space-y-2">
-                {HANDOVER_CHECKS.map(c => (
+                {(gearOnly ? GEAR_HANDOVER_CHECKS : HANDOVER_CHECKS).map(c => (
                   <label key={c.key} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#f8faf9' }}>
                     <input type="checkbox" checked={!!checks[c.key]} onChange={() => toggleHandover(c.key)} style={cbStyle} />
                     <span style={labelStyle}>{c.label}</span>
@@ -313,7 +353,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
             </div>
           )}
 
-          {!isDamage && (
+          {!isDamage && !gearOnly && (
             <div>
               <h3 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Doplňkové vybavení</h3>
               <div className="space-y-2">
@@ -333,7 +373,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
               <div className="p-2 rounded-lg" style={{ background: '#f8faf9' }}>
                 <label className="flex items-center gap-3">
                   <input type="checkbox" checked={handoverDamage.checked} onChange={() => setHandoverDamage(d => ({ ...d, checked: !d.checked }))} style={cbStyle} />
-                  <span style={labelStyle}>Poškození při předání</span>
+                  <span style={labelStyle}>{gearOnly ? 'Poškození výbavy při předání' : 'Poškození při předání'}</span>
                 </label>
                 {handoverDamage.checked && (
                   <textarea value={handoverDamage.desc} onChange={e => setHandoverDamage(d => ({ ...d, desc: e.target.value }))} rows={2} style={{ ...inputStyle, marginTop: 8 }} placeholder="Popis poškození" />
@@ -363,7 +403,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
             // Obslužná pobočka: sekce i bez objednané výbavy (lze přidat); samoobsluha jen úprava velikosti / nepřevzato
             (accessories.length > 0 || !selfService) && (
               <ProtocolGearEditor accessories={accessories} setAccessories={setAccessories} sizesByType={sizesByType}
-                canEdit={!selfService} childSuffix={childSuffix} />
+                canEdit={!selfService} childSuffix={childSuffix} gearOnly={gearOnly} />
             )
           )}
 

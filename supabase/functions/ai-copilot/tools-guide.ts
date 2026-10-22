@@ -1,11 +1,12 @@
 // get_system_guide — encyklopedie + návod k obsluze celého ekosystému MotoGo24
 import { KNOWLEDGE_VELIN } from './knowledge-velin.ts'
 import { KNOWLEDGE_APPS } from './knowledge-apps.ts'
+import { KNOWLEDGE_GEAR } from './knowledge-gear.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
 
-const KNOWLEDGE: Record<string, string> = { ...KNOWLEDGE_VELIN, ...KNOWLEDGE_APPS }
+const KNOWLEDGE: Record<string, string> = { ...KNOWLEDGE_VELIN, ...KNOWLEDGE_APPS, ...KNOWLEDGE_GEAR }
 
 // Odstranění diakritiky pro fulltext match
 function norm(s: string): string {
@@ -37,6 +38,6 @@ export function execGuide(name: string, input: R): unknown {
   // Bez topicu/bez shody → obsah (TOC), ať si AI vybere
   return {
     available_topics: Object.keys(KNOWLEDGE),
-    hint: 'Zavolej znovu s konkrétním topic. Témata: velin-* (sekce dashboardu), proces-* (návody krok za krokem), web-* (motogo24.cz), app-* (mobilní aplikace), integrace, architektura, domena-pojmy.',
+    hint: 'Zavolej znovu s konkrétním topic. Témata: velin-* (sekce dashboardu), proces-* (návody krok za krokem), web-* (motogo24.cz), app-* (mobilní aplikace), vypujcka-vybavy* (výpůjčka výbavy bez motorky), integrace, architektura, domena-pojmy.',
   }
 }

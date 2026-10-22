@@ -10,6 +10,8 @@ import { agentMsg } from '../_shared/agent-knowledge/agent-messages.ts'
 import { LEGAL_SOURCE_RULES_CS, ownerFactsCs } from '../_shared/agent-knowledge/owner-facts.ts'
 import { branchModeCs } from '../_shared/agent-knowledge/branch-facts.ts'
 import { BOOKING_BRANCH_SELECT, customerBranchFallback, preferBookingBranch } from './customer-branch.ts'
+import { GEAR_RENTAL_RULES_CS } from '../_shared/agent-knowledge/gear-rental.ts'
+import { GEAR_BOOKING_COLS, isGearBooking } from '../_shared/agent-knowledge/gear-booking.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -27,7 +29,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { message, booking_id, conversation_history, images, lang, conversation_id, supports_images } = await req.json()
+    const { message, booking_id, conversation_history, images, lang, conversation_id, supports_images, supports_gear } = await req.json()
     // conversation_id (volitelné, UUID): appka jím může adresovat KONKRÉTNÍ vlákno logu.
     // Bez něj platí dosavadní heuristika „update poslední konverzace uživatele" — ta se
     // ale při dvou souběžných konverzacích slévá; appka by měla id začít posílat.
@@ -128,7 +130,7 @@ serve(async (req) => {
         total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
         mileage_start, mileage_end, notes, insurance_type,
         picked_up_at, handover_protocol_started_at, handover_protocol_filled_at,
-        late_pickup_discount_amount, sos_replacement,
+        late_pickup_discount_amount, sos_replacement, ${GEAR_BOOKING_COLS},
         motorcycles!moto_id(
           id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
           weight_kg, has_abs, has_asc, features, manual_url, manual_external_url, description,
@@ -158,8 +160,12 @@ serve(async (req) => {
         preferBookingBranch([pinned, ...list] as Array<Record<string, unknown> | null>)
         // Pobočka s bránou (Velké Němčice): příznak has_gate do kontextu — nikdy kód.
         await markBookingsGate(supabaseAdmin, [pinned, ...list] as Array<Record<string, unknown> | null>)
-        const active = list.find(b => b.status === 'active') || (pinned?.status === 'active' ? pinned : null)
-        const primary = active || pinned
+        // Výpůjčka JEN VÝBAVY (2026-10-23): servisní agent řeší hlavně motorku → aktivní
+        // MOTORKA > pinovaná motorka > aktivní výpůjčka výbavy > pinovaná (bez gear beze změny).
+        const isAct = (b: Record<string, unknown> | null) => b?.status === 'active'
+        const activeMoto = list.find(b => isAct(b) && !isGearBooking(b)) || (isAct(pinned) && !isGearBooking(pinned) ? pinned : null)
+        const activeAny = list.find(b => isAct(b)) || (isAct(pinned) ? pinned : null)
+        const primary = activeMoto || (pinned && !isGearBooking(pinned) ? pinned : null) || activeAny || pinned
         if (primary) {
           const others = list.filter(b => b.id !== primary.id)
           if (pinned && pinned.id !== primary.id && !others.some(b => b.id === pinned.id)) others.push(pinned)
@@ -177,8 +183,9 @@ serve(async (req) => {
         if (!allErr && allBookings && allBookings.length > 0) {
           preferBookingBranch(allBookings as Array<Record<string, unknown>>)
           await markBookingsGate(supabaseAdmin, allBookings as Array<Record<string, unknown>>)
-          const activeBooking = allBookings.find(b => b.status === 'active')
-          const otherBookings = allBookings.filter(b => b.status !== 'active')
+          // Aktivní MOTORKA má přednost před aktivní výpůjčkou jen výbavy (ta zůstane mezi ostatními).
+          const activeBooking = allBookings.find(b => b.status === 'active' && !isGearBooking(b)) || allBookings.find(b => b.status === 'active')
+          const otherBookings = allBookings.filter(b => b.status !== 'active' || (!!activeBooking && b.id !== activeBooking.id && isGearBooking(b)))
 
           if (activeBooking) {
             bookingContext = formatBookingContext(activeBooking, otherBookings.length > 0 ? otherBookings : null)
@@ -252,7 +259,13 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
     // nesdělovat“, Mezná → Němčice nepřistavujeme — pro config i FALLBACK prompt.
     // Závazná fakta provozovatele + „právní fakta jen z českého znění" + odkazy na web v jazyce
     // zákazníka + pravidlo jazyka odpovědi (dřív „výchozí jazyk čeština", app jazyk se ignoroval).
+    // Výpůjčka výbavy bez motorky (2026-10-23): pravidla + zda TATO verze appky výpůjčku výbavy
+    // umí (posílá supports_gear=true) — starší appka gear rezervace nezobrazuje.
+    const gearAppNote = supports_gear === true
+      ? '\n- Tahle verze appky výpůjčku výbavy UMÍ: zákazník ji vidí v Rezervacích (detail, kódy, úpravy) a může ji v appce i objednat, když to get_gear_rental_offer povoluje (app_available=true).'
+      : '\n- Tahle verze appky výpůjčku výbavy NEZOBRAZUJE — rezervaci výbavy zákazník vidí a upravuje na webu (Upravit rezervaci, odkaz v ODKAZY NA WEB); appku k ní neodkazuj.'
     const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + SEASON_NOTE + APP_PAY_NOTE + '\n\n## ' + BRANCH_GATE_RULES_CS
+      + '\n\n## ' + GEAR_RENTAL_RULES_CS + gearAppNote
       + '\n\n## ' + ownerFactsCs() + '\n\n## ' + LEGAL_SOURCE_RULES_CS
       + '\n\n## ' + webLinksBlock(custLang) + '\n\n' + replyLanguageRule(custLang, userLang)
 

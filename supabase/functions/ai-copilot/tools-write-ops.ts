@@ -226,8 +226,10 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       const checks: R[] = []
       if (scope === 'all' || scope === 'bookings') {
         const { count: orphaned } = await sb.from('bookings').select('id', { count: 'exact', head: true }).is('user_id', null)
-        const { count: noMoto } = await sb.from('bookings').select('id', { count: 'exact', head: true }).is('moto_id', null)
-        checks.push({ area: 'bookings', orphaned_bookings: orphaned || 0, no_moto_bookings: noMoto || 0 })
+        // Výpůjčka JEN VÝBAVY (booking_kind='gear') nemá motorku záměrně — do anomálie „bez motorky“ nepatří.
+        const { count: noMoto } = await sb.from('bookings').select('id', { count: 'exact', head: true }).is('moto_id', null).neq('booking_kind', 'gear')
+        const { count: gearOnly } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('booking_kind', 'gear')
+        checks.push({ area: 'bookings', orphaned_bookings: orphaned || 0, no_moto_bookings: noMoto || 0, gear_only_bookings: gearOnly || 0 })
       }
       if (scope === 'all' || scope === 'fleet') {
         const { count: noPrice } = await sb.from('motorcycles').select('id', { count: 'exact', head: true }).is('price_weekday', null)
@@ -246,7 +248,8 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       const { table } = input
       const issues: R[] = []
       if (table === 'all' || table === 'bookings') {
-        const { data: dups } = await sb.from('bookings').select('id, user_id, moto_id, start_date, end_date, status').in('status', ['active', 'reserved']).order('moto_id')
+        // Překryv motorky — jen řádky S motorkou (výpůjčka jen výbavy má moto_id NULL a překryv s ní je povolený)
+        const { data: dups } = await sb.from('bookings').select('id, user_id, moto_id, start_date, end_date, status').in('status', ['active', 'reserved']).not('moto_id', 'is', null).order('moto_id')
         const seen: R = {}
         for (const b of (dups || [])) { const k = `${b.moto_id}_${b.start_date}`; if (seen[k]) issues.push({ type: 'overlap', table: 'bookings', ids: [seen[k], b.id] }); seen[k] = b.id }
       }

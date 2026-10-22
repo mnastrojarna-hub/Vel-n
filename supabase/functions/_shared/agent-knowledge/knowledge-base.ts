@@ -4,6 +4,7 @@
 // smluvní dokumenty VŽDY v českém (závazném) znění (2026-10-11).
 
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { GEAR_RENTAL_TITLE } from './gear-rental.ts'
 
 // ============================================================================
 // Znalostní báze — přednačtená do „paměti" agenta (do system promptu)
@@ -75,7 +76,8 @@ export async function loadKnowledgeBase(sb: SupabaseClient, lang: string): Promi
       const cat = (L !== 'cs' && tr.category_label) ? tr.category_label : String(r.category_label || r.category_key || '')
       if (q && a) faqs.push(`• [${cat}] ${q}\n  ${a}`)
     }
-    if (faqs.length) faqBlock = `ČASTÉ DOTAZY (FAQ) — KOMPLETNÍ, ${faqs.length} položek:\n${faqs.join('\n')}`
+    // 2026-10-23: starší FAQ omezují výpůjčku výbavy bez motorky na Meznou / jen k motorce — platí pravidlo výpůjčky výbavy (gear-rental.ts).
+    if (faqs.length) faqBlock = `ČASTÉ DOTAZY (FAQ) — KOMPLETNÍ, ${faqs.length} položek:\n${faqs.join('\n')}\n(Výpůjčka výbavy BEZ motorky: při rozporu s FAQ platí pravidlo ${GEAR_RENTAL_TITLE} — výpůjčka jde na každé pobočce z \`get_gear_rental_offer\`, i samoobslužné.)`
 
     // Smluvní/právní dokumenty — VOP, nájemní smlouva, předávací protokol, GDPR (nejvyšší aktivní verze).
     // VŽDY ČESKÝ MASTER (audit i18n 2026-10-10, AI-01): uložené překlady byly stará právní verze

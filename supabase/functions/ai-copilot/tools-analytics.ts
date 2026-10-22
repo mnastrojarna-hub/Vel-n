@@ -35,13 +35,18 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
         const curRev = bb.filter((b: R) => b.created_at >= cms).reduce((s: number, b: R) => s + (Number(b.total_price) || 0), 0)
         const prevRev = bb.filter((b: R) => b.created_at >= pms && b.created_at < cms).reduce((s: number, b: R) => s + (Number(b.total_price) || 0), 0)
         const chg = prevRev > 0 ? (curRev / prevRev - 1) * 100 : 0
-        return { id: branch.id, name: branch.name, city: branch.city, type: branch.type, motorcycle_count: mc, avg_fleet: Math.round(avgFleet * 10) / 10, moto_days: md, reservations: bb.length, revenue: rev, revenue_per_moto: ok ? Math.round(rev / avgFleet) : null, utilization_pct: md > 0 ? Math.round(rd / md * 1000) / 10 : 0, rented_days: rd, profit_per_moto: ppy != null ? Math.round(ppy) : null, trend: chg > 10 ? 'Rostoucí' : chg < -5 ? 'Klesající' : 'Stagnující', trend_change_pct: Math.round(chg * 10) / 10 }
+        // Výpůjčky JEN VÝBAVY na pobočce (bookings.branch_id) — mimo moto metriky, obrat zvlášť
+        const gb = raw.gearBookings.filter((b: R) => isRealizedBooking(b) && b.branch_id === branch.id)
+        const gearRental = { reservations: gb.length, revenue: gb.reduce((s: number, b: R) => s + (Number(b.total_price) || 0), 0) }
+        return { id: branch.id, name: branch.name, city: branch.city, type: branch.type, gear_rental: gearRental, motorcycle_count: mc, avg_fleet: Math.round(avgFleet * 10) / 10, moto_days: md, reservations: bb.length, revenue: rev, revenue_per_moto: ok ? Math.round(rev / avgFleet) : null, utilization_pct: md > 0 ? Math.round(rd / md * 1000) / 10 : 0, rented_days: rd, profit_per_moto: ppy != null ? Math.round(ppy) : null, trend: chg > 10 ? 'Rostoucí' : chg < -5 ? 'Klesající' : 'Stagnující', trend_change_pct: Math.round(chg * 10) / 10 }
       })
       const totalRev = stats.reduce((s: number, b: R) => s + b.revenue, 0)
       const totalRes = stats.reduce((s: number, b: R) => s + b.reservations, 0)
       const tmd = stats.reduce((s: number, b: R) => s + b.moto_days, 0), trd = stats.reduce((s: number, b: R) => s + b.rented_days, 0)
       const avgUtil = tmd > 0 ? Math.round(trd / tmd * 1000) / 10 : 0
-      return { branches: stats, totals: { revenue: totalRev, reservations: totalRes, avg_utilization: avgUtil }, period_months: pm, method: FLEET_NOTE }
+      const gearRev = stats.reduce((s: number, b: R) => s + b.gear_rental.revenue, 0)
+      const gearRes = stats.reduce((s: number, b: R) => s + b.gear_rental.reservations, 0)
+      return { branches: stats, totals: { revenue: totalRev, reservations: totalRes, avg_utilization: avgUtil, gear_rental_revenue: gearRev, gear_rental_reservations: gearRes }, period_months: pm, method: FLEET_NOTE, note: 'revenue/reservations/utilization = rezervace MOTOREK; výpůjčky jen výbavy (bez motorky) jsou zvlášť v gear_rental (obrat celkem = revenue + gear_rental_revenue).' }
     }
 
     case 'analyze_motorcycle_performance': {
@@ -129,9 +134,10 @@ export async function execAnalytics(name: string, input: R, sb: SB): Promise<unk
       const pm = (input.period_months as number) || 12
       const raw = await fetchAnalyticsRawData(sb, pm)
       const mcm: R = {}; for (const m of raw.motorcycles) mcm[m.id] = m.category || 'unknown'
-      const completed = raw.bookings.filter((b: R) => isRealizedBooking(b))
+      // Zákaznické metriky zahrnují i výpůjčky JEN VÝBAVY (kategorie 'gear_only')
+      const completed = [...raw.bookings, ...raw.gearBookings].filter((b: R) => isRealizedBooking(b))
       const cs: R = {}
-      for (const b of completed) { const uid = b.user_id; if (!uid) continue; if (!cs[uid]) cs[uid] = { rev: 0, res: 0, cats: {} as R, srcs: {} as R }; cs[uid].rev += b.total_price || 0; cs[uid].res++; const c = mcm[b.moto_id] || 'unknown'; cs[uid].cats[c] = (cs[uid].cats[c] || 0) + 1; const src = b.booking_source || 'app'; cs[uid].srcs[src] = (cs[uid].srcs[src] || 0) + 1 }
+      for (const b of completed) { const uid = b.user_id; if (!uid) continue; if (!cs[uid]) cs[uid] = { rev: 0, res: 0, cats: {} as R, srcs: {} as R }; cs[uid].rev += b.total_price || 0; cs[uid].res++; const c = b.booking_kind === 'gear' ? 'gear_only' : (mcm[b.moto_id] || 'unknown'); cs[uid].cats[c] = (cs[uid].cats[c] || 0) + 1; const src = b.booking_source || 'app'; cs[uid].srcs[src] = (cs[uid].srcs[src] || 0) + 1 }
       let vip = 0, regular = 0, occasional = 0, inactive = 0
       const top: R[] = []
       for (const p of raw.profiles) { const s = cs[p.id]; if (!s || s.res === 0) { inactive++; continue }; if (s.rev >= 20000 || s.res >= 5) vip++; else if (s.res >= 2) regular++; else occasional++; top.push({ id: p.id, name: p.full_name, email: p.email, city: p.city, revenue: s.rev, reservations: s.res, segment: s.rev >= 20000 || s.res >= 5 ? 'VIP' : s.res >= 2 ? 'Regular' : 'Occasional' }) }

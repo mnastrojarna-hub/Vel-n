@@ -1,0 +1,37 @@
+/* ===== MotoGo24 — Rezervace: sbalený krok 2 (termín z detailu motorky), ceny u dnů v kalendáři,
+   zvýraznění „Pokračovat“ → první nedokončený krok. JS: js/rezervace-dates.js, js/rezervace-dayprice.js,
+   js/rezervace-next.js. Načítá pages/rezervace.php (v1 i v2). ===== */
+
+/* --- Sbalený krok 2: kalendář a lišta termínu skryté (!important přebije inline display z jádra) --- */
+#rez-step-cal.ux-collapsed #rez-calendar,#rez-step-cal.ux-collapsed #rez-date-banner{display:none!important}
+.ux-cal-sum{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem .8rem;margin:.2rem 0 0;padding:.75rem .9rem;border:1.5px solid #74fb71;border-radius:16px;background:linear-gradient(135deg,#effcee,#e0f8dd);color:#0e2a1c;box-shadow:0 10px 22px -16px rgba(13,110,13,.7)}
+.ux-cal-ok{flex:0 0 auto;width:32px;height:32px;border-radius:50%;background:#0e2a1c url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374fb71' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/17px no-repeat}
+.ux-cal-tx{display:flex;flex-direction:column;flex:1 1 11rem;min-width:0;line-height:1.3}
+.ux-cal-tx small{color:#2f5a43;font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.ux-cal-tx b{color:#0e2a1c;font-size:1.02rem;font-weight:800;overflow-wrap:break-word}
+.ux-cal-d{white-space:nowrap}
+.ux-cal-n{color:#0d6e0d;font-size:.86rem;font-weight:700}
+.ux-cal-chg{flex:0 0 auto;min-height:44px;padding:.45rem 1.15rem;border:2px solid #0e2a1c;border-radius:999px;background:#fff;color:#0e2a1c;font:inherit;font-size:.9rem;font-weight:800;line-height:1.2;cursor:pointer;transition:background .2s,color .2s}
+.ux-cal-chg:hover,.ux-cal-chg:focus-visible{background:#0e2a1c;color:#74fb71}
+.ux-cal-chg:focus-visible{outline:3px solid #37cf63;outline-offset:2px}
+.rez-v2 #rez-step-cal.ux-cal-verified .rez-step-num{background:var(--rz-n,#74fb71);color:var(--rz-d,#0e2a1c)}
+
+/* --- Cena u volného dne (jen kalendář jedné motorky) --- */
+#rez-calendar .cal-day .dp{display:block;margin-top:1px;color:#0b4d14;font-size:.58rem;font-weight:700;line-height:1;white-space:nowrap}
+#rez-calendar .cal-day.in-range .dp,#rez-calendar .cal-day.sel-start .dp,#rez-calendar .cal-day.sel-end .dp{color:#d9ffd6}
+.rez-v2 #rez-calendar .cal-day.free .dp{color:#8ff58c}
+.rez-v2 #rez-calendar .cal-day.in-range .dp{color:#c8ffc4}
+.rez-v2 #rez-calendar .cal-day.sel-start .dp,.rez-v2 #rez-calendar .cal-day.sel-end .dp{color:#0b3b1a}
+@media(max-width:480px){#rez-calendar.ux-has-prices .cal-day{aspect-ratio:auto;min-height:46px}}
+@media(max-width:360px){#rez-calendar .cal-day .dp{font-size:.54rem;letter-spacing:-.02em}}
+#rez-calendar .ux-dp-lg{display:inline-flex;align-items:center;gap:.35rem}
+#rez-calendar .ux-dp-sw{display:inline-block;padding:0 .2rem;border-radius:3px;background:rgba(116,251,113,.18);color:#0d6e0d;font-size:.6rem;font-weight:800;line-height:1.4}
+.rez-v2 #rez-calendar .ux-dp-sw{color:#8ff58c}
+
+/* --- „Pokračovat“ (js/rezervace-next.js): zvýraznění kroku a chybějícího pole --- */
+.rez-section.ux-need-sec{box-shadow:0 0 0 3px rgba(55,207,99,.55),0 12px 30px -22px rgba(14,42,28,.45)!important;border-color:#37cf63!important;transition:box-shadow .3s}
+.ux-need{outline:2.5px solid #f0a020!important;outline-offset:2px;border-radius:10px}
+input.ux-need,select.ux-need{border-color:#f0a020!important}
+.ux-need-msg{margin:.1rem 0 .7rem;padding:.5rem .8rem;border-radius:10px;background:#fff7e6;border:1px solid #f3c77a;color:#7a4a00;font-size:.86rem;font-weight:700;line-height:1.4}
+@media(prefers-reduced-motion:no-preference){.rez-section.ux-need-sec{animation:uxNeed 1.2s ease 2}}
+@keyframes uxNeed{50%{box-shadow:0 0 0 7px rgba(55,207,99,.25)}}

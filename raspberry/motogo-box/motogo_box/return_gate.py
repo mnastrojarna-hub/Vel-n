@@ -18,6 +18,9 @@ pryč) plní `observe(storage, event)` z `BoxController.emit` — z TÝCHŽ udá
 bez hradla) ≤ `bay` a kód doběhl (motorka: teď > bay + grace; šatna jen s `locker` ≥ bay − 90 min: teď > max(locker, bay) +
 grace). Odmítnutí = `code_revoked` (známý kód, BEZ lockoutu) + ACCESS_DENIED `reason: returned`. Krátkodobý kód z Velína
 (`temp`, bez rezervace) hradlo nemá — tím obsluha pustí zákazníka pro zapomenutou věc.
+Výpůjčka výbavy bez motorky (1.3.0, §33): GEAR_RETURN_CONFIRMED (zákazník na displeji potvrdil vrácení) → `gear` = čas
+zavření šatny té návštěvy (`detail.closed_ts`, jinak čas události); `blocks` pak OFFLINE kód šatny té rezervace (`rr.gear_only`)
+nevydá od max(gear, locker) + grace — bez pravidla posledního dne (server dokončuje hned), znovu zavřená šatna čas posune.
 Známé omezení (CONTRACT §32): `return_final_from` je z poslední cache — prodloužení termínu během výpadku LTE jednotka uvidí až
 po resyncu; do té doby hradlo z původního posledního dne (konzervativní jako §31, napraví resync po obnově spojení).
 """
@@ -61,7 +64,7 @@ def _load(storage: Any, now: float) -> dict:
     for bid, rec in rows.items():
         if not isinstance(rec, dict):
             continue
-        rec = {k: float(v) for k, v in rec.items() if k in ("bay", "locker") and isinstance(v, (int, float))}
+        rec = {k: float(v) for k, v in rec.items() if k in ("bay", "locker", "gear") and isinstance(v, (int, float))}
         if rec and now - max(rec.values()) <= KEEP_S:
             out[str(bid)] = rec
     return {"b": out}
@@ -76,13 +79,15 @@ def observe(storage: Any, event: Event) -> None:
     """`BoxController.emit`: zapíše zavření kóje po vrácení / zavření šatny, vyjetí motorky záznam kóje maže."""
     bid = str(event.booking_id or "")
     if storage is None or not bid or not event.success \
-            or event.kind not in (EventKind.SESSION_COMPLETED, EventKind.ACCESS_GRANTED):
+            or event.kind not in (EventKind.SESSION_COMPLETED, EventKind.ACCESS_GRANTED, EventKind.GEAR_RETURN_CONFIRMED):
         return
     d = event.detail or {}
     if d.get("temp") or d.get("emergency"):
         return
     phase = d.get("odometer_phase")
-    if event.kind == EventKind.ACCESS_GRANTED:
+    if event.kind == EventKind.GEAR_RETURN_CONFIRMED:   # výbava bez motorky (§33): čas zavření šatny potvrzené návštěvy
+        key = "gear" if event.code_kind == "accessories" else None
+    elif event.kind == EventKind.ACCESS_GRANTED:
         # vyjetí = grant motorky s fází ≠ 'in' (i bez fáze — plán odometru None / fail-open), shodně se serverem
         key = "drop" if event.code_kind == "motorcycle" and phase != "in" else None
     elif event.code_kind == "motorcycle":
@@ -101,7 +106,8 @@ def observe(storage: Any, event: Event) -> None:
             return
         log.info("return_gate: motorka rezervace %s znovu vyjela — záznam vrácení i šatny zrušen", bid)
     else:
-        t = _ts(event.ts)
+        t = _ts(d.get("closed_ts")) if key == "gear" else None
+        t = t if t is not None else _ts(event.ts)
         rec[key] = t if t is not None else now
     storage.kv_set(KV, data)
 
@@ -111,8 +117,9 @@ def blocks(ctrl: Any, rr: Any, now: float | None = None) -> bool:
     bid = str(getattr(rr, "booking_id", None) or "")
     if not rr.ok or not rr.offline or rr.is_service or getattr(rr, "temp", False) or not bid:
         return False
+    gear = bool(getattr(rr, "gear_only", False)) and rr.kind == "accessories"
     final = _ts(getattr(rr, "return_final_from", None))
-    if final is None:
+    if final is None and not gear:
         return False
     now = time.time() if now is None else now
     try:
@@ -120,6 +127,9 @@ def blocks(ctrl: Any, rr: Any, now: float | None = None) -> bool:
     except Exception:  # noqa: BLE001 — pomůcka offline režimu, ověření kódu nesmí shodit (fail-open)
         log.exception("return_gate: čtení záznamu vrácení selhalo")
         return False
+    if gear:                              # výbava bez motorky (§33): jen potvrzené vrácení, bez pravidla posledního dne
+        g = rec.get("gear")
+        return g is not None and now > max(g, rec.get("locker") or g) + grace_s(ctrl)
     bay = rec.get("bay")
     if bay is None or bay < final:
         return False                      # bez vrácení / zaparkováno před posledním dnem = kódy platí dál
@@ -134,10 +144,13 @@ def blocks(ctrl: Any, rr: Any, now: float | None = None) -> bool:
 async def refuse(ctrl: Any, rr: Any, source: str) -> None:
     """ACCESS_DENIED (info) do Velína — kód je známý, jen už doběhl (bez lockoutu; odpověď UI skládá `submit_code`)."""
     rec = record(ctrl.storage, rr.booking_id)
-    closed = datetime.fromtimestamp(rec["bay"], timezone.utc).isoformat(timespec="seconds") if rec.get("bay") else None
+    gear = bool(getattr(rr, "gear_only", False)) and rr.kind == "accessories"
+    ts = rec.get("gear" if gear else "bay")
+    closed = datetime.fromtimestamp(ts, timezone.utc).isoformat(timespec="seconds") if ts else None
     await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="info", code_kind=rr.kind or None,
                           door_id=rr.door_id, booking_id=rr.booking_id, box_number=rr.box_number,
-                          message="Kód odmítnut — motorka vrácena v poslední den, kód už doběhl (offline)",
+                          message=("Kód odmítnut — výbava vrácena (potvrzeno na displeji), kód už doběhl (offline)" if gear
+                                   else "Kód odmítnut — motorka vrácena v poslední den, kód už doběhl (offline)"),
                           detail={"source": source, "reason": REASON, "error": ERROR, "closed_at": closed,
                                   "return_final_from": rr.return_final_from, "offline": True}))
 

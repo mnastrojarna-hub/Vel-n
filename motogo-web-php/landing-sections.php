@@ -15,6 +15,22 @@ function lpH2($id, $title, $key) {
 }
 
 /**
+ * Uklidňující řádek pod CTA („Rezervaci upravíš zdarma · Termín posuneš zdarma · Storno zdarma…“): části
+ * oddělené „·“/„•“ → každá na vlastním řádku s fajfkou (ul.lp-assure.is-split). V CMS adminu nerozdělené
+ * <p> s data-cms-key (inline editor ukládá innerHTML — nesmí uložit naši značku). $cls = doplňková třída.
+ */
+function lpAssure($text, $key = 'web.landing.common.assurance', $cls = '') {
+    $plain = lpPlain($text);
+    if ($plain === '') return '';
+    $c = 'lp-assure' . ($cls !== '' ? ' ' . $cls : '');
+    $parts = array_values(array_filter(array_map('trim', preg_split('/\s+[·•]\s+/u', $plain)), 'strlen'));
+    if (lpAdmin() || count($parts) < 2) return '<p class="' . he($c) . '" data-cms-key="' . he($key) . '">' . lpIcon('check') . he($plain) . '</p>';
+    $li = '';
+    foreach ($parts as $part) $li .= '<li class="lp-assure-i">' . lpIcon('check') . '<span>' . he($part) . '</span></li>';
+    return '<ul class="' . he($c) . ' is-split">' . $li . '</ul>';
+}
+
+/**
  * Akční panel hned pod hero. Mobil: H1 → lead → 2 CTA → chipy; desktop: text vlevo, CTA vpravo.
  * $o: h1, h1Key, lead, leadKey, priceChip, primary{label,href}, secondary{…}, chips[], keyBase, bg, rating (HTML z lpPanelRating)
  */
@@ -37,7 +53,7 @@ function renderLpPanel($o) {
         '<div class="lp-cta-row' . (lpPlain($s['label'] ?? '') === '' ? ' lp-cta-row--one' : '') . '" data-lp-sentinel>' .
             '<a class="lp-btn lp-btn-primary" href="' . he(lpS($p['href'] ?? '') ?: '/katalog') . '"><span data-cms-key="' . $kb . '.cta_primary.label">' . he(lpPlain($p['label'] ?? '')) . '</span>' . lpIcon('arrow') . '</a>' .
             (lpPlain($s['label'] ?? '') !== '' ? '<a class="lp-btn lp-btn-ghost" href="' . he(lpS($s['href'] ?? '') ?: '/katalog') . '">' . lpIcon('moto') . '<span data-cms-key="' . $kb . '.cta_secondary.label">' . he(lpPlain($s['label'])) . '</span></a>' : '') .
-            (lpPlain($o['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($o['assurance'])) . '</p>' : '') .
+            lpAssure($o['assurance'] ?? '') .
             ($o['rating'] ?? '') .
             // Kolik lidí právě vybírá (js/live-viewers.js) — jen skutečný nenulový počet, jinak skryté
             '<p class="lp-live" data-live-site hidden></p>' .

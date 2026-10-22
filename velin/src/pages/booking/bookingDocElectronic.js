@@ -42,20 +42,21 @@ export const DAMAGE_CHECKS = [
   { key: 'gear', label: 'Zapůjčená výbava (helma, oblečení)' },
 ]
 
-function esc(s) {
+export function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 }
-function escMulti(s) { return esc(s).replace(/\n/g, '<br>') }
+export function escMulti(s) { return esc(s).replace(/\n/g, '<br>') }
 
-const TD = 'padding:6px 8px;border:1px solid #ddd'
-const TDL = `${TD};background:#f8faf9;font-weight:600;width:220px`
+// sdílené s protocolGearDoc.js (protokol výpůjčky jen výbavy)
+export const TD = 'padding:6px 8px;border:1px solid #ddd'
+export const TDL = `${TD};background:#f8faf9;font-weight:600;width:220px`
 
 // labelHtml = hotové HTML popisku (tr.t → u češtiny esc(text), tj. totéž co dřív esc(label))
-function infoRow(labelHtml, value) {
+export function infoRow(labelHtml, value) {
   return `<tr><td style="${TDL}">${labelHtml}</td><td style="${TD}">${value ? escMulti(value) : '&nbsp;'}</td></tr>`
 }
 
-function sigBlock(tr, signatures, customerName, includeOperator = true) {
+export function sigBlock(tr, signatures, customerName, includeOperator = true) {
   const box = (img, captionHtml) => `<div style="text-align:center;width:46%"><div style="height:96px;border:1px solid #ccc;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden">${img ? `<img src="${img}" alt="podpis" style="max-width:100%;max-height:92px"/>` : ''}</div><div style="border-top:1px solid #999;margin-top:6px;padding-top:6px;font-size:11px">${captionHtml}</div></div>`
   const renter = tr.t('sigRenter') + ' — ' + esc(customerName)
   // Předávací protokol podepisuje jen nájemce (zákazník) — podpis za MotoGo se neuvádí.

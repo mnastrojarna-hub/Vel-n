@@ -13,12 +13,15 @@ import { bulkDelete, exportToCsv } from '../../lib/bulkActions'
 import { uploadHtmlAsPdf } from '../../lib/htmlToPdf'
 import { sanitizeHtml } from '../../lib/sanitize'
 import { DocCheckAll, DocCheckRow } from './DocStackChecks'
+import { withBookingKind, kindCol } from './bookingKindQuery'
+import { GEAR_PILL, isGearBooking } from '../../lib/bookingKind'
 
 const PER_PAGE = 25
 
 const TYPE_LABELS = {
   vop: 'VOP',
   rental_contract: 'Smlouva',
+  gear_rental_contract: 'Smlouva o nájmu výbavy',
   handover_protocol: 'Předávací protokol',
   damage_protocol: 'Protokol o poškození',
 }
@@ -36,6 +39,7 @@ function resolveDocLabel(d) {
 const TYPE_OPTIONS = [
   { value: 'vop', label: 'VOP' },
   { value: 'rental_contract', label: 'Smlouva' },
+  { value: 'gear_rental_contract', label: 'Smlouva o nájmu výbavy' },
   { value: 'handover_protocol', label: 'Předávací protokol' },
   { value: 'damage_protocol', label: 'Protokol o poškození' },
 ]
@@ -78,12 +82,13 @@ export default function GeneratedTab() {
     setLoading(true); setError(null)
     try {
       debugLog('GeneratedTab', 'load', { page, filters })
-      let query = supabase
+      // booking_kind (štítek „Jen výbava“) — bez migrace 20261023a se dotaz zopakuje bez něj (bookingKindQuery)
+      const build = (withKind) => supabase
         .from('generated_documents')
-        .select('*, profiles(full_name), bookings(id, start_date, motorcycles:moto_id(model))', { count: 'exact' })
-      query = query.order('created_at', { ascending: filters.sort === 'date_asc' })
+        .select(`*, profiles(full_name), bookings(id, start_date${kindCol(withKind)}, motorcycles:moto_id(model))`, { count: 'exact' })
+        .order('created_at', { ascending: filters.sort === 'date_asc' })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await debugAction('generated_documents.list', 'GeneratedTab', () => query)
+      const { data, count, error: err } = await debugAction('generated_documents.list', 'GeneratedTab', () => withBookingKind(build))
       if (err) throw err
       let items = data || []
 
@@ -263,11 +268,11 @@ export default function GeneratedTab() {
                     <TD label=""><DocCheckRow><RowCheckbox id={d.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></DocCheckRow></TD>
                     <TD>
                       <Badge label={typeName}
-                        color={docType === 'rental_contract' ? '#2563eb' : docType === 'vop' ? '#059669' : '#b45309'}
-                        bg={docType === 'rental_contract' ? '#dbeafe' : docType === 'vop' ? '#d1fae5' : '#fef3c7'} />
+                        color={docType === 'rental_contract' ? '#2563eb' : docType === 'gear_rental_contract' ? GEAR_PILL.color : docType === 'vop' ? '#059669' : '#b45309'}
+                        bg={docType === 'rental_contract' ? '#dbeafe' : docType === 'gear_rental_contract' ? GEAR_PILL.bg : docType === 'vop' ? '#d1fae5' : '#fef3c7'} />
                     </TD>
                     <TD>{d.profiles?.full_name || '—'}</TD>
-                    <TD>{d.bookings?.motorcycles?.model || '—'}</TD>
+                    <TD>{d.bookings?.motorcycles?.model || (isGearBooking(d.bookings) ? 'Jen výbava' : '—')}</TD>
                     <TD mono>{d.bookings?.id ? d.bookings.id.slice(-8).toUpperCase() : '—'}</TD>
                     <TD>{d.created_at ? new Date(d.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                     <TD>
@@ -335,9 +340,14 @@ function GenerateDocModal({ onClose, onGenerated }) {
     Promise.all([
       supabase.from('document_templates').select('id, name, type, content_html')
         .in('type', ['vop', 'rental_contract', 'handover_protocol']).order('type'),
-      supabase.from('bookings')
-        .select('id, start_date, end_date, total_price, profiles(full_name, email, phone, street, city, zip), motorcycles!moto_id(model, spz)')
-        .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(30),
+      // Bez výpůjček výbavy: tenhle ruční generátor plní jen proměnné motorky — smlouvu o nájmu výbavy
+      // (gear_rental_contract) generuje edge generate-document (příloha „Smlouva“, Přegenerovat přílohy).
+      withBookingKind((withKind) => {
+        const q = supabase.from('bookings')
+          .select('id, start_date, end_date, total_price, profiles(full_name, email, phone, street, city, zip), motorcycles!moto_id(model, spz)')
+          .neq('status', 'cancelled')
+        return (withKind ? q.neq('booking_kind', 'gear') : q).order('created_at', { ascending: false }).limit(30)
+      }),
     ]).then(([{ data: tpls }, { data: bks }]) => {
       setTemplates(tpls || [])
       setBookings(bks || [])

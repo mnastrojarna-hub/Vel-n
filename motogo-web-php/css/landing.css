@@ -44,8 +44,14 @@ body.lp-v2{overflow-x:clip}
 .lp-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .6rem;border-radius:999px;background:rgba(116,251,113,.12);border:1px solid rgba(116,251,113,.35);font-size:.74rem;font-weight:700;color:#e8f5ee}
 .lp-chip .lp-ico{width:14px;height:14px;color:#74fb71}
 .lp-chip--hot{background:#74fb71;border-color:#74fb71;color:#08230f;font-weight:800}
-.lp-assure{grid-column:1/-1;display:flex;align-items:flex-start;gap:.35rem;margin:.05rem 0 0;font-size:.74rem;line-height:1.35;color:#cfe7da}
-.lp-assure .lp-ico,.lp-season .lp-ico{flex:0 0 auto;width:14px;height:14px;color:#74fb71}
+/* Uklidňující řádek pod CTA (2026-10-23 větší, 15/17 px tučně); .is-split = části pod sebou s fajfkou (lpAssure) */
+.lp-assure{grid-column:1/-1;display:flex;align-items:flex-start;gap:.5rem;margin:.2rem 0 0;padding:0;list-style:none;font-size:.9375rem;font-weight:700;line-height:1.38;color:#eafbea;overflow-wrap:break-word}
+.lp-assure .lp-ico{flex:0 0 auto;width:20px;height:20px;color:#74fb71}
+.lp-assure.is-split{flex-direction:column;gap:.35rem}
+.lp-assure-i{display:flex;align-items:flex-start;gap:.5rem;min-width:0}
+.lp-assure.is-split .lp-ico{padding:3px;border-radius:50%;background:#74fb71;color:#08230f;stroke-width:3}
+.lp-season .lp-ico{flex:0 0 auto;width:14px;height:14px;color:#74fb71}
+@media(min-width:900px){.lp-assure{font-size:1.0625rem}.lp-assure .lp-ico{width:22px;height:22px}}
 .lp-season{position:relative;z-index:1;display:flex;align-items:center;gap:.4rem;margin:0;font-size:.76rem;line-height:1.35;color:#a8ff9f}
 /* Pruh s nabídkou pod panelem */
 .lp-offer{margin:1rem 0 0}

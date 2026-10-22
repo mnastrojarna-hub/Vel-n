@@ -25,6 +25,8 @@
     content.innerHTML =
       '<h3>' + MG.tc('editRez.move.title') + '</h3>' +
       '<p>' + MG.tc('editRez.move.help', { days: dayLbl, start: MG.formatDate(origStart), end: MG.formatDate(origEnd) }) + '</p>' +
+      // §1.11: strop vratky po posunu začátku zůstává — zákazník o něm ví předem (audit B4)
+      '<p class="erez-refund-note erez-refund-cap">' + MG.t('editRez.refund.moveCapNote') + '</p>' +
       '<div id="edit-rez-move-banner" class="erez-range-banner" style="display:none"></div>' +
       '<div id="edit-rez-move-cal"></div>' +
       '<button type="button" class="btn btngreen" id="edit-rez-move-cta" disabled>' + MG.t('editRez.move.cta') + '</button>';
@@ -46,11 +48,20 @@
       banner.innerHTML =
         '<span>' + MG.formatDate(origStart) + ' – ' + MG.formatDate(origEnd) + '</span>' +
         '<span class="erez-range-arrow">→</span>' +
-        '<span>' + MG.formatDate(s) + ' – ' + MG.formatDate(e) + '</span>';
+        '<span>' + MG.formatDate(s) + ' – ' + MG.formatDate(e) + '</span>' +
+        // „Zrušit“ = zpět na původní termín (stejně jako Prodloužit/Zkrátit)
+        '<button type="button" class="erez-clear">' + MG.t('editRez.cal.clear') + '</button>';
+      var clr = banner.querySelector('.erez-clear');
+      if (clr) clr.addEventListener('click', function () {
+        cur.start = origStart; cur.end = origEnd;
+        if (cal) cal.setSelection(origStart, origEnd);
+        updateBanner(origStart, origEnd);
+      });
       cta.disabled = false;
     }
+    var cal = null;
 
-    ER._renderRangeCalendar({
+    cal = ER._renderRangeCalendar({
       container: document.getElementById('edit-rez-move-cal'),
       mode: 'move',
       isActive: false,
@@ -66,6 +77,28 @@
         banner.innerHTML = '<span>⚠️ ' + msg + '</span>';
       }
     });
+
+    // Audit 2026-10-22: aktuální termín v kalendáři čárkovaně jako „Tato rezervace“ (dřív měl
+    // před výběrem barvu „Nový termín“ a legenda ho neznala). Jádro kalendář při každém kliku
+    // překreslí (innerHTML kontejneru) → dozdobit po každém překreslení.
+    var calEl = document.getElementById('edit-rez-move-cal');
+    function decorate() {
+      var same = cur.start === origStart && cur.end === origEnd;
+      calEl.querySelectorAll('.erez-cal-day[data-ds]').forEach(function (d) {
+        var ds = d.getAttribute('data-ds');
+        if (ds < origStart || ds > origEnd || d.classList.contains('past')) return;
+        d.classList.add('erez-move-cur');
+        if (same) d.classList.remove('extension', 'extension-start', 'extension-end');
+      });
+      var lg = calEl.querySelector('.erez-cal-legend');
+      if (lg && !lg.querySelector('.dot-orig')) {
+        lg.insertAdjacentHTML('afterbegin', '<span><i class="dot dot-orig"></i> ' + MG.t('editRez.cal.legend.thisBooking') + '</span>');
+      }
+    }
+    if (calEl) {
+      new MutationObserver(decorate).observe(calEl, { childList: true });
+      decorate();
+    }
 
     cta.addEventListener('click', function () {
       if (!cur.start || !cur.end || (cur.start === origStart && cur.end === origEnd)) return;
@@ -105,8 +138,11 @@
           past_date: 'editRez.validate.pastDate',
           no_change: 'editRez.move.errNoChange',
           moto_overlap: 'editRez.move.occupiedRange',
-          customer_overlap: 'editRez.move.errCustomerOverlap'
+          customer_overlap: 'editRez.move.errCustomerOverlap',
+          term_started: 'editRez.move.errStarted'
         };
+        // výpůjčka výbavy: zavřená pobočka / výbava není volná (gearbk.js)
+        if (!map[code] && ER._gearErrKey && ER._gearErrKey(code)) map[code] = ER._gearErrKey(code);
         var key = map[code];
         // Když chybu neznáme, ukaž radši surovou serverovou hlášku (vč. detailu) než „něco se pokazilo".
         var detail = (res.data && res.data.detail) || (res.error && res.error.details) || '';

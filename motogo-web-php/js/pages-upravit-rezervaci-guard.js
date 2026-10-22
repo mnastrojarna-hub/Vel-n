@@ -145,7 +145,10 @@
       if (res.error || !body || body.success !== true) {
         var msg = (body && body.error) || (res.error && (res.error.message || res.error.code)) || '';
         console.error('[editRez] cancel failed', { error: res.error, data: body });
-        ER._showError(msg || MG.t('editRez.err.generic'));
+        // známé kódy serveru přeložit (dřív se ukázal syrový kód, např. „wrong_status")
+        var ck = { wrong_status: 'editRez.err.wrongStatus', not_found: 'editRez.err.notFound',
+          already_cancelled: 'editRez.err.wrongStatus', unauthenticated: 'editRez.login.error' }[msg];
+        ER._showError(ck ? MG.t(ck) : (msg || MG.t('editRez.err.generic')));
         return;
       }
       var srvAmount = (body.refund_amount != null) ? body.refund_amount : amount;
@@ -233,7 +236,10 @@
     // 00:01 (ranní pravidlo = bez času) = prázdné pole → timeChangedIn() ji bez
     // zásahu zákazníka nehlásí jako změnu.
     var cur = hm(booking.pickup_time) === '00:01' ? '' : hm(booking.pickup_time);
-    var ssBranch = booking.pickup_method !== 'delivery' && !String(booking.pickup_address || '').trim() &&
+    // Výpůjčka výbavy (gearbk.js): pobočka z rezervace, sleva za vyzvednutí od 12:00 se jí netýká.
+    var gearB = !!(ER._isGear && ER._isGear(booking));
+    var ssBranch = gearB ? !!(booking.branch && booking.branch.type === 'samoobslužná')
+      : booking.pickup_method !== 'delivery' && !String(booking.pickup_address || '').trim() &&
       booking.motorcycles && booking.motorcycles.branches && booking.motorcycles.branches.type === 'samoobslužná';
     var lbl = document.createElement('label');
     lbl.className = 'erez-loc-time';
@@ -242,9 +248,9 @@
     var hint = document.createElement('div');
     hint.className = 'muted';
     hint.style.cssText = 'font-size:.85rem;margin:.2rem 0 .6rem';
-    hint.textContent = ssBranch ? 'ⓘ ' + MG.t('rez.pickup.selfServiceHint') : '🌗 ' + MG.t('editRez.timeHint12');
+    hint.textContent = ssBranch ? 'ⓘ ' + MG.t('rez.pickup.selfServiceHint') : gearB ? '' : '🌗 ' + MG.t('editRez.timeHint12');
     formEl.insertBefore(lbl, anchorEl);
-    formEl.insertBefore(hint, anchorEl);
+    if (hint.textContent) formEl.insertBefore(hint, anchorEl);
     return document.getElementById(inputId);
   }
 
@@ -336,6 +342,9 @@
             writeServerBlock(sum, '<div class="error">' + MG.t('editRez.extend.unavailable') + '</div>');
           } else if (code === 'active_pickup_time_locked') {
             writeServerBlock(sum, '<div class="error">' + MG.t('editRez.err.activePickupTimeLocked') + '</div>');
+          } else if (ER._gearErrKey && ER._gearErrKey(code)) {
+            // výpůjčka výbavy (gearbk.js): zavřená pobočka / výbava není volná
+            writeServerBlock(sum, '<div class="error">' + MG.t(ER._gearErrKey(code)) + '</div>');
           } else {
             console.warn('[editRez] dry-run failed', code, res.error);
             writeServerBlock(sum, '<div class="error">' + MG.t('editRez.err.generic') + '</div>');
@@ -454,18 +463,18 @@
           var newLate = MG._latePickupDiscount(moto, rS, iE, hm(b.pickup_time));
           var diff = Math.max(0, Math.round((orig - oldLate) - (neu - newLate)));
           if (diff <= 0) return;
-          var mSide = iE < o ? iE : rS;
-          var pct = ER._refundPercentFor(b, mSide);
-          var refund = Math.round(diff * pct / 100);
-          if (Number(form.dataset.refund || 0) === refund) return;
+          // §1.11 (2026-10-22): pásmo k AKTUÁLNÍMU začátku v čas vyzvednutí (refund.js),
+          // vratka po poměrné slevě (varianta B) — stejně jako server.
+          var pct = ER._refundPercentFor(b);
+          var gross = Math.round(diff * pct / 100);
+          var refund = ER._refundNet ? ER._refundNet(b, gross) : gross;
           form.dataset.refund = String(refund);
           form.dataset.pct = String(pct);
           var line = sum.querySelector('.line');
-          if (line) {
-            line.innerHTML = 0 === pct
-              ? MG.t('editRez.shorten.refundZero')
-              : MG.t('editRez.shorten.refund', { amount: MG.formatPrice(refund), percent: pct });
-          }
+          var html = 0 === pct
+            ? MG.t('editRez.shorten.refundZero')
+            : MG.t('editRez.shorten.refund', { amount: MG.formatPrice(refund), percent: pct });
+          if (line && line.innerHTML !== html) line.innerHTML = html;
           if (newLate !== oldLate) {
             writeServerBlock(sum, '<div class="erez-loc-calc-row"><span>🌗 ' +
               MG.t('editRez.detail.priceLatePickup') + '</span><strong>' +

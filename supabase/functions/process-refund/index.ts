@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { authClassify, forbidden } from '../_shared/auth.ts'
 import { refundRemainder, mainSource, refundedStatus, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
+import { gearPriceFloorCzk, isGearRefundRow, refundSubject } from './gear.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -185,7 +186,7 @@ async function ensureCreditNotePdf(
 
     // Regenerate PDF — load booking + customer for the template
     const { data: bk2 } = await supabase.from('bookings')
-      .select('total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
+      .select('*, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     const refundedAmount = Math.abs(Number(cn.total || 0))
     // Procento dopočítat z ceny rezervace — natvrdo 100 tisklo i u částečné
@@ -211,7 +212,7 @@ async function ensureCreditNotePdf(
       number: cn.number,
       issueDate: fmtDate(new Date().toISOString().slice(0, 10)),
       reasonText,
-      motoModel: (bk2 as any)?.motorcycles?.model || 'motorky',
+      motoModel: refundSubject(bk2),
       refundAmount: refundedAmount,
       refundPercent,
       bookingDates: `${fmtDate(bk2?.start_date)} – ${fmtDate(bk2?.end_date)}`,
@@ -283,7 +284,7 @@ async function createCreditNoteForExistingRefund(
 
     // Načti booking + customer pro template
     const { data: bkRow } = await supabase.from('bookings')
-      .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
+      .select('*, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     if (!bkRow) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
     const refundPercent = (bkRow.total_price && bkRow.total_price > 0)
@@ -302,7 +303,7 @@ async function createCreditNoteForExistingRefund(
     // Číslo dobropisu (DB-YYYY-NNNN) — atomicky, automatická řada < 5000.
     const cnNumber = await nextDocNumber(supabase, 'DB')
     const issueDate = new Date().toISOString().slice(0, 10)
-    const motoModel = (bkRow as any).motorcycles?.model || 'motorky'
+    const motoModel = refundSubject(bkRow)
     const reasonText = 'Storno rezervace'
 
     const { data: cnInv } = await supabase.from('invoices').insert({
@@ -648,7 +649,9 @@ async function customerManualCapCzk(supabase: any, bookingId: string, totalPrice
 async function customerPriceFloorCzk(supabase: any, bookingId: string): Promise<number | null> {
   try {
     const { data: bk } = await supabase.from('bookings')
-      .select('moto_id, start_date, end_date').eq('id', bookingId).maybeSingle()
+      .select('*').eq('id', bookingId).maybeSingle()
+    // Výpůjčka výbavy (2026-10-23): mez z ceny výbavy × dny (gear.ts) — bez motorky dřív null = vždy obsluha.
+    if (isGearRefundRow(bk)) return await gearPriceFloorCzk(supabase, bk, bookingId)
     if (!bk?.moto_id || !bk?.start_date || !bk?.end_date) return null
     const s = String(bk.start_date).slice(0, 10), e = String(bk.end_date).slice(0, 10)
     const { data: sum, error } = await supabase.rpc('_moto_dayprice_sum', { p_moto_id: bk.moto_id, p_start: s, p_end: e })
@@ -703,7 +706,7 @@ async function manualBookingRefund(
   customerCap = false,
 ): Promise<Response> {
   const { data: bkFull } = await supabase.from('bookings')
-    .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
+    .select('*, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
     .eq('id', booking_id).single()
   const totalPrice = Number(bkFull?.total_price || 0)
   let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
@@ -732,7 +735,7 @@ async function manualBookingRefund(
   }
 
   const reasonText = reasonTextFor(reason)
-  const motoModel = (bkFull as any)?.motorcycles?.model || 'motorky'
+  const motoModel = refundSubject(bkFull)
   const refundPercent = totalPrice > 0 ? Math.min(100, Math.round((manAmount / totalPrice) * 100)) : 100
 
   // Dedup: souběžný dispatch téže manuální vratky (pg_net z RPC + retry
@@ -1435,7 +1438,7 @@ Deno.serve(async (req: Request) => {
       try {
         // Fetch booking data for the credit note
         const { data: bk } = await supabase.from('bookings')
-          .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
+          .select('*, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
           .eq('id', booking_id).single()
         if (bk) {
           const refundPercent = amount ? Math.round((amount / Number(bk.total_price || 1)) * 100) : 100
@@ -1470,7 +1473,7 @@ Deno.serve(async (req: Request) => {
             cnNumber = await nextDocNumber(supabase, 'DB')
 
             const issueDate = new Date().toISOString().slice(0, 10)
-            const motoModel = (bk as any).motorcycles?.model || 'motorky'
+            const motoModel = refundSubject(bk)
             const { data: cnInv, error: cnErr } = await supabase.from('invoices').insert({
               number: cnNumber,
               type: 'credit_note',
@@ -1530,7 +1533,7 @@ Deno.serve(async (req: Request) => {
           // Render and upload dobropis PDF/HTML so it can be attached to the cancellation email.
           if (cnId) {
             try {
-              const motoModel2 = (bk as any).motorcycles?.model || 'motorky'
+              const motoModel2 = refundSubject(bk)
               const cust4 = (bk as any).profiles || {}
               await loadCustomerCompany(supabase, cust4)
               const html = renderCreditNoteHtml({

@@ -186,6 +186,12 @@ je jen zaparkování. Kód motorky pak platí ještě 15 min po zavření kóje,
 `return_gate.py` (záznam zavření v kv `return_gate`, 3 dny): doběhlý kód = hláška „Tento kód už neplatí…“ bez lockoutu,
 ACCESS_DENIED `reason: returned`. Zapomenutá věc po doběhu: obsluha ve Velíně vydá **krátkodobý kód** (6 číslic, 15–120 min,
 online i offline) — otevře jen zvolené dveře, bez km, protokolu, výzvy šatny a zámku přejímky.
+**Výpůjčka výbavy bez motorky (1.3.0, CONTRACT §33):** rezervace jen výbavy má na pobočce jen kód šatny (+ kód brány). Po zavření
+šatny protokol bez motorky (objednané položky, velikosti z ceníku výpůjčky, podpis, pole „Kód šatny“ — identita = kód šatny téže
+rezervace), kóje se neotvírá a zámek přejímky končí podpisem. Při dalším zavření šatny podepsané výpůjčky se displej zeptá
+„Vracíš všechnu výbavu?“ (Ano / Ne, 2 min): Ano → událost `GEAR_RETURN_CONFIRMED`, server rezervaci dokončí a kód šatny doběhne
+15 min po zavření (offline hlídá `return_gate`); modální hláška šatny při vrácení říká „vrať výbavu a zavři dveře“. Soubory
+`handover_gear.py`, `ui/handover-gear.js`, `ui/i18n-gear.js`, `ui/i18n-gear-return.js`, `ui/style-gear.css`.
 
 ## Co se nastavuje kde (Velín vs. Raspberry)
 

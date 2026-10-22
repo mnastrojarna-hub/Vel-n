@@ -4,13 +4,16 @@ import { supabase } from '../../lib/supabase'
 // (handover_protocol_sent / damage_protocol_sent), protokol v příloze (PDF/HTML);
 // fallback raw_html, když šablona v DB chybí. Volá se AUTOMATICKY po uložení
 // protokolu (ElectronicProtocolModal) a ručně jako „Odeslat znovu" při selhání.
+// Výpůjčka JEN výbavy (info.gearOnly): šablona handover_protocol_gear_sent (bez řádku Motocykl) + proměnné
+// info.gearVars (protocolGearOnly.gearProtocolEmailVars); chybí-li šablona, send-email padá na handover_protocol_sent.
 export async function sendProtocolEmail(info) {
   if (!info?.customerEmail) return { sent: false, error: 'Zákazník nemá uložený e-mail.' }
   const isDamage = info.type === 'damage_protocol'
-  const slug = isDamage ? 'damage_protocol_sent' : 'handover_protocol_sent'
+  const slug = isDamage ? 'damage_protocol_sent' : info.gearOnly ? 'handover_protocol_gear_sent' : 'handover_protocol_sent'
   const template_vars = {
     customer_name: info.customerName || '', moto: info.moto || '', moto_model: info.moto || '',
     rental_period: info.rentalPeriod || '', booking_number: info.bookingNumber || '', doc_name: info.docName || '',
+    ...(info.gearOnly && info.gearVars ? info.gearVars : {}),
   }
   const ext = info.pdfPath && info.pdfPath.toLowerCase().endsWith('.html') ? '.html' : '.pdf'
   const filename = `${(info.docName || 'protokol').replace(/[^\wÀ-ſ]+/g, '_')}${ext}`

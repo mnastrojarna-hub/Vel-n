@@ -4,6 +4,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { logAudit } from './bookingMessageHelpers'
 import PickupReadiness from './PickupReadiness'
+import { isGearBooking, bookingIdentityCodeType, gearSizeSummary } from '../../lib/bookingKind'
 
 // Odbavení odjezdu (vyzvednutí) a návratu (vrácení) přímo z přehledu „Odjezdy a návraty".
 // Pravidla:
@@ -13,6 +14,7 @@ import PickupReadiness from './PickupReadiness'
 //    odbavení kódem není možné (doklady si doplní sám, kód se mu uvolní automaticky).
 //  • Návrat na SAMOOBSLUŽNÉ pobočce → zadání kódu, nejdříve však 2 hodiny od vyzvednutí.
 //  • Ostatní návraty (obslužná pobočka / svoz) → jen ruční potvrzení vrácení (např. zapomenutý mobil apod.).
+//  • Výpůjčka JEN výbavy (booking_kind 'gear'): místo kódu motorky se ověřuje KÓD ŠATNY téže rezervace.
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000
 const fmtDT = (s) => (s ? new Date(s).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—')
@@ -35,6 +37,8 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
   const isPickup = event?.type === 'pickup'
   const branchType = event?.branchType || null
   const selfService = branchType === 'samoobslužná'
+  const gear = isGearBooking(booking)
+  const codeLbl = gear ? 'kód šatny' : 'kód k motorce'
 
   const [motoCode, setMotoCode] = useState('')
   const [loadingCode, setLoadingCode] = useState(true)
@@ -49,10 +53,10 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
     setCodeInput(''); setCodeChecked(false); setCodeOk(false); setError(null)
     setLoadingCode(true)
     supabase.from('branch_door_codes').select('door_code')
-      .eq('booking_id', booking.id).eq('code_type', 'motorcycle')
+      .eq('booking_id', booking.id).eq('code_type', bookingIdentityCodeType(booking))
       .order('created_at', { ascending: false }).limit(1)
       .then(({ data }) => { setMotoCode(data?.[0]?.door_code || ''); setLoadingCode(false) })
-  }, [open, booking?.id])
+  }, [open, booking?.id, booking?.booking_kind])
 
   // Odjezd je vyřízen, když má rezervace picked_up_at / aktivní stav / protokol
   // (event.pickupDone). 2h pravidlo měří od reálného vyzvednutí (event.pickupAt),
@@ -110,7 +114,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
         <>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: '#1a2e22', display: 'block', marginBottom: 6 }}>
-              Kód k motorce zadaný zákazníkem do systému
+              {gear ? 'Kód šatny' : 'Kód k motorce'} zadaný zákazníkem do systému
             </label>
             <div className="flex items-center gap-2">
               <input type="text" inputMode="numeric" value={codeInput}
@@ -131,7 +135,9 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
       ) : (
         <>
           <div style={noteBox('#b45309', '#fffbeb', '#92400e')}>
-            Pro tuto rezervaci není vygenerován kód k motorce (např. dětská motorka nebo zadržený kód kvůli chybějícím dokladům).
+            {gear
+              ? 'Pro tuto výpůjčku výbavy není vygenerován kód šatny (např. zadržený kód kvůli chybějícímu dokladu totožnosti).'
+              : 'Pro tuto rezervaci není vygenerován kód k motorce (např. dětská motorka nebo zadržený kód kvůli chybějícím dokladům).'}
             Odbavte ručně až po ověření zákazníka.
           </div>
           <div className="flex justify-end gap-3 pt-1">
@@ -149,7 +155,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
         {error && <div style={noteBox('#dc2626', '#fee2e2', '#dc2626')}>{error}</div>}
 
         <div className="p-3 rounded-card" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
-          <strong>{event.customer}</strong> · {event.moto}{event.spz ? ` (${event.spz})` : ''}
+          <strong>{event.customer}</strong> · {gear ? `Jen výbava${gearSizeSummary(booking) ? ` · ${gearSizeSummary(booking)}` : ''}` : <>{event.moto}{event.spz ? ` (${event.spz})` : ''}</>}
           <div className="mt-1" style={{ color: '#64748b' }}>
             {event.delivery ? '🚚 ' + (event.address || 'na adresu') : '🏍️ ' + (event.branch || 'pobočka')}
             {branchType ? ` · ${selfService ? 'samoobslužná' : 'obslužná'} pobočka` : ''}
@@ -160,7 +166,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
         {isPickup && (selfService ? (
           <>
             <div style={noteBox('#2563eb', '#eff6ff', '#1e3a8a')}>
-              <strong>Samoobslužná pobočka.</strong> Zákazník zadá svůj kód k motorce do systému — ověřte jej a odbavte odjezd.
+              <strong>Samoobslužná pobočka.</strong> Zákazník zadá svůj {codeLbl} do systému — ověřte jej a odbavte odjezd.
               Doklady musí mít nahrané předem (bez nich se mu kód nevydal).
             </div>
             {booking?.handover_protocol_filled_at ? (
@@ -171,7 +177,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
                     zákazník na displeji pobočky (od 2026-10-10 už ne v aplikaci), obsluha ho za něj nevyplňuje. */}
                 <div style={noteBox('#b45309', '#fffbeb', '#92400e')}>
                   Předávací protokol zatím <strong>není podepsaný</strong>. Zákazník ho podepíše na displeji pobočky
-                  (po zavření šatny / po zadání kódu motorky). Bez podpisu nelze odjezd odbavit.
+                  ({gear ? 'po zavření šatny, kódem šatny' : 'po zavření šatny / po zadání kódu motorky'}). Bez podpisu nelze odjezd odbavit.
                 </div>
                 <div className="flex justify-end"><Button onClick={onClose}>Zavřít</Button></div>
               </>
@@ -201,7 +207,7 @@ export default function CheckInModal({ open, event, onClose, onDone }) {
           ) : (
             <>
               <div style={noteBox('#2563eb', '#eff6ff', '#1e3a8a')}>
-                <strong>Samoobslužná pobočka.</strong> Zákazník zadá kód k motorce — ověřte jej a odbavte návrat.
+                <strong>Samoobslužná pobočka.</strong> Zákazník zadá {codeLbl} — ověřte jej a odbavte návrat.
               </div>
               {codeBlock('Odbavit návrat', () => markReturned('self_service_code'))}
             </>

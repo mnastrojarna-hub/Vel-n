@@ -3,6 +3,8 @@ import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderEmail, normalizeLang, helpCardLabels, type Lang } from './i18n.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
+import { buildGearVars, GEAR_DEFAULT_ATTACHMENTS, gearCancellationReason, gearSubjectVars, loadGearBooking } from '../_shared/email-gear.ts'
+import { gearFallbackTemplate, logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -446,8 +448,23 @@ serve(async (req) => {
     // před detekcí jazyka, takže přepíšeme až teď.
     vars.site_url = siteForLang(custLang)
 
+    // Výpůjčka JEN výbavy (bookings.booking_kind='gear', 2026-10-23): šablona gear_booking_cancelled
+    // (Velín) s proměnnými výbavy v jazyce zákazníka, nikdy motorkový text. Logovaný slug zůstává
+    // booking_cancelled (claim/idempotence výše). Bez gear šablony → gear fallback + debug_log.
+    const gear = booking_id ? await loadGearBooking(supabase, booking_id) : null
+    const gearVarsFor = gear
+      ? (l: string) => ({
+          ...buildGearVars(gear, l, { site: siteForLang(custLang), customerName: customer_name }),
+          cancellation_reason: gearCancellationReason(cancellation_reason, l),
+        })
+      : null
+    if (gearVarsFor) Object.assign(vars, gearVarsFor(custLang))
+    const subjVars = (v: Record<string, string>) => gear ? gearSubjectVars(v, gear, customer_name) : v
+
     // Try web-specific template first if source=web
-    const slugsToTry = source === 'web'
+    const slugsToTry = gear
+      ? (source === 'web' ? ['web_gear_booking_cancelled', 'gear_booking_cancelled'] : ['gear_booking_cancelled'])
+      : source === 'web'
       ? ['web_booking_cancelled', 'booking_cancelled']
       : ['booking_cancelled']
 
@@ -467,12 +484,21 @@ serve(async (req) => {
         // Velín = jen CZ. Non-cz → dynamický překlad přes API (cache + hash).
         const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
         templateHtml = renderTemplate(resolved.body, vars)
-        subject = renderTemplate(resolved.subject, vars)
+        subject = renderTemplate(resolved.subject, subjVars(vars))
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
         }
         break
       }
+    }
+
+    // Výpůjčka výbavy bez gear šablony: minimální gear text (CZ/EN) + výchozí přílohy seedu.
+    if (!templateHtml && gear) {
+      const fb = gearFallbackTemplate('gear_booking_cancelled', custLang, vars)
+      templateHtml = renderTemplate(fb.body, vars)
+      subject = renderTemplate(fb.subject, subjVars(vars))
+      dbAttachmentsList = [...GEAR_DEFAULT_ATTACHMENTS.gear_booking_cancelled]
+      await logGearTemplateFallback(supabase, 'send-cancellation-email', { slug: 'gear_booking_cancelled', booking_id, source, language: custLang })
     }
 
     // Velín admin-configured attachments z email_templates.attachments — etalon ve Velíně.
@@ -547,8 +573,22 @@ serve(async (req) => {
     if (custLang !== 'cs') {
       let csTemplateHtml = ''
       let csSubject = ''
-      const csI18n = renderEmail('booking_cancelled', 'cs', vars)
-      if (csI18n) { csSubject = csI18n.subject; csTemplateHtml = csI18n.body }
+      if (gear && gearVarsFor) {
+        // Výpůjčka výbavy: CZ originál gear šablony s českými proměnnými, jinak gear fallback.
+        const varsCs = { ...vars, ...gearVarsFor('cs') }
+        let src: { subject: string; body: string } | null = null
+        for (const trySlug of slugsToTry) {
+          const { data: tpl } = await supabase.from('email_templates')
+            .select('subject, body_html').eq('slug', trySlug).eq('active', true).maybeSingle()
+          if (tpl?.body_html) { src = { subject: tpl.subject || '', body: tpl.body_html }; break }
+        }
+        src = src || gearFallbackTemplate('gear_booking_cancelled', 'cs', varsCs)
+        csTemplateHtml = renderTemplate(src.body, varsCs)
+        csSubject = renderTemplate(src.subject, subjVars(varsCs))
+      } else {
+        const csI18n = renderEmail('booking_cancelled', 'cs', vars)
+        if (csI18n) { csSubject = csI18n.subject; csTemplateHtml = csI18n.body }
+      }
       if (csTemplateHtml) {
         adminHtml = wrapInBrandedLayout(csTemplateHtml, 'cs')
         adminSubject = csSubject

@@ -143,10 +143,19 @@ CREATE TRIGGER trg_reset_card_rounding_on_reprice
 
 -- ── 3) KF: řádek dorovnání ───────────────────────────────────────────────────
 -- Tělo 1:1 se živou DB; změny jsou označené „D1".
+-- ZRCADLO „GEAR 20261023db" (doplněno 2026-10-23): migrace
+-- supabase/migrations/20261023db_gear_booking_final_invoice.sql přidala do této funkce
+-- větev pro výpůjčku jen výbavy (bookings.booking_kind='gear': řádky KF z gear_lines,
+-- rozdílový řádek, sleva = dárkový poukaz, bez kódu VRACENI) a SET search_path. Tento návrh
+-- funkci celou předefinovává — bez zrcadla by jeho pozdější aplikace gear větev tiše
+-- smazala (gear KF by dostala řádek „Pronájem motorky ()" a slevový kód VRACENI).
+-- Řádky „GEAR 20261023db" proto drž i při dalších úpravách; dorovnání D1 platí i pro výbavu
+-- (v_rounding je odečtené ze základu, rozdílový řádek se počítá až z něj).
 CREATE OR REPLACE FUNCTION public.generate_final_invoice_on_complete()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = public                       -- GEAR 20261023db: pojistka SECURITY DEFINER
 AS $function$
 DECLARE
   v_inv_num text; v_seq int;
@@ -160,6 +169,8 @@ DECLARE
   v_rounding numeric;                            -- D1: dorovnání / odpuštěno (v total_price)
   v_booking_short text; v_promo_code text;
   v_cn_number text;                              -- NOVÉ #3
+  v_gear boolean := (NEW.booking_kind = 'gear'); -- GEAR 20261023db: výpůjčka jen výbavy
+  v_gear_days int; v_gear_sum numeric;           -- GEAR 20261023db
 BEGIN
   IF OLD.status != 'active' OR NEW.status != 'completed' THEN RETURN NEW; END IF;
   IF EXISTS (SELECT 1 FROM invoices WHERE booking_id = NEW.id AND type = 'final') THEN RETURN NEW; END IF;
@@ -185,12 +196,46 @@ BEGIN
                    + v_discount + v_loyalty + v_late_pickup
                    - v_rounding;                                          -- D1
 
+  IF v_gear THEN
+    -- GEAR 20261023db: řádky z gear_lines (komplet = velikosti kusů, kus = jeho velikost),
+    -- množství = dny výpůjčky, cena = Kč/den; žádný řádek motorky.
+    v_gear_days := GREATEST(1, (NEW.end_date::date - NEW.start_date::date) + 1);
+    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+             'description', 'Půjčení výbavy: ' || COALESCE(NULLIF(l->>'label', ''), l->>'key', 'výbava')
+               || COALESCE(' (' || (
+                    SELECT string_agg(CASE WHEN l->>'kind' = 'set' THEN lower(COALESCE(p.label, e.key)) || ' ' ELSE '' END
+                                      || e.value, ', ' ORDER BY p.sort_order NULLS LAST, e.key)
+                      FROM jsonb_each_text(CASE WHEN jsonb_typeof(l->'sizes') = 'object' THEN l->'sizes' ELSE '{}'::jsonb END) e
+                      LEFT JOIN gear_rental_prices p ON p.key = e.key
+                     WHERE NULLIF(e.value, '') IS NOT NULL) || ')', '')
+               || ' — ' || TO_CHAR(NEW.start_date, 'DD.MM.YYYY') || ' – ' || TO_CHAR(NEW.end_date, 'DD.MM.YYYY'),
+             'qty', v_gear_days,
+             'unit_price', COALESCE((l->>'price_per_day')::numeric, 0)) ORDER BY t.o), '[]'::jsonb)
+      INTO v_items
+      FROM jsonb_array_elements(CASE WHEN jsonb_typeof(NEW.gear_lines) = 'array' THEN NEW.gear_lines ELSE '[]'::jsonb END)
+           WITH ORDINALITY AS t(l, o);
+    v_gear_sum := COALESCE((SELECT SUM((i->>'unit_price')::numeric * (i->>'qty')::numeric)
+                              FROM jsonb_array_elements(v_items) AS i), 0);
+    -- Cena rezervace ≠ Σ řádků (zkrácení s vratkou < 100 %, ruční úprava ceny) → rozdíl
+    -- samostatně, aby KF proti DP a dobropisům dál vycházela na 0.
+    IF ROUND(v_base_rental - v_gear_sum, 2) <> 0 THEN
+      v_items := v_items || jsonb_build_array(jsonb_build_object(
+        'description', 'Úprava ceny výpůjčky výbavy (změny rezervace)',
+        'qty', 1, 'unit_price', v_base_rental - v_gear_sum));
+    END IF;
+    -- Sleva u výbavy = jen dárkový poukaz; kód z booking_discounts, když ho rezervace nenese.
+    IF v_discount_code = '' THEN
+      v_discount_code := COALESCE((SELECT string_agg(code, ', ') FROM booking_discounts
+                                    WHERE booking_id = NEW.id AND NULLIF(code, '') IS NOT NULL), '');
+    END IF;
+  ELSE
   v_items := jsonb_build_array(jsonb_build_object(
     'description', 'Pronájem ' || COALESCE(v_moto_model, 'motorky') ||
       ' (' || COALESCE(v_moto_spz, '') || ') — ' ||
       TO_CHAR(NEW.start_date, 'DD.MM.YYYY') || ' – ' || TO_CHAR(NEW.end_date, 'DD.MM.YYYY'),
     'qty', 1, 'unit_price', v_base_rental
   ));
+  END IF;                                        -- GEAR 20261023db
 
   IF v_extras > 0 THEN
     v_items := v_items || jsonb_build_array(jsonb_build_object(
@@ -204,7 +249,10 @@ BEGIN
 
   IF v_discount > 0 THEN
     v_items := v_items || jsonb_build_array(jsonb_build_object(
-      'description', CASE WHEN v_discount_code <> '' THEN 'Sleva (kód: ' || v_discount_code || ')'
+      'description', CASE WHEN v_gear THEN       -- GEAR 20261023db: promo kódy u výbavy neplatí
+                            CASE WHEN v_discount_code <> '' THEN 'Dárkový poukaz (kód: ' || v_discount_code || ')'
+                                 ELSE 'Sleva / dárkový poukaz' END
+                          WHEN v_discount_code <> '' THEN 'Sleva (kód: ' || v_discount_code || ')'
                           ELSE 'Sleva / voucher' END,
       'qty', 1, 'unit_price', -v_discount));
   END IF;
@@ -288,6 +336,7 @@ BEGIN
       v_inv_num, NEW.id, v_total;
   END IF;
 
+  IF NOT v_gear THEN                             -- GEAR 20261023db: výbava bez kódu VRACENI
   v_booking_short := UPPER(RIGHT(REPLACE(NEW.id::text, '-', ''), 8));
   v_promo_code    := 'VRACENI-' || v_booking_short;
 
@@ -295,6 +344,7 @@ BEGIN
   VALUES (v_promo_code, 'fixed', 200, true, now(),
           (CURRENT_DATE + INTERVAL '1 year')::timestamptz, 1, 0)
   ON CONFLICT (code) DO NOTHING;
+  END IF;                                        -- GEAR 20261023db
 
   INSERT INTO invoices (
     number, type, customer_id, booking_id, items, subtotal, tax_amount, total,

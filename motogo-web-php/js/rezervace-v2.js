@@ -1,7 +1,8 @@
 /* ===== MotoGo24 — Rezervace v2: JEN prezentace (krokový ukazatel, souhrn ceny, animace) =====
    Načítá ho pages/rezervace.php jen při landingV2Enabled() (body.rez-v2). Logiku js/pages-rezervace*.js
    nemění: DOM a stav (MG._rez) jen čte, prvkům formuláře nanejvýš přidá třídy (rz-*); vlastní prvky
-   (.rz-side) leží MIMO #rezervace-app. Tlačítko souhrnu jen posune na skutečné CTA (nic neodesílá).
+   (.rz-side) leží MIMO #rezervace-app. Tlačítko souhrnu jen posune na skutečné CTA (nic neodesílá);
+   js/rezervace-next.js ho dřív (capture) přesměruje na první nedokončený krok, dokud něco chybí.
    Smazání souboru = původní chování. Vzhled: css/rezervace-v2.css. */
 (function () {
   'use strict';

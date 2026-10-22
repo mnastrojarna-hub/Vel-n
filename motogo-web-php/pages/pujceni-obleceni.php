@@ -1,11 +1,15 @@
 <?php
 // ===== MotoGo24 Web PHP — Půjčení oblečení (jen výbava, bez motorky) =====
-// Tok: pobočka → termín (1 klik = 1 den) → výbava s velikostmi → kontakt →
-// platba Stripe (process-payment kind=products, cena z DB). Objednávku zakládá
-// RPC create_gear_rental_order (migrace 20261022_gear_rental.sql), návrat ze
-// Stripe ?order_id=&session_id= ukáže potvrzení (get_gear_rental_confirmation).
+// 2026-10-23: výpůjčka výbavy = REZERVACE (bookings.booking_kind='gear', DESIGN-GEAR §3.5).
+// Tok: pobočka → termín (1 klik = 1 den) → výbava s velikostmi (samoobsluha: rozsah
+// gear-ss-cap.js, sklad: get_gear_rental_availability) → kontakt + dárkový poukaz + souhlasy →
+// RPC create_web_gear_booking (cena ze serveru, živě quote_gear_booking; existující e-mail =
+// přihlášení na místě a nový pokus) → process-payment (type booking, source web) → Stripe.
+// Návrat ze Stripe ?booking_id=&session_id= = potvrzení (get_web_gear_booking) + nahrání
+// dokladu totožnosti; ?resume=<id> = nezaplacená → znovu zaplatit, zaplacená → potvrzení/doklady.
 // Ceník gear_rental_prices = Velín → Flotila → Půjčení oblečení.
-// JS: js/gear-rental.js (+ kalendář z landing-calc-core/-view.js), CSS: css/gear-rental.css.
+// JS: gear-rental-api/-auth/-docs/-done/-submit/-price.js + gear-rental.js (+ kalendář z
+// landing-calc-core/-view.js, rozsah samoobsluhy gear-ss-cap.js), CSS: css/gear-rental.css.
 
 require_once __DIR__ . '/../landing.php';
 require_once __DIR__ . '/../data/gear-rental-texts.php';
@@ -58,6 +62,8 @@ if (function_exists('currencyJsConfig')) {
     if ($code !== 'CZK' && $rate > 0 && is_array($meta)) $cur = ['code' => $code, 'rate' => $rate, 'dec' => (int)$meta['decimals'], 'sym' => $meta['symbol']];
 }
 $money = function ($czk) { return he(lpMoneyFrom($czk)); };
+$loc = function ($p) { return BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath($p) : $p); };
+$grHtml = function ($key) use ($T) { return sanitizeHtml(lpS($T[$key] ?? '')); };
 
 // ---- Ceník (statický, indexovatelný) ----
 $sets = array_values(array_filter($prices, function ($p) { return $p['kind'] === 'set'; }));
@@ -85,9 +91,11 @@ $sec = function ($n, $key, $body, $id) use ($s, $k) {
 $form = $enabled ? '<form class="gr-form" id="gr-form" novalidate>' .
     $sec(1, 'step_branch', '<div class="gr-branches" data-gr-branches></div><p class="gr-note" data-gr-selfnote hidden>' . $s('self_note') . '</p>', 'gr-s1') .
     $sec(2, 'step_dates', '<p class="gr-hint" data-gr-hint aria-live="polite"></p><div class="kc-cal-box gr-cal" data-gr-cal></div>' .
+        '<p class="gr-clear-row"><button type="button" class="gr-clear" data-gr-clear hidden>' . $s('cal_clear') . '</button></p>' .
         '<label class="gr-time" data-gr-time hidden><span>' . $s('pickup_time') . '</span><select id="gr-time"></select></label>', 'gr-s2') .
-    $sec(3, 'step_gear', '<p class="gr-hint">' . $s('gear_hint') . '</p><div class="gr-quick" data-gr-quick></div><div class="gr-items" data-gr-items></div>', 'gr-s3') .
-    $sec(4, 'step_contact', '<div class="gr-fields">' .
+    $sec(3, 'step_gear', '<p class="gr-hint">' . $s('gear_hint') . '</p><div class="gr-quick" data-gr-quick></div><div class="gr-items" data-gr-items></div>' .
+        '<p class="gr-note" data-gr-ssnote hidden>' . $s('ss_cap_note') . '</p>', 'gr-s3') .
+    $sec(4, 'step_contact', '<p class="gr-authline" data-gr-authline hidden></p><div class="gr-fields">' .
         '<input id="gr-name" autocomplete="name" maxlength="200" placeholder="' . $s('name') . '" aria-label="' . $s('name') . '" required>' .
         '<input id="gr-email" type="email" autocomplete="email" maxlength="200" placeholder="' . $s('email') . '" aria-label="' . $s('email') . '" required>' .
         '<input id="gr-phone" type="tel" autocomplete="tel" maxlength="30" placeholder="' . $s('phone') . '" aria-label="' . $s('phone') . '" required>' .
@@ -98,9 +106,14 @@ $form = $enabled ? '<form class="gr-form" id="gr-form" novalidate>' .
         '<div class="gr-company" id="gr-company" hidden><input id="gr-company-name" maxlength="200" placeholder="' . $s('company') . '" aria-label="' . $s('company') . '">' .
         '<div class="gr-row"><input id="gr-ico" maxlength="20" placeholder="' . $s('ico') . '" aria-label="' . $s('ico') . '"><input id="gr-dic" maxlength="20" placeholder="' . $s('dic') . '" aria-label="' . $s('dic') . '"></div></div>' .
         '<textarea id="gr-note" maxlength="500" rows="2" placeholder="' . $s('note') . '" aria-label="' . $s('note') . '"></textarea>' .
-        '<label class="gr-check gr-agree"><input type="checkbox" id="gr-agree"> <span>' . sanitizeHtml(lpS($T['agree'] ?? '')) . '</span></label></div>', 'gr-s4') .
+        '<label class="gr-check"><input type="checkbox" id="gr-voucher-on"> ' . $s('voucher_toggle') . '</label>' .
+        '<div class="gr-voucher" id="gr-voucher-box" hidden><div class="gr-voucher-row"><input id="gr-voucher" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="' . $s('voucher_ph') . '" aria-label="' . $s('voucher_ph') . '">' .
+        '<button type="button" class="gr-voucher-btn" data-gr-vapply>' . $s('voucher_apply') . '</button></div><p class="gr-voucher-msg" data-gr-vmsg aria-live="polite" hidden></p></div>' .
+        '<label class="gr-check gr-agree"><input type="checkbox" id="gr-agree-vop"> <span>' . $grHtml('agree_vop') . '</span></label>' .
+        '<label class="gr-check gr-agree"><input type="checkbox" id="gr-agree-gdpr"> <span>' . $grHtml('agree_gdpr') . '</span></label></div>', 'gr-s4') .
     '<div class="gr-sum" data-gr-sum aria-live="polite"></div>' .
     '<p class="gr-err" data-gr-err role="alert" hidden></p>' .
+    '<div class="gr-login" data-gr-login hidden></div>' .
     '<button type="submit" class="lp-btn lp-btn-primary gr-go" data-gr-go>' . lpIcon('arrow') . '<span>' . $s('cta') . '</span></button>' .
     '<p class="gr-assure">' . lpIcon('check') . '<span data-cms-key="' . $k . 'assure">' . $s('assure') . '</span></p>' .
     '</form>' : '<p class="gr-unavail">' . he(lpPlain(($cfg['enabled'] ?? true) === false ? ($T['err_disabled'] ?? '') : ($T['unavailable'] ?? ''))) . '</p>';
@@ -114,6 +127,8 @@ $content = '<main id="content" class="gr-page"><div class="container">' . $bc .
     '<aside class="gr-side">' . ($priceHtml || $itemList ? '<section class="gr-prices" aria-labelledby="gr-prices-h"><h2 id="gr-prices-h" data-cms-key="' . $k . 'prices_title">' . $s('prices_title') . '</h2>' .
         ($priceHtml ? '<ul class="gr-sets">' . $priceHtml . '</ul>' : '') .
         ($itemList ? '<h3 data-cms-key="' . $k . 'items_title">' . $s('items_title') . '</h3><ul class="gr-itemlist">' . $itemList . '</ul>' : '') . lpFxNote(lpTexts($sb)['common']) . '</section>' : '') .
+    '<section class="gr-moto" aria-labelledby="gr-moto-h"><h2 id="gr-moto-h" data-cms-key="' . $k . 'moto_title">' . $s('moto_title') . '</h2>' .
+        '<p data-cms-key="' . $k . 'moto_text">' . $s('moto_text') . '</p><a class="lp-btn lp-btn-primary gr-moto-cta" href="' . he($loc('/katalog')) . '">' . lpIcon('moto') . '<span>' . $s('moto_cta') . '</span></a></section>' .
     ($faq ? '<section class="gr-faq" aria-labelledby="gr-faq-h"><h2 id="gr-faq-h" data-cms-key="' . $k . 'faq_title">' . $s('faq_title') . '</h2>' . $faq . '</section>' : '') .
     '</aside></div></div></main>';
 
@@ -122,19 +137,20 @@ foreach (gearRentalDefaults() as $key => $v) if (!is_array($v)) $txt[$key] = lpP
 // Kalendář (landing-calc-view.js K.calHtml) čte legend_* / prev / next z T
 $txt['legend_busy'] = $txt['legend_closed'];
 $txt['legend_pending'] = $txt['legend_closed'];
-$loc = function ($p) { return BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath($p) : $p); };
 $data = [
     'sb' => ['url' => SUPABASE_URL, 'key' => SUPABASE_ANON_KEY], 'lang' => $lang, 'cur' => $cur, 't' => $txt,
     'prices' => $prices, 'branches' => $branches, 'closures' => $closures,
     'maxDays' => max(1, min(366, (int)($cfg['max_days'] ?? 30))), 'maxAhead' => max(1, min(800, (int)($cfg['max_ahead_days'] ?? 400))),
-    'home' => $loc('/'), 'katalog' => $loc('/katalog'), 'enabled' => $enabled,
+    'home' => $loc('/'), 'katalog' => $loc('/katalog'), 'manage' => $loc('/upravit-rezervaci'), 'page' => $loc('/pujceni-obleceni'), 'confirm' => $loc('/potvrzeni'),
+    'enabled' => $enabled, 'sdk' => [assetUrl('/js/supabase-sdk.js'), assetUrl('/js/supabase-init.js')],
 ];
 $content .= '<script type="application/json" id="gr-data">' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script>';
 
 renderPage(lpPlain($T['seo_title'] ?? ''), $content, '/pujceni-obleceni', [
     'description' => lpPlain($T['seo_description'] ?? ''),
     'styles' => ['/css/landing.css', '/css/landing-calc.css', '/css/gear-rental.css'],
-    'scripts' => ['/js/landing-calc-core.js', '/js/landing-calc-view.js', '/js/gear-rental.js'],
+    'scripts' => ['/js/landing-calc-core.js', '/js/landing-calc-view.js', '/js/gear-rental-api.js', '/js/gear-ss-cap.js',
+        '/js/gear-rental-auth.js', '/js/gear-rental-docs.js', '/js/gear-rental-done.js', '/js/gear-rental-submit.js', '/js/gear-rental-price.js', '/js/gear-rental.js'],
     'body_class' => 'lp-v2 gr-v2',
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],

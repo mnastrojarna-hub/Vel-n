@@ -3,6 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveBookingLanguage, resolveOrderLanguage } from './customer-lang.ts'
+import { bookingDocsOk, bookingKindOf } from './gear-docs.ts'
 
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
@@ -215,15 +216,10 @@ export async function confirmBookingPayment(
         // buď generovala s prázdnými čísly (nový), nebo by přihlášený nedostal komplet.
         let mailType = 'booking_reserved'
         if (source === 'web') {
-          let docsOk = false
-          try {
-            const { data: ds } = await supabase.rpc('check_booking_docs_status', {
-              p_user_id: booking.user_id,
-              p_end_date: String(booking.end_date || '').slice(0, 10),
-              p_moto_id: booking.moto_id,
-            })
-            docsOk = (ds === null || ds === undefined)
-          } catch { docsOk = false }
+          // Výpůjčka výbavy (2026-10-23): doklady PER REZERVACE — jen totožnost + 18+ (gear-docs.ts);
+          // motorka beze změny (check_booking_docs_status).
+          const kind = await bookingKindOf(supabase, bookingId)
+          const docsOk = await bookingDocsOk(supabase, { id: bookingId, user_id: booking.user_id, end_date: booking.end_date, moto_id: booking.moto_id }, kind)
           mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt'
         }
         // Jazyk zákazníka explicitně (mail + smlouva/VOP v příloze); undefined → send-booking-email dohledá sám.

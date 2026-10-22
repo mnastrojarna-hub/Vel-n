@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { uploadHtmlAsPdf } from './htmlToPdf'
 import { generateInvoiceHtml } from './invoiceTemplate'
 import { openPrintWindow } from './sanitize'
+import { isGearBooking, gearInvoiceItems, gearSizeSummary } from './bookingKind'
 
 const PREFIX_MAP = {
   issued: 'FV',
@@ -82,7 +83,9 @@ export function cardRoundingLabel(r) {
 }
 
 function buildBookingItems(moto, booking) {
-  const items = buildDailyLineItems(moto, booking.start_date, booking.end_date)
+  // Výpůjčka JEN výbavy (booking_kind 'gear'): řádky z bookings.gear_lines („Půjčení výbavy: …“, množství = dny,
+  // cena = Kč/den) místo denního rozpisu motorky (bez motorky by vyšel N× 0 Kč); extras/doručení u výbavy nejsou.
+  const items = isGearBooking(booking) ? gearInvoiceItems(booking) : buildDailyLineItems(moto, booking.start_date, booking.end_date)
   if (booking.extras_price > 0) items.push({ description: 'Příslušenství / doplňky', qty: 1, unit_price: booking.extras_price })
   if (booking.delivery_fee > 0) items.push({ description: 'Doručení', qty: 1, unit_price: booking.delivery_fee })
   if (booking.discount_amount > 0) items.push({ description: `Sleva${booking.discount_code ? ` (${booking.discount_code})` : ''}`, qty: 1, unit_price: -booking.discount_amount })
@@ -542,9 +545,11 @@ export async function generateCreditNote(bookingId, { refundAmount, refundPercen
 
   const reasonText = reason || 'Storno rezervace'
   const moto = booking.motorcycles || {}
+  // výpůjčka jen výbavy: „(výbava: Helma M…, termín)“ místo motorky
+  const subject = isGearBooking(booking) ? `výbava${gearSizeSummary(booking) ? `: ${gearSizeSummary(booking)}` : ''}` : (moto.model || 'motorka')
   const items = [
     {
-      description: `Dobropis – ${reasonText} (${moto.model || 'motorka'}, ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)})`,
+      description: `Dobropis – ${reasonText} (${subject}, ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)})`,
       qty: 1,
       unit_price: -amount,
     },

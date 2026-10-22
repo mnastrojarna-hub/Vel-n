@@ -13,6 +13,8 @@ import { BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
 import { DOC_ICONS, INV_TYPE_MAP } from './bookingDocConstants'
 import BookingCustomerDocsStatus from './BookingCustomerDocsStatus'
 import ElectronicProtocolModal from './ElectronicProtocolModal'
+import { isGearBooking } from '../../lib/bookingKind'
+import { gearProtocolEmailVars } from './protocolGearOnly'
 import { sendProtocolEmail } from './protocolEmail'
 import { fetchBookingDocLang, generateBookingDoc } from '../../lib/docLanguage'
 
@@ -253,12 +255,15 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       }
       const docName = d.filled_data?._doc_name || d.document_templates?.name || (type === 'damage_protocol' ? 'Protokol o poškození' : 'Předávací protokol')
       const moto = `${vars.moto_model || booking?.motorcycles?.model || ''}${vars.moto_spz ? ` (${vars.moto_spz})` : ''}`
+      // výpůjčka jen výbavy → šablona handover_protocol_gear_sent + proměnné výbavy (protocolEmail.js)
+      const gearOnly = type === 'handover_protocol' && (isGearBooking(booking) || d.filled_data?._gear_only === true)
       const info = {
+        gearOnly, gearVars: gearOnly && booking ? gearProtocolEmailVars(booking, booking.language || 'cs') : null,
         html, type, docId: d.id, pdfPath: d.pdf_path || null, docName, bookingId,
         customerId: booking?.user_id || d.customer_id || null,
         customerEmail: customer.email || vars.customer_email || '',
         customerName: customer.full_name || vars.customer_name || '',
-        moto, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || (bookingId || '').slice(-8).toUpperCase(),
+        moto: gearOnly ? 'Výpůjčka výbavy' : moto, rentalPeriod: vars.rental_period || '', bookingNumber: vars.booking_number || (bookingId || '').slice(-8).toUpperCase(),
       }
       const r = await sendProtocolEmail(info)
       setProtoSendMsg(r.sent ? `✓ ${docName} odeslán zákazníkovi na ${info.customerEmail}.` : `Odeslání selhalo: ${r.error}`)
