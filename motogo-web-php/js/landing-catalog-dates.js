@@ -9,7 +9,7 @@
   F.initDates = function (o) {
     if (!K || !K.calHtml || !K.fetchBooked || !o.kc || !o.btn) return null;
     var C = o.kc, T = C.t, FT = o.T, today = K.today(), by = {}, sheet, cal, hint, note, show;
-    var S = { start: null, end: null, y: +today.slice(0, 4), mo: +today.slice(5, 7) - 1, moto: '', fail: false, note: '', bk: {}, wait: {}, jumped: false };
+    var S = { start: null, end: null, open: false, y: +today.slice(0, 4), mo: +today.slice(5, 7) - 1, moto: '', fail: false, note: '', bk: {}, wait: {}, jumped: false };
     C.motos.forEach(function (m) { by[m.id] = m; });
     var all = C.motos.filter(function (m) { return !m.un && !m.tr; }).map(function (m) { return m.id; });
     var esc = K.esc, tpl = K.tpl;
@@ -60,20 +60,19 @@
       for (var x = today, i = 0; i < 400; x = K.add(x, 1), i++) if (st(x) === 'free') { S.y = +x.slice(0, 4); S.mo = +x.slice(5, 7) - 1; return; }
     }
 
-    // --- Výběr dnů (jako kalkulačka: 1. klik vyzvednutí, 2. vrácení) ---
+    // --- Výběr dnů (jako kalkulačka: 1. klik = termín na 1 den, pozdější klik = den vrácení) ---
     function pick(iso) {
       S.note = '';
-      if (!S.start || S.end || iso < S.start) { S.start = iso; S.end = null; }
-      else {
+      if (S.open && S.start && iso >= S.start) {
         for (var x = K.add(S.start, 1); x < iso; x = K.add(x, 1)) {
           if (st(x) !== 'free') { S.note = T.range_busy; render(); return; }
         }
-        S.end = iso;
-      }
+        S.end = iso; S.open = false;
+      } else { S.start = S.end = iso; S.open = true; }
       render();
       o.apply();
     }
-    function clear() { S.start = S.end = null; S.note = ''; render(); o.apply(); }
+    function clear() { S.start = S.end = null; S.open = false; S.note = ''; render(); o.apply(); }
 
     // --- Vykreslení ---
     function render() {
@@ -82,7 +81,7 @@
       cal.innerHTML = K.calHtml(X);
       cal.classList.toggle('is-wait', !ready() || S.fail);
       if (key) { var nb = cal.querySelector(key); if (nb && !nb.disabled) nb.focus({ preventScroll: true }); }
-      hint.textContent = !S.start ? T.hint_start : (!S.end ? T.hint_end : T.hint_done);
+      hint.textContent = !S.start ? T.hint_start : (S.open ? T.hint_end : T.hint_done);
       note.textContent = S.note || T.cal_any;
       note.classList.toggle('is-warn', !!S.note);
       show.textContent = tpl(FT.f_show, { count: o.plural(o.count()) });
@@ -136,7 +135,7 @@
       else if (b.getAttribute('data-d')) pick(b.getAttribute('data-d'));
     });
     cal.addEventListener('mouseover', function (ev) {
-      if (!S.start || S.end) return;
+      if (!S.start || !S.open) return;
       var b = ev.target.closest('[data-d]'), to = b && !b.disabled ? b.getAttribute('data-d') : '';
       Array.prototype.forEach.call(cal.querySelectorAll('[data-d]'), function (x) { var v = x.getAttribute('data-d'); x.classList.toggle('is-hover', !!to && v > S.start && v <= to); });
     });

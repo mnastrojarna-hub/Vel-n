@@ -60,6 +60,7 @@ return [
     'menu.howto.documents' => 'Dokumenty a návody',
     'menu.howto.faq' => 'Často kladené dotazy',
     'menu.vouchers' => 'Daruj zážitek',
+    'menu.gearRental' => 'Půjčení oblečení',
     'menu.blog' => 'Blog',
     'menu.shop' => 'E-shop',
     'menu.branches' => 'Pobočky',

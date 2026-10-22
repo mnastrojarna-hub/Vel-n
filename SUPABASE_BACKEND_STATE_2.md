@@ -397,6 +397,7 @@ Servisní zakázky navázané na motorky/servisní záznamy.
 - **image_alts** (TEXT[] DEFAULT '{}', **NEW 2026-05-17**) — paralelní pole SEO alt popisků k `images[]` (stejný index). Admin ve Velíně `BlogWizard` u každého náhledu vyplňuje krátký popisek, PHP `blog-detail.php` skládá finální alt jako `"{title} – {popisek}"`. Pokud `image_alts[i]` prázdný/NULL → fallback na `$title` (původní chování). Migrace `20260517_image_alts.sql`.
 
 ### shop_order_items (nové sloupce)
+- **2026-10-22 (půjčení výbavy, `20261022_gear_rental.sql`):** objednávky z `create_gear_rental_order` mají položky `product_name` „Půjčení výbavy: <kus/komplet> (…velikosti) — N dní“, `product_sku` `gear_rental_<key>`, `size` (jen u kusu), `quantity` = počet dní, `unit_price` = Kč/den, `product_id` NULL (nesnižuje sklad e-shopu). Název NIKDY neobsahuje „poukaz/voucher“ (`auto_process_voucher_order`). Objednávka: `shipping_method='pickup'`, `notes` „Půjčení výbavy (bez motorky) — <pobočka>, <termín> (N dní)“ + poznámka zákazníka. Detail termínu = tabulka `gear_rentals`.
 - **product_id** (UUID FK→products ON DELETE SET NULL) — vazba na konkrétní produkt v katalogu (web naplní, app dnes ignoruje, NULL kompatibilní zpětně). Index `idx_shop_order_items_product_id`.
 - **size** (TEXT NULL) — vybraná velikost položky („M", „42" apod.). Plní web (`create_web_shop_order` validuje proti `products.sizes[]`); Flutter app zatím NULL.
 

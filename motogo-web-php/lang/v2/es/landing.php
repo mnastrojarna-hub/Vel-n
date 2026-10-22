@@ -16,24 +16,25 @@ return ['pages' => ['landing' => [
         'fleet_next' => 'Más motos',
         'license' => 'Carnet {g}',
         'license_none' => 'Sin carnet',
-        'card_book' => 'Reservar',
+        'card_book' => 'Elegir',
         'explore_title' => 'Explora MotoGo24',
         'more_open' => 'Leer más',
         'more_close' => 'Mostrar menos',
         'sticky_reserve' => 'Reservar',
         'sticky_motos' => 'Ver motos',
+        // Mobilní lišta: jedno tlačítko do katalogu (CS sticky_continue)
+        'sticky_continue' => 'Continuar',
         'price_chip' => 'Motos desde {price}/día entre semana',
         'fx_note' => 'Precios orientativos en euros; el pago se realiza en coronas checas (CZK).',
-        'assurance' => 'Cancelación gratuita hasta 7 días antes · Pago seguro',
+        'assurance' => 'Cambia tus fechas gratis · Cancelación gratuita más de 7 días antes',
         'offer' => 'Recógela a partir de las 12:00 y el primer día te sale a mitad de precio (alquileres de 2 días o más).',
         'season_note' => 'Temporada 2026 hasta el 31/10 · Reserva ya tus fechas para 2027 (desde el 26/03).',
         'cta' => [
             'title' => '¿Listo para rodar por Chequia?',
-            'text' => 'Sin fianza, con equipo de piloto incluido y cancelación gratuita hasta 7 días antes.',
+            'text' => 'Sin fianza, con equipo de piloto incluido, cambio de fechas gratis y cancelación gratuita más de 7 días antes.',
             'buttons' => [
-                ['label' => 'RESERVAR MOTO', 'href' => '/rezervace'],
+                ['label' => 'CONTINUAR', 'href' => '/katalog'],
                 ['label' => 'Tarjeta regalo', 'href' => '/poukazy'],
-                ['label' => 'Ver motos', 'href' => '/katalog'],
             ],
         ],
         // Sekce důvěry (landing-trust.php) — CS defaulty a pravidla poboček v data/landing-trust.php
@@ -42,6 +43,10 @@ return ['pages' => ['landing' => [
         'reasons_more' => 'Ver las {n} ventajas',
         'reasons_less' => 'Mostrar menos',
         'reasons' => [
+            // 2026-10-22: flexibilita rezervace do popředí (jako CS)
+            ['icon' => 'swap', 'title' => 'Cambia la fecha gratis, cuando quieras', 'text' => '¿Cambia el tiempo o tus planes? Pasa tu reserva a otros días, sin coste.'],
+            ['icon' => 'resize', 'title' => 'Alarga o acorta', 'text' => 'Alarga cuando quieras sin cargo por cambio (solo pagas los días extra); acorta gratis con 7 días o más de antelación.'],
+            ['icon' => 'edit', 'title' => 'Modifica tu reserva cuando quieras', 'text' => 'Añade equipo o botas, cambia la hora o el lugar de recogida, online o en la app.'],
             ['icon' => 'card', 'title' => 'Sin fianza', 'text' => 'No te bloqueamos nada en la tarjeta.'],
             ['icon' => 'shield', 'title' => 'Daños cubiertos al 100 %', 'text' => 'Cobertura contractual: si tienes un accidente, tu franquicia es 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Equipo incluido', 'text' => 'Ropa de moto, chaleco, botiquín y candado de disco. En Mezná, también ropa de lluvia.'],
@@ -64,6 +69,18 @@ return ['pages' => ['landing' => [
             ['icon' => 'check', 'title' => 'Cancelación gratis', 'text' => 'Sin coste si cancelas más de 7 días antes.'],
         ],
         'reasons_note' => '* Cumpliendo las condiciones de alquiler (condiciones generales, art. 7).',
+        // Pruh garancí pod hero (landing-guarantee.php)
+        'guar_title' => 'Garantías MotoGo24',
+        'guar_lead' => 'Los planes cambian: modifica tu reserva cuando quieras, aunque haga mal tiempo.',
+        'guarantees' => [
+            ['icon' => 'shield', 'title' => 'Franquicia 0 €', 'text' => 'si cumples el contrato*'],
+            ['icon' => 'swap', 'title' => 'Cambio de fecha gratis', 'text' => 'cuando quieras, p. ej. por mal tiempo'],
+            ['icon' => 'resize', 'title' => 'Alarga cuando quieras', 'text' => 'sin cargo por cambio'],
+            ['icon' => 'calendar', 'title' => 'Acorta gratis', 'text' => 'con 7 días o más de antelación'],
+            ['icon' => 'edit', 'title' => 'Cambios cuando quieras', 'text' => 'equipo, hora y lugar de recogida'],
+            ['icon' => 'card', 'title' => 'Sin fianza', 'text' => 'no te bloqueamos nada'],
+        ],
+        'guar_note' => '* Cumpliendo las condiciones de alquiler (condiciones generales, art. 7).',
         'panel_rating' => '{r} · {n} reseñas en Google',
         'reviews_title' => 'Lo que dicen los moteros',
         'reviews_count' => '{n} reseñas',
@@ -93,7 +110,7 @@ return ['pages' => ['landing' => [
             ['kind' => 'loyalty', 'title' => 'Programa de fidelidad', 'text' => 'Cada viaje te sube de rango: hasta un 20 % de descuento y, desde el rango 3, equipo de pasajero y botas gratis.'],
         ],
         'branches_title' => 'Dos sucursales: elige la tuya',
-        'branch_book' => 'Reservar',
+        'branch_book' => 'Elegir',
         'branch_more' => 'Ver sucursal',
         'branches' => [
             ['badge' => 'Con personal · 24/7', 'title' => 'Mezná (Vysočina)', 'text' => 'Entrega en persona a la hora que elijas, equipo completo incluido, café de bienvenida y entrega a domicilio.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 min de Praga']],
@@ -104,8 +121,8 @@ return ['pages' => ['landing' => [
         'h1' => 'Alquiler de motos en la República Checa',
         'lead' => 'Recógela 24/7 en Mezná, a 90 min de Praga, o en autoservicio a 30 min de Brno.',
         'hero_eyebrow' => '<strong>Tu aventura en moto</strong> por Chequia',
-        'cta_primary' => ['label' => 'RESERVAR', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'VER MOTOS', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'CONTINUAR', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['Sin fianza', 'Equipo de piloto incluido', 'Kilometraje ilimitado'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '0 € de fianza', 'text' => 'y sin cargos ocultos'],
@@ -127,8 +144,8 @@ return ['pages' => ['landing' => [
     'pujcovna' => [
         'h1' => 'Alquiler de motos en Chequia: precios y condiciones',
         'lead' => 'Sin fianza, con equipo de piloto incluido y kilometraje ilimitado. Reserva online en pocos minutos.',
-        'cta_primary' => ['label' => 'RESERVAR', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'VER MOTOS', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'CONTINUAR', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['2 sucursales: Vysočina y Brno', 'Recogida a tu hora'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '0 € de fianza', 'text' => 'y sin cargos ocultos'],

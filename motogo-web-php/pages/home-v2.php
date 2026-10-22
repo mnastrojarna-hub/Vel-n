@@ -2,7 +2,7 @@
 // ===== Homepage — landing v2 (viz landing.php) =====
 // Vkládá se z pages/home.php (require … vrací $content). Používá proměnné
 // z home.php: $sb, $motos, $posts, $C, $bannerHtml, $faqHtml, $reviewsHtml.
-// Pořadí pro mobil: hero (bez tlačítek) → akční panel → nabídka → motorky →
+// Pořadí pro mobil: hero (bez tlačítek) → akční panel (1 CTA) → garance → nabídka → motorky →
 // důvody (10 + rozbalení na 20) → recenze → trasy (appka) → „víc než půjčovna“ → postup → pobočky →
 // FAQ → CTA → blog → rozcestník → SEO text (sbalený). Recenze z data/reviews.php
 // nahrazují starou sekci $reviewsHtml (DB tabulka recenzí).
@@ -49,6 +49,7 @@ $lpReviews = renderLpReviews(lpReviewsData(), $TC);
 return $bannerHtml .
     '<main id="content" class="lp-main">' .
     $lpPanel .
+    renderLpGuarantees($TC) .
     renderLpOffer($TC) .
     renderLpFleet($motos, $TC) .
     ($lpReasons !== '' ? $lpReasons : renderLpUsp($TC['usp_title'], 'web.landing.common.usp_title', $TH['usp'] ?? [], 'web.landing.home.usp', $lpMinPrice)) .

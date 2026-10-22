@@ -5,6 +5,7 @@ import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as re
 import { GATE_MAIL_TYPES, loadBranchGate, loadNeedsLocker, renderGateProcedureBlock, type BranchGate } from './branch-gate.ts'
 import { isTrustedCaller } from '../_shared/auth.ts'
 import { googleOnlyReviewLinks, googleReviewBlock, loadGoogleReviewUrl } from '../_shared/review-links.ts'
+import { loadGearRentalVars, renderGearRentalEmail } from './gear-rental.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
@@ -978,6 +979,16 @@ serve(async (req) => {
       } catch { /* ignore \u2014 z\u016fstane 'cs' */ }
     }
 
+    // Půjčení výbavy bez motorky (gear_rentals, 2026-10-22): po zaplacení přijde
+    // shop_order_confirmed — tělo a předmět se renderují jako gear_rental_confirmed
+    // (termín, pobočka, výbava; gear-rental.ts). Slug, přílohy (DP) beze změny.
+    if (type === 'shop_order_confirmed' && order_id) {
+      try {
+        const gv = await loadGearRentalVars(supabase, order_id, custLang)
+        if (gv) { renderType = 'gear_rental_confirmed'; Object.assign(vars, gv) }
+      } catch { /* ignore — e-shop text */ }
+    }
+
     // \u2500\u2500 door_codes_block: released codes \u27c2 "chyb\u00ed doklady" CTA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     // \u0160ablony booking_reserved/door_codes/booking_completed maj\u00ed placeholder
     // `${v.door_codes_block || ''}`. Kdy\u017e rezervace m\u00e1 uvoln\u011bn\u00e9 k\u00f3dy, vykresl\u00ed
@@ -1162,7 +1173,7 @@ serve(async (req) => {
 
     // i18n hardcoded p\u0159eklady (priorita 2 \u2014 kdy\u017e DB \u0161ablona chyb\u00ed)
     if (!templateHtml) {
-      const i18nResult = renderEmail(renderType, custLang, vars)
+      const i18nResult = renderType === 'gear_rental_confirmed' ? renderGearRentalEmail(custLang, vars) : renderEmail(renderType, custLang, vars)
       if (i18nResult) {
         subject = i18nResult.subject
         templateHtml = i18nResult.body
@@ -1413,7 +1424,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         }
       }
       if (!csTemplateHtml) {
-        const i18nCs = renderEmail(renderType, 'cs', varsCs)
+        const i18nCs = renderType === 'gear_rental_confirmed' ? renderGearRentalEmail('cs', varsCs) : renderEmail(renderType, 'cs', varsCs)
         if (i18nCs) { csSubject = i18nCs.subject; csTemplateHtml = i18nCs.body }
       }
       if (!csSubject) {

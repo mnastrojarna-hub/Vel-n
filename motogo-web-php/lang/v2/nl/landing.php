@@ -17,24 +17,25 @@ return ['pages' => ['landing' => [
         'fleet_next' => 'Meer motoren',
         'license' => 'Rijbewijs {g}',
         'license_none' => 'Zonder rijbewijs',
-        'card_book' => 'Reserveren',
+        'card_book' => 'Kiezen',
         'explore_title' => 'Ontdek MotoGo24',
         'more_open' => 'Lees meer',
         'more_close' => 'Toon minder',
         'sticky_reserve' => 'Reserveren',
         'sticky_motos' => 'Bekijk motoren',
+        // Mobilní lišta: jedno tlačítko do katalogu (CS sticky_continue)
+        'sticky_continue' => 'Verder',
         'price_chip' => 'Motoren vanaf {price}/dag doordeweeks',
         'fx_note' => 'Omgerekende prijzen zijn indicatief; je betaalt in Tsjechische kronen (CZK).',
-        'assurance' => 'Gratis annuleren tot 7 dagen vooraf · Veilig betalen',
+        'assurance' => 'Je data gratis verzetten · Gratis annuleren meer dan 7 dagen vooraf',
         'offer' => 'Haal je motor op vanaf 12:00 en betaal voor de eerste dag maar de helft (bij huur van 2+ dagen).',
         'season_note' => 'Seizoen 2026 t/m 31 oktober · Reserveer nu al je data voor 2027 (vanaf 26 maart).',
         'cta' => [
             'title' => 'Klaar om door Tsjechië te rijden?',
-            'text' => 'Zonder borg, met rijuitrusting inbegrepen en gratis annuleren tot 7 dagen vooraf.',
+            'text' => 'Zonder borg, met rijuitrusting inbegrepen, gratis je data verzetten en gratis annuleren meer dan 7 dagen vooraf.',
             'buttons' => [
-                ['label' => 'MOTOR RESERVEREN', 'href' => '/rezervace'],
+                ['label' => 'VERDER', 'href' => '/katalog'],
                 ['label' => 'Cadeaubon', 'href' => '/poukazy'],
-                ['label' => 'Bekijk motoren', 'href' => '/katalog'],
             ],
         ],
         // Sekce důvěry (landing-trust.php) — CS defaulty a pravidla poboček v data/landing-trust.php
@@ -43,6 +44,10 @@ return ['pages' => ['landing' => [
         'reasons_more' => 'Bekijk alle {n} voordelen',
         'reasons_less' => 'Toon minder',
         'reasons' => [
+            // 2026-10-22: flexibilita rezervace do popředí (jako CS)
+            ['icon' => 'swap', 'title' => 'Je data altijd gratis verzetten', 'text' => 'Slecht weer of andere plannen? Verzet je reservering naar andere dagen, zonder kosten.'],
+            ['icon' => 'resize', 'title' => 'Verlengen of inkorten', 'text' => 'Verlengen kan altijd zonder wijzigingskosten (je betaalt alleen de extra dagen), inkorten is gratis tot 7 dagen vooraf.'],
+            ['icon' => 'edit', 'title' => 'Je reservering altijd aanpassen', 'text' => 'Voeg uitrusting of laarzen toe, wijzig de ophaaltijd of -plek, online en in de app.'],
             ['icon' => 'card', 'title' => 'Zonder borg', 'text' => 'We blokkeren niets op je kaart.'],
             ['icon' => 'shield', 'title' => 'Schade 100% gedekt', 'text' => 'Contractuele dekking: bij een ongeval is je eigen risico € 0.*'],
             ['icon' => 'helmet', 'title' => 'Uitrusting inbegrepen', 'text' => 'Motorkleding, veiligheidshesje, EHBO-set en schijfremslot. In Mezná ook regenkleding.'],
@@ -65,6 +70,18 @@ return ['pages' => ['landing' => [
             ['icon' => 'check', 'title' => 'Gratis annuleren', 'text' => 'Kosteloos als je meer dan 7 dagen vooraf annuleert.'],
         ],
         'reasons_note' => '* Mits je de huurvoorwaarden naleeft (algemene voorwaarden, art. 7).',
+        // Pruh garancí pod hero (landing-guarantee.php)
+        'guar_title' => 'MotoGo24-garanties',
+        'guar_lead' => 'Plannen veranderen: je past je reservering altijd aan, ook als het weer omslaat.',
+        'guarantees' => [
+            ['icon' => 'shield', 'title' => '€ 0 eigen risico', 'text' => 'als je het contract naleeft*'],
+            ['icon' => 'swap', 'title' => 'Gratis data verzetten', 'text' => 'altijd, bijv. bij slecht weer'],
+            ['icon' => 'resize', 'title' => 'Altijd verlengen', 'text' => 'zonder wijzigingskosten'],
+            ['icon' => 'calendar', 'title' => 'Gratis inkorten', 'text' => 'tot 7 dagen vooraf'],
+            ['icon' => 'edit', 'title' => 'Altijd aanpassen', 'text' => 'uitrusting, tijd en ophaalplek'],
+            ['icon' => 'card', 'title' => 'Zonder borg', 'text' => 'we blokkeren niets'],
+        ],
+        'guar_note' => '* Mits je de huurvoorwaarden naleeft (algemene voorwaarden, art. 7).',
         'panel_rating' => '{r} · {n} reviews op Google',
         'reviews_title' => 'Wat motorrijders zeggen',
         'reviews_count' => '{n} reviews',
@@ -94,7 +111,7 @@ return ['pages' => ['landing' => [
             ['kind' => 'loyalty', 'title' => 'Loyaliteitsprogramma', 'text' => 'Met elke rit klim je hoger: tot 20% korting en vanaf rang 3 gratis passagiersuitrusting en laarzen.'],
         ],
         'branches_title' => 'Twee vestigingen: kies de jouwe',
-        'branch_book' => 'Reserveren',
+        'branch_book' => 'Kiezen',
         'branch_more' => 'Bekijk vestiging',
         'branches' => [
             ['badge' => 'Bemand · 24/7', 'title' => 'Mezná (Vysočina)', 'text' => 'Persoonlijke overdracht op het tijdstip dat jij kiest, complete uitrusting inbegrepen, welkomstkoffie en bezorging op je adres.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 min van Praag']],
@@ -105,8 +122,8 @@ return ['pages' => ['landing' => [
         'h1' => 'Motorverhuur in Tsjechië',
         'lead' => 'Haal je motor 24/7 op in Mezná, op 90 min van Praag, of via zelfbediening op 30 min van Brno.',
         'hero_eyebrow' => '<strong>Jouw motoravontuur</strong> in Tsjechië',
-        'cta_primary' => ['label' => 'RESERVEREN', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'BEKIJK MOTOREN', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'VERDER', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['Zonder borg', 'Rijuitrusting inbegrepen', 'Onbeperkt km'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '€ 0 borg', 'text' => 'en geen verborgen kosten'],
@@ -128,8 +145,8 @@ return ['pages' => ['landing' => [
     'pujcovna' => [
         'h1' => 'Motorverhuur in Tsjechië: prijzen en voorwaarden',
         'lead' => 'Zonder borg, met rijuitrusting inbegrepen en onbeperkt km. Online gereserveerd in een paar minuten.',
-        'cta_primary' => ['label' => 'RESERVEREN', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'BEKIJK MOTOREN', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'VERDER', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['2 vestigingen: Vysočina en Brno', 'Ophalen op jouw tijd'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '€ 0 borg', 'text' => 'en geen verborgen kosten'],

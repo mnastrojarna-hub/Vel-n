@@ -4,6 +4,7 @@
 .kc-jump:hover{background:#d4efe2;color:#1a2e22}
 .kc-jump .lp-ico{width:15px;height:15px;transform:rotate(90deg)}
 .ccontent .kc{margin:1.1rem 0 2rem;scroll-margin-top:80px}
+#termin{scroll-margin-top:16px}
 .kc-card{position:relative;overflow:hidden;isolation:isolate;border-radius:22px;padding:1.2rem 1rem 1rem;color:#e8f5ee;background:radial-gradient(120% 80% at 100% 0,#24563b 0,#0e2a1c 50%,#0a1f14 100%);box-shadow:0 18px 40px -14px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
 .kc-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent);animation:lpScan 3.6s linear infinite}
 .kc-card::after{content:"";position:absolute;z-index:-1;top:-120px;right:-90px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(116,251,113,.28),transparent 65%);animation:kcFloat 7s ease-in-out infinite}

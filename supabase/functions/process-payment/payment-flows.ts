@@ -394,6 +394,12 @@ async function handleWebProductCheckout(
     return new Response(JSON.stringify({ success: false, error: 'Objednávka neobsahuje žádné položky.' }),
       { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
   }
+  // Půjčení výbavy bez motorky (2026-10-22, create_gear_rental_order): návrat na
+  // stránku výbavy (potvrzení s termínem a pobočkou) místo košíku e-shopu a ZF bez
+  // e-mailu (potvrzení výpůjčky + DP přijde po zaplacení, jako u poukazu).
+  const { data: gearRow } = await supabaseAdmin.from('gear_rentals')
+    .select('order_id').eq('order_id', orderId).maybeSingle()
+  const isGear = !!gearRow
 
   // Stripe customer (re-use po e-mailu)
   const email = customerEmail || order.customer_email || ''
@@ -455,7 +461,7 @@ async function handleWebProductCheckout(
   }
 
   const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
-  const productMetadata = { order_id: orderId, type: 'shop', source: 'web' }
+  const productMetadata = { order_id: orderId, type: 'shop', source: 'web', ...(isGear ? { kind: 'gear_rental' } : {}) }
   const sessionParams: Record<string, unknown> = {
     mode: 'payment',
     // Jen karta + Apple Pay/Google Pay (card wallets), bez Linku — viz booking checkout.
@@ -464,8 +470,10 @@ async function handleWebProductCheckout(
     metadata: productMetadata,
     payment_intent_data: { metadata: productMetadata },
     client_reference_id: orderId,
-    success_url: withLangParam(`${returnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
-    cancel_url:  withLangParam(`${returnOrigin}/kosik`, body.locale),
+    success_url: withLangParam(isGear
+      ? `${returnOrigin}/pujceni-obleceni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`
+      : `${returnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
+    cancel_url: withLangParam(isGear ? `${returnOrigin}/pujceni-obleceni?order_id=${orderId}&payfail=1` : `${returnOrigin}/kosik`, body.locale),
     locale: resolveStripeLocale(body.locale),
   }
   if (custId) sessionParams.customer = custId
@@ -485,7 +493,7 @@ async function handleWebProductCheckout(
     await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
-      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: true }),
+      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: !isGear }),
     })
   } catch (e) { console.warn('[WebProductCheckout] ZF generation failed:', e) }
 

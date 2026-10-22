@@ -17,24 +17,25 @@ return ['pages' => ['landing' => [
         'fleet_next' => 'Kolejne motocykle',
         'license' => 'Prawo jazdy {g}',
         'license_none' => 'Bez prawa jazdy',
-        'card_book' => 'Zarezerwuj',
+        'card_book' => 'Wybierz',
         'explore_title' => 'Poznaj MotoGo24',
         'more_open' => 'Czytaj dalej',
         'more_close' => 'Pokaż mniej',
         'sticky_reserve' => 'Zarezerwuj',
         'sticky_motos' => 'Motocykle',
+        // Mobilní lišta: jedno tlačítko do katalogu (CS sticky_continue)
+        'sticky_continue' => 'Dalej',
         'price_chip' => 'Motocykle od {price}/dzień w dni powszednie',
         'fx_note' => 'Ceny są przeliczone orientacyjnie; płatność odbywa się w koronach czeskich (CZK).',
-        'assurance' => 'Bezpłatna anulacja do 7 dni przed · Bezpieczna płatność',
+        'assurance' => 'Termin przesuniesz za darmo · Bezpłatna anulacja ponad 7 dni wcześniej',
         'offer' => 'Odbierz motocykl od 12:00, a pierwszy dzień masz za pół ceny (wynajem na 2 dni lub dłużej).',
         'season_note' => 'Sezon 2026 do 31.10 · Zarezerwuj już terminy na 2027 (od 26.03).',
         'cta' => [
             'title' => 'Czas ruszyć w trasę po Czechach?',
-            'text' => 'Bez kaucji, z wyposażeniem kierowcy w cenie i bezpłatną anulacją do 7 dni przed.',
+            'text' => 'Bez kaucji, z wyposażeniem kierowcy w cenie, bezpłatną zmianą terminu i bezpłatną anulacją ponad 7 dni wcześniej.',
             'buttons' => [
-                ['label' => 'ZAREZERWUJ MOTOCYKL', 'href' => '/rezervace'],
+                ['label' => 'DALEJ', 'href' => '/katalog'],
                 ['label' => 'Bon podarunkowy', 'href' => '/poukazy'],
-                ['label' => 'Zobacz motocykle', 'href' => '/katalog'],
             ],
         ],
         // Sekce důvěry (landing-trust.php) — CS defaulty a pravidla poboček v data/landing-trust.php
@@ -43,6 +44,10 @@ return ['pages' => ['landing' => [
         'reasons_more' => 'Pokaż wszystkie zalety ({n})',
         'reasons_less' => 'Pokaż mniej',
         'reasons' => [
+            // 2026-10-22: flexibilita rezervace do popředí (jako CS)
+            ['icon' => 'swap', 'title' => 'Termin przesuniesz zawsze za darmo', 'text' => 'Psuje się pogoda albo zmieniły się plany? Przenieś rezerwację na inne dni, bez opłat.'],
+            ['icon' => 'resize', 'title' => 'Przedłużysz i skrócisz', 'text' => 'Przedłużenie w każdej chwili bez opłaty za zmianę (dopłacasz tylko za dodatkowe dni), skrócenie bezpłatnie 7 i więcej dni wcześniej.'],
+            ['icon' => 'edit', 'title' => 'Rezerwację zmienisz w każdej chwili', 'text' => 'Dodasz wyposażenie lub buty, zmienisz godzinę czy miejsce odbioru, online i w aplikacji.'],
             ['icon' => 'card', 'title' => 'Bez kaucji', 'text' => 'Niczego nie blokujemy na twojej karcie.'],
             ['icon' => 'shield', 'title' => 'Szkody pokryte w 100%', 'text' => 'Ochrona z umowy: przy wypadku twój udział własny wynosi 0 zł.*'],
             ['icon' => 'helmet', 'title' => 'Wyposażenie w cenie', 'text' => 'Odzież motocyklowa, kamizelka, apteczka i blokada tarczy. W oddziale Mezná także odzież przeciwdeszczowa.'],
@@ -65,6 +70,18 @@ return ['pages' => ['landing' => [
             ['icon' => 'check', 'title' => 'Bezpłatna anulacja', 'text' => 'Bez kosztów, jeśli anulujesz ponad 7 dni wcześniej.'],
         ],
         'reasons_note' => '* Pod warunkiem przestrzegania zasad wynajmu (OWU, art. 7).',
+        // Pruh garancí pod hero (landing-guarantee.php)
+        'guar_title' => 'Gwarancje MotoGo24',
+        'guar_lead' => 'Plany się zmieniają: rezerwację zmienisz w każdej chwili, nawet gdy popsuje się pogoda.',
+        'guarantees' => [
+            ['icon' => 'shield', 'title' => 'Udział własny 0 zł', 'text' => 'przy przestrzeganiu umowy*'],
+            ['icon' => 'swap', 'title' => 'Bezpłatna zmiana terminu', 'text' => 'zawsze, np. z powodu pogody'],
+            ['icon' => 'resize', 'title' => 'Przedłużenie kiedy chcesz', 'text' => 'bez opłaty za zmianę'],
+            ['icon' => 'calendar', 'title' => 'Bezpłatne skrócenie', 'text' => '7 i więcej dni wcześniej'],
+            ['icon' => 'edit', 'title' => 'Zmiany kiedy chcesz', 'text' => 'wyposażenie, godzina i miejsce odbioru'],
+            ['icon' => 'card', 'title' => 'Bez kaucji', 'text' => 'niczego nie blokujemy'],
+        ],
+        'guar_note' => '* Pod warunkiem przestrzegania zasad wynajmu (OWU, art. 7).',
         'panel_rating' => '{r} · opinie w Google: {n}',
         'reviews_title' => 'Co mówią motocykliści',
         'reviews_count' => 'Opinie: {n}',
@@ -94,7 +111,7 @@ return ['pages' => ['landing' => [
             ['kind' => 'loyalty', 'title' => 'Program lojalnościowy', 'text' => 'Każda jazda podnosi twoją rangę: do 20% rabatu, a od rangi 3 wyposażenie pasażera i buty gratis.'],
         ],
         'branches_title' => 'Dwa oddziały: wybierz swój',
-        'branch_book' => 'Zarezerwuj',
+        'branch_book' => 'Wybierz',
         'branch_more' => 'Szczegóły oddziału',
         'branches' => [
             ['badge' => 'Z obsługą · 24/7', 'title' => 'Mezná (Wysoczyna)', 'text' => 'Osobiste przekazanie o wybranej godzinie, pełne wyposażenie w cenie, kawa na powitanie i dostawa pod adres.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 min z Pragi']],
@@ -105,8 +122,8 @@ return ['pages' => ['landing' => [
         'h1' => 'Wypożyczalnia motocykli w Czechach',
         'lead' => 'Odbierz motocykl 24/7 w oddziale Mezná, 90 min z Pragi, lub w samoobsłudze 30 min z Brna.',
         'hero_eyebrow' => '<strong>Twoja motocyklowa przygoda</strong> w Czechach',
-        'cta_primary' => ['label' => 'ZAREZERWUJ', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'ZOBACZ MOTOCYKLE', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'DALEJ', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['Bez kaucji', 'Wyposażenie kierowcy w cenie', 'Bez limitu kilometrów'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '0 zł kaucji', 'text' => 'i bez ukrytych opłat'],
@@ -128,8 +145,8 @@ return ['pages' => ['landing' => [
     'pujcovna' => [
         'h1' => 'Wypożyczalnia motocykli w Czechach: ceny i warunki',
         'lead' => 'Bez kaucji, z wyposażeniem kierowcy w cenie i bez limitu kilometrów. Zarezerwuj online w kilka minut.',
-        'cta_primary' => ['label' => 'ZAREZERWUJ', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'ZOBACZ MOTOCYKLE', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'DALEJ', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['2 oddziały: Wysoczyna i Brno', 'Odbiór o wybranej godzinie'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '0 zł kaucji', 'text' => 'i bez ukrytych opłat'],

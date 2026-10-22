@@ -11,6 +11,7 @@ import Login from './pages/Login'
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Fleet = lazy(() => import('./pages/Fleet'))
 const FleetDetail = lazy(() => import('./pages/FleetDetail'))
+const GearRental = lazy(() => import('./pages/GearRental'))
 const Bookings = lazy(() => import('./pages/Bookings'))
 const BookingDetail = lazy(() => import('./pages/BookingDetail'))
 const Customers = lazy(() => import('./pages/Customers'))
@@ -72,6 +73,7 @@ export default function App() {
         >
           <Route path="/" element={G('dashboard', <Dashboard />)} />
           <Route path="/flotila" element={G('fleet', <Fleet />)} />
+          <Route path="/flotila/obleceni" element={G('fleet', <GearRental />)} />
           <Route path="/flotila/:id" element={G('fleet', <FleetDetail />)} />
           <Route path="/rezervace" element={G('bookings', <Bookings />)} />
           <Route path="/rezervace/:id" element={G('bookings', <BookingDetail />)} />
