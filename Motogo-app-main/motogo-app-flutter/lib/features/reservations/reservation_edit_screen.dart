@@ -21,6 +21,7 @@ import '../payment/net_error.dart' show isNetworkError;
 import 'reservation_models.dart';
 import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
+import 'reservation_edit_address.dart';
 import 'reservation_provider.dart';
 import 'booking_gate_provider.dart';
 import 'widgets/reservation_edit_widgets.dart';
@@ -39,6 +40,7 @@ import '../../core/widgets/pickup_location_link.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/res_edit_view_v2.dart';
+import 'v2/res_edit_address_v2.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -1453,9 +1455,19 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             onShortenStart: () => setState(() { _shortenDir = 'start'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
             onShortenEnd: () => setState(() { _shortenDir = 'end'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
           );
+    // Adresa, kterou rezervace už má, se ukáže vyplněná; list nabídne adresu
+    // druhé strany a z profilu (2026-10-22, nic nevyplňovat dvakrát).
+    final addrCarry = EditAddressCarry.of(_booking!, pickupMethod: _pickupMethod,
+        returnMethod: _returnMethod, pickupNew: _pickupAddrNew, returnNew: _returnAddrNew);
+    final AddressRowBuilder? addrRowV2 =
+        MgV2.on(context) ? (c, d) => ResEditAddressRowV2(data: d) : null;
     final pickupPlace = AddressPickerWidget(label: t(context).pickup, isPickup: true, method: _pickupMethod,
                 branchLabel: _effBranchLabel,
                 deliveryBlocked: pickupBlocked,
+                initialAddress: addrCarry.savedPickup,
+                currentAddress: _pickupAddrNew,
+                quick: addrCarry.quick(t(context).tr, pickup: true, profile: profile.valueOrNull),
+                rowBuilder: addrRowV2,
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (a) => setState(() => _pickupAddrNew = _addrText(a)),
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f));
@@ -1469,6 +1481,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     final returnPlace = AddressPickerWidget(label: t(context).returnLabel, isPickup: false, method: _returnMethod,
               branchLabel: _effBranchLabel,
               deliveryBlocked: returnBlocked,
+              initialAddress: addrCarry.savedReturn,
+              currentAddress: _returnAddrNew,
+              quick: addrCarry.quick(t(context).tr, pickup: false, profile: profile.valueOrNull),
+              rowBuilder: addrRowV2,
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (a) => setState(() => _returnAddrNew = _addrText(a)),
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f));

@@ -14,6 +14,7 @@ import 'document_camera_screen.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 import 'docs_gate_provider.dart';
+import 'doc_scan_plan.dart';
 import '../auth/auth_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
@@ -33,6 +34,9 @@ const int _kMaxAttemptsPerStep = 3;
 /// [scanMode] controls which documents to scan:
 /// - null / 'all' → full flow (ID choice + DL)
 /// - 'dl_only'   → only driver's license (dl_front + dl_back)
+/// - 'missing' / 'missing_id' / 'missing_dl' → only the sides the docs gate
+///   still lacks (nothing already uploaded is photographed again) — see
+///   [resolveDocScanPlan]
 class DocumentScannerScreen extends ConsumerStatefulWidget {
   final String? scanMode;
   const DocumentScannerScreen({super.key, this.scanMode});
@@ -53,6 +57,12 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
   // Resetuje se při úspěchu daného kroku.
   final Map<String, int> _attempts = {};
 
+  // Režim „doplnit chybějící“ (missing*): plán se načítá ze stavu dokladů;
+  // [_only] = jen tyto kroky, [_offerDlOnly] = volba „Jen řidičák“.
+  bool _planLoading = false;
+  Set<String>? _only;
+  bool _offerDlOnly = true;
+
   // Camera — initialized once, reused for all 4 steps
   CameraController? _cam;
   bool _camReady = false;
@@ -68,16 +78,24 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
   int _resultAttempt = 0;
 
   List<_ScanStep> get _sequence {
+    final all = _stepsFor(_idType);
+    final only = _only;
+    if (only == null) return all;
+    final some = all.where((s) => only.contains(s.key)).toList();
+    return some.isEmpty ? all : some;
+  }
+
+  List<_ScanStep> _stepsFor(String? idType) {
     final front = t(context).tr('frontSide');
     final back = t(context).tr('backSide');
     final dl = t(context).tr('driversLicense');
-    if (_idType == 'dl_only') {
+    if (idType == 'dl_only') {
       return [
         _ScanStep(ScanDocType.driversLicense, '🏍️', dl, front, 'dl_front'),
         _ScanStep(ScanDocType.driversLicense, '🏍️', dl, back, 'dl_back'),
       ];
     }
-    if (_idType == 'passport') {
+    if (idType == 'passport') {
       final pp = t(context).tr('passport');
       return [
         // Pas = vlastní typ (`documents.type` 'passport', Mindee model pasu);
@@ -655,8 +673,9 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           icon: '✅', title: t(context).tr('scanComplete'),
           message: t(context).tr('docsUploadedVerified'));
     }
-    // Navigate back to docs screen when scanning just DL, otherwise go home
-    if (widget.scanMode == 'dl_only') {
+    // Navigate back to docs screen when scanning just DL or only the missing
+    // sides (started from Moje doklady), otherwise go home
+    if (widget.scanMode == 'dl_only' || isDocScanMissingMode(widget.scanMode)) {
       context.go(Routes.docs);
     } else {
       context.go(Routes.home);
@@ -673,11 +692,38 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     if (widget.scanMode == 'dl_only') {
       _idType = 'dl_only';
       _initCamera();
+    } else if (isDocScanMissingMode(widget.scanMode)) {
+      _planLoading = true;
+      _loadPlan();
     }
+  }
+
+  /// Režim „doplnit chybějící“: plán podle stavu dokladů. Moje doklady
+  /// (odkud se sem jde) ho mají načtený — sdílí se, nic se nevolá znovu.
+  Future<void> _loadPlan() async {
+    DocsScreenStatus? status;
+    final keep = ref.listenManual(docsScreenStatusProvider, (_, __) {});
+    try {
+      status = await ref.read(docsScreenStatusProvider.future)
+          .timeout(const Duration(seconds: 20));
+    } catch (e) {
+      debugPrint('[DocScan] docs status for scan plan failed: $e');
+    } finally {
+      keep.close();
+    }
+    if (!mounted) return;
+    final plan = resolveDocScanPlan(widget.scanMode, status);
+    setState(() {
+      _planLoading = false;
+      _only = plan.only;
+      _offerDlOnly = plan.offerDlOnly;
+    });
+    if (plan.idType != null) _selectIdType(plan.idType!);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_planLoading) return _loadingScreen();
     if (_idType == null) return _idChoiceScreen();
     if (_stepIdx >= _sequence.length) return _doneScreen();
     return _cameraStepScreen();
@@ -700,8 +746,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
         _choiceBtn('🪪', t(context).tr('idCard'), () => _selectIdType('op')),
         const SizedBox(height: 12),
         _choiceBtn('📕', t(context).tr('passport'), () => _selectIdType('passport')),
-        const SizedBox(height: 12),
-        _choiceBtn('🏍️', t(context).tr('dlOnly'), () => _selectIdType('dl_only')),
+        if (_offerDlOnly) ...[
+          const SizedBox(height: 12),
+          _choiceBtn('🏍️', t(context).tr('dlOnly'), () => _selectIdType('dl_only')),
+        ],
         const Spacer(),
         Padding(padding: const EdgeInsets.all(20), child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1137,6 +1185,15 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     if (step.docType == ScanDocType.driversLicense) return t(context).tr('placeLicenseInFrame');
     return t(context).tr('placeIdInFrame');
   }
+
+  Widget _loadingScreen() => Scaffold(
+    backgroundColor: MotoGoColors.dark,
+    body: SafeArea(child: Column(children: [
+      _headerRow(),
+      const Expanded(child: Center(
+          child: CircularProgressIndicator(color: MotoGoColors.green))),
+    ])),
+  );
 
   // Šipka zpět i během ověřování (ověření doběhne na serveru i tak).
   Widget _doneScreen() => Scaffold(
