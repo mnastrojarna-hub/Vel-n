@@ -101,7 +101,15 @@ $content = '<main id="content"><div class="container">' . $bc
     . '</div></main>';
 
 // JS: Supabase SDK + checkout.js
+// Minimální platba kartou + přeložené odmítnutí platby (odpověď majitele 2026-10-16, „i web").
+$coI18n = [];
+foreach (['pay.card.round', 'pay.card.roundNote', 'shop.card.waive', 'shop.pay.updating', 'shop.pay.inProgress',
+          'shop.pay.gateway', 'shop.pay.generic'] as $k) {
+    $v = t($k);
+    if (is_string($v)) $coI18n[$k] = $v;
+}
 $checkoutJs = '<script>
+window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . json_encode($coI18n, JSON_UNESCAPED_UNICODE) . ');
 window.MOTOGO_CONFIG = window.MOTOGO_CONFIG || {};
 window.MOTOGO_CONFIG.SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
 window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
@@ -109,7 +117,8 @@ window.MOTOGO_CONFIG.LANG = ' . json_encode(function_exists('i18nDetectLanguage'
 </script>
 <script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
 <script src="' . assetUrl('/js/supabase-init.js') . '"></script>
-<script src="' . assetUrl('/js/checkout.js') . '" defer></script>';
+<script src="' . assetUrl('/js/checkout.js') . '" defer></script>
+<script src="' . assetUrl('/js/card-rounding.js') . '" defer></script>';
 
 renderPage(t('checkout.title') . ' | ' . t('shop.title'), $content . $checkoutJs, '/objednavka', [
     'description' => mb_substr(t('checkout.intro'), 0, 160),

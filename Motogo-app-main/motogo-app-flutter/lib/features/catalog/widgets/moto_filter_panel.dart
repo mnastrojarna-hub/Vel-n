@@ -7,6 +7,7 @@ import '../../home/widgets/license_chip.dart';
 import '../catalog_provider.dart';
 import 'availability_calendar.dart';
 import 'filter_branch_chip.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 
 /// Filtr motorek — JEDEN panel sdílený obrazovkami Domů a Rezervovat.
 ///
@@ -20,14 +21,27 @@ class MotoFilterPanel extends ConsumerStatefulWidget {
   /// Zobrazit uvnitř filtru i výběr termínu (jen Domů).
   final bool showDates;
 
-  const MotoFilterPanel({super.key, this.showDates = false});
+  /// Panel otevřený hned po zobrazení (v2 listy „Filtry" — panel je tam
+  /// jediný obsah). Výchozí false = dosavadní chování (sbalený).
+  final bool initiallyOpen;
+
+  /// Vložený do v2 listu „Filtry": bez vlastní karty a hlavičky (titulek
+  /// a zavření kreslí list), jen „Resetovat" + obsah. Stejná logika.
+  final bool embedded;
+
+  const MotoFilterPanel({
+    super.key,
+    this.showDates = false,
+    this.initiallyOpen = false,
+    this.embedded = false,
+  });
 
   @override
   ConsumerState<MotoFilterPanel> createState() => _MotoFilterPanelState();
 }
 
 class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
-  bool _open = false;
+  late bool _open = widget.initiallyOpen;
   /// Živé hodnoty posuvníků během tažení (klíč = popisek posuvníku). Do
   /// filtru se zapisují až po puštění jezdce.
   final Map<String, RangeValues> _drag = {};
@@ -75,6 +89,30 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   Widget build(BuildContext context) {
     final filter = ref.watch(catalogFilterProvider);
     final active = filter.activeCount;
+
+    if (widget.embedded) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (active > 0)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _reset,
+                child: Text(
+                  t(context).tr('homeFilterReset'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: MotoGoColors.red,
+                  ),
+                ),
+              ),
+            ),
+          _body(context, filter),
+        ],
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -178,6 +216,86 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   Widget _body(BuildContext context, CatalogFilter filter) {
     final ranges = ref.watch(motoRangesProvider);
     final branches = ref.watch(branchesProvider);
+    final todayToggle = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _set(
+          _f.copyWith(availableTodayOnly: !filter.availableTodayOnly)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: filter.availableTodayOnly
+                  ? MotoGoColors.green
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: filter.availableTodayOnly
+                    ? MotoGoColors.green
+                    : MotoGoColors.g200,
+                width: 1.5,
+              ),
+            ),
+            child: filter.availableTodayOnly
+                ? const Icon(Icons.check, size: 14, color: Colors.black)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              t(context).tr('homeFilterShowAvailableToday'),
+              // v2 (pod sebou, celá šířka): smí na 2 řádky, ne „…".
+              maxLines: widget.embedded ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: MotoGoColors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    final sortBox = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: MotoGoColors.g200),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: ref.watch(catalogSortProvider),
+          isDense: true,
+          // v2 list: full width + ellipsis (fr / uk sort labels are long).
+          isExpanded: widget.embedded,
+          dropdownColor: Colors.white,
+          style: const TextStyle(fontSize: 12, color: MotoGoColors.black),
+          items: [
+            for (final o in const [
+              ('default', 'homeFilterSortDefault'),
+              ('price_asc', 'homeFilterSortPriceAsc'),
+              ('price_desc', 'homeFilterSortPriceDesc'),
+              ('power_asc', 'homeFilterSortPowerAsc'),
+              ('power_desc', 'homeFilterSortPowerDesc'),
+            ])
+              DropdownMenuItem(
+                  value: o.$1,
+                  child: widget.embedded
+                      // v2: dlouhé popisky řazení (uk / fr) se zmenší, ne useknou.
+                      ? MgWordFit(
+                          minScale: 0.7,
+                          child: Text(t(context).tr(o.$2), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        )
+                      : Text(t(context).tr(o.$2))),
+          ],
+          onChanged: (v) => ref.read(catalogSortProvider.notifier).state =
+              v ?? 'default',
+        ),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -285,10 +403,10 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                 children: [
                   const Icon(Icons.store_outlined, size: 18, color: MotoGoColors.g400),
                   const SizedBox(width: 8),
-                  Text(
+                  _fit(Text(
                     t(context).tr('homeFilterAllBranches'),
                     style: const TextStyle(fontSize: 14, color: MotoGoColors.black),
-                  ),
+                  )),
                 ],
               ),
               style: const TextStyle(fontSize: 14, color: MotoGoColors.black),
@@ -299,7 +417,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                     children: [
                       const Icon(Icons.store_outlined, size: 18, color: MotoGoColors.g400),
                       const SizedBox(width: 8),
-                      Text(t(context).tr('homeFilterAllBranches')),
+                      _fit(Text(t(context).tr('homeFilterAllBranches'))),
                     ],
                   ),
                 ),
@@ -356,100 +474,57 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
               _set(_f.copyWith(minWeightKg: () => lo, maxWeightKg: () => hi)),
         ),
 
-        // ── Dnes volné + řazení ──
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _set(
-                    _f.copyWith(availableTodayOnly: !filter.availableTodayOnly)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: filter.availableTodayOnly
-                            ? MotoGoColors.green
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: filter.availableTodayOnly
-                              ? MotoGoColors.green
-                              : MotoGoColors.g200,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: filter.availableTodayOnly
-                          ? const Icon(Icons.check, size: 14, color: Colors.black)
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        t(context).tr('homeFilterShowAvailableToday'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: MotoGoColors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: MotoGoColors.g200),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: ref.watch(catalogSortProvider),
-                  isDense: true,
-                  dropdownColor: Colors.white,
-                  style: const TextStyle(fontSize: 12, color: MotoGoColors.black),
-                  items: [
-                    for (final o in const [
-                      ('default', 'homeFilterSortDefault'),
-                      ('price_asc', 'homeFilterSortPriceAsc'),
-                      ('price_desc', 'homeFilterSortPriceDesc'),
-                      ('power_asc', 'homeFilterSortPowerAsc'),
-                      ('power_desc', 'homeFilterSortPowerDesc'),
-                    ])
-                      DropdownMenuItem(
-                          value: o.$1, child: Text(t(context).tr(o.$2))),
-                  ],
-                  onChanged: (v) => ref.read(catalogSortProvider.notifier).state =
-                      v ?? 'default',
-                ),
-              ),
-            ),
-          ],
-        ),
+        // ── Dnes volné + řazení ── (ve v2 listu pod sebou: dlouhé popisky
+        // řazení v fr/uk jinak přetečou řádek; starý vzhled beze změny)
+        if (widget.embedded)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [todayToggle, const SizedBox(height: 12), sortBox],
+          )
+        else
+          Row(
+            children: [
+              Expanded(child: todayToggle),
+              const SizedBox(width: 8),
+              sortBox,
+            ],
+          ),
       ],
     );
   }
 
-  Widget _label(BuildContext context, String key, {String? value}) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            t(context).tr(key),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: MotoGoColors.g400,
-              letterSpacing: 0.5,
+  /// Ve v2 listu (embedded) se dlouhý popisek pobočky zalomí do „…"
+  /// místo přetečení řádku (es/fr/pl/uk); starý vzhled beze změny.
+  Widget _fit(Text text) => widget.embedded
+      ? Flexible(
+          // v2: nejdřív zmenšit (do 70 %), „…" až úplně nakonec.
+          child: MgWordFit(
+            minScale: 0.7,
+            child: Text(
+              text.data ?? '',
+              style: text.style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+        )
+      : text;
+
+  Widget _label(BuildContext context, String key, {String? value}) {
+    final title = Text(
+      t(context).tr(key),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: MotoGoColors.g400,
+        letterSpacing: 0.5,
+      ),
+    );
+    return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // v2: název smí na 2 řádky, hodnota zůstane celá (pl přetékal).
+          if (widget.embedded) Flexible(child: title) else title,
           if (value != null)
             Text(
               value,
@@ -461,6 +536,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             ),
         ],
       );
+  }
 
   /// Posuvník od–do. Krajní polohy = BEZ omezení (null), takže motorky
   /// s nevyplněným údajem zůstávají ve výpisu.

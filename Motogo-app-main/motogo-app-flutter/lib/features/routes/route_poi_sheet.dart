@@ -9,6 +9,9 @@ import 'poi_categories.dart';
 import 'poi_rating.dart';
 import 'poi_reviews.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/poi_sheet_v2.dart';
 
 /// Nadpis sekce v detailu bodu zájmu — výrazný, prominentní.
 Widget _poiSectionTitle(String s) => Padding(
@@ -183,6 +186,13 @@ class _PoiPagerState extends State<_PoiPager> {
                 },
               ),
             ),
+          // Viditelné zavření — panel jde jinak zavřít jen stažením dolů
+          // (na iPhonu není tlačítko zpět). Drží se nahoře i při posunu.
+          const Positioned(
+            top: 8,
+            right: 10,
+            child: MgSheetClose(overlay: true),
+          ),
           if (many)
             Positioned(
               // Mimo osu — uprostřed nahoře sedí táhlo panelu.
@@ -191,7 +201,9 @@ class _PoiPagerState extends State<_PoiPager> {
               child: IgnorePointer(
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Container(
+                  child: MgV2.on(context)
+                      ? PoiSheetCounterV2('${_at + 1} / ${_items.length}')
+                      : Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 3),
                     decoration: BoxDecoration(
@@ -330,9 +342,10 @@ class _PoiSheetContentState extends State<_PoiSheetContent> {
                         ),
                       ),
                     ),
-                    // Náznak „klikni pro zvětšení"
+                    // Náznak „klikni pro zvětšení" (vpravo dole — vpravo
+                    // nahoře je křížek Zavřít panelu).
                     Positioned(
-                      right: 12, top: 12,
+                      right: 12, bottom: 12,
                       child: Container(
                         padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
@@ -393,6 +406,14 @@ class _PoiSheetContentState extends State<_PoiSheetContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (MgV2.on(context))
+                    PoiSheetHeadV2(
+                      index: index,
+                      name: poi.nameFor(lang),
+                      catKey: cat.key,
+                      catLabel: t(context).tr(cat.i18nKey),
+                    )
+                  else ...[
                   // ── Název + pořadové číslo ──
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -446,6 +467,7 @@ class _PoiSheetContentState extends State<_PoiSheetContent> {
                       ],
                     ),
                   ),
+                  ],
 
                   // Donačítání plného detailu katalogového bodu (popis/okolí/
                   // galerie) — jemný indikátor, ať karta nepůsobí prázdně.
@@ -519,6 +541,7 @@ class _AddToTripButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) return PoiTripButtonV2(selected: selected, onTap: onTap);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -597,12 +620,13 @@ void openPoiImageViewer(BuildContext context, List<String> imgs, int start, Stri
           Positioned(
             top: MediaQuery.of(dctx).padding.top + 8,
             right: 12,
-            child: GestureDetector(
+            child: MgBackTap(close: true,
               onTap: () => Navigator.of(dctx).pop(),
               child: Container(
                 padding: const EdgeInsets.all(8),
+                // Tmavý podklad — bílý křížek je vidět i na světlé fotce.
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.black.withValues(alpha: 0.55),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.close, color: Colors.white, size: 24),
@@ -692,6 +716,8 @@ void _showPhotoCredit(BuildContext context, String url, String lang) {
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                const MgSheetClose(),
               ],
             ),
             if (source != null) ...[

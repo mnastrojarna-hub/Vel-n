@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'my_experiences_provider.dart' show VisitResult;
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Widgety navigační obrazovky — HUD, kompas, markery, karta dojezdu na bod,
 /// karta dokončení trasy a sheet se zastávkami trasy.
@@ -396,9 +397,8 @@ class StopReachedCard extends StatelessWidget {
                   ],
                 ),
               ),
-              GestureDetector(
+              MgBackTap(close: true,
                 onTap: onClose,
-                behavior: HitTestBehavior.opaque,
                 child: const Padding(
                   padding: EdgeInsets.all(6),
                   child: Icon(Icons.close, size: 20, color: MotoGoColors.g400),
@@ -582,9 +582,8 @@ class RouteDoneCard extends StatelessWidget {
                       decoration: TextDecoration.none),
                 ),
               ),
-              GestureDetector(
+              MgBackTap(close: true,
                 onTap: onClose,
-                behavior: HitTestBehavior.opaque,
                 child: const Padding(
                   padding: EdgeInsets.all(6),
                   child: Icon(Icons.close, size: 20, color: MotoGoColors.g400),
@@ -647,13 +646,7 @@ void showNavStopsSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              margin: const EdgeInsets.only(top: 10, bottom: 6),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
-            ),
+            const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 2),
               child: Row(

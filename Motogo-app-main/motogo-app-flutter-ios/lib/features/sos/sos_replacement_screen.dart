@@ -6,12 +6,15 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
-import 'sos_timeline_i18n.dart';
 import '../../core/widgets/address_autocomplete_field.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../catalog/catalog_provider.dart';
 import '../catalog/moto_model.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/state_views.dart';
+import 'sos_feedback.dart';
 import 'sos_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// SOS replacement motorcycle selection.
 ///
@@ -55,10 +58,20 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
 
     setState(() => _loading = true);
 
-    final active = ref.read(activeSosProvider).valueOrNull;
+    final activeState = ref.read(activeSosProvider);
+    final active = activeState.valueOrNull;
     if (active == null) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: t(context).tr('noActiveIncident'));
       setState(() => _loading = false);
+      // Stav incidentu se nenačetl (výpadek) ≠ „žádný incident".
+      final err = activeState.hasError ? activeState.error : null;
+      final retry = await showSosActionFailed(context,
+          title: t(context).tr('eoSosReplaceFailTitle'),
+          error: err,
+          extra: err == null ? t(context).tr('noActiveIncident') : t(context).tr('eoSosReplaceByPhone'));
+      if (retry && mounted) {
+        ref.invalidate(activeSosProvider);
+        await _confirm();
+      }
       return;
     }
 
@@ -73,16 +86,25 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
         'p_daily_price': 0,
         'p_is_free': true,
       });
-
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final retry = await showSosActionFailed(context,
+          title: t(context).tr('eoSosReplaceFailTitle'), error: e,
+          extra: t(context).tr('eoSosReplaceByPhone'));
+      if (retry && mounted) await _confirm();
+      return;
+    }
+    // Záznam do průběhu je jen informativní — výměna už proběhla, jeho
+    // selhání nesmí zákazníkovi tvrdit, že se náhrada neobjednala.
+    try {
       await MotoGoSupabase.client.from('sos_timeline').insert({
         'incident_id': active.id,
         'action': 'Zákazník objednal náhradní motorku: ${_selectedMoto!.model} (zdarma)',
         'description': 'Adresa: $_addrStreet, $_addrCity',
       });
     } catch (e) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: sosErrorMessage(t(context), e));
-      setState(() => _loading = false);
-      return;
+      FriendlyError.log('sos_replacement_timeline', e);
     }
 
     if (!mounted) return;
@@ -115,7 +137,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    GestureDetector(
+                    MgBackTap(
                       onTap: () => context.backOr(Routes.home),
                       child: Container(width: 36, height: 36,
                         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
@@ -167,7 +189,13 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                         );
                       },
                       loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
-                      error: (_, __) => Text(t(context).tr('errorLoadingMotos')),
+                      error: (e, _) => MgErrorView(
+                          compact: true,
+                          error: e,
+                          what: t(context).tr('errorLoadingMotos'),
+                          onRetry: () => ref.invalidate(motorcyclesProvider),
+                          contact: false,
+                          extra: const [SosCallButton()]),
                     ),
                     const SizedBox(height: 16),
 

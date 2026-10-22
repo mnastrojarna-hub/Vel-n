@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/state_views.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show StorageException;
 
 /// PDF dokument rezervace (smlouva, protokol v PDF…) PŘÍMO v appce na Androidu.
 /// Android WebView PDF nevykreslí, a tak se dřív otevíral externí prohlížeč —
@@ -19,7 +21,10 @@ class PdfPagesScreen extends StatefulWidget {
   final String url;
   final String title;
 
-  const PdfPagesScreen({super.key, required this.url, required this.title});
+  /// Nová podepsaná URL pro „Zkusit znovu" (stará po 10 min vyprší).
+  final Future<String?> Function()? refreshUrl;
+
+  const PdfPagesScreen({super.key, required this.url, required this.title, this.refreshUrl});
 
   @override
   State<PdfPagesScreen> createState() => _PdfPagesScreenState();
@@ -35,9 +40,17 @@ class _PdfPagesScreenState extends State<PdfPagesScreen> {
     _pages = _load();
   }
 
+  late String _url = widget.url;
+  bool _retried = false;
+
   Future<List<Uint8List>> _load() async {
-    final resp = await http.get(Uri.parse(widget.url)).timeout(const Duration(seconds: 30));
-    if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
+    if (_retried && widget.refreshUrl != null) {
+      _url = await widget.refreshUrl!() ?? _url;
+    }
+    final resp = await http.get(Uri.parse(_url)).timeout(const Duration(seconds: 30));
+    if (resp.statusCode != 200) {
+      throw StorageException('HTTP ${resp.statusCode}', statusCode: '${resp.statusCode}');
+    }
     // Šířka v pixelech displeje (ostré písmo), strop kvůli paměti.
     final view = WidgetsBinding.instance.platformDispatcher.views.first;
     final width = view.physicalSize.width.clamp(720.0, 1600.0).round();
@@ -48,22 +61,21 @@ class _PdfPagesScreenState extends State<PdfPagesScreen> {
     return pages;
   }
 
-  void _retry() => setState(() => _pages = _load());
+  void _retry() => setState(() {
+        _retried = true;
+        _pages = _load();
+      });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: MotoGoColors.g200,
       appBar: AppBar(
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
-          child: Center(
-            child: Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
-              child: const Center(child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black))),
-            ),
-          ),
+        automaticallyImplyLeading: false,
+        leadingWidth: 56,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: MgBackArrow(onTap: () => Navigator.of(context).maybePop()),
         ),
         title: Text(widget.title, style: const TextStyle(fontSize: 15)),
         backgroundColor: MotoGoColors.dark,
@@ -72,11 +84,11 @@ class _PdfPagesScreenState extends State<PdfPagesScreen> {
         future: _pages,
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator(color: MotoGoColors.green));
+            return MgLoadingView(onRetry: _retry, onBack: () => Navigator.of(context).maybePop());
           }
           if (snap.hasError || !snap.hasData) {
             debugPrint('[PDF_VIEW] render failed: ${snap.error}');
-            return _error(context);
+            return _error(context, snap.error);
           }
           final pages = snap.data!;
           // Jeden InteractiveViewer přes celý dokument: tah = posun (i svisle,
@@ -112,26 +124,18 @@ class _PdfPagesScreenState extends State<PdfPagesScreen> {
     );
   }
 
-  Widget _error(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.error_outline, size: 48, color: MotoGoColors.red),
-            const SizedBox(height: 12),
-            Text(t(context).tr('loadingError'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _retry,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: Text(t(context).tr('retry')),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => launchUrl(Uri.parse(widget.url), mode: LaunchMode.externalApplication),
-              icon: const Icon(Icons.open_in_new, size: 16),
-              label: Text(t(context).tr('openOutsideApp')),
-            ),
-          ]),
-        ),
+  /// Co, proč a jak dál (síť / vypršelý odkaz / vykreslení) + otevření mimo appku.
+  Widget _error(BuildContext context, Object? error) => MgErrorView(
+        error: error,
+        what: t(context).tr('eoDocLoadFail'),
+        onRetry: _retry,
+        onBack: () => Navigator.of(context).maybePop(),
+        extra: [
+          TextButton.icon(
+            onPressed: () => launchUrl(Uri.parse(_url), mode: LaunchMode.externalApplication),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: Text(t(context).tr('openOutsideApp')),
+          ),
+        ],
       );
 }

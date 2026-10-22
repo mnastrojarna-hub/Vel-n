@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -10,8 +11,15 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/i18n/app_lang.dart';
 import '../../core/supabase_client.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../sos/sos_provider.dart' show hasActiveRentalProvider;
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/ai_chat_parts_v2.dart';
+import 'v2/ai_chat_view_v2.dart';
+import 'v2/ai_photo_sheet_v2.dart';
 
 /// AI Moto Agent chat — mirrors s-ai-agent from ai-agent-ui.js + ai-agent-send.js.
 /// Calls ai-moto-agent edge function with booking context.
@@ -33,6 +41,8 @@ class _AiAgentState extends State<AiAgentScreen> {
   final _pendingImages = <Uint8List>[];
 
   bool _greeted = false;
+  bool _slow = false;
+  Timer? _slowTimer;
 
   @override
   void initState() {
@@ -78,40 +88,60 @@ class _AiAgentState extends State<AiAgentScreen> {
     // Samotná fotka bez textu: backend vyžaduje neprázdnou zprávu.
     if (text.isEmpty) text = t(context).tr('aiPhotoOnlyMsg');
 
-    final lang = normalizeAppLang(Localizations.localeOf(context).languageCode);
-
+    final msg = _ChatMsg(text: text, isBot: false, images: images);
     setState(() {
-      _messages.add(_ChatMsg(text: text, isBot: false, images: images));
+      _messages.add(msg);
       _pendingImages.clear();
-      _sending = true;
     });
     _inputCtrl.clear();
-    _scrollToBottom();
+    await _dispatch(msg);
+  }
 
-    // Build conversation history (without greeting / SOS hint chips) so the
-    // agent has context of the whole chat — without this every message was
-    // answered in isolation.
+  /// Zkusit znovu — stejná zpráva i fotky (dřív se text i fotky ztratily).
+  Future<void> _retry(_ChatMsg msg) async {
+    if (_sending) return;
+    setState(() {
+      msg.failed = false;
+      _messages.removeWhere((m) => m.errorFor == msg);
+    });
+    await _dispatch(msg);
+  }
+
+  Future<void> _dispatch(_ChatMsg msg) async {
+    final lang = normalizeAppLang(Localizations.localeOf(context).languageCode);
+    setState(() {
+      _sending = true;
+      _slow = false;
+    });
+    _scrollToBottom();
+    // Po 20 s „Ještě přemýšlím…" — odpověď může trvat (limit 90 s).
+    _slowTimer?.cancel();
+    _slowTimer = Timer(const Duration(seconds: 20), () {
+      if (mounted && _sending) setState(() => _slow = true);
+    });
+
+    // Build conversation history (without greeting / SOS hint chips / chyby)
+    // so the agent has context of the whole chat — without this every
+    // message was answered in isolation. Odesílaná zpráva jde zvlášť.
     final history = <Map<String, String>>[];
     for (final m in _messages) {
-      if (m.isSosHint) continue;
+      if (m.isSosHint || m.errorFor != null || m.failed || identical(m, msg)) continue;
       if (m.isBot && m == _messages.first) continue; // skip greeting
       history.add({'role': m.isBot ? 'assistant' : 'user', 'content': m.text});
     }
-    // Drop the just-added user message — it's sent separately as `message`.
-    if (history.isNotEmpty && history.last['role'] == 'user') history.removeLast();
 
     try {
       final res = await MotoGoSupabase.client.functions.invoke(
         'ai-moto-agent',
         body: {
-          'message': text,
+          'message': msg.text,
           'booking_id': _bookingId,
           'lang': lang,
           'conversation_history': history,
           'supports_images': true,
-          if (images.isNotEmpty)
+          if (msg.images.isNotEmpty)
             'images': [
-              for (final img in images)
+              for (final img in msg.images)
                 {'base64': base64Encode(img), 'media_type': 'image/jpeg'},
             ],
         },
@@ -137,14 +167,31 @@ class _AiAgentState extends State<AiAgentScreen> {
         });
       }
     } catch (e) {
+      FriendlyError.log('ai_agent_failed', e);
       if (mounted) {
-        setState(() => _messages.add(_ChatMsg(
-          text: t(context).tr('aiCommError'),
-          isBot: true,
-        )));
+        final tr = t(context);
+        final fe = FriendlyError.of(e);
+        final text = switch (fe.kind) {
+          FriendlyKind.offline => tr.tr('eoAiOffline'),
+          FriendlyKind.tooLarge => tr.tr('eoAiTooLarge'),
+          FriendlyKind.rateLimit => tr.tr('eoRateBody'),
+          FriendlyKind.auth => '${tr.tr('eoAuthBody')} ${tr.tr('eoAuthHint')}',
+          _ => tr.tr('eoAiDown'),
+        };
+        final canSos = ProviderScope.containerOf(context, listen: false)
+            .read(hasActiveRentalProvider);
+        setState(() {
+          msg.failed = true;
+          _messages.add(_ChatMsg(text: '❌ $text', isBot: true, errorFor: msg));
+          if (canSos) {
+            _messages.add(_ChatMsg(
+                text: tr.tr('aiSuggestSos'), isBot: true, isSosHint: true, errorFor: msg));
+          }
+        });
       }
     }
 
+    _slowTimer?.cancel();
     if (mounted) {
       setState(() => _sending = false);
       _scrollToBottom();
@@ -158,8 +205,15 @@ class _AiAgentState extends State<AiAgentScreen> {
     }
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => MgV2.on(ctx)
+          // v2 vzhled výběru zdroje (kill-switch) — stejné návratové hodnoty.
+          ? AiPhotoSheetV2(
+              onCamera: () => Navigator.pop(ctx, ImageSource.camera),
+              onGallery: () => Navigator.pop(ctx, ImageSource.gallery),
+            )
+          : SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
           ListTile(
             leading: const Icon(Icons.photo_camera_outlined),
             title: Text(t(ctx).tr('aiTakePhoto')),
@@ -184,8 +238,13 @@ class _AiAgentState extends State<AiAgentScreen> {
       final bytes = await picked.readAsBytes();
       if (!mounted) return;
       setState(() => _pendingImages.add(bytes));
-    } catch (_) {
-      if (mounted) showMotoGoToast(context, icon: '⚠️', title: t(context).tr('aiPhotoError'));
+    } catch (e) {
+      // Proč (oprávnění / chyba) a jak dál — dřív jen „Fotku se nepodařilo načíst".
+      if (mounted) {
+        showErrorSnack(context, t(context).tr('aiPhotoError'), e,
+            where: 'ai_photo_pick',
+            perm: source == ImageSource.camera ? DevicePerm.camera : DevicePerm.photos);
+      }
     }
   }
 
@@ -200,6 +259,7 @@ class _AiAgentState extends State<AiAgentScreen> {
 
   @override
   void dispose() {
+    _slowTimer?.cancel();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -207,10 +267,37 @@ class _AiAgentState extends State<AiAgentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejný stav i akce.
+    if (MgV2.on(context)) {
+      return AiChatViewV2(
+        items: [
+          for (final m in _messages)
+            AiChatItemV2(
+              text: m.text,
+              isBot: m.isBot,
+              isSosHint: m.isSosHint,
+              isError: m.errorFor != null && !m.isSosHint,
+              failed: m.failed,
+              images: m.images,
+              onRetry: () => _retry(m),
+            ),
+        ],
+        sending: _sending,
+        slow: _slow,
+        pendingImages: _pendingImages,
+        onRemoveImage: (i) => setState(() => _pendingImages.removeAt(i)),
+        inputCtrl: _inputCtrl,
+        scrollCtrl: _scrollCtrl,
+        onBack: () => context.backOr(Routes.home),
+        onSend: _send,
+        onAttach: _attachPhoto,
+        onSos: () => context.push(Routes.sos),
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.home),
           child: Center(
             child: Container(
@@ -238,7 +325,7 @@ class _AiAgentState extends State<AiAgentScreen> {
                     alignment: Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(t(context).tr('aiThinking'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
+                      child: Text(t(context).tr(_slow ? 'eoAiStillThinking' : 'aiThinking'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
                     ),
                   );
                 }
@@ -380,6 +467,20 @@ class _AiAgentState extends State<AiAgentScreen> {
               ]),
             ),
           Text(msg.text, style: const TextStyle(fontSize: 13, color: MotoGoColors.black, height: 1.5)),
+          // Neodeslaná zpráva: text i fotky zůstávají, jedním klepnutím znovu.
+          if (msg.failed)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: GestureDetector(
+                onTap: _sending ? null : () => _retry(msg),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.refresh, size: 16, color: MotoGoColors.black),
+                  const SizedBox(width: 4),
+                  Text(t(context).tr('eoRetry'),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                ]),
+              ),
+            ),
         ]),
       ),
     );
@@ -391,5 +492,11 @@ class _ChatMsg {
   final bool isBot;
   final bool isSosHint;
   final List<Uint8List> images;
-  _ChatMsg({required this.text, required this.isBot, this.isSosHint = false, this.images = const []});
+
+  /// Zpráva zákazníka, která neodešla (ukáže „Zkusit znovu").
+  bool failed = false;
+
+  /// Chybová / SOS bublina patřící k neodeslané zprávě (při opakování zmizí).
+  final _ChatMsg? errorFor;
+  _ChatMsg({required this.text, required this.isBot, this.isSosHint = false, this.images = const [], this.errorFor});
 }

@@ -3,6 +3,8 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../../core/date_days.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_calendar_v2.dart';
 
 /// Calendar widget for editing reservations (extend/shorten).
 /// Mirrors pickE() + buildECal() + highlightEditResDates() from
@@ -282,6 +284,23 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui, V22 §3.4): jednolitý pás výsledného
+    // termínu; klepnutí i měsíce řeší tentýž State jako dosud.
+    if (MgV2.on(context)) {
+      return EditReservationCalendarV2View(
+        year: _year,
+        month: _month,
+        mode: widget.mode,
+        origStart: widget.origStart,
+        origEnd: widget.origEnd,
+        newStart: widget.newStart,
+        newEnd: widget.newEnd,
+        isOccupied: _isOccupiedOrPending,
+        onDayTap: _onDayTap,
+        onPrevMonth: _prevMonth,
+        onNextMonth: _nextMonth,
+      );
+    }
     final daysInMonth = DateTime(_year, _month + 1, 0).day;
     final firstWeekday = DateTime(_year, _month, 1).weekday;
     final offset = firstWeekday - 1;

@@ -1,0 +1,283 @@
+/* ===== MotoGo24 app v2 · RANK THEME (shared/rank-theme.css) — paste VERBATIM into the board's single helmet style block, AFTER the board base CSS (button resets).
+   Source of truth: appdesign/research/rankTheme.js → gen/gen.js (never hand-edit the 20 level blocks; regenerate).
+   USE: root element class = rankTheme(level).cls  → "rk rk-3 t-road" (any element may carry its own rk-N/t-* to preview another rank locally).
+   Rank drives ONLY: primary CTA (fill/label/edge/glow/loop fx), logo + avatar ring and progress arc, rank chip, header aura + texture +
+   minted edge + one-shot ambient, nav pill, AI-FAB ring, tier emblem/rail, progress bars, level-up. It NEVER touches prices, ✓/⚠, SOS,
+   focus rings, links, Apple/Google Pay.  Reduced motion: board root also gets class "rm" → every loop/one-shot is off, end states shown.
+   v2.1 (owner 2026-10-15): no pink / purple / violet anywhere — VIP 17 = ivory foil + crimson label + red–gold frame, VIP 19 pearl edge without
+   pink, jewel ambient tinted by the rank. Details: research/rank_colors.md.
+   v2.2 RAMP (owner 2026-10-16 „aby měl pocit, že roste … žádné dvě barvy podobné“): ALL 20 colours recoloured as one progression — Silnice
+   greens 1–5 → Kovy bronze/silver/gold/platinum 6–9 → Drahokamy ice → royal sapphire 10–16 (deeper = rarer; 10–14 ice CTAs with navy label,
+   15–16 deep CTAs with white label) → VIP crimson / rich gold / platinum pearl 17–19 → fiery gold ONLY at 20. CIEDE2000 ≥ 12.4 every pair,
+   ≥ 15.6 neighbours. Details: research/rank_ramp.md.
+   v2.2 PAINTED TOKENS (shared fixer 2026-10-16): text on dark, hero-glass text, chip text, glow, ring and CTA fill are ALSO distinct —
+   CIEDE2000 ≥ 10 every pair, ≥ 12 neighbours — Silnice CTA fill 1–5 included (brand neon only tints the first third, plus a rank-coloured edge);
+   VIP 17 text = ivory (+ crimson dot, gold crown), VIP 18 ring = flat brushed gold (#FFD700 → #FF6B00 only for Legenda 20);
+   glow extras grow with the GLOBAL level (no reset at a new tier). Check: scratchpad/fixshared/tokde.js. */
+
+/* Registered colours so a rank change MORPHS (600 ms) instead of jumping — used for the level-up landing behind the dialog.
+   Where @property is unsupported the switch is simply instant (acceptable fallback). */
+@property --rk{syntax:'<color>';inherits:true;initial-value:#74FB71}
+@property --rk-acc{syntax:'<color>';inherits:true;initial-value:#74FB71}
+@property --rk-acc-g{syntax:'<color>';inherits:true;initial-value:#74FB71}
+@property --rk-accl{syntax:'<color>';inherits:true;initial-value:#0D6E0D}
+@property --rk-uid{syntax:'<color>';inherits:true;initial-value:#74FB71}
+@property --rk-uil{syntax:'<color>';inherits:true;initial-value:#1F9A4A}
+@property --rk-chip-bg{syntax:'<color>';inherits:true;initial-value:#18472C}
+@property --rk-chip-tx{syntax:'<color>';inherits:true;initial-value:#74FB71}
+@property --rk-chip-bd{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-aura{syntax:'<color>';inherits:true;initial-value:#24563B}
+@property --rk-glow{syntax:'<color>';inherits:true;initial-value:#74FB71}
+@property --rk-glow-a{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-glow-s{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-glow-0{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-halo{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-b1{syntax:'<color>';inherits:true;initial-value:#8DFF86}
+@property --rk-b2{syntax:'<color>';inherits:true;initial-value:#74F07B}
+@property --rk-b3{syntax:'<color>';inherits:true;initial-value:#5AE070}
+@property --rk-b4{syntax:'<color>';inherits:true;initial-value:#37CF63}
+@property --rk-on{syntax:'<color>';inherits:true;initial-value:#08230F}
+@property --rk-e1{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-e2{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-e3{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-e4{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-ring2{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-arc{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-ang{syntax:'<angle>';inherits:true;initial-value:135deg}
+/* within-tier step (owner 2026-10-15: ranks 3/4/5 must not look alike) — numbers/lengths registered too, so a level-up inside a tier
+   slides the next mark in and swells the glow instead of jumping */
+@property --rk-st{syntax:'<number>';inherits:true;initial-value:3}
+@property --rk-sn{syntax:'<number>';inherits:true;initial-value:5}
+@property --rk-gx{syntax:'<length>';inherits:true;initial-value:0px}
+@property --rk-shb{syntax:'<length>';inherits:true;initial-value:8px}
+@property --rk-sh{syntax:'<color>';inherits:true;initial-value:transparent}
+@property --rk-amba{syntax:'<color>';inherits:true;initial-value:transparent}
+/* a11y 2026-10-16: --rk-jbo = opacity of the static jewel band on the CTA (rank 12 white label → .5), --rk-prs = pressed brightness */
+@property --rk-jbo{syntax:'<number>';inherits:true;initial-value:1}
+@property --rk-prs{syntax:'<number>';inherits:true;initial-value:1.07}
+.rk{transition-property:--rk,--rk-acc,--rk-acc-g,--rk-accl,--rk-uid,--rk-uil,--rk-chip-bg,--rk-chip-tx,--rk-chip-bd,--rk-aura,--rk-glow,--rk-glow-a,--rk-glow-s,--rk-glow-0,--rk-halo,--rk-b1,--rk-b2,--rk-b3,--rk-b4,--rk-on,--rk-e1,--rk-e2,--rk-e3,--rk-e4,--rk-ring2,--rk-arc,--rk-ang,--rk-st,--rk-sn,--rk-gx,--rk-shb,--rk-sh,--rk-amba;transition-duration:.6s;transition-timing-function:cubic-bezier(.2,0,0,1)}
+.rk.rm{transition:none!important}
+
+/* ---- 5 tiers: glow geometry, ambient (length + image), static header texture (4–7 % white, zero motion), step marks ----
+   --rk-mk = mark shape (mask): Silnice lane dash · Kovy rivet · Drahokamy facet · VIP crown · Legenda none (--rk-mkd:none, single level)
+   --rk-mkp/-mkg/-mkh = pitch / gap / height of a mark (CTA uses 80 %), --rk-rp = pitch on the logo ring (row ≤ 26 px).
+   --rk-rs = 1 only in Silnice: gates the extra shine streaks.  The step rules read inherited tokens only (no tier descendant
+   selectors) → a preview wrapper of another rank inside the board root always shows ITS OWN step. ---- */
+.t-road{--rk-gb:22px;--rk-hb:0px;--rk-pulse:7px;--rk-ambd:.9s;--rk-tex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='120' fill='none' stroke='%23fff' stroke-opacity='.06'%3E%3Cpath d='M-10 28c30-14 52 10 82 2s52-20 82-6 36 12 36 12M-10 58c30-14 52 10 82 2s52-20 82-6 36 12 36 12M-10 88c30-14 52 10 82 2s52-20 82-6 36 12 36 12'/%3E%3Cellipse cx='128' cy='62' rx='24' ry='13'/%3E%3Cellipse cx='128' cy='62' rx='11' ry='5.5'/%3E%3C/svg%3E");--rk-mk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 4'%3E%3Crect width='7' height='4' rx='1.3'/%3E%3C/svg%3E");--rk-mkp:10px;--rk-mkg:3px;--rk-mkh:4px;--rk-rp:5px;--rk-mkd:block;--rk-rs:1;--rk-ambi:linear-gradient(105deg,rgba(255,255,255,0) 34%,var(--rk-amba) 45%,rgba(255,255,255,.2) 50%,var(--rk-amba) 55%,rgba(255,255,255,0) 66%);--rk-ambs:250% 100%}
+.t-metal{--rk-gb:26px;--rk-hb:40px;--rk-pulse:8px;--rk-ambd:.9s;--rk-tex:repeating-linear-gradient(180deg,rgba(255,255,255,.045) 0 1px,rgba(255,255,255,0) 1px 3px),repeating-linear-gradient(180deg,rgba(0,0,0,.07) 0 1px,rgba(0,0,0,0) 1px 9px);--rk-mk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 5'%3E%3Ccircle cx='2.5' cy='2.5' r='2.5'/%3E%3C/svg%3E");--rk-mkp:8px;--rk-mkg:3px;--rk-mkh:5px;--rk-rp:6px;--rk-mkd:block;--rk-rs:0;--rk-ambi:linear-gradient(105deg,rgba(255,255,255,0) 38%,rgba(255,255,255,.14) 47%,rgba(255,255,255,.30) 50%,rgba(255,255,255,.14) 53%,rgba(255,255,255,0) 62%);--rk-ambs:250% 100%}
+.t-jewel{--rk-gb:28px;--rk-hb:44px;--rk-pulse:9px;--rk-ambd:1.1s;--rk-tex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='104' fill='none' stroke='%23fff' stroke-opacity='.06'%3E%3Cpath d='M0 52L30 0L60 52L90 0L120 52M0 52L30 104L60 52L90 104L120 52M0 52H120M30 0L90 104M90 0L30 104'/%3E%3C/svg%3E");--rk-mk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 6'%3E%3Cpath d='M3 0 6 3 3 6 0 3z'/%3E%3C/svg%3E");--rk-mkp:8px;--rk-mkg:2px;--rk-mkh:6px;--rk-rp:3.6px;--rk-mkd:block;--rk-rs:0;--rk-ambi:linear-gradient(105deg,rgba(255,255,255,0) 38%,var(--rk-amba) 45%,rgba(255,255,255,.32) 50%,rgba(255,226,170,.18) 55%,rgba(255,255,255,0) 62%);--rk-ambs:250% 100%}
+.t-vip{--rk-gb:30px;--rk-hb:48px;--rk-pulse:9px;--rk-ambd:2.4s;--rk-tex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' stroke='%23fff' stroke-opacity='.055'%3E%3Ccircle cx='32' cy='32' r='30'/%3E%3Ccircle cx='0' cy='0' r='30'/%3E%3Ccircle cx='64' cy='0' r='30'/%3E%3Ccircle cx='0' cy='64' r='30'/%3E%3Ccircle cx='64' cy='64' r='30'/%3E%3Ccircle cx='32' cy='32' r='14'/%3E%3C/svg%3E");--rk-mk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 6V1.6l2.1 1.9L4 0l1.9 3.5L8 1.6V6z'/%3E%3C/svg%3E");--rk-mkp:10px;--rk-mkg:2px;--rk-mkh:6px;--rk-rp:6px;--rk-mkd:block;--rk-rs:0;--rk-ambi:radial-gradient(30% 45% at 30% 35%,var(--rk-glow-a),rgba(255,255,255,0) 70%),radial-gradient(26% 40% at 70% 70%,rgba(212,175,55,.45),rgba(255,255,255,0) 70%);--rk-ambs:180% 140%}
+.t-legend{--rk-gb:34px;--rk-hb:56px;--rk-pulse:10px;--rk-ambd:2.8s;--rk-tex:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='200' fill='none' stroke='%23FFE27A' stroke-opacity='.08' stroke-width='2'%3E%3Cpath d='M110 186c-46-12-76-52-72-104M110 186c46-12 76-52 72-104'/%3E%3Cg fill='%23FFE27A' fill-opacity='.06' stroke='none'%3E%3Cellipse cx='44' cy='70' rx='14' ry='6' transform='rotate(-70 44 70)'/%3E%3Cellipse cx='50' cy='104' rx='14' ry='6' transform='rotate(-50 50 104)'/%3E%3Cellipse cx='66' cy='136' rx='14' ry='6' transform='rotate(-30 66 136)'/%3E%3Cellipse cx='88' cy='162' rx='14' ry='6' transform='rotate(-12 88 162)'/%3E%3Cellipse cx='176' cy='70' rx='14' ry='6' transform='rotate(70 176 70)'/%3E%3Cellipse cx='170' cy='104' rx='14' ry='6' transform='rotate(50 170 104)'/%3E%3Cellipse cx='154' cy='136' rx='14' ry='6' transform='rotate(30 154 136)'/%3E%3Cellipse cx='132' cy='162' rx='14' ry='6' transform='rotate(12 132 162)'/%3E%3C/g%3E%3C/svg%3E") no-repeat right -40px center / 220px 200px,url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' stroke='%23fff' stroke-opacity='.05'%3E%3Ccircle cx='32' cy='32' r='30'/%3E%3Ccircle cx='0' cy='0' r='30'/%3E%3Ccircle cx='64' cy='0' r='30'/%3E%3Ccircle cx='0' cy='64' r='30'/%3E%3Ccircle cx='64' cy='64' r='30'/%3E%3C/svg%3E");--rk-mk:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 6V1.6l2.1 1.9L4 0l1.9 3.5L8 1.6V6z'/%3E%3C/svg%3E");--rk-mkp:10px;--rk-mkg:2px;--rk-mkh:6px;--rk-rp:6px;--rk-mkd:none;--rk-rs:0;--rk-ambi:radial-gradient(30% 45% at 30% 35%,rgba(255,140,0,.55),rgba(255,255,255,0) 70%),radial-gradient(26% 40% at 70% 70%,rgba(255,226,122,.5),rgba(255,255,255,0) 70%);--rk-ambs:180% 140%}
+
+/* ---- 20 levels (generated from research/rankTheme.js; contrast-solved) ---- */
+.rk-1{--rk:#A3B8A8;--rk-acc:#A3B8A8;--rk-acc-g:#A3B8A8;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#5F6B61;--rk-uid:#A3B8A8;--rk-uil:#86978A;--rk-chip-bg:#264132;--rk-chip-tx:#A3B8A8;--rk-chip-bd:rgba(163,184,168,0.55);--rk-aura:#458050;--rk-glow:#A6FF8F;--rk-glow-a:rgba(166,255,143,0.5);--rk-glow-s:rgba(166,255,143,0.8);--rk-glow-0:rgba(166,255,143,0);--rk-halo:rgba(166,255,143,0);--rk-b1:#9BD19C;--rk-b2:#A1BFA5;--rk-b3:#A3B8A8;--rk-b4:#A3B8A8;--rk-ang:135deg;--rk-on:#08230F;--rk-e1:#D1DCD4;--rk-e2:#A3B8A8;--rk-e3:#A3B8A8;--rk-e4:#8B9C8F;--rk-ring:linear-gradient(#A3B8A8,#A3B8A8);--rk-ring2:transparent;--rk-arc:#B5C6B9}
+.rk-2{--rk:#BDF6D1;--rk-acc:#BDF6D1;--rk-acc-g:#BDF6D1;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#536C5C;--rk-uid:#BDF6D1;--rk-uil:#799D86;--rk-chip-bg:#2A4B39;--rk-chip-tx:#BDF6D1;--rk-chip-bd:rgba(189,246,209,0.55);--rk-aura:#4A7E61;--rk-glow:#BDF6D1;--rk-glow-a:rgba(189,246,209,0.5);--rk-glow-s:rgba(189,246,209,0.8);--rk-glow-0:rgba(189,246,209,0);--rk-halo:rgba(189,246,209,0);--rk-b1:#ACF9B7;--rk-b2:#B8F7CA;--rk-b3:#BDF6D1;--rk-b4:#BDF6D1;--rk-ang:135deg;--rk-on:#08230F;--rk-e1:#DEFBE8;--rk-e2:#BDF6D1;--rk-e3:#BDF6D1;--rk-e4:#A1D1B2;--rk-ring:linear-gradient(#BDF6D1,#BDF6D1);--rk-ring2:transparent;--rk-arc:#CAF8DA}
+.rk-3{--rk:#4ADE80;--rk-acc:#4ADE80;--rk-acc-g:#56E66E;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#287845;--rk-uid:#4ADE80;--rk-uil:#37A45F;--rk-chip-bg:#18472C;--rk-chip-tx:#4ADE80;--rk-chip-bd:rgba(74,222,128,0.55);--rk-aura:#2E784C;--rk-glow:#4ADE80;--rk-glow-a:rgba(74,222,128,0.5);--rk-glow-s:rgba(74,222,128,0.8);--rk-glow-0:rgba(74,222,128,0);--rk-halo:rgba(74,222,128,0);--rk-b1:#61EA82;--rk-b2:#51E181;--rk-b3:#4ADE80;--rk-b4:#4ADE80;--rk-ang:135deg;--rk-on:#08230F;--rk-e1:#A5EFC0;--rk-e2:#4ADE80;--rk-e3:#4ADE80;--rk-e4:#3FBD6D;--rk-ring:linear-gradient(#4ADE80,#4ADE80);--rk-ring2:transparent;--rk-arc:#6EE599}
+.rk-4{--rk:#00AC7F;--rk-acc:#00AC7F;--rk-acc-g:#22C38E;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#007859;--rk-uid:#00AC7F;--rk-uil:#00A97C;--rk-chip-bg:#0C3F2C;--rk-chip-tx:#00B687;--rk-chip-bd:rgba(0,172,127,0.55);--rk-aura:#1B6C4C;--rk-glow:#00AC7F;--rk-glow-a:rgba(0,172,127,0.5);--rk-glow-s:rgba(0,172,127,0.8);--rk-glow-0:rgba(0,172,127,0);--rk-halo:rgba(0,172,127,0);--rk-b1:#31C981;--rk-b2:#0EB480;--rk-b3:#00AC7F;--rk-b4:#00AC7F;--rk-ang:135deg;--rk-on:#08230F;--rk-e1:#80D6BF;--rk-e2:#00AC7F;--rk-e3:#00AC7F;--rk-e4:#00926C;--rk-ring:linear-gradient(#00AC7F,#00AC7F);--rk-ring2:transparent;--rk-arc:#3FC19F}
+.rk-5{--rk:#0AA2A4;--rk-acc:#0AA2A4;--rk-acc-g:#32BEBB;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#077576;--rk-uid:#0AA2A4;--rk-uil:#0AA2A4;--rk-chip-bg:#0D3D32;--rk-chip-tx:#0BB0B2;--rk-chip-bd:rgba(10,162,164,0.55);--rk-aura:#1E6955;--rk-glow:#0AA2A4;--rk-glow-a:rgba(10,162,164,0.5);--rk-glow-s:rgba(10,162,164,0.8);--rk-glow-0:rgba(10,162,164,0);--rk-halo:rgba(10,162,164,0);--rk-b1:#38C39A;--rk-b2:#17ABA1;--rk-b3:#0AA2A4;--rk-b4:#0AA2A4;--rk-ang:135deg;--rk-on:#08230F;--rk-e1:#85D1D2;--rk-e2:#0AA2A4;--rk-e3:#0AA2A4;--rk-e4:#098A8B;--rk-ring:linear-gradient(#0AA2A4,#0AA2A4);--rk-ring2:transparent;--rk-arc:#4FBCBD}
+.rk-6{--rk:#C2844A;--rk-acc:#C2844A;--rk-acc-g:#D3A67C;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#8C5F35;--rk-uid:#C2844A;--rk-uil:#C2844A;--rk-chip-bg:#2B3823;--rk-chip-tx:#C8915D;--rk-chip-bd:rgba(194,132,74,0.55);--rk-aura:#576540;--rk-glow:#C2844A;--rk-glow-a:rgba(194,132,74,0.55);--rk-glow-s:rgba(194,132,74,0.85);--rk-glow-0:rgba(194,132,74,0);--rk-halo:rgba(194,132,74,0.12);--rk-b1:#E4C8AE;--rk-b2:#CD9A6B;--rk-b3:#C2844A;--rk-b4:#AF7743;--rk-ang:115deg;--rk-on:#1A1405;--rk-e1:#F0E0D2;--rk-e2:#D4B9A0;--rk-e3:#B7916D;--rk-e4:#9B6A3B;--rk-ring:conic-gradient(from 210deg,#E7CEB7,#C2844A,#9C6B3C,#E7CEB7);--rk-ring2:transparent;--rk-arc:#D3A77D}
+.rk-7{--rk:#929496;--rk-acc:#929496;--rk-acc-g:#ADADAD;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#666869;--rk-uid:#929496;--rk-uil:#929496;--rk-chip-bg:#233B30;--rk-chip-tx:#9E9E9E;--rk-chip-bd:rgba(146,148,150,0.55);--rk-aura:#466959;--rk-glow:#8E9298;--rk-glow-a:rgba(142,146,152,0.55);--rk-glow-s:rgba(142,146,152,0.85);--rk-glow-0:rgba(142,146,152,0);--rk-halo:rgba(142,146,152,0.12);--rk-b1:#C6C7C8;--rk-b2:#9FA1A3;--rk-b3:#8B8D90;--rk-b4:#7F8184;--rk-ang:115deg;--rk-on:#0B1512;--rk-e1:#E4E4E5;--rk-e2:#BFBFC1;--rk-e3:#9A9B9C;--rk-e4:#757678;--rk-ring:conic-gradient(from 210deg,#CDCECF,#8E9092,#76787A,#CDCECF);--rk-ring2:transparent;--rk-arc:#ADAEB0}
+.rk-8{--rk:#E5D376;--rk-acc:#E5D376;--rk-acc-g:#E5D376;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#72693B;--rk-uid:#E5D376;--rk-uil:#A09453;--rk-chip-bg:#30452A;--rk-chip-tx:#E5D376;--rk-chip-bd:rgba(229,211,118,0.55);--rk-aura:#607C4D;--rk-glow:#E5D376;--rk-glow-a:rgba(229,211,118,0.55);--rk-glow-s:rgba(229,211,118,0.85);--rk-glow-0:rgba(229,211,118,0);--rk-halo:rgba(229,211,118,0.12);--rk-b1:#F3EBC1;--rk-b2:#EADB8F;--rk-b3:#E5D376;--rk-b4:#CEBE6A;--rk-ang:115deg;--rk-on:#1A1405;--rk-e1:#F9F4DD;--rk-e2:#E3DBB3;--rk-e3:#CDC288;--rk-e4:#B7A95E;--rk-ring:conic-gradient(from 210deg,#F5EDC8,#E5D376,#AC9E59,#F5EDC8);--rk-ring2:transparent;--rk-arc:#EADC91}
+.rk-9{--rk:#B9BEC6;--rk-acc:#B9BEC6;--rk-acc-g:#C9CFDD;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#686A6F;--rk-uid:#B9BEC6;--rk-uil:#90949A;--rk-chip-bg:#294237;--rk-chip-tx:#C1C5D1;--rk-chip-bd:rgba(185,190,198,0.55);--rk-aura:#577B6C;--rk-glow:#C3C9D3;--rk-glow-a:rgba(195,201,211,0.55);--rk-glow-s:rgba(195,201,211,0.85);--rk-glow-0:rgba(195,201,211,0);--rk-halo:rgba(195,201,211,0.12);--rk-b1:#E0E2E5;--rk-b2:#C6CAD0;--rk-b3:#B9BEC6;--rk-b4:#A7ABB2;--rk-ang:115deg;--rk-on:#0B1512;--rk-e1:#EEEFF1;--rk-e2:#D0D2D5;--rk-e3:#B2B5BA;--rk-e4:#94989E;--rk-ring:conic-gradient(from 210deg,#EEF1F5,#C3CAD5,#9AA3B0,#EEF1F5);--rk-ring2:transparent;--rk-arc:#C7CBD1}
+.rk-10{--rk:#AEE9FF;--rk-acc:#AEE9FF;--rk-acc-g:#AEE9FF;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#506B75;--rk-uid:#AEE9FF;--rk-uil:#739AA8;--rk-chip-bg:#284940;--rk-chip-tx:#AEE9FF;--rk-chip-bd:rgba(174,233,255,0.55);--rk-aura:#4D7E75;--rk-glow:#AEE9FF;--rk-glow-a:rgba(174,233,255,0.58);--rk-glow-s:rgba(174,233,255,0.88);--rk-glow-0:rgba(174,233,255,0);--rk-halo:rgba(174,233,255,0.16);--rk-b1:#AEE9FF;--rk-b2:#AFE4FF;--rk-b3:#B0E0FF;--rk-b4:#B1DBFF;--rk-ang:135deg;--rk-on:#0A1F33;--rk-e1:#D2F3FF;--rk-e2:#CEEEFF;--rk-e3:#C9E9FF;--rk-e4:#C5E4FF;--rk-ring:repeating-conic-gradient(from 8deg,rgba(255,255,255,.26) 0 15deg,rgba(255,255,255,0) 15deg 30deg),conic-gradient(from 20deg,#AEE9FF,#A7EDF5,#AEE9FF,#B1DCFF,#AEE9FF);--rk-ring2:transparent;--rk-arc:#BEEDFF}
+.rk-11{--rk:#2CD1D4;--rk-acc:#2CD1D4;--rk-acc-g:#1AF0F4;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#197577;--rk-uid:#2CD1D4;--rk-uil:#22A3A5;--rk-chip-bg:#134539;--rk-chip-tx:#2CDFE2;--rk-chip-bd:rgba(44,209,212,0.55);--rk-aura:#268171;--rk-glow:#2CD1D4;--rk-glow-a:rgba(44,209,212,0.58);--rk-glow-s:rgba(44,209,212,0.88);--rk-glow-0:rgba(44,209,212,0);--rk-halo:rgba(44,209,212,0.16);--rk-b1:#2CD1D4;--rk-b2:#3DCCD7;--rk-b3:#4FC8DB;--rk-b4:#60C3DE;--rk-ang:135deg;--rk-on:#0A1F33;--rk-e1:#8BE6E7;--rk-e2:#8ADFE7;--rk-e3:#89D9E6;--rk-e4:#88D2E6;--rk-ring:repeating-conic-gradient(from 8deg,rgba(255,255,255,.26) 0 15deg,rgba(255,255,255,0) 15deg 30deg),conic-gradient(from 20deg,#2CD1D4,#2CD4BB,#2CD1D4,#52C3DC,#2CD1D4);--rk-ring2:transparent;--rk-arc:#56DADD}
+.rk-12{--rk:#6EAFFF;--rk-acc:#6EAFFF;--rk-acc-g:#99CEFF;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#446C9E;--rk-uid:#6EAFFF;--rk-uil:#5F97DB;--rk-chip-bg:#1D3F40;--rk-chip-tx:#8ABEFF;--rk-chip-bd:rgba(110,175,255,0.55);--rk-aura:#407885;--rk-glow:#6EAFFF;--rk-glow-a:rgba(110,175,255,0.58);--rk-glow-s:rgba(110,175,255,0.88);--rk-glow-0:rgba(110,175,255,0);--rk-halo:rgba(110,175,255,0.16);--rk-b1:#6EAFFF;--rk-b2:#6BB2F8;--rk-b3:#69B4F2;--rk-b4:#66B7EB;--rk-ang:135deg;--rk-on:#0A1F33;--rk-e1:#AFD3FF;--rk-e2:#A3D0FA;--rk-e3:#98CCF5;--rk-e4:#8CC9F0;--rk-ring:repeating-conic-gradient(from 8deg,rgba(255,255,255,.26) 0 15deg,rgba(255,255,255,0) 15deg 30deg),conic-gradient(from 20deg,#6EAFFF,#66B7EB,#6EAFFF,#7FA3FF,#6EAFFF);--rk-ring2:transparent;--rk-arc:#8BBFFF}
+.rk-13{--rk:#00A1C7;--rk-acc:#00A1C7;--rk-acc-g:#0CBEDF;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#00748F;--rk-uid:#00A1C7;--rk-uil:#00A1C7;--rk-chip-bg:#0C3D37;--rk-chip-tx:#00ADD6;--rk-chip-bd:rgba(0,161,199,0.55);--rk-aura:#167370;--rk-glow:#00A1C7;--rk-glow-a:rgba(0,161,199,0.58);--rk-glow-s:rgba(0,161,199,0.88);--rk-glow-0:rgba(0,161,199,0);--rk-halo:rgba(0,161,199,0.16);--rk-b1:#00A1C7;--rk-b2:#00A4BB;--rk-b3:#00A6AE;--rk-b4:#00A9A2;--rk-ang:135deg;--rk-on:#0A1F33;--rk-e1:#73CBE0;--rk-e2:#62C7D3;--rk-e3:#51C3C6;--rk-e4:#40BFB9;--rk-ring:repeating-conic-gradient(from 8deg,rgba(255,255,255,.26) 0 15deg,rgba(255,255,255,0) 15deg 30deg),conic-gradient(from 20deg,#00A1C7,#00A5A9,#00A1C7,#2F97D1,#00A1C7);--rk-ring2:transparent;--rk-arc:#4BBDD7}
+.rk-14{--rk:#5087D4;--rk-acc:#90A0C3;--rk-acc-g:#A5AECF;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#3E69A5;--rk-uid:#5087D4;--rk-uil:#5087D4;--rk-chip-bg:#193939;--rk-chip-tx:#90A0C3;--rk-chip-bd:rgba(80,135,212,0.55);--rk-aura:#1D6A79;--rk-glow:#118BDF;--rk-glow-a:rgba(17,139,223,0.58);--rk-glow-s:rgba(17,139,223,0.88);--rk-glow-0:rgba(17,139,223,0);--rk-halo:rgba(17,139,223,0.16);--rk-b1:#578CD6;--rk-b2:#5B88D7;--rk-b3:#6085D9;--rk-b4:#6481DA;--rk-ang:135deg;--rk-on:#0A1F33;--rk-e1:#A3C0E8;--rk-e2:#9BB6E6;--rk-e3:#93ABE5;--rk-e4:#8BA1E3;--rk-ring:repeating-conic-gradient(from 8deg,rgba(255,255,255,.26) 0 15deg,rgba(255,255,255,0) 15deg 30deg),conic-gradient(from 20deg,#5087D4,#4A91C4,#5087D4,#5E7CD8,#5087D4);--rk-ring2:transparent;--rk-arc:#8CB0E3}
+.rk-15{--rk:#117897;--rk-acc:#7FB8C5;--rk-acc-g:#94B8C2;--rk-jbo:0.5;--rk-prs:0.95;--rk-accl:#107391;--rk-uid:#117897;--rk-uil:#117897;--rk-chip-bg:#0E3630;--rk-chip-tx:#7FB8C5;--rk-chip-bd:rgba(17,120,151,0.55);--rk-aura:#2A6B53;--rk-glow:#348D79;--rk-glow-a:rgba(52,141,121,0.58);--rk-glow-s:rgba(52,141,121,0.88);--rk-glow-0:rgba(52,141,121,0);--rk-halo:rgba(52,141,121,0.16);--rk-b1:#117897;--rk-b2:#107B8E;--rk-b3:#0E7D85;--rk-b4:#0D807C;--rk-ang:135deg;--rk-on:#FFFFFF;--rk-e1:#7CB5C6;--rk-e2:#6BAEB8;--rk-e3:#5BA7AB;--rk-e4:#4AA09D;--rk-ring:repeating-conic-gradient(from 8deg,rgba(255,255,255,.26) 0 15deg,rgba(255,255,255,0) 15deg 30deg),conic-gradient(from 20deg,#1B7D9B,#188189,#1B7D9B,#357AA7,#1B7D9B);--rk-ring2:transparent;--rk-arc:#7EB6C7}
+.rk-16{--rk:#165EEB;--rk-acc:#5E8CFF;--rk-acc-g:#88A9FC;--rk-jbo:0.5;--rk-prs:0.95;--rk-accl:#165EEB;--rk-uid:#2468EC;--rk-uil:#165EEB;--rk-chip-bg:#0F323D;--rk-chip-tx:#5792FF;--rk-chip-bd:rgba(22,94,235,0.55);--rk-aura:#316185;--rk-glow:#4773FD;--rk-glow-a:rgba(71,115,253,0.58);--rk-glow-s:rgba(71,115,253,0.88);--rk-glow-0:rgba(71,115,253,0);--rk-halo:rgba(71,115,253,0.16);--rk-b1:#165EEB;--rk-b2:#1C5CEC;--rk-b3:#2259EC;--rk-b4:#2857ED;--rk-ang:135deg;--rk-on:#FFFFFF;--rk-e1:#7FA6F4;--rk-e2:#749AF3;--rk-e3:#698DF3;--rk-e4:#5E81F2;--rk-ring:repeating-conic-gradient(from 8deg,rgba(255,255,255,.26) 0 15deg,rgba(255,255,255,0) 15deg 30deg),conic-gradient(from 20deg,#286BEC,#4568EF,#286BEC,#4965F0,#286BEC);--rk-ring2:transparent;--rk-arc:#88ADF5}
+.rk-17{--rk:#D42020;--rk-acc:#F6E7C9;--rk-acc-g:#F6E7C9;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#D01F1F;--rk-uid:#D52422;--rk-uil:#D42020;--rk-chip-bg:#2E281D;--rk-chip-tx:#F6E7C9;--rk-chip-bd:rgba(212,32,32,0.55);--rk-aura:#734B34;--rk-glow:#E13B2B;--rk-glow-a:rgba(225,59,43,0.62);--rk-glow-s:rgba(225,59,43,0.92);--rk-glow-0:rgba(225,59,43,0);--rk-halo:rgba(225,59,43,0.2);--rk-b1:#FFF7E6;--rk-b2:#FCEED3;--rk-b3:#F8E2BD;--rk-b4:#F2D5A6;--rk-ang:135deg;--rk-on:#7F1D1D;--rk-e1:#D42020;--rk-e2:#EFA467;--rk-e3:#E6A365;--rk-e4:#B91C1C;--rk-ring:linear-gradient(135deg,#D8322C,#E46648 50%,#D8322C);--rk-ring2:#D4AF37;--rk-arc:#F0936F}
+.rk-18{--rk:#EDB42D;--rk-acc:#EDB42D;--rk-acc-g:#EDB42D;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#856519;--rk-uid:#EDB42D;--rk-uil:#B98C23;--rk-chip-bg:#32401F;--rk-chip-tx:#EDB42D;--rk-chip-bd:rgba(237,180,45,0.55);--rk-aura:#747934;--rk-glow:#EDB42D;--rk-glow-a:rgba(237,180,45,0.62);--rk-glow-s:rgba(237,180,45,0.92);--rk-glow-0:rgba(237,180,45,0);--rk-halo:rgba(237,180,45,0.2);--rk-b1:#F7E4A8;--rk-b2:#E6BE4E;--rk-b3:#D2A22A;--rk-b4:#9C7818;--rk-ang:135deg;--rk-on:#14100A;--rk-e1:#FFF6D6;--rk-e2:#D9C795;--rk-e3:#B29953;--rk-e4:#8C6A12;--rk-ring:linear-gradient(135deg,#C8952F,#DDB862 50%,#B08429);--rk-ring2:#FFF1C2;--rk-arc:#F1C357}
+.rk-19{--rk:#F5F8FB;--rk-acc:#F5F8FB;--rk-acc-g:#F5F8FB;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#676869;--rk-uid:#F5F8FB;--rk-uil:#939597;--rk-chip-bg:#334B40;--rk-chip-tx:#F5F8FB;--rk-chip-bd:rgba(245,248,251,0.55);--rk-aura:#607A68;--rk-glow:#FBF7EE;--rk-glow-a:rgba(251,247,238,0.62);--rk-glow-s:rgba(251,247,238,0.92);--rk-glow-0:rgba(251,247,238,0);--rk-halo:rgba(251,247,238,0.2);--rk-b1:#FFFFFF;--rk-b2:#F6F8FB;--rk-b3:#EAEFF5;--rk-b4:#DCE3EC;--rk-ang:135deg;--rk-on:#14100A;--rk-e1:#E2E8F0;--rk-e2:#BAE6FD;--rk-e3:#BBF7D0;--rk-e4:#FDE68A;--rk-ring:linear-gradient(135deg,#F5F8FB,#F8FAFC 50%,#F5F8FB);--rk-ring2:#D4AF37;--rk-arc:#F7F9FC}
+.rk-20{--rk:#FF8C1A;--rk-acc:#FF8C1A;--rk-acc-g:#FF9934;--rk-jbo:1;--rk-prs:1.07;--rk-accl:#9E5710;--rk-uid:#FF8C1A;--rk-uil:#DB7816;--rk-chip-bg:#353A1C;--rk-chip-tx:#FF8C1A;--rk-chip-bd:rgba(255,140,26,0.55);--rk-aura:#8F6F1E;--rk-glow:#FF8C00;--rk-glow-a:rgba(255,140,0,0.66);--rk-glow-s:rgba(255,140,0,0.95);--rk-glow-0:rgba(255,140,0,0);--rk-halo:rgba(255,140,0,0.24);--rk-b1:#FFE27A;--rk-b2:#FFD700;--rk-b3:#FF9A1F;--rk-b4:#FF6B00;--rk-ang:135deg;--rk-on:#241A06;--rk-e1:#FFF4D6;--rk-e2:#FFDD8F;--rk-e3:#FFC747;--rk-e4:#FFB000;--rk-ring:conic-gradient(from 210deg,#FFE27A,#FFD700,#FF9A1F,#FF6B00,#FFE27A);--rk-ring2:transparent;--rk-arc:transparent}
+
+/* ---- within-tier steps (generated): --rk-st step / --rk-sn tier size · --rk-gx extra glow blur · --rk-shb/--rk-sh step halo ·
+   --rk-amba Silnice header sweep · --rk-shd Silnice shine length (3,2 → 2,6 s). Step 1 of every tier = the tier baseline. ---- */
+.rk-1{--rk-st:1;--rk-sn:5;--rk-gx:0px;--rk-shb:10px;--rk-sh:rgba(166,255,143,0.11);--rk-amba:rgba(166,255,143,0.1);--rk-shd:3.20s}
+.rk-2{--rk-st:2;--rk-sn:5;--rk-gx:1px;--rk-shb:10.75px;--rk-sh:rgba(189,246,209,0.12);--rk-amba:rgba(189,246,209,0.14);--rk-shd:3.05s}
+.rk-3{--rk-st:3;--rk-sn:5;--rk-gx:1px;--rk-shb:11.5px;--rk-sh:rgba(74,222,128,0.13);--rk-amba:rgba(74,222,128,0.18);--rk-shd:2.90s}
+.rk-4{--rk-st:4;--rk-sn:5;--rk-gx:2px;--rk-shb:12.25px;--rk-sh:rgba(0,172,127,0.14);--rk-amba:rgba(0,172,127,0.22);--rk-shd:2.75s}
+.rk-5{--rk-st:5;--rk-sn:5;--rk-gx:3px;--rk-shb:13px;--rk-sh:rgba(10,162,164,0.15);--rk-amba:rgba(10,162,164,0.26);--rk-shd:2.60s}
+.rk-6{--rk-st:1;--rk-sn:4;--rk-gx:3px;--rk-shb:13.75px;--rk-sh:rgba(194,132,74,0.17);--rk-amba:rgba(194,132,74,0.1);--rk-shd:3.20s}
+.rk-7{--rk-st:2;--rk-sn:4;--rk-gx:4px;--rk-shb:14.5px;--rk-sh:rgba(142,146,152,0.18);--rk-amba:rgba(142,146,152,0.15);--rk-shd:3.05s}
+.rk-8{--rk-st:3;--rk-sn:4;--rk-gx:4px;--rk-shb:15.25px;--rk-sh:rgba(229,211,118,0.19);--rk-amba:rgba(229,211,118,0.21);--rk-shd:2.90s}
+.rk-9{--rk-st:4;--rk-sn:4;--rk-gx:5px;--rk-shb:16px;--rk-sh:rgba(195,201,211,0.2);--rk-amba:rgba(195,201,211,0.26);--rk-shd:2.75s}
+.rk-10{--rk-st:1;--rk-sn:7;--rk-gx:6px;--rk-shb:16.75px;--rk-sh:rgba(174,233,255,0.21);--rk-amba:rgba(174,233,255,0.1);--rk-shd:3.20s}
+.rk-11{--rk-st:2;--rk-sn:7;--rk-gx:6px;--rk-shb:17.5px;--rk-sh:rgba(44,209,212,0.22);--rk-amba:rgba(44,209,212,0.13);--rk-shd:3.05s}
+.rk-12{--rk-st:3;--rk-sn:7;--rk-gx:7px;--rk-shb:18.25px;--rk-sh:rgba(110,175,255,0.23);--rk-amba:rgba(110,175,255,0.15);--rk-shd:2.90s}
+.rk-13{--rk-st:4;--rk-sn:7;--rk-gx:8px;--rk-shb:19px;--rk-sh:rgba(0,161,199,0.24);--rk-amba:rgba(0,161,199,0.18);--rk-shd:2.75s}
+.rk-14{--rk-st:5;--rk-sn:7;--rk-gx:8px;--rk-shb:19.75px;--rk-sh:rgba(17,139,223,0.25);--rk-amba:rgba(17,139,223,0.21);--rk-shd:2.60s}
+.rk-15{--rk-st:6;--rk-sn:7;--rk-gx:9px;--rk-shb:20.5px;--rk-sh:rgba(52,141,121,0.27);--rk-amba:rgba(52,141,121,0.23);--rk-shd:2.45s}
+.rk-16{--rk-st:7;--rk-sn:7;--rk-gx:9px;--rk-shb:21.25px;--rk-sh:rgba(71,115,253,0.28);--rk-amba:rgba(71,115,253,0.26);--rk-shd:2.30s}
+.rk-17{--rk-st:1;--rk-sn:3;--rk-gx:10px;--rk-shb:22px;--rk-sh:rgba(225,59,43,0.29);--rk-amba:rgba(225,59,43,0.1);--rk-shd:3.20s}
+.rk-18{--rk-st:2;--rk-sn:3;--rk-gx:11px;--rk-shb:22.75px;--rk-sh:rgba(237,180,45,0.3);--rk-amba:rgba(237,180,45,0.18);--rk-shd:3.05s}
+.rk-19{--rk-st:3;--rk-sn:3;--rk-gx:11px;--rk-shb:23.5px;--rk-sh:rgba(251,247,238,0.31);--rk-amba:rgba(251,247,238,0.26);--rk-shd:2.90s}
+.rk-20{--rk-st:1;--rk-sn:1;--rk-gx:12px;--rk-shb:24.25px;--rk-sh:rgba(255,140,0,0.32);--rk-amba:rgba(255,140,0,0.26);--rk-shd:3.20s}
+
+/* ---- PRIMARY CTA (the screen's ONE primary; always on a dark surface: hero card, sticky bar, sheet) ----
+   markup (inside any .rk scope — root carries rk.cls; to preview another rank put rk/rk-N/t-* on a WRAPPER, never on the button): <button class="rk-cta lg"><span class="rk-fx" aria-hidden="true"><i></i><i></i><i></i></span><span class="rk-lbl">…label…</span></button>
+   sizes: (default) 56 px · .lg 60 px full-width sticky · .md 48 px (cards) · .sm 44 px (tap minimum).  .still = same material, NO loops (any non-primary use).
+   STEP inside the tier (pure CSS, no markup): ::before = dim slots (tier size), ::after = lit marks (step) under the label —
+   Silnice lane dashes 1–5, Kovy rivets 1–4, Drahokamy facets 1–7, VIP crowns 1–3, Legenda none; glow blur/halo grow with the step
+   (--rk-gx/--rk-shb/--rk-sh). Hidden on .ghost/.dis/.off/[disabled]. Label contrast is untouched (fill/label = solver values). */
+.rk .rk-cta{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;padding:0 20px;border-radius:14px;border:1.5px solid transparent;
+  background:linear-gradient(var(--rk-ang),var(--rk-b1),var(--rk-b2) 33%,var(--rk-b3) 67%,var(--rk-b4)) padding-box,linear-gradient(135deg,var(--rk-e1),var(--rk-e2) 35%,var(--rk-e3) 70%,var(--rk-e4)) border-box;
+  color:var(--rk-on);font:800 14.5px/1.15 Montserrat,sans-serif;letter-spacing:.3px;text-transform:uppercase;text-align:center;cursor:pointer;
+  box-shadow:0 8px calc(var(--rk-gb) + var(--rk-gx)) -8px var(--rk-glow-a),0 0 0 0 var(--rk-glow-0),0 0 var(--rk-hb) 0 var(--rk-halo),0 0 var(--rk-shb) 0 var(--rk-sh);
+  animation:rkGlow 2.2s ease-in-out infinite;transition:transform .15s ease,filter .18s ease;-webkit-tap-highlight-color:transparent}
+.rk .rk-cta.lg{min-height:60px;border-radius:16px;font-size:14.5px}
+.rk .rk-cta.md{min-height:48px;border-radius:12px;font-size:13.5px;padding:0 16px}
+.rk .rk-cta.sm{min-height:44px;border-radius:12px;font-size:12.5px;padding:0 12px}
+.rk .rk-cta:active{transform:scale(.97);filter:brightness(var(--rk-prs)) saturate(1.05)}
+.rk .rk-cta:focus-visible{outline:3px solid #74FB71;outline-offset:3px}
+.rk .rk-cta.still,.rk .rk-cta[disabled]{animation:none}
+.rk .rk-cta.still .rk-fx i{display:none}
+.rk .rk-cta[disabled] .rk-fx{display:none}
+.rk .rk-cta[disabled]{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.12);color:#8FB3A1;box-shadow:none;cursor:default}
+.rk .rk-cta::before,.rk .rk-cta::after{content:'';position:absolute;z-index:1;left:50%;bottom:6px;display:var(--rk-mkd);height:calc(var(--rk-mkh) * .8);margin-left:calc((var(--rk-sn) * var(--rk-mkp) - var(--rk-mkg)) * -.4);
+  background:var(--rk-on);pointer-events:none;-webkit-mask:var(--rk-mk) 0 0/calc(var(--rk-mkp) * .8) 100% repeat-x;mask:var(--rk-mk) 0 0/calc(var(--rk-mkp) * .8) 100% repeat-x}
+.rk .rk-cta::before{width:calc((var(--rk-sn) * var(--rk-mkp) - var(--rk-mkg)) * .8);opacity:.2}
+.rk .rk-cta::after{width:calc((var(--rk-st) * var(--rk-mkp) - var(--rk-mkg)) * .8);opacity:.62;animation:rkMk .7s cubic-bezier(.2,.8,.2,1) .5s both}
+.rk .rk-cta.md::before,.rk .rk-cta.md::after{bottom:5px}
+.rk .rk-cta.sm::before,.rk .rk-cta.sm::after{bottom:4px}
+.rk .rk-cta:is(.ghost,.dis,.off,[disabled])::before,.rk .rk-cta:is(.ghost,.dis,.off,[disabled])::after{display:none}
+.rk-lbl{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0}
+.rk-lbl .tn,.rk-cta .tn{font-variant-numeric:tabular-nums}
+.rk-lbl svg{flex:none}
+.rk-fx{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden}
+.rk-fx i{position:absolute;display:block;opacity:0}
+/* Silnice step: trailing streaks 2 (from step 3) and 3 (step 5) ride the same shine pass (not an extra loop); generic selectors placed
+   BEFORE the tier rules + gated by --rk-rs (0 outside Silnice) → jewel glints / legend embers keep their own geometry and motion */
+.rk-fx i:nth-child(2),.rk-fx i:nth-child(3){left:0;height:100%;background:linear-gradient(120deg,rgba(255,255,255,0),rgba(255,255,255,.6),rgba(255,255,255,0));transform:translateX(-160%) skewX(-22deg);animation:rkShine var(--rk-shd) ease-in-out infinite}
+.rk-fx i:nth-child(2){width:24%;opacity:calc(var(--rk-rs) * clamp(0, var(--rk-st) - 2, 1));animation-delay:.14s}
+.rk-fx i:nth-child(3){width:14%;opacity:calc(var(--rk-rs) * clamp(0, var(--rk-st) - 4, 1));animation-delay:.26s}
+/* VIP crown / Legend laurel glyph before the label (markup carries both; tier decides) */
+.rk-gc,.rk-gl{display:none;width:18px;height:18px;fill:currentColor;fill-opacity:.25;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.t-vip .rk-gc,.t-legend .rk-gl{display:inline-block}
+
+/* loop fx — replaces the brand "shine" in the SAME loop slot (never an extra loop) */
+.t-road .rk-fx i:first-child{opacity:1;top:0;bottom:0;left:0;width:50%;background:linear-gradient(120deg,rgba(255,255,255,0),rgba(255,255,255,.75),rgba(255,255,255,0));transform:translateX(-160%) skewX(-22deg);animation:rkShine var(--rk-shd) ease-in-out infinite}
+.t-metal .rk-fx::before{content:'';position:absolute;left:0;right:0;top:0;height:46%;background:linear-gradient(rgba(255,255,255,.30),rgba(255,255,255,0))}
+.t-metal .rk-fx::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(180deg,rgba(255,255,255,.07) 0 1px,rgba(255,255,255,0) 1px 3px)}
+.t-metal .rk-fx i:first-child{opacity:1;top:-20%;bottom:-20%;left:0;width:42%;background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.5) 44%,rgba(255,255,255,.9) 50%,rgba(255,255,255,.5) 56%,rgba(255,255,255,0));filter:blur(1.5px);transform:translateX(-170%) skewX(-12deg);animation:rkSheen 4.8s cubic-bezier(.45,0,.2,1) infinite}
+.t-jewel .rk-fx::before{content:'';position:absolute;inset:0;opacity:var(--rk-jbo);background:linear-gradient(115deg,rgba(255,255,255,0) 28%,rgba(255,255,255,.20) 29%,rgba(255,255,255,0) 46%,rgba(255,255,255,.12) 62%,rgba(255,255,255,0) 63%)}
+.t-jewel .rk-fx i{width:10px;height:10px;background:#fff;clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);animation:rkGlint 3.6s ease-in-out infinite}
+.t-jewel .rk-fx i:nth-child(1){left:12%;top:20%}
+.t-jewel .rk-fx i:nth-child(2){left:57%;top:14%;width:8px;height:8px;animation-delay:.3s}
+.t-jewel .rk-fx i:nth-child(3){left:86%;top:56%;width:7px;height:7px;animation-delay:.6s}
+.t-vip .rk-fx{padding:1.5px;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.t-vip .rk-fx i:first-child{opacity:1;left:-50%;top:50%;width:200%;aspect-ratio:1;margin-top:-100%;background:conic-gradient(rgba(255,255,255,0) 0 68%,rgba(255,255,255,.95) 80%,rgba(255,255,255,0) 92%);animation:rkSpin 4s linear infinite}
+.t-legend .rk-fx i:first-child{opacity:1;top:0;bottom:0;left:0;width:55%;background:linear-gradient(120deg,rgba(255,244,214,0),rgba(255,244,214,.85),rgba(255,176,0,.3),rgba(255,176,0,0));transform:translateX(-160%) skewX(-22deg);animation:rkShine 4.4s ease-in-out infinite}
+.t-legend .rk-fx i:nth-child(n+2){bottom:5px;width:4px;height:4px;border-radius:50%;background:#FFF4D6;box-shadow:0 0 6px 2px rgba(255,140,0,.8);animation:rkEmber 4.4s ease-out infinite}
+.t-legend .rk-fx i:nth-child(2){left:22%;animation-delay:2.1s}
+.t-legend .rk-fx i:nth-child(3){left:73%;animation-delay:3s}
+
+/* ---- rank chip (dark surfaces) ---- */
+.rk-chip{display:inline-flex;align-items:center;gap:8px;height:28px;max-width:100%;padding:0 12px 0 8px;border-radius:999px;background:var(--rk-chip-bg);border:1px solid var(--rk-chip-bd);color:var(--rk-chip-tx);font:800 11.5px/1 Montserrat,sans-serif;white-space:nowrap}
+.rk-chip::before{content:'';flex:none;width:8px;height:8px;border-radius:50%;background:var(--rk);box-shadow:0 0 8px var(--rk-glow-a)}
+.rk-t{color:var(--rk-acc-g)} /* rank-coloured text on dark: glass-safe accent (≥4.5:1 on #0E2A1C AND on white .06 glass over the hero, a11y 2026-10-16) */
+.rk-tl{color:var(--rk-accl)} /* rank-coloured text on light (≥4.5:1, solved) */
+
+/* ---- header / hero surface: aura + tier texture + minted edge + one-shot ambient ----
+   markup: <header class="rk-hero"><span class="rk-amb" aria-hidden="true"></span> …content… </header> */
+/* a11y v2.2 PORT RULE (shared fixer 2026-10-16): the aura reaches its full --rk-aura colour in the top-right ~140 × 140 px of every rk-hero
+   (white text there is ≥ 4.6:1 by construction, #CFE7DA / #B8D4C6 / #9FC4B1 / neon / rank text are NOT). In that corner place only white or
+   #E8F5EE text ≥ 12.5 px, or elements with their own opaque fill (bell, rank chip, pager). Same rule for every aura panel (.hd, .ls-s, .trc …). */
+.rk-hero{position:relative;isolation:isolate;overflow:hidden;color:#fff;background:radial-gradient(150% 120% at 100% 0,var(--rk-aura) 0,#0E2A1C 55%,#0A1F14 100%)}
+.rk-hero::before{content:'';position:absolute;inset:0;z-index:-1;background:var(--rk-tex);pointer-events:none}
+.rk-hero::after{content:'';position:absolute;left:28px;right:28px;bottom:0;height:2px;border-radius:2px;z-index:-1;background:linear-gradient(90deg,rgba(255,255,255,0),var(--rk-e1),var(--rk-uid) 50%,var(--rk-e3),rgba(255,255,255,0));opacity:.85}
+/* ambient image/size come from the tier block (--rk-ambi/--rk-ambs): Silnice = headlight sweep 0,9 s whose strength grows with the step (--rk-amba) */
+.rk-amb{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;background-repeat:no-repeat;background-image:var(--rk-ambi);background-size:var(--rk-ambs);background-position:-60% 0;animation:rkAmb0 var(--rk-ambd) ease-out .35s both}
+
+/* ---- logo / avatar frame: the logo is NEVER recoloured — rank = wide ring + glow AROUND it (as LogoRow) ----
+   markup: <span class="rk-frame"> <logo tile> <svg class="rk-arc" viewBox="0 0 76 76"><rect class="tr" x="1.25" y="1.25" width="73.5" height="73.5" rx="25"/><rect class="pr" x="1.25" y="1.25" width="73.5" height="73.5" rx="25" pathLength="100" style=(rk.arcSt)/></svg>
+           <span class="rk-crown">…</span><span class="rk-laurel">…</span><span class="rk-lv">(rk.level)</span></span>   (frame = 52 px tile + 5 px ring = 62 px) */
+.rk-frame{position:relative;display:inline-flex;flex:none;padding:5px;border-radius:18px;background:var(--rk-ring);box-shadow:0 0 0 1.5px var(--rk-ring2),0 0 calc(16px + var(--rk-gx)) 1px var(--rk-glow-a)}
+/* step marks ON the ring, bottom edge (Silnice lane dashes …), row ≤ 26 px so it stays on the straight part; level badge sits above */
+.rk-frame::before,.rk-frame::after{content:'';position:absolute;z-index:1;left:50%;bottom:1.25px;height:2.5px;display:var(--rk-mkd);margin-left:calc(var(--rk-sn) * var(--rk-rp) / -2);background:var(--rk-on);pointer-events:none;
+  -webkit-mask:var(--rk-mk) 0 0/var(--rk-rp) 100% repeat-x;mask:var(--rk-mk) 0 0/var(--rk-rp) 100% repeat-x}
+.rk-frame::before{width:calc(var(--rk-sn) * var(--rk-rp));opacity:.24}
+.rk-frame::after{width:calc(var(--rk-st) * var(--rk-rp));opacity:.85;animation:rkMk .7s cubic-bezier(.2,.8,.2,1) .45s both}
+.rk-arc{position:absolute;left:-7px;top:-7px;width:calc(100% + 14px);height:calc(100% + 14px);overflow:visible;pointer-events:none}
+.rk-arc rect,.rk-arc circle{fill:none;stroke-width:2.5;stroke-linecap:round}
+.rk-arc .tr{stroke:rgba(255,255,255,.18)}
+.rk-arc .pr{stroke:var(--rk-arc);stroke-dashoffset:-4.7;transition:stroke-dasharray .7s cubic-bezier(.2,.8,.2,1)}
+.rk-lv{position:absolute;right:-7px;bottom:-7px;min-width:21px;height:21px;padding:0 4px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:#0A1F14;border:1.5px solid var(--rk-uid);color:var(--rk-acc);font:900 11px/1 Montserrat,sans-serif;font-variant-numeric:tabular-nums;z-index:2}
+.rk-crown,.rk-laurel{display:none;position:absolute;pointer-events:none}
+.t-vip .rk-crown{display:block;left:50%;top:-15px;width:22px;height:15px;margin-left:-11px;color:#D4AF37;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.t-legend .rk-laurel{display:block;left:-12px;right:-12px;bottom:-10px;height:30px;color:#FFD34D}
+.rk-crown svg,.rk-laurel svg{width:100%;height:100%;display:block}
+
+/* ---- tier emblem (40 px disc in CTA material + tier icon) and tier rail swatches ---- */
+.rk-emb{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;border-radius:50%;color:var(--rk-on);border:1.5px solid transparent;
+  background:linear-gradient(var(--rk-ang),var(--rk-b1),var(--rk-b2) 33%,var(--rk-b3) 67%,var(--rk-b4)) padding-box,linear-gradient(135deg,var(--rk-e1),var(--rk-e2),var(--rk-e3),var(--rk-e4)) border-box;box-shadow:0 6px calc(16px + var(--rk-gx)) -6px var(--rk-glow-s)}
+.rk-emb svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rk-sw{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;font:700 11px/1.15 Montserrat,sans-serif;color:#4A6B5A;text-align:center}
+.rk-sw b{display:block;width:100%;height:34px;border-radius:10px;border:1.5px solid rgba(26,46,34,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.rk-sw.cur{color:#1A2E22;font-weight:800}
+.rk-sw.cur b{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--rk-uil)}
+.rk-sw.lock b{opacity:.5;filter:saturate(.7)}
+.rk-sw.lock b::after{content:'';position:absolute;left:50%;top:9px;width:14px;height:16px;margin-left:-7px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231A2E22' stroke-width='2.2' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat}
+
+/* ---- step marks as an element (dark surface; add .lt on light cards) + rank line under the Home greeting ----
+   markup: <p class="rk-motto" role="note" aria-label=(rk.mottoAria)><span class="rk-mk" aria-hidden="true"></span><span aria-hidden="true">(rk.motto)</span></p>
+   lit = rk accent (≥ 4.5:1 on #0E2A1C, solved) · dim = white 22 %; the text is rk.motto (one line per level, ≤ 256 px → one line at 360 dp) */
+.rk-mk{position:relative;flex:none;display:var(--rk-mkd);width:calc(var(--rk-sn) * var(--rk-mkp) - var(--rk-mkg));height:var(--rk-mkh)}
+.rk-mk::before,.rk-mk::after{content:'';position:absolute;left:0;top:0;bottom:0;-webkit-mask:var(--rk-mk) 0 0/var(--rk-mkp) 100% repeat-x;mask:var(--rk-mk) 0 0/var(--rk-mkp) 100% repeat-x}
+.rk-mk::before{right:0;background:rgba(255,255,255,.22)}
+.rk-mk::after{width:calc(var(--rk-st) * var(--rk-mkp) - var(--rk-mkg));background:var(--rk-acc);animation:rkMk .7s cubic-bezier(.2,.8,.2,1) .4s both}
+.rk-mk.lt::before{background:rgba(26,46,34,.16)}
+.rk-mk.lt::after{background:var(--rk-uil)}
+.rk-motto{display:flex;align-items:center;gap:8px;min-height:18px;margin-top:3px;font:700 12.5px/16px Montserrat,sans-serif;color:var(--rk-acc-g);animation:rkMotIn .45s ease .22s both}
+
+/* ---- tier progress bar (light card): 1 segment = 1 point, gap between levels ---- */
+.rk-bar{display:flex;gap:3px;height:10px}
+.rk-bar i{flex:1;border-radius:3px;background:#E6F2ED}
+.rk-bar i.lv{margin-left:4px}
+.rk-bar i.on{background:var(--rk-accl);animation:rkSeg .35s ease-out both}
+.rk-bar i.nx{background:repeating-linear-gradient(45deg,var(--rk-accl) 0 2px,#E6F2ED 2px 5px)}
+
+/* ---- level-up landing (root gets rk-lA / rk-lB alternately after each celebration → replays one-shots) ---- */
+.rk-lA .rk-chip,.rk-lA .rk-frame,.rk-lA .rk-emb{animation:rkPopA .55s cubic-bezier(.2,1.6,.4,1)}
+.rk-lB .rk-chip,.rk-lB .rk-frame,.rk-lB .rk-emb{animation:rkPopB .55s cubic-bezier(.2,1.6,.4,1)}
+.rk-lA .rk-arc .pr{animation:rkArcA .9s cubic-bezier(.2,.8,.2,1) .2s both}
+.rk-lB .rk-arc .pr{animation:rkArcB .9s cubic-bezier(.2,.8,.2,1) .2s both}
+.rk-lA .rk-amb{animation-name:rkAmbA}
+.rk-lB .rk-amb{animation-name:rkAmbB}
+.rk-lA .rk-cta::after,.rk-lA .rk-frame::after,.rk-lA .rk-mk::after{animation:rkMkA .8s cubic-bezier(.2,.8,.2,1) .25s both}
+.rk-lB .rk-cta::after,.rk-lB .rk-frame::after,.rk-lB .rk-mk::after{animation:rkMkB .8s cubic-bezier(.2,.8,.2,1) .25s both}
+.rk-lA .rk-motto{animation:rkMotA .55s ease both}
+.rk-lB .rk-motto{animation:rkMotB .55s ease both}
+
+@keyframes rkGlow{0%,100%{box-shadow:0 8px calc(var(--rk-gb) + var(--rk-gx)) -8px var(--rk-glow-a),0 0 0 0 var(--rk-glow-a),0 0 var(--rk-hb) 0 var(--rk-halo),0 0 var(--rk-shb) 0 var(--rk-sh)}50%{box-shadow:0 8px calc(var(--rk-gb) + var(--rk-gx) + 6px) -6px var(--rk-glow-s),0 0 0 calc(var(--rk-pulse) + var(--rk-gx) / 4) var(--rk-glow-0),0 0 var(--rk-hb) 4px var(--rk-halo),0 0 calc(var(--rk-shb) + 8px) 2px var(--rk-sh)}}
+@keyframes rkShine{0%,60%{transform:translateX(-160%) skewX(-22deg)}100%{transform:translateX(320%) skewX(-22deg)}}
+@keyframes rkSheen{0%,65%{transform:translateX(-170%) skewX(-12deg)}100%{transform:translateX(330%) skewX(-12deg)}}
+@keyframes rkGlint{0%,58%{opacity:0;transform:scale(0) rotate(0)}66%{opacity:1;transform:scale(1) rotate(45deg)}76%,100%{opacity:0;transform:scale(0) rotate(90deg)}}
+@keyframes rkSpin{to{transform:rotate(360deg)}}
+@keyframes rkEmber{0%,55%{opacity:0;transform:translateY(0) scale(.6)}62%{opacity:1}100%{opacity:0;transform:translateY(-16px) scale(1)}}
+@keyframes rkAmb0{0%{opacity:0;background-position:150% 0}15%,80%{opacity:1}100%{opacity:0;background-position:-60% 0}}
+@keyframes rkAmbA{0%{opacity:0;background-position:150% 0}15%,80%{opacity:1}100%{opacity:0;background-position:-60% 0}}
+@keyframes rkAmbB{0%{opacity:0;background-position:150% 0}15%,80%{opacity:1}100%{opacity:0;background-position:-60% 0}}
+@keyframes rkPopA{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
+@keyframes rkPopB{0%{transform:scale(1)}35%{transform:scale(1.14)}100%{transform:scale(1)}}
+@keyframes rkArcA{from{stroke-dasharray:0 100}}
+@keyframes rkArcB{from{stroke-dasharray:0 100}}
+@keyframes rkSeg{from{transform:scaleX(0);opacity:.3}to{transform:none;opacity:1}}
+@keyframes rkMk{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes rkMkA{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes rkMkB{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes rkMotIn{from{opacity:0;transform:translateY(6px)}}
+@keyframes rkMotA{from{opacity:0;transform:translateX(-10px)}}
+@keyframes rkMotB{from{opacity:0;transform:translateX(-10px)}}
+
+/* ---- shared a11y layer (2026-10-16, every board) ----
+   1) Glass-safe rank accent: on rgba(255,255,255,.06) glass over an .rk-hero (or any text on the hero) use --rk-acc-g (≥4.6:1 against
+      white .06 over mix(aura 25 %, #0E2A1C 75 %)). Port rule: no rank-accent text in the top-right 40 % of an .rk-hero (radial t < .6).
+   2) Progress bars on light cards use --rk-accl (≥4.6:1 vs the #E6F2ED track); on glass boards override with --rk-acc-g.
+   3) .paused on a page wrapper (or the root) while a sheet / dialog / level-up / AI chat is open → every page loop holds (≤ 2 loops rule).
+   Focus rings live in each board's base CSS (identical block): #0D6E0D on light surfaces, neon inside dark containers. */
+.paused .rk-cta,.paused .rk-fx i,.paused .rk-fx::before,.paused .rk-fx::after,.paused .pd::after,.paused .pd.live::after,.paused .nd.cu .nc::before,.paused .pl i,.paused .rb.pr{animation-play-state:paused!important}
+
+/* ---- reduced motion: loops off, one-shots snap to their END state (default styles ARE the end state) ---- */
+.rm .rk-cta,.rm .rk-fx i,.rm .rk-amb,.rm .rk-chip,.rm .rk-frame,.rm .rk-emb,.rm .rk-arc .pr,.rm .rk-bar i,.rm .rk-motto,.rm .rk-cta::after,.rm .rk-frame::after,.rm .rk-mk::after{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.rk{transition:none!important}.rk-cta,.rk-fx i,.rk-amb,.rk-chip,.rk-frame,.rk-emb,.rk-arc .pr,.rk-bar i,.rk-motto,.rk-cta::after,.rk-frame::after,.rk-mk::after{animation:none!important;transition:none!important}}

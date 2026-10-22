@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../push/push_service.dart';
 import '../supabase_client.dart';
 
 /// Centralized permission service — requests ALL permissions at once
@@ -57,6 +58,11 @@ class PermissionService {
         announcement: true,
         provisional: false,
       );
+    } catch (_) {}
+
+    // Oznámení povolená až teď → zaregistrovat push hned (ne až po restartu).
+    try {
+      await PushService.initialize();
     } catch (_) {}
 
     // Mark as granted in preferences
@@ -132,6 +138,12 @@ class PermissionService {
         ),
     ];
   }
+
+  /// i18n klíče titulků oprávnění, která po žádosti pořád nejsou povolená.
+  static Future<List<String>> missingTitles() async => [
+        for (final p in await getStatuses())
+          if (!p.granted) p.title,
+      ];
 
   /// Open system app settings so user can revoke/grant permissions.
   static Future<void> openSettings() async {

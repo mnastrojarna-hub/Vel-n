@@ -6,11 +6,13 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
-import '../../core/supabase_client.dart';
+import '../../core/widgets/state_views.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
-import 'doc_webview_screen.dart';
-import 'invoice_html_builder.dart';
+import 'doc_open_runner.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/invoices_view_v2.dart';
 
 /// Invoices list — mirrors s-invoices from templates-done-pages.js.
 class InvoicesScreen extends ConsumerWidget {
@@ -20,17 +22,30 @@ class InvoicesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final invoicesAsync = ref.watch(invoicesProvider);
 
-    return Scaffold(
-      backgroundColor: MotoGoColors.bg,
-      appBar: AppBar(
-        leading: GestureDetector(
-          onTap: () {
+    void onBack() {
             if (context.canPop()) {
               context.pop();
             } else {
               context.go(Routes.profile);
             }
-          },
+          }
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejná data i akce.
+    if (MgV2.on(context)) {
+      return InvoicesViewV2(
+        invoicesAsync: invoicesAsync,
+        groupByYear: groupInvoicesByYear,
+        onBack: onBack,
+        onBackOr: () => context.backOr(Routes.profile),
+        onRetry: () => ref.invalidate(invoicesProvider),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: MotoGoColors.bg,
+      appBar: AppBar(
+        leading: MgBackTap(
+          onTap: onBack,
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -54,11 +69,7 @@ class InvoicesScreen extends ConsumerWidget {
             ));
           }
 
-          final grouped = <int, List<UserInvoice>>{};
-          for (final inv in invoices) {
-            grouped.putIfAbsent(inv.createdAt.year, () => []).add(inv);
-          }
-          final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+          final (grouped, years) = groupInvoicesByYear(invoices);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -73,14 +84,32 @@ class InvoicesScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
+        loading: () => MgLoadingView(
+            onRetry: () => ref.invalidate(invoicesProvider),
+            onBack: () => context.backOr(Routes.profile)),
         error: (e, st) {
           debugPrint('[INVOICES] Provider error: $e\n$st');
-          return Center(child: Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
+          // Co, proč a jak dál + Zkusit znovu (dřív holé „Chyba načítání").
+          return MgErrorView(
+            error: e,
+            what: t(context).tr('eoInvoicesLoadFail'),
+            onRetry: () => ref.invalidate(invoicesProvider),
+            onBack: () => context.backOr(Routes.profile),
+          );
         },
       ),
     );
   }
+}
+
+/// Doklady po rocích (nejnovější rok první) — sdílené starým i v2 vzhledem.
+(Map<int, List<UserInvoice>>, List<int>) groupInvoicesByYear(List<UserInvoice> invoices) {
+          final grouped = <int, List<UserInvoice>>{};
+          for (final inv in invoices) {
+            grouped.putIfAbsent(inv.createdAt.year, () => []).add(inv);
+          }
+          final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+  return (grouped, years);
 }
 
 /// Řádek dokladu (otevře doklad 1:1) — i v detailu rezervace → Podrobnosti o platbě.
@@ -92,6 +121,20 @@ class InvoiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCN = invoice.isCreditNote;
     final date = '${invoice.createdAt.day}. ${invoice.createdAt.month}. ${invoice.createdAt.year}';
+    // dobropis má v DB zápornou částku → abs(), jinak „−-500 Kč“
+    final amount = invoice.total == null ? null : '${isCN ? "−" : ""}${invoice.total!.abs().toStringAsFixed(0)} Kč';
+
+    // v2 vzhled řádku (kill-switch) — stejné otevření dokladu.
+    if (MgV2.on(context)) {
+      return InvoiceRowV2(
+        type: invoice.type,
+        title: invoice.number ?? t(context).tr(invoice.typeKey),
+        date: date,
+        amount: amount,
+        creditNote: isCN,
+        onTap: () => _openInvoice(context),
+      );
+    }
 
     return GestureDetector(
       onTap: () => _openInvoice(context),
@@ -114,10 +157,9 @@ class InvoiceTile extends StatelessWidget {
               Text(date, style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
             ],
           )),
-          if (invoice.total != null)
+          if (amount != null)
             Text(
-              // dobropis má v DB zápornou částku → abs(), jinak „−-500 Kč“
-              '${isCN ? "−" : ""}${invoice.total!.abs().toStringAsFixed(0)} Kč',
+              amount,
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: isCN ? MotoGoColors.red : MotoGoColors.black),
             ),
         ]),
@@ -134,63 +176,14 @@ class InvoiceTile extends StatelessWidget {
     _ => '📄',
   };
 
-  Future<void> _openInvoice(BuildContext context) async {
-    debugPrint('[INVOICES] Opening: id=${invoice.id}, type=${invoice.type}, number=${invoice.number}');
-
-    // Fetch customer profile for invoice header
-    String? customerName;
-    String? customerAddress;
-    String? customerEmail;
-    String? customerPhone;
-    String? customerCompany;
-    String? customerCompanyAddress;
-    String? customerIco;
-    String? customerDic;
-    try {
-      final user = MotoGoSupabase.currentUser;
-      if (user != null) {
-        final profile = await MotoGoSupabase.client
-            .from('profiles')
-            .select('full_name, email, phone, street, city, zip, country, ico, dic, company_name, company_address')
-            .eq('id', user.id)
-            .maybeSingle();
-        if (profile != null) {
-          customerName = profile['full_name'] as String?;
-          customerEmail = profile['email'] as String?;
-          customerPhone = profile['phone'] as String?;
-          customerCompany = profile['company_name'] as String?;
-          customerCompanyAddress = profile['company_address'] as String?;
-          customerIco = profile['ico'] as String?;
-          customerDic = profile['dic'] as String?;
-          final parts = [profile['street'], profile['city'], profile['zip'], profile['country']]
-              .where((s) => s != null && (s as String).isNotEmpty)
-              .join(', ');
-          if (parts.isNotEmpty) customerAddress = parts;
-        }
-      }
-    } catch (e) {
-      debugPrint('[INVOICES] Profile fetch error: $e');
-    }
-
-    // Build HTML from invoice data
-    final html = InvoiceHtmlBuilder.build(
-      invoice,
-      customerName: customerName,
-      customerAddress: customerAddress,
-      customerEmail: customerEmail,
-      customerPhone: customerPhone,
-      customerCompany: customerCompany,
-      customerCompanyAddress: customerCompanyAddress,
-      customerIco: customerIco,
-      customerDic: customerDic,
-    );
-
-    if (!context.mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => DocWebViewScreen(
-        htmlContent: html,
-        title: invoice.number ?? t(context).tr(invoice.typeKey),
-      ),
-    ));
-  }
+  /// Bez profilu (offline) by se doklad vykreslil bez odběratele — raději
+  /// řekni proč a nabídni Zkusit znovu. Průběh (po 15 s „Zrušit"), pojistka
+  /// proti dvojímu klepnutí — `runDocOpen`.
+  Future<void> _openInvoice(BuildContext context) => runDocOpen(context,
+      what: t(context).tr('eoInvoiceOpenFail'),
+      where: 'invoice_open',
+      op: (wanted) {
+        debugPrint('[INVOICES] Opening: id=${invoice.id}, type=${invoice.type}, number=${invoice.number}');
+        return openInvoiceDocument(context, invoice, wanted: wanted);
+      });
 }

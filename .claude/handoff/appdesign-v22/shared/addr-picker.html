@@ -1,0 +1,100 @@
+<!-- ===== MotoGo24 app v2.2 · shared/addr-picker.html — address sheet + fullscreen map picker (needs addr-picker.js → apVals → `ap`).
+     Used by Booking (přistavení / odvoz), Reservation (Úprava · Místo), SOS (Náhradní motorka · adresa). PART 1 = rules for the board's single
+     style block (without the style tags). PART 2 = overlay markup, paste once inside the board root (it positions itself with ap.st).
+     PART 3 = status line (GPS / „Počítám km…“ / km + cena) — already inside PART 2; SOS pastes it once more inline under its own address field.
+     Layers: sheets 40/41 < picker 42/43 < AI scrim/chat 44/45 (the AI disc in the map top bar opens the chat ABOVE the map) < toast 50.
+     Rules: close/back 44 px; ONE primary „Potvrdit adresu“ (ink, never rank-styled on a white sheet); the map is a focused screen → AI disc (shared ai-fab .ai-tb) in its
+     top bar; the sheet is modal → AI hidden. Reduced motion: .rm kills every animation, the spinner stays as a static ring. -->
+
+<!-- PART 1 · CSS -->
+<style>
+.ap-ov{position:absolute;left:0;right:0;height:844px;z-index:42;font-family:Montserrat,sans-serif}
+.mg .ap-dim{position:absolute;inset:0;width:100%;border:0;background:rgba(10,31,20,.55);animation:apF var(--mo-pop) ease both;cursor:default}
+.ap-sh{position:absolute;left:0;right:0;bottom:0;max-height:780px;overflow-y:auto;scrollbar-width:none;padding:8px 16px 34px;border-radius:var(--r-sheet) var(--r-sheet) 0 0;background:#fff;color:var(--ink);box-shadow:var(--sh-sheet);animation:apU var(--mo-pop) var(--ez) both}
+.ap-grab{display:block;width:42px;height:5px;margin:0 auto 12px;border-radius:99px;background:#CFE3DA}
+.ap-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.ap-hd h2,.ap-top h2{margin:0;font:800 18px/1.25 Montserrat,sans-serif}
+.mg .ap-x{flex:none;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;border-radius:50%;background:#fff;box-shadow:inset 0 0 0 1px #CFE3DA,var(--sh-icon);color:var(--ink);cursor:pointer}
+.ap-x svg,.ap-bk svg,.ap-cl svg,.ap-me svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ap-f{display:flex;align-items:center;gap:8px;min-height:52px;padding:0 4px 0 12px;border-radius:var(--r-btn);background:#fff;border:1.5px solid #7C958A}
+.ap-f:focus-within{border:2px solid #0D6E0D;box-shadow:0 0 0 4px rgba(116,251,113,.28)}
+.ap-f>svg,.ap-sr svg,.ap-b2 svg,.ap-ln svg,.ap-ad svg{flex:none;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ap-f>svg{color:#4F6B5D}
+.ap-f input{flex:1;min-width:0;height:48px;border:0;background:none;font:600 15px/1.3 Montserrat,sans-serif;color:var(--ink);outline:none}
+.ap-f input::placeholder{color:#5E7569}
+.mg .ap-cl{flex:none;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;border-radius:50%;background:none;color:#3F574B;cursor:pointer}
+.ap-sg{display:flex;flex-direction:column;margin-top:8px;padding:4px;border-radius:var(--r-btn);background:#fff;box-shadow:0 0 0 1px #DCE6E1,0 18px 40px -14px rgba(10,31,20,.45)}
+.mg .ap-sr{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:8px 12px;border:0;border-radius:10px;background:none;text-align:left;cursor:pointer;animation:apR var(--mo-pop) var(--ez) both}
+.mg .ap-sr:active{background:var(--pill)}
+.ap-sr svg{color:var(--link)}
+.ap-sr b,.ap-ad span{display:block;font:800 14px/1.3 Montserrat,sans-serif;color:var(--ink)}
+.ap-sr small,.ap-ln small,.ap-ad small{display:block;margin-top:2px;font:600 12.5px/1.4 Montserrat,sans-serif;color:var(--muted)}
+.ap-bt{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.mg .ap-b2{display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 10px;border:0;border-radius:var(--r-btn);background:#fff;box-shadow:inset 0 0 0 1.5px #0D6E0D;color:var(--link);font:800 13px/1.2 Montserrat,sans-serif;text-align:center;cursor:pointer}
+.mg .ap-b2:active{transform:scale(.97)}
+.ap-ln{display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:12px;border-radius:12px;background:#F1F7F4;box-shadow:inset 0 0 0 1px #DCE6E1;color:var(--ink);font:700 13.5px/1.4 Montserrat,sans-serif}
+.ap-ln.w{background:#FFF7E6;box-shadow:inset 0 0 0 1.5px #E3B04B}
+.ap-ln.w svg{color:#8A5A00}
+.ap-ln.ok{background:#ECF9EE;box-shadow:inset 0 0 0 1.5px #9FD9A8}
+.ap-ln.ok svg{color:#0D6E0D}
+.ap-ln span{flex:1;min-width:0;font-variant-numeric:tabular-nums}
+.mg .ap-set{display:flex;align-items:center;min-height:44px;margin:2px 0 -10px;padding:0;border:0;background:none;color:var(--link);font:800 13.5px/1.2 Montserrat,sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ap-spin{flex:none;width:18px;height:18px;margin-top:1px;border-radius:50%;border:2.5px solid #B9D3C6;border-top-color:#0D6E0D;animation:apS .8s linear infinite}
+.mg .ap-ok{display:flex;align-items:center;justify-content:center;width:100%;min-height:56px;margin-top:16px;border:0;border-radius:14px;background:#0A1F14;color:#fff;font:800 15px/1.2 Montserrat,sans-serif;letter-spacing:.02em;cursor:pointer}
+.mg .ap-ok:active{transform:scale(.97)}
+.mg .ap-ok[aria-disabled=true]{background:#DCE6E1;color:#3F574B;cursor:not-allowed}
+.ap-why{margin:8px 0 0;text-align:center;font:600 12.5px/1.35 Montserrat,sans-serif;color:var(--muted)}
+.ap-map{position:absolute;left:0;right:0;height:844px;z-index:43;overflow:hidden;background:#E8EFE9;font-family:Montserrat,sans-serif;animation:apF var(--mo-pop) ease both}
+.ap-tiles{position:absolute;inset:-40px;background:linear-gradient(28deg,transparent 46%,#fff 46% 49%,transparent 49%),linear-gradient(-62deg,transparent 31%,#FDF0C8 31% 34.5%,transparent 34.5%),repeating-linear-gradient(90deg,transparent 0 88px,#fff 88px 94px),repeating-linear-gradient(0deg,transparent 0 124px,#fff 124px 130px),radial-gradient(circle at 76% 30%,#CFE6CF 0 74px,transparent 75px),radial-gradient(circle at 20% 64%,#CFE3EE 0 56px,transparent 57px),#E8EFE9;transition:transform var(--mo-pop) var(--ez)}
+.ap-tiles.mv{transform:translate(-22px,14px)}
+.mg .ap-pan{position:absolute;left:0;right:0;top:112px;bottom:236px;width:100%;border:0;background:none;cursor:grab}
+.ap-pin{position:absolute;left:50%;top:calc(50% - 104px);width:40px;height:52px;margin-left:-20px;pointer-events:none;filter:drop-shadow(0 6px 6px rgba(10,31,20,.35));transition:transform var(--mo-press) var(--ez);animation:apP .45s var(--ez) both}
+.ap-pin.up{transform:translateY(-12px)}
+.ap-dot{position:absolute;left:50%;top:calc(50% - 54px);width:12px;height:5px;margin-left:-6px;border-radius:50%;background:rgba(10,31,20,.35);pointer-events:none}
+.ap-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:8px;padding:52px 12px 12px;background:linear-gradient(#0A1F14,rgba(10,31,20,.94));color:#fff}
+.ap-top h2{flex:1;min-width:0}
+.mg .ap-bk{flex:none;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;cursor:pointer}
+.mg .ap-me{position:absolute;right:16px;bottom:252px;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border:0;border-radius:50%;background:#fff;color:var(--link);box-shadow:0 6px 16px rgba(10,31,20,.25);cursor:pointer}
+.ap-cd{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 34px;border-radius:var(--r-sheet) var(--r-sheet) 0 0;background:#fff;box-shadow:var(--sh-sheet)}
+.ap-ad{display:flex;align-items:flex-start;gap:10px;min-height:52px;margin:0}
+.ap-ad svg{color:var(--link);margin-top:1px}
+@keyframes apF{from{opacity:0}}
+@keyframes apU{from{opacity:0;transform:translateY(48px)}}
+@keyframes apR{from{opacity:0;transform:translateY(4px)}}
+@keyframes apS{to{transform:rotate(360deg)}}
+@keyframes apP{from{opacity:0;transform:translateY(-16px)}}
+.rm .ap-tiles,.rm .ap-pin{transition:none}
+@media (prefers-reduced-motion:reduce){.ap-dim,.ap-sh,.ap-sr,.ap-map,.ap-pin,.ap-tiles,.ap-spin{animation:none!important;transition:none!important}}
+</style>
+
+<!-- PART 2 · overlay (sheet + map) -->
+<sc-if value="{{ ap.sheet }}" hint-placeholder-val="{{ false }}">
+<div class="ap-ov" style="{{ ap.st }}">
+<button class="ap-dim" onClick="{{ ap.x }}" aria-label="{{ ap.xL }}" tabindex="-1"></button>
+<div class="ap-sh" role="dialog" aria-modal="true" aria-label="{{ ap.t }}">
+<span class="ap-grab" aria-hidden="true"></span>
+<div class="ap-hd"><h2>{{ ap.t }}</h2><button class="ap-x" onClick="{{ ap.x }}" aria-label="{{ ap.xL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>
+<label class="ap-f"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14M20 20l-4-4"></path></svg><input type="text" value="{{ ap.q }}" placeholder="{{ ap.ph }}" onInput="{{ ap.inp }}" aria-label="{{ ap.ph }}" autocomplete="street-address"><sc-if value="{{ ap.hasQ }}" hint-placeholder-val="{{ true }}"><button class="ap-cl" onClick="{{ ap.clr }}" aria-label="{{ ap.clrL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"></path></svg></button></sc-if></label>
+<sc-if value="{{ ap.sug.show }}" hint-placeholder-val="{{ false }}"><div class="ap-sg" role="listbox" aria-label="{{ ap.sug.l }}"><sc-for list="{{ ap.sug.rows }}" as="g" hint-placeholder-count="3"><button class="ap-sr" style="{{ g.st }}" onClick="{{ g.pick }}" role="option" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10zM12 9a2 2 0 1 0 0 4a2 2 0 1 0 0-4"></path></svg><span><b>{{ g.a }}</b><small>{{ g.b }}</small></span></button></sc-for></div></sc-if>
+<div class="ap-bt"><button class="ap-b2" onClick="{{ ap.gpsA }}" aria-busy="{{ ap.gpsBusy }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>{{ ap.gpsL }}</button><button class="ap-b2" onClick="{{ ap.mapA }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"></path></svg>{{ ap.mapL }}</button></div>
+<!-- PART 3 · status line -->
+<sc-if value="{{ ap.ln.show }}" hint-placeholder-val="{{ false }}"><div class="{{ ap.ln.cls }}" role="status" aria-live="polite"><sc-if value="{{ ap.ln.spin }}" hint-placeholder-val="{{ false }}"><i class="ap-spin" aria-hidden="true"></i></sc-if><sc-if value="{{ ap.ln.hasIc }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{ ap.ln.ic }}"></path></svg></sc-if><span>{{ ap.ln.t }}<sc-if value="{{ ap.ln.hasS }}" hint-placeholder-val="{{ true }}"><small>{{ ap.ln.s }}</small></sc-if><sc-if value="{{ ap.ln.set }}" hint-placeholder-val="{{ false }}"><button class="ap-set" onClick="{{ ap.ln.setA }}">{{ ap.ln.setL }}</button></sc-if></span></div></sc-if>
+<!-- /PART 3 -->
+<button class="ap-ok" onClick="{{ ap.ok.a }}" aria-disabled="{{ ap.ok.dis }}">{{ ap.ok.l }}</button>
+<sc-if value="{{ ap.ok.hasWhy }}" hint-placeholder-val="{{ true }}"><p class="ap-why">{{ ap.ok.why }}</p></sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ ap.map }}" hint-placeholder-val="{{ false }}">
+<div class="ap-map" style="{{ ap.st }}" role="dialog" aria-modal="true" aria-label="{{ ap.m.t }}">
+<div class="{{ ap.m.tiles }}" aria-hidden="true"></div>
+<button class="ap-pan" onClick="{{ ap.m.move }}" aria-label="{{ ap.m.moveL }}"></button>
+<i class="ap-dot" aria-hidden="true"></i>
+<svg class="{{ ap.m.pin }}" viewBox="0 0 40 52" aria-hidden="true"><path d="M20 50S4 35 4 21a16 16 0 0 1 32 0c0 14-16 29-16 29z" fill="#0A1F14"></path><circle cx="20" cy="21" r="7" fill="#74FB71"></circle></svg>
+<div class="ap-top"><button class="ap-bk" onClick="{{ ap.m.back }}" aria-label="{{ ap.m.backL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></button><h2>{{ ap.m.t }}</h2><button class="ai-tb" onClick="{{ ai.a }}" aria-label="{{ ai.aria }}" title="{{ ai.aria }}"><b><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 7A2.5 2.5 0 0 1 7 4.5h8.5A2.5 2.5 0 0 1 18 7v6a2.5 2.5 0 0 1-2.5 2.5H10l-3.8 3.3v-3.3H7A2.5 2.5 0 0 1 4.5 13z"></path><path d="M8.6 10h.01M11.3 10h.01M14 10h.01"></path></svg></b></button></div>
+<button class="ap-me" onClick="{{ ap.m.me }}" aria-label="{{ ap.m.meL }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></button>
+<div class="ap-cd"><p class="ap-ad" role="status" aria-live="polite"><sc-if value="{{ ap.m.srch }}" hint-placeholder-val="{{ false }}"><i class="ap-spin" aria-hidden="true"></i></sc-if><sc-if value="{{ ap.m.found }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10zM12 9a2 2 0 1 0 0 4a2 2 0 1 0 0-4"></path></svg></sc-if><span>{{ ap.m.addr }}<small>{{ ap.m.hint }}</small></span></p>
+<button class="ap-ok" onClick="{{ ap.m.ok }}" aria-disabled="{{ ap.m.okDis }}">{{ ap.m.okL }}</button></div>
+</div>
+</sc-if>
+<!-- /PART 2 -->

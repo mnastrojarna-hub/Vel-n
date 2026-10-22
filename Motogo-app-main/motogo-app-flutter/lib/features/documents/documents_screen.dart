@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io' show SocketException;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,10 +10,19 @@ import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/offline_guard.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/state_views.dart';
+import 'document_models.dart' show ScanDocType;
 import 'document_provider.dart';
 import 'docs_gate_provider.dart';
 import 'docs_gate_widgets.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../profile/v2/sheets/profile_dialogs_v2.dart' show DestructiveDialogV2;
+import 'v2/docs_view_v2.dart';
 
 /// Moje doklady — matches Capacitor original s-docs screen.
 /// Shows: info banners, scan button (camera), upload button (gallery),
@@ -26,19 +38,34 @@ class DocumentsScreen extends ConsumerWidget {
     // neprobliká (jako dřív u přímo invalidovaného docsVerifiedProvider).
     final verifiedAsync = ref.watch(docsScreenStatusProvider);
 
-    return Scaffold(
-      backgroundColor: MotoGoColors.bg,
-      appBar: AppBar(
-        leading: GestureDetector(
-          // Na /docs se chodí i přes context.go (děkovací stránka, FAB) —
-          // pak není v zásobníku co popnout a šipka dřív nedělala nic.
-          onTap: () {
+    // Na /docs se chodí i přes context.go (děkovací stránka, FAB) —
+    // pak není v zásobníku co popnout a šipka dřív nedělala nic.
+    void onBack() {
             if (context.canPop()) {
               context.pop();
             } else {
               context.go(Routes.profile);
             }
-          },
+          }
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejné akce a stav.
+    if (MgV2.on(context)) {
+      return DocsViewV2(
+        verifiedAsync: verifiedAsync,
+        onBack: onBack,
+        onScan: () => context.push(Routes.docScan),
+        onScanDl: () => context.push('${Routes.docScan}?mode=dl_only'),
+        onUpload: () => _uploadFromGallery(context, ref),
+        onReset: (docType) => _resetDoc(context, ref, docType),
+        onRetry: () => ref.invalidate(docsScreenStatusProvider),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: MotoGoColors.bg,
+      appBar: AppBar(
+        leading: MgBackTap(
+          onTap: onBack,
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -254,7 +281,12 @@ class DocumentsScreen extends ConsumerWidget {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
-              error: (_, __) => Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red)),
+              error: (e, _) => MgErrorView(
+                compact: true,
+                error: e,
+                what: t(context).tr('eoDocsStatusFail'),
+                onRetry: () => ref.invalidate(docsScreenStatusProvider),
+              ),
             ),
           ],
         ),
@@ -265,7 +297,17 @@ class DocumentsScreen extends ConsumerWidget {
   Future<void> _resetDoc(BuildContext context, WidgetRef ref, String docType) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => MgV2.on(ctx)
+          // v2 vzhled (T6) — stejné texty a návratové hodnoty.
+          ? DestructiveDialogV2(
+              title: t(context).tr('deleteDocTitle'),
+              body: t(context).tr('deleteDocDesc'),
+              cancelLabel: t(context).cancel,
+              deleteLabel: t(context).tr('deleteDoc'),
+              onCancel: () => Navigator.pop(ctx, false),
+              onDelete: () => Navigator.pop(ctx, true),
+            )
+          : AlertDialog(
         title: Text(t(context).tr('deleteDocTitle'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         content: Text(t(context).tr('deleteDocDesc'), style: const TextStyle(fontSize: 13)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -296,28 +338,115 @@ class DocumentsScreen extends ConsumerWidget {
     if (kind == null || !context.mounted) return;
     final (docType, docSide, stepKey) = kind;
     final picker = ImagePicker();
-    final photo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
+    final XFile? photo;
+    try {
+      photo = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85, maxWidth: 1800);
+    } catch (e) {
+      // Bez přístupu k fotkám: proč + Otevřít nastavení (dřív výjimka potichu).
+      if (context.mounted) {
+        showErrorSnack(context, t(context).tr('eoGalleryOpenFail'), e,
+            where: 'docs_gallery_pick', perm: DevicePerm.photos);
+      }
+      return;
+    }
     if (photo == null) return;
     if (!context.mounted) return;
-    showMotoGoToast(context, icon: '⏳', title: t(context).tr('uploading'), message: t(context).tr('processingDoc'));
-    final result = await scanDocument(photo, docType);
-    final upload = await uploadDocPhoto(photo, docType, mindeeOk: result != null, docSide: docSide);
-    if (result != null) {
-      await saveOcrToProfile(result, docType: docType, stepKey: stepKey);
+    await _processGalleryPhoto(context, ref, photo, docType, docSide, stepKey);
+  }
+
+  /// Zpracování vybrané fotky: bez sítě hned důvod (dřív minuty v modálu),
+  /// průběh s „pokus n/3" a po 20 s „Zrušit", celkový limit. „Zkusit znovu"
+  /// zpracuje STEJNOU fotku (bez nového výběru).
+  Future<void> _processGalleryPhoto(BuildContext context, WidgetRef ref, XFile photo,
+      ScanDocType docType, String? docSide, String stepKey) async {
+    final tr = t(context);
+    void retry() => _processGalleryPhoto(context, ref, photo, docType, docSide, stepKey);
+    if (!await _deviceOnline()) {
+      if (context.mounted) {
+        showErrorSnack(context, tr.tr('eoDocUploadWhat'), const SocketException('offline'),
+            where: 'docs_gallery_offline', onRetry: retry);
+      }
+      return;
     }
     if (!context.mounted) return;
-    ref.invalidate(docsVerifiedProvider);
-    ref.invalidate(docsGateChecklistProvider);
-    if (upload.ok) {
+    final progress = MgProgress.show(context, tr.tr('processingDoc'),
+        cancelAfter: const Duration(seconds: 20));
+    final op = _scanAndSave(photo, docType, docSide, stepKey, progress, tr);
+    DocUploadResult upload;
+    var abandoned = false;
+    try {
+      upload = await progress.guard(op).timeout(const Duration(seconds: 150));
+    } on MgCancelled {
+      abandoned = true;
+      upload = const DocUploadResult(errorDetail: 'cancelled');
+    } catch (e) {
+      abandoned = e is TimeoutException;
+      upload = DocUploadResult(errorDetail: '$e', cause: e);
+    } finally {
+      progress.close();
+    }
+    if (abandoned) {
+      // Nahrání mohlo na pozadí doběhnout → pak obnov seznam dokladů.
+      unawaited(op.then((_) {
+        if (context.mounted) _refreshDocs(ref);
+      }, onError: (_) {}));
+    }
+    if (!context.mounted) return;
+    _refreshDocs(ref);
+    final fe = FriendlyError.of(upload.cause);
+    if (progress.cancelled) {
+      showMotoGoToast(context, icon: 'ℹ️',
+          title: tr.tr('r3UploadStoppedTitle'), message: tr.tr('r3UploadStoppedBody'));
+    } else if (upload.ok) {
       // Fotka uložená → strana dokladu je nahraná (kódy dle brány dokladů).
-      showMotoGoToast(context, icon: '✅', title: t(context).tr('uploaded'), message: t(context).tr('docProcessed'));
+      showMotoGoToast(context, icon: '✅', title: tr.tr('uploaded'), message: tr.tr('docProcessed'));
+    } else if (upload.cause != null && (fe.isNetwork || fe.kind == FriendlyKind.server)) {
+      // Síť / server: skutečný důvod (dřív mylně „naskenuj doklad kamerou").
+      showErrorSnack(context, tr.tr('eoDocUploadWhat'), upload.cause,
+          where: 'docs_gallery_upload', onRetry: retry);
     } else {
       // Upload nebo OCR selhaly — doveď uživatele na skener s kamerou,
       // kde má full retry + contact fallback flow.
       showMotoGoToast(context, icon: '⚠️',
-          title: t(context).tr('scanFailed'),
-          message: t(context).tr('scanUseCamera'));
+          title: tr.tr('scanFailed'),
+          message: tr.tr('scanUseCamera'));
     }
+  }
+
+  void _refreshDocs(WidgetRef ref) {
+    ref.invalidate(docsVerifiedProvider);
+    ref.invalidate(docsGateChecklistProvider);
+  }
+
+  /// Zapnutá Wi-Fi / data? Chyba pluginu = nevíme → zkusit (rozhodne server).
+  static Future<bool> _deviceOnline() async {
+    try {
+      return await OfflineGuard.isOnline().timeout(const Duration(seconds: 3));
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// OCR + uložení fotky. Výpadek spojení při OCR → rovnou důvod (fotka by
+  /// se na stejném signálu neuložila); jinak se fotka uloží VŽDY, i když OCR
+  /// selhalo (zákazník o ni nepřijde).
+  static Future<DocUploadResult> _scanAndSave(XFile photo, ScanDocType docType,
+      String? docSide, String stepKey, MgProgress progress, AppTranslations tr) async {
+    final base = tr.tr('processingDoc');
+    final scan = await scanDocumentWithRetry(photo, docType, retryOnNetwork: false,
+        onAttempt: (n, max) {
+      if (n > 1) progress.update('$base · ${tr.tr('attempt')} $n/$max');
+    });
+    if (scan.errorCode == 'network') {
+      return DocUploadResult(
+          errorDetail: scan.errorDetail ?? 'network', cause: const SocketException('offline'));
+    }
+    progress.update(tr.tr('r3SavingDocPhoto'));
+    final upload = await uploadDocPhoto(photo, docType, mindeeOk: scan.ok, docSide: docSide);
+    if (scan.data != null) {
+      await saveOcrToProfile(scan.data!, docType: docType, stepKey: stepKey);
+    }
+    return upload;
   }
 }
 

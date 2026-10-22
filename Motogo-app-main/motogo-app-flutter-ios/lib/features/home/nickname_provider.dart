@@ -98,7 +98,13 @@ void showNicknameDialog(
             ref.read(nicknameProvider.notifier).clearNickname();
             Navigator.of(ctx).pop();
           },
-          child: Text('Reset',
+          child: Text(t(context).tr('homeFilterReset'),
+              style: TextStyle(color: Colors.black.withValues(alpha: 0.5))),
+        ),
+        // Zavřít beze změny (dřív jen „Reset" / „OK").
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(t(context).cancel,
               style: TextStyle(color: Colors.black.withValues(alpha: 0.5))),
         ),
         TextButton(

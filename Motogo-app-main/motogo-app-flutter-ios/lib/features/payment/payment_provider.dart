@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/supabase_client.dart';
 import '../../core/booking_rules.dart';
 import '../../core/widgets/pickup_location_link.dart';
+import 'booking_upsell_provider.dart' show BookingUpsellItem;
+import 'net_error.dart';
 export '../../core/booking_rules.dart' show paymentTimeoutDuration;
 
 /// Payment methods from Supabase payment_methods table.
@@ -11,22 +13,22 @@ final paymentMethodsProvider =
   final user = MotoGoSupabase.currentUser;
   if (user == null) return [];
 
-  try {
-    final res = await MotoGoSupabase.client
-        .from('payment_methods')
-        .select(
-          'id, stripe_payment_method_id, brand, last4, '
-          'exp_month, exp_year, holder_name, is_default',
-        )
-        .eq('user_id', user.id)
-        .order('is_default', ascending: false);
+  // Chyba se NEPOLYKÁ (dřív → prázdný seznam = „žádné karty" místo hlášky
+  // s „Zkusit znovu"). Platba si s chybou poradí sama: defaultCardProvider
+  // pak vrátí null a platí se kartou v platebním sheetu.
+  final res = await MotoGoSupabase.client
+      .from('payment_methods')
+      .select(
+        'id, stripe_payment_method_id, brand, last4, '
+        'exp_month, exp_year, holder_name, is_default',
+      )
+      .eq('user_id', user.id)
+      .order('is_default', ascending: false)
+      .timeout(const Duration(seconds: 15));
 
-    return (res as List)
-        .map((e) => SavedCard.fromJson(e as Map<String, dynamic>))
-        .toList();
-  } catch (_) {
-    return [];
-  }
+  return (res as List)
+      .map((e) => SavedCard.fromJson(e as Map<String, dynamic>))
+      .toList();
 });
 
 /// Default saved card (first with is_default=true).
@@ -115,14 +117,39 @@ Future<bool> setDefaultPaymentMethod(String pmId) async {
 /// CardField → createPaymentMethod) to the customer and sync it into the
 /// payment_methods table. Používá obrazovka „Platební metody" pro nativní
 /// přidání karty — číslo karty/CVV jdou POUZE do Stripe, k nám jen pm id.
+///
+/// Výpadek spojení / timeout se NEpolyká (hází výjimku) — sheet pak řekne
+/// „zkontroluj připojení" místo obecného „kartu se nepodařilo uložit".
 Future<bool> attachPaymentMethod(String pmId) async {
   try {
     final res = await MotoGoSupabase.client.functions.invoke(
       'manage-payment-methods',
       body: {'action': 'attach', 'payment_method_id': pmId},
-    );
+    ).timeout(const Duration(seconds: 20));
     final data = res.data as Map<String, dynamic>?;
     return data?['success'] == true;
+  } catch (e) {
+    if (isNetworkError(e)) {
+      // Odpověď se ztratila — karta se mohla uložit. Ověřit dřív, než ji
+      // zákazník „zkusí znovu" a uloží podruhé.
+      if (await _cardAttached(pmId)) return true;
+      rethrow;
+    }
+    return false;
+  }
+}
+
+/// Je karta (Stripe payment method) už v `payment_methods` zákazníka?
+Future<bool> _cardAttached(String pmId) async {
+  try {
+    final row = await MotoGoSupabase.client
+        .from('payment_methods')
+        .select('id')
+        .eq('stripe_payment_method_id', pmId)
+        .limit(1)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 8));
+    return row != null;
   } catch (_) {
     return false;
   }
@@ -193,6 +220,10 @@ class PaymentContext {
   /// Když je null, jde o novou rezervaci a odpočet běží od otevření obrazovky.
   final DateTime? bookingCreatedAt;
 
+  /// Platba obnovené (dříve zrušené) rezervace — děkovací stránka pak říká
+  /// „Rezervace je znovu potvrzená".
+  final bool isRestore;
+
   const PaymentContext({
     required this.flowType,
     this.bookingId,
@@ -204,6 +235,7 @@ class PaymentContext {
     this.sosDepositNote,
     this.pendingEditChanges,
     this.bookingCreatedAt,
+    this.isRestore = false,
   });
 }
 
@@ -218,6 +250,15 @@ final paymentContextProvider = StateProvider<PaymentContext?>((ref) => null);
 /// dialogy s webovou /potvrzeni stránkou.
 final lastConfirmedBookingProvider = StateProvider<String?>((ref) => null);
 
+/// true = poslední potvrzená rezervace byla OBNOVENÁ (zrušená → zaplacená).
+final lastConfirmedRestoreProvider = StateProvider<bool>((ref) => false);
+
+/// true = poslední potvrzená rezervace vznikla z rezervačního formuláře v
+/// TÉTO relaci (draft v paměti je její). Jinak (FAB „Dokončit", obnova,
+/// ověření po „Platba se ověřuje") děkovačka draft NESMÍ použít — byla by
+/// to jiná motorka / termín.
+final lastConfirmedFromDraftProvider = StateProvider<bool>((ref) => false);
+
 /// Jeden řádek detailu na univerzální výsledkové obrazovce (ikona + text).
 class PaymentOutcomeLine {
   final String icon;
@@ -229,7 +270,12 @@ class PaymentOutcomeLine {
 /// ji flow, které nemají vlastní bohatou děkovací stránku jako nová rezervace
 /// (prodloužení/úprava, SOS, e-shop). Zajišťuje, že zákazník po KAŽDÉ platbě
 /// uvidí jednoznačné potvrzení „zaplaceno", ne jen mizící toast.
+/// Druh výsledku: úspěch / platba se ověřuje (nebo zaplacená změna se
+/// dokončuje) / zaplaceno, ale něco zbývá / změnu nešlo zapsat (doplatek se vrací).
+enum PaymentOutcomeKind { success, pending, attention, failed }
+
 class PaymentOutcome {
+  final PaymentOutcomeKind kind;
   final String title;
   final String subtitle;
   final List<PaymentOutcomeLine> lines;
@@ -238,17 +284,55 @@ class PaymentOutcome {
   final String ctaLabel;
   /// Route, kam vede primární tlačítko (Routes.reservations / shop / sosDone…).
   final String ctaRoute;
+  /// Vedlejší tlačítko (např. „Ponechat současnou motorku" vedle „Vybrat jinou
+  /// motorku") — null = jen primární. Když je, vede sem i zavření / systémové „zpět".
+  final String? secondaryLabel;
+  final String? secondaryRoute;
   /// „K vyzvednutí“ po zaplacené úpravě / výměně motorky (null = nezobrazovat).
   final PickupInfo? pickup;
 
+  // ── jen pro [PaymentOutcomeKind.pending] — „Ověřit znovu" ──
+  final String? verifyBookingId;
+  final String? verifyOrderId;
+  /// Doplatek úpravy: důkazem zaplacení je nová cena rezervace.
+  final double? verifyExpectedTotal;
+  /// Doplatek výměny motorky: v DB není důkaz → rozhoduje stav PaymentIntentu.
+  final bool verifyIntentOnly;
+  /// Ověřeno zaplaceno → přejít sem (nová rezervace → `/success`) …
+  final String? verifiedRoute;
+  /// … nebo ukázat tenhle výsledek (úprava, e-shop).
+  final PaymentOutcome? verifiedOutcome;
+  /// Ověřeně zaplacená rezervace byla OBNOVENÁ (děkovačka „znovu potvrzená").
+  final bool verifiedRestore;
+  /// Doprodej zaplacený spolu s novou rezervací → objednat po ověření.
+  final List<BookingUpsellItem> verifiedUpsell;
+  /// Prokazatelně nezaplaceno → co zákazníkovi říct (a že může platit znovu).
+  final String? notPaidMessage;
+  /// Zaplacená výměna / úprava se dokončuje (D6): klíč položky
+  /// `PaidChangeQueue` (id PaymentIntentu) — „Ověřit znovu" ji dokončuje.
+  final String? completeKey;
+
   const PaymentOutcome({
+    this.kind = PaymentOutcomeKind.success,
     required this.title,
     required this.subtitle,
     this.lines = const [],
     this.nextStepNote,
     required this.ctaLabel,
     required this.ctaRoute,
+    this.secondaryLabel,
+    this.secondaryRoute,
     this.pickup,
+    this.verifyBookingId,
+    this.verifyOrderId,
+    this.verifyExpectedTotal,
+    this.verifyIntentOnly = false,
+    this.verifiedRoute,
+    this.verifiedOutcome,
+    this.verifiedRestore = false,
+    this.verifiedUpsell = const [],
+    this.notPaidMessage,
+    this.completeKey,
   });
 }
 

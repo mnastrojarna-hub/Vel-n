@@ -267,11 +267,17 @@
         '</span><strong>' + (delta > 0 ? '−' : '+') + MG.formatPrice(Math.abs(delta)) + '</strong></div>';
     }
     var cls = net > 0 ? 'erez-loc-diff-pay' : (net < 0 || refund > 0) ? 'erez-loc-diff-refund' : '';
-    var label = net > 0 ? MG.t('editRez.loc.calc.surchargeStripe')
+    // Doplatek s dorovnáním na 15 Kč / odpuštěním do 1 Kč: přesně v Kč a bez „(Stripe)" — kartou se
+    // platí 15 Kč (resp. nic), což říká věta pod řádkem (dřív „Doplatek (Stripe) 7 Kč" vedle „7,50 Kč").
+    var exact = net > 0 && MG.cardAmountText ? MG.cardAmountText(net) : null;
+    var label = net > 0 ? MG.t(exact ? 'editRez.loc.calc.surcharge' : 'editRez.loc.calc.surchargeStripe')
       : (net < 0 || refund > 0) ? MG.t('editRez.loc.calc.refund') : MG.t('editRez.loc.calc.noChange');
     var amount = net > 0 ? net : (refund || Math.abs(net));
     rows += '<div class="erez-loc-calc-row erez-loc-calc-total ' + cls + '"><span>' + label +
-      '</span><strong>' + MG.formatPrice(amount) + '</strong></div>';
+      '</span><strong>' + (exact || MG.formatPrice(amount)) + '</strong></div>';
+    // D1 na webu: minimální platba kartou (1–15 Kč → 15 Kč / do 1 Kč neúčtujeme) — klientský
+    // řádek jádra s touto větou se níže skrývá, proto ji serverový blok nese sám ('' bez SQL).
+    if (net > 0 && ER._cardNote) rows += ER._cardNote(net);
     if (net < 0 && Number(bd.storno_pct) < 100) {
       rows += '<div class="muted" style="font-size:.85rem;margin-top:.25rem">' +
         MG.t('editRez.shorten.refund', { amount: MG.formatPrice(refund), percent: Number(bd.storno_pct || 0) }) + '</div>';
@@ -493,6 +499,9 @@
   // -- Po zaplaceném doplatku: dopiš čas + přepočti late slevu -----------------
   // Webhook-receiver je autoritativní (zapisuje total_price i late sloupec);
   // tohle je idempotentní klientská pojistka pro případ, že webhook selže.
+  // Jen když změnu zapsal KLIENT: výsledek od serveru (paid.js — zapsáno serverem,
+  // selhání/obsazeno s vratkou, nezaplaceno, „dokončujeme") nic nedopisuje, jinak by
+  // rezervace dostala čas a late slevu změny, která neplatí (+ posun brány kiosku 12:00).
   var origApplyPending = ER._applyPendingAfterPayment;
   ER._applyPendingAfterPayment = async function (id) {
     var payload = null;
@@ -501,7 +510,7 @@
       if (raw) payload = (JSON.parse(raw) || {}).payload || null;
     } catch (e) { /* noop */ }
     var ok = await origApplyPending.apply(this, arguments);
-    if (ok && payload) {
+    if (ok && payload && !ER._paidOutcome && !ER._paidByServer) {
       try {
         var d = {};
         if (payload.p_new_pickup_time) d.pickup_time = payload.p_new_pickup_time;

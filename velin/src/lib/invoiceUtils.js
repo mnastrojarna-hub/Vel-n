@@ -71,6 +71,16 @@ function buildDailyLineItems(moto, startDate, endDate) {
  * (bug: věrnostní a late sleva na DP chyběly → přeplatek 806 Kč). Zrcadlí edge
  * `generate-invoice` (samostatné řádky slev) i KF trigger generate_final_invoice_on_complete.
  */
+// D1/D2 (2026-10-16): bookings.card_rounding = dorovnání na minimální platbu kartou 15 Kč
+// (+ ≥ 1 Kč), zaokrouhlení platby kartou na celé Kč (+ do 1 Kč) nebo odpuštěná částka do 1 Kč (−).
+// Je ZAHRNUTÉ v total_price → na dokladu samostatný řádek (stejné texty jako edge
+// generate-invoice a KF trigger), aby doklad seděl s tím, co se strhlo z karty.
+export function cardRoundingLabel(r) {
+  return r >= 1 ? 'Dorovnání na minimální platbu kartou (15 Kč)'
+    : r > 0 ? 'Zaokrouhlení platby kartou na celé koruny'
+    : 'Zaokrouhlení – částka do 1 Kč se neúčtuje'
+}
+
 function buildBookingItems(moto, booking) {
   const items = buildDailyLineItems(moto, booking.start_date, booking.end_date)
   if (booking.extras_price > 0) items.push({ description: 'Příslušenství / doplňky', qty: 1, unit_price: booking.extras_price })
@@ -78,6 +88,8 @@ function buildBookingItems(moto, booking) {
   if (booking.discount_amount > 0) items.push({ description: `Sleva${booking.discount_code ? ` (${booking.discount_code})` : ''}`, qty: 1, unit_price: -booking.discount_amount })
   if (booking.loyalty_discount_amount > 0) items.push({ description: `Věrnostní sleva${booking.loyalty_percent ? ` ${booking.loyalty_percent} %` : ''} — rezervace přes aplikaci MotoGo24`, qty: 1, unit_price: -booking.loyalty_discount_amount })
   if (booking.late_pickup_discount_amount > 0) items.push({ description: 'Sleva 50 % na 1. den (pozdní vyzvednutí)', qty: 1, unit_price: -booking.late_pickup_discount_amount })
+  const cardRounding = Math.round(Number(booking.card_rounding || 0) * 100) / 100
+  if (Math.abs(cardRounding) >= 0.01) items.push({ description: cardRoundingLabel(cardRounding), qty: 1, unit_price: cardRounding })
   // Korekce SMĚREM DOLŮ: když rozpis převyšuje bookings.total_price (zastaralá
   // late sleva po bezplatném posunu, historické úpravy…), dorovnej záporným
   // řádkem — jinak ZF/DP vyjde vyšší než skutečná cena a KF nevyjde na 0.
@@ -422,10 +434,12 @@ export async function generateFinalInvoice(bookingId) {
   const moto = booking.motorcycles || {}
   const items = buildBookingItems(moto, booking)
 
-  // If total_price > service total (due to storno-absorbed shortening), add storno fee line
+  // If total_price > service total (due to storno-absorbed shortening), add storno fee line.
+  // Dorovnání platby kartou (card_rounding) je v rozpisu i v total_price → do storna nepatří
+  // (sub-korunový rozdíl také ne — jen celé koruny navíc jsou storno).
   const serviceTotal = calculateTotals(items).total
   const bookingTotal = Number(booking.total_price || 0)
-  if (bookingTotal > serviceTotal && serviceTotal > 0) {
+  if (bookingTotal - serviceTotal >= 1 && serviceTotal > 0) {
     const retainedAmount = Math.round(bookingTotal - serviceTotal)
     items.push({ description: 'Storno poplatek (dle storno podmínek)', qty: 1, unit_price: retainedAmount })
   }

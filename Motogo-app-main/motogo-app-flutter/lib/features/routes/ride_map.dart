@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import 'map_fit.dart';
 import 'ride_model.dart';
 import 'routes_provider.dart' show mapyApiKey;
+import '../../core/widgets/map_tile_errors.dart';
 
 /// Mapa projeté jízdy — stopa GPS + značky start / cíl / zastávky.
 /// Používá se jako náhled v kartě jízdy (neinteraktivní) i jako velká mapa
@@ -141,7 +142,10 @@ class _RideTrackMapState extends State<RideTrackMap> {
               'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
           userAgentPackageName: 'com.motogo24.app',
           maxZoom: 19,
+          errorTileCallback: MapTileErrors.report,
+          reset: MapTileErrors.reset,
         ),
+        const MapTileErrorChip(),
         // Souvislé úseky = plná zelená čára. Mezery (appka na pozadí / bez
         // signálu) = šedá tečkovaná spojnice: tudy jezdec MOŽNÁ jel, ale
         // nevíme to, takže to nekreslíme jako projetou trasu.

@@ -7,6 +7,8 @@ import '../currency.dart';
 import '../theme.dart';
 import '../i18n/i18n_provider.dart';
 import '../native/permission_service.dart';
+import '../widgets/mg_back.dart';
+import '../widgets/state_views.dart' show MgBackArrow;
 
 /// Language selection overlay — shown on first app launch.
 /// Mirrors lang-overlay from index.html + lang-select.js.
@@ -133,7 +135,11 @@ class _LangBtn extends StatelessWidget {
 class PermissionOverlay extends StatefulWidget {
   final VoidCallback onAllow;
   final VoidCallback onSkip;
-  const PermissionOverlay({super.key, required this.onAllow, required this.onSkip});
+  /// Zpět na výběr jazyka (šipka i systémové zpět — požadavek majitele:
+  /// z každé obrazovky jde zpět; dřív „zpět" appku zavřel).
+  final VoidCallback? onBack;
+  const PermissionOverlay(
+      {super.key, required this.onAllow, required this.onSkip, this.onBack});
 
   // (icon, titleKey, descKey) — texts resolved via t(context).tr in _PermItem.
   static const _perms = [
@@ -178,16 +184,36 @@ class _PermissionOverlayState extends State<PermissionOverlay> {
     widget.onAllow();
   }
 
+  void _back() {
+    if (!_requesting) widget.onBack?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final onBack = widget.onBack;
+    return MgOverlayBack(
+      // Běží systémový dialog oprávnění → zpět patří jemu (nic nepřepínat).
+      onBack: () {
+        if (onBack == null) return false;
+        _back();
+        return true;
+      },
+      child: Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
       child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              const SizedBox(height: 40),
+              SizedBox(
+                height: 44,
+                child: onBack == null
+                    ? null
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: MgBackArrow(onTap: _back),
+                      ),
+              ),
               Text(t(context).tr('welcomeToMotoGo'),
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
               const SizedBox(height: 8),
@@ -214,6 +240,7 @@ class _PermissionOverlayState extends State<PermissionOverlay> {
           ),
         ),
       ),
+    ),
     );
   }
 }

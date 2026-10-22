@@ -12,7 +12,11 @@ import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/native/gps_service.dart';
 import '../../core/supabase_client.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 import 'active_ride_provider.dart';
+import 'route_nav_status.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_nav_loop.dart';
@@ -22,6 +26,9 @@ import 'route_nav_widgets.dart';
 import 'route_reviews.dart';
 import 'my_experiences_provider.dart';
 import 'ride_location.dart' show RideForeignStreams;
+import '../../core/widgets/map_tile_errors.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/route_nav_skin_v2.dart';
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
 /// Mapy.com, živá poloha jezdce, sledování (follow) s otáčením mapy po směru
@@ -78,7 +85,16 @@ class _ForkInfo {
 }
 
 class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  // Stav polohy / výpočtu trasy pro NavStatusBanner (route_nav_status.dart).
+  GpsStatus? _gpsStatus;
+  bool _gpsLost = false;
+  bool _weakGps = false;
+  bool _straightLine = false;
+  StreamSubscription<ServiceStatus>? _svcSub;
+  Timer? _statusTimer;
+  int _straightTicks = 0;
+
   // Pod touto rychlostí (km/h) je GPS heading nespolehlivý → mapou neotáčíme.
   static const double _moveThreshold = 5;
   // Vybočení z trasy: dál než [_kOffRouteM] po [_kOffRouteFixes] po sobě
@@ -215,31 +231,77 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     super.initState();
     // Během navigace se displej NIKDY nesmí vypnout (Android i iOS).
     WakelockPlus.enable();
-    _start();
+    WidgetsBinding.instance.addObserver(this);
+    _start(request: true);
   }
 
-  Future<void> _start() async {
-    final ok = await GpsService.ensurePermission();
+  /// Návrat z Nastavení (povolená poloha) → znovu zkusit bez restartu navigace.
+  /// BEZ žádosti o oprávnění: zavření systémového dialogu („Nepovolit") samo
+  /// vyvolá `resumed` — žádost by zákazníkovi hned vyskočila podruhé.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _denied) _start();
+  }
+
+  /// Kontrola polohy BEZ vytahování do Nastavení (dřív to navigace udělala
+  /// sama a bez vysvětlení); nápravu nabídne banner.
+  Future<void> _start({bool request = false}) async {
+    final st = await GpsService.status(request: request);
     if (!mounted) return;
-    if (!ok) {
-      setState(() { _locating = false; _denied = true; });
+    if (st != GpsStatus.ok) {
+      setState(() { _locating = false; _denied = true; _gpsStatus = st; });
       return;
     }
-    setState(() => _locating = false);
+    setState(() { _locating = false; _denied = false; _gpsStatus = st; });
+    _watchGpsHealth();
     try {
+      _sub?.cancel();
       _sub = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           distanceFilter: 4,
         ),
-      ).listen(_onPosition);
-      RideForeignStreams.opened();
-      _streamCounted = true;
+      ).listen(_onPosition, onError: (Object e) {
+        // Odebrané oprávnění / vypnutá poloha uprostřed jízdy (dřív neošetřené).
+        FriendlyError.log('nav_gps_stream', e);
+        if (mounted) setState(() => _gpsLost = true);
+      });
+      if (!_streamCounted) {
+        RideForeignStreams.opened();
+        _streamCounted = true;
+      }
     } catch (_) {
       // bez streamu zkus aspoň jednorázovou polohu
       final p = await GpsService.getCurrentPosition();
       if (mounted && p != null) _onPosition(p);
     }
+  }
+
+  /// Hlídá vypnutí polohy a stáří posledního fixu (> 20 s = slabý signál) a
+  /// bez internetu (spojnice bodů) zkouší trasu přepočítat znovu.
+  void _watchGpsHealth() {
+    _svcSub ??= () {
+      try {
+        return Geolocator.getServiceStatusStream().listen((st) {
+          if (!mounted) return;
+          final lost = st == ServiceStatus.disabled;
+          setState(() => _gpsLost = lost);
+          if (!lost) _start();
+        }, onError: (_) {});
+      } catch (_) {
+        return null;
+      }
+    }();
+    _statusTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted) return;
+      final at = _fixAt;
+      final weak = at != null && DateTime.now().difference(at) > const Duration(seconds: 20);
+      if (weak != _weakGps) setState(() => _weakGps = weak);
+      // Přepočet po silnicích zkoušet jen každých ~30 s (šetří baterii offline).
+      if (_straightLine && !_navLoading && ++_straightTicks % 6 == 0) {
+        _reroute(force: true);
+      }
+    });
   }
 
   /// Nový GPS fix: uloží se surová poloha + její projekce na trasu. Zobrazení
@@ -254,6 +316,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
     _fix = fix;
     _fixAt = DateTime.now();
+    _gpsLost = false;
+    _weakGps = false;
     _fixSpeedMps = spd / 3.6;
     _heading = hdg;
     _speedKmh = spd;
@@ -704,6 +768,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   }
 
   void _applyNavInfo(MapyRouteInfo? info, {required List<LatLng> fallback}) {
+    // Bez internetu / API → spojnice bodů; banner to řekne a přepočet se
+    // zkouší znovu (_watchGpsHealth).
+    _straightLine = !(info != null && info.geometry.length >= 2);
     final geo = (info != null && info.geometry.length >= 2) ? info.geometry : fallback;
     _navGeo = geo;
     _navCache = RouteGeoCache.build(geo);
@@ -1062,7 +1129,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dc, false),
-              child: Text(t(dc).tr('routesFilterClear'))),
+              child: Text(t(dc).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFB91C1C),
@@ -1133,7 +1200,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dc, false),
-              child: Text(t(dc).tr('routesFilterClear'))),
+              child: Text(t(dc).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green,
@@ -1189,6 +1256,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   @override
   void dispose() {
     WakelockPlus.disable();
+    WidgetsBinding.instance.removeObserver(this);
+    _svcSub?.cancel();
+    _statusTimer?.cancel();
     _sub?.cancel();
     // AŽ po zrušení vlastního odběru: záznam jízdy, který se připojil
     // k navigačnímu streamu (bez služby na popředí), se připojí znovu.
@@ -1290,8 +1360,25 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: dataAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
-        error: (_, __) => _exit(context),
+        // Načítání i chyba mají hlavičku se šipkou zpět (navigace je přes
+        // celou obrazovku, bez spodní lišty).
+        loading: () => MgStateScaffold(
+          onBack: () => context.backOr('/routes'),
+          child: MgLoadingView(
+              color: MotoGoColors.greenDark,
+              onRetry: () => ref.invalidate(routesDataProvider),
+              onBack: () => context.backOr('/routes')),
+        ),
+        // Chyba načtení ≠ „Trasa nenalezena": důvod + Zkusit znovu + Zpět.
+        error: (e, _) => MgStateScaffold(
+          onBack: () => context.backOr('/routes'),
+          child: MgErrorView(
+            error: e,
+            what: t(context).tr('eoRouteLoadFail'),
+            onRetry: () => ref.invalidate(routesDataProvider),
+            onBack: () => context.backOr('/routes'),
+          ),
+        ),
         data: (data) {
           final listRoute = data.routes.firstWhere(
             (r) => r.id == widget.routeId,
@@ -1447,7 +1534,10 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
                 userAgentPackageName: 'com.motogo24.app',
                 maxZoom: 19,
+                errorTileCallback: MapTileErrors.report,
+                reset: MapTileErrors.reset,
               ),
+              const MapTileErrorChip(),
               // Projetá část — zešedne (vizuálně se „odečte").
               if (doneGeo.length >= 2)
                 PolylineLayer(
@@ -1533,11 +1623,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     ],
                   ),
                 ),
+                if (MgV2.on(context)) const NavRecChipV2(),
                 if (_stops.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _openStopsSheet(lang),
-                    child: Container(
+                    child: MgV2.on(context)
+                        ? NavStopsChipV2('$reachedCount/${_stops.length}')
+                        : Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -1579,29 +1672,26 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
             child: NavCompassButton(rotationDeg: _mapRot, onTap: _resetNorth),
           ),
 
-        // Banner při zamítnuté poloze
+        // Banner při zamítnuté / vypnuté poloze — s nápravou (Povolit polohu /
+        // Otevřít nastavení); po návratu z Nastavení se poloha zkusí znovu.
         if (_denied)
           Positioned(
             left: 16, right: 16, bottom: bottomInset + 134,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-                boxShadow: MotoGoShadows.cardSmall,
-              ),
-              child: Row(
-                children: [
-                  const Text('📍', style: TextStyle(fontSize: 20)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      t(context).tr('routeNavNoLocation'),
-                      style: const TextStyle(fontSize: 12, fontWeight: MotoGoTypo.w600, color: MotoGoColors.black, decoration: TextDecoration.none),
-                    ),
-                  ),
-                ],
-              ),
+            child: NavStatusBanner(
+              status: NavStatusBanner.fromGps(_gpsStatus) ?? NavStatus.denied,
+              onRequest: _gpsStatus == GpsStatus.denied
+                  ? () => _start(request: true)
+                  : null,
+            ),
+          ),
+        // Ztráta GPS / slabý signál / trasa bez silnic (offline) — nahoře.
+        if (!_denied && (_gpsLost || _weakGps || _straightLine))
+          Positioned(
+            left: 16, right: 72, top: MediaQuery.of(context).padding.top + 64,
+            child: NavStatusBanner(
+              status: _gpsLost
+                  ? NavStatus.gpsLost
+                  : (_weakGps ? NavStatus.weakGps : NavStatus.straightLine),
             ),
           ),
 
@@ -1722,9 +1812,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     return t(context).tr('routeNavTitle');
   }
 
+  // Zpět / ukončit jízdu: dotyková plocha 48 px + popisek pro čtečku.
   Widget _circleBtn(IconData icon, VoidCallback onTap, {Color? color}) =>
-      GestureDetector(
+      MgV2.on(context)
+          ? NavCircleV2(end: icon == Icons.close, onTap: onTap)
+          : MgBackTap(
         onTap: onTap,
+        close: icon == Icons.close,
+        label: icon == Icons.close ? t(context).tr('routeEndBtn') : null,
         child: Container(
           width: 40, height: 40,
           decoration: BoxDecoration(
@@ -1749,10 +1844,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         ),
       );
 
-  Widget _exit(BuildContext context) => Center(
-        child: ElevatedButton(
-          onPressed: () => context.backOr('/routes'),
-          child: Text(t(context).tr('routeNotFound')),
+  /// Trasa v datech není (smazaná / zastaralý odkaz) — srozumitelně + Zpět.
+  Widget _exit(BuildContext context) => MgStateScaffold(
+        onBack: () => context.backOr('/routes'),
+        child: MgErrorView(
+          what: t(context).tr('routeNotFound'),
+          message: t(context).tr('eoRouteGoneBody'),
+          contact: false,
+          onBack: () => context.backOr('/routes'),
         ),
       );
 }

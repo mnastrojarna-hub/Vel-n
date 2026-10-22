@@ -1,0 +1,91 @@
+<!-- ===== MotoGo24 app v2.1 · shared/levelup-classic.html — FAITHFUL storyboard replica of TODAY's level-up celebration
+     (features/loyalty/loyalty_levelup_overlay.dart 2026-10-15). Owner: "pozor lvl up video neměň" → nothing here redesigns it.
+     Needs rank-theme.css + levelup-classic.js (levelUpVals). Paste PART 1 into the board's single helmet style block (rules only, without the
+     style tags), PART 2 as the last child of the board root (after toasts). Root: onClick = lu.tap (= the app's global Listener, trigger 1).
+     Call: const LU = levelUpVals({ P, S, set, reduced: rm, blocked, bike: 'Husqvarna 701 SM', brand: 'Husqvarna', boardH: H, lang });
+           const rk = rankTheme(LU.level, undefined, lang); prices: rankTheme(LU.priceLevel).pct; return { lu: LU, … }
+           blocked = only what blocks TODAY (onboarding overlays, the payment screen; a board may add "offline" because the status cannot load).
+     While lu.show the board adds class "paused" to its page wrapper (or root) → page loops stop (rank-theme.css .paused rule).
+     Never: tier title card, ring stepping, reason line, gear line, "Zvuk oslav" toggle, "Přeskočit"/"Hotovo", separate "Tvůj stroj" step.
+     The withdrawn v2 redesign (shared/levelup.* before 2026-10-16) is replaced by this file; shared/levelup.* are now copies of it. -->
+
+<!-- PART 1 · CSS -->
+<style>
+/* ===== level-up · FAITHFUL replica of TODAY's celebration (features/loyalty/loyalty_levelup_overlay.dart, 2026-10-15; owner: "pozor lvl up video neměň").
+   = shared/levelup-classic.html PART 1, pasted VERBATIM and identical in every board (DESIGN_V21 §6.7); the withdrawn v2 shared/levelup.* never comes back.
+   Timings = the app's _seg() windows on its 67 s master clock (reveal rs = 1.4 s); the board plays 0–5 s and holds K6 (the app keeps the
+   montage running to 67 s, last 5 s = photo, then closes itself). Base styles = END state (K6), animations carry the start → reduced motion
+   (.rm) simply shows K6. Sizes 10 / 12 / 16 / 30 px are the shipped overlay's own: an explicit exception to the v2.1 type scale. */
+@property --lucg{syntax:'<length>';inherits:false;initial-value:30px}
+.luc{position:absolute;left:0;width:390px;height:844px;z-index:60;overflow:hidden;color:#fff;font-family:Montserrat,sans-serif;text-align:center;background:radial-gradient(110% 110% at 50% 30%,#16241B,#070E09);animation:lucIn .25s ease both}
+.luc-ph{position:absolute;inset:0;overflow:hidden}
+.luc-ph img{display:block;width:100%;height:100%;object-fit:cover;transform:scale(1.14);animation:lucKb 9s linear both}
+.luc-scr{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.55) 0,rgba(0,0,0,.1) 30%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.88) 100%)}
+.luc-beam{position:absolute;top:-80px;bottom:-80px;left:0;width:195px;background:linear-gradient(90deg,rgba(255,233,170,0),rgba(255,233,170,.16),rgba(255,233,170,0));transform:translateX(546px) rotate(6.9deg);animation:lucBeam 2.4s cubic-bezier(.65,0,.35,1) .2s both}
+.luc-sl i{position:absolute;left:0;width:90px;height:2px;background:linear-gradient(90deg,rgba(255,233,170,0),rgba(255,233,170,.5),rgba(255,233,170,0));opacity:0;transform:translateX(468px);animation:lucSl 1.7s cubic-bezier(.65,0,.35,1) both}
+.luc-sl i:nth-child(1){top:354px;animation-delay:.2s}.luc-sl i:nth-child(2){top:365px;animation-delay:.29s}.luc-sl i:nth-child(3){top:376px;animation-delay:.37s}
+.luc-sl i:nth-child(4){top:387px;animation-delay:.46s}.luc-sl i:nth-child(5){top:398px;animation-delay:.54s}.luc-sl i:nth-child(6){top:409px;animation-delay:.63s}
+.luc-sh{position:absolute;left:195px;top:354px;width:702px;height:702px;border-radius:50%;border:0 solid rgba(255,215,0,.5);opacity:0;transform:translate(-50%,-50%);animation:lucSh 3s cubic-bezier(.33,1,.68,1) 1.4s both}
+.luc-bu{position:absolute;left:195px;top:354px;width:0;height:0}
+.luc-bu i{position:absolute;left:0;top:0;width:var(--d);height:var(--d);margin:calc(var(--d) / -2) 0 0 calc(var(--d) / -2);border-radius:50%;background:var(--c);opacity:0;transform:translate(var(--x),var(--y)) scale(.4);animation:lucP 3.4s cubic-bezier(.33,1,.68,1) 1.4s both}
+.luc-spot{position:absolute;left:45px;top:239px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(0,0,0,.5),rgba(0,0,0,0) 70%);animation:lucSpot 2s ease-out .4s both}
+.luc-em{position:absolute;left:0;right:0;top:317px;display:flex;flex-direction:column;align-items:center;animation:lucO .72s ease-out .18s both,lucEl 2s linear .4s both}
+.luc-ri{position:relative}
+.luc-rg{display:block;padding:4px;border-radius:26px;color:var(--n);background:currentColor;--lucg:30px;box-shadow:0 0 var(--lucg) 3px color-mix(in srgb,currentColor 65%,transparent),0 0 calc(var(--lucg) * 2.6) 10px color-mix(in srgb,currentColor 30%,transparent);animation:lucRing 3s ease-out 1.4s both,lucPulse 1.1s linear .4s infinite alternate}
+.luc-rg svg{display:block;width:92px;height:92px;border-radius:22px}
+.luc.lg .luc-rg{background:linear-gradient(135deg,#FFD700,#FF6B00);color:#FF8C00;animation:lucRingL 3s ease-out 1.4s both,lucPulse 1.1s linear .4s infinite alternate}
+.luc-plus{position:absolute;top:-12px;right:-16px;padding:6px 11px;border-radius:999px;border:2px solid #fff;background:linear-gradient(90deg,var(--n),var(--n2));color:var(--on);font:900 17px/1 Montserrat,sans-serif;box-shadow:0 0 14px color-mix(in srgb,var(--n) 60%,transparent);animation:lucBadge 1.7s linear 2.3s both}
+.luc.lg .luc-plus{background:linear-gradient(135deg,#FFD700,#FF6B00);color:#241A06;box-shadow:0 0 14px rgba(255,140,0,.6)}
+.luc-k{margin-top:10px;font:900 11px/1.2 Montserrat,sans-serif;letter-spacing:5px;color:rgba(255,255,255,.9)}
+.luc.tb .luc-k{font-size:13px}
+.luc.lg .luc-k{color:rgba(255,231,160,.9)}
+.luc-fl{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;animation:lucFl 2.4s ease-out 1.4s both}
+.luc.lg .luc-fl{background:#FFE9AA}
+.luc-bt{position:absolute;left:26px;right:26px;bottom:68px;display:flex;flex-direction:column;align-items:center;animation:lucUp 2.1s ease-out 1.7s both}
+.luc-nm{font:900 30px/1.05 Montserrat,sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--n);text-shadow:0 0 18px color-mix(in srgb,var(--n) 90%,transparent),0 0 36px color-mix(in srgb,var(--n) 50%,transparent)}
+.luc.lg .luc-nm{color:transparent;background:linear-gradient(90deg,#FFF4D6,#E9B24B,#FFD27A);-webkit-background-clip:text;background-clip:text;text-shadow:none;filter:drop-shadow(0 0 14px rgba(255,140,0,.6))}
+.luc-pc{margin-top:12px;font:800 16px/1.3 Montserrat,sans-serif;color:#fff}
+.luc-nt{margin-top:7px;font:600 12px/1.45 Montserrat,sans-serif;color:rgba(255,255,255,.72)}
+.luc-bk{margin-top:13px;font:800 10px/1.3 Montserrat,sans-serif;letter-spacing:1.4px;color:color-mix(in srgb,var(--n) 85%,transparent)}
+.luc.lg .luc-bk{color:rgba(255,231,160,.85)}
+.mg .luc-go{margin-top:22px;padding:13px 34px;border-radius:999px;background:var(--n);color:var(--on);font:900 14px/1.2 Montserrat,sans-serif;box-shadow:0 0 18px color-mix(in srgb,var(--n) 50%,transparent);animation:lucO 1.6s ease-out 3s both}
+.mg .luc.lg .luc-go{background:linear-gradient(90deg,#FFD700,#FF6B00);color:#241A06;box-shadow:0 0 18px rgba(255,140,0,.5)}
+.luc-go:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.luc-ann{position:absolute;left:16px;right:16px;top:12px;padding:8px 12px;border-radius:12px;border:1.5px dashed #FFD36B;background:rgba(10,31,20,.82);color:#FFD36B;font:800 11px/1.35 Montserrat,sans-serif;letter-spacing:.02em}
+@keyframes lucIn{from{opacity:0}}
+@keyframes lucKb{from{transform:scale(1)}}
+@keyframes lucBeam{from{transform:translateX(-312px) rotate(6.9deg)}}
+@keyframes lucSl{0%{opacity:1;transform:translateX(-234px)}99%{opacity:1}100%{opacity:0;transform:translateX(468px)}}
+@keyframes lucSh{0%{width:0;height:0;border-width:6px;opacity:1}100%{width:702px;height:702px;border-width:0;opacity:0}}
+@keyframes lucP{0%{opacity:0;transform:none}.1%{opacity:.9;transform:none}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(.4)}}
+@keyframes lucSpot{from{opacity:0}}
+@keyframes lucO{from{opacity:0}}
+@keyframes lucRing{from{color:var(--o)}}
+@keyframes lucRingL{0%,89%{background:var(--o);color:var(--o)}90%{background:linear-gradient(135deg,#FFD700,#FF6B00);color:#FF8C00}}
+@keyframes lucPulse{from{--lucg:30px}to{--lucg:54px}}
+@keyframes lucFl{0%{opacity:0}33.3%{opacity:.45}100%{opacity:0}}
+@keyframes lucUp{from{opacity:0;transform:translateY(22px)}}
+@keyframes lucEl{0%{transform:scale(0.600)}4.2%{transform:scale(0.762)}8.3%{transform:scale(0.942)}12.5%{transform:scale(1.064)}16.7%{transform:scale(1.109)}20.8%{transform:scale(1.094)}25%{transform:scale(1.050)}29.2%{transform:scale(1.007)}33.3%{transform:scale(0.980)}37.5%{transform:scale(0.973)}41.7%{transform:scale(0.978)}45.8%{transform:scale(0.990)}50%{transform:scale(1.000)}54.2%{transform:scale(1.006)}58.3%{transform:scale(1.007)}62.5%{transform:scale(1.005)}66.7%{transform:scale(1.002)}70.8%{transform:scale(1.000)}75%{transform:scale(0.998)}79.2%{transform:scale(0.998)}83.3%{transform:scale(0.999)}87.5%{transform:scale(1.000)}91.7%{transform:scale(1.000)}95.8%{transform:scale(1.000)}100%{transform:scale(1.000)}}
+@keyframes lucBadge{0%{transform:scale(0.000)}4.2%{transform:scale(0.406)}8.3%{transform:scale(0.855)}12.5%{transform:scale(1.161)}16.7%{transform:scale(1.273)}20.8%{transform:scale(1.234)}25%{transform:scale(1.125)}29.2%{transform:scale(1.017)}33.3%{transform:scale(0.950)}37.5%{transform:scale(0.931)}41.7%{transform:scale(0.946)}45.8%{transform:scale(0.975)}50%{transform:scale(1.000)}54.2%{transform:scale(1.014)}58.3%{transform:scale(1.017)}62.5%{transform:scale(1.012)}66.7%{transform:scale(1.005)}70.8%{transform:scale(0.999)}75%{transform:scale(0.996)}79.2%{transform:scale(0.996)}83.3%{transform:scale(0.997)}87.5%{transform:scale(0.999)}91.7%{transform:scale(1.000)}95.8%{transform:scale(1.001)}100%{transform:scale(1.000)}}
+.luc.tb .luc-rg{--lucg:36px;animation-name:lucRing,lucPulseT}
+.luc.tb.lg .luc-rg{animation-name:lucRingL,lucPulseT}
+@keyframes lucPulseT{from{--lucg:36px}to{--lucg:66px}}
+.rm .luc *,.luc.rm,.luc.rm *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.luc,.luc *{animation:none!important}}
+</style>
+
+<!-- PART 2 · markup -->
+<sc-if value="{{ lu.show }}" hint-placeholder-val="{{ false }}">
+<div class="{{ lu.cls }}" style="{{ lu.st }}" role="dialog" aria-modal="true" aria-label="{{ lu.aria }}">
+<div class="luc-ph" aria-hidden="true"><img src="{{ lu.img }}" alt=""></div>
+<div class="luc-scr" aria-hidden="true"></div>
+<i class="luc-beam" aria-hidden="true"></i>
+<sc-if value="{{ lu.turbo }}" hint-placeholder-val="{{ false }}"><span class="luc-sl" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><i class="luc-sh" aria-hidden="true"></i></sc-if>
+<span class="luc-bu" aria-hidden="true"><sc-for list="{{ lu.parts }}" as="p" hint-placeholder-count="46"><i style="{{ p.st }}"></i></sc-for></span>
+<i class="luc-spot" aria-hidden="true"></i>
+<div class="luc-em"><span class="luc-ri"><span class="luc-rg"><svg viewBox="0 0 800 800" width="92" height="92" aria-hidden="true"><rect width="800" height="800" rx="191" fill="#000"></rect><g transform="translate(185 114) scale(1.005)"><g transform="translate(0 450) scale(0.1 -0.1)" fill="#74FB71" fill-rule="evenodd"><path d="M1008 4282 c-111 -77 -258 -200 -258 -216 0 -14 1361 -1376 1375 -1376 5 0 243 233 527 517 l517 517 17 -15 c10 -8 50 -53 89 -100 106 -127 205 -293 250 -420 l13 -36 -164 -164 c-90 -90 -164 -169 -164 -176 l0 -13 434 0 435 0 7 12 c20 31 -21 259 -78 438 -98 307 -266 577 -500 806 -156 153 -362 305 -390 288 -7 -4 -232 -226 -501 -493 -268 -267 -491 -487 -495 -489 -4 -1 -230 221 -502 493 -272 272 -499 495 -505 495 -5 -1 -54 -31 -107 -68z"></path><path d="M522 3812 c-170 -214 -323 -593 -363 -896 l-11 -89 5 -241 5 -241 21 -93 c89 -399 263 -723 536 -998 293 -296 641 -477 1075 -561 l95 -18 235 0 235 0 100 19 c325 60 606 181 861 372 103 76 315 288 390 389 85 115 174 267 223 381 23 54 46 108 51 119 44 99 107 379 112 500 l3 70 -875 3 -875 2 -230 -230 -230 -231 15 -9 c9 -6 332 -9 804 -9 433 0 790 -2 793 -5 7 -7 -58 -133 -110 -214 -146 -225 -356 -413 -597 -533 -107 -54 -255 -103 -388 -131 l-107 -22 -175 1 -175 0 -110 22 c-713 148 -1215 757 -1216 1476 0 118 15 247 40 354 33 133 125 361 147 361 6 0 77 -20 158 -45 82 -25 156 -45 166 -45 l18 0 -289 288 c-160 158 -294 288 -298 290 -5 2 -22 -14 -39 -36z"></path></g></g><text x="400" y="600" text-anchor="middle" font-family="Montserrat,sans-serif" font-weight="800" font-size="62" fill="#fff" textLength="420" lengthAdjust="spacingAndGlyphs">MOTO GO 24</text></svg></span><b class="luc-plus tn">{{ lu.plus }}</b></span><b class="luc-k">{{ lu.kicker }}</b></div>
+<i class="luc-fl" aria-hidden="true"></i>
+<div class="luc-bt"><h2 class="luc-nm">{{ lu.name }}</h2><p class="luc-pc">{{ lu.pctLine }}</p><p class="luc-nt">{{ lu.note }}</p><p class="luc-bk">{{ lu.bikeLine }}</p><button class="luc-go" onClick="{{ lu.go }}">{{ lu.cont }}</button></div>
+<p class="luc-ann" aria-hidden="true">{{ lu.ann }}</p>
+</div>
+</sc-if>

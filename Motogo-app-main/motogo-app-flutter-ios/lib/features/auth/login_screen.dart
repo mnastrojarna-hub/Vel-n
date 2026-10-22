@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth_guard.dart' show ForcedSignOut;
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
@@ -35,6 +36,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.initState();
     _prefillEmail();
     _checkBiometric();
+    // Appka zákazníka odhlásila sama (neplatné / zneplatněné přihlášení) →
+    // jednou vysvětlit proč a že se nic neztratilo.
+    if (ForcedSignOut.pending) {
+      ForcedSignOut.pending = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showMotoGoToast(context,
+            icon: '🔒',
+            title: t(context).tr('eoAuthTitle'),
+            message: t(context).tr('eoForcedSignOut'),
+            duration: const Duration(seconds: 8));
+      });
+    }
   }
 
   Future<void> _prefillEmail() async {
@@ -119,19 +133,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _doBioLogin() async {
-    final ok = await BiometricService.authenticate();
-    if (!ok) {
-      if (mounted) showMotoGoToast(context, icon: 'ℹ️', title: t(context).tr('biometricTitle'), message: t(context).tr('authCancelled'));
+    final bio = await BiometricService.authenticateResult();
+    if (bio != BioAuthResult.ok) {
+      if (!mounted) return;
+      // Zablokovaná / nenastavená biometrie ≠ „zrušeno" — řekni proč a co dál.
+      final msg = switch (bio) {
+        BioAuthResult.lockedOut => t(context).tr('eoBioLocked'),
+        BioAuthResult.notEnrolled => t(context).tr('eoBioNotEnrolled'),
+        BioAuthResult.unavailable => t(context).tr('eoBioUnavailable'),
+        _ => t(context).tr('authCancelled'),
+      };
+      showMotoGoToast(context,
+          icon: 'ℹ️',
+          title: t(context).tr('biometricTitle'),
+          message: msg,
+          duration: Duration(seconds: bio == BioAuthResult.cancelled ? 3 : 7));
       return;
     }
 
     if (mounted) showMotoGoToast(context, icon: '🔐', title: t(context).tr('biometricTitle'), message: t(context).tr('bioVerified'));
 
-    final sessionOk = await AuthService.bioRestoreSession();
+    final restore = await AuthService.bioRestoreSession();
     if (!mounted) return;
 
-    if (sessionOk) {
+    if (restore == BioRestore.ok) {
       context.go(Routes.home);
+    } else if (restore == BioRestore.offline) {
+      // Bez signálu nemazat nastavení biometrie — stačí to zkusit znovu.
+      showMotoGoToast(context,
+          icon: '📡',
+          title: t(context).tr('eoOfflineTitle'),
+          message: t(context).tr('eoBioOffline'),
+          duration: const Duration(seconds: 7));
     } else {
       await AuthService.clearBioData();
       showMotoGoToast(context, icon: 'ℹ️', title: t(context).tr('biometricTitle'), message: t(context).tr('sessionExpired'));

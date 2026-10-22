@@ -1,0 +1,65 @@
+<!-- ===== MotoGo24 app v2 · shared/nav.html — bottom nav, 5 tabs incl. PROFIL (night glass, rank pill, avatar ring + arc).
+     Needs rank-theme.css (vars from the root rk-N class) + nav.js (navVals). Paste PART 1 into the board's single helmet style block (rules only, without the style tags),
+     PART 2 as the LAST child of the board root (after content, before toasts/sheets). Boards with a focused flow (Detail, Booking) have NO nav.
+     Holes come from `nav: navVals({...})` returned by renderVals. Geometry for a 390 px board: bar 64 + 34 safe area = 98 px, column 78 px.
+     Label size/line-height come from nav.js (`t.ls`, the no-overlap ladder: user scale → clamp 1.0 → 10 px); the .nv-l CSS keeps the 11/14 default. -->
+
+<!-- PART 1 · CSS -->
+<style>
+.nv{position:absolute;left:0;right:0;bottom:0;z-index:30;height:98px;border-radius:20px 20px 0 0;background:rgba(10,31,20,.96);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);box-shadow:0 -10px 28px rgba(0,0,0,.25);font-family:Montserrat,sans-serif}
+.nv::before{content:'';position:absolute;left:24px;right:24px;top:0;height:1px;background:linear-gradient(90deg,rgba(116,251,113,0),rgba(116,251,113,.38),rgba(116,251,113,0))}
+.nv-row{position:relative;z-index:1;display:grid;grid-template-columns:repeat(5,1fr);height:64px}
+.nv .nv-t{position:relative;display:flex;flex-direction:column;align-items:center;height:64px;padding:7px 0 0;color:#9FC4B1;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.nv .nv-t:focus-visible{outline:3px solid #74FB71;outline-offset:-3px;border-radius:14px}
+.nv-ico{position:relative;width:52px;height:30px;display:flex;align-items:center;justify-content:center;transition:transform .12s ease-out,color .18s}
+.nv-t:active .nv-ico{transform:scale(.92)}
+.nv-ico .ic{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nv-t.on .nv-ico{color:var(--rk-on)}
+.nv-t.on .nv-ico .ic{fill:currentColor;fill-opacity:.18}
+.nv-t.on.pA .nv-ico .ic{animation:nvPopA .3s cubic-bezier(.2,1.6,.4,1)}
+.nv-t.on.pB .nv-ico .ic{animation:nvPopB .3s cubic-bezier(.2,1.6,.4,1)}
+.nv-t.upA .nv-ico{animation:nvNudgeA .35s ease}
+.nv-t.upB .nv-ico{animation:nvNudgeB .35s ease}
+.nv-l{margin-top:5px;font:700 11px/14px Montserrat,sans-serif;color:#B8D4C6;white-space:nowrap;letter-spacing:0;transition:color .18s}
+.nv-t.on .nv-l{color:#fff;font-weight:800}
+.nv-pill{position:absolute;top:7px;left:13px;z-index:0;width:52px;height:30px;pointer-events:none;transition:left .3s cubic-bezier(.3,1.35,.5,1)}
+.nv-pill i{position:absolute;inset:0;border-radius:999px;border:1px solid transparent;background:linear-gradient(var(--rk-ang),var(--rk-b1),var(--rk-b2) 33%,var(--rk-b3) 67%,var(--rk-b4)) padding-box,linear-gradient(135deg,var(--rk-e1),var(--rk-e2),var(--rk-e3),var(--rk-e4)) border-box;box-shadow:0 6px 16px -6px var(--rk-glow-s)}
+.nv-pill.mA i{animation:nvLiqA .3s ease}
+.nv-pill.mB i{animation:nvLiqB .3s ease}
+.nv-av{position:relative;display:flex;width:30px;height:30px;padding:2.5px;border-radius:50%;background:var(--rk-ring);box-shadow:0 0 0 1px var(--rk-ring2),0 0 10px -1px var(--rk-glow-a)}
+.nv-av b{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:#0E2A1C;color:#E8F5EE}
+.nv-av b svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.nv-arc{position:absolute;left:-5px;top:-5px;width:40px;height:40px;transform:rotate(-90deg);overflow:visible}
+.nv-arc circle{fill:none;stroke-width:2;stroke-linecap:round}
+.nv-arc .tr{stroke:rgba(255,255,255,.16)}
+.nv-arc .pr{stroke:var(--rk-arc)}
+.nv-dot{position:absolute;top:2px;right:9px;width:10px;height:10px;border-radius:50%;background:#EF4444;border:2px solid #0A1F14;animation:nvPing 1.2s ease-out 1}
+.nv-cnt{position:absolute;top:-2px;right:2px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#D92D20;border:2px solid #0A1F14;color:#fff;font:800 11px/14px Montserrat,sans-serif;text-align:center;font-variant-numeric:tabular-nums;animation:nvPopA .3s cubic-bezier(.2,1.6,.4,1)}
+@keyframes nvLiqA{0%{transform:none}45%{transform:scaleX(1.45) scaleY(.86)}100%{transform:none}}
+@keyframes nvLiqB{0%{transform:none}45%{transform:scaleX(1.45) scaleY(.86)}100%{transform:none}}
+@keyframes nvPopA{0%{transform:scale(.85)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes nvPopB{0%{transform:scale(.85)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes nvNudgeA{0%,100%{transform:none}40%{transform:translateY(-3px)}}
+@keyframes nvNudgeB{0%,100%{transform:none}40%{transform:translateY(-3px)}}
+@keyframes nvPing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.7)}100%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.rm .nv *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.nv *{animation:none!important;transition:none!important}}
+</style>
+
+<!-- PART 2 · markup -->
+<nav class="nv" aria-label="{{ nav.aria }}">
+<span class="{{ nav.pillCls }}" style="{{ nav.pillSt }}" aria-hidden="true"><i></i></span>
+<div class="nv-row">
+<sc-for list="{{ nav.tabs }}" as="t" hint-placeholder-count="5">
+<button class="{{ t.cls }}" onClick="{{ t.a }}" aria-current="{{ t.cur }}" aria-label="{{ t.aria }}">
+<span class="nv-ico">
+<sc-if value="{{ t.isIcon }}" hint-placeholder-val="{{ true }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ t.i }}"></path></svg></sc-if>
+<sc-if value="{{ t.isProfile }}" hint-placeholder-val="{{ false }}"><span class="nv-av" aria-hidden="true"><b><svg viewBox="0 0 24 24"><path d="M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0M4.5 21c1.4-3.8 4.2-5.8 7.5-5.8s6.1 2 7.5 5.8"></path></svg></b><svg class="nv-arc" viewBox="0 0 40 40"><circle class="tr" cx="20" cy="20" r="18.5"></circle><circle class="pr" cx="20" cy="20" r="18.5" pathLength="100" style="{{ nav.arcSt }}"></circle></svg></span></sc-if>
+<sc-if value="{{ t.hasDot }}" hint-placeholder-val="{{ false }}"><span class="nv-dot" aria-hidden="true"></span></sc-if>
+<sc-if value="{{ t.hasCount }}" hint-placeholder-val="{{ false }}"><span class="nv-cnt" aria-hidden="true">{{ t.count }}</span></sc-if>
+</span>
+<span class="nv-l" style="{{ t.ls }}">{{ t.l }}</span>
+</button>
+</sc-for>
+</div>
+</nav>

@@ -22,8 +22,21 @@ const _authErrorPatterns = [
   'not_authenticated',
 ];
 
+/// Vynucené odhlášení čeká na vysvětlení: přihlašovací obrazovka ho jednou
+/// ukáže („Z bezpečnostních důvodů jsme tě odhlásili…") — dřív zákazník
+/// přistál na přihlášení bez jediného slova.
+class ForcedSignOut {
+  ForcedSignOut._();
+  static bool pending = false;
+}
+
 /// Returns `true` when [error] looks like an authentication / token error.
 bool isAuthError(Object error) {
+  // Síťová chyba při obnově tokenu (AuthRetryableFetchException je podtřída
+  // AuthException) NENÍ důvod k odhlášení — výpadek signálu dřív zákazníka
+  // odhlásil.
+  if (error is AuthRetryableFetchException) return false;
+
   final msg = error.toString().toLowerCase();
 
   if (error is AuthException) return true;
@@ -39,6 +52,7 @@ bool isAuthError(Object error) {
 Future<bool> handleAuthError(Object error) async {
   if (!isAuthError(error)) return false;
 
+  if (MotoGoSupabase.currentSession != null) ForcedSignOut.pending = true;
   try {
     await MotoGoSupabase.client.auth.signOut();
   } catch (_) {

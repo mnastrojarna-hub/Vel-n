@@ -5,6 +5,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/supabase_client.dart';
 import '../../auth/widgets/toast_helper.dart';
 import 'branch_detail_card.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Shows a draggable bottom sheet listing all active branches.
 /// Each branch is an expandable card with detailed info + motorcycles.
@@ -64,15 +65,7 @@ Future<void> showBranchesSheet(BuildContext context) async {
         builder: (_, scrollCtrl) => SafeArea(
           child: Column(children: [
             // Drag handle
-            Container(
-              margin: const EdgeInsets.only(top: 12, bottom: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: MotoGoColors.g300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const MgSheetHandle(barColor: MotoGoColors.g300, margin: EdgeInsets.fromLTRB(12, 6, 12, 0)),
             // Title
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

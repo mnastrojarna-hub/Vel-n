@@ -6,9 +6,13 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart';
 import 'ride_model.dart';
 import 'ride_provider.dart';
 import 'route_image.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_point_sheet_v2.dart';
 
 /// Editor zastávky (bodu zájmu) na jízdě — název, popisek a fotky.
 /// Zastávku lze i smazat. Vrací true, když se něco uložilo / smazalo.
@@ -19,9 +23,14 @@ Future<bool> showRidePointSheet(
   double? lat,
   double? lng,
 }) async {
+  // Něco se uložilo i když sheet zavřel uživatel (částečné uložení fotek).
+  final changed = ValueNotifier(false);
   final res = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
+    // Tažení dolů by rozepsaný text a fotky zahodilo bez dotazu → zavírá
+    // se ✕ / zpět (s potvrzením, když je co ztratit).
+    enableDrag: false,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
@@ -32,10 +41,13 @@ Future<bool> showRidePointSheet(
         point: point,
         lat: lat ?? point?.lat,
         lng: lng ?? point?.lng,
+        changed: changed,
       ),
     ),
   );
-  return res == true;
+  final out = res == true || changed.value;
+  changed.dispose();
+  return out;
 }
 
 class _RidePointEditor extends StatefulWidget {
@@ -44,11 +56,14 @@ class _RidePointEditor extends StatefulWidget {
   final double? lat;
   final double? lng;
 
+  final ValueNotifier<bool> changed;
+
   const _RidePointEditor({
     required this.rideId,
     this.point,
     this.lat,
     this.lng,
+    required this.changed,
   });
 
   @override
@@ -74,37 +89,92 @@ class _RidePointEditorState extends State<_RidePointEditor> {
     super.dispose();
   }
 
+  /// Chyba k zobrazení přímo v sheetu (text a fotky zůstávají).
+  String? _error;
+
+  /// Id nově založené zastávky — opakované uložení ji upraví, nezaloží druhou.
+  String? _savedId;
+
+  bool get _dirty =>
+      _newPhotos.isNotEmpty ||
+      _name.text.trim() != (widget.point?.name ?? '') ||
+      _note.text.trim() != (widget.point?.note ?? '');
+
+  Future<void> _close() async {
+    if (_busy) return;
+    if (_dirty && !await confirmDiscard(context)) return;
+    if (mounted) Navigator.of(context).pop(_savedId != null);
+  }
+
   Future<void> _pick() async {
     final free = _maxPhotos - _photos.length - _newPhotos.length;
     if (free <= 0) return;
     final picker = ImagePicker();
-    final xs = await picker.pickMultiImage(imageQuality: 78, maxWidth: 1600);
-    if (xs.isEmpty) return;
-    setState(() => _newPhotos.addAll(xs.take(free)));
+    try {
+      final xs = await picker.pickMultiImage(imageQuality: 78, maxWidth: 1600);
+      if (xs.isEmpty) return;
+      setState(() {
+        _newPhotos.addAll(xs.take(free));
+        _error = null;
+      });
+    } catch (e) {
+      // Bez přístupu k fotkám — proč a jak (dřív výjimka potichu).
+      FriendlyError.log('ride_point_pick', e);
+      if (mounted) {
+        setState(() => _error =
+            FriendlyError.of(e, perm: DevicePerm.photos).compose(t(context), t(context).tr('eoPhotoPickFail')));
+      }
+    }
   }
 
+  /// Uložení: neúspěch → sheet zůstane otevřený s důvodem (dřív se zavřel bez
+  /// hlášky a text i fotky se ztratily); nenahrané fotky se řeknou nahlas.
   Future<void> _save() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     final uid = MotoGoSupabase.currentUser?.id;
-    var photos = _photos;
+    var failedPhotos = 0;
     if (_newPhotos.isNotEmpty && uid != null) {
-      final urls = await uploadRidePhotos(uid, _newPhotos);
-      photos = [...photos, ...urls];
+      final batch = List<XFile>.of(_newPhotos);
+      final urls = await uploadRidePhotos(uid, batch);
+      failedPhotos = batch.length - urls.length;
+      _photos.addAll(urls);
+      // Nahrané pryč; nenahrané zůstanou k dalšímu pokusu.
+      if (failedPhotos == 0) _newPhotos.clear();
     }
     final id = await saveRidePoint(
       rideId: widget.rideId,
-      id: widget.point?.id,
+      id: _savedId ?? widget.point?.id,
       kind: widget.point?.kind ?? 'stop',
       name: _name.text.trim(),
       note: _note.text.trim(),
       lat: widget.lat,
       lng: widget.lng,
-      photos: photos,
+      photos: _photos,
     );
     if (!mounted) return;
+    final tr = t(context);
+    if (id == null) {
+      setState(() {
+        _busy = false;
+        _error = '${tr.tr('eoRidePointSaveFail')} ${tr.tr('eoTextKept')}';
+      });
+      return;
+    }
+    _savedId = id;
+    widget.changed.value = true;
+    if (failedPhotos > 0) {
+      setState(() {
+        _busy = false;
+        _error = tr.trArgs('eoPhotosNotUploaded', {'n': failedPhotos});
+      });
+      return;
+    }
     setState(() => _busy = false);
-    Navigator.of(context).pop(id != null);
+    Navigator.of(context).pop(true);
   }
 
   Future<void> _delete() async {
@@ -114,11 +184,44 @@ class _RidePointEditorState extends State<_RidePointEditor> {
     final ok = await deleteRidePoint(p.id);
     if (!mounted) return;
     setState(() => _busy = false);
-    Navigator.of(context).pop(ok);
+    if (!ok) {
+      setState(() => _error = t(context).tr('eoRidePointDeleteFail'));
+      return;
+    }
+    Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_dirty && !_busy,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _close();
+      },
+      child: _buildSheet(context),
+    );
+  }
+
+  Widget _buildSheet(BuildContext context) {
+    // v2: stejný stav, ovladače i akce — jen nový vzhled (PLAN §2.7).
+    if (MgV2.on(context)) {
+      return RidePointSheetV2View(
+        isNew: widget.point == null,
+        busy: _busy,
+        error: _error,
+        name: _name,
+        note: _note,
+        photos: _photos,
+        newPhotoPaths: [for (final x in _newPhotos) x.path],
+        maxPhotos: _maxPhotos,
+        onDelete: widget.point != null ? _delete : null,
+        onClose: _close,
+        onSave: _save,
+        onPick: _pick,
+        onRemovePhoto: (i) => setState(() => _photos.removeAt(i)),
+        onRemoveNew: (i) => setState(() => _newPhotos.removeAt(i)),
+      );
+    }
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -150,8 +253,19 @@ class _RidePointEditorState extends State<_RidePointEditor> {
                           size: 22, color: Color(0xFFD93636)),
                     ),
                   ),
+                // Viditelné zavření (tažení dolů je vypnuté kvůli ztrátě dat).
+                IconButton(
+                  tooltip: t(context).tr('eoClose'),
+                  onPressed: _close,
+                  icon: const Icon(Icons.close, color: MotoGoColors.g500),
+                ),
               ],
             ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFD93636), height: 1.35)),
+            ],
             const SizedBox(height: 12),
             _label(context, 'ridePointName'),
             _field(_name, t(context).tr('ridePointNameHint'), maxLines: 1),

@@ -1,0 +1,53 @@
+/// Chybové stavy — 3. kolo (2026-10-16), fr/nl/pl/uk (cs/en/de/es v `_a`).
+/// Klíče `r3*`; `r3Auth*` drží oslovení textů `AuthErrorMapper` daného
+/// jazyka (fr vous, nl u, pl ty, uk Ви), ostatní tyká jako zbytek appky.
+const Map<String, Map<String, String>> translationsExt42Refix3B = {
+  'fr': {
+    'r3MotoGoneTitle': 'Nous ne proposons pas cette moto pour le moment',
+    'r3MotoGoneBody': 'La moto a été retirée de l’offre – par exemple pour entretien ou réforme. Choisis-en une autre. Si tu as une réservation, tu la retrouves toujours dans Réservations.',
+    'r3PickOtherMoto': 'Choisir une autre moto',
+    'r3AuthNetBodyIn': 'Vérifiez votre connexion internet (Wi-Fi ou données mobiles) et réessayez. Si vous utilisez un VPN ou un réseau d’entreprise, désactivez-le. Votre compte est en ordre : votre téléphone n’a simplement pas pu nous joindre.',
+    'r3AuthServerBodyIn': 'La connexion est impossible pour le moment à cause d’une erreur sur notre serveur – ce n’est pas de votre faute et votre compte est en ordre. Réessayez dans un instant ; si cela persiste, écrivez-nous à info@motogo24.cz / +420 774 256 271.',
+    'r3AuthRateBodyIn': 'Il y a eu trop de tentatives de connexion en peu de temps, le serveur les a donc suspendues un moment. Attendez quelques minutes puis réessayez. Si vous avez oublié votre mot de passe, demandez-en un nouveau via « Mot de passe oublié ».',
+    'r3SlowHint': 'Cela prend plus de temps que d’habitude – probablement un signal faible. Tu peux attendre, ou annuler et réessayer plus tard.',
+    'r3UploadStoppedTitle': 'Nous avons arrêté d’attendre l’envoi',
+    'r3UploadStoppedBody': 'La connexion est très lente en ce moment. Si le document a tout de même été envoyé entre-temps, il apparaîtra dans la liste. Sinon, réessaie avec un meilleur signal ou en Wi-Fi.',
+    'r3SavingDocPhoto': 'Enregistrement de la photo du document…',
+  },
+  'nl': {
+    'r3MotoGoneTitle': 'Deze motor bieden we nu niet aan',
+    'r3MotoGoneBody': 'De motor is uit het aanbod gehaald – bijvoorbeeld voor onderhoud of omdat hij is afgevoerd. Kies een andere. Een eventuele reservering vind je nog steeds bij Reserveringen.',
+    'r3PickOtherMoto': 'Andere motor kiezen',
+    'r3AuthNetBodyIn': 'Controleer uw internetverbinding (wifi of mobiele data) en probeer het opnieuw. Gebruikt u een VPN of een bedrijfsnetwerk, schakel dat dan uit. Met uw account is niets mis – uw telefoon kon ons alleen even niet bereiken.',
+    'r3AuthServerBodyIn': 'Inloggen lukt nu niet door een fout op onze server – het ligt niet aan u en uw account is in orde. Probeer het zo meteen opnieuw; lukt het dan nog niet, mail ons op info@motogo24.cz / +420 774 256 271.',
+    'r3AuthRateBodyIn': 'Er waren in korte tijd te veel inlogpogingen, daarom heeft de server ze even gepauzeerd. Wacht een paar minuten en probeer het opnieuw. Weet u uw wachtwoord niet meer, vraag dan een nieuw aan via „Wachtwoord vergeten".',
+    'r3SlowHint': 'Dit duurt langer dan normaal – waarschijnlijk een zwak signaal. Je kunt wachten, of annuleren en het later opnieuw proberen.',
+    'r3UploadStoppedTitle': 'We wachten niet meer op de upload',
+    'r3UploadStoppedBody': 'De verbinding is nu erg traag. Als het document intussen toch is geüpload, verschijnt het in de lijst. Probeer het anders opnieuw met een beter signaal of via wifi.',
+    'r3SavingDocPhoto': 'Foto van het document wordt opgeslagen…',
+  },
+  'pl': {
+    'r3MotoGoneTitle': 'Tego motocykla teraz nie oferujemy',
+    'r3MotoGoneBody': 'Motocykl został wycofany z oferty – np. z powodu serwisu lub wycofania z eksploatacji. Wybierz inny. Ewentualną rezerwację nadal znajdziesz w Rezerwacjach.',
+    'r3PickOtherMoto': 'Wybierz inny motocykl',
+    'r3AuthNetBodyIn': 'Sprawdź połączenie z internetem (Wi-Fi lub dane mobilne) i spróbuj ponownie. Jeśli używasz VPN lub sieci firmowej, wyłącz ją. Z Twoim kontem wszystko w porządku – telefon po prostu nie mógł się teraz z nami połączyć.',
+    'r3AuthServerBodyIn': 'Logowanie jest teraz niemożliwe z powodu błędu na naszym serwerze – to nie Twoja wina, a z kontem wszystko w porządku. Spróbuj za chwilę ponownie; jeśli to nie pomoże, napisz na info@motogo24.cz / +420 774 256 271.',
+    'r3AuthRateBodyIn': 'W krótkim czasie było zbyt wiele prób logowania, więc serwer chwilowo je wstrzymał. Odczekaj kilka minut i spróbuj ponownie. Jeśli nie pamiętasz hasła, poproś o nowe przez „Nie pamiętam hasła".',
+    'r3SlowHint': 'Trwa to dłużej niż zwykle – pewnie słaby zasięg. Możesz poczekać albo anulować i spróbować później.',
+    'r3UploadStoppedTitle': 'Przestaliśmy czekać na przesłanie',
+    'r3UploadStoppedBody': 'Połączenie jest teraz bardzo wolne. Jeśli dokument mimo to zdążył się przesłać, pojawi się na liście. W przeciwnym razie spróbuj ponownie przy lepszym zasięgu lub na Wi-Fi.',
+    'r3SavingDocPhoto': 'Zapisuję zdjęcie dokumentu…',
+  },
+  'uk': {
+    'r3MotoGoneTitle': 'Цей мотоцикл зараз не пропонуємо',
+    'r3MotoGoneBody': 'Мотоцикл знято з пропозиції – наприклад, через сервіс або списання. Обери інший. Своє бронювання, якщо воно є, і далі знайдеш у розділі «Бронювання».',
+    'r3PickOtherMoto': 'Обрати інший мотоцикл',
+    'r3AuthNetBodyIn': 'Перевірте підключення до інтернету (Wi-Fi або мобільні дані) і спробуйте знову. Якщо увімкнено VPN або ви в корпоративній мережі, вимкніть їх. З вашим обліковим записом усе гаразд – телефон просто не зміг з’єднатися з нами.',
+    'r3AuthServerBodyIn': 'Увійти зараз неможливо через помилку на нашому сервері – це не ваша провина, з обліковим записом усе гаразд. Спробуйте за хвилину знову; якщо не допоможе, напишіть на info@motogo24.cz / +420 774 256 271.',
+    'r3AuthRateBodyIn': 'За короткий час було забагато спроб входу, тому сервер тимчасово їх призупинив. Зачекайте кілька хвилин і спробуйте знову. Якщо не пам’ятаєте пароль, отримайте новий через «Забули пароль».',
+    'r3SlowHint': 'Це триває довше, ніж зазвичай – мабуть, слабкий сигнал. Можеш зачекати або скасувати й спробувати пізніше.',
+    'r3UploadStoppedTitle': 'Ми перестали чекати на завантаження',
+    'r3UploadStoppedBody': 'З’єднання зараз дуже повільне. Якщо документ усе ж завантажився, він з’явиться в списку. Інакше спробуй ще раз із кращим сигналом або через Wi-Fi.',
+    'r3SavingDocPhoto': 'Зберігаю фото документа…',
+  },
+};

@@ -23,6 +23,8 @@ import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_poi_sheet.dart';
 import 'routes_quick_links.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 
 /// Katalog VŠECH bodů zájmu napříč trasami. Trasa je jen doporučení — tady si
@@ -480,11 +482,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                 title: t(context).tr('poiBrowseAll'),
                 subtitle: t(context).tr('poiBrowseSub'),
                 search: _searchField(context),
-                onBack: (!widget.asTab || widget.pickMode)
-                    ? () => widget.pickMode
-                        ? Navigator.of(context).pop()
-                        : context.backOr(Routes.routes)
-                    : null,
+                // Vždy viditelné zpět (požadavek majitele): kořen záložky
+                // Místa → Domů, jinak o úroveň výš.
+                onBack: widget.pickMode
+                    ? () => Navigator.of(context).pop()
+                    : widget.asTab
+                        ? () => context.go(Routes.home)
+                        : () => context.backOr(Routes.routes),
                 onSearchTap: _scrollToTop,
               ),
             ),
@@ -517,6 +521,24 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                       onTap: () => context.push('/my-experiences'),
                     ),
                   ],
+                ),
+              ),
+            // Místa se nenačetla (offline bez cache / chyba) → důvod + Zkusit
+            // znovu; dřív tiše prázdný seznam i mapa.
+            if (!sourcesLoading &&
+                ((catalogAsync.hasError && catalogPois.isEmpty) || userAsync.hasError))
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: MgErrorView(
+                    compact: true,
+                    error: catalogAsync.hasError ? catalogAsync.error : userAsync.error,
+                    what: t(context).tr('eoPlacesLoadFail'),
+                    onRetry: () {
+                      ref.invalidate(catalogPoisProvider);
+                      ref.invalidate(userPoisProvider);
+                    },
+                  ),
                 ),
               ),
             if (sourcesLoading)
@@ -625,7 +647,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
       child: PressableScale(
         pressedScale: 0.98,
-        onTap: () => ensureLocation(ref),
+        onTap: () => ensureLocation(ref, context: context),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
@@ -955,7 +977,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             null,
                             () async {
                               if (!_f.nearbyOn && !meAvail && _selected.isEmpty) {
-                                final ok = await ensureLocation(ref);
+                                final ok = await ensureLocation(ref, context: context);
                                 if (!ok || !mounted) return;
                               }
                               _setFilter((f) => f.copyWith(nearbyOn: !f.nearbyOn));
@@ -1127,13 +1149,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 6),
-                      width: 40, height: 4,
-                      decoration: BoxDecoration(
-                          color: MotoGoColors.g200,
-                          borderRadius: BorderRadius.circular(2)),
-                    ),
+                    const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
                       child: Row(
@@ -1243,7 +1259,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             chip(_sortLabel(sheetCtx, PoiSort.nearMe),
                                 tSort == PoiSort.nearMe, () async {
                               if (!meAvail) {
-                                final ok = await ensureLocation(ref);
+                                final ok = await ensureLocation(ref, context: sheetCtx);
                                 // Sheet mohl mezitím zmizet — setSheet na
                                 // odpojeném StatefulBuilderu shodí appku.
                                 if (!ok || !sheetCtx.mounted) return;
@@ -1555,12 +1571,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 6),
-                      width: 40, height: 4,
-                      decoration: BoxDecoration(
-                          color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)),
-                    ),
+                    const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
                       child: Row(

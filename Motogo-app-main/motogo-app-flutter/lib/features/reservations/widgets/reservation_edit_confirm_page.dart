@@ -5,6 +5,9 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/widgets/pickup_location_link.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_states_v2.dart';
 
 /// Confirmation page shown after successful edit save.
 class EditConfirmPage extends StatelessWidget {
@@ -15,9 +18,20 @@ class EditConfirmPage extends StatelessWidget {
   const EditConfirmPage({super.key, required this.title, required this.message, this.isRefund = false, this.pickup});
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): Stavy T1, stejný cíl (Rezervace).
+    if (MgV2.on(context)) {
+      return EditConfirmV2(
+        title: title,
+        message: message,
+        isRefund: isRefund,
+        pickup: pickup,
+        onDone: () => context.go(Routes.reservations),
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
-      body: Center(child: Padding(
+      body: Stack(children: [
+        Center(child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 72, height: 72,
@@ -50,7 +64,14 @@ class EditConfirmPage extends StatelessWidget {
                 const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),
               ]))),
         ]),
-      )),
+        )),
+        // Viditelné zavření (stejný cíl jako tlačítko dole).
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 8,
+          right: 12,
+          child: MgSheetClose(onTap: () => context.go(Routes.reservations)),
+        ),
+      ]),
     );
   }
 }

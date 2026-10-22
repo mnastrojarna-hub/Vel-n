@@ -7,12 +7,17 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart' show openFixSettings;
 import '../auth/widgets/toast_helper.dart';
 import 'document_camera_screen.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 import 'docs_gate_provider.dart';
 import '../auth/auth_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_back_v2.dart';
 
 // Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
 const String _kSupportPhone = '+420 774 256 271';
@@ -52,6 +57,8 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
   CameraController? _cam;
   bool _camReady = false;
   String? _camError;
+  FriendlyError? _camFe;
+  String? _progressText;
 
   // Scan result overlay — shown after each scan
   _ResultKind _resultKind = _ResultKind.none;
@@ -112,7 +119,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         if (mounted) {
-          setState(() => _camError = t(context).tr('cameraNotAvailable'));
+          setState(() {
+            _camError = t(context).tr('cameraNotAvailable');
+            _camFe = null;
+          });
         }
         return;
       }
@@ -133,7 +143,16 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     } catch (e) {
       // Dispose během initu (pauza appky) není chyba — resume kameru nahodí.
       if (!mounted || (cam != null && _cam != cam)) return;
-      setState(() => _camError = '${t(context).tr('cameraError')}: $e');
+      // Bez syrové výjimky („CameraException(CameraAccessDenied…)"): proč +
+      // Otevřít nastavení / Zkusit znovu / Zpět (galerie je v Mých dokladech).
+      FriendlyError.log('doc_scan_camera_init', e);
+      final fe = FriendlyError.of(e, perm: DevicePerm.camera);
+      setState(() {
+        _camFe = fe;
+        _camError = fe.kind == FriendlyKind.permission
+            ? t(context).tr('errCameraPermission')
+            : t(context).tr('errCameraGeneric');
+      });
     }
   }
 
@@ -204,7 +223,15 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           '${step.key} (${step.docType.apiType})');
 
       // Nejdřív OCR, pak nahrání fotky s odpovídajícím mindee_status.
-      final scanResult = await scanDocumentWithRetry(photo, step.docType);
+      final scanResult = await scanDocumentWithRetry(photo, step.docType,
+          onAttempt: (a, max) {
+        if (mounted) {
+          setState(() => _progressText = a > 1
+              ? t(context).trArgs('eoScanAttempt', {'n': a, 'max': max})
+              : null);
+        }
+      });
+      if (mounted) setState(() => _progressText = t(context).tr('eoScanSaving'));
       final ocrDataOk = scanResult.ok
           && scanResult.data != null
           && _hasRequiredFieldsForStep(scanResult.data!, step);
@@ -220,7 +247,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
       );
 
       if (!mounted) return;
-      setState(() => _scanning = false);
+      setState(() {
+        _scanning = false;
+        _progressText = null;
+      });
 
       final uploadOk = uploadResult.ok;
 
@@ -284,19 +314,22 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
       if (!mounted) return;
       final step = _sequence[_stepIdx];
       final errStr = e.toString().toLowerCase();
+      FriendlyError.log('doc_scan_capture', e);
       String msg;
       if (errStr.contains('permission') || errStr.contains('denied')) {
         msg = t(context).tr('errCameraPermission');
       } else if (errStr.contains('camera')) {
         msg = t(context).tr('errCameraGeneric');
       } else {
-        msg = '${t(context).tr('errUnknown')}\n\n$e';
+        // Důvod + rada, nikdy syrová výjimka.
+        msg = FriendlyError.of(e).compose(t(context), t(context).tr('eoScanStepFail'));
       }
       final attempt = (_attempts[step.key] ?? 0) + 1;
       _attempts[step.key] = attempt;
       setState(() {
         _isCapturing = false;
         _scanning = false;
+        _progressText = null;
         _resultTitle = '${step.title} – ${step.side}';
         _resultMsg = msg;
         _resultGuidance = _guidanceForStep(step);
@@ -317,12 +350,24 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     required bool ocrOk,
     required bool uploadOk,
   }) {
+    // Diagnostika jen do logu (Velín), zákazník ji nevidí.
+    FriendlyError.log('doc_scan_failed',
+        '${step.docType.apiType} | ocr=${scanResult.errorCode} http=${scanResult.httpStatus} '
+        '#${scanResult.attempts} | upload=${uploadResult.errorDetail} | ${scanResult.errorDetail}');
+    // Síť / limit má přednost — dřív se offline hlásilo „záznam se nepodařilo
+    // uložit na server" místo „nejsi připojený".
+    final upFe = FriendlyError.of(uploadResult.cause);
+    if (scanResult.errorCode == 'network' ||
+        (uploadResult.cause != null && upFe.kind == FriendlyKind.offline)) {
+      return t(context).tr('errNetwork');
+    }
+    if (scanResult.errorCode == 'timeout' ||
+        (uploadResult.cause != null && upFe.kind == FriendlyKind.timeout)) {
+      return t(context).tr('errTimeout');
+    }
     // DB zápis selhal — příčina je technická, ne fotografická.
     if (!uploadOk) {
-      return '${t(context).tr('scanSaveFailed')}'
-          '\n\n[${step.docType.apiType} | upload_failed'
-          '${uploadResult.errorDetail != null && uploadResult.errorDetail!.length < 80
-              ? '\n${uploadResult.errorDetail}' : ''}]';
+      return t(context).tr('scanSaveFailed');
     }
 
     // OCR selhal technicky (server/timeout/network)
@@ -364,51 +409,49 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     final http = scanResult.httpStatus;
     final att = scanResult.attempts;
 
-    // Diagnostic line shown at bottom of every error
-    final diag = '\n\n[${step.docType.apiType} | $code'
-        '${http != null ? ' | HTTP $http' : ''}'
-        '${att > 1 ? ' | #$att' : ''}]'
-        '${detail != null && detail.length < 120 ? '\n$detail' : ''}';
+    // Diagnostika jen do logu (Velín) — zákazníkovi ji neukazujeme.
+    debugPrint('[DocScan] diag: ${step.docType.apiType} | $code'
+        '${http != null ? ' | HTTP $http' : ''}${att > 1 ? ' | #$att' : ''} | $detail');
 
     switch (code) {
       case 'network':
-        return '${t(context).tr('errNetwork')}$diag';
+        return t(context).tr('errNetwork');
 
       case 'timeout':
-        return '${t(context).tr('errTimeout')}$diag';
+        return t(context).tr('errTimeout');
 
       case 'server_config':
         // Edge function config error (e.g. missing MINDEE model ID)
-        return '${t(context).tr('errServerConfig')}$diag';
+        return t(context).tr('errServerConfig');
 
       case 'server_upstream':
         // Edge function couldn't reach Mindee API
-        return '${t(context).tr('errServerUpstream')}$diag';
+        return t(context).tr('errServerUpstream');
 
       case 'server_error':
       case 'bad_request':
-        return '${t(context).tr('errServerGeneric')}$diag';
+        return t(context).tr('errServerGeneric');
 
       case 'ocr_failed':
         return '${t(context).tr('errOcrFailed')}\n\n'
-            '${t(context).tr('errOcrHint')}$diag';
+            '${t(context).tr('errOcrHint')}';
 
       case 'ocr_empty':
-        return '${t(context).tr('errOcrEmpty')}$diag';
+        return t(context).tr('errOcrEmpty');
 
       case 'no_fields':
         return '${t(context).tr('errNoFields')}\n\n'
-            '${t(context).tr('errNoFieldsHint')}$diag';
+            '${t(context).tr('errNoFieldsHint')}';
 
       case 'image_error':
-        return '${t(context).tr('errImagePrep')}$diag';
+        return t(context).tr('errImagePrep');
 
       default:
         if (scanResult.ok) {
           return '${t(context).tr('errNoFields')}\n\n'
-              '${t(context).tr('errNoFieldsHint')}$diag';
+              '${t(context).tr('errNoFieldsHint')}';
         }
-        return '${t(context).tr('errUnknown')}$diag';
+        return t(context).tr('errUnknown');
     }
   }
 
@@ -587,7 +630,16 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
               : '${t(context).tr('docsScanIncomplete')}\n'
                   '${t(context).tr('missing')}: ${missing.join(', ')}',
           duration: const Duration(seconds: 6));
-    } else if (gate != null && !gate.ok) {
+    } else if (gate == null) {
+      // Bránu dokladů se nepodařilo zeptat (výpadek / časový limit) — fotky
+      // máme, ale „ověřeno" by nebyla pravda. Výsledek je v Mých dokladech.
+      showMotoGoToast(context,
+          icon: '⏳', title: t(context).tr('scanComplete'),
+          message: t(context).tr('navDocsVerifyPending'),
+          duration: const Duration(seconds: 7));
+      context.go(Routes.docs);
+      return;
+    } else if (!gate.ok) {
       // Strany jsou, ale brána dál drží kódy (datum narození / 18+ /
       // platnost či skupina ŘP) — žádné „nahrány a ověřeny“.
       final rest = docsGateMissingLabels(context, gate);
@@ -696,6 +748,56 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
   // CAMERA STEP SCREEN
   // ═══════════════════════════════════════════
 
+  /// Kamera nejde: proč + Otevřít nastavení / Zkusit znovu / Zpět (doklad jde
+  /// nahrát i z galerie v Mých dokladech).
+  Widget _cameraErrorView() {
+    final tr = t(context);
+    final fe = _camFe;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('📷', style: TextStyle(fontSize: 40)),
+          const SizedBox(height: 12),
+          Text(_camError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4)),
+          const SizedBox(height: 8),
+          Text(tr.tr('eoScanUseGallery'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+          const SizedBox(height: 16),
+          Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
+            if (fe != null && fe.needsSettings)
+              ElevatedButton(
+                onPressed: () => openFixSettings(fe),
+                child: Text(tr.tr('eoOpenSettings')),
+              ),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+              onPressed: () {
+                setState(() {
+                  _camError = null;
+                  _camFe = null;
+                });
+                _initCamera();
+              },
+              child: Text(tr.tr('eoRetry')),
+            ),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+              onPressed: () async {
+                await _disposeCamera();
+                if (mounted) _safePop();
+              },
+              child: Text(tr.tr('eoBack')),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+
   Widget _cameraStepScreen() {
     final step = _sequence[_stepIdx];
     final mq = MediaQuery.of(context);
@@ -708,8 +810,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
         if (_camReady && _cam != null && _cam!.value.isInitialized)
           Center(child: CameraPreview(_cam!))
         else if (_camError != null)
-          Center(child: Text(_camError!,
-              style: const TextStyle(color: Colors.white, fontSize: 14)))
+          _cameraErrorView()
         else
           const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
 
@@ -718,7 +819,21 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           CustomPaint(painter: DocumentFramePainter(
               isPassport: step.docType == ScanDocType.passport)),
 
-        // Top header + progress
+        // Processing overlay
+        if (_scanning)
+          Container(
+            color: Colors.black.withValues(alpha: 0.6),
+            child: Center(child: Column(
+                mainAxisSize: MainAxisSize.min, children: [
+              const CircularProgressIndicator(color: MotoGoColors.green),
+              const SizedBox(height: 12),
+              Text(_progressText ?? t(context).tr('processing'), style: const TextStyle(
+                  fontSize: 14, color: Colors.white)),
+            ])),
+          ),
+
+        // Top header + progress — NAD překryvem zpracování, ať je šipka zpět
+        // vidět a funguje i během nahrávání (systémové zpět funguje vždy).
         Positioned(
           top: mq.padding.top + 8, left: 16, right: 16,
           child: Column(children: [
@@ -741,19 +856,6 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
             _progressDots(),
           ]),
         ),
-
-        // Processing overlay
-        if (_scanning)
-          Container(
-            color: Colors.black.withValues(alpha: 0.6),
-            child: Center(child: Column(
-                mainAxisSize: MainAxisSize.min, children: [
-              const CircularProgressIndicator(color: MotoGoColors.green),
-              const SizedBox(height: 12),
-              Text(t(context).tr('processing'), style: const TextStyle(
-                  fontSize: 14, color: Colors.white)),
-            ])),
-          ),
 
         // Guide text
         if (!_scanning && _resultKind == _ResultKind.none)
@@ -1016,7 +1118,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     )),
   );
 
-  Widget _backBtn(VoidCallback onTap) => GestureDetector(
+  Widget _backBtn(VoidCallback onTap) => MgV2.on(context)
+      // v2 vzhled zpět (kill-switch app_v2_ui) — stejná akce.
+      ? MgV2Back(onTap: onTap, style: MgBackStyle.dark)
+      : MgBackTap(
     onTap: onTap,
     child: Container(width: 36, height: 36,
         decoration: BoxDecoration(
@@ -1033,18 +1138,22 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     return t(context).tr('placeIdInFrame');
   }
 
+  // Šipka zpět i během ověřování (ověření doběhne na serveru i tak).
   Widget _doneScreen() => Scaffold(
     backgroundColor: MotoGoColors.dark,
-    body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Text('✅', style: TextStyle(fontSize: 48)),
-      const SizedBox(height: 16),
-      Text(t(context).tr('scanComplete'), style: const TextStyle(fontSize: 20,
-          fontWeight: FontWeight.w900, color: Colors.white)),
-      const SizedBox(height: 8),
-      Text(t(context).tr('verifyingDocs'), style: const TextStyle(fontSize: 13,
-          color: Colors.white54)),
-      SizedBox(height: 24),
-      CircularProgressIndicator(color: MotoGoColors.green),
+    body: SafeArea(child: Column(children: [
+      _headerRow(),
+      Expanded(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('✅', style: TextStyle(fontSize: 48)),
+        const SizedBox(height: 16),
+        Text(t(context).tr('scanComplete'), style: const TextStyle(fontSize: 20,
+            fontWeight: FontWeight.w900, color: Colors.white)),
+        const SizedBox(height: 8),
+        Text(t(context).tr('verifyingDocs'), style: const TextStyle(fontSize: 13,
+            color: Colors.white54)),
+        SizedBox(height: 24),
+        CircularProgressIndicator(color: MotoGoColors.green),
+      ]))),
     ])),
   );
 

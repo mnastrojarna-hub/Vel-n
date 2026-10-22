@@ -6,11 +6,11 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
-import '../../core/supabase_client.dart';
+import '../../core/widgets/state_views.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
-import 'doc_webview_screen.dart';
-import 'invoice_html_builder.dart';
+import 'doc_open_runner.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Invoices list — mirrors s-invoices from templates-done-pages.js.
 class InvoicesScreen extends ConsumerWidget {
@@ -23,7 +23,7 @@ class InvoicesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () {
             if (context.canPop()) {
               context.pop();
@@ -73,10 +73,18 @@ class InvoicesScreen extends ConsumerWidget {
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.green)),
+        loading: () => MgLoadingView(
+            onRetry: () => ref.invalidate(invoicesProvider),
+            onBack: () => context.backOr(Routes.profile)),
         error: (e, st) {
           debugPrint('[INVOICES] Provider error: $e\n$st');
-          return Center(child: Text(t(context).tr('loadingError'), style: const TextStyle(color: MotoGoColors.red, fontSize: 12)));
+          // Co, proč a jak dál + Zkusit znovu (dřív holé „Chyba načítání").
+          return MgErrorView(
+            error: e,
+            what: t(context).tr('eoInvoicesLoadFail'),
+            onRetry: () => ref.invalidate(invoicesProvider),
+            onBack: () => context.backOr(Routes.profile),
+          );
         },
       ),
     );
@@ -134,63 +142,14 @@ class InvoiceTile extends StatelessWidget {
     _ => '📄',
   };
 
-  Future<void> _openInvoice(BuildContext context) async {
-    debugPrint('[INVOICES] Opening: id=${invoice.id}, type=${invoice.type}, number=${invoice.number}');
-
-    // Fetch customer profile for invoice header
-    String? customerName;
-    String? customerAddress;
-    String? customerEmail;
-    String? customerPhone;
-    String? customerCompany;
-    String? customerCompanyAddress;
-    String? customerIco;
-    String? customerDic;
-    try {
-      final user = MotoGoSupabase.currentUser;
-      if (user != null) {
-        final profile = await MotoGoSupabase.client
-            .from('profiles')
-            .select('full_name, email, phone, street, city, zip, country, ico, dic, company_name, company_address')
-            .eq('id', user.id)
-            .maybeSingle();
-        if (profile != null) {
-          customerName = profile['full_name'] as String?;
-          customerEmail = profile['email'] as String?;
-          customerPhone = profile['phone'] as String?;
-          customerCompany = profile['company_name'] as String?;
-          customerCompanyAddress = profile['company_address'] as String?;
-          customerIco = profile['ico'] as String?;
-          customerDic = profile['dic'] as String?;
-          final parts = [profile['street'], profile['city'], profile['zip'], profile['country']]
-              .where((s) => s != null && (s as String).isNotEmpty)
-              .join(', ');
-          if (parts.isNotEmpty) customerAddress = parts;
-        }
-      }
-    } catch (e) {
-      debugPrint('[INVOICES] Profile fetch error: $e');
-    }
-
-    // Build HTML from invoice data
-    final html = InvoiceHtmlBuilder.build(
-      invoice,
-      customerName: customerName,
-      customerAddress: customerAddress,
-      customerEmail: customerEmail,
-      customerPhone: customerPhone,
-      customerCompany: customerCompany,
-      customerCompanyAddress: customerCompanyAddress,
-      customerIco: customerIco,
-      customerDic: customerDic,
-    );
-
-    if (!context.mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => DocWebViewScreen(
-        htmlContent: html,
-        title: invoice.number ?? t(context).tr(invoice.typeKey),
-      ),
-    ));
-  }
+  /// Bez profilu (offline) by se doklad vykreslil bez odběratele — raději
+  /// řekni proč a nabídni Zkusit znovu. Průběh (po 15 s „Zrušit"), pojistka
+  /// proti dvojímu klepnutí — `runDocOpen`.
+  Future<void> _openInvoice(BuildContext context) => runDocOpen(context,
+      what: t(context).tr('eoInvoiceOpenFail'),
+      where: 'invoice_open',
+      op: (wanted) {
+        debugPrint('[INVOICES] Opening: id=${invoice.id}, type=${invoice.type}, number=${invoice.number}');
+        return openInvoiceDocument(context, invoice, wanted: wanted);
+      });
 }

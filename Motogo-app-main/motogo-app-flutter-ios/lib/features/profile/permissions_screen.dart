@@ -10,6 +10,8 @@ import '../auth/auth_provider.dart';
 import '../auth/biometric_service.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../reservations/reservation_provider.dart';
+import 'widgets/perm_result.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Full-screen permissions management — replaces old bottom sheet.
 /// Shows current status of each permission with tap to open system settings.
@@ -71,7 +73,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.profile),
           child: Center(
             child: Container(
@@ -242,14 +244,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () async {
-                  await PermissionService.requestAll();
+                  await requestAllPermissionsAndReport(context);
                   await _load();
-                  if (context.mounted) {
-                    showMotoGoToast(context,
-                        icon: '✅',
-                        title: t(context).tr('permissionLabel'),
-                        message: t(context).tr('permsRerequested'));
-                  }
                 },
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(44),

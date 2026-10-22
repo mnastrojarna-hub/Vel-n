@@ -6,6 +6,8 @@ import '../../../core/theme.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/i18n/server_reasons.dart';
+import '../../../core/friendly_error.dart';
+import '../../../core/widgets/error_feedback.dart' show callMotoGo;
 import '../../auth/widgets/toast_helper.dart';
 import '../booking_gate_provider.dart';
 import '../reservation_models.dart';
@@ -61,7 +63,9 @@ class ResAccessCodesCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // `st` je do podpisu protokolu „Nadcházející“, kódy ale zákazník
     // potřebuje právě v den vyzvednutí → kalendářní `inRentalTerm`.
+    // skipError: kódy načtené dřív zůstanou vidět i offline (neúspěšná obnova).
     return doorCodesAsync.when(
+      skipError: true,
       data: (codes) {
         if (codes.isEmpty || !res.inRentalTerm) return const SizedBox.shrink();
         final gate = ref.watch(bookingGateInfoProvider(res.id)).valueOrNull ?? BookingGateInfo.none;
@@ -147,14 +151,35 @@ class ResAccessCodesCard extends ConsumerWidget {
               ]),
             )
           : const SizedBox.shrink(),
-      error: (_, __) => res.inRentalTerm
+      // Proč + Zkusit znovu / Zavolat / Zprávy (kódy chodí i do Zpráv) —
+      // dřív jen „nepodařilo se načíst, zkuste později".
+      error: (e, _) => res.inRentalTerm
           ? Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: ResDetailCard(children: [
                 Row(children: [
                   const Text('🔑', style: TextStyle(fontSize: 16)),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(t(context).tr('doorCodesUnavailable'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400))),
+                  Expanded(
+                    child: Text(
+                        '${FriendlyError.of(e).compose(t(context), t(context).tr('eoDoorCodesWhat'))} ${t(context).tr('eoDoorCodesInMessages')}',
+                        style: const TextStyle(fontSize: 12, color: MotoGoColors.g600)),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  TextButton(
+                    onPressed: () => ref.invalidate(doorCodesProvider(res.id)),
+                    child: Text(t(context).tr('eoRetry')),
+                  ),
+                  TextButton(
+                    onPressed: () => context.push(Routes.messages),
+                    child: Text(t(context).tr('messagesFromMotoGo')),
+                  ),
+                  TextButton(
+                    onPressed: callMotoGo,
+                    child: Text('📞 ${t(context).tr('eoCall')}'),
+                  ),
                 ]),
               ]),
             )

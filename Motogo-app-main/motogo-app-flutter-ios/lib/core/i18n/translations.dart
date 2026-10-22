@@ -55,6 +55,33 @@ import 'translations_ext_33_docscan_b.dart';
 import 'translations_ext_34_sos_timeline.dart';
 import 'translations_ext_35_loyalty_ranks.dart';
 import 'translations_ext_36_ride_feedback.dart';
+import 'translations_ext_37_errother_cs.dart';
+import 'translations_ext_37_errother_en.dart';
+import 'translations_ext_37_errother_de.dart';
+import 'translations_ext_37_errother_es.dart';
+import 'translations_ext_37_errother_fr.dart';
+import 'translations_ext_37_errother_nl.dart';
+import 'translations_ext_37_errother_pl.dart';
+import 'translations_ext_37_errother_uk.dart';
+import 'translations_ext_38_paystate_cs.dart';
+import 'translations_ext_38_paystate_en.dart';
+import 'translations_ext_38_paystate_de.dart';
+import 'translations_ext_38_paystate_es.dart';
+import 'translations_ext_38_paystate_fr.dart';
+import 'translations_ext_38_paystate_nl.dart';
+import 'translations_ext_38_paystate_pl.dart';
+import 'translations_ext_38_paystate_uk.dart';
+import 'translations_ext_39_nav.dart';
+import 'translations_ext_40_refix_a.dart';
+import 'translations_ext_40_refix_b.dart';
+import 'translations_ext_40_refix_c.dart';
+import 'translations_ext_40_refix_d.dart';
+import 'translations_ext_41_refix2.dart';
+import 'translations_ext_42_refix3_a.dart';
+import 'translations_ext_42_refix3_b.dart';
+import 'translations_ext_43_payments.dart';
+import 'translations_ext_44_payfix.dart';
+import 'translations_ext_45_payments.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -110,6 +137,33 @@ final translations = _mergeAll([
   translationsExt34SosTimeline,
   translationsExt35LoyaltyRanks,
   translationsExt36RideFeedback,
+  translationsExt37ErrOtherCs,
+  translationsExt37ErrOtherEn,
+  translationsExt37ErrOtherDe,
+  translationsExt37ErrOtherEs,
+  translationsExt37ErrOtherFr,
+  translationsExt37ErrOtherNl,
+  translationsExt37ErrOtherPl,
+  translationsExt37ErrOtherUk,
+  translationsExt38PayStateCs,
+  translationsExt38PayStateEn,
+  translationsExt38PayStateDe,
+  translationsExt38PayStateEs,
+  translationsExt38PayStateFr,
+  translationsExt38PayStateNl,
+  translationsExt38PayStatePl,
+  translationsExt38PayStateUk,
+  translationsExt39Nav,
+  translationsExt40RefixA,
+  translationsExt40RefixB,
+  translationsExt40RefixC,
+  translationsExt40RefixD,
+  translationsExt41Refix2,
+  translationsExt42Refix3A,
+  translationsExt42Refix3B,
+  translationsExt43Payments,
+  translationsExt44Payfix,
+  translationsExt45Payments,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

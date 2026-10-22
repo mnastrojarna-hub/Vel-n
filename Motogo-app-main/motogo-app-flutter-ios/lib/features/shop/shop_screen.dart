@@ -9,6 +9,7 @@ import '../../core/widgets/net_image.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
+import '../../core/widgets/state_views.dart';
 
 /// Shop product grid — mirrors s-merch from templates-shop.js.
 class ShopScreen extends ConsumerWidget {
@@ -34,7 +35,11 @@ class ShopScreen extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
+                  // Viditelná šipka zpět (obchod se otevírá z menu, push
+                  // notifikace i z poděkování po platbě — často bez historie).
+                  MgBackArrow(onTap: () => context.backOr(Routes.profile)),
+                  const SizedBox(width: 6),
+                  Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(children: [
@@ -48,7 +53,7 @@ class ShopScreen extends ConsumerWidget {
                       ]),
                       Text(t(context).tr('shopSubtitle'), style: const TextStyle(fontSize: 12, color: Colors.white54)),
                     ],
-                  ),
+                  )),
                   // Cart badge
                   GestureDetector(
                     onTap: () => context.push(Routes.cart),

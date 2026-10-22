@@ -6,10 +6,13 @@ import '../../core/theme.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/widgets/state_views.dart';
+import 'sos_feedback.dart';
 import 'sos_timeline_i18n.dart';
 import 'sos_provider.dart';
 import '../../core/currency.dart';
 import '../auth/widgets/toast_helper.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// SOS detail / done screen — mirrors s-sos-done from templates-res-sos3.js.
 /// Shows contextual done view based on SosDoneType, or full detail with timeline.
@@ -26,9 +29,24 @@ class SosDetailScreen extends ConsumerWidget {
         if (inc == null) return _doneView(context, ref, doneType);
         return _buildDetail(context, ref, inc);
       },
-      loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator(color: MotoGoColors.green))),
-      error: (_, __) => _doneView(context, ref, doneType),
+      // Načítání i chyba mají šipku zpět; chyba už NEtvrdí „vyřešeno / vše v
+      // pořádku" — řekne, že stav nejde načíst, a nabídne volání.
+      loading: () => MgStateScaffold(
+          onBack: () => context.backOr(Routes.sos),
+          child: MgLoadingView(
+              onRetry: () => ref.invalidate(activeSosProvider),
+              onBack: () => context.backOr(Routes.sos))),
+      error: (e, _) => MgStateScaffold(
+        onBack: () => context.backOr(Routes.sos),
+        child: MgErrorView(
+          error: e,
+          what: t(context).tr('eoSosStatusFail'),
+          message: t(context).tr('eoSosStatusFailBody'),
+          onRetry: () => ref.invalidate(activeSosProvider),
+          contact: false,
+          extra: const [SosCallButton()],
+        ),
+      ),
     );
   }
 
@@ -50,7 +68,12 @@ class SosDetailScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              // Viditelná cesta zpět (sem se chodí přes `go` — bez historie).
+              Align(
+                alignment: Alignment.centerLeft,
+                child: MgBackArrow(onTap: () => context.backOr(Routes.home)),
+              ),
+              const SizedBox(height: 4),
               // Status header
               Container(
                 padding: const EdgeInsets.all(16),
@@ -272,7 +295,7 @@ class SosDetailScreen extends ConsumerWidget {
             children: [
               // Header
               Row(children: [
-                GestureDetector(
+                MgBackTap(
                   onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green,
@@ -376,8 +399,12 @@ class SosDetailScreen extends ConsumerWidget {
                   },
                   loading: () => const CircularProgressIndicator(
                       color: MotoGoColors.green),
-                  error: (_, __) => Text(t(context).error,
-                      style: const TextStyle(color: MotoGoColors.red)),
+                  error: (e, _) => MgErrorView(
+                      compact: true,
+                      error: e,
+                      what: t(context).tr('eoSosTimelineFail'),
+                      onRetry: () => ref.invalidate(sosTimelineProvider(inc.id)),
+                      contact: false),
                 ),
               ]),
               const SizedBox(height: 16),
@@ -434,8 +461,23 @@ class SosDetailScreen extends ConsumerWidget {
     );
   }
 
+  /// „Jedu dál" — potvrdí se JEN když se rozhodnutí uložilo (dřív i offline
+  /// „pokračuješ v jízdě" a Velín o tom nevěděl).
   Future<void> _continueRide(BuildContext context, WidgetRef ref, SosIncident inc) async {
-    await sosContinueRide(inc.id);
+    final tr = t(context);
+    final progress = SosProgress.show(context, tr.tr('eoSaving'));
+    try {
+      await sosContinueRide(inc.id);
+    } catch (e) {
+      progress.close();
+      if (!context.mounted) return;
+      final retry = await showSosActionFailed(context,
+          title: tr.tr('eoSosContinueFailTitle'), error: e,
+          extra: tr.tr('eoSosContinueByPhone'));
+      if (retry && context.mounted) await _continueRide(context, ref, inc);
+      return;
+    }
+    progress.close();
     ref.invalidate(activeSosProvider);
     if (!context.mounted) return;
     showMotoGoToast(context,

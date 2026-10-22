@@ -13,6 +13,11 @@ import '../reservation_provider.dart';
 import '../ride_feedback.dart';
 import 'res_rating_widgets.dart';
 import 'ride_feedback_sheet.dart';
+import '../../../core/friendly_error.dart';
+import '../../home/v2/home_review_card_v2.dart' show HomeReviewLightView;
+
+/// Vzhled karty hodnocení: původní tmavá / světlá na Domů (v2).
+enum RatingLook { classic, light }
 
 /// Karta „Hodnocení jízdy“ (dokončená rezervace). Hvězdy 1–5 se ukládají do
 /// `bookings.rating/rated_at` a lze je kdykoli změnit. Po ohodnocení KAŽDÝ
@@ -22,7 +27,14 @@ import 'ride_feedback_sheet.dart';
 ///   2. „Napiš nám přímo, co máme zlepšit“ → zpráva týmu do Velína (nezveřejní se)
 class ResRatingCard extends ConsumerStatefulWidget {
   final Reservation res;
-  const ResRatingCard({super.key, required this.res});
+
+  /// v2 vzhled (PLAN §2.1, varianta V): `light` = bílá karta na Domů. Stav,
+  /// zápis hodnocení i obě volby zůstávají tady — mění se jen vykreslení.
+  final RatingLook look;
+
+  /// Jen pro `light`: ✕ „Skrýt" (lokální volba Domů).
+  final VoidCallback? onHide;
+  const ResRatingCard({super.key, required this.res, this.look = RatingLook.classic, this.onHide});
 
   @override
   ConsumerState<ResRatingCard> createState() => _ResRatingCardState();
@@ -60,7 +72,12 @@ class _ResRatingCardState extends ConsumerState<ResRatingCard> {
       final tr = t(context);
       if (err != null) {
         if (seq == _seq) setState(() => _pending = null);
-        showMotoGoToast(context, icon: '⚠️', title: tr.tr('error'), message: tr.tr('ratingFailed'));
+        // Důvod + rada (dřív jen „Hodnocení se nepodařilo uložit").
+        showMotoGoToast(context,
+            icon: '⚠️',
+            title: tr.tr('ratingFailed'),
+            message: FriendlyError.of(err).compose(tr, tr.tr('ratingFailed')),
+            duration: const Duration(seconds: 6));
         return;
       }
       ref.invalidate(reservationByIdProvider(widget.res.id));
@@ -96,6 +113,21 @@ class _ResRatingCardState extends ConsumerState<ResRatingCard> {
         ? tr.tr('rfHowWasRide')
         : tr.tr('rfYourRating').replaceAll('{n}', '$rating') +
             (ratedAt != null && _pending == null ? ' · ${fmtReleaseDate(ratedAt.toLocal())}' : '');
+
+    if (widget.look == RatingLook.light) {
+      return HomeReviewLightView(
+        res: widget.res,
+        rating: rating,
+        question: subtitle,
+        popTick: _popTick,
+        sentThreadId: _sentThreadId,
+        onRate: _rate,
+        onGoogle: _openGoogle,
+        onFeedback: _openFeedback,
+        onOpenThread: () => context.push('/messages/$_sentThreadId'),
+        onHide: widget.onHide,
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),

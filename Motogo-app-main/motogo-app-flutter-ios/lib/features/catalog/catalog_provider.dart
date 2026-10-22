@@ -82,17 +82,25 @@ final motorcyclesProvider = StreamProvider<List<Motorcycle>>((ref) async* {
 /// čerstvá dostupnost (vč. nových rezervací/storn/servisních bloků).
 final bookedDatesProvider =
     FutureProvider.autoDispose.family<List<BookedDateRange>, String>((ref, motoId) async {
+  // Timeout: na zaseklém LTE by kalendář jinak „načítal" donekonečna a
+  // ukazoval všechny dny jako volné; chyba → hláška + Zkusit znovu.
   final res = await MotoGoSupabase.client
-      .rpc('get_moto_booked_dates', params: {'p_moto_id': motoId});
+      .rpc('get_moto_booked_dates', params: {'p_moto_id': motoId})
+      .timeout(const Duration(seconds: 15));
 
   return (res as List)
       .map((e) => BookedDateRange.fromJson(e as Map<String, dynamic>))
       .toList();
 });
 
-/// Checks motorcycle availability for a date range.
+/// Výsledek ověření dostupnosti — `unknown` = dotaz selhal (síť / server),
+/// NE „obsazeno" (dřív se výpadek spojení hlásil jako obsazená motorka).
+enum MotoAvailability { free, busy, unknown }
+
+/// Checks motorcycle availability for a date range (tri-state).
 /// DB: check_moto_availability(p_moto_id, p_start, p_end, p_exclude_booking_id)
-Future<bool> checkMotoAvailability(String motoId, DateTime start, DateTime end, {String? excludeBookingId}) async {
+Future<MotoAvailability> checkMotoAvailabilityTri(String motoId, DateTime start,
+    DateTime end, {String? excludeBookingId}) async {
   try {
     final params = <String, dynamic>{
       'p_moto_id': motoId,
@@ -100,12 +108,20 @@ Future<bool> checkMotoAvailability(String motoId, DateTime start, DateTime end, 
       'p_end': end.toIso8601String(),
     };
     if (excludeBookingId != null) params['p_exclude_booking_id'] = excludeBookingId;
-    final res = await MotoGoSupabase.client.rpc('check_moto_availability', params: params);
-    return res == true;
+    final res = await MotoGoSupabase.client
+        .rpc('check_moto_availability', params: params)
+        .timeout(const Duration(seconds: 15));
+    return res == true ? MotoAvailability.free : MotoAvailability.busy;
   } catch (_) {
-    return false;
+    return MotoAvailability.unknown;
   }
 }
+
+/// Zjednodušená varianta pro seznamy kandidátů (neznámé = nenabízet).
+Future<bool> checkMotoAvailability(String motoId, DateTime start, DateTime end, {String? excludeBookingId}) async =>
+    await checkMotoAvailabilityTri(motoId, start, end,
+        excludeBookingId: excludeBookingId) ==
+    MotoAvailability.free;
 
 /// „Dnes dostupné" pro katalogový odznak: motorka je dnes volná, když dnešek
 /// nespadá do žádného blokovaného rozsahu z `get_moto_booked_dates` — což jsou

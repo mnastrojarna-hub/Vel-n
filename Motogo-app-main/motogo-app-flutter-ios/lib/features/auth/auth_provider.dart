@@ -9,9 +9,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
 import '../../core/debug_logger.dart';
+import '../../core/friendly_error.dart';
 import '../../core/i18n/app_lang.dart';
+import '../../core/i18n/i18n_provider.dart' show AppTranslations;
 import '../../core/i18n/translations.dart';
 import 'auth_error_mapper.dart';
+import 'password_flow_errors.dart';
 
 /// Watches Supabase auth state changes (login/logout/token refresh).
 /// When token refresh fails, forces sign-out so the router redirects to login.
@@ -149,7 +152,12 @@ class AuthService {
       );
     } catch (e) {
       final info = AuthErrorMapper.signIn(e, lang);
-      AppDebugLogger.instance.auth('signin_failed', data: {'reason': info.code});
+      // Neznámá chyba: syrový text jen do `app_debug_logs` (zákazník vidí
+      // obecný návod + kontakt).
+      AppDebugLogger.instance.auth('signin_failed', data: {
+        'reason': info.code,
+        if (info.code == 'unknown') 'detail': e.toString(),
+      });
       return info;
     }
   }
@@ -437,16 +445,23 @@ class AuthService {
         return _tr('serverUnavailable', lang);
       }
       return null;
-    } on FunctionException catch (e) {
-      AppDebugLogger.instance.auth('reset_password_failed', detail: '${e.status}: ${e.details}');
-      return _tr(e.status >= 500 ? 'serverUnavailable' : 'resetFailed', await _lang());
     } catch (e) {
       AppDebugLogger.instance.auth('reset_password_failed', detail: e.toString());
-      return _tr('resetFailed', await _lang());
+      // Síť / limit / server → co, proč a jak (dřív holé „Reset hesla se nepodařil").
+      final lang = await _lang();
+      return FriendlyError.of(e)
+          .compose(AppTranslations.of(lang), _tr('eoCodeSendFail', lang));
     }
   }
 
+  /// Běží obnova hesla: ověřený kód vytvoří „recovery" session a router by
+  /// jinak přihlášeného zákazníka hned hodil na Domů — krok 3 (nové heslo) by
+  /// se nikdy neukázal. Router `/reset-password` během obnovy nepřesměruje.
+  static bool recoveryInProgress = false;
+
+  /// Vrací null = OK, jinak srozumitelnou hlášku v jazyce appky.
   static Future<String?> verifyOtp(String email, String token) async {
+    recoveryInProgress = true;
     try {
       await _client.auth.verifyOTP(
         email: email,
@@ -454,17 +469,21 @@ class AuthService {
         type: OtpType.recovery,
       );
       return null;
-    } on AuthException catch (e) {
-      return e.message;
+    } catch (e) {
+      AppDebugLogger.instance.auth('verify_otp_failed', detail: e.toString());
+      recoveryInProgress = _client.auth.currentSession != null;
+      return PasswordFlowErrors.otp(e, await _lang());
     }
   }
 
+  /// Vrací null = OK, jinak srozumitelnou hlášku v jazyce appky.
   static Future<String?> updatePassword(String newPassword) async {
     try {
       await _client.auth.updateUser(UserAttributes(password: newPassword));
       return null;
-    } on AuthException catch (e) {
-      return e.message;
+    } catch (e) {
+      AppDebugLogger.instance.auth('update_password_failed', detail: e.toString());
+      return PasswordFlowErrors.update(e, await _lang());
     }
   }
 
@@ -553,15 +572,25 @@ class AuthService {
 
   /// Restore Supabase session from stored bio credentials.
   /// Mirrors _bioRestoreSession from auth-ui.js.
-  static Future<bool> bioRestoreSession() async {
+  ///
+  /// [BioRestore.offline] = nešlo to kvůli síti — biometrie zůstává nastavená
+  /// (dřív se při výpadku signálu smazala a zákazník musel znovu e-mailem).
+  static Future<BioRestore> bioRestoreSession() async {
     final bioUser = await getBioUser();
-    if (bioUser == null) return false;
+    if (bioUser == null) return BioRestore.invalid;
+
+    Future<BioRestore> guard(String id) async =>
+        await _guardRestoredProfile(id) ? BioRestore.ok : BioRestore.invalid;
 
     // 1. Check existing session
     final existing = _client.auth.currentSession;
     if (existing != null) {
-      return _guardRestoredProfile(existing.user.id);
+      return guard(existing.user.id);
     }
+
+    var networkFailed = false;
+    bool isNet(Object e) => FriendlyError.of(e).isNetwork ||
+        FriendlyError.kindOf(e) == FriendlyKind.server;
 
     // 2. Try refresh token
     final refreshToken = bioUser['refresh_token'] as String?;
@@ -569,9 +598,11 @@ class AuthService {
       try {
         final res = await _client.auth.setSession(refreshToken);
         if (res.session != null) {
-          return _guardRestoredProfile(res.session!.user.id);
+          return guard(res.session!.user.id);
         }
-      } catch (_) {}
+      } catch (e) {
+        if (isNet(e)) networkFailed = true;
+      }
     }
 
     // 3. Fallback: sign in with stored credentials
@@ -585,12 +616,14 @@ class AuthService {
           password: pwd,
         );
         if (res.session != null) {
-          return _guardRestoredProfile(res.user!.id);
+          return guard(res.user!.id);
         }
-      } catch (_) {}
+      } catch (e) {
+        if (isNet(e)) networkFailed = true;
+      }
     }
 
-    return false;
+    return networkFailed ? BioRestore.offline : BioRestore.invalid;
   }
 
   /// After a session is restored, make sure the profile still exists. A deleted
@@ -641,3 +674,6 @@ class AuthService {
     await prefs.setString(_savedEmailKey, email);
   }
 }
+
+/// Výsledek obnovení přihlášení otiskem / Face ID.
+enum BioRestore { ok, offline, invalid }

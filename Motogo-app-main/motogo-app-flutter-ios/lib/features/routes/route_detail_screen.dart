@@ -15,6 +15,8 @@ import 'poi_categories.dart';
 import 'route_export.dart';
 import 'route_poi_sheet.dart';
 import 'route_reviews.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
@@ -96,8 +98,24 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 _swipe((v.abs() >= 140 ? v < 0 : _dx < 0) ? 1 : -1);
               },
         child: dataAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
-        error: (e, _) => _missing(context),
+        // Načítání i chyba mají šipku zpět; chyba řekne důvod a „Zkusit znovu"
+        // opravdu načítá znovu (dřív vedlo zpět a chyba se tvářila jako
+        // „Trasa nenalezena").
+        loading: () => MgStateScaffold(
+            onBack: () => context.backOr('/routes'),
+            child: MgLoadingView(
+                color: MotoGoColors.greenDark,
+                onRetry: () => ref.invalidate(routesDataProvider),
+                onBack: () => context.backOr('/routes'))),
+        error: (e, _) => MgStateScaffold(
+          onBack: () => context.backOr('/routes'),
+          child: MgErrorView(
+            error: e,
+            what: t(context).tr('eoRouteLoadFail'),
+            onRetry: () => ref.invalidate(routesDataProvider),
+            onBack: () => context.backOr('/routes'),
+          ),
+        ),
         data: (data) {
           final listRoute = data.routes.firstWhere(
             (r) => r.id == _id,
@@ -183,18 +201,21 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 Positioned(
                   top: 10,
                   left: 12,
-                  child: PressableScale(
-                    pressedScale: 0.9,
+                  child: MgBackTap(
                     onTap: () => context.backOr('/routes'),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(MotoGoRadius.lg),
-                        boxShadow: MotoGoShadows.cardSmall,
+                    child: PressableScale(
+                      pressedScale: 0.9,
+                      onTap: () => context.backOr('/routes'),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(MotoGoRadius.lg),
+                          boxShadow: MotoGoShadows.cardSmall,
+                        ),
+                        child: const Icon(Icons.arrow_back, size: 20, color: MotoGoColors.black),
                       ),
-                      child: const Icon(Icons.arrow_back, size: 20, color: MotoGoColors.black),
                     ),
                   ),
                 ),
@@ -625,7 +646,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             Positioned(
               top: MediaQuery.of(ctx).padding.top + 10,
               left: 12,
-              child: GestureDetector(
+              child: MgBackTap(close: true,
                 onTap: () => Navigator.of(ctx).pop(),
                 child: Container(
                   width: 42, height: 42,
@@ -668,14 +689,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: MotoGoColors.g200,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const MgSheetHandle(),
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.centerLeft,
@@ -786,9 +800,17 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             Text(t(context).tr('routeNotFound'),
                 style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800)),
             const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(t(context).tr('eoRouteGoneBody'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: MotoGoColors.g600)),
+            ),
+            const SizedBox(height: 12),
+            // Tlačítko vede zpět → popisek „Zpět" (dřív „Zkusit znovu").
             ElevatedButton(
               onPressed: () => context.backOr('/routes'),
-              child: Text(t(context).tr('routesRetry')),
+              child: Text(t(context).tr('eoBack')),
             ),
           ],
         ),

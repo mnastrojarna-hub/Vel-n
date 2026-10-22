@@ -15,6 +15,7 @@ import '../booking/booking_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../reservations/reservation_provider.dart';
 import 'payment_provider.dart';
+import 'payment_ui_helpers.dart';
 
 /// Stav dokladů na děkovací stránce — parita s webovou `/potvrzeni`:
 /// - `verified` = doklady OK (nebo dětská motorka, kde se nevyžadují) → zelený badge
@@ -87,6 +88,13 @@ class _PaymentConfirmationScreenState
   PickupInfo? _pickup;
   bool _pickupIsDelivery = true;
   _BookedInfo? _bk;
+  /// Údaje rezervace z DB se nepodařilo načíst (offline hned po platbě).
+  bool _bkFailed = false;
+
+  void _retryLoad() {
+    setState(() => _bkFailed = false);
+    _loadConfirmInfo();
+  }
 
   void _setPickup(Map<String, dynamic>? br, String? method, String? address) {
     _pickup = PickupInfo.fromBranch(br);
@@ -145,6 +153,7 @@ class _PaymentConfirmationScreenState
 
       if (res == null) {
         if (!mounted) return;
+        _bkFailed = true;
         setState(() => _info = const _ConfirmInfo(
               docsStatus: _DocsStatus.unknown,
               missingReason: null,
@@ -216,6 +225,7 @@ class _PaymentConfirmationScreenState
       // Nezbylo nic — nezobrazíme docs sekci (raději nic, než matoucí stav)
       debugPrint('[Confirmation] docs status fetch error: $e');
       if (!mounted) return;
+      _bkFailed = _bk == null;
       setState(() => _info = const _ConfirmInfo(
             docsStatus: _DocsStatus.unknown,
             missingReason: null,
@@ -232,15 +242,21 @@ class _PaymentConfirmationScreenState
     final tr = t(context);
     final restored = ref.watch(lastConfirmedRestoreProvider);
     // Údaje z DB (načtené podle ID rezervace) mají přednost před draftem.
+    // Draft jen tehdy, když patří k téhle rezervaci (formulář v této
+    // relaci) — u „Dokončit rezervaci" / obnovy by ukázal cizí motorku.
     final bk = _bk;
-    final motoName = bk != null ? bk.motoName : draft.motoName;
-    final startDate = bk != null ? bk.start : draft.startDate;
-    final endDate = bk != null ? bk.end : draft.endDate;
-    final pickupTime = bk != null ? bk.pickupTime : draft.pickupTime;
-    final returnTime = bk != null ? bk.returnTime : draft.returnTime;
+    final fromDb = ref.watch(lastConfirmedBookingProvider) != null;
+    final useDraft =
+        bk == null && (!fromDb || ref.watch(lastConfirmedFromDraftProvider));
+    final noDetails = bk == null && !useDraft;
+    final motoName = bk != null ? bk.motoName : (useDraft ? draft.motoName : null);
+    final startDate = bk != null ? bk.start : (useDraft ? draft.startDate : null);
+    final endDate = bk != null ? bk.end : (useDraft ? draft.endDate : null);
+    final pickupTime = bk != null ? bk.pickupTime : (useDraft ? draft.pickupTime : null);
+    final returnTime = bk != null ? bk.returnTime : (useDraft ? draft.returnTime : null);
     final returnMethod = bk != null ? bk.returnMethod : draft.returnMethod;
-    final branchType = bk != null ? bk.branchType : moto?.branchType;
-    final branchName = bk != null ? bk.branchName : moto?.branchName;
+    final branchType = bk != null ? bk.branchType : (useDraft ? moto?.branchType : null);
+    final branchName = bk != null ? bk.branchName : (useDraft ? moto?.branchName : null);
     // Hradlo kiosku (zrcadlo `_kiosk_release_at`): samoobslužná pobočka,
     // převzetí na pobočce a přiznaná sleva za vyzvednutí od 12:00.
     final lateGate = bk != null
@@ -251,7 +267,7 @@ class _PaymentConfirmationScreenState
             lateDiscount: bk.lateDiscount,
             status: 'reserved',
           )
-        : selfServiceLateGate(
+        : useDraft && selfServiceLateGate(
             branchType: moto?.branchType,
             pickupMethod: draft.pickupMethod,
             pickupAddress: draft.pickupMethod == 'delivery' ? draft.pickupAddress : null,
@@ -268,7 +284,7 @@ class _PaymentConfirmationScreenState
       // zásobníku (sem se chodí přes `go`; PopScope by se nezavolal a Android
       // by appku zavřel). Nad stránkou jiná trasa (Doklady) → ať se zavře ona.
       onBackButtonPressed: () async {
-        if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+        if (!isTopmostRoute(context)) return false;
         close();
         return true;
       },
@@ -321,6 +337,45 @@ class _PaymentConfirmationScreenState
                 ),
                 const SizedBox(height: 20),
 
+                // Údaje rezervace se (zatím) nenačetly a draft k ní nepatří →
+                // poctivě „načítám" / „nepodařilo se" + Zkusit znovu.
+                if (noDetails)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
+                    ),
+                    child: _bkFailed
+                        ? Column(children: [
+                            Text('📡 ${tr.tr('fxConfirmLoadFail')}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white)),
+                            const SizedBox(height: 6),
+                            Text(tr.tr('fxConfirmLoadFailBody'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.35,
+                                    color: Colors.white.withValues(alpha: 0.7))),
+                            TextButton(
+                              onPressed: _retryLoad,
+                              child: Text(tr.tr('eoRetry'),
+                                  style: const TextStyle(
+                                      color: MotoGoColors.green,
+                                      fontWeight: FontWeight.w800)),
+                            ),
+                          ])
+                        : Text('⏳ ${tr.loading}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.7))),
+                  ),
                 // Booking details card
                 if (motoName != null || startDate != null)
                   StaggeredReveal(

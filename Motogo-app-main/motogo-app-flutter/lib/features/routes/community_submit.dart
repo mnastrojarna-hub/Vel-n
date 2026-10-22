@@ -12,6 +12,18 @@ import 'routes_provider.dart' show mapyApiKey, reverseGeocode;
 import 'ride_recorder.dart';
 import 'route_submit_screen.dart';
 import 'submit_common.dart';
+import 'ride_start_feedback.dart';
+import '../../core/widgets/map_tile_errors.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/widgets/mg_buttons.dart';
+import '../../core/v2/widgets/mg_inputs.dart';
+import 'v2/routes_menu_v2.dart';
+import 'package:go_router/go_router.dart';
+import 'routes_model.dart' show RouteItem;
+import 'v2/submit_form_v2.dart';
 
 /// Menu „Přidat" (z FAB v Trasách) — jezdec si zaznamená vlastní jízdu,
 /// navrhne trasu (odkaz z Mapy.com) nebo přidá místo. Návrhy jdou do moderace
@@ -29,11 +41,11 @@ void showCommunityAddMenu(BuildContext context) {
           // Automatický záznam (běžící výpůjčka) si jezdec neřídí — jízda se
           // nahrává sama, takže tlačítko v menu nemá co nabídnout.
           final auto = rec.recording && !rec.manual;
-          return Column(
+          final menu = Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 12),
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 4),
+              const MgSheetHandle(margin: EdgeInsets.symmetric(horizontal: 12)),
               const SizedBox(height: 12),
               if (!auto)
                 _menuItem(
@@ -47,6 +59,14 @@ void showCommunityAddMenu(BuildContext context) {
                   subtitle: t(c).tr(manual ? 'rideManualRunning' : 'rideManualHint'),
                   danger: manual,
                 ),
+              // v2: prázdný plánovač (stejná akce jako „Vytvořit novou trasu"
+              // v Mých zážitcích) — nový vstup na existující akci.
+              if (MgV2.on(c))
+                _menuItem(c, Icons.alt_route, t(c).tr('v2RtCreateRoute'), () {
+                  Navigator.pop(c);
+                  context.push('/route-build',
+                      extra: const RouteItem(id: 'custom', name: '', routeType: 'poi'));
+                }),
               _menuItem(c, Icons.route, t(c).tr('routeSubmitTitle'), () {
                 Navigator.pop(c);
                 if (MotoGoSupabase.currentUser == null) {
@@ -66,6 +86,9 @@ void showCommunityAddMenu(BuildContext context) {
               const SizedBox(height: 12),
             ],
           );
+          // v2 (o položku víc — plánovač): na nízkém telefonu se menu posouvá
+          // místo přetečení spodního okraje.
+          return MgV2.on(c) ? SingleChildScrollView(child: menu) : menu;
         },
       ),
     ),
@@ -86,13 +109,14 @@ Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running
         : (kept ? 'rideManualSaved' : 'rideManualTooShort')))));
     return;
   }
-  final ok = await n.startManual();
-  msg.showSnackBar(SnackBar(content: Text(tr.tr(ok ? 'rideManualStarted' : 'rideManualFailed'))));
+  showRideStartResult(msg, tr, await n.startManualResult());
 }
 
 Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap,
         {String? subtitle, bool danger = false}) =>
-    ListTile(
+    MgV2.on(c)
+        ? CommunityMenuRowV2(icon: icon, label: label, subtitle: subtitle, danger: danger, onTap: onTap)
+        : ListTile(
       leading: Icon(icon, color: danger ? MotoGoColors.red : MotoGoColors.greenDarker),
       title: Text(label,
           style: TextStyle(
@@ -152,8 +176,15 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
   }
 
   Future<void> _initLocation() async {
-    final p = await GpsService.getCurrentPosition();
-    if (!mounted || p == null) return;
+    // Bez vytahování do Nastavení: proč poloha chybí + „Otevřít nastavení"
+    // v toastu; špendlík jde vždy posunout ručně na mapě.
+    final loc = await GpsService.locate();
+    if (!mounted) return;
+    final p = loc.pos;
+    if (p == null) {
+      await explainLocation(context, loc.status, snack: true);
+      return;
+    }
     setState(() {
       _point = LatLng(p.latitude, p.longitude);
       _located = true;
@@ -177,6 +208,7 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
     setState(() { _busy = true; _uploading = _photos.isNotEmpty; });
     try {
       final urls = await uploadSubmitPhotos(uid, _photos);
+      final dropped = _photos.length - urls.length;
       if (mounted) setState(() => _uploading = false);
       await MotoGoSupabase.client.from('user_pois').insert({
         'user_id': uid,
@@ -188,18 +220,107 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
         'status': 'pending',
       });
       if (!mounted) return;
+      _sent = true;
+      final messenger = ScaffoldMessenger.of(context);
+      final droppedMsg = t(context).trArgs('eoSubmitPhotosDropped', {'n': dropped});
       await showSubmitSuccess(context);
       if (mounted) Navigator.of(context).pop();
-    } catch (_) {
+      // Nenahrané fotky se řeknou (dřív se tiše zahodily).
+      if (dropped > 0) messenger.showSnackBar(SnackBar(content: Text(droppedMsg)));
+    } catch (e) {
       if (mounted) {
         setState(() { _busy = false; _uploading = false; });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('poiSubmitErr'))));
+        // Proč + Zkusit znovu; vyplněné údaje i fotky zůstávají.
+        showErrorSnack(context, t(context).tr('poiSubmitErr'), e,
+            where: 'community_submit', onRetry: _submit);
       }
+    }
+  }
+
+  bool _sent = false;
+
+  bool get _dirty => !_sent && (_nameCtrl.text.trim().isNotEmpty || _descCtrl.text.trim().isNotEmpty || _photos.isNotEmpty);
+
+  /// Zpět s rozpracovaným návrhem → potvrdit (jinak se údaje i fotky ztratí).
+  Future<void> _confirmLeave() async {
+    if (await confirmDiscard(context) && mounted) {
+      _sent = true; // nic dalšího nehlídat
+      Navigator.of(context).pop();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    final map = FlutterMap(
+      mapController: _ctrl,
+      options: MapOptions(
+        initialCenter: _point,
+        initialZoom: _located ? 14 : 7,
+        onTap: (_, p) => setState(() => _point = p),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
+          userAgentPackageName: 'com.motogo24.app',
+          maxZoom: 19,
+          errorTileCallback: MapTileErrors.report,
+          reset: MapTileErrors.reset,
+        ),
+        const MapTileErrorChip(),
+        MarkerLayer(markers: [
+          Marker(
+            point: _point,
+            width: 38, height: 38,
+            child: const Icon(Icons.location_on, color: Color(0xFF1A8A18), size: 38),
+          ),
+        ]),
+        RichAttributionWidget(attributions: const [TextSourceAttribution('Mapy.com')]),
+      ],
+    );
+    if (MgV2.on(context)) {
+      final tr = t(context);
+      return SubmitScaffoldV2(
+        title: tr.tr('poiSubmitPoi'),
+        busy: _busy,
+        busyLabel: tr.tr(_uploading ? 'submitUploading' : 'submitSending'),
+        onSubmit: _submit,
+        children: [
+          const SubmitIntroBanner(),
+          const SizedBox(height: 14),
+          SubmitMapCardV2(map: map, height: 220),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: MgBtnText(label: tr.tr('poiUseMyLocation'), icon: MgIcons.gps, onTap: _initLocation),
+          ),
+          const SizedBox(height: 4),
+          TextField(controller: _nameCtrl, decoration: mgInputDecoration(context, label: tr.tr('poiSubmitName'))),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _descCtrl,
+            maxLines: 3,
+            decoration: mgInputDecoration(context, label: tr.tr('poiSubmitDesc')),
+          ),
+          const SizedBox(height: 16),
+          SubmitPhotosSection(
+            photos: _photos,
+            max: 1,
+            hint: tr.tr('submitPhotoHintPoi'),
+            onChanged: (v) => setState(() => _photos = v),
+          ),
+        ],
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
@@ -218,29 +339,7 @@ class _PoiSubmitScreenState extends State<PoiSubmitScreen> {
             height: 220,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(MotoGoRadius.card),
-              child: FlutterMap(
-                mapController: _ctrl,
-                options: MapOptions(
-                  initialCenter: _point,
-                  initialZoom: _located ? 14 : 7,
-                  onTap: (_, p) => setState(() => _point = p),
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
-                    userAgentPackageName: 'com.motogo24.app',
-                    maxZoom: 19,
-                  ),
-                  MarkerLayer(markers: [
-                    Marker(
-                      point: _point,
-                      width: 38, height: 38,
-                      child: const Icon(Icons.location_on, color: Color(0xFF1A8A18), size: 38),
-                    ),
-                  ]),
-                  RichAttributionWidget(attributions: const [TextSourceAttribution('Mapy.com')]),
-                ],
-              ),
+              child: map,
             ),
           ),
           const SizedBox(height: 8),

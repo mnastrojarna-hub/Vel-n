@@ -5,12 +5,16 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Sdílené prvky obrazovek Pobočky (přehled + detail pobočky).
 
+/// Zpět z obrazovek Pobočky (sdílené starým i v2 vzhledem).
+void branchesBack(BuildContext context) => context.canPop() ? context.pop() : context.go(Routes.profile);
+
 AppBar branchesAppBar(BuildContext context, String title) => AppBar(
-      leading: GestureDetector(
-        onTap: () => context.canPop() ? context.pop() : context.go(Routes.profile),
+      leading: MgBackTap(
+        onTap: () => branchesBack(context),
         child: Center(
           child: Container(
             width: 36, height: 36,

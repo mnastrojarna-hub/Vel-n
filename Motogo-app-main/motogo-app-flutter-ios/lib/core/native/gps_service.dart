@@ -9,37 +9,38 @@ import 'package:http/http.dart' as http;
 class GpsService {
   GpsService._();
 
-  /// Check & request location permission if needed.
-  /// If denied → requests via system dialog.
-  static Future<bool> ensurePermission() async {
-    debugPrint('[GPS_SVC] ensurePermission()');
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    debugPrint('[GPS_SVC] locationServiceEnabled: $serviceEnabled');
-    if (!serviceEnabled) {
-      debugPrint('[GPS_SVC] ✗ location service OFF → opening settings');
-      await Geolocator.openLocationSettings();
-      return false;
+  /// Je poloha k dispozici? Nepovolené oprávnění si jednou vyžádá
+  /// systémovým dialogem. NIKDY sama neotevře Nastavení (dřív to dělala bez
+  /// jediného slova — mapa Míst/Tras zákazníka hned po otevření „vyhodila"
+  /// do Nastavení). Důvod a „Otevřít nastavení" ukáže volající přes
+  /// [status] / [locate] + `explainLocation`.
+  static Future<bool> ensurePermission() async => await status() == GpsStatus.ok;
+
+  /// Stav polohy BEZ vytahování zákazníka do Nastavení (2026-10-16): SOS a
+  /// navigace dřív uprostřed hlášení / jízdy tiše otevřely systémové
+  /// nastavení. Nepovolené oprávnění si jednou vyžádá systémovým dialogem.
+  static Future<GpsStatus> status({bool request = true}) async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return GpsStatus.serviceOff;
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied && request) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.deniedForever) return GpsStatus.deniedForever;
+      if (perm == LocationPermission.denied) return GpsStatus.denied;
+      return GpsStatus.ok;
+    } catch (_) {
+      return GpsStatus.denied;
     }
+  }
 
-    var perm = await Geolocator.checkPermission();
-    debugPrint('[GPS_SVC] checkPermission: $perm');
-
-    if (perm == LocationPermission.denied) {
-      debugPrint('[GPS_SVC] permission denied → requesting...');
-      perm = await Geolocator.requestPermission();
-      debugPrint('[GPS_SVC] requestPermission result: $perm');
-    }
-
-    if (perm == LocationPermission.deniedForever) {
-      debugPrint('[GPS_SVC] ✗ deniedForever → need app settings');
-      await Geolocator.openAppSettings();
-      return false;
-    }
-
-    final ok = perm == LocationPermission.whileInUse ||
-        perm == LocationPermission.always;
-    debugPrint('[GPS_SVC] permission result: $ok ($perm)');
-    return ok;
+  /// Poloha + důvod, proč není (vypnutá poloha / bez oprávnění / bez GPS
+  /// signálu). Nic neotevírá — vysvětlení a „Otevřít nastavení" řeší UI.
+  static Future<({Position? pos, GpsStatus status})> locate() async {
+    final st = await status();
+    if (st != GpsStatus.ok) return (pos: null, status: st);
+    final pos = await _acquire();
+    return (pos: pos, status: pos == null ? GpsStatus.noFix : GpsStatus.ok);
   }
 
   /// Get current position with fallback.
@@ -48,12 +49,15 @@ class GpsService {
   /// 2. Low accuracy fallback (30s timeout)
   static Future<Position?> getCurrentPosition() async {
     debugPrint('[GPS_SVC] getCurrentPosition() start');
-    final hasPermission = await ensurePermission();
+    final hasPermission = await status() == GpsStatus.ok;
     if (!hasPermission) {
       debugPrint('[GPS_SVC] ✗ no permission → trying lastKnown');
       return _getLastKnown();
     }
+    return _acquire();
+  }
 
+  static Future<Position?> _acquire() async {
     try {
       debugPrint('[GPS_SVC] trying HIGH accuracy (15s timeout)...');
       final pos = await Geolocator.getCurrentPosition(
@@ -154,3 +158,6 @@ class GeoAddress {
     required this.lng,
   });
 }
+
+/// Proč poloha není k dispozici.
+enum GpsStatus { ok, serviceOff, denied, deniedForever, noFix }

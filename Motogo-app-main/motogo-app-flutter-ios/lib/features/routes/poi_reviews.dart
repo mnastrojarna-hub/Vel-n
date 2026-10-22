@@ -10,6 +10,7 @@ import '../../core/widgets/moto_fx.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart' show routesDataProvider, catalogPoisProvider, userPoisProvider;
 import 'route_reviews.dart' show routeReviewTile, routeStars;
+import '../../core/widgets/mg_nav_controls.dart';
 
 double? _toD(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 int _toI(dynamic v) => v == null ? 0 : (v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0);
@@ -274,7 +275,7 @@ class _PoiReviewEditorState extends State<_PoiReviewEditor> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)))),
+          const MgSheetHandle(),
           const SizedBox(height: 14),
           Text(widget.existing != null ? t(context).tr('routeReviewEdit') : t(context).tr('routeReviewAdd'),
               style: const TextStyle(fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900, color: MotoGoColors.black)),

@@ -19,7 +19,6 @@ import '../booking/booking_provider.dart';
 import '../booking/booking_models.dart';
 import '../booking/widgets/price_summary.dart';
 import '../reservations/reservation_provider.dart' show releaseDoorCodes, reservationsProvider, reservationByIdProvider;
-import '../reservations/booking_extras_sync.dart' show replaceModeledExtras;
 import 'booking_upsell_provider.dart';
 import '../../core/feature_flags.dart';
 import '../../core/booking_rules.dart';
@@ -36,12 +35,20 @@ import 'widgets/payment_header_widgets.dart';
 import 'widgets/payment_error_sheet.dart';
 import 'widgets/card_payment_sheet.dart';
 import '../../core/payment_pending_marker.dart';
+import '../../core/paid_change_queue.dart';
+import '../../core/paid_change_apply.dart' show applyExtrasOnce, applyGearOnce, gearColumnsOf;
+import '../../core/offline_guard.dart' show OfflineGuard;
+import 'card_minimum.dart';
 import 'net_error.dart';
+import 'paid_change_api.dart' show piIdFromClientSecret;
+import 'paid_change_outcomes.dart';
 import 'payment_refusals.dart';
 import 'payment_ui_helpers.dart';
 import 'payment_verify.dart';
+import 'widgets/card_rounding_note.dart';
 
 part 'payment_screen_problems.dart';
+part 'payment_screen_changes.dart';
 
 /// Proč se nepodařilo založit koncept rezervace (určuje hlášku a akci).
 enum _DraftKind { motoTaken, trailerTaken, network, auth, input, unknown }
@@ -63,8 +70,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   bool _expired = false;
   /// Částka potvrzená serverem („Cena se změnila" / zbytek po slevě).
   double? _serverAmount;
-  /// PaymentIntent právě běžící platby (ověření stavu po nejasné chybě).
+  /// PaymentIntent právě běžícího POKUSU (ověření stavu po nejasné chybě).
+  /// Každý pokus ho nuluje — intent opuštěného pokusu nesmí rozhodovat.
   String? _activeClientSecret;
+  /// Id PaymentIntentu běžícího pokusu (klíč trvalé fronty doplatků, D6).
+  String? _activePiId;
+  /// Doplatek do 1 Kč: server změnu zapsal bez platby (D1).
+  bool _waivedApplied = false;
+  /// Zbytek do 1 Kč server odpustit nemůže (`waiver_unverified`) → platí se
+  /// 15 Kč s dorovnáním (D1); zákazník to potvrdil tlačítkem „Zaplatit 15 Kč".
+  bool _forceMinCharge = false;
+  /// Platba mohla odejít bance (stržení uložené karty, odeslaný kartový
+  /// sheet, ověřování nejistého výsledku). Jen pak „zpět" nastaví značku a
+  /// vede na „Platba se ověřuje"; dokud se zakládá koncept / intent, odchod
+  /// nic nestrhne.
+  bool _submitted = false;
+  /// Ověřuje se výsledek platby → tlačítko říká „Ověřujeme platbu…".
+  bool _verifying = false;
+  /// Během ověřování selhalo spojení → „Platba se ověřuje" řekne pravý
+  /// důvod (spojení), ne „banka potvrzuje".
+  bool _netTrouble = false;
   String? _pendingBookingId;
   String? _pendingOrderId;
   int _attempts = 0;
@@ -92,8 +117,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
   /// Běží platba → zamkne tlačítko i odchod (šipka, záložky AppShellu).
   void _setProcessing(bool v) {
-    _set(() => _processing = v);
-    _processingNotifier?.state = v;
+    _set(() {
+      _processing = v;
+      if (!v) {
+        _submitted = false;
+        _verifying = false;
+      }
+    });
+    // Záložky AppShellu se ptají jen tehdy, když platba mohla odejít (nebo
+    // se dopisuje zaplacená změna) — zakládání konceptu nic nestrhne.
+    _processingNotifier?.state = v && (_submitted || _completed);
+  }
+
+  /// Platba mohla odejít bance → odchod jen s potvrzením (šipka i záložky).
+  void _markSubmitted() {
+    _submitted = true;
+    if (_processing) _processingNotifier?.state = true;
+  }
+
+  /// Výsledek platby se ověřuje (tlačítko + trvalý řádek „neplať znovu").
+  void _markVerifying() {
+    _markSubmitted();
+    _set(() => _verifying = true);
   }
 
   @override
@@ -185,8 +230,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       // promítla do rezervace (webhook applyExtensionChange zapíše nový
       // total_price). Dokud se total_price nezměnil na očekávaný, doplatek
       // NEPROBĚHL → žádný úspěch.
+      // Doplatek do 1 Kč se neplatí (nová cena = stará) → podle ceny nic nepoznáš.
       final expected = _expectedEditTotal;
-      if (expected != null && bookingId != null) {
+      if (expected != null && bookingId != null && !_cardFor(_ctx!.amount).isWaive) {
         paid = await StripeService.pollBookingTotal(bookingId, expected,
             maxAttempts: 1);
       }
@@ -229,9 +275,42 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// Id pro lokální značku „platba odeslána" (objednávka / rezervace).
   String? get _markerId => _pendingOrderId ?? _pendingBookingId;
 
-  /// Nová cena rezervace po zaplaceném doplatku úpravy (důkaz zaplacení).
-  double? get _expectedEditTotal =>
-      (_ctx?.pendingEditChanges?['total_price'] as num?)?.toDouble();
+  /// Druh platby pro značku: doplatek úpravy / výměny běží nad UŽ zaplacenou
+  /// rezervací → po restartu appky se nesmí ověřit podle `payment_status`.
+  String get _markerKind {
+    if (_pendingOrderId != null) return PaymentMarkerKind.order;
+    switch (_ctx?.flowType) {
+      case PaymentFlowType.extension:
+        return _flow == PayFlow.swap ? PaymentMarkerKind.swap : PaymentMarkerKind.edit;
+      case PaymentFlowType.sos:
+        return PaymentMarkerKind.sos;
+      default:
+        return PaymentMarkerKind.booking;
+    }
+  }
+
+  /// Značka „platba odeslána" i s druhem platby a (u úpravy) novou cenou.
+  Future<void> _setMarker({String? clientSecret, bool fresh = false}) =>
+      PaymentPendingMarker.set(_markerId,
+          clientSecret: clientSecret,
+          fresh: fresh,
+          kind: _markerKind,
+          expectedTotal: _expectedEditTotal);
+
+  /// Nová cena rezervace po zaplaceném doplatku úpravy (důkaz zaplacení) —
+  /// i s dorovnáním na minimální platbu kartou, které zapisuje server (D1).
+  double? get _expectedEditTotal {
+    final t = (_ctx?.pendingEditChanges?['total_price'] as num?)?.toDouble();
+    if (t == null) return null;
+    return t + _cardFor(_ctx?.amount ?? 0).rounding;
+  }
+
+  /// Minimum karty pro tuhle platbu (D1) — i s vynucenými 15 Kč u zbytku do
+  /// 1 Kč, který server odpustit nemůže ([_forceMinCharge]).
+  CardCharge _cardFor(num due) => cardCharge(due, forceMin: _forceMinCharge);
+
+  /// Kolik se strhne kartou (minimum 15 Kč, do 1 Kč nic — D1).
+  double get _charge => _cardFor(_amount).charge.toDouble();
 
   /// Úprava rezervace (návrat „Načíst znovu" / „Upravit adresu").
   String get _editRoute => _pendingBookingId != null
@@ -305,19 +384,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     return out.isEmpty ? null : out;
   }
 
-  double get _amount {
-    // Cena ověřená serverem má přednost (zákazník ji výslovně potvrdil).
+  /// Částka za REZERVACI / doplatek podle serveru (bez doprodeje z e-shopu).
+  /// Cena ověřená serverem má přednost (zákazník ji výslovně potvrdil).
+  double get _bookingDue {
     final server = _serverAmount;
     if (server != null) return server;
-    final base = _ctx != null
-        ? _ctx!.amount
-        : ref.read(priceBreakdownProvider).total;
-    double total = base;
-    if (_isNewBooking) {
-      total += ref.read(bookingUpsellProvider.notifier).total;
-    }
-    return total;
+    return _ctx != null ? _ctx!.amount : ref.read(priceBreakdownProvider).total;
   }
+
+  /// Doprodej z e-shopu se k platbě nové rezervace přibalí, jen když rezervace
+  /// sama minimum karty splňuje (≥ 15 Kč): server ho bere jako částku NAVÍC nad
+  /// cenou rezervace a minimum posuzuje jen na rezervaci. Zdarma / do 1 Kč /
+  /// pod 15 Kč by se odpuštění či dorovnání rezervace smíchalo s doprodejem
+  /// (strhlo by se jiné, než ukazují doklady) → doprodej se nepřibalí ani
+  /// neobjedná (D1; doprodej je zatím vypnutý, D7).
+  bool get _upsellBundled =>
+      _isNewBooking &&
+      ref.read(bookingUpsellProvider).isNotEmpty &&
+      cardCharge(_bookingDue).kind == CardChargeKind.normal;
+
+  /// Celkem k zaplacení: rezervace + přibalený doprodej.
+  double get _amount =>
+      _bookingDue + (_upsellBundled ? ref.read(bookingUpsellProvider.notifier).total : 0);
 
   String get _displayLabel {
     if (_ctx != null) return _ctx!.label;
@@ -363,7 +451,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     _draftError = null;
     _draftKind = _DraftKind.unknown;
     final id = await _createDraftBooking();
-    if (id != null) return id;
+    if (id != null || !mounted) return id;
+    if (_draftKind == _DraftKind.auth && MotoGoSupabase.currentUser != null) {
+      // Prošlý přístupový token: zkus přihlášení obnovit a zápis jednou
+      // zopakovat — zákazník nemusí kvůli tomu nic dělat.
+      try {
+        await MotoGoSupabase.client.auth
+            .refreshSession()
+            .timeout(const Duration(seconds: 20));
+      } catch (e) {
+        // Obnovu shodila síť (slabé LTE, offline) → „zkontroluj připojení",
+        // ne „Přihlásit" (to by zákazníka zbytečně odhlásilo).
+        if (authRefreshNetworkFailure(e) &&
+            MotoGoSupabase.currentSession != null) {
+          _draftKind = _DraftKind.network;
+        }
+        return null;
+      }
+      if (!mounted) return null;
+      _draftError = null;
+      _draftKind = _DraftKind.unknown;
+      return _createDraftBooking();
+    }
     if (_draftKind != _DraftKind.motoTaken && _draftKind != _DraftKind.trailerTaken) {
       return null;
     }
@@ -676,7 +785,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                       'amount': d.calculatedAmount,
                     })
                 .toList(),
-          );
+          ).timeout(const Duration(seconds: 15));
         } catch (e) {
           debugPrint('[Payment] booking_discounts insert failed: $e');
         }
@@ -688,6 +797,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       //   appka je pak při příští rezervaci předvyplní. Slučujeme s existujícími,
       //   ať se dřív uložené velikosti nepřepíšou prázdnem.
       // Fire-and-forget — nesmí blokovat ani shodit potvrzení rezervace.
+      // Zákazník mezitím odešel (zpět během zakládání nic nestrhne) → bez
+      // `ref` (po dispose hází); koncept už stojí a FAB ho najde sám.
+      if (!mounted) return bookingId;
       final existingGear =
           (ref.read(profileProvider).valueOrNull?['gear_sizes'] as Map?) ?? const {};
       final riderGear = Map<String, dynamic>.from((existingGear['rider'] as Map?) ?? const {});
@@ -750,7 +862,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         // trg_check_trailer_overlap (23514): vozík k motorce ze samoobslužné
         // pobočky — sem dojde jen starý build bez `p_moto_id` nebo závod
         // (přesun motorky mezi výběrem a zápisem).
-        _draftError = mounted ? t(context).tr('swap.trailerStaffedOnly') : null;
+        _draftError = mounted ? t(context).tr('fxTrailerStaffedOnly') : null;
         _draftKind = _DraftKind.input;
       } else if (msg.contains('trailer_unavailable')) {
         // trg_check_trailer_overlap (23505): kus vozíku mezitím obsadil jiný.
@@ -798,17 +910,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   Future<void> _doPayment() async {
     if (_processing || _expired || _completed) return;
 
-    final amount = _amount;
-    if (amount <= 0) {
+    // D1 (2026-10-16): do 1 Kč se neúčtuje (potvrdí se bez platby), 1–15 Kč
+    // se platí 15 Kč (dorovnání zapíše server, na dokladu samostatný řádek).
+    final cc = _cardFor(_amount);
+    if (cc.kind == CardChargeKind.free) {
       await _confirmFree();
       return;
     }
-    // Kartou jde zaplatit nejméně 15 Kč (Stripe) — menší částka by vždy
-    // selhala a zákazník by uvízl. Řekni to PŘED vznikem rezervace / platby.
-    if (belowCardMinimum(amount)) {
-      _showProblem(PaymentRefusals.belowMinimum(t(context).lang, _flow, amount));
+    if (cc.isWaive) {
+      if (_ctx?.flowType == PaymentFlowType.extension) {
+        await _applyWaivedChange();
+      } else {
+        await _confirmFree(waived: true);
+      }
       return;
     }
+    final amount = cc.charge.toDouble();
 
     _setProcessing(true);
 
@@ -824,6 +941,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         if (!_completed) _showDraftFailure();
         return;
       }
+      if (!mounted) return;
     }
 
     // -- Saved card auto-charge (off-session) --
@@ -846,9 +964,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// se NEpřechází na Payment Sheet — ukáže se chybová hláška se „Zkusit znovu".
   Future<void> _chargeSavedCard(double amount, SavedCard card) async {
     debugPrint('[Payment] saved-card charge: amount=${amount.round()}');
+    // Telefon je offline → požadavek by vůbec neodešel. Bez značky a bez
+    // „ověřování" rovnou řekni proč a nabídni „Zkusit znovu" (dřív 15 minut
+    // „Platba se ověřuje" za platbu, která nikdy neopustila telefon).
+    if (!await _deviceOnline()) {
+      if (!mounted) return;
+      _setProcessing(false);
+      final n = PaymentErrorMapper.network(t(context).lang);
+      _showProblem(PayProblem(n.title, n.message, PayAction.retry));
+      return;
+    }
+    if (!mounted) return;
+    // NOVÝ pokus: intent z dřívějšího (opuštěného) pokusu sem nepatří —
+    // ověření by podle něj tvrdilo „nic nestrženo" (dvojí platba).
+    _activeClientSecret = null;
+    _netTrouble = false;
     // Server kartu strhne hned — kdyby appka během čekání spadla / ztratila
     // spojení, značka zabrání další platbě, dokud se výsledek neověří.
-    await PaymentPendingMarker.set(_markerId);
+    _markSubmitted();
+    await _setMarker(fresh: true);
+    _activePiId = null;
     final result = await StripeService.createPaymentIntent(
       bookingId: _pendingBookingId,
       amount: amount.round(),
@@ -857,24 +992,37 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       incidentId: _ctx?.incidentId,
       paymentMethodId: card.stripeId,
       change: _extensionChangePayload,
+      attemptId: newAttemptId(),
     );
 
     if (!mounted) return;
     _pendingBookingId ??= result.bookingId;
+    _activePiId = result.paymentIntentId ?? piIdFromClientSecret(result.clientSecret);
 
     switch (result.type) {
       case PaymentResultType.offSessionSucceeded:
+        // Client secret (server ho vrací od D4) → ověření stavu po restartu.
+        final okCs = result.clientSecret;
+        if (okCs != null) {
+          _activeClientSecret = okCs;
+          await _setMarker(clientSecret: okCs);
+        }
         await _verifyAndComplete();
+        return;
+
+      case PaymentResultType.free:
+        // Bez platby (zbytek do 1 Kč / 100% sleva) — server už potvrdil.
+        _handleFreeResult(result);
         return;
 
       case PaymentResultType.offSessionRequiresAction:
         // SCA (3DS) prompt — Stripe SDK ukáže overlay přímo v appce.
         final cs = result.clientSecret!;
         _activeClientSecret = cs;
-        await PaymentPendingMarker.set(_markerId, clientSecret: cs);
-        final outcome = await StripeService.handleNextAction(cs);
+        await _setMarker(clientSecret: cs);
+        final na = await StripeService.handleNextActionDetailed(cs);
         if (!mounted) return;
-        switch (outcome) {
+        switch (na.outcome) {
           case NextActionOutcome.succeeded:
             await _verifyAndComplete();
           case NextActionOutcome.processing:
@@ -883,14 +1031,29 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             await _verifyUncertain();
           case NextActionOutcome.notCompleted:
           case NextActionOutcome.failed:
-            // Ověření kartou (3DS) neproběhlo — nic nestrženo, „Zkusit znovu".
+            // Banka platbu zamítla i po ověření (nedostatek prostředků,
+            // propadlá / blokovaná karta, limit…) → pravý důvod (D5), ne
+            // „dokonči 3D Secure" (zákazník by ověřoval znovu a znovu).
+            final decline = na.declineError;
+            final declined = decline == null
+                ? null
+                : PaymentErrorMapper.fromStripeException(decline, t(context).lang);
+            if (declined != null && declined.needsVerification) {
+              await _verifyUncertain();
+              return;
+            }
+            // Ověření (3DS) neproběhlo / banka zamítla — nic nestrženo.
             await PaymentPendingMarker.clear(_markerId);
             if (!mounted) return;
             _setProcessing(false);
+            if (declined != null) {
+              _handleSavedCardFailure(result, declined: declined);
+              return;
+            }
             _attempts++;
             _handleSavedCardFailure(result,
-                authNotDone: outcome == NextActionOutcome.notCompleted,
-                authFailed: outcome == NextActionOutcome.failed);
+                authNotDone: na.outcome == NextActionOutcome.notCompleted,
+                authFailed: na.outcome == NextActionOutcome.failed);
         }
         return;
 
@@ -900,6 +1063,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         // PI skončil v `processing` → nejde o chybu, čekat na banku.
         if (result.intentStatus == 'processing') {
           await _awaitProcessingConfirmation();
+          return;
+        }
+        // Bez kódu Stripe a bez stavu PI (výpadek spojení server↔Stripe,
+        // chyba API) mohla karta být stržena → značku NEmazat, ověřit
+        // (zaplaceno / „Platba se ověřuje"), nikdy „nic nestrženo" + znovu.
+        if (PaymentErrorMapper.fromEdge(
+                errorCode: result.stripeCode,
+                declineCode: result.declineCode,
+                intentStatus: result.intentStatus,
+                lang: t(context).lang)
+            .needsVerification) {
+          await _verifyUncertain();
           return;
         }
         await PaymentPendingMarker.clear(_markerId);
@@ -922,15 +1097,30 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         await PaymentPendingMarker.clear(_markerId);
         if (!mounted) return;
         _setProcessing(false);
-        _handleSavedCardFailure(result);
+        // Server kartu nestrhával (vrátil nepotvrzený intent) → „nic nestrženo".
+        _handleSavedCardFailure(result, notCharged: true);
         return;
+    }
+  }
+
+  /// Má telefon vůbec síť? (Wi-Fi / data zapnutá.) Chyba pluginu = nevíme
+  /// → poslední známý stav, platba pak rozhodne sama.
+  Future<bool> _deviceOnline() async {
+    try {
+      return await OfflineGuard.isOnline().timeout(const Duration(seconds: 3));
+    } catch (_) {
+      return !OfflineGuard.offlineNow;
     }
   }
 
   /// Klasický flow s Payment Sheetem (zachová původní chování).
   Future<void> _runPaymentSheetFlow(double amount) async {
     _setProcessing(true);
+    // Nový pokus — intent předchozího pokusu už nerozhoduje.
+    _activeClientSecret = null;
+    _netTrouble = false;
 
+    _activePiId = null;
     debugPrint('[Payment] createPaymentIntent: amount=${amount.round()}, type=$_stripeType');
     final result = await StripeService.createPaymentIntent(
       bookingId: _pendingBookingId,
@@ -939,6 +1129,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       orderId: _pendingOrderId,
       incidentId: _ctx?.incidentId,
       change: _extensionChangePayload,
+      attemptId: newAttemptId(),
     );
 
     if (!mounted) return;
@@ -948,6 +1139,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       _pendingBookingId ??= result.bookingId;
       final cs = result.clientSecret!;
       _activeClientSecret = cs;
+      _activePiId = result.paymentIntentId ?? piIdFromClientSecret(cs);
 
       // Vlastní in-app sheet (CardField + Google Pay) místo nativního Payment
       // Sheetu — pole „Číslo karty" je celé klikací a jde do něj vložit číslo
@@ -958,7 +1150,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         amount: amount,
         // Platba odeslána bance → značka proti dvojí platbě (pád appky,
         // ztracený výsledek). Smaže se, jakmile je výsledek známý.
-        onSubmitting: () => PaymentPendingMarker.set(_markerId, clientSecret: cs),
+        onSubmitting: () async {
+          _markSubmitted();
+          await _setMarker(clientSecret: cs, fresh: true);
+          // Doplatek změny: pojistka ve frontě (přežije zabití appky během
+          // platby); první dotaz na server až po 90 s, ať nepřekáží 3D Secure.
+          await _enqueuePaidChange(paid: false, delay: const Duration(seconds: 90));
+        },
       );
 
       if (!mounted) return;
@@ -973,6 +1171,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         case CardSheetStatus.cancelled:
           // Zákazník zavřel sheet před odesláním platby — žádná chyba, jen reset.
           await PaymentPendingMarker.clear(_markerId);
+          await PaidChangeQueue.discard(_activePiId);
           _setProcessing(false);
         case CardSheetStatus.failed:
           if (sheetResult.stripeError != null) {
@@ -984,7 +1183,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           }
       }
     } else if (result.type == PaymentResultType.free) {
-      _onPaymentSuccess();
+      _handleFreeResult(result);
     } else {
       _setProcessing(false);
       _handleIntentError(result);
@@ -992,18 +1191,22 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   }
 
   Future<void> _verifyAndComplete() async {
+    _markVerifying();
     showMotoGoToast(context,
         icon: '⌛', title: t(context).tr('verifyingPayment'), message: t(context).tr('waitingConfirmation'));
 
+    if (_ctx?.flowType == PaymentFlowType.extension) {
+      // Doplatek změny prošel (Stripe Succeeded) → NEJDŘÍV do trvalé fronty
+      // (D6: dokončí se i po zabití appky / bez sítě), pak zápis přes server.
+      await _enqueuePaidChange(paid: true);
+      if (!mounted) return;
+      _onPaymentSuccess();
+      return;
+    }
     final confirmed = await _serverConfirmed();
     if (!mounted) return;
 
     if (confirmed) {
-      _onPaymentSuccess();
-    } else if (_ctx?.flowType == PaymentFlowType.extension) {
-      // Succeeded PI = Stripe doplatek potvrdil; serverový signál pro velký
-      // payload (změna se nevejde do Stripe metadat) neexistuje → dokonči na
-      // základě potvrzeného PI, jinak by zaplacená úprava nešla nikdy uložit.
       _onPaymentSuccess();
     } else {
       // Webhook ještě nepotvrdil → NEvystavuj doklady; ukaž „Platba se ověřuje".
@@ -1043,7 +1246,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// nedorazí v okně, ukaž obrazovku „Platba se ověřuje" (sama se přepne, až
   /// potvrzení dorazí) BEZ vystavení dokladu / aplikace úpravy.
   Future<void> _awaitProcessingConfirmation() async {
-    await PaymentPendingMarker.set(_markerId, clientSecret: _activeClientSecret);
+    _markVerifying();
+    await _setMarker(clientSecret: _activeClientSecret);
+    // Banka doplatek změny ještě zpracovává → fronta ho dokončí, až projde.
+    await _enqueuePaidChange(paid: false);
     if (!mounted) return;
     showMotoGoToast(context,
         icon: '⌛',
@@ -1067,7 +1273,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
   /// viděl děkovací stránku, ale rezervace zůstala `unpaid` a za 30 minut
   /// přišel storno mail. Teď flow pokračuje na úspěch JEN když backend
   /// rezervaci reálně označil jako zaplacenou.
-  Future<void> _confirmFree() async {
+  Future<void> _confirmFree({bool waived = false}) async {
     _setProcessing(true);
 
     if (_isNewBooking) {
@@ -1085,12 +1291,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       // Nemělo by nastat (free flow je vždy booking) — bez ID není co potvrdit.
       if (!mounted) return;
       _setProcessing(false);
-      _showProblem(PayProblem(t(context).tr('psRefusalTitle'),
-          t(context).tr('psRefusalUnknown'), PayAction.retry, contact: true));
+      _showProblem(PayProblem(t(context).tr('pdServerTitle'),
+          t(context).tr('pdUnknownBody'), PayAction.retry));
       return;
     }
 
-    final result = await StripeService.confirmFreeBooking(bookingId);
+    // Od teď se rezervace potvrzuje — odchod už jen s potvrzením.
+    _markSubmitted();
+    // SOS náhrada jako SOS (server ji neodpouští podle ceníku rezervace).
+    final result = await StripeService.confirmFreeBooking(bookingId,
+        type: _ctx?.flowType == PaymentFlowType.sos ? 'sos' : 'booking');
     if (!mounted) return;
 
     // Fallback poll pokrývá i případ „již zaplaceno" (409 z duplicate guardu).
@@ -1107,55 +1317,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     showMotoGoToast(context,
         icon: '✓',
         title: t(context).tr('confirmed'),
-        message: t(context).tr('discountCoversAll'));
+        message: t(context).tr(waived ? 'pdWaivedSub' : 'discountCoversAll'));
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
     _onPaymentSuccess();
   }
 
-  /// Výměna motorky po zaplaceném doplatku: COMMIT s kontrolou výsledku +
-  /// retry. `already_split` / `invalid_new_moto` = commit už provedl webhook
-  /// (`_swap` metadata) → v pořádku. Vrací true, když je výměna zapsaná.
-  Future<bool> _commitSwap(Map swapCommit) async {
-    final params = {
-      'p_booking_id': swapCommit['p_booking_id'],
-      'p_new_moto_id': swapCommit['p_new_moto_id'],
-      'p_swap_date': swapCommit['p_swap_date'],
-      'p_swap_time': swapCommit['p_swap_time'],
-    };
-    bool done(dynamic res) {
-      final code = res is Map ? res['error']?.toString() : null;
-      return (res is Map && res['success'] == true) ||
-          code == 'already_split' ||
-          code == 'invalid_new_moto';
-    }
-    for (var attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await Future.delayed(const Duration(seconds: 2));
-      try {
-        final res = await MotoGoSupabase.client.rpc('split_booking_moto_swap',
-            params: {...params, 'p_dry_run': false}).timeout(const Duration(seconds: 20));
-        if (done(res)) return true;
-        debugPrint('[Payment] swap commit failed: ${res is Map ? res['error'] : res}');
-      } catch (e) {
-        debugPrint('[Payment] swap commit err: $e');
-      }
-    }
-    // Poslední kontrola: commit mohl mezitím dopsat webhook (dry-run pak
-    // hlásí already_split / invalid_new_moto).
-    try {
-      final res = await MotoGoSupabase.client.rpc('split_booking_moto_swap',
-          params: {...params, 'p_dry_run': true}).timeout(const Duration(seconds: 15));
-      final code = res is Map ? res['error']?.toString() : null;
-      return code == 'already_split' || code == 'invalid_new_moto';
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<void> _onPaymentSuccess() async {
-    if (_completed) return;
+    if (_completed || !mounted) return;
     _completed = true;
     _countdownTimer?.cancel();
-    _processingNotifier?.state = false;
+    // Až do přechodu na výsledek „běží platba" (zápis výměny / úpravy může
+    // trvat desítky sekund) — záložky i šipka se zeptají; vypne se v dispose.
+    _setProcessing(true);
     ref.read(paymentContextProvider.notifier).state = null;
     // Výsledek je známý → značka „platba odeslána" už nepatří (FAB, restart).
     PaymentPendingMarker.clear(_pendingBookingId);
@@ -1181,14 +1355,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     if (_isNewBooking) {
       if (_pendingBookingId != null) {
         EmailService.sendBookingReserved(_pendingBookingId!);
-        InvoiceService.generateAdvanceInvoice(
-            _pendingBookingId!, ref.read(priceBreakdownProvider).total);
+        _advanceInvoiceBackup(_pendingBookingId!);
         InvoiceService.generateBookingDocs(_pendingBookingId!);
       }
-      // Create shop order for upsell items (fire-and-forget)
+      // Create shop order for upsell items (fire-and-forget) — jen když byl
+      // doprodej v platbě opravdu přibalený (viz _upsellBundled).
       final upsellItems = ref.read(bookingUpsellProvider);
       if (upsellItems.isNotEmpty) {
-        createBookingUpsellOrder(upsellItems);
+        if (_upsellBundled) createBookingUpsellOrder(upsellItems);
         ref.read(bookingUpsellProvider.notifier).clear();
       }
       showMotoGoToast(context,
@@ -1196,10 +1370,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
       // Děkovací stránka si načte stav dokladů + typ motorky podle tohoto ID.
       ref.read(lastConfirmedBookingProvider.notifier).state = _pendingBookingId;
       ref.read(lastConfirmedRestoreProvider.notifier).state = false;
+      ref.read(lastConfirmedFromDraftProvider.notifier).state = true;
       context.go(Routes.success);
     } else {
       final tr = t(context);
-      final amountStr = Money.czk(_ctx!.amount);
+      // Co se opravdu strhlo (minimum karty 15 Kč, D1) — z částky potvrzené
+      // serverem (po „Cena se změnila" už není ta z kontextu) + řádek dorovnání.
+      final paidCc = _cardFor(_amount);
+      final amountStr = Money.czk(paidCc.charge);
+      final roundLine = roundingLine(tr, paidCc);
       void goResult(PaymentOutcome outcome) {
         ref.read(paymentOutcomeProvider.notifier).state = outcome;
         context.go(Routes.paymentResult);
@@ -1207,105 +1386,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
       switch (_ctx!.flowType) {
         case PaymentFlowType.extension:
-          // VÝMĚNA MOTORKY — doplatek (net>0) byl právě zaplacen → teprve TEĎ se smí
-          // provést server-side COMMIT výměny (RPC split_booking_moto_swap dry_run:false),
-          // který zkrátí původní rezervaci, vytvoří druhou (paid) a sám rozešle její
-          // „reserved" mail + smlouvu. COMMIT se NIKDY nevolá před vypořádáním platby.
-          final swapCommit = _ctx!.pendingEditChanges?['_swap_commit'];
-          if (swapCommit is Map) {
-            final committed = await _commitSwap(swapCommit);
-            ref.invalidate(reservationsProvider);
-            if (_pendingBookingId != null) {
-              ref.invalidate(reservationByIdProvider(_pendingBookingId!));
-            }
-            if (!committed) {
-              // Zaplaceno, ale výměna není zapsaná (ani webhookem) — žádný
-              // falešný „hotovo": obsluha ji dokončí, zákazník nic nedělá.
-              if (!mounted) return;
-              goResult(_staffOutcome(tr, swap: true, amountStr: amountStr));
-              return;
-            }
-            // „K vyzvednutí“ — pobočka NOVÉ motorky (může stát jinde).
-            final pickup =
-                await loadMotoPickupInfo(swapCommit['p_new_moto_id']?.toString());
-            if (!mounted) return;
-            goResult(
-              PaymentOutcome(
-                title: tr.tr('paid'),
-                subtitle: tr.tr('swap.successTitle'),
-                lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
-                nextStepNote: tr.tr('successEmailSent'),
-                ctaLabel: tr.tr('successCta'),
-                ctaRoute: Routes.reservations,
-                pickup: pickup,
-              ),
-            );
-            return;
-          }
-          // Apply pending edit changes ONLY after Stripe payment is confirmed.
-          // Mirrors _onInlinePaymentSuccess from Capacitor payment-ui-3.js.
-          if (_pendingBookingId != null && _ctx!.pendingEditChanges != null) {
-            try {
-              // `_extras_rows` / `_extras_replace` jsou interní klíče (nový stav
-              // doplňků) — do bookings UPDATE nepatří. Při `_extras_replace`
-              // nejdřív smažeme modelované řádky (i odebrání) a pak vložíme nové.
-              final pending =
-                  Map<String, dynamic>.from(_ctx!.pendingEditChanges!);
-              final extrasRows = pending.remove('_extras_rows');
-              final extrasReplace = pending.remove('_extras_replace') == true;
-              final deleteIds = ((pending.remove('_extras_delete_ids') as List?) ?? const [])
-                  .map((e) => e.toString())
-                  .toList();
-              final origExtras = ((pending.remove('_extras_orig') as List?) ?? const [])
-                  .map((e) => e.toString())
-                  .toSet();
-              pending.remove('_base'); // jen pro server (metadata), ne sloupec
-              await MotoGoSupabase.client
-                  .from('bookings')
-                  .update(pending)
-                  .eq('id', _pendingBookingId!)
-                  .timeout(const Duration(seconds: 20));
-              if (extrasReplace) {
-                // Mazání podle id + ověření počtu — bez DELETE práva by se
-                // doplňky zdvojily (incident 2026-09-28, viz booking_extras_sync).
-                await replaceModeledExtras(
-                  bookingId: _pendingBookingId!,
-                  origRowIds: deleteIds,
-                  origExtraIds: origExtras,
-                  rows: extrasRows is List ? extrasRows : const [],
-                );
-              }
-            } catch (e) {
-              debugPrint('[Payment] Edit apply err: $e');
-            }
-          }
-          // Zaplaceno — ale je úprava opravdu zapsaná (webhook nebo klient)?
-          // Když ne, žádný falešný úspěch: úpravu dokončí obsluha.
-          final expected = _expectedEditTotal;
-          if (expected != null && _pendingBookingId != null &&
-              !await StripeService.pollBookingTotal(_pendingBookingId!, expected,
-                  maxAttempts: 2, interval: const Duration(seconds: 2))) {
-            if (!mounted) return;
-            goResult(_staffOutcome(tr, swap: false, amountStr: amountStr));
-            return;
-          }
-          if (_pendingBookingId != null) {
-            EmailService.sendBookingModified(_pendingBookingId!);
-            InvoiceService.generateAdvanceInvoice(
-                _pendingBookingId!, _ctx!.amount);
-            InvoiceService.generateBookingDocs(_pendingBookingId!);
-          }
-          // „K vyzvednutí“ — pobočka motorky po úpravě (znovu z DB).
-          final editPickup = await loadBookingPickupInfo(_pendingBookingId);
-          if (!mounted) return;
-          goResult(_editSuccessOutcome(tr, amountStr, pickup: editPickup));
+          // VÝMĚNA MOTORKY / ÚPRAVA — doplatek zaplacen (nebo do 1 Kč odpuštěn).
+          // Zápis změny dělá server (webhook + complete_extension, idempotentně)
+          // přes trvalou frontu; zákazník vidí „hotovo", nebo „se dokončuje" (D6).
+          await _finishPaidChange();
         case PaymentFlowType.sos:
           // Invoice generation handled by backend (Supabase trigger/edge function)
           goResult(
             PaymentOutcome(
               title: tr.tr('paid'),
               subtitle: tr.tr('replacementMotoOrdered'),
-              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
+              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr'), if (roundLine != null) roundLine],
               nextStepNote: tr.tr('successEmailSent'),
               ctaLabel: tr.tr('successCta'),
               ctaRoute: Routes.sosDone,
@@ -1316,7 +1407,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             PaymentOutcome(
               title: tr.tr('paid'),
               subtitle: tr.tr('orderConfirmed'),
-              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
+              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr'), if (roundLine != null) roundLine],
               nextStepNote: tr.tr('successEmailSent'),
               ctaLabel: tr.tr('successCta'),
               ctaRoute: Routes.shop,
@@ -1329,8 +1420,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           // /success (ta si údaje načte z DB podle ID, ne z draftu v paměti).
           if (_pendingBookingId != null) {
             EmailService.sendBookingReserved(_pendingBookingId!);
-            InvoiceService.generateAdvanceInvoice(
-                _pendingBookingId!, _ctx!.amount);
+            _advanceInvoiceBackup(_pendingBookingId!);
             InvoiceService.generateBookingDocs(_pendingBookingId!);
             showMotoGoToast(context,
                 icon: '✓',
@@ -1340,6 +1430,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                 _pendingBookingId;
             ref.read(lastConfirmedRestoreProvider.notifier).state =
                 _ctx!.isRestore;
+            ref.read(lastConfirmedFromDraftProvider.notifier).state = false;
             context.go(Routes.success);
             return;
           }
@@ -1347,7 +1438,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
             PaymentOutcome(
               title: tr.tr('paid'),
               subtitle: tr.tr('paymentCompleted'),
-              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr')],
+              lines: [PaymentOutcomeLine('💳', '${_ctx!.label}: $amountStr'), if (roundLine != null) roundLine],
               nextStepNote: tr.tr('successEmailSent'),
               ctaLabel: tr.tr('successCta'),
               ctaRoute: Routes.reservations,
@@ -1357,52 +1448,63 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     }
   }
 
-  /// Úspěch zaplacené úpravy (i po „Platba se ověřuje" → ověřeno).
-  PaymentOutcome _editSuccessOutcome(AppTranslations tr, String amountStr,
-          {PickupInfo? pickup}) =>
-      PaymentOutcome(
-        pickup: pickup,
-        title: tr.tr('paid'),
-        subtitle: _flow == PayFlow.swap
-            ? tr.tr('swap.successTitle')
-            : tr.tr('bookingChangesConfirmed'),
-        lines: [PaymentOutcomeLine('💳', '${_ctx?.label ?? ''}: $amountStr')],
-        nextStepNote: tr.tr('successEmailSent'),
-        ctaLabel: tr.tr('successCta'),
-        ctaRoute: Routes.reservations,
-      );
+  /// Záložní ZF z appky (primárně ji vystaví `send-booking-email`). Dorovnání
+  /// na 15 Kč / odpuštění do 1 Kč (D1) zapisuje server až s platbou — ZF
+  /// z appky by mohla předběhnout webhook, zachytit cenu bez dorovnání a
+  /// dedup by ji držel navždy (ZF 10 Kč vedle DP 15 Kč). S dorovnáním ji
+  /// proto vystaví jen server; jinak až po ověřeném `paid` (cena je finální).
+  /// Totéž u ceny s haléři (strhly se celé Kč, rozdíl zapisuje server) a bez
+  /// platby (doklad na 0 Kč se nevystavuje).
+  void _advanceInvoiceBackup(String bookingId) {
+    final due = _bookingDue;
+    final cc = _cardFor(due);
+    if (cc.rounding != 0 || cc.noCharge || cc.charge != cc.due) return;
+    () async {
+      if (await StripeService.pollBookingPaymentStatus(bookingId, maxAttempts: 3)) {
+        await InvoiceService.generateAdvanceInvoice(bookingId, due);
+      }
+    }();
+  }
 
-  /// Zaplaceno, ale změnu se nepodařilo zapsat → dokončí obsluha (bez
-  /// falešného „hotovo"; viz D6 — vratka vs. ruční dokončení).
-  PaymentOutcome _staffOutcome(AppTranslations tr,
-          {required bool swap, required String amountStr}) =>
-      PaymentOutcome(
-        kind: PaymentOutcomeKind.attention,
-        title: tr.tr('psPaidStaffTitle'),
-        subtitle: tr.tr(swap ? 'psSwapStaffSub' : 'psEditStaffSub'),
-        lines: [PaymentOutcomeLine('💳', '${_ctx?.label ?? ''}: $amountStr')],
-        nextStepNote: tr
-            .tr(swap ? 'psSwapStaffBody' : 'psEditStaffBody')
-            .replaceAll('{amount}', amountStr),
-        ctaLabel: tr.tr('psMyReservations'),
-        ctaRoute: Routes.reservations,
-      );
-
+  /// Úspěch zaplacené úpravy / výměny (i po „Platba se ověřuje" / „dokončuje
+  /// se" → ověřeno). Řádek s tím, co se strhlo, a s dorovnáním (D1).
+  PaymentOutcome _editSuccessOutcome(AppTranslations tr, {PickupInfo? pickup}) {
+    final cc = _cardFor(_ctx?.amount ?? 0);
+    final extra = roundingLine(tr, cc);
+    return PaymentOutcome(
+      pickup: pickup,
+      title: tr.tr(cc.isWaive ? 'confirmed' : 'paid'),
+      subtitle: _flow == PayFlow.swap
+          ? tr.tr('swap.successTitle')
+          : tr.tr('bookingChangesConfirmed'),
+      lines: [
+        if (cc.charge > 0)
+          PaymentOutcomeLine('💳', '${_ctx?.label ?? ''}: ${Money.czk(cc.charge)}'),
+        if (extra != null) extra,
+      ],
+      nextStepNote: tr.tr('successEmailSent'),
+      ctaLabel: tr.tr('successCta'),
+      ctaRoute: Routes.reservations,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final moto = ref.watch(bookingMotoProvider);
     final breakdown = ref.watch(priceBreakdownProvider);
     final defaultCard = ref.watch(defaultCardProvider);
+    final upsellItems = ref.watch(bookingUpsellProvider);
     final amount = _amount;
     final isFree = amount <= 0;
+    // Minimum karty (D1): kolik se opravdu strhne — 15 Kč / nic do 1 Kč.
+    final charge = _cardFor(amount);
 
     return BackButtonListener(
       // Systémové „zpět": během platby jen s potvrzením; bez historie (FAB,
       // deep link) na rozumného rodiče místo zavření appky. Nad obrazovkou
       // otevřený sheet / dialog / jiná trasa → ať se zavře ten.
       onBackButtonPressed: () async {
-        if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
+        if (!isTopmostRoute(context)) return false;
         if (_processing || !GoRouter.of(context).canPop()) {
           _onBack();
           return true;
@@ -1450,7 +1552,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                       PriceSummaryCard(
                         breakdown: breakdown,
                         extras: ref.watch(effectiveExtrasProvider),
-                        upsellItems: ref.watch(bookingUpsellProvider),
+                        upsellItems: _upsellBundled ? upsellItems : const [],
                       ),
                     // Cena ověřená serverem (po „Cena se změnila") — platí se ta.
                     if (_isNewBooking && _serverAmount != null)
@@ -1472,21 +1574,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
                         sosBreakdown: _ctx?.sosBreakdown,
                         sosDepositNote: _ctx?.sosDepositNote,
                       ),
+                    // „Minimální platba kartou je 15 Kč – zaplatíš 15 Kč" /
+                    // „Částky do 1 Kč neúčtujeme" — PŘED platbou (D1).
+                    CardRoundingNote(due: amount, forceMin: _forceMinCharge),
                     const SizedBox(height: 12),
 
                     // Upsell section (new booking only)
                     if (_isNewBooking && moto != null)
                       UpsellSection(
-                        showProducts: ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
+                        // Doprodej jen k rezervaci, která minimum karty splňuje sama.
+                        showProducts: cardCharge(_bookingDue).kind == CardChargeKind.normal &&
+                            ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
                       ),
                     if (_isNewBooking && moto != null)
                       const SizedBox(height: 12),
 
                     // Saved card info
-                    if (defaultCard != null && !isFree)
+                    if (defaultCard != null && !charge.noCharge)
                       SavedCardPreview(card: defaultCard),
 
-                    if (!isFree)
+                    if (!charge.noCharge)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
@@ -1502,11 +1609,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
 
             // Pay button
             PaymentPayButton(
-              amount: amount,
-              isFree: isFree,
+              amount: charge.charge.toDouble(),
+              isFree: charge.noCharge,
+              freeLabel: charge.isWaive ? t(context).tr('pdConfirmFree') : null,
               processing: _processing,
               expired: _expired,
               onPay: _doPayment,
+              statusLabel: _verifying ? t(context).tr('fxVerifyingBtn') : null,
+              statusNote: _verifying ? t(context).tr('fxVerifyingNote') : null,
             ),
           ],
         ),

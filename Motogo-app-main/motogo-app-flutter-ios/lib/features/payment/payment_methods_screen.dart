@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/router.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'payment_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/widgets/state_views.dart';
 
 /// Payment methods management — mirrors profile → Platební metody
 /// from profile-ui-2.js + api-payment-methods.js.
@@ -19,8 +23,12 @@ class PaymentMethodsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
+        leading: MgBackTap(
+          // Bez historie by holé pop() zavřelo appku → Profil.
+          onTap: () async {
+            final popped = await Navigator.of(context).maybePop();
+            if (!popped && context.mounted) context.go(Routes.profile);
+          },
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -34,12 +42,15 @@ class PaymentMethodsScreen extends ConsumerWidget {
       ),
       body: cardsAsync.when(
         data: (cards) => _buildCardsList(context, ref, cards),
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: MotoGoColors.green),
-        ),
-        error: (_, __) => Center(
-          child: Text(t(context).tr('cardsLoadError'),
-              style: const TextStyle(color: MotoGoColors.red)),
+        // Nikdy holý spinner: po 15 s „trvá to déle" + Zkusit znovu.
+        loading: () =>
+            MgLoadingView(onRetry: () => ref.invalidate(paymentMethodsProvider)),
+        // Co se stalo, proč a jak to opravit (offline / server…) + akce.
+        error: (e, _) => MgErrorView(
+          error: e,
+          what: t(context).tr('fxCardsLoadFail'),
+          onRetry: () => ref.invalidate(paymentMethodsProvider),
+          contact: false,
         ),
       ),
     );

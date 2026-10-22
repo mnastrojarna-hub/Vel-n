@@ -5,15 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../../auth/widgets/toast_helper.dart';
-import '../../booking/booking_provider.dart';
-import '../../booking/booking_models.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
-import '../../catalog/catalog_provider.dart';
 import '../../documents/booking_doc_viewer.dart';
 import '../../routes/ride_booking_section.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
+import '../res_actions.dart';
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
 import 'res_detail_button.dart';
@@ -22,6 +19,7 @@ import 'res_modification_history.dart';
 import 'res_access_codes_card.dart';
 import 'res_pickup_procedure.dart';
 import 'res_rating_card.dart';
+import 'paid_change_banner.dart';
 import '../../../core/currency.dart';
 import '../../../core/booking_rules.dart';
 
@@ -50,13 +48,11 @@ class ResDetailTabContent extends ConsumerWidget {
     required this.onRestoreBooking,
   });
 
-  /// Otevře reálný dokument rezervace 1:1 (podepsaný protokol / smlouva).
-  Future<void> _openBookingDoc(BuildContext context, String type, String title) async {
-    final opened = await openBookingDocument(context, bookingId: res.id, type: type, title: title);
-    if (!opened && context.mounted) {
-      showMotoGoToast(context, icon: '📄', title: title, message: t(context).tr('loadingError'));
-    }
-  }
+  /// Otevře reálný dokument rezervace 1:1 (podepsaný protokol / smlouva) —
+  /// průběh (po 15 s „Zrušit"), pojistka proti dvojímu klepnutí; offline
+  /// skutečný důvod + „Zkusit znovu", jinak „zatím není k dispozici".
+  Future<void> _openBookingDoc(BuildContext context, String type, String title) =>
+      openBookingDoc(context, res, type, title);
 
   /// Tlačítka na existující dokumenty rezervace (protokoly, příp. smlouva) —
   /// jen REÁLNÉ (aktuální verze; protokol jen podepsaný elektronicky / sken,
@@ -85,6 +81,8 @@ class ResDetailTabContent extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       sliver: SliverList.list(
         children: [
+          // Zaplacená výměna / úprava se ještě zapisuje (D6).
+          PaidChangeBanner(bookingId: res.id),
           ResDetailCard(children: [
             // Motorcycle name + ID
             Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
@@ -264,18 +262,7 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailButton.primary(
               emoji: '🔁',
               label: t(context).tr('bookAgain'),
-              onTap: () {
-                ref.read(bookingDraftProvider.notifier).state = BookingDraft();
-                ref.read(bookingMotoProvider.notifier).state = null;
-                ref.read(catalogFilterProvider.notifier).state = const CatalogFilter();
-                if (res.motoId != null) {
-                  context.push('/moto/${res.motoId}');
-                  showMotoGoToast(context, icon: '🏍️', title: t(context).reservations, message: t(context).tr('selectDateSameMoto'));
-                } else {
-                  context.go(Routes.home);
-                  showMotoGoToast(context, icon: '🏍️', title: t(context).reservations, message: t(context).tr('selectMotorcycle'));
-                }
-              },
+              onTap: () => rebookSameMoto(context, ref, res),
             ),
           ],
 

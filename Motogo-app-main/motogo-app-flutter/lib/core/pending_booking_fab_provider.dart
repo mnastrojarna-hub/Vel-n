@@ -2,6 +2,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'payment_pending_marker.dart';
 import 'supabase_client.dart';
+import '../features/payment/stripe_service.dart'
+    show StripeService, NextActionOutcome;
+
+// Oznámení výsledku platby po restartu appky (dřív v tomto souboru).
+export 'paid_after_restart.dart' show PaidAfterRestart, paidAfterRestartProvider;
 
 /// True while the PaymentScreen is on screen. Driven by PaymentScreen's
 /// widget lifecycle (initState/dispose), NOT by go_router's matchedLocation.
@@ -19,6 +24,11 @@ final paymentScreenActiveProvider = StateProvider<bool>((ref) => false);
 /// potvrzení serverem). AppShell pak záložkou spodní lišty neodvede zákazníka
 /// pryč bez potvrzení — ztracený výsledek vedl k opakované (dvojí) platbě.
 final paymentProcessingProvider = StateProvider<bool>((ref) => false);
+
+/// Co udělat, když zákazník z běžící platby přesto odejde záložkou (po
+/// potvrzení). E-shop: „Platba se ověřuje" místo plného košíku — jinak by
+/// nová objednávka vedla k druhé platbě. null = jen přejít na záložku.
+final paymentLeaveActionProvider = StateProvider<void Function()?>((ref) => null);
 
 /// True dokud je na obrazovce některý z APP-LEVEL overlayů (jazyk, oprávnění,
 /// intro). Ty sedí ve `Stack`u v `MaterialApp.builder` AŽ ZA `child!`, takže
@@ -64,6 +74,13 @@ class PendingBooking {
   }
 }
 
+/// Začátek okna na zaplacení: pozdější z vytvoření a obnovení rezervace.
+DateTime pendingWindowStart(String createdAt, String? restoredAt) {
+  final c = DateTime.parse(createdAt);
+  final r = restoredAt == null ? null : DateTime.tryParse(restoredAt);
+  return r != null && r.isAfter(c) ? r : c;
+}
+
 /// Jak často se DB ptáme, jestli rezervace (ještě) čeká na platbu — sekundy.
 /// Platí jak pro hledání nové rezervace, tak pro ověřování té zobrazené.
 const _recheckSeconds = 5;
@@ -73,7 +90,7 @@ const _recheckSeconds = 5;
 Future<PendingBooking?> _fetchPendingBooking(String userId) async {
   final res = await MotoGoSupabase.client
       .from('bookings')
-      .select('id, status, payment_status, total_price, created_at')
+      .select('id, status, payment_status, total_price, created_at, restored_at')
       .eq('user_id', userId)
       .inFilter('status', ['reserved', 'pending'])
       .eq('payment_status', 'unpaid')
@@ -89,36 +106,30 @@ Future<PendingBooking?> _fetchPendingBooking(String userId) async {
   return PendingBooking(
     id: id,
     totalPrice: (res['total_price'] as num?)?.toDouble() ?? 0,
-    createdAt: DateTime.parse(res['created_at'] as String),
-    verifying: await PaymentPendingMarker.isPending(id),
+    // Obnovená rezervace (D3) má nové 30min okno od obnovy (server
+    // auto_cancel_expired_pending počítá od restored_at).
+    createdAt: pendingWindowStart(res['created_at'] as String, res['restored_at'] as String?),
+    verifying: await PaymentPendingMarker.isPending(id) ||
+        await _expiredIntentStillRunning(id),
   );
 }
 
-/// Po startu appky: platba odeslaná před zabitím / pádem appky (lokální
-/// značka) — výsledek z DB. Vrací id rezervace, která je mezitím zaplacená
-/// (AppShell to zákazníkovi jednou oznámí), jinak null. Zrušené / neznámé
-/// značky uklidí.
-final paidAfterRestartProvider = FutureProvider.autoDispose<String?>((ref) async {
-  if (MotoGoSupabase.currentUser == null) return null;
-  final ids = await PaymentPendingMarker.pendingIds();
-  for (final id in ids) {
-    try {
-      final row = await MotoGoSupabase.client
-          .from('bookings')
-          .select('status, payment_status')
-          .eq('id', id)
-          .maybeSingle()
-          .timeout(const Duration(seconds: 10));
-      if (row == null) continue; // objednávka e-shopu / cizí id — nechat doběhnout
-      if (row['payment_status'] == 'paid') {
-        await PaymentPendingMarker.clear(id);
-        return id;
-      }
-      if (row['status'] == 'cancelled') await PaymentPendingMarker.clear(id);
-    } catch (_) {/* offline — zkusí se při dalším startu */}
+/// Značka „platba odeslána" vypršela (15 min), ale PaymentIntent posledního
+/// pokusu známe → zeptat se Stripe, než FAB nabídne DALŠÍ platbu. Prošla /
+/// banka ji ještě zpracovává / stav nejde zjistit → „Platba se ověřuje"
+/// (značku obnovíme, ať se Stripe neptáme každých 5 s); zamítnutá /
+/// nedokončená → značku smazat a platbu nabídnout.
+Future<bool> _expiredIntentStillRunning(String id) async {
+  final cs = await PaymentPendingMarker.expiredIntent(id);
+  if (cs == null) return false;
+  final o = StripeService.outcomeForStatus(await StripeService.fetchIntentStatus(cs));
+  if (o == NextActionOutcome.failed || o == NextActionOutcome.notCompleted) {
+    await PaymentPendingMarker.clear(id);
+    return false;
   }
-  return null;
-});
+  await PaymentPendingMarker.set(id);
+  return true;
+}
 
 /// Streams the current pending booking (if any) with a 1-second tick
 /// for the countdown timer. Mirrors _checkAndShowBookingFab +

@@ -7,9 +7,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
-import '../booking/booking_provider.dart';
-import '../booking/booking_models.dart';
-import '../auth/auth_provider.dart' show profileProvider;
+import '../booking/booking_entry.dart';
 import 'catalog_provider.dart';
 import 'moto_model.dart';
 import 'widgets/availability_calendar.dart';
@@ -21,6 +19,11 @@ import 'widgets/pricing_table.dart';
 import 'widgets/specs_section.dart';
 import 'widgets/validation_banner.dart';
 import '../../core/date_days.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_buttons.dart';
+import 'v2/detail/moto_detail_view_v2.dart';
 
 /// Detail content for a single motorcycle.
 /// Used inside the pager (MotoDetailScreen) — one page per motorcycle.
@@ -72,6 +75,41 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
 
   String _formatDate(DateTime d) => '${d.day}.${d.month}.${d.year}';
 
+  // Obsluha sdílená starým i v2 vzhledem (těla beze změny, jen vytažená
+  // z inline closur, aby obě větve volaly totéž).
+  void _onImageChanged(int i) => setState(() => _imageIndex = i);
+
+  void _openGallery(BuildContext ctx, List<String> images) => FullscreenGallery.open(
+        ctx,
+        images: images,
+        initialIndex: _imageIndex,
+      );
+
+  void _toggleCalendar() =>
+      setState(() => _calendarExpanded = !_calendarExpanded);
+
+  void _expandCalendar() => setState(() => _calendarExpanded = true);
+
+  void _onCalendarRange(DateTime s, DateTime e) => setState(() {
+        _selStart = s;
+        _selEnd = e;
+        _calendarExpanded = false;
+      });
+
+  void _onCalendarStart(DateTime date) => setState(() {
+        _selStart = date;
+        _selEnd = null;
+      });
+
+  void _onCalendarReset() => setState(() {
+        _selStart = null;
+        _selEnd = null;
+      });
+
+  /// REZERVOVAT — jen začátek = jednodenní rezervace (PM-3).
+  void _reserve(BuildContext ctx, Motorcycle moto) =>
+      startBookingFromSelection(ctx, ref, moto, _selStart!, _selEnd ?? _selStart!);
+
   @override
   Widget build(BuildContext context) {
     final motosAsync = ref.watch(motorcyclesProvider);
@@ -81,18 +119,60 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
       data: (motos) {
         final moto = motos.where((m) => m.id == widget.motoId).firstOrNull;
         if (moto == null) {
-          return Center(child: Text(t(context).tr('detailNotFoundMessage')));
+          // Motorka už není v nabídce (vyřazená / stažená, starý odkaz
+          // z rezervace) → proč + cesta dál, ne holý text bez akce.
+          final tr = t(context);
+          if (MgV2.on(context)) {
+            return _stateFrame(MgErrorView(
+              what: tr.tr('r3MotoGoneTitle'),
+              message: tr.tr('r3MotoGoneBody'),
+              contact: false,
+              extra: [
+                MgBtnInk(
+                  label: tr.tr('r3PickOtherMoto'),
+                  onTap: () => context.go(Routes.search),
+                ),
+              ],
+            ));
+          }
+          return _stateFrame(MgErrorView(
+            what: tr.tr('r3MotoGoneTitle'),
+            message: tr.tr('r3MotoGoneBody'),
+            contact: false,
+            extra: [
+              ElevatedButton(
+                onPressed: () => context.go(Routes.search),
+                child: Text(tr.tr('r3PickOtherMoto')),
+              ),
+            ],
+          ));
         }
         return _buildDetail(context, moto, bookedAsync);
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: MotoGoColors.green),
-      ),
-      error: (e, _) => Center(
-        child: Text('${t(context).tr('catalogErrorPrefix')}$e'),
-      ),
+      // Po 15 s „trvá to déle" + Zkusit znovu / Zpět (nikdy holý spinner).
+      loading: () => _stateFrame(MgLoadingView(
+        onRetry: () => ref.invalidate(motorcyclesProvider),
+        onBack: _back,
+      )),
+      // Důvod + Zkusit znovu / Zpět, nikdy syrová výjimka.
+      error: (e, _) => _stateFrame(MgErrorView(
+        error: e,
+        what: t(context).tr('eoMotosLoadFail'),
+        onRetry: () => ref.invalidate(motorcyclesProvider),
+        onBack: _back,
+      )),
     );
   }
+
+  /// Zpět ze samostatného detailu (rezervace, pobočka, `context.go` po
+  /// vypršené platbě) — bez historie do katalogu.
+  void _back() => context.backOr(Routes.search);
+
+  /// Stav bez dat: v samostatném režimu s hlavičkou a šipkou zpět (šipka
+  /// detailu se kreslí až s daty); v pageru ji kreslí MotoDetailScreen.
+  Widget _stateFrame(Widget child) => widget.showBackButton
+      ? MgStateScaffold(onBack: _back, child: child)
+      : child;
 
   Widget _buildDetail(
     BuildContext ctx,
@@ -111,6 +191,32 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
     final totalPrice = hasDates && moto.prices != null
         ? moto.prices!.totalForRange(_selStart!, _selEnd!)
         : 0.0;
+
+    // v2 vzhled (kill-switch app_v2_ui): stejný stav i obsluha, jen jiný strom.
+    if (MgV2.on(ctx)) {
+      return MotoDetailV2View(
+        moto: moto,
+        images: images,
+        branchInfo: branchInfo,
+        imageIndex: _imageIndex,
+        pageCtrl: _pageCtrl,
+        onImageChanged: _onImageChanged,
+        onOpenGallery: images.isNotEmpty ? () => _openGallery(ctx, images) : null,
+        onBack: widget.showBackButton ? _back : null,
+        selStart: _selStart,
+        selEnd: _selEnd,
+        hasDates: hasDates,
+        dayCount: dayCount,
+        totalPrice: totalPrice,
+        calendarExpanded: _calendarExpanded,
+        onToggleCalendar: _toggleCalendar,
+        onRangeSelected: _onCalendarRange,
+        onStartSelected: _onCalendarStart,
+        onReset: _onCalendarReset,
+        bookedAsync: bookedAsync,
+        onReserve: _selStart != null ? () => _reserve(ctx, moto) : null,
+      );
+    }
 
     return CustomScrollView(
       slivers: [
@@ -258,13 +364,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
     return Stack(
       children: [
         GestureDetector(
-          onTap: images.isNotEmpty
-              ? () => FullscreenGallery.open(
-                    ctx,
-                    images: images,
-                    initialIndex: _imageIndex,
-                  )
-              : null,
+          onTap: images.isNotEmpty ? () => _openGallery(ctx, images) : null,
           child: SizedBox(
             height: 260,
             child: hasMultiple
@@ -272,7 +372,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                 ? PageView.builder(
                     controller: _pageCtrl,
                     itemCount: images.length,
-                    onPageChanged: (i) => setState(() => _imageIndex = i),
+                    onPageChanged: _onImageChanged,
                     itemBuilder: (_, i) => ColoredBox(
                       color: MotoGoColors.g100,
                       child: MgImage(
@@ -367,11 +467,11 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           Positioned(
             top: MediaQuery.of(ctx).padding.top + 8,
             left: 12,
-            child: GestureDetector(
+            child: MgBackTap(
               // Detail lze otevřít i deep-linkem/notifikací → v zásobníku není
               // co popnout a `pop()` by hodil „GoError: nothing to pop". Fallback
               // na katalog.
-              onTap: () => ctx.canPop() ? ctx.pop() : ctx.go('/search'),
+              onTap: _back,
               child: Container(
                 width: 38,
                 height: 38,
@@ -460,8 +560,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () =>
-                setState(() => _calendarExpanded = !_calendarExpanded),
+            onTap: _toggleCalendar,
             child: Row(children: [
               const Icon(Icons.calendar_month,
                   size: 16, color: MotoGoColors.dark),
@@ -573,7 +672,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                 ]),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: () => setState(() => _calendarExpanded = true),
+                  onTap: _expandCalendar,
                   child: Text(
                     t(ctx).tr('detailEditBtn'),
                     style: const TextStyle(
@@ -598,19 +697,9 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
               bookedDates: bookedAsync.valueOrNull ?? [],
               selectedStart: _selStart,
               selectedEnd: _selEnd,
-              onRangeSelected: (s, e) => setState(() {
-                _selStart = s;
-                _selEnd = e;
-                _calendarExpanded = false;
-              }),
-              onStartSelected: (date) => setState(() {
-                _selStart = date;
-                _selEnd = null;
-              }),
-              onReset: () => setState(() {
-                _selStart = null;
-                _selEnd = null;
-              }),
+              onRangeSelected: _onCalendarRange,
+              onStartSelected: _onCalendarStart,
+              onReset: _onCalendarReset,
             ),
           ],
         ],
@@ -646,38 +735,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
             borderRadius: BorderRadius.circular(50),
             child: ElevatedButton(
             onPressed: canProceed
-                ? () {
-                final effectiveEnd = _selEnd ?? _selStart!;
-                // Předvyplň velikosti výbavy z minulé rezervace
-                // (profiles.gear_sizes.rider) — zákazník je nemusí lovit z paměti.
-                final gs = ref.read(profileProvider).valueOrNull?['gear_sizes'];
-                final rider = (gs is Map ? gs['rider'] : null) as Map?;
-                // „Vlastní výbava" z minulé rezervace — předzaškrtne toggle.
-                final riderOwn = gs is Map && gs['rider_own'] == true;
-                String? rg(String k) {
-                  final v = rider?[k];
-                  return (v is String && v.trim().isNotEmpty) ? v : null;
-                }
-                ref.read(bookingMotoProvider.notifier).state = moto;
-                ref.read(bookingDraftProvider.notifier).state = BookingDraft(
-                  motoId: moto.id,
-                  motoName: moto.model,
-                  motoImage: moto.displayImage,
-                  startDate: _selStart,
-                  endDate: effectiveEnd,
-                  ownGear: riderOwn,
-                  helmetSize: rg('helmet'),
-                  glovesSize: rg('gloves'),
-                  jacketSize: rg('jacket'),
-                  pantsSize: rg('pants'),
-                  // Boty se NEpředvyplňují: jsou placený doplněk volený dlaždicí
-                  // („Boty řidiče"), formulář předvyplněnou velikost nikde
-                  // neukazoval, ale payment_screen ji zapisoval do
-                  // bookings.boots_size → Velín ukazoval boty, které si zákazník
-                  // nevybral (incident 2026-09-28).
-                );
-                ctx.push(Routes.booking);
-              }
+                ? () => _reserve(ctx, moto)
             : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: MotoGoColors.green,

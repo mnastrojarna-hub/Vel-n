@@ -17,6 +17,7 @@ import '../catalog/moto_model.dart';
 import '../catalog/catalog_provider.dart';
 import '../loyalty/loyalty_provider.dart';
 import '../payment/payment_provider.dart';
+import '../payment/net_error.dart' show isNetworkError;
 import 'reservation_models.dart';
 import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
@@ -28,10 +29,14 @@ import 'widgets/reservation_edit_moto_section.dart';
 import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
+import 'widgets/reservation_edit_states.dart';
+import '../payment/card_minimum.dart';
+import '../payment/widgets/card_rounding_note.dart';
 import '../../core/currency.dart';
 import '../../core/booking_rules.dart';
 import '../../core/feature_flags.dart';
 import '../../core/widgets/pickup_location_link.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -107,6 +112,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String _confirmMessage = '';
   bool _confirmIsRefund = false;
   PickupInfo? _confirmPickup;
+  /// Chyba PRVNÍHO načtení (síť / rezervace neexistuje) → obrazovka s
+  /// „Zkusit znovu" a cestou zpět místo nekonečného spinneru.
+  String? _loadError;
+
+  /// Záložka z adresy (`?tab=swap` — „Vybrat jinou motorku" po nezapsané výměně).
+  String? _wantTab;
+  bool _wantTabRead = false;
 
   @override
   void initState() {
@@ -114,14 +126,44 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     _loadBooking();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_wantTabRead) return;
+    _wantTabRead = true;
+    try {
+      _wantTab = GoRouterState.of(context).uri.queryParameters['tab'];
+    } catch (_) {/* mimo router (test) */}
+  }
+
   Future<void> _loadBooking() async {
     // Vždy čerstvě z DB — reservationByIdProvider je cachovaný a bez invalidace
     // by obrazovka úprav pracovala se stavem před změnou z webu / jiného
     // zařízení (incident 0DC12164: appka poslala starý konec termínu).
     ref.invalidate(reservationByIdProvider(widget.bookingId));
-    final res = await ref.read(reservationByIdProvider(widget.bookingId).future);
-    if (res != null && mounted) {
+    final Reservation? loaded;
+    try {
+      loaded = await ref
+          .read(reservationByIdProvider(widget.bookingId).future)
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      // Přenačtení po uložení nesmí shodit rozpracovanou obrazovku — chyba
+      // se ukáže jen při prvním načtení.
+      if (mounted && _booking == null) {
+        setState(() => _loadError = t(context).tr('psResLoadFail'));
+      }
+      return;
+    }
+    if (loaded == null) {
+      if (mounted && _booking == null) {
+        setState(() => _loadError = t(context).tr('psResNotFound'));
+      }
+      return;
+    }
+    final res = loaded;
+    if (mounted) {
       setState(() {
+        _loadError = null;
         _booking = res;
         // POZOR: _isActive se řídí DB stavem, NE kalendářem (2026-09-20).
         // Server zamyká začátek a motorku až při status='active' (= motorka je
@@ -149,6 +191,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _passengerBootsSize = res.passengerBootsSize;
         _passengerGlovesSize = res.passengerGlovesSize;
         _ownGear = _ownGearInitial = res.ownGearEffective;
+        // „Vybrat jinou motorku" → záložka Výměna (jen kde ji obrazovka nabízí).
+        if (_wantTab == 'swap' &&
+            (res.status == 'reserved' || res.status == 'active') &&
+            res.paymentStatus == 'paid') {
+          _tab = 'swap';
+        }
+        _wantTab = null;
       });
       _loadDiscountType(res);
       _loadOriginalExtras();
@@ -267,7 +316,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         origRowIds: _origModeledRowIds,
         origExtraIds: _origExtras,
         rows: rows ?? const [],
-      );
+      ).timeout(const Duration(seconds: 20));
     } catch (e) {
       debugPrint('[Edit] extras replace failed: $e');
       return false;
@@ -391,7 +440,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     Reservation? fresh;
     try {
       ref.invalidate(reservationByIdProvider(widget.bookingId));
-      fresh = await ref.read(reservationByIdProvider(widget.bookingId).future);
+      fresh = await ref
+          .read(reservationByIdProvider(widget.bookingId).future)
+          .timeout(const Duration(seconds: 15));
     } catch (_) {
       return true;
     }
@@ -600,7 +651,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         'p_new_start': _newStart!.toIso8601String().substring(0, 10),
         'p_new_end': _newEnd!.toIso8601String().substring(0, 10),
         'p_source': 'app',
-      });
+      }).timeout(const Duration(seconds: 15));
       final ok = res is Map && res['success'] == true;
       if (!ok) {
         final code = (res is Map ? res['error']?.toString() : null) ?? '';
@@ -609,29 +660,112 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           'customer_overlap': t(context).tr('moveErrCustomerOverlap'),
           'length_mismatch': t(context).tr('moveErrLength'),
           'past_date': t(context).tr('cannotSelectPast'),
-        }[code] ?? t(context).error;
+        }[code] ?? t(context).tr('pdMoveFail');
         if (mounted) showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
         return;
       }
-      if (mounted) {
-        ref.invalidate(reservationsProvider);
-        ref.invalidate(reservationByIdProvider(widget.bookingId));
-        ref.invalidate(doorCodesProvider(widget.bookingId));
-        ref.invalidate(bookingGateInfoProvider(widget.bookingId));
-        // Nový stav rezervace do obrazovky — další úprava (čas vyzvednutí,
-        // prodloužení) se musí naceňovat proti posunutému termínu.
-        await _loadBooking();
-        _showConfirmation(
-          title: t(context).tr('moveConfirmedTitle'),
-          message: t(context).tr('moveConfirmed')
-              .replaceAll('{start}', _fmt(_newStart))
-              .replaceAll('{end}', _fmt(_newEnd)),
-        );
-      }
+      await _onMoveSaved();
     } catch (e) {
-      if (mounted) showMotoGoToast(context, icon: '✗', title: t(context).error, message: '$e');
+      if (!mounted) return;
+      if (isNetworkError(e)) {
+        // Odpověď se ztratila — posun mohl na serveru proběhnout. Ověřit,
+        // než řekneme „nic se nezměnilo" (opakování by pak selhalo).
+        final moved = await _moveAppliedAfterNetError();
+        if (!mounted) return;
+        if (moved == true) {
+          await _onMoveSaved();
+          return;
+        }
+        if (moved == null) {
+          showEditUncertain(context, onReload: () {
+            ref.invalidate(reservationByIdProvider(widget.bookingId));
+            _loadBooking();
+          });
+          return;
+        }
+      }
+      // Nikdy syrová výjimka — příčina (síť / jiná) + „Zkusit znovu".
+      showEditFailure(context, e, onRetry: _saveMove, move: true);
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Posun je uložený → obnovit data a potvrdit zákazníkovi.
+  Future<void> _onMoveSaved() async {
+    if (!mounted) return;
+    ref.invalidate(reservationsProvider);
+    ref.invalidate(reservationByIdProvider(widget.bookingId));
+    ref.invalidate(doorCodesProvider(widget.bookingId));
+    ref.invalidate(bookingGateInfoProvider(widget.bookingId));
+    final start = _newStart, end = _newEnd;
+    // Nový stav rezervace do obrazovky — další úprava (čas vyzvednutí,
+    // prodloužení) se musí naceňovat proti posunutému termínu.
+    await _loadBooking();
+    if (!mounted) return;
+    _showConfirmation(
+      title: t(context).tr('moveConfirmedTitle'),
+      message: t(context).tr('moveConfirmed')
+          .replaceAll('{start}', _fmt(start))
+          .replaceAll('{end}', _fmt(end)),
+    );
+  }
+
+  /// Po ztracené odpovědi uložení úpravy: true = rezervace už nese nové
+  /// údaje (termín + cena), false = prokazatelně původní, null = nejde ověřit.
+  Future<bool?> _editAppliedAfterNetError(Map<String, dynamic> changes) async {
+    try {
+      final row = await MotoGoSupabase.client
+          .from('bookings')
+          .select('start_date, end_date, total_price')
+          .eq('id', widget.bookingId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
+      final orig = _booking;
+      if (row == null || orig == null) return null;
+      String d(Object? v) => '${v ?? ''}'.length >= 10 ? '$v'.substring(0, 10) : '$v';
+      // Rozhodují jen údaje, které se úpravou opravdu mění (jinak by
+      // „sedí" platilo i pro neuloženou změnu).
+      var distinguishing = 0;
+      final origDates = {
+        'start_date': orig.startDate.toIso8601String().substring(0, 10),
+        'end_date': orig.endDate.toIso8601String().substring(0, 10),
+      };
+      for (final k in const ['start_date', 'end_date']) {
+        if (!changes.containsKey(k) || d(changes[k]) == origDates[k]) continue;
+        distinguishing++;
+        if (d(row[k]) != d(changes[k])) return false;
+      }
+      final want = (changes['total_price'] as num?)?.toDouble();
+      final have = (row['total_price'] as num?)?.toDouble();
+      if (want != null && (want - orig.totalPrice).abs() > 0.5) {
+        distinguishing++;
+        if (have == null || (have - want).abs() > 0.5) return false;
+      }
+      return distinguishing > 0 ? true : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Po ztracené odpovědi posunu: true = rezervace už má nový termín, false =
+  /// prokazatelně původní (nic se nezměnilo), null = nejde ověřit.
+  Future<bool?> _moveAppliedAfterNetError() async {
+    final ns = _newStart, ne = _newEnd;
+    if (ns == null || ne == null) return null;
+    try {
+      final row = await MotoGoSupabase.client
+          .from('bookings')
+          .select('start_date, end_date')
+          .eq('id', widget.bookingId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
+      if (row == null) return null;
+      String d(Object? v) => '${v ?? ''}'.length >= 10 ? '$v'.substring(0, 10) : '';
+      return d(row['start_date']) == ns.toIso8601String().substring(0, 10) &&
+          d(row['end_date']) == ne.toIso8601String().substring(0, 10);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -676,10 +810,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
     // Check availability
     if (motoId != null) {
-      final ok = await checkMotoAvailability(motoId, _newStart!, _newEnd!, excludeBookingId: widget.bookingId);
-      if (!ok && mounted) {
+      final avail = await checkMotoAvailabilityTri(motoId, _newStart!, _newEnd!, excludeBookingId: widget.bookingId);
+      if (!mounted) return;
+      if (avail == MotoAvailability.busy) {
         setState(() => _saving = false);
-        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('occupiedTitle'), message: t(context).tr('motoOccupied'));
+        showMotoGoToast(context, icon: '⚠️', title: t(context).tr('occupiedTitle'), message: t(context).tr('fxMotoOccupied'));
+        return;
+      }
+      if (avail == MotoAvailability.unknown) {
+        // Výpadek spojení ≠ obsazeno — řekni pravou příčinu.
+        setState(() => _saving = false);
+        showMotoGoToast(context, icon: '📶', title: t(context).error, message: t(context).tr('psAvailUnknown'));
         return;
       }
     }
@@ -938,6 +1079,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
       // Účtuje/vrací se rozdíl PO slevě (varianta B) — effectivePriceDiff.
       final effDiff = calc.effectivePriceDiff;
+      // D1 (2026-10-16): doplatek do 1 Kč se neúčtuje (server změnu zapíše bez
+      // platby), 1–15 Kč se platí 15 Kč (dorovnání zapíše server). Platební
+      // obrazovka to zákazníkovi ukáže PŘED platbou.
+      final cc = cardCharge(effDiff);
       if (effDiff > 0) {
         // Needs extra payment — do NOT update booking yet.
         // Store pending changes; apply only after Stripe confirms payment.
@@ -949,6 +1094,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           if (mounted) setState(() => _saving = false);
           return;
         }
+        // Předchozí doplatek se ještě ověřuje → žádný druhý.
+        if (!mounted || await blockIfSurchargePending(context, widget.bookingId)) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
         if (mounted) {
           ref.read(paymentContextProvider.notifier).state = PaymentContext(
             flowType: PaymentFlowType.extension,
@@ -957,6 +1107,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             label: t(context).tr('extensionSurcharge'),
             pendingEditChanges: {
               ...changes,
+              // Interní (do metadat nejde): dorovnání na 15 Kč (+) / odpuštěno (−).
+              // `total_price` zůstává BEZ dorovnání — přičítá ho server.
+              if (cc.rounding != 0) '_card_rounding': cc.rounding,
               // Výchozí stav pro server: process-payment odmítne platbu nad
               // zastaralým stavem (409 stale_booking), webhook z něj zapíše
               // historii úpravy pro rozdílový doklad.
@@ -994,11 +1147,39 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           if (mounted) setState(() => _saving = false);
           return;
         }
-        await MotoGoSupabase.client.from('bookings').update(changes).eq('id', widget.bookingId);
+        // Předchozí ZAPLACENÁ úprava / výměna téže rezervace se ještě
+        // dokončuje (webhook / fronta) → teď nic nezapisovat, jinak by ji
+        // dokončení přepsalo (nebo ona tuhle změnu).
+        if (!mounted || await blockIfSurchargePending(context, widget.bookingId)) {
+          if (mounted) setState(() => _saving = false);
+          return;
+        }
+        try {
+          await MotoGoSupabase.client
+              .from('bookings')
+              .update(changes)
+              .eq('id', widget.bookingId)
+              .timeout(const Duration(seconds: 20));
+        } catch (e) {
+          if (!isNetworkError(e)) rethrow;
+          // Odpověď se ztratila — úprava se mohla uložit. Ověřit, než řekneme
+          // „nic se nezměnilo" (a než se vynechá vratka za zkrácení).
+          final applied = await _editAppliedAfterNetError(changes);
+          if (applied == false) rethrow; // prokazatelně neuloženo → psEditNet
+          if (applied == null) {
+            if (mounted) {
+              setState(() => _saving = false);
+              showEditUncertain(context, onReload: () {
+                ref.invalidate(reservationByIdProvider(widget.bookingId));
+                _loadBooking();
+              });
+            }
+            return;
+          }
+        }
         var refundOk = true;
         if (effDiff < 0) {
           refundOk = false;
-          String? refundErr;
           try {
             // Důvod dle skutečné změny — dobropis pak nese „Výměna motorky"
             // místo matoucího „Zkrácení rezervace" (parita s Velínem/RPC).
@@ -1006,22 +1187,22 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               'booking_id': widget.bookingId,
               'amount': -effDiff,
               'reason': motoChanged && !datesChanged ? 'moto_swap' : 'edit_shortening',
-            });
+            }).timeout(const Duration(seconds: 30));
             final rd = refundRes.data;
             refundOk = rd is Map && rd['success'] == true;
-            if (!refundOk && rd is Map && rd['error'] != null) {
-              refundErr = rd['error'].toString();
-            }
+            if (!refundOk) debugPrint('[Edit] refund failed: $rd');
           } catch (e) {
-            refundErr = '$e';
+            debugPrint('[Edit] refund error: $e');
           }
           // Realita > optimismus: změna JE uložená; když vratka selhala,
           // řekneme to na rovinu (vyřídí obsluha ručně) a NEslibujeme
-          // automatické vrácení. Zákazník nesmí zůstat v nejistotě.
+          // automatické vrácení. Text serveru (anglicky / technický) se
+          // zákazníkovi neukazuje — vždy přeložené `pdRefundManual`.
           if (!refundOk && mounted) {
             showMotoGoToast(context, icon: '⚠️',
-              title: t(context).error,
-              message: refundErr ?? t(context).tr('refundSettleManual'));
+              title: t(context).tr('psRefundPendingTitle'),
+              message: t(context).tr('pdRefundManual'),
+              duration: const Duration(seconds: 6));
           }
         }
         // Nahraď modelované doplňky novým stavem (přidané vlož, odebrané smaž).
@@ -1046,7 +1227,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             message: effDiff < 0
                 ? (refundOk
                     ? '${t(context).tr('reservationShortened')}\n${t(context).tr('refundAmount').replaceAll('{amount}', '${(-effDiff).toStringAsFixed(0)}').replaceAll('{percent}', '${calc.stornoPercent}')}\n${t(context).tr('refundToOriginalMethod')}'
-                    : '${t(context).tr('reservationShortened')}\n${t(context).tr('refundSettleManual')}')
+                    : '${t(context).tr('reservationShortened')}\n${t(context).tr('pdRefundManual')}')
                 : '${t(context).tr('changesSaved')}\n${t(context).tr('reservationRange').replaceAll('{start}', _fmt(_newStart)).replaceAll('{end}', _fmt(_newEnd))}',
             isRefund: effDiff < 0 && refundOk,
           );
@@ -1061,13 +1242,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       // `trailer_unavailable: <uuid>` (23505) → swap.trailerOccupied.
       // `context` až ZA kontrolou mounted (po await může být widget odpojený).
       if (mounted) {
-        final raw = '$e';
-        final msg = raw.contains('obslužné pobočky')
-            ? t(context).tr('swap.trailerStaffedOnly')
-            : raw.contains('trailer_unavailable')
-                ? t(context).tr('swap.trailerOccupied')
-                : raw;
-        showMotoGoToast(context, icon: '✗', title: t(context).error, message: msg);
+        debugPrint('[Edit] save failed: $e');
+        showEditFailure(context, e, onRetry: _save);
       }
     }
     if (mounted) setState(() => _saving = false);
@@ -1105,7 +1281,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       );
     }
     if (_booking == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(color: MotoGoColors.green)));
+      // Načítání / chyba — vždy s šipkou zpět a (u chyby) „Zkusit znovu".
+      return EditStateScaffold(
+        onBack: () => context.backOr(Routes.reservations),
+        error: _loadError,
+        onRetry: _loadError == null
+            ? null
+            : () {
+                setState(() => _loadError = null);
+                _loadBooking();
+              },
+      );
     }
     final calc = _calc;
     // Samoobslužná pobočka bez přistavení / odvozu na adresu (rozhodnutí
@@ -1225,7 +1411,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             decoration: const BoxDecoration(color: MotoGoColors.dark, borderRadius: BorderRadius.vertical(bottom: Radius.circular(24))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                GestureDetector(onTap: () => context.backOr(Routes.reservations),
+                MgBackTap(onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
                     child: const Icon(Icons.arrow_back, size: 18, color: Colors.black))),
@@ -1487,6 +1673,13 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
                     color: calc.effectivePriceDiff > 0 ? MotoGoColors.red : calc.effectivePriceDiff < 0 ? MotoGoColors.greenDarker : MotoGoColors.black)),
               ]),
+              // Minimum karty (D1): doplatek 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
+              if (calc.effectivePriceDiff > 0)
+                CardRoundingNote(
+                    due: calc.effectivePriceDiff,
+                    roundKey: 'pdRoundEditHint',
+                    waiveKey: 'pdWaiveEditHint',
+                    showLine: false),
               // i při 0 Kč: pozdější čas ve stornu → sleva přiznaná jen z části
               if (calc.datesDiffRaw < 0 && (calc.effectivePriceDiff < 0 || calc.stornoPercent < 100))
                 Padding(padding: const EdgeInsets.only(top: 4),
@@ -1533,7 +1726,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                       Text(_tab == 'move'
                           ? t(context).tr('moveSaveBtn')
                           : (calc.effectivePriceDiff > 0
-                              ? '${t(context).tr('proceedToPayment')} (+${Money.czk(calc.effectivePriceDiff)})'
+                              ? (cardCharge(calc.effectivePriceDiff).isWaive
+                                  ? t(context).tr('pdSaveFree')
+                                  : '${t(context).tr('proceedToPayment')} (+${Money.czk(cardCharge(calc.effectivePriceDiff).charge)})')
                               : t(context).tr('saveChangesBtn')),
                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
                       const SizedBox(width: 6), const Icon(Icons.arrow_forward, size: 16),

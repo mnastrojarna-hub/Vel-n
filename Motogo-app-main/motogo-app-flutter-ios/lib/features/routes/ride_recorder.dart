@@ -57,6 +57,10 @@ class RideRecorderState {
   /// tlačítkem v „Mých zážitcích" a ukončí ho zase jen on.
   final bool manual;
 
+  /// Poloha se během záznamu ztratila (vypnutá poloha / odebrané oprávnění) —
+  /// záznam stojí; UI to řekne (dřív se tiše přestalo nahrávat).
+  final bool gpsLost;
+
   const RideRecorderState({
     this.enabled = true,
     this.recording = false,
@@ -64,6 +68,7 @@ class RideRecorderState {
     this.bookingId,
     this.points = 0,
     this.manual = false,
+    this.gpsLost = false,
   });
 
   RideRecorderState copyWith({
@@ -73,6 +78,7 @@ class RideRecorderState {
     String? bookingId,
     int? points,
     bool? manual,
+    bool? gpsLost,
     bool clearRide = false,
   }) =>
       RideRecorderState(
@@ -82,8 +88,13 @@ class RideRecorderState {
         bookingId: clearRide ? null : (bookingId ?? this.bookingId),
         points: points ?? this.points,
         manual: clearRide ? false : (manual ?? this.manual),
+        gpsLost: clearRide ? false : (gpsLost ?? this.gpsLost),
       );
 }
+
+/// Proč se ruční záznam nerozjel — každý důvod má vlastní hlášku a nápravu
+/// (dřív jedna věta „přihlas se a povol polohu" pro všechno).
+enum RideStartResult { ok, notSignedIn, locationOff, noPermission, imprecise, failed }
 
 class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   RideRecorderNotifier(this._ref) : super(const RideRecorderState()) {
@@ -170,16 +181,27 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// Na rozdíl od automatického startu si o polohu sám řekne — jezdec tuhle
   /// funkci vyvolal klepnutím, takže je systémový dialog očekávaný.
   /// Vrací false, když se záznam nepodařilo rozjet (nepřihlášený / bez polohy).
-  Future<bool> startManual() async {
-    if (state.recording) return true;
-    if (MotoGoSupabase.currentUser == null) return false;
+  Future<bool> startManual() async =>
+      await startManualResult() == RideStartResult.ok;
+
+  /// Jako [startManual], ale s důvodem neúspěchu. Do Nastavení NEodvádí —
+  /// nápravu („Otevřít nastavení") nabídne UI.
+  Future<RideStartResult> startManualResult() async {
+    if (state.recording) return RideStartResult.ok;
+    if (MotoGoSupabase.currentUser == null) return RideStartResult.notSignedIn;
     if (!await hasLocationPermission()) {
-      if (!await GpsService.ensurePermission()) return false;
-      if (!await hasLocationPermission()) return false;
+      final st = await GpsService.status();
+      if (st == GpsStatus.serviceOff) return RideStartResult.locationOff;
+      if (st != GpsStatus.ok) return RideStartResult.noPermission;
+      if (!await hasLocationPermission()) return RideStartResult.noPermission;
     }
+    _startFail = null;
     await _start(null, manual: true);
-    return state.recording;
+    if (state.recording) return RideStartResult.ok;
+    return _startFail ?? RideStartResult.failed;
   }
+
+  RideStartResult? _startFail;
 
   /// Má zákazník polohu povolenou? (NEŽÁDÁ o ni — jen se ptá systému.)
   static Future<bool> hasLocationPermission() async {
@@ -208,7 +230,10 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     try {
       // Bez přesné polohy se nerozjíždí ani serverová jízda — neměla by
       // co dostat. (Ruční start pak vrátí false → hláška v UI.)
-      if (!await _ensurePreciseOnIos()) return;
+      if (!await _ensurePreciseOnIos()) {
+        _startFail = RideStartResult.imprecise;
+        return;
+      }
       // GPS stream HNED, dokud je appka v popředí: Android 12+ smí službu na
       // popředí s polohou spustit jen z popředí (a iOS „při používání" taky).
       // Dřív se stream připojoval až po odpovědi serveru — kdo mezitím
@@ -225,6 +250,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       state = state.copyWith(recording: true, bookingId: bookingId, manual: manual);
       final ok = await _ensureServerRide();
       if (!ok && manual && state.recording) {
+        _startFail = RideStartResult.failed; // offline / server
         // Ruční start bez serveru se jako dřív nerozjede (UI ohlásí chybu).
         // Body, které stream mezitím nasbíral, patří k nepovedenému pokusu
         // — jinak by začaly příští jízdu (na místě, kde se to zkoušelo).
@@ -380,6 +406,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     }
     _timer?.cancel();
     _timer = Timer.periodic(_kFlushEvery, (_) => _tick());
+    _watchService();
     // Engine po zavření okna nechat běžet má smysl jen s VLASTNÍ GPS službou
     // — navigační stream zavření okna zruší (geolocator odpojí jeho kanál)
     // a zaparkovaný engine by pak už žádnou polohu nedostal.
@@ -392,17 +419,39 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     });
   }
 
+  /// Vypnutí polohy uprostřed jízdy → stav „GPS ztracen" (UI to řekne);
+  /// po zapnutí se stream, který chybou skončil, připojí znovu.
+  void _watchService() {
+    if (_svcSub != null) return;
+    try {
+      _svcSub = Geolocator.getServiceStatusStream().listen((st) {
+        if (!mounted || !state.recording || _stopping) return;
+        final lost = st == ServiceStatus.disabled;
+        if (lost != state.gpsLost) state = state.copyWith(gpsLost: lost);
+        if (!lost) _attachStream('service_on');
+      }, onError: (_) {});
+    } catch (_) {/* platforma stav služby nehlásí */}
+  }
+
+  StreamSubscription<ServiceStatus>? _svcSub;
+
   Future<void> _detachStream() async {
     final sub = _sub;
     _sub = null;
     _timer?.cancel();
     _timer = null;
     await sub?.cancel();
+    await _svcSub?.cancel();
+    _svcSub = null;
     RideKeepAlive.set(false);
   }
 
   void _onStreamError(Object e) {
     _streamError = e;
+    // Odebrané oprávnění / vypnutá poloha — UI ukáže „GPS ztracen".
+    if (mounted && state.recording && !state.gpsLost) {
+      state = state.copyWith(gpsLost: true);
+    }
     final msg = '$e';
     if (msg == _lastErrLogged) return; // stejnou chybu stačí zapsat jednou
     _lastErrLogged = msg;
@@ -461,6 +510,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// a vzdálenosti). Pauzu bez fixů zapíše do diagnostiky.
   void _onPosition(Position pos) {
     if (!state.recording) return;
+    if (state.gpsLost) state = state.copyWith(gpsLost: false);
     final now = DateTime.now();
     final prev = _lastFixAt ?? _attachedAt;
     if (prev != null && now.difference(prev) > _kGapLog) {
@@ -667,6 +717,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       RideForeignStreams.onAllClosed = null;
     }
     _sub?.cancel();
+    _svcSub?.cancel();
     _timer?.cancel();
     super.dispose();
   }

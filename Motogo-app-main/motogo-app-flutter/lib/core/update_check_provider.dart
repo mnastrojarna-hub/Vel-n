@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'supabase_client.dart';
 import 'theme.dart';
 import 'i18n/i18n_provider.dart';
+import 'widgets/error_feedback.dart' show call112, callMotoGo;
 
 /// Checks app_settings.min_app_version against the running app version.
 /// If current < minimum → shows a blocking force-update dialog.
@@ -91,64 +92,107 @@ class UpdateChecker {
   }
 
   static void _showForceUpdateDialog(BuildContext context, String minVersion) {
+    // Blokuje dál (stará verze nesmí běžet), ale NIKDY nezasekne: nouzové
+    // volání MotoGo24 / 112 i během pronájmu a srozumitelná hláška, když se
+    // obchod nedá otevřít (2026-10-16).
+    var storeFailed = false;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => PopScope(
         canPop: false,
-        child: AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(MotoGoRadius.lg),
-          ),
-          title: Row(
-            children: [
-              const Icon(Icons.system_update, color: MotoGoColors.greenDark),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  t(context).tr('updateRequired'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
+        child: StatefulBuilder(
+          builder: (ctx, setSt) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(MotoGoRadius.lg),
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.system_update, color: MotoGoColors.greenDark),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    t(context).tr('updateRequired'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t(context)
+                        .tr('updateRequiredDesc')
+                        .replaceAll('{version}', minVersion),
+                    style: const TextStyle(fontSize: 14, height: 1.5),
+                  ),
+                  if (storeFailed) ...[
+                    const SizedBox(height: 10),
+                    Text(t(context).tr('eoStoreOpenFail'),
+                        style: const TextStyle(
+                            fontSize: 13, color: MotoGoColors.red, height: 1.4)),
+                  ],
+                  const SizedBox(height: 10),
+                  Text(t(context).tr('eoUpdateEmergency'),
+                      style: const TextStyle(fontSize: 12, color: MotoGoColors.g500)),
+                ],
+              ),
+            ),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: MotoGoColors.green,
+                    foregroundColor: MotoGoColors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(MotoGoRadius.pill),
+                    ),
+                  ),
+                  onPressed: () async {
+                    var ok = false;
+                    try {
+                      ok = await launchUrl(
+                        Uri.parse(_playStoreUrl),
+                        mode: LaunchMode.externalApplication,
+                      );
+                    } catch (_) {}
+                    if (!ok) setSt(() => storeFailed = true);
+                  },
+                  child: Text(
+                    t(context).tr('updateNow'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    onPressed: callMotoGo,
+                    child: Text('📞 ${t(context).tr('eoCallNonstop')}',
+                        style: const TextStyle(
+                            color: MotoGoColors.greenDarker, fontWeight: FontWeight.w800)),
+                  ),
+                  TextButton(
+                    onPressed: call112,
+                    child: const Text('🆘 112',
+                        style: TextStyle(color: MotoGoColors.red, fontWeight: FontWeight.w900)),
+                  ),
+                ],
               ),
             ],
           ),
-          content: Text(
-            t(context)
-                .tr('updateRequiredDesc')
-                .replaceAll('{version}', minVersion),
-            style: const TextStyle(fontSize: 14, height: 1.5),
-          ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: MotoGoColors.green,
-                  foregroundColor: MotoGoColors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(MotoGoRadius.pill),
-                  ),
-                ),
-                onPressed: () {
-                  launchUrl(
-                    Uri.parse(_playStoreUrl),
-                    mode: LaunchMode.externalApplication,
-                  );
-                },
-                child: Text(
-                  t(context).tr('updateNow'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

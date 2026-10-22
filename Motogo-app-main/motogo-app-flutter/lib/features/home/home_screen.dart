@@ -11,9 +11,10 @@ import '../catalog/widgets/moto_filter_panel.dart';
 import '../loyalty/loyalty_rank_card.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
-import '../routes/routes_provider.dart';
+import 'home_actions.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_reservations_section.dart';
+import '../../core/widgets/state_views.dart';
 
 /// Home screen — 1:1 replica of Capacitor MotoGo24 home page.
 /// Shows header, search bar, active reservations, filters, and motorcycle listing.
@@ -41,8 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // takže domů nezdrží ani nezasekne.
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
-      ref.read(routesDataProvider);
-      ref.read(catalogPoisProvider);
+      warmUpRoutes(ref);
     });
   }
 
@@ -71,12 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           RefreshIndicator(
             color: MotoGoColors.green,
-            onRefresh: () async {
-              ref.invalidate(motorcyclesProvider);
-              ref.invalidate(filteredMotorcyclesProvider);
-              ref.invalidate(reservationsProvider);
-              await ref.read(motorcyclesProvider.future);
-            },
+            onRefresh: () => refreshHome(ref),
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               controller: _scrollCtrl,
@@ -164,12 +159,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: CircularProgressIndicator(color: MotoGoColors.green),
                   ),
                 ),
+                // Důvod + Zkusit znovu, nikdy syrová výjimka.
                 error: (e, _) => SliverFillRemaining(
-                  child: Center(
-                    child: Text(
-                      '${t(context).tr('homeErrorPrefix')}$e',
-                      style: const TextStyle(color: MotoGoColors.red),
-                    ),
+                  hasScrollBody: false,
+                  child: MgErrorView(
+                    error: e,
+                    what: t(context).tr('eoMotosLoadFail'),
+                    onRetry: () => ref.invalidate(motorcyclesProvider),
                   ),
                 ),
               ),

@@ -46,7 +46,10 @@ Future<VerifyState> verifyPayment({
     return VerifyState.paid;
   }
   final marker = await PaymentPendingMarker.get(id);
-  final cs = marker?.clientSecret;
+  // Rozhoduje JEN PaymentIntent posledního pokusu — intent z dřívějšího,
+  // opuštěného pokusu (zavřený sheet) je nezaplacený, i když teď prošlo
+  // stržení uložené karty → „nic nestrženo" by vedlo k druhé platbě.
+  final cs = (marker?.clientSecretCurrent ?? false) ? marker!.clientSecret : null;
   if (cs != null) {
     final o = StripeService.outcomeForStatus(await StripeService.fetchIntentStatus(cs));
     if (intentOnly && o == NextActionOutcome.succeeded) {

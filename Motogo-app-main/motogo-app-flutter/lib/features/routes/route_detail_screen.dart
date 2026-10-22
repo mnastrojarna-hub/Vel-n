@@ -15,6 +15,11 @@ import 'poi_categories.dart';
 import 'route_export.dart';
 import 'route_poi_sheet.dart';
 import 'route_reviews.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/states/mg_state_screen.dart';
+import 'v2/route_detail_view_v2.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
@@ -96,8 +101,24 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 _swipe((v.abs() >= 140 ? v < 0 : _dx < 0) ? 1 : -1);
               },
         child: dataAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
-        error: (e, _) => _missing(context),
+        // Načítání i chyba mají šipku zpět; chyba řekne důvod a „Zkusit znovu"
+        // opravdu načítá znovu (dřív vedlo zpět a chyba se tvářila jako
+        // „Trasa nenalezena").
+        loading: () => MgStateScaffold(
+            onBack: () => context.backOr('/routes'),
+            child: MgLoadingView(
+                color: MotoGoColors.greenDark,
+                onRetry: () => ref.invalidate(routesDataProvider),
+                onBack: () => context.backOr('/routes'))),
+        error: (e, _) => MgStateScaffold(
+          onBack: () => context.backOr('/routes'),
+          child: MgErrorView(
+            error: e,
+            what: t(context).tr('eoRouteLoadFail'),
+            onRetry: () => ref.invalidate(routesDataProvider),
+            onBack: () => context.backOr('/routes'),
+          ),
+        ),
         data: (data) {
           final listRoute = data.routes.firstWhere(
             (r) => r.id == _id,
@@ -148,6 +169,45 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
       if (ll != null) poiMarkers.add((point: ll, index: i));
     }
 
+    void openPoi(int i) {
+      setState(() => _activePoi = i);
+      showRoutePoiSheet(context, pois[i], lang,
+          index: i,
+          siblings: pois,
+          onIndexChanged: (n) =>
+              setState(() => _activePoi = n));
+    }
+
+    if (MgV2.on(context)) {
+      final ids = widget.siblingIds;
+      final at = ids.indexOf(_id);
+      return RouteDetailViewV2(
+        route: route,
+        branch: branch,
+        startNear: branch != null && startIsNearRoute(route, branch.latLng),
+        lang: lang,
+        geometry: geometry,
+        start: mapStart,
+        poiMarkers: poiMarkers,
+        pois: pois,
+        activePoi: _activePoi,
+        computing: displayAsync.isLoading && preview,
+        realKm: ref.watch(routeRealLengthKmProvider(route.id)).valueOrNull,
+        approach: ref.watch(routeApproachProvider(route.id)).valueOrNull,
+        sibling: ids.length > 1 && at >= 0 ? (at + 1, ids.length) : null,
+        onBack: () => context.backOr('/routes'),
+        onPoiTap: openPoi,
+        onFullMap: () => _openFullMap(context, geometry, mapStart, poiMarkers, pois, lang),
+        onPrev: () => _swipe(-1),
+        onNext: () => _swipe(1),
+        onNavigate: () => context.push('/route-nav/${route.id}'),
+        onCustomize: route.pois.isNotEmpty || route.waypoints.isNotEmpty
+            ? () => context.push('/route-build', extra: route)
+            : null,
+        onExternal: () => _openExportSheet(context, route, branch),
+      );
+    }
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -163,14 +223,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                     start: mapStart,
                     pois: poiMarkers,
                     activePoi: _activePoi,
-                    onPoiTap: (i) {
-                      setState(() => _activePoi = i);
-                      showRoutePoiSheet(context, pois[i], lang,
-                          index: i,
-                          siblings: pois,
-                          onIndexChanged: (n) =>
-                              setState(() => _activePoi = n));
-                    },
+                    onPoiTap: openPoi,
                   ),
                 ),
                 if (displayAsync.isLoading && preview)
@@ -183,18 +236,21 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
                 Positioned(
                   top: 10,
                   left: 12,
-                  child: PressableScale(
-                    pressedScale: 0.9,
+                  child: MgBackTap(
                     onTap: () => context.backOr('/routes'),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(MotoGoRadius.lg),
-                        boxShadow: MotoGoShadows.cardSmall,
+                    child: PressableScale(
+                      pressedScale: 0.9,
+                      onTap: () => context.backOr('/routes'),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(MotoGoRadius.lg),
+                          boxShadow: MotoGoShadows.cardSmall,
+                        ),
+                        child: const Icon(Icons.arrow_back, size: 20, color: MotoGoColors.black),
                       ),
-                      child: const Icon(Icons.arrow_back, size: 20, color: MotoGoColors.black),
                     ),
                   ),
                 ),
@@ -625,7 +681,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             Positioned(
               top: MediaQuery.of(ctx).padding.top + 10,
               left: 12,
-              child: GestureDetector(
+              child: MgBackTap(close: true,
                 onTap: () => Navigator.of(ctx).pop(),
                 child: Container(
                   width: 42, height: 42,
@@ -668,14 +724,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: MotoGoColors.g200,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const MgSheetHandle(),
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.centerLeft,
@@ -777,7 +826,16 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         ),
       );
 
-  Widget _missing(BuildContext context) => Center(
+  Widget _missing(BuildContext context) => MgV2.on(context)
+      ? MgStateScreen(
+          tone: MgTone.warn,
+          title: t(context).tr('routeNotFound'),
+          why: t(context).tr('eoRouteGoneBody'),
+          onClose: () => context.backOr('/routes'),
+          closeIsBack: true,
+          primary: MgStateAction(t(context).tr('eoBack'), () => context.backOr('/routes')),
+        )
+      : Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -786,9 +844,17 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
             Text(t(context).tr('routeNotFound'),
                 style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w800)),
             const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(t(context).tr('eoRouteGoneBody'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: MotoGoColors.g600)),
+            ),
+            const SizedBox(height: 12),
+            // Tlačítko vede zpět → popisek „Zpět" (dřív „Zkusit znovu").
             ElevatedButton(
               onPressed: () => context.backOr('/routes'),
-              child: Text(t(context).tr('routesRetry')),
+              child: Text(t(context).tr('eoBack')),
             ),
           ],
         ),

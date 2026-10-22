@@ -13,7 +13,11 @@ import '../features/booking/booking_models.dart';
 import '../features/catalog/catalog_provider.dart';
 import '../features/documents/docs_gate_provider.dart';
 import '../features/messages/messages_provider.dart';
+import '../features/payment/paid_change_outcomes.dart' show paidAfterRestartSnackBar;
 import '../features/payment/payment_provider.dart';
+import '../features/payment/payment_ui_helpers.dart';
+import 'widgets/error_feedback.dart' show showErrorSnack;
+import 'widgets/mg_back.dart';
 import 'widgets/moto_fx.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
@@ -53,6 +57,16 @@ class AppShell extends ConsumerWidget {
     final location = GoRouterState.of(context).matchedLocation;
     final index = _currentIndex(location);
     final banner = ref.watch(bannerProvider);
+
+    // Platba odeslaná před zabitím appky se mezitím potvrdila → jednou
+    // oznámit (jinak by zákazník nevěděl, jestli zaplatil).
+    // Zaplacenou výměnu zmařila mezitím jiná rezervace → „Motorka je mezitím
+    // obsazená" + vratka (text i druh platby řeší paidAfterRestartSnackBar).
+    ref.listen<AsyncValue<PaidAfterRestart?>>(paidAfterRestartProvider, (_, next) {
+      final paid = next.valueOrNull;
+      if (paid == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(paidAfterRestartSnackBar(context, paid));
+    });
 
     // Na platební obrazovce (rezervace i SOS) nesmí překážet žádný plovoucí
     // panel — jen by zakrýval tlačítko „Zaplatit". FAB se vrátí, až zákazník
@@ -166,7 +180,9 @@ class AppShell extends ConsumerWidget {
                 child: MediaQuery.removePadding(
                   context: context,
                   removeTop: bannerVisible,
-                  child: child,
+                  // Systémové zpět bez historie (go / záložka / deep link) →
+                  // rodič obrazovky (Domů, Menu…), ne zavření appky.
+                  child: MgBackGuard(shell: true, child: child),
                 ),
               ),
             ],
@@ -302,7 +318,19 @@ class AppShell extends ConsumerWidget {
                 return Expanded(
                   child: PressableScale(
                     pressedScale: 0.9,
-                    onTap: () {
+                    onTap: () async {
+                      // Běží platba → odchod záložkou jen po potvrzení (výsledek
+                      // by se ztratil a zákazník by mohl zaplatit podruhé).
+                      if (ref.read(paymentProcessingProvider)) {
+                        if (!await confirmLeaveRunningPayment(context)) return;
+                        if (!context.mounted) return;
+                        final leave = ref.read(paymentLeaveActionProvider);
+                        if (leave != null) {
+                          leave();
+                          return;
+                        }
+                      }
+                      if (!context.mounted) return;
                       // Obrazovky mimo záložky (profil/menu, zprávy, obchod,
                       // faktury…) mají zvýrazněný tab Domů, ale poloha není '/'.
                       // Klik na Domů tam musí fungovat, ne až přes Rezervace.
@@ -539,6 +567,7 @@ class _BookingFab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (booking.verifying) return _VerifyingFab(booking: booking);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -611,16 +640,20 @@ class _BookingFab extends ConsumerWidget {
                 ) ??
                 false;
             if (!ok || !context.mounted) return;
-            try {
-              await cancelPendingBooking(booking.id);
-              ref.invalidate(pendingBookingFabProvider);
-            } catch (_) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(t(context).tr('cancelError'))),
-                );
+            // Selhání (offline / timeout) → CO, PROČ a JAK + „Zkusit znovu"
+            // (dřív holé „Chyba storna").
+            Future<void> doCancel() async {
+              try {
+                await cancelPendingBooking(booking.id);
+                ref.invalidate(pendingBookingFabProvider);
+              } catch (e) {
+                if (context.mounted) {
+                  showErrorSnack(context, t(context).tr('psCancelFailTitle'), e,
+                      where: 'fab_cancel_pending', onRetry: doCancel, contact: false);
+                }
               }
             }
+            await doCancel();
           },
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
@@ -644,6 +677,47 @@ class _BookingFab extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// FAB rezervace, jejíž platba už byla odeslána a čeká na potvrzení banky /
+/// serveru: NEnabízí další platbu (dvojí platba), jen otevře „Platba se ověřuje".
+class _VerifyingFab extends ConsumerWidget {
+  final PendingBooking booking;
+  const _VerifyingFab({required this.booking});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = t(context);
+    return Center(
+      child: PressableScale(
+        pressedScale: 0.93,
+        onTap: () {
+          ref.read(paymentOutcomeProvider.notifier).state = pendingBookingOutcome(
+            tr,
+            bookingId: booking.id,
+            verifiedRoute: Routes.success,
+          );
+          context.push(Routes.paymentResult);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFDE68A),
+            borderRadius: BorderRadius.all(Radius.circular(MotoGoRadius.pill)),
+            boxShadow: _fabShadow,
+          ),
+          child: Text(
+            '⏳ ${tr.tr('psFabVerifying')}',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: MotoGoTypo.w800,
+              color: MotoGoColors.black,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

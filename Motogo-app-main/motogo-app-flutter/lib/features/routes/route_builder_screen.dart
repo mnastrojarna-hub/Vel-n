@@ -10,6 +10,8 @@ import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/widgets/error_feedback.dart' show confirmDiscard;
 import 'poi_suggest.dart';
 import 'map_fit.dart';
 import 'routes_model.dart';
@@ -18,6 +20,10 @@ import 'routes_provider.dart';
 import 'submit_common.dart';
 import 'all_pois_screen.dart';
 import 'my_experiences_provider.dart';
+import '../../core/widgets/map_tile_errors.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import 'v2/builder_parts_v2.dart';
 
 /// Jedna zastávka editoru trasy.
 class _Stop {
@@ -53,6 +59,21 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   Timer? _debounce;
   int _reqId = 0;
 
+  /// Zastávky se od otevření změnily a nejsou uložené → odchod jen po
+  /// potvrzení (zpět / swipe by úpravy potichu zahodily).
+  bool _edited = false;
+
+  Future<void> _leave() async {
+    if (_edited) {
+      final tr = t(context);
+      final discard = await confirmDiscard(context,
+          title: tr.tr('navDiscardRouteTitle'), body: tr.tr('navDiscardRouteBody'));
+      if (!discard || !mounted) return;
+      setState(() => _edited = false);
+    }
+    if (mounted) context.backOr('/routes');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,7 +108,10 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   // ── Změny zastávek ──
   void _addPoint(LatLng p) {
     final stop = _Stop(p);
-    setState(() => _stops.add(stop));
+    setState(() {
+      _stops.add(stop);
+      _edited = true;
+    });
     _scheduleRecompute();
     // Best-effort doplnění názvu místa.
     reverseGeocode(p).then((name) {
@@ -100,7 +124,10 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   void _addSuggestedPoi(RoutePoi p) {
     final ll = p.latLng;
     if (ll == null) return;
-    setState(() => _stops.add(_Stop(ll, name: p.name, poi: p)));
+    setState(() {
+      _stops.add(_Stop(ll, name: p.name, poi: p));
+      _edited = true;
+    });
     _fit();
     _scheduleRecompute();
   }
@@ -114,13 +141,17 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       for (final p in picked) {
         if (p.latLng != null) _stops.add(_Stop(p.latLng!, name: p.name, poi: p));
       }
+      _edited = true;
     });
     _fit();
     _recompute();
   }
 
   void _removeAt(int i) {
-    setState(() => _stops.removeAt(i));
+    setState(() {
+      _stops.removeAt(i);
+      _edited = true;
+    });
     _scheduleRecompute();
   }
 
@@ -129,6 +160,7 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       if (newI > oldI) newI -= 1;
       final s = _stops.removeAt(oldI);
       _stops.insert(newI, s);
+      _edited = true;
     });
     _scheduleRecompute();
   }
@@ -184,7 +216,12 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   void _fit() {
     if (!_mapReady) return;
     final pts = _geometry.length >= 2 ? _geometry : _stops.map((s) => s.point).toList();
-    fitMapSafe(_ctrl, pts, padding: const EdgeInsets.all(40));
+    // v2: průsvitná hlavička nahoře a nápověda dole leží přes mapu → trasa
+    // se vejde mezi ně (body nekreslí přes titulek).
+    final v2 = MgV2.peek(context);
+    final top = MediaQuery.paddingOf(context).top;
+    fitMapSafe(_ctrl, pts,
+        padding: v2 ? EdgeInsets.fromLTRB(32, top + 84, 32, 64) : const EdgeInsets.all(40));
   }
 
   void _navigate() {
@@ -208,9 +245,23 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     // Návrh trasy „ostatním" ale dává smysl až od 2 bodů (jedno místo není trasa).
     final canNav = _stops.isNotEmpty;
     final canSuggest = _stops.length >= 2;
-    return Scaffold(
-      backgroundColor: MotoGoColors.bg,
-      body: Column(
+    return PopScope(
+      canPop: !_edited,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: Scaffold(
+      backgroundColor: MgV2.on(context) ? MgColors.canvas : MotoGoColors.bg,
+      // v2: mapa nahoře a dok dole stojí, souhrn + návrhy v okolí + zastávky
+      // mezi nimi rolují jako JEDEN seznam (_stopsList) — na 320 dp / velkém
+      // písmu se nic nepřetéká ani neusekne.
+      body: MgV2.on(context)
+          ? Column(children: [
+              _mapSection(context),
+              Expanded(child: _stopsList(context)),
+              _bottomBar(context, canNav, canSuggest),
+            ])
+          : Column(
         children: [
           _mapSection(context),
           _statsBar(context),
@@ -223,6 +274,7 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
           Expanded(child: _stopsList(context)),
           _bottomBar(context, canNav, canSuggest),
         ],
+      ),
       ),
     );
   }
@@ -241,46 +293,74 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     final center = _stops.isNotEmpty
         ? _stops.first.point
         : (_geometry.isNotEmpty ? _geometry.first : const LatLng(49.8175, 15.4730));
+    final map = FlutterMap(
+      mapController: _ctrl,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: _stops.isEmpty ? 7 : 11,
+        onMapReady: () {
+          _mapReady = true;
+          _fit();
+        },
+        onTap: (_, p) => _addPoint(p),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate:
+              'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
+          userAgentPackageName: 'com.motogo24.app',
+          maxZoom: 19,
+          errorTileCallback: MapTileErrors.report,
+          reset: MapTileErrors.reset,
+        ),
+        const MapTileErrorChip(),
+        if (_geometry.length >= 2)
+          PolylineLayer(polylines: [
+            Polyline(points: _geometry, strokeWidth: 7, color: MotoGoColors.dark.withValues(alpha: 0.25)),
+            Polyline(points: _geometry, strokeWidth: 5, color: MotoGoColors.greenDark),
+          ]),
+        MarkerLayer(markers: markers),
+        RichAttributionWidget(
+          attributions: const [TextSourceAttribution('Mapy.com')],
+        ),
+      ],
+    );
+    if (MgV2.on(context)) {
+      return SizedBox(
+        height: 280 + MediaQuery.of(context).padding.top,
+        child: Stack(children: [
+          Positioned.fill(child: map),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: BuilderTopBarV2(
+              title: widget.route.name.isNotEmpty ? widget.route.name : t(context).tr('poiCustomRouteTitle'),
+              onBack: _leave,
+              computing: _computing,
+            ),
+          ),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 10,
+            child: Center(child: BuilderHintV2(t(context).tr('routeBuilderHint'))),
+          ),
+        ]),
+      );
+    }
     return SizedBox(
       height: 260,
       child: Stack(
         children: [
           Positioned.fill(
-            child: FlutterMap(
-              mapController: _ctrl,
-              options: MapOptions(
-                initialCenter: center,
-                initialZoom: _stops.isEmpty ? 7 : 11,
-                onMapReady: () {
-                  _mapReady = true;
-                  _fit();
-                },
-                onTap: (_, p) => _addPoint(p),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
-                  userAgentPackageName: 'com.motogo24.app',
-                  maxZoom: 19,
-                ),
-                if (_geometry.length >= 2)
-                  PolylineLayer(polylines: [
-                    Polyline(points: _geometry, strokeWidth: 7, color: MotoGoColors.dark.withValues(alpha: 0.25)),
-                    Polyline(points: _geometry, strokeWidth: 5, color: MotoGoColors.greenDark),
-                  ]),
-                MarkerLayer(markers: markers),
-                RichAttributionWidget(
-                  attributions: const [TextSourceAttribution('Mapy.com')],
-                ),
-              ],
-            ),
+            child: map,
           ),
           // Zpět
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 12,
-            child: _circleBtn(Icons.arrow_back, () => context.backOr('/routes')),
+            child: _circleBtn(Icons.arrow_back, _leave),
           ),
           // Indikátor počítání
           if (_computing)
@@ -346,6 +426,15 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       final spd = _profile == RouteProfile.fastest ? 75.0 : 55.0; // km/h odhad
       final mins = (_distanceM! / 1000 / spd * 60).round();
       tmin = mins >= 60 ? '${mins ~/ 60} h ${mins % 60} min' : '$mins min';
+    }
+    if (MgV2.on(context)) {
+      return BuilderStatsV2(
+        km: km,
+        time: tmin,
+        stops: '${_stops.length} × ${t(context).tr('routeBuilderStop').toLowerCase()}',
+        profile: _profile,
+        onProfile: _setProfile,
+      );
     }
     return Container(
       color: Colors.white,
@@ -427,6 +516,36 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
 
   // ── Seznam zastávek (přehazovatelný) ──
   Widget _stopsList(BuildContext context) {
+    if (MgV2.on(context)) {
+      return ReorderableListView.builder(
+        padding: const EdgeInsets.only(bottom: 12),
+        // Nepřesouvatelná hlavička seznamu (indexy zastávek se nemění).
+        header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _statsBar(context),
+          NearbyPoiPanel(
+            stops: _stops.map((s) => s.point).toList(),
+            excludedPoiIds: _stops.map((s) => s.poi?.id).whereType<String>().toSet(),
+            onAdd: _addSuggestedPoi,
+          ),
+          BuilderStopsHeaderV2(count: _stops.length, onAdd: _addFromPois),
+        ]),
+        footer: _stops.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(t(context).tr('routeBuilderEmpty'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: MgColors.lead)),
+              )
+            : null,
+        // Tažená karta bez obdélníku přes celou šířku (karta má vlastní stín).
+        proxyDecorator: (child, _, __) => Material(type: MaterialType.transparency, child: child),
+        itemCount: _stops.length,
+        // Stejné onReorder jako starý seznam (_reorder počítá s jeho indexy).
+        // ignore: deprecated_member_use
+        onReorder: _reorder,
+        itemBuilder: (context, i) => _stopTile(context, i),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -500,6 +619,19 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   Widget _stopTile(BuildContext context, int i) {
     final s = _stops[i];
     final label = s.name ?? '${t(context).tr('routeBuilderStop')} ${i + 1}';
+    if (MgV2.on(context)) {
+      return Padding(
+        key: ValueKey(s),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: BuilderStopTileV2(
+          number: i + 1,
+          label: label,
+          sub: '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
+          onRemove: () => _removeAt(i),
+          wrapHandle: (h) => ReorderableDragStartListener(index: i, child: h),
+        ),
+      );
+    }
     return Container(
       key: ValueKey(s),
       margin: const EdgeInsets.only(bottom: 8),
@@ -571,6 +703,15 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
 
   // ── Spodní lišta: Navrhnout ostatním + Navigovat ──
   Widget _bottomBar(BuildContext context, bool canNav, bool canSuggest) {
+    if (MgV2.on(context)) {
+      return BuilderDockV2(
+        canNav: canNav,
+        canSave: canSuggest,
+        onSave: canSuggest ? _openSaveSheet : () {},
+        onSuggest: canSuggest ? _openSuggestSheet : () {},
+        onNavigate: canNav ? _navigate : () {},
+      );
+    }
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(color: Colors.white, boxShadow: MotoGoShadows.stickyBar),
@@ -703,14 +844,14 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                MgSheetTitleRow(center: false, title: Text(
                   t(sheetCtx).tr('routeSaveTitle'),
                   style: const TextStyle(
                       fontSize: MotoGoTypo.sizeH2,
                       fontWeight: MotoGoTypo.w900,
                       color: MotoGoColors.black,
                       decoration: TextDecoration.none),
-                ),
+                )),
                 const SizedBox(height: 6),
                 Text(
                   t(sheetCtx).tr('routeSaveHint'),
@@ -825,7 +966,10 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       distanceKm: km,
       durationMin: km == null ? null : (km / 55 * 60).round(),
     );
-    if (ok) ref.invalidate(mySavedRoutesProvider);
+    if (ok) {
+      ref.invalidate(mySavedRoutesProvider);
+      if (mounted) setState(() => _edited = false); // uloženo → nic se neztratí
+    }
     return ok;
   }
 
@@ -861,14 +1005,14 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                MgSheetTitleRow(center: false, title: Text(
                   t(sheetCtx).tr('routeSuggestTitle'),
                   style: const TextStyle(
                       fontSize: MotoGoTypo.sizeH2,
                       fontWeight: MotoGoTypo.w900,
                       color: MotoGoColors.black,
                       decoration: TextDecoration.none),
-                ),
+                )),
                 const SizedBox(height: 12),
                 const SubmitIntroBanner(),
                 const SizedBox(height: 12),
@@ -973,7 +1117,7 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     }
   }
 
-  Widget _numPin(int n) => Container(
+  Widget _numPin(int n) => MgV2.on(context) ? BuilderPinV2(n) : Container(
         width: 26,
         height: 26,
         decoration: BoxDecoration(
@@ -988,7 +1132,8 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
         ),
       );
 
-  Widget _circleBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+  // Jediné použití = šipka zpět → dotyková plocha 48 px + popisek pro čtečku.
+  Widget _circleBtn(IconData icon, VoidCallback onTap) => MgBackTap(
         onTap: onTap,
         child: Container(
           width: 40, height: 40,

@@ -7,6 +7,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/widgets/map_tile_errors.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
 
 /// Fullscreen map picker — mirrors openMapPicker() from cart-address-geo.js.
 /// Uses flutter_map + OpenStreetMap tiles + CARTO Voyager (no API key).
@@ -225,7 +227,10 @@ class _MapPickerState extends State<MapPickerScreen> {
                     'https://api.mapy.cz/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=$_mapyKey',
                 userAgentPackageName: 'com.motogo24.rental',
                 maxZoom: 19,
+                errorTileCallback: MapTileErrors.report,
+                reset: MapTileErrors.reset,
               ),
+              const MapTileErrorChip(),
             ],
           ),
 
@@ -255,7 +260,7 @@ class _MapPickerState extends State<MapPickerScreen> {
               ),
               child: Row(
                 children: [
-                  GestureDetector(
+                  MgBackTap(
                     onTap: () => Navigator.of(context).pop(),
                     child: Container(
                       width: 36,

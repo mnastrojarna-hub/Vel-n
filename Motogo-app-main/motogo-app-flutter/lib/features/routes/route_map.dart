@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../../core/theme.dart';
 import 'map_fit.dart';
 import 'routes_provider.dart' show mapyApiKey;
+import '../../core/widgets/map_tile_errors.dart';
 
 /// Interaktivní náhled trasy v Mapy.com dlaždicích — polyline + start pobočky
 /// + markery bodů zájmu. Sám se přizpůsobí (fit) na celou trasu.
@@ -105,7 +106,10 @@ class _RouteMapViewState extends State<RouteMapView> {
               'https://api.mapy.cz/v1/maptiles/outdoor/256/{z}/{x}/{y}?apikey=$mapyApiKey',
           userAgentPackageName: 'com.motogo24.app',
           maxZoom: 19,
+          errorTileCallback: MapTileErrors.report,
+          reset: MapTileErrors.reset,
         ),
+        const MapTileErrorChip(),
         if (widget.geometry.length >= 2)
           PolylineLayer(
             polylines: [

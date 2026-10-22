@@ -13,6 +13,11 @@ import 'places_map.dart';
 import 'route_poi_sheet.dart';
 import 'routes_map_provider.dart';
 import 'routes_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_back_v2.dart';
+import 'v2/map_controls_v2.dart';
+import 'v2/record_dock_v2.dart';
 
 /// Celoobrazovková mapa MÍST — trasy z katalogu se sem NEKRESLÍ.
 ///
@@ -75,9 +80,10 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
   @override
   void initState() {
     super.initState();
-    // Mapa je celá o poloze — vyžádat si ji hned po otevření je očekávané.
+    // Mapa je celá o poloze — vyžádat si ji hned po otevření je očekávané,
+    // ale NIKDY nevytahovat do Nastavení (to až na tlačítku „moje poloha").
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ensureLocation(ref);
+      if (mounted) requestLocationQuietly(ref);
     });
   }
 
@@ -188,7 +194,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               children: [
                 _round(Icons.my_location, () async {
                   if (me == null) {
-                    final ok = await ensureLocation(ref);
+                    final ok = await ensureLocation(ref, context: context);
                     if (!ok || !mounted) return;
                   }
                   _mapKey.currentState?.centerOnMe();
@@ -279,7 +285,10 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
         ),
         child: Row(
           children: [
-            GestureDetector(
+            if (MgV2.on(context))
+              MgV2Back(onTap: () => context.backOr(Routes.routes))
+            else
+            MgBackTap(
               onTap: () => context.backOr(Routes.routes),
               child: const Padding(
                 padding: EdgeInsets.all(4),
@@ -287,6 +296,9 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               ),
             ),
             const SizedBox(width: 6),
+            if (MgV2.on(context))
+              const MapTitleGlyphV2()
+            else
             const Text('🧭', style: TextStyle(fontSize: 18)),
             const SizedBox(width: 8),
             Expanded(
@@ -365,6 +377,16 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
 
   Widget _selectionBar(BuildContext context) {
     final n = ref.watch(placesSelectionProvider).length;
+    if (MgV2.on(context)) {
+      return TrasyRecordDockV2(
+        showRecord: false,
+        selection: TrasySelection(
+          count: n,
+          onContinue: _buildRoute,
+          onClear: ref.read(placesSelectionProvider.notifier).clear,
+        ),
+      );
+    }
     return Container(
       padding: EdgeInsets.fromLTRB(
           16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
@@ -432,6 +454,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
   }
 
   Widget _round(IconData icon, VoidCallback onTap, {bool primary = false}) {
+    if (MgV2.on(context)) return MapRoundV2(icon: icon, onTap: onTap);
     return PressableScale(
       pressedScale: 0.92,
       onTap: onTap,

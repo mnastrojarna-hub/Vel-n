@@ -5,6 +5,10 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/currency.dart';
 import '../../booking/booking_models.dart';
 import 'reservation_edit_widgets.dart';
+import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_gear_v2.dart';
+import '../v2/res_edit_sections_v2.dart';
 
 /// Extras + gear size section for reservation edit.
 ///
@@ -93,8 +97,7 @@ class EditExtrasSection extends StatelessWidget {
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(ctx).padding.bottom + 16),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2))),
+          const MgSheetHandle(),
           const SizedBox(height: 14),
           Text('${t(ctx).tr('selectSizeTitle')} – $title',
             textAlign: TextAlign.center,
@@ -138,8 +141,7 @@ class EditExtrasSection extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(16, 16, 16,
             MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom + 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: Container(width: 40, height: 4,
-              decoration: BoxDecoration(color: MotoGoColors.g200, borderRadius: BorderRadius.circular(2)))),
+            const MgSheetHandle(),
             const SizedBox(height: 14),
             Text('${t(ctx).tr('passengerGearLabel')} – ${t(ctx).tr('sizesLabel')}',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
@@ -197,7 +199,24 @@ class EditExtrasSection extends StatelessWidget {
           color: checked ? MotoGoColors.greenPale : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: checked ? MotoGoColors.green : MotoGoColors.g200, width: checked ? 2 : 1)),
-        child: Row(children: [
+        // v2 vzhled (kill-switch app_v2_ui): tytéž texty celými slovy, cena
+        // pod názvem, když by se název jinak rozdělil (uk na 320 dp).
+        child: MgV2.on(context)
+            ? EditPaidRowV2(
+                checkbox: Container(width: 20, height: 20,
+                  decoration: BoxDecoration(
+                    color: checked ? MotoGoColors.green : Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: checked ? MotoGoColors.green : MotoGoColors.g200, width: 2)),
+                  child: checked ? const Icon(Icons.check, size: 14, color: Colors.black) : null),
+                label: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+                sub: Text(sub, style: TextStyle(fontSize: 10,
+                  fontWeight: checked ? FontWeight.w700 : FontWeight.w400,
+                  color: checked ? MotoGoColors.greenDark : MotoGoColors.g400)),
+                price: Text(_gearFree ? t(context).tr('gearFree').toUpperCase() : '+${Money.czk(price)}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
+              )
+            : Row(children: [
           Container(width: 20, height: 20,
             decoration: BoxDecoration(
               color: checked ? MotoGoColors.green : Colors.transparent,
@@ -325,6 +344,16 @@ class EditExtrasSection extends StatelessWidget {
       const Divider(height: 18),
 
       // === Výbava řidiče — zdarma, vždy rozbalená + „mám vlastní výbavu" ===
+      // v2 vzhled (kill-switch app_v2_ui): stejné přepnutí, řádek se zalomí.
+      if (MgV2.on(context))
+        EditRiderHeaderV2(
+          rider: t(context).tr('rider'),
+          free: t(context).tr('gearFree').toLowerCase(),
+          ownGearLabel: t(context).tr('ownGear'),
+          ownGear: ownGear,
+          onToggle: () => onOwnGearChanged(!ownGear),
+        )
+      else
       Row(children: [
         Text(t(context).tr('rider'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
         const SizedBox(width: 6),

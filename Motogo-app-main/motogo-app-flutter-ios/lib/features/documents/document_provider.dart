@@ -304,7 +304,10 @@ ScanResult _classifyException(Object e, int attempt) {
 /// Mirrors scanOCR from doc-scanner-ocr.js (Mindee v2 enqueue+poll).
 /// Retries up to 3 times with exponential backoff (matching Capacitor).
 /// Image is resized to max 1600px / 80% JPEG before sending.
-Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType) async {
+/// [retryOnNetwork] = false → výpadek spojení / časový limit se neopakuje
+/// (další pokus by na slabém signálu jen prodloužil čekání o minutu).
+Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType,
+    {void Function(int attempt, int max)? onAttempt, bool retryOnNetwork = true}) async {
   const maxAttempts = 3;
   Uint8List? resizedBytes;
 
@@ -323,6 +326,7 @@ Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType) async
   ScanResult? lastFailure;
 
   for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+    onAttempt?.call(attempt, maxAttempts);
     try {
       debugPrint('[DocScan] ── Attempt $attempt/$maxAttempts ──'
           ' type=${docType.apiType}, user=${user?.id ?? "anon"},'
@@ -429,6 +433,10 @@ Future<ScanResult> scanDocumentWithRetry(XFile photo, ScanDocType docType) async
           classified.errorCode == 'bad_request') {
         return classified;
       }
+      if (!retryOnNetwork &&
+          (classified.errorCode == 'network' || classified.errorCode == 'timeout')) {
+        return classified;
+      }
 
       if (attempt < maxAttempts) {
         debugPrint('[DocScan] Retrying in ${attempt}s...');
@@ -454,7 +462,10 @@ Future<OcrResult?> scanDocument(XFile photo, ScanDocType docType) async {
 class DocUploadResult {
   final String? markerPath;
   final String? errorDetail;
-  const DocUploadResult({this.markerPath, this.errorDetail});
+
+  /// Původní výjimka (síť / limit / server) — UI z ní řekne důvod.
+  final Object? cause;
+  const DocUploadResult({this.markerPath, this.errorDetail, this.cause});
   bool get ok => markerPath != null && errorDetail == null;
 }
 
@@ -511,7 +522,7 @@ Future<DocUploadResult> uploadDocPhoto(
     return DocUploadResult(errorDetail: err ?? 'upload_failed');
   } catch (e) {
     debugPrint('[DocUpload] ✗ edge fn selhala: $e');
-    return DocUploadResult(errorDetail: '$e');
+    return DocUploadResult(errorDetail: '$e', cause: e);
   }
 }
 
@@ -833,7 +844,7 @@ Future<Map<String, dynamic>?> verifyCustomerDocs(OcrResult result, {DateTime? re
       'p_ocr_license_category': result.licenseCategory,
       'p_ocr_license_expiry': result.expiryDate,
       'p_rental_end': rentalEnd?.toIso8601String(),
-    }) as Map<String, dynamic>?;
+    }).timeout(const Duration(seconds: 20)) as Map<String, dynamic>?;
   } catch (_) {
     return null;
   }

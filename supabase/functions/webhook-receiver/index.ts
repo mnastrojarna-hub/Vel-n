@@ -8,6 +8,13 @@ import Stripe from 'https://esm.sh/stripe@14'
 import { confirmBookingPayment, confirmSosPayment, confirmShopPayment, ingestFinancialEvent } from './payment-confirmers.ts'
 import { syncCardFromSetupSession, syncCardsForCustomer } from './stripe-card-sync.ts'
 import { resolveBookingLanguage } from './customer-lang.ts'
+import { applyPaidExtension, chgFromMetadata, type ApplyResult } from '../_shared/extension-apply.ts'
+import { handlePaidChangeFailure, changeKindOf } from '../_shared/paid-change-failure.ts'
+import { paidChangeEligibility, markApplied, failureRow, type PiLike } from '../_shared/paid-change-guard.ts'
+import { applyChargeRounding } from '../_shared/charge-rounding.ts'
+import { refundLatePaymentOnCancelled } from './late-payment.ts'
+import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
+import { prepareExtensionPayment, refundDuplicateCharges, markPaidAfterChange } from './extension-payment.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -18,371 +25,126 @@ const CORS = {
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-04-10',
   httpClient: Stripe.createFetchHttpClient(),
+  maxNetworkRetries: 2,
 })
 
 const STRIPE_WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
 
 // ── Server-side aplikace doplatkové změny rezervace po potvrzení platby ──────
-// Web „Upravit rezervaci" u změny s doplatkem (prodloužení / změna místa, času,
-// motorky) dříve aplikoval změnu AŽ v prohlížeči po návratu ze Stripe
-// (_applyPendingAfterPayment z localStorage). Když se zákazník nevrátil (platba
-// na jiném zařízení, vyčištěné úložiště, zavřená záložka), změna se nikdy
-// neuložila → rezervace zaplacena, ale neprodloužena a mail web_booking_modified
-// nedorazil. Tady ji aplikujeme server-side z payloadu v Stripe metadatech
-// (`metadata.chg`), což spustí trigger trg_send_booking_modified_email
-// nezávisle na klientovi. Mapování polí je 1:1 s klientským fallbackem; update
-// je idempotentní (stejné hodnoty + absolutní total_price z new_total), takže
-// případný druhý Stripe event ani souběžný klientský apply nezpůsobí duplicitu
-// (mail navíc dedupuje 5min okno v triggeru).
-// Otisk místa rezervace (delivery_fee + způsob a adresa obou stran) — stejný
-// výpočet jako process-payment (srv.f); nesoulad = místo se mezitím změnilo.
-function placeFingerprint(r: Record<string, unknown> | null): string {
-  if (!r) return ''
-  const norm = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-  const src = [Math.round(Number(r.delivery_fee || 0)), norm(r.pickup_method), norm(r.pickup_address),
-    norm(r.return_method), norm(r.return_address)].join('|')
-  let h = 2166136261
-  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
-  return h.toString(16)
-}
-
-// Payload změny je v metadatech rozdělený po 500 znacích: chg, chg_2 … chg_8
-// (process-payment od 2026-10-01; starší platby mají jen chg).
-function chgFromMetadata(md: Record<string, string | undefined> | null | undefined): string | null {
-  if (!md || !md.chg) return null
-  let out = md.chg
-  for (let i = 2; i <= 8; i++) {
-    const part = md[`chg_${i}`]
-    if (!part) break
-    out += part
-  }
-  return out
-}
-
-async function applyExtensionChange(
+// Změnu z Stripe metadat (chg, srv) zapisuje sdílený modul
+// _shared/extension-apply.ts (přesunuto odsud 2026-10-16; stejný kód volá
+// process-payment `complete_extension`). Výsledek (D6):
+//  • applied / already_applied / no_payload → hotovo (200),
+//  • retry (přechodná chyba: síť, DB 5xx, souběh) → webhook doběhne ostatní
+//    idempotentní kroky a vrátí 500 → Stripe událost doručí znovu (až 3 dny);
+//    appka mezitím dokončuje přes complete_extension,
+//  • failed (trvale nejde zapsat) → automatické vrácení doplatku + upozornění
+//    obsluhy, jednou na platbu (_shared/paid-change-failure.ts).
+// Platbu, která je už zapsaná (značka / payment_ref), vyhodnocená jako selhání
+// (paid_change_failed) nebo z níž se už vracelo, webhook znovu NEzapisuje
+// (_shared/paid-change-guard.ts) — opakovaná událost ani pozdní retry tak nepřepíše
+// novější stav rezervace a nezapíše změnu, za kterou peníze už odešly zpět.
+async function finishPaidChange(
   supabase: ReturnType<typeof createClient>,
-  bookingId: string,
-  chgStr: string | undefined | null,
-  paidCzk: number | null = null,
-  srvStr: string | undefined | null = null,
-  payRef: string | null = null,
-) {
-  if (!chgStr) return
-  let a: Record<string, unknown>
-  try { a = JSON.parse(chgStr) as Record<string, unknown> } catch { return }
-  if (!a || typeof a !== 'object') return
-  // Výsledek SERVEROVÉHO dry-runu z process-payment (2026-10-01): nová cena
-  // (t), delivery_fee (df), podíly stran (pf/rf) a přiznaná late sleva (l,
-  // 20261001h — breakdown.late_pickup_to). Má přednost před klientem.
-  let srv: { t?: number | null; df?: number | null; pf?: number | null; rf?: number | null; x?: boolean; l?: number | null; f?: string } = {}
-  try { if (srvStr) srv = (JSON.parse(srvStr) || {}) as typeof srv } catch { srv = {} }
-  const fin = (v: unknown) => v != null && Number.isFinite(Number(v))
-
-  // ── Výměna motorky (swap) — server-side COMMIT po zaplacení doplatku ─────────
-  // Appka commit volá klientsky po platbě (payment_screen `_swap_commit`), ale
-  // když selže / je zabita, výměna se tiše neprovede a peníze jsou strženy
-  // (incident #EEC9CA33). Webhook je proto pojistka: `_swap` metadata → zavolej
-  // COMMIT RPC (service_role — pouští ho rev.5 split_booking_moto_swap).
-  // Idempotence s appkou: `already_split` (split už vznikl) a `invalid_new_moto`
-  // (replace už proběhl → moto_id == nová) znamenají „appka byla rychlejší" = OK.
-  const swap = a._swap as { m?: string; d?: string; t?: string } | undefined
-  if (swap && typeof swap === 'object' && swap.m && swap.d) {
-    const { data, error } = await supabase.rpc('split_booking_moto_swap', {
-      p_booking_id: bookingId,
-      p_new_moto_id: swap.m,
-      p_swap_date: swap.d,
-      p_swap_time: swap.t || null,
-      p_dry_run: false,
-    })
-    const res = (data || {}) as { success?: boolean; error?: string }
-    const ok = !error && (res.success === true ||
-      res.error === 'already_split' || res.error === 'invalid_new_moto')
-    try {
-      await supabase.from('debug_log').insert({
-        source: 'webhook-receiver',
-        action: ok ? 'swap_commit_applied' : 'swap_commit_failed',
-        component: 'stripe',
-        status: ok ? 'ok' : 'error',
-        error_message: error?.message || (res.success !== true ? String(res.error || '') : null),
-        request_data: { booking_id: bookingId, swap, rpc_result: res },
-      })
-    } catch { /* ignore */ }
-    return
+  a: { bookingId: string; chg: string | null; srv: string | null | undefined; paidCzk: number | null; payRef: string; rounding: number;
+       eventCreated: number; autoRefund: boolean; failCzk?: number; pi: PiLike | null; since: string | null; closed?: boolean },
+): Promise<boolean> {
+  if (a.pi) {
+    const el = await paidChangeEligibility(supabase, a.pi, { bookingId: a.bookingId, requireNewCode: false, maxAgeH: null, stripe })
+    if (!el.ok) {
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'webhook-receiver', action: 'paid_change_skipped', component: 'stripe', status: 'info',
+          request_data: { booking_id: a.bookingId, payment_ref: a.payRef, kind: el.kind },
+        } as never)
+      } catch { /* ignore */ }
+      return false
+    }
   }
-
-  // ── Změna výbavy (placená gear) — řeší vlastní SECURITY DEFINER RPC ──────────
-  // gear se neukládá pouhým bookings.update (mění i booking_extras + extras_price).
-  // apply_paid_gear_change(p_booking_id, p_sizes) je service-role wrapper, který
-  // impersonuje vlastníka a volá existující update_booking_gear (idempotentní:
-  // net_diff se počítá vůči aktuálnímu stavu → druhý běh = 0). Změna total_price
-  // spustí trg_send_booking_modified_email → web_booking_modified. Když RPC ještě
-  // neexistuje (SQL nenasazena), chyba se zaloguje a gear padá zpět na klientský
-  // _applyPendingAfterPayment (žádná regrese).
-  const gear = a._gear as { sizes?: Record<string, unknown> } | undefined
-  if (gear && typeof gear === 'object') {
-    const { error } = await supabase.rpc('apply_paid_gear_change', {
-      p_booking_id: bookingId,
-      p_sizes: gear.sizes || {},
-    })
-    try {
-      await supabase.from('debug_log').insert({
-        source: 'webhook-receiver',
-        action: error ? 'gear_change_apply_failed' : 'gear_change_applied',
-        component: 'stripe',
-        status: error ? 'error' : 'ok',
-        error_message: error?.message || null,
-        request_data: { booking_id: bookingId },
-      })
-    } catch { /* ignore */ }
-    return
-  }
-
-  const def = (v: unknown) => v !== undefined
-  const defNN = (v: unknown) => v !== undefined && v !== null
-  const d: Record<string, unknown> = {}
-  if (a.p_new_start) d.start_date = a.p_new_start
-  if (a.p_new_end) d.end_date = a.p_new_end
-  if (a.p_new_moto_id) d.moto_id = a.p_new_moto_id
-  if (a.p_new_pickup_method) d.pickup_method = a.p_new_pickup_method
-  if (def(a.p_new_pickup_address)) d.pickup_address = a.p_new_pickup_address
-  if (defNN(a.p_new_pickup_lat)) d.pickup_lat = a.p_new_pickup_lat
-  if (defNN(a.p_new_pickup_lng)) d.pickup_lng = a.p_new_pickup_lng
-  if (a.p_new_return_method) d.return_method = a.p_new_return_method
-  if (def(a.p_new_return_address)) d.return_address = a.p_new_return_address
-  if (defNN(a.p_new_return_lat)) d.return_lat = a.p_new_return_lat
-  if (defNN(a.p_new_return_lng)) d.return_lng = a.p_new_return_lng
-  // delivery_fee počítá server (srv.df z dry-runu _apply_booking_changes_core).
-  // Klientský součet poplatků jen jako fallback starých plateb bez srv —
-  // web u zamčené strany vyzvednutí posílal 0 (incident 2026-10-01).
-  if (fin(srv.df) && (def(a.p_new_pickup_fee) || def(a.p_new_return_fee) || a.p_new_pickup_method || a.p_new_return_method)) {
-    d.delivery_fee = Number(srv.df)
-  } else if (def(a.p_new_pickup_fee) || def(a.p_new_return_fee)) {
-    d.delivery_fee = Number(a.p_new_pickup_fee || 0) + Number(a.p_new_return_fee || 0)
-  }
-  // Time-only úprava z webu posílá pickup_time jako p_new_pickup_time (RPC arg),
-  // ne v _time_update — bez tohoto mapování zákazník zaplatil ztrátu late-pickup
-  // slevy, ale čas vyzvednutí se po platbě nikdy nezapsal.
-  if (a.p_new_pickup_time) d.pickup_time = a.p_new_pickup_time
-  const tu = a._time_update as Record<string, unknown> | undefined
-  if (tu && typeof tu === 'object') {
-    // NULL čas vyzvednutí nezapisovat — web ho u aktivní rezervace (bez pole
-    // času) posílal jako null a smazal uložený čas (incident 2026-10-01).
-    if (defNN(tu.pickup_time)) d.pickup_time = tu.pickup_time
-    if (def(tu.return_time)) d.return_time = tu.return_time
-  }
-  // App formát (Flutter posílá kompaktní `change` přímo s DB názvy sloupců —
-  // payment_screen.dart) — stejná záchranná síť jako web: doplatková změna se
-  // uloží server-side, i když je appka po platbě zabita / spadne před apply.
-  // delivery_fee/extras_price appka do metadat posílá — bez nich by rozpis KF
-  // po webhook-aplikované změně neseděl (generate_final_invoice čte delivery_fee).
-  for (const col of ['start_date', 'end_date', 'moto_id', 'pickup_method', 'pickup_address',
-                     'return_method', 'return_address', 'pickup_time', 'return_time',
-                     'discount_amount', 'delivery_fee', 'extras_price',
-                     'loyalty_discount_amount', 'late_pickup_discount_amount',
-                     'pickup_lat', 'pickup_lng', 'return_lat', 'return_lng'] as const) {
-    if (def(a[col]) && d[col] === undefined) d[col] = a[col]
-  }
-  // Absolutní cílová cena (z dry-run RPC) — idempotentní, na rozdíl od klienta,
-  // který total_price vůbec nenastavoval (doplatek se nepropisoval do ceny).
-  if (fin(srv.t)) {
-    d.total_price = Number(srv.t) // serverový dry-run (process-payment)
-  } else if (a.new_total != null && Number.isFinite(Number(a.new_total))) {
-    d.total_price = Number(a.new_total)
-  } else if (a.total_price != null && Number.isFinite(Number(a.total_price))) {
-    d.total_price = Number(a.total_price) // app formát
-  }
-
-  // ── Výchozí stav, proti kterému klient změnu NACENIL (`_base` — app i web) ──
-  // Dřív se změna aplikovala slepě přes AKTUÁLNÍ řádek: když se rezervace mezi
-  // nacením a zaplacením změnila jinde (bezplatný posun z webu, zatímco appka
-  // držela starý stav — incident 0DC12164, 10. 9. 2026), historie i rozdílový
-  // DP popsaly rozdíl proti cizímu stavu („prodlouženo o 1 den" místo
-  // „čtvrtek odpoledne za polovinu") a klientova absolutní total_price přepsala
-  // cenu. Nově: zastaralý základ → total = aktuální cena + skutečně zaplacený
-  // doplatek (delta), historie nese naceněný rozdíl (od základu, vč. času
-  // vyzvednutí a late slevy) a jde do debug_log.
-  const base = a._base as { s?: string; e?: string; t?: string | null; p?: number; l?: number } | undefined
-  const day = (v: unknown) => String(v || '').slice(0, 10)
-  const hm = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
-  let cur: Record<string, unknown> | null = null
+  let res: ApplyResult
   try {
-    const { data } = await supabase.from('bookings')
-      .select('moto_id, start_date, end_date, pickup_time, total_price, late_pickup_discount_amount, original_start_date, modification_history, status, pickup_method, pickup_address, return_method, return_address, delivery_fee')
-      .eq('id', bookingId).maybeSingle()
-    cur = (data as Record<string, unknown> | null) || null
-  } catch { cur = null }
-  // Opakované doručení téže platby (Stripe event retry po chybě/timeoutu
-  // webhooku): změna už je zapsaná — druhý průchod by vyšel jako zastaralý
-  // základ a připsal doplatek k ceně podruhé (2026-10-01).
-  if (payRef && cur && Array.isArray(cur.modification_history)
-      && (cur.modification_history as Array<Record<string, unknown> | null>).some((h) => !!h && h.payment_ref === payRef)) {
-    try {
-      await supabase.from('debug_log').insert({
-        source: 'webhook-receiver', action: 'extension_change_duplicate_skipped', component: 'stripe', status: 'info',
-        request_data: { booking_id: bookingId, payment_ref: payRef },
-      })
-    } catch { /* ignore */ }
-    return
+    res = await applyPaidExtension(supabase, { bookingId: a.bookingId, chg: a.chg, srv: a.srv ?? null, paidCzk: a.paidCzk, payRef: a.payRef,
+      rounding: a.rounding, since: a.since, via: 'webhook' })
+  } catch (e) {
+    res = { state: 'retry', code: 'apply_exception', detail: (e as Error).message }
   }
-  // Aktivní rezervace: vyzvednutí už proběhlo → jeho místo se nemění (server
-  // _apply_booking_changes_core ho ignoruje taky); web dřív posílal adresu
-  // zamčené strany jako null a zápis by ji smazal.
-  // Mezitím převzatá (active) rezervace se změnou vyzvednutí → naceněno proti
-  // jinému stavu: vyzvednutí se nezapíše a cena se bere jako stale (níže).
-  let pickupDropped = false
-  if (cur && cur.status === 'active') {
-    for (const k of ['pickup_method', 'pickup_address', 'pickup_lat', 'pickup_lng']) {
-      if (d[k] !== undefined && String(d[k] ?? '') !== String(cur[k] ?? '')) pickupDropped = true
-      delete d[k]
-    }
-    // Ani čas vyzvednutí (20261001h `active_pickup_time_locked` — po převzetí by
-    // posun na ≥ 12:00 vrátil slevu 50 % 1. dne). Stará „bez času“ (00:01) →
-    // čas před 12:00 = výchozí hodnota formuláře, ne skutečná změna.
-    if (d.pickup_time !== undefined) {
-      const nt = hm(d.pickup_time), ot = hm(cur.pickup_time)
-      if (nt !== ot && !((ot === '00:01' || ot === '') && nt < '12:00')) pickupDropped = true
-      delete d.pickup_time
-    }
+  if (res.state === 'applied' || res.state === 'already_applied') {
+    await markApplied(stripe, a.pi?.id || a.payRef)
+    await markPaidAfterChange(supabase, a.bookingId)
   }
-  // Otisk místa z process-payment (srv.f) ≠ aktuální řádek → místo se mezitím
-  // změnilo jinou úpravou (např. odebrané přistavení s vratkou) — zastaralá
-  // platba ho nesmí vrátit zpět (2026-10-01).
-  // Shoduje-li se aktuální řádek už s CÍLOVÝM stavem (webový fallback po
-  // platbě byl rychlejší), změna je aplikovaná — ne zastaralá.
-  const placeTarget = cur ? { ...cur } as Record<string, unknown> : null
-  if (placeTarget) {
-    for (const k of ['pickup_method', 'pickup_address', 'return_method', 'return_address', 'delivery_fee']) {
-      if (d[k] !== undefined) placeTarget[k] = d[k]
-    }
+  // Změna se do metadat nevešla → zapíše ji klient; platba prošla (jako dřív → 'paid').
+  if (res.state === 'no_payload' && !a.closed) await markPaidAfterChange(supabase, a.bookingId)
+  if (res.state === 'no_payload' && a.closed) {
+    // Změna se do metadat nevešla (zapsal by ji klient) a rezervace je zrušená / ukončená →
+    // zapsat ji nelze ani klientsky → doplatek vrátit.
+    res = { state: 'failed', code: 'change_failed', reason: 'booking_cancelled' }
   }
-  const placeStale = !!(cur && typeof srv.f === 'string' && srv.f && srv.f !== placeFingerprint(cur)
-    && placeFingerprint(placeTarget) !== placeFingerprint(cur))
-  const stale = pickupDropped || placeStale || !!(base && typeof base === 'object' && cur && (
-    (base.s && day(base.s) !== day(cur.start_date)) ||
-    (base.e && day(base.e) !== day(cur.end_date)) ||
-    (base.t !== undefined && hm(base.t) !== hm(cur.pickup_time)) ||
-    (base.p != null && Math.round(Number(base.p)) !== Math.round(Number(cur.total_price || 0)))
-  ))
-  if (stale && cur) {
-    // Zastaralý základ: místo ani delivery_fee se z platby nepřepisují
-    // (absolutní hodnoty by přepsaly novější stav) — vyřeší obsluha z logu.
-    for (const k of ['pickup_method', 'pickup_address', 'pickup_lat', 'pickup_lng',
-                     'return_method', 'return_address', 'return_lat', 'return_lng', 'delivery_fee']) delete d[k]
-    if (paidCzk != null && Number.isFinite(paidCzk)) {
-      d.total_price = Math.round(Number(cur.total_price || 0) + paidCzk)
+  if (res.state === 'duplicate') {
+    // Tutéž změnu už zapsala jiná platba → tahle je navíc: vrátit celou (s přibalenou
+    // e-shop objednávkou jen obsluha — zboží je z téže platby).
+    await refundDuplicatePayment(supabase, stripe as unknown as StripeDupLike, { piId: a.pi?.id || a.payRef, table: 'bookings',
+      refId: a.bookingId, keepRef: res.otherRef, amountCzk: a.failCzk ?? a.paidCzk ?? 0, via: 'webhook', autoRefund: a.autoRefund })
+    return false
+  }
+  if (res.state === 'retry') {
+    const ageH = (Date.now() / 1000 - (a.eventCreated || 0)) / 3600
+    if (a.eventCreated && ageH > 70) {
+      // Stripe po 3 dnech přestane doručovat — předat obsluze (bez automatické vratky).
+      await handlePaidChangeFailure(supabase, { bookingId: a.bookingId, payRef: a.payRef, paidCzk: a.failCzk ?? a.paidCzk ?? 0,
+        code: res.code, reason: `retry_exhausted:${res.code}`, via: 'webhook', autoRefund: false })
+      return false
     }
     try {
       await supabase.from('debug_log').insert({
-        source: 'webhook-receiver', action: 'extension_change_stale_baseline', component: 'stripe', status: 'error',
-        error_message: 'Změna naceněna proti jinému stavu rezervace než je v DB — zapsána delta (aktuální cena + zaplaceno)',
-        request_data: { booking_id: bookingId, base, current: { start_date: cur.start_date, end_date: cur.end_date, pickup_time: cur.pickup_time, total_price: cur.total_price }, paid_czk: paidCzk, change: d },
+        source: 'webhook-receiver', action: 'paid_change_retry', component: 'stripe', status: 'error',
+        error_message: res.detail || res.code,
+        request_data: { booking_id: a.bookingId, payment_ref: a.payRef, code: res.code, age_h: Math.round(ageH * 10) / 10 },
       })
     } catch { /* ignore */ }
+    return true
   }
-
-  // Late-pickup sleva (50 % 1. dne při vyzvednutí >= 12:00 a >= 2 dnech):
-  // u doplatkové změny přes RPC se sloupec nikdy nezapsal (core končí PŘED
-  // UPDATE, když je payment_required) — total_price pak seděl, ale
-  // late_pickup_discount_amount držel před-editovou hodnotu a rozpad KF
-  // nevycházel na 0. Autoritativní přepočet z FINÁLNÍHO stavu (aktuální řádek
-  // + aplikovaná změna) přes _late_pickup_discount; přepíše i klientem poslanou
-  // hodnotu (app formát). Best-effort — selhání nesmí zablokovat apply.
-  // Web p_new_* změna nese v srv.l SKUTEČNĚ přiznanou slevu z dry-runu
-  // (_apply_booking_changes_core 20261001h: získaná sleva krácená stornem se
-  // ukládá jen v proplacené výši) — přepočet by ji nadsadil. Jen u nezastaralé
-  // změny (jinak cílový stav ≠ naceněný → přepočet jako dřív).
-  if (cur && !stale && fin(srv.l) && (d.start_date || d.end_date || d.moto_id || d.pickup_time)) {
-    d.late_pickup_discount_amount = Math.max(0, Math.round(Number(srv.l)))
-  } else if (cur && (d.start_date || d.end_date || d.moto_id || d.pickup_time || def(a.late_pickup_discount_amount))) {
-    try {
-      const pt = d.pickup_time !== undefined ? d.pickup_time : cur.pickup_time
-      const { data: late, error: lateErr } = await supabase.rpc('_late_pickup_discount', {
-        p_moto_id: (d.moto_id ?? cur.moto_id) as string,
-        p_start: String(d.start_date ?? cur.start_date),
-        p_end: String(d.end_date ?? cur.end_date),
-        p_pickup_time: pt == null ? null : String(pt),
-      })
-      if (!lateErr && late != null && Number.isFinite(Number(late))) {
-        // App formát posílá SKUTEČNĚ přiznanou slevu (storno krátí získanou
-        // slevu, 20261001h) — přepočet ji smí jen snížit (strop pravidla), ne
-        // zvednout na plnou hodnotu, kterou zákazník nedostal.
-        const sent = a.late_pickup_discount_amount != null ? Number(a.late_pickup_discount_amount) : NaN
-        d.late_pickup_discount_amount = Number.isFinite(sent) && sent >= 0
-          ? Math.min(Number(late), Math.round(sent)) : Number(late)
-      }
-    } catch { /* best-effort */ }
+  if (res.state === 'failed') {
+    await handlePaidChangeFailure(supabase, { bookingId: a.bookingId, payRef: a.payRef, paidCzk: a.failCzk ?? a.paidCzk ?? 0,
+      code: res.code, reason: res.reason, via: 'webhook', autoRefund: a.autoRefund, review: res.manual === true, stripe,
+      kind: changeKindOf(a.chg) })
   }
+  return false
+}
 
-  if (Object.keys(d).length === 0) return
-
-  // Záznam do modification_history (+ original_* při prvním zásahu) — stejně
-  // jako RPC cesty. Od = základ, proti kterému klient nacenil (`_base`; bez něj
-  // aktuální řádek), do = finální stav. Nese i čas vyzvednutí a late slevu,
-  // aby rozdílový DP (generate-invoice source='edit') uměl vypsat přidané dny
-  // a změnu slevy 50 % na 1. den místo anonymní „korekce".
-  if (cur) {
-    try {
-      const fromS = day((base && base.s) || cur.start_date)
-      const fromE = day((base && base.e) || cur.end_date)
-      const toS = d.start_date ? day(d.start_date) : day(cur.start_date)
-      const toE = d.end_date ? day(d.end_date) : day(cur.end_date)
-      const fromT = hm(base && base.t !== undefined ? base.t : cur.pickup_time)
-      const toT = d.pickup_time !== undefined ? hm(d.pickup_time) : hm(cur.pickup_time)
-      const fromL = Math.round(Number((base && base.l != null) ? base.l : (cur.late_pickup_discount_amount ?? 0)))
-      const toL = Math.round(Number(d.late_pickup_discount_amount ?? cur.late_pickup_discount_amount ?? 0))
-      const datesChanged = toS !== fromS || toE !== fromE
-      const motoChanged = !!d.moto_id && String(d.moto_id) !== String(cur.moto_id || '')
-      const c0 = cur as Record<string, unknown>
-      const chgd = (k: string) => d[k] !== undefined && String(d[k] ?? '') !== String(c0[k] ?? '')
-      const placeChanged = chgd('pickup_method') || chgd('pickup_address') || chgd('return_method') || chgd('return_address')
-        || (d.delivery_fee !== undefined && Math.round(Number(d.delivery_fee)) !== Math.round(Number(cur.delivery_fee || 0)))
-      if (datesChanged || motoChanged || placeChanged || toT !== fromT || fromL !== toL) {
-        const hist = Array.isArray(cur.modification_history) ? (cur.modification_history as unknown[]) : []
-        const priceDiff = (paidCzk != null && Number.isFinite(paidCzk))
-          ? Math.round(paidCzk)
-          : (d.total_price != null ? Math.round(Number(d.total_price) - Number(cur.total_price || 0)) : null)
-        hist.push({
-          at: new Date().toISOString(),
-          from_start: fromS, from_end: fromE, to_start: toS, to_end: toE,
-          from_pickup_time: fromT || null, to_pickup_time: toT || null,
-          from_late_pickup: fromL, to_late_pickup: toL,
-          ...(motoChanged ? { from_moto_id: cur.moto_id, to_moto_id: d.moto_id } : {}),
-          ...(placeChanged ? {
-            from_pickup_method: cur.pickup_method ?? null, to_pickup_method: (d.pickup_method ?? cur.pickup_method) ?? null,
-            from_pickup_address: cur.pickup_address ?? null, to_pickup_address: (d.pickup_address !== undefined ? d.pickup_address : cur.pickup_address) ?? null,
-            from_return_method: cur.return_method ?? null, to_return_method: (d.return_method ?? cur.return_method) ?? null,
-            from_return_address: cur.return_address ?? null, to_return_address: (d.return_address !== undefined ? d.return_address : cur.return_address) ?? null,
-            from_delivery_fee: cur.delivery_fee ?? null, to_delivery_fee: (d.delivery_fee ?? cur.delivery_fee) ?? null,
-            // podíly stran pro příští úpravu (_apply_booking_changes_core je
-            // bere za přesné jen s fee_split_exact = true)
-            ...(fin(srv.pf) && fin(srv.rf) && d.delivery_fee !== undefined && Math.round(Number(srv.pf) + Number(srv.rf)) === Math.round(Number(d.delivery_fee))
-              ? { pickup_fee_to: Number(srv.pf), return_fee_to: Number(srv.rf), fee_split_exact: srv.x === true } : {}),
-          } : {}),
-          ...(priceDiff != null ? { price_diff: priceDiff } : {}),
-          source: 'stripe_webhook',
-          ...(payRef ? { payment_ref: payRef } : {}),
-          ...(stale ? { stale_baseline: true } : {}),
-        })
-        d.modification_history = hist
-        if (datesChanged && !cur.original_start_date) {
-          d.original_start_date = fromS
-          d.original_end_date = fromE
-        }
-      }
-    } catch { /* history je best-effort — update změny proběhne i bez ní */ }
-  }
-
-  const { error } = await supabase.from('bookings').update(d).eq('id', bookingId)
+/** D1/D2: dorovnání platby kartou do ceny řádku AŽ PO zaplacení (před potvrzením).
+ *  true = přechodná chyba DB → webhook vrátí 500 a Stripe událost zopakuje. */
+// deno-lint-ignore no-explicit-any
+async function chargeRoundingNeedsRetry(supabase: any, table: 'bookings' | 'shop_orders', id: string,
+  md: Record<string, string> | null | undefined, payRef: string): Promise<boolean> {
   try {
-    await supabase.from('debug_log').insert({
-      source: 'webhook-receiver',
-      action: error ? 'extension_change_apply_failed' : 'extension_change_applied',
-      component: 'stripe',
-      status: error ? 'error' : 'ok',
-      error_message: error?.message || null,
-      request_data: { booking_id: bookingId, fields: Object.keys(d), paid_czk: paidCzk, stale_baseline: stale },
-    })
+    return (await applyChargeRounding(supabase, { table, id, md, payRef })) === 'error'
+  } catch { return true }
+}
+
+/** D1: dorovnání se nepodařilo zapsat (přechodná chyba DB) → 500 HNED, ještě PŘED potvrzením
+ *  platby. Jinak by potvrzení vystavilo doklad na cenu bez dorovnání (7 Kč při stržených 15)
+ *  a opakovaná událost by pak zvedla cenu už zaplacené rezervace (mail „rezervace upravena
+ *  +8 Kč" a další DP). Stripe událost zopakuje — dorovnání i potvrzení proběhnou spolu
+ *  (všechny kroky jsou idempotentní). */
+// deno-lint-ignore no-explicit-any
+async function roundingRetry(supabase: any, ref: string | null, id: string): Promise<Response> {
+  try {
+    await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'charge_rounding_retry', component: 'stripe',
+      status: 'error', request_data: { id, payment_ref: ref } })
   } catch { /* ignore */ }
+  return new Response(JSON.stringify({ received: true, retry: 'charge_rounding_pending' }), {
+    status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}
+
+/** Byl řádek zaplacený už PŘED touto událostí? (pak jde o druhou událost téže platby,
+ *  nebo o druhou platbu — refundDuplicateCharges rozliší podle Stripe). */
+// deno-lint-ignore no-explicit-any
+async function rowPaid(supabase: any, table: 'bookings' | 'shop_orders', id: string): Promise<boolean> {
+  try {
+    const { data } = await supabase.from(table).select('payment_status').eq('id', id).maybeSingle()
+    return (data as { payment_status?: string } | null)?.payment_status === 'paid'
+  } catch { return false }
 }
 
 Deno.serve(async (req: Request) => {
@@ -394,6 +156,9 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   )
+
+  // D6: zaplacenou změnu se nepodařilo zapsat kvůli přechodné chybě → na konci 500 (Stripe zopakuje).
+  let retryNeeded = false
 
   try {
     const body = await req.text()
@@ -514,13 +279,37 @@ Deno.serve(async (req: Request) => {
           try { await syncCardsForCustomer(supabase, session.customer as string) } catch (e) { console.warn('[webhook] card sync failed:', (e as Error).message) }
         }
       } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        // extension = doplatek za úpravu → potvrdit platbu, ale bez booking_reserved
-        // mailu (mail úpravy pošle trigger po aplikaci změny níže)
-        await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId, paymentType === 'extension')
+        if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) return await roundingRetry(supabase, stripePaymentIntentId || session.id, resolvedBookingId)
+        // D4 (oprava 2026-10-16): doplatek úpravy rezervaci NEpotvrzuje přes confirm_payment
+        // (ten zrušenou rezervaci „oživil" — zákazník by ji dostal zpět za cenu doplatku).
+        // Zrušená / ukončená rezervace → změna se nezapíše a doplatek se vrátí.
+        const ext = paymentType === 'extension'
+          ? await prepareExtensionPayment(supabase, resolvedBookingId, stripePaymentIntentId, session.id) : null
+        const cb = ext ? null : await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
+        if (cb === 'revive_failed' && stripePaymentIntentId) await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, stripePaymentIntentId)
+        // Druhá platba za tutéž rezervaci (dvě záložky / starší Checkout Session) → vrátit.
+        if (cb === 'duplicate' && stripePaymentIntentId) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
+            customer: typeof session.customer === 'string' ? session.customer : null, table: 'bookings', refId: resolvedBookingId, type: 'booking' })
+        }
+        if (ext === 'retry') retryNeeded = true
         // Doplatková změna rezervace — aplikuj server-side (spustí web_booking_modified)
-        if (paymentType === 'extension') {
-          try { await applyExtensionChange(supabase, resolvedBookingId, chgFromMetadata(metadata), (!metadata.shop_order_id && session.amount_total != null) ? session.amount_total / 100 : null, metadata.srv, stripePaymentIntentId || session.id) }
-          catch (e) { console.warn('[webhook] extension change apply failed:', (e as Error).message) }
+        if (paymentType === 'extension' && ext !== 'retry') {
+          const bundled = !!metadata.shop_order_id
+          let piObj: PiLike | null = null
+          if (stripePaymentIntentId) {
+            try { piObj = await stripe.paymentIntents.retrieve(stripePaymentIntentId, { expand: ['latest_charge'] }) as unknown as PiLike }
+            catch { piObj = { id: stripePaymentIntentId, metadata: null } }
+          }
+          if (await finishPaidChange(supabase, {
+            bookingId: resolvedBookingId, chg: chgFromMetadata(metadata), srv: metadata.srv,
+            paidCzk: (!bundled && session.amount_total != null) ? session.amount_total / 100 : null,
+            payRef: stripePaymentIntentId || session.id, rounding: Number(metadata.card_rounding || 0) || 0,
+            eventCreated: event.created, autoRefund: !bundled,
+            // s přibalenou e-shop objednávkou částka změny z platby nejde oddělit → vratku řeší obsluha
+            failCzk: session.amount_total != null ? session.amount_total / 100 : 0,
+            pi: piObj, since: new Date((session.created || event.created) * 1000).toISOString(), closed: ext === 'closed',
+          })) retryNeeded = true
         }
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
         if (metadata.shop_order_id) {
@@ -532,12 +321,24 @@ Deno.serve(async (req: Request) => {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
       } else if (paymentType === 'shop' && resolvedOrderId) {
+        if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, stripePaymentIntentId || session.id)) return await roundingRetry(supabase, stripePaymentIntentId || session.id, resolvedOrderId)
+        const wasPaid = await rowPaid(supabase, 'shop_orders', resolvedOrderId)
         await confirmShopPayment(supabase, resolvedOrderId, session.id, stripePaymentIntentId)
+        if (wasPaid && stripePaymentIntentId) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
+            customer: typeof session.customer === 'string' ? session.customer : null, table: 'shop_orders', refId: resolvedOrderId, type: 'shop' })
+        }
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
       } else if (paymentType === 'sos' && resolvedBookingId) {
+        if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, stripePaymentIntentId || session.id)) return await roundingRetry(supabase, stripePaymentIntentId || session.id, resolvedBookingId)
+        const wasPaid = await rowPaid(supabase, 'bookings', resolvedBookingId)
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, session.id, stripePaymentIntentId)
+        if (wasPaid && stripePaymentIntentId) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
+            customer: typeof session.customer === 'string' ? session.customer : null, table: 'bookings', refId: resolvedBookingId, type: 'sos' })
+        }
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
@@ -572,25 +373,57 @@ Deno.serve(async (req: Request) => {
         } catch (e) { console.warn('[webhook] PI fallback lookup failed:', e) }
       }
 
+      const piCustomer = typeof paymentIntent.customer === 'string' ? paymentIntent.customer
+        : ((paymentIntent.customer as { id?: string } | null)?.id || null)
       if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
-        await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null, paymentType === 'extension')
-        if (paymentType === 'extension') {
-          try { await applyExtensionChange(supabase, resolvedBookingId, chgFromMetadata(metadata), Number.isFinite(paymentIntent.amount) ? paymentIntent.amount / 100 : null, metadata.srv, paymentIntent.id) }
-          catch (e) { console.warn('[webhook] extension change apply (intent) failed:', (e as Error).message) }
+        if (paymentType === 'booking' && await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) return await roundingRetry(supabase, paymentIntent.id, resolvedBookingId)
+        // D4: doplatek úpravy NEpotvrzuje rezervaci přes confirm_payment (viz checkout.session.completed).
+        const ext = paymentType === 'extension'
+          ? await prepareExtensionPayment(supabase, resolvedBookingId, paymentIntent.id, null) : null
+        const cb = ext ? null : await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null)
+        if (cb === 'revive_failed') await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, paymentIntent.id)
+        if (cb === 'duplicate') {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
+            table: 'bookings', refId: resolvedBookingId, type: 'booking' })
+        }
+        if (ext === 'retry') retryNeeded = true
+        if (paymentType === 'extension' && ext !== 'retry') {
+          if (await finishPaidChange(supabase, {
+            bookingId: resolvedBookingId, chg: chgFromMetadata(metadata), srv: metadata.srv,
+            paidCzk: Number.isFinite(paymentIntent.amount) ? paymentIntent.amount / 100 : null,
+            payRef: paymentIntent.id, rounding: Number(metadata.card_rounding || 0) || 0,
+            eventCreated: event.created, autoRefund: true,
+            pi: paymentIntent as unknown as PiLike, since: new Date(paymentIntent.created * 1000).toISOString(), closed: ext === 'closed',
+          })) retryNeeded = true
         }
         if (metadata.shop_order_id) {
           try { await confirmShopPayment(supabase, metadata.shop_order_id, paymentIntent.id) }
           catch (e) { console.warn('[webhook] bundled shop confirm (intent) failed:', e) }
         }
       } else if (paymentType === 'shop' && resolvedOrderId) {
+        if (await chargeRoundingNeedsRetry(supabase, 'shop_orders', resolvedOrderId, metadata, paymentIntent.id)) return await roundingRetry(supabase, paymentIntent.id, resolvedOrderId)
+        const wasPaid = await rowPaid(supabase, 'shop_orders', resolvedOrderId)
         await confirmShopPayment(supabase, resolvedOrderId, paymentIntent.id)
+        if (wasPaid) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
+            table: 'shop_orders', refId: resolvedOrderId, type: 'shop' })
+        }
       } else if (paymentType === 'sos' && resolvedBookingId) {
+        if (await chargeRoundingNeedsRetry(supabase, 'bookings', resolvedBookingId, metadata, paymentIntent.id)) return await roundingRetry(supabase, paymentIntent.id, resolvedBookingId)
+        const wasPaid = await rowPaid(supabase, 'bookings', resolvedBookingId)
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, paymentIntent.id)
+        if (wasPaid) {
+          await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
+            table: 'bookings', refId: resolvedBookingId, type: 'sos' })
+        }
       }
 
       // Capture card brand + last4 from the underlying Charge so Velín booking detail
       // can show "Visa **** 4242" without an on-demand Stripe call.
-      if (resolvedBookingId) {
+      // Doplatek změny, kterou nešlo zapsat (vrací se celý, rezervace beze změny — f1 2026-10-22),
+      // kartu rezervace nepřepisuje.
+      const unappliedChange = paymentType === 'extension' && !!(await failureRow(supabase, paymentIntent.id))
+      if (resolvedBookingId && !unappliedChange) {
         try {
           const chargeId = typeof (paymentIntent as any).latest_charge === 'string'
             ? (paymentIntent as any).latest_charge
@@ -760,7 +593,19 @@ Deno.serve(async (req: Request) => {
       //    → zacancelovat + dohrát dobropis + mail (původní scénář 1).
       // C) EXTERNÍ ČÁSTEČNÝ refund: nikdy nerušit rezervaci — jen payment_status
       //    + debug_log warning k ručnímu prověření (dobropis vystaví admin).
-      if (linkedBooking) {
+      // D4: vratka DVOJÍ platby (duplicate-payment) se do stavu rezervace nepromítá —
+      // rezervaci platí ponechaná platba; jen finanční událost výše.
+      // Totéž u vratky doplatku, který se do rezervace nezapsal (unapplied_change), a u vratky
+      // pozdní platby už zrušené rezervace (late_payment — k platbě nevznikl doklad).
+      const latestSource = ((latestRefund?.metadata || {}) as Record<string, string>).mg_source || ''
+      const dupRefund = ['duplicate_payment', 'unapplied_change', 'late_payment'].includes(latestSource)
+      if (linkedBooking && dupRefund) {
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'charge_refunded_duplicate', component: 'stripe',
+            status: 'info', request_data: { booking_id: linkedBooking.id, refund_id: latestRefund?.id || null } })
+        } catch { /* ignore */ }
+      }
+      if (linkedBooking && !dupRefund) {
         try {
           const refundCzk = charge.amount_refunded / 100
           const total = Number(linkedBooking.total_price || 0)
@@ -787,10 +632,17 @@ Deno.serve(async (req: Request) => {
           // 1) UPDATE booking: payment_status dle reality na Stripe (plně/částečně
           //    vráceno) + stripe_refund_id; cancellation pole JEN u externího
           //    plného refundu (skutečné storno přes Stripe portál).
-          const bkPatch: Record<string, any> = {
-            payment_status: fullyRefunded ? 'refunded' : 'partial_refund',
+          //    Vratka z process-refund (mg_source): stav nastavuje process-refund sám — vrací
+          //    i z více plateb (storno 50 % = celý malý doplatek + zbytek z původní platby),
+          //    takže „tahle charge je celá vrácená" ≠ rezervace vrácená celá. Webhook jen
+          //    zastoupí stav, dokud ho process-refund nezapsal (stále 'paid'), aby recovery
+          //    volání níže (bez částky) nevytvořilo další vratku; stripe_refund_id jen prázdné.
+          const fromProcessRefund = latestSource === 'process-refund'
+          const bkPatch: Record<string, any> = {}
+          if (!fromProcessRefund || linkedBooking.payment_status === 'paid') {
+            bkPatch.payment_status = fullyRefunded ? 'refunded' : 'partial_refund'
           }
-          if (latestRefund?.id) bkPatch.stripe_refund_id = latestRefund.id
+          if (latestRefund?.id && (!fromProcessRefund || !linkedBooking.stripe_refund_id)) bkPatch.stripe_refund_id = latestRefund.id
           if (shouldCancel) {
             bkPatch.status = 'cancelled'
             bkPatch.cancelled_at = new Date().toISOString()
@@ -799,7 +651,7 @@ Deno.serve(async (req: Request) => {
               ? `Refund přes Stripe portál (${refundReason})`
               : 'Refund přes Stripe portál'
           }
-          await supabase.from('bookings').update(bkPatch).eq('id', linkedBooking.id)
+          if (Object.keys(bkPatch).length) await supabase.from('bookings').update(bkPatch).eq('id', linkedBooking.id)
 
           await supabase.from('debug_log').insert({
             source: 'webhook-receiver',
@@ -884,6 +736,13 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    if (retryNeeded) {
+      // Všechny kroky výše jsou idempotentní (confirm_payment was_already_paid, payment_ref,
+      // financial_events dle PI) — Stripe událost doručí znovu a změna se dopíše.
+      return new Response(JSON.stringify({ received: true, retry: 'paid_change_pending' }), {
+        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
     return new Response(JSON.stringify({ received: true }), {
       status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
     })

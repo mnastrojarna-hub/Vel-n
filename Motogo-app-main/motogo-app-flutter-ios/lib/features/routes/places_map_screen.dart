@@ -13,6 +13,7 @@ import 'places_map.dart';
 import 'route_poi_sheet.dart';
 import 'routes_map_provider.dart';
 import 'routes_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Celoobrazovková mapa MÍST — trasy z katalogu se sem NEKRESLÍ.
 ///
@@ -75,9 +76,10 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
   @override
   void initState() {
     super.initState();
-    // Mapa je celá o poloze — vyžádat si ji hned po otevření je očekávané.
+    // Mapa je celá o poloze — vyžádat si ji hned po otevření je očekávané,
+    // ale NIKDY nevytahovat do Nastavení (to až na tlačítku „moje poloha").
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ensureLocation(ref);
+      if (mounted) requestLocationQuietly(ref);
     });
   }
 
@@ -188,7 +190,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               children: [
                 _round(Icons.my_location, () async {
                   if (me == null) {
-                    final ok = await ensureLocation(ref);
+                    final ok = await ensureLocation(ref, context: context);
                     if (!ok || !mounted) return;
                   }
                   _mapKey.currentState?.centerOnMe();
@@ -279,7 +281,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
         ),
         child: Row(
           children: [
-            GestureDetector(
+            MgBackTap(
               onTap: () => context.backOr(Routes.routes),
               child: const Padding(
                 padding: EdgeInsets.all(4),

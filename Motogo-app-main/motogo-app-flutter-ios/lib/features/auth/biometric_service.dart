@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
 
 import '../../core/i18n/translations.dart';
@@ -44,9 +46,14 @@ class BiometricService {
   /// Authenticate user with biometrics.
   /// Returns true on success, false on failure/cancel.
   /// Mirrors BiometricAuth.authenticate() from Capacitor plugin.
-  static Future<bool> authenticate() async {
+  static Future<bool> authenticate() async =>
+      await authenticateResult() == BioAuthResult.ok;
+
+  /// Jako [authenticate], ale řekne PROČ ověření neprošlo — zablokovaná
+  /// biometrie / bez nastaveného otisku se nesmí tvářit jako „Ověření zrušeno".
+  static Future<BioAuthResult> authenticateResult() async {
     try {
-      return await _auth.authenticate(
+      final ok = await _auth.authenticate(
         localizedReason: _tr('bioLoginReason'),
         options: const AuthenticationOptions(
           stickyAuth: true,
@@ -54,8 +61,24 @@ class BiometricService {
           useErrorDialogs: true,
         ),
       );
+      return ok ? BioAuthResult.ok : BioAuthResult.cancelled;
+    } on PlatformException catch (e) {
+      switch (e.code) {
+        case auth_error.lockedOut:
+        case auth_error.permanentlyLockedOut:
+          return BioAuthResult.lockedOut;
+        case auth_error.notEnrolled:
+        case auth_error.passcodeNotSet:
+          return BioAuthResult.notEnrolled;
+        case auth_error.notAvailable:
+          return BioAuthResult.unavailable;
+      }
+      return BioAuthResult.cancelled;
     } catch (_) {
-      return false;
+      return BioAuthResult.cancelled;
     }
   }
 }
+
+/// Výsledek biometrického ověření.
+enum BioAuthResult { ok, cancelled, lockedOut, notEnrolled, unavailable }

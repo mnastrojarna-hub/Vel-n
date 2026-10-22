@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:geolocator/geolocator.dart';
+
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../../core/auth_guard.dart';
+import '../../core/realtime_resilience.dart';
 import '../../core/supabase_client.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
@@ -136,23 +138,23 @@ class SosTimelineEntry {
 }
 
 /// Active SOS incident for current user (realtime).
+///
+/// Výpadek realtime spojení (websocket, chvíle bez signálu) už provider
+/// neshodí do chyby na celou session (dřív zmizel banner aktivního incidentu
+/// a detail ukazoval „vyřešeno"): drží poslední data a znovu se připojí.
 final activeSosProvider = StreamProvider<SosIncident?>((ref) async* {
   final user = MotoGoSupabase.currentUser;
   if (user == null) { yield null; return; }
 
   yield await _fetchActiveIncident(user.id);
 
-  try {
-    await for (final _ in MotoGoSupabase.client
+  yield* resilientRealtime(
+    () => MotoGoSupabase.client
         .from('sos_incidents')
         .stream(primaryKey: ['id'])
-        .eq('user_id', user.id)) {
-      yield await _fetchActiveIncident(user.id);
-    }
-  } catch (e) {
-    if (await handleAuthError(e)) return;
-    rethrow;
-  }
+        .eq('user_id', user.id),
+    () => _fetchActiveIncident(user.id),
+  );
 });
 
 Future<SosIncident?> _fetchActiveIncident(String userId) async {
@@ -175,17 +177,13 @@ Future<SosIncident?> _fetchActiveIncident(String userId) async {
 /// Timeline entries for an incident (realtime).
 final sosTimelineProvider = StreamProvider.family<List<SosTimelineEntry>, String>((ref, incidentId) async* {
   yield await _fetchTimeline(incidentId);
-  try {
-    await for (final _ in MotoGoSupabase.client
+  yield* resilientRealtime(
+    () => MotoGoSupabase.client
         .from('sos_timeline')
         .stream(primaryKey: ['id'])
-        .eq('incident_id', incidentId)) {
-      yield await _fetchTimeline(incidentId);
-    }
-  } catch (e) {
-    if (await handleAuthError(e)) return;
-    rethrow;
-  }
+        .eq('incident_id', incidentId),
+    () => _fetchTimeline(incidentId),
+  );
 });
 
 Future<List<SosTimelineEntry>> _fetchTimeline(String incidentId) async {
@@ -217,7 +215,9 @@ Future<String> createSosIncident({
 }) async {
   // Check for existing active serious incident
   final user = MotoGoSupabase.currentUser;
-  if (user == null) throw Exception('Nepřihlášen — přihlaste se znovu');
+  if (user == null) {
+    throw const AuthException('not_authenticated', statusCode: '401');
+  }
 
   final existing = await MotoGoSupabase.client
       .from('sos_incidents')
@@ -295,65 +295,49 @@ Future<String?> _findMotoId(String bookingId) async {
   return res?['moto_id'] as String?;
 }
 
-/// Share GPS location via sos_share_location RPC.
-/// DB: sos_share_location(p_incident_id, p_lat, p_lng) → boolean
-Future<void> shareLocation(String incidentId) async {
-  try {
-    final pos = await _getGps();
-    if (pos == null) return;
-    await MotoGoSupabase.client.rpc('sos_share_location', params: {
-      'p_incident_id': incidentId,
-      'p_lat': pos.latitude,
-      'p_lng': pos.longitude,
-    });
-  } catch (_) {}
-}
-
-/// Get GPS position with fallback — mirrors _sosGetGPS.
-/// Permission is already granted at onboarding — just check, don't re-ask.
-Future<Position?> _getGps() async {
-  try {
-    final perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied ||
-        perm == LocationPermission.deniedForever) {
-      return null;
-    }
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 30),
-    );
-  } catch (_) {
-    try {
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
-        timeLimit: const Duration(seconds: 30),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-}
-
 /// Upload SOS photos — mirrors uploadSOSPhotos from sos-photo.js.
-Future<List<String>> uploadSosPhotos(String incidentId, List<XFile> photos) async {
+/// Nahraje fotky k incidentu. Zákazníka v nouzi NIKDY nedrží déle než
+/// [budget] (slabé LTE: dřív až minuty pod nezavíratelným „Nahrávám
+/// fotky…"). Každá fotka má vlastní pokus — úspěšné se k incidentu uloží,
+/// i když jiné selžou. Vrací adresy fotek, které jsou opravdu u incidentu;
+/// méně než [photos] = zbytek ať zákazník pošle ve Zprávách.
+Future<List<String>> uploadSosPhotos(String incidentId, List<XFile> photos,
+    {Duration budget = const Duration(seconds: 40)}) async {
+  final deadline = DateTime.now().add(budget);
   final urls = <String>[];
   for (var i = 0; i < photos.length; i++) {
-    final bytes = await photos[i].readAsBytes();
-    final path = '$incidentId/${DateTime.now().millisecondsSinceEpoch}-$i.jpg';
-    await MotoGoSupabase.client.storage.from('sos-photos').uploadBinary(path, bytes);
-    final url = MotoGoSupabase.client.storage.from('sos-photos').getPublicUrl(path);
-    urls.add(url);
+    final left = deadline.difference(DateTime.now());
+    if (left < const Duration(seconds: 2)) break;
+    try {
+      final bytes = await photos[i].readAsBytes();
+      final path = '$incidentId/${DateTime.now().millisecondsSinceEpoch}-$i.jpg';
+      await MotoGoSupabase.client.storage
+          .from('sos-photos')
+          .uploadBinary(path, bytes)
+          .timeout(left);
+      urls.add(MotoGoSupabase.client.storage.from('sos-photos').getPublicUrl(path));
+    } catch (_) {/* další fotka; chybějící pošle zákazník ve Zprávách */}
   }
-  if (urls.isNotEmpty) {
-    await MotoGoSupabase.client.from('sos_incidents').update({'photos': urls}).eq('id', incidentId);
+  if (urls.isEmpty) return urls;
+  try {
+    await MotoGoSupabase.client
+        .from('sos_incidents')
+        .update({'photos': urls})
+        .eq('id', incidentId)
+        .timeout(const Duration(seconds: 10));
+    return urls;
+  } catch (_) {
+    // Fotky jsou nahrané, ale incident o nich neví → pro zákazníka neodeslané.
+    return const [];
   }
-  return urls;
 }
 
 /// End ride + request tow — mirrors sosEndRide() from ui-sos-core.js.
 /// Sets customer_decision='end_ride', requests tow, ends booking.
-Future<bool> sosEndRide(String incidentId, {required bool isFault}) async {
-  try {
+/// Chybu HÁZE — volající nesmí ukázat „Odtah objednán", když se žádost
+/// neuložila (Velín by o odtahu nevěděl).
+Future<void> sosEndRide(String incidentId, {required bool isFault}) async {
+  {
     await MotoGoSupabase.client.from('sos_incidents').update({
       'customer_decision': 'end_ride',
       'moto_rideable': false,
@@ -365,16 +349,14 @@ Future<bool> sosEndRide(String incidentId, {required bool isFault}) async {
       'incident_id': incidentId,
       'action': 'Zákazník ukončuje jízdu — žádá odtah ($faultLabel)',
     });
-    return true;
-  } catch (_) {
-    return false;
   }
 }
 
 /// Customer continues the ride after a minor incident ("Jedu dál").
 /// Records moto as rideable + a timeline entry so Velín sees the decision.
-Future<bool> sosContinueRide(String incidentId) async {
-  try {
+/// Chybu HÁZE (viz [sosEndRide]).
+Future<void> sosContinueRide(String incidentId) async {
+  {
     await MotoGoSupabase.client.from('sos_incidents').update({
       'customer_decision': 'continue',
       'moto_rideable': true,
@@ -384,9 +366,6 @@ Future<bool> sosContinueRide(String incidentId) async {
       'incident_id': incidentId,
       'action': 'Zákazník pokračuje v jízdě (jedu dál)',
     });
-    return true;
-  } catch (_) {
-    return false;
   }
 }
 
@@ -409,8 +388,9 @@ Future<bool> checkBookingHadDelivery(String? bookingId) async {
 }
 
 /// Upload service invoice photo — attached to breakdown incident.
-Future<String?> uploadServiceInvoice(String incidentId, XFile photo) async {
-  try {
+/// Chybu HÁZE, ať zákazník ví proč (síť / oprávnění) a co dál.
+Future<String> uploadServiceInvoice(String incidentId, XFile photo) async {
+  {
     final bytes = await photo.readAsBytes();
     final path = '$incidentId/invoice-${DateTime.now().millisecondsSinceEpoch}.jpg';
     await MotoGoSupabase.client.storage.from('sos-photos').uploadBinary(path, bytes);
@@ -422,7 +402,5 @@ Future<String?> uploadServiceInvoice(String incidentId, XFile photo) async {
       'description': url,
     });
     return url;
-  } catch (_) {
-    return null;
   }
 }

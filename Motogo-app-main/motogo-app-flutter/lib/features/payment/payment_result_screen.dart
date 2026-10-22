@@ -7,12 +7,16 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/paid_change_queue.dart';
 import '../../core/pending_booking_fab_provider.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/pickup_location_link.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../reservations/reservation_provider.dart' show reservationsProvider;
+import 'booking_upsell_provider.dart';
+import 'paid_change_outcomes.dart';
 import 'payment_provider.dart';
+import 'payment_ui_helpers.dart';
 import 'payment_verify.dart';
 
 /// Univerzální výsledková obrazovka pro platební flow, která nemají vlastní
@@ -37,10 +41,18 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
   bool _verifying = false;
   /// Ověření prokázalo, že platba neproběhla.
   bool _notPaid = false;
+  /// Zaplacená změna se dokončuje (D6) — výsledek z fronty i bez klepnutí.
+  StreamSubscription<PaidChangeEvent>? _queueSub;
 
   @override
   void initState() {
     super.initState();
+    final key = ref.read(paymentOutcomeProvider)?.completeKey;
+    if (key != null) {
+      _queueSub = PaidChangeQueue.events.listen((ev) {
+        if (ev.entry.key == key && mounted) _applyQueueResult(ev.result);
+      });
+    }
     // „Platba se ověřuje": každých 10 s se zeptej DB (max 3 min) — jakmile
     // webhook platbu potvrdí, obrazovka se sama přepne na úspěch.
     final o = ref.read(paymentOutcomeProvider);
@@ -58,7 +70,43 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
   @override
   void dispose() {
     _autoVerify?.cancel();
+    _queueSub?.cancel();
     super.dispose();
+  }
+
+  /// Výsledek dokončení zaplacené změny (fronta / „Ověřit znovu").
+  void _applyQueueResult(PaidChangeResult r, {bool silent = true}) {
+    final o = ref.read(paymentOutcomeProvider);
+    if (o == null || o.kind != PaymentOutcomeKind.pending) return;
+    switch (r.status) {
+      case PaidChangeStatus.done:
+        _autoVerify?.cancel();
+        ref.invalidate(reservationsProvider);
+        if (o.verifiedOutcome != null) {
+          ref.read(paymentOutcomeProvider.notifier).state = o.verifiedOutcome;
+        }
+      case PaidChangeStatus.failed:
+        _autoVerify?.cancel();
+        ref.invalidate(reservationsProvider);
+        final key = o.completeKey;
+        if (key != null) PaidChangeQueue.acknowledge(key);
+        ref.read(paymentOutcomeProvider.notifier).state = changeFailedOutcome(t(context),
+            // výměna = ověřuje se jen stavem platby (verifyIntentOnly)
+            swap: o.verifyIntentOnly,
+            bookingId: o.verifyBookingId ?? '',
+            r: r,
+            charge: r.amount ?? 0);
+      case PaidChangeStatus.notPaid:
+        _autoVerify?.cancel();
+        setState(() => _notPaid = true);
+      case PaidChangeStatus.completing:
+        if (!silent) {
+          showMotoGoToast(context,
+              icon: '⏳',
+              title: o.title,
+              message: t(context).tr(r.offline ? 'pdCompletingOffline' : 'psVerifyStillPending'));
+        }
+    }
   }
 
   void _goNext(String route) {
@@ -71,6 +119,15 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
     final o = ref.read(paymentOutcomeProvider);
     if (o == null || o.kind != PaymentOutcomeKind.pending || _verifying) return;
     setState(() => _verifying = true);
+    final key = o.completeKey;
+    if (key != null) {
+      // Zaplacená výměna / úprava: ověření = rovnou dokončení na serveru (D6).
+      final r = await PaidChangeQueue.completeNow(key);
+      if (!mounted) return;
+      setState(() => _verifying = false);
+      _applyQueueResult(r, silent: silent);
+      return;
+    }
     final state = await verifyPayment(
       bookingId: o.verifyBookingId,
       orderId: o.verifyOrderId,
@@ -86,6 +143,16 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
         ref.invalidate(reservationsProvider);
         if (o.verifiedRoute != null) {
           ref.read(lastConfirmedBookingProvider.notifier).state = o.verifyBookingId;
+          // Děkovačka nesmí převzít „znovu potvrzená" z dřívější obnovy.
+          ref.read(lastConfirmedRestoreProvider.notifier).state = o.verifiedRestore;
+          ref.read(lastConfirmedFromDraftProvider.notifier).state = false;
+          // Doprodej zaplacený s rezervací → objednávka až teď, po ověření
+          // (stejně jako přímý úspěch na platební obrazovce; viz D7).
+          if (o.verifiedUpsell.isNotEmpty) {
+            createBookingUpsellOrder(o.verifiedUpsell,
+                language: ref.read(localeProvider).languageCode);
+            ref.read(bookingUpsellProvider.notifier).clear();
+          }
           _goNext(o.verifiedRoute!);
         } else if (o.verifiedOutcome != null) {
           ref.read(paymentOutcomeProvider.notifier).state = o.verifiedOutcome;
@@ -123,6 +190,11 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
     final nextStep = _notPaid ? null : outcome?.nextStepNote;
     final ctaLabel = outcome?.ctaLabel ?? tr.tr('successCta');
     final ctaRoute = outcome?.ctaRoute ?? Routes.reservations;
+    // Vedlejší volba (např. „Ponechat současnou motorku") — zavření i „zpět" vedou sem,
+    // ne na primární akci (ta by zákazníka poslala rovnou do výběru jiné motorky).
+    final secondaryLabel = _notPaid ? null : outcome?.secondaryLabel;
+    final secondaryRoute = _notPaid ? null : outcome?.secondaryRoute;
+    final closeRoute = secondaryRoute ?? ctaRoute;
 
     return BackButtonListener(
       // Systémové „zpět" vede vždy na cíl CTA — i když je obrazovka jediná v
@@ -130,15 +202,15 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
       // Android by appku zavřel).
       onBackButtonPressed: () async {
         // Nad obrazovkou je jiná trasa (dialog, Zprávy) → ať se zavře ona.
-        if (!(ModalRoute.of(context)?.isCurrent ?? true)) return false;
-        _goNext(ctaRoute);
+        if (!isTopmostRoute(context)) return false;
+        _goNext(closeRoute);
         return true;
       },
       child: PopScope(
         // Hardwarové „zpět" nesmí vrátit na platební obrazovku — vede na CTA cíl.
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _goNext(ctaRoute);
+          if (!didPop) _goNext(closeRoute);
         },
         child: Scaffold(
           backgroundColor: MotoGoColors.dark,
@@ -155,6 +227,8 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
                         const _StatusBadge(icon: '!', color: MotoGoColors.red)
                       else if (pending)
                         const _StatusBadge(icon: '⏳', color: Color(0xFFF59E0B))
+                      else if (kind == PaymentOutcomeKind.failed)
+                        const _StatusBadge(icon: '!', color: MotoGoColors.red)
                       else if (kind == PaymentOutcomeKind.attention)
                         const _StatusBadge(icon: '✓', color: Color(0xFFF59E0B))
                       else
@@ -251,6 +325,18 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
                           ),
                         ),
                       ),
+                      if (secondaryLabel != null && secondaryRoute != null) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () => _goNext(secondaryRoute),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white38),
+                          ),
+                          child: Text(secondaryLabel),
+                        ),
+                      ],
                       if (pending) ...[
                         const SizedBox(height: 12),
                         OutlinedButton(
@@ -282,7 +368,7 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
                   button: true,
                   label: tr.tr('close'),
                   child: IconButton(
-                    onPressed: () => _goNext(ctaRoute),
+                    onPressed: () => _goNext(closeRoute),
                     iconSize: 26,
                     color: Colors.white70,
                     tooltip: tr.tr('close'),

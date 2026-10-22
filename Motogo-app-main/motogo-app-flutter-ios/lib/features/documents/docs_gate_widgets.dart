@@ -4,6 +4,7 @@ import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'document_models.dart';
 import 'docs_gate_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// UI k bráně dokladů (2026-10-10) pro obrazovku Moje doklady — mimo
 /// `documents_screen.dart` kvůli limitu velikosti souboru.
@@ -27,8 +28,8 @@ Future<(ScanDocType, String?, String)?> pickGalleryDocKind(BuildContext context)
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(ctx).tr('galleryPickDocType'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+          MgSheetTitleRow(title: Text(t(ctx).tr('galleryPickDocType'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black))),
           const SizedBox(height: 16),
           ...options.map((o) => ListTile(
                 leading: Text(o.$1, style: const TextStyle(fontSize: 22)),

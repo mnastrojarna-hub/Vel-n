@@ -71,7 +71,13 @@ $keys = [
     'editRez.moto.licReq','editRez.moto.licenseInsufficient','editRez.moto.notAvailable',
     'editRez.moto.noOptions','editRez.moto.confirm','editRez.moto.branchLabel','editRez.moto.branchAll',
     'editRez.change.success','editRez.change.successWithRefund','editRez.err.activeMotoLocked',
-    'editRez.postStripe.applying','editRez.postStripe.error',
+    'editRez.postStripe.applying','editRez.postStripe.error','editRez.postStripe.finishing',
+    // odpověď majitele 2026-10-16: výsledek zaplacené změny ze serveru + minimální platba kartou
+    'editRez.paid.takenTitle','editRez.paid.takenBody','editRez.paid.takenBodyStaff','editRez.paid.pickOther',
+    'editRez.paid.keepCurrent','editRez.paid.close','editRez.paid.failedTitle','editRez.paid.failedBody',
+    'editRez.paid.failedBodyStaff','editRez.paid.notPaid','editRez.paid.waived','editRez.paid.why.date',
+    'editRez.paid.why.license','editRez.paid.why.closed','editRez.paid.refundAuto','editRez.paid.refundStaff',
+    'editRez.card.round','editRez.card.waive','editRez.card.roundShort','editRez.card.waiveShort',
     'editRez.loc.pickup','editRez.loc.return','editRez.loc.atRental','editRez.loc.delivery','editRez.loc.deliveryReturn',
     'editRez.loc.addrPlaceholder','editRez.loc.mapBtn','editRez.loc.routing','editRez.loc.geocodeFail',
     'editRez.loc.noPriceChange','editRez.loc.cta','editRez.loc.confirm','editRez.loc.pickOnMap','editRez.loc.pickConfirm',
@@ -142,6 +148,8 @@ $keys = [
     'editRez.moto.samePrice','editRez.moto.diffRefund','editRez.moto.reasonLicense','editRez.moto.reasonOccupied','editRez.moto.reasonTrailerBranch','editRez.moto.trailerOccupied',
     'editRez.pay.trailerStaffedOnly','editRez.pay.trailerOccupied','editRez.pay.checkUnavailable','editRez.pay.validationUnavailable',
     'editRez.pay.notFound','editRez.pay.forbidden','editRez.pay.stale','editRez.pay.amountMismatch','editRez.pay.motoUnavailable','editRez.pay.wrongStatus','editRez.pay.authRequired',
+    // D1–D6 (2026-10-16): další kódy odmítnutí process-payment
+    'editRez.pay.belowMinimum','editRez.pay.roundingUnavailable','editRez.pay.inProgress','editRez.pay.previousChange','editRez.pay.duplicate','editRez.pay.gatewayDown','editRez.pay.serverError','editRez.pay.cancelled','editRez.pay.voucherUnavailable','editRez.pay.notApplicable','editRez.pay.tooLarge','editRez.pay.deliveryFee','editRez.pay.pickupLocked','editRez.pay.needsRoute','editRez.pay.notPaid','editRez.pay.invalidMoto','editRez.pay.swapDate','editRez.pay.alreadySplit','editRez.pay.license','editRez.pay.motoTaken',
     // Cenový rozdíl v potvrzovacím dialogu výměny + poznámka o ruční vratce
     // (pages-upravit-rezervaci-swap.js je používá, ve whitelistu chyběly →
     // MG.t() vypisovalo syrový název klíče).
@@ -256,10 +264,12 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
+<script src="' . assetUrl('/js/card-rounding.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-move.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-swap.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gear.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci-paid.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-resume.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-guard.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gate.js') . '"></script>

@@ -14,6 +14,12 @@ import 'ride_point_sheet.dart';
 import 'ride_provider.dart';
 import 'ride_share.dart';
 import 'route_image.dart';
+import '../../core/widgets/state_views.dart';
+import '../../core/widgets/error_feedback.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_detail_view_v2.dart';
+import 'v2/rides/ride_dialogs_v2.dart';
 
 /// Detail projeté jízdy — mapa se stopou, statistiky, zastávky s fotkami
 /// a popisky (přidat / upravit / smazat), přepínač sdílení a export na
@@ -64,11 +70,23 @@ class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
               _swipe((v.abs() >= 140 ? v < 0 : _dx < 0) ? 1 : -1);
             },
       child: rides.when(
-      loading: () => const Scaffold(
-        backgroundColor: MotoGoColors.bg,
-        body: Center(child: CircularProgressIndicator(color: MotoGoColors.greenDark)),
+      loading: () => MgStateScaffold(
+        onBack: () => context.backOr('/my-experiences'),
+        child: MgLoadingView(
+            color: MotoGoColors.greenDark,
+            onRetry: () => ref.invalidate(myRidesProvider),
+            onBack: () => context.backOr('/my-experiences')),
       ),
-      error: (_, __) => _missing(context),
+      // Chyba načtení ≠ „Jízda nenalezena": důvod + Zkusit znovu + Zpět.
+      error: (e, _) => MgStateScaffold(
+        onBack: () => context.backOr('/my-experiences'),
+        child: MgErrorView(
+          error: e,
+          what: t(context).tr('eoRideLoadFail'),
+          onRetry: () => ref.invalidate(myRidesProvider),
+          onBack: () => context.backOr('/my-experiences'),
+        ),
+      ),
       data: (list) {
         UserRide? ride;
         for (final r in list) {
@@ -81,7 +99,9 @@ class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
     );
   }
 
-  Widget _missing(BuildContext context) => Scaffold(
+  Widget _missing(BuildContext context) => MgV2.on(context)
+      ? RideMissingV2(onBack: () => context.backOr('/my-experiences'))
+      : Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: SafeArea(
           child: Center(
@@ -143,10 +163,17 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
   Future<void> _toggleVisibility(bool public) async {
     if (_busy) return;
     setState(() => _busy = true);
-    await updateUserRide(ride.id, visibility: public ? 'public' : 'private');
+    final ok = await updateUserRide(ride.id, visibility: public ? 'public' : 'private');
     if (!mounted) return;
     setState(() => _busy = false);
+    if (!ok) _saveFailed(() => _toggleVisibility(public));
     await _reload();
+  }
+
+  /// Uložení / smazání se nepovedlo — dřív se výsledek ignoroval.
+  void _saveFailed(VoidCallback retry, {bool delete = false}) {
+    showErrorSnack(context, t(context).tr(delete ? 'eoRideDeleteFail' : 'eoRideSaveFail'),
+        null, where: 'ride_detail_save', onRetry: retry);
   }
 
   Future<void> _editTexts() async {
@@ -154,7 +181,9 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
     final desc = TextEditingController(text: ride.description ?? '');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
+      builder: (c) => MgV2.on(c)
+          ? rideEditDialogV2(c, name, desc)
+          : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(c).tr('rideEditTitle'),
             style: const TextStyle(
@@ -177,7 +206,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: Text(t(c).tr('routesFilterClear'))),
+              child: Text(t(c).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green,
@@ -189,15 +218,18 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
       ),
     );
     if (ok != true) return;
-    await updateUserRide(ride.id,
+    final saved = await updateUserRide(ride.id,
         name: name.text.trim(), description: desc.text.trim());
+    if (!saved && mounted) _saveFailed(_editTexts);
     await _reload();
   }
 
   Future<void> _delete() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
+      builder: (c) => MgV2.on(c)
+          ? rideConfirmDeleteV2(c, title: t(c).tr('rideDeleteConfirm'), body: ride.name)
+          : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(c).tr('rideDeleteConfirm'),
             style: const TextStyle(
@@ -206,7 +238,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
-              child: Text(t(c).tr('routesFilterClear'))),
+              child: Text(t(c).cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFD93636),
@@ -218,7 +250,12 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
       ),
     );
     if (ok != true) return;
-    await deleteUserRide(ride.id);
+    final deleted = await deleteUserRide(ride.id);
+    if (!deleted) {
+      // Nesmazáno → zůstat na detailu a říct to (dřív odešel jako smazané).
+      if (mounted) _saveFailed(_delete, delete: true);
+      return;
+    }
     await _reload();
     if (mounted) context.backOr('/my-experiences');
   }
@@ -236,6 +273,21 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 (PLAN §2.7): stejná jízda a stejné akce, nový vzhled.
+    if (MgV2.on(context)) {
+      return RideDetailViewV2(
+        ride: ride,
+        busy: _busy,
+        onBack: () => context.backOr('/my-experiences'),
+        onEdit: _editTexts,
+        onShare: () => showRideShareSheet(context, ride),
+        onDelete: _delete,
+        onMapTap: _addStop,
+        onPointTap: (i) => _editPoint(ride.points[i]),
+        onEditPoint: _editPoint,
+        onVisibility: _toggleVisibility,
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: SafeArea(
@@ -292,7 +344,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         ),
         child: Row(
           children: [
-            GestureDetector(
+            MgBackTap(
               onTap: () => context.backOr('/my-experiences'),
               child: Container(
                 width: 40,

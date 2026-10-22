@@ -1,7 +1,7 @@
 /// Skener dokladů (OP/pas/ŘP) — návody, důvody selhání, kontakt (cs/en/de/es).
 const Map<String, Map<String, String>> translationsExt33DocScanA = {
   'cs': {
-    'scanSaveFailed': 'Záznam o dokladu se nepodařilo uložit na server.\n\nZkuste to prosím znovu. Pokud problém přetrvává, kontaktujte nás.',
+    'scanSaveFailed': 'Záznam o dokladu se nepodařilo uložit na server.\n\nZkus to prosím znovu. Pokud problém přetrvává, kontaktuj nás.',
     'scanGuideIdFront': 'Nafoťte znovu PŘEDNÍ stranu OP. Musí být vidět jméno, příjmení, fotografie, číslo dokladu a platnost. Doklad dejte na tmavý podklad, bez odlesků a ořezů.',
     'scanGuideIdBack': 'Nafoťte znovu ZADNÍ stranu OP. Stačí aby byla čitelná adresa trvalého bydliště. Dbejte na ostrost a dostatek světla.',
     'scanGuidePassportFront': 'Nafoťte znovu stránku pasu s fotografií a MRZ kódem (dvouřádkový kód dole). Číslo pasu musí být čitelné.',
@@ -19,7 +19,7 @@ const Map<String, Map<String, String>> translationsExt33DocScanA = {
     'scanWriteBtn': 'Napsat',
     'scanTryAgainAnyway': 'Zkusit přesto ještě jednou',
     'scanCloseScanner': 'Zavřít skener',
-    'scanUseCamera': 'Zkuste prosím naskenovat doklad kamerou.',
+    'scanUseCamera': 'Zkus prosím naskenovat doklad kamerou.',
     'scanDlNumberMismatch': 'Číslo ŘP na zadní straně ({back}) neodpovídá přední straně ({front}). Zkuste prosím obě strany vyfotit znovu, aby se shodovaly.',
   },
   'en': {

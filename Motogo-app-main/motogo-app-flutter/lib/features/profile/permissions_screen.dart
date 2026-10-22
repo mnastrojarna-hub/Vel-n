@@ -10,6 +10,10 @@ import '../auth/auth_provider.dart';
 import '../auth/biometric_service.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../reservations/reservation_provider.dart';
+import 'widgets/perm_result.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/permissions_view_v2.dart';
 
 /// Full-screen permissions management — replaces old bottom sheet.
 /// Shows current status of each permission with tap to open system settings.
@@ -68,10 +72,53 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
   @override
   Widget build(BuildContext context) {
     final requiredActive = ref.watch(hasActiveReservationProvider);
+    // Akce sdílené starým i v2 vzhledem (kill-switch app_v2_ui) — těla beze změny.
+    Future<void> onBioTap() async {
+                  if (!_bioEnabled) {
+                    final ok = await BiometricService.authenticate();
+                    if (ok) {
+                      // Ulož povolení + bio-uživatele (jinak se zapnutí neuloží
+                      // a přepínač spadne zpět na OFF).
+                      final saved = await AuthService.enableBiometric();
+                      if (!mounted) return;
+                      showMotoGoToast(context,
+                          icon: saved ? '✓' : 'ℹ️',
+                          title: t(context).tr('biometricsTitle'),
+                          message: t(context).tr(saved ? 'activated' : 'sessionExpired'));
+                    }
+                  } else {
+                    await AuthService.clearBioData();
+                    showMotoGoToast(context,
+                        icon: 'ℹ️',
+                        title: t(context).tr('biometricsTitle'),
+                        message: t(context).tr('deactivated'));
+                  }
+                  await _loadBio();
+    }
+    Future<void> onAllowAll() async {
+                  await requestAllPermissionsAndReport(context);
+                  await _load();
+    }
+    if (MgV2.on(context)) {
+      return PermissionsViewV2(
+        perms: _perms == null
+            ? null
+            : [for (final p in _perms!) (p, requiredActive && !_photoExemptKeys.contains(p.key))],
+        requiredActive: requiredActive,
+        bioAvailable: _bioAvailable,
+        bioEnabled: _bioEnabled,
+        onBack: () => context.backOr(Routes.profile),
+        onOpenSettings: () async {
+          await PermissionService.openSettings();
+        },
+        onBioTap: onBioTap,
+        onAllowAll: onAllowAll,
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.profile),
           child: Center(
             child: Container(
@@ -150,28 +197,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
               ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: () async {
-                  if (!_bioEnabled) {
-                    final ok = await BiometricService.authenticate();
-                    if (ok) {
-                      // Ulož povolení + bio-uživatele (jinak se zapnutí neuloží
-                      // a přepínač spadne zpět na OFF).
-                      final saved = await AuthService.enableBiometric();
-                      if (!mounted) return;
-                      showMotoGoToast(context,
-                          icon: saved ? '✓' : 'ℹ️',
-                          title: t(context).tr('biometricsTitle'),
-                          message: t(context).tr(saved ? 'activated' : 'sessionExpired'));
-                    }
-                  } else {
-                    await AuthService.clearBioData();
-                    showMotoGoToast(context,
-                        icon: 'ℹ️',
-                        title: t(context).tr('biometricsTitle'),
-                        message: t(context).tr('deactivated'));
-                  }
-                  await _loadBio();
-                },
+                onTap: onBioTap,
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -241,16 +267,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen>
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: () async {
-                  await PermissionService.requestAll();
-                  await _load();
-                  if (context.mounted) {
-                    showMotoGoToast(context,
-                        icon: '✅',
-                        title: t(context).tr('permissionLabel'),
-                        message: t(context).tr('permsRerequested'));
-                  }
-                },
+                onPressed: onAllowAll,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(44),
                   shape: RoundedRectangleBorder(

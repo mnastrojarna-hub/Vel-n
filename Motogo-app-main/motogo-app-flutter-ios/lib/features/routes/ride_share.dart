@@ -8,6 +8,7 @@ import '../../core/i18n/i18n_provider.dart';
 import 'ride_card.dart' show rideDate, rideDuration;
 import 'ride_model.dart';
 import 'route_export.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Sdílení projeté jízdy na sociální sítě.
 ///
@@ -106,14 +107,14 @@ Future<void> showRideShareSheet(BuildContext context, UserRide ride) {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            MgSheetTitleRow(center: false, title: Text(
               t(c).tr('rideShareTitle'),
               style: const TextStyle(
                   fontSize: MotoGoTypo.sizeH3,
                   fontWeight: MotoGoTypo.w900,
                   color: MotoGoColors.black,
                   decoration: TextDecoration.none),
-            ),
+            )),
             const SizedBox(height: 4),
             Text(
               t(c).tr('rideShareSub'),

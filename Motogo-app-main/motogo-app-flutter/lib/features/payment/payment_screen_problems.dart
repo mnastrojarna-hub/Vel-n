@@ -34,8 +34,9 @@ extension _PaymentProblems on _PaymentScreenState {
 
   /// Odmítnutí / chyba z `createPaymentIntent` (server, síť, přihlášení).
   void _handleIntentError(PaymentResult result) {
+    _rememberPreviousChange(result);
     _showProblem(PaymentRefusals.resolve(t(context).lang, result, _flow,
-        amount: _amount));
+        amount: _bookingDue));
   }
 
   /// Zobrazí [p] s akcí, která opravdu něco dělá (žádné „Zkusit znovu",
@@ -69,20 +70,41 @@ extension _PaymentProblems on _PaymentScreenState {
     VoidCallback? onTap;
     String? second;
     VoidCallback? onSecond;
+    var message = p.countsAsAttempt ? p.message + _counter : p.message;
     switch (p.action) {
       case PayAction.priceChanged:
+        // Nová cena rezervace podle serveru — tlačítko říká, kolik se OPRAVDU
+        // strhne (minimum karty 15 Kč / do 1 Kč nic, D1).
         final total = p.serverTotal ?? 0;
-        label = tr.tr('psPayAmount').replaceAll('{amount}', Money.czk(total));
+        final cc = _cardFor(total);
+        label = cc.isWaive
+            ? tr.tr('pdConfirmFree')
+            : tr.tr('psPayAmount').replaceAll('{amount}', Money.czk(cc.charge));
+        if (cc.isRound) {
+          message = '$message\n\n${tr.tr('pdRoundNote').replaceAll('{rounding}', kcExact(cc.rounding))}';
+        }
         onTap = () {
-          // K nové rezervaci se platí i upsell z e-shopu (server ho povoluje navíc).
-          final upsell = _isNewBooking ? ref.read(bookingUpsellProvider.notifier).total : 0.0;
-          _set(() => _serverAmount = total + upsell);
+          // Cena rezervace (doprodej z e-shopu přičítá `_amount` sám).
+          _set(() => _serverAmount = total);
           _doPayment();
         };
         second = tr.back;
-      case PayAction.belowMinimum:
-        label = tr.tr(edit ? 'psEditChange' : 'psEditBooking');
-        onTap = () => context.backOr(_backFallback);
+      case PayAction.payMin:
+        // Zbývá méně než 15 Kč → zaplatit 15 Kč (dorovnání zapíše server, D1).
+        // Zbytek do 1 Kč, který server neodpustil, se platí také 15 Kč — jinak
+        // by se odpuštění (0 Kč) poslalo znovu a odmítnutí opakovalo dokola.
+        final due = p.serverTotal;
+        final force = p.forceMinCharge;
+        label = tr.tr('pdPayMin');
+        onTap = () {
+          _set(() {
+            if (due != null && due > 0) _serverAmount = due;
+            if (force) _forceMinCharge = true;
+          });
+          _doPayment();
+        };
+        second = tr.tr(edit ? 'psEditChange' : 'psMyReservations');
+        onSecond = () => edit ? context.backOr(_backFallback) : context.go(Routes.reservations);
       case PayAction.reloadEdit:
         label = tr.tr('psReload');
         onTap = () => context.go(_editRoute);
@@ -97,7 +119,9 @@ extension _PaymentProblems on _PaymentScreenState {
         onTap = () => context.go(Routes.cart);
       case PayAction.signIn:
         label = tr.tr('login');
-        onTap = () => context.go(Routes.login);
+        // Přihlášení ještě běží (jiný účet / odmítnutý token) → bez odhlášení
+        // by router z /login hned vrátil Domů a nic by se nestalo.
+        onTap = () => signInAgain(context);
       case PayAction.reservations:
         label = tr.tr('psMyReservations');
         onTap = () => context.go(Routes.reservations);
@@ -105,13 +129,9 @@ extension _PaymentProblems on _PaymentScreenState {
         label = tr.tr('retry');
         onTap = _doPayment;
     }
-    if (p.contact && second == null) {
-      second = tr.tr('psWriteUs');
-      onSecond = () => openContactUs(context);
-    }
     _showError(
       title: p.title,
-      message: p.countsAsAttempt ? p.message + _counter : p.message,
+      message: message,
       buttonLabel: label,
       onButton: onTap,
       secondaryLabel: second,
@@ -122,8 +142,13 @@ extension _PaymentProblems on _PaymentScreenState {
   /// Selhání stržení uložené karty (zamítnutí / 3DS nedokončeno). Tlačítko
   /// „Zkusit znovu" znovu strhne ULOŽENOU kartu — nikdy samo neotevře
   /// zadávání karty; „Zaplatit jinou kartou" je výslovná volba zákazníka.
+  /// [notCharged] = server kartu prokazatelně nestrhával (nepotvrzený intent).
+  /// [declined] = banka zamítla až po 3D Secure, příčina z kódu Stripe.
   void _handleSavedCardFailure(PaymentResult result,
-      {bool authNotDone = false, bool authFailed = false}) {
+      {bool authNotDone = false,
+      bool authFailed = false,
+      bool notCharged = false,
+      PaymentErrorInfo? declined}) {
     final lang = t(context).lang;
     final tr = t(context);
     PaymentErrorInfo info;
@@ -135,15 +160,22 @@ extension _PaymentProblems on _PaymentScreenState {
       info = PaymentErrorInfo(
           title: PaymentErrorMapper.text(lang, 'authTitle'),
           message: PaymentErrorMapper.text(lang, 'authBody'));
+    } else if (notCharged) {
+      info = PaymentErrorMapper.generic(lang);
+      _attempts++;
     } else {
-      info = PaymentErrorMapper.fromEdge(
-          errorCode: result.stripeCode, declineCode: result.declineCode, lang: lang);
+      info = declined ??
+          PaymentErrorMapper.fromEdge(
+              errorCode: result.stripeCode,
+              declineCode: result.declineCode,
+              intentStatus: result.intentStatus,
+              lang: lang);
       if (info.needsVerification) {
         _verifyUncertain();
         return;
       }
       if (info.cause == 'amount_too_small') {
-        _showProblem(PaymentRefusals.belowMinimum(lang, _flow, _amount));
+        _showProblem(PaymentRefusals.belowMinimum(lang, _bookingDue));
         return;
       }
       _attempts++;
@@ -152,14 +184,14 @@ extension _PaymentProblems on _PaymentScreenState {
       _handleMaxAttempts();
       return;
     }
-    // Uložená karta už neexistuje / nejde použít → jediná smysluplná akce
-    // je jiná karta (opakování by selhalo stejně).
-    if (info.cause == 'card_gone') {
+    // Uložená karta už neexistuje / nejde použít, nebo banka opakování výslovně
+    // nedovolí → jediná smysluplná akce je jiná karta (opakování by selhalo).
+    if (info.cause == 'card_gone' || info.cause == 'do_not_try_again') {
       _showError(
         title: info.title,
         message: info.message,
         buttonLabel: tr.tr('payWithAnotherCard'),
-        onButton: () => _runPaymentSheetFlow(_amount),
+        onButton: () => _runPaymentSheetFlow(_charge),
       );
       return;
     }
@@ -173,15 +205,15 @@ extension _PaymentProblems on _PaymentScreenState {
         if (!mounted) return;
         if (card != null && card.stripeId.isNotEmpty) {
           _setProcessing(true);
-          _chargeSavedCard(_amount, card);
+          _chargeSavedCard(_charge, card);
         } else {
           // Uložená karta zmizela (smazaná v profilu) → klasický flow.
-          _runPaymentSheetFlow(_amount);
+          _runPaymentSheetFlow(_charge);
         }
       },
       secondaryLabel: tr.tr('payWithAnotherCard'),
       onSecondary: () {
-        if (mounted) _runPaymentSheetFlow(_amount);
+        if (mounted) _runPaymentSheetFlow(_charge);
       },
     );
   }
@@ -193,6 +225,7 @@ extension _PaymentProblems on _PaymentScreenState {
     // Uživatel jen zavřel Payment Sheet — není to chyba, jen reset.
     if (info.userCancelled) {
       await PaymentPendingMarker.clear(_markerId);
+      await PaidChangeQueue.discard(_activePiId);
       _setProcessing(false);
       return;
     }
@@ -202,9 +235,11 @@ extension _PaymentProblems on _PaymentScreenState {
       return;
     }
     await PaymentPendingMarker.clear(_markerId);
+    await PaidChangeQueue.discard(_activePiId);
+    if (!mounted) return;
     _setProcessing(false);
     if (info.cause == 'amount_too_small') {
-      _showProblem(PaymentRefusals.belowMinimum(lang, _flow, _amount));
+      _showProblem(PaymentRefusals.belowMinimum(lang, _bookingDue));
       return;
     }
     _attempts++;
@@ -219,7 +254,7 @@ extension _PaymentProblems on _PaymentScreenState {
       onButton: () {
         // Rovnou znovu otevři kartový sheet — pole se při otevření čistí
         // (viz CardPaymentSheet), takže špatně zadané číslo jde hned opravit.
-        if (mounted) _runPaymentSheetFlow(_amount);
+        if (mounted) _runPaymentSheetFlow(_charge);
       },
     );
   }
@@ -232,6 +267,9 @@ extension _PaymentProblems on _PaymentScreenState {
     final cs = _activeClientSecret;
     final status = cs == null ? null : await StripeService.fetchIntentStatus(cs);
     if (!mounted) return;
+    // Stav se nepodařilo zjistit / spojení spadlo → „ověřuje se" řekne pravý
+    // důvod (spojení), ne „banka ještě potvrzuje".
+    if (status == null || isNetworkError(error)) _netTrouble = true;
     switch (StripeService.outcomeForStatus(status)) {
       case NextActionOutcome.succeeded:
         await _verifyAndComplete();
@@ -241,6 +279,7 @@ extension _PaymentProblems on _PaymentScreenState {
       case NextActionOutcome.notCompleted:
       case NextActionOutcome.failed:
         await PaymentPendingMarker.clear(_markerId);
+        await PaidChangeQueue.discard(_activePiId);
         _setProcessing(false);
         _handleGatewayError(error, wallet: wallet);
     }
@@ -275,7 +314,7 @@ extension _PaymentProblems on _PaymentScreenState {
       onButton: () {
         // Sheet obsahuje kartu i platformní peněženku — po chybě ho rovnou
         // znovu otevři (s čistým polem), ať má zákazník kde pokračovat.
-        if (mounted) _runPaymentSheetFlow(_amount);
+        if (mounted) _runPaymentSheetFlow(_charge);
       },
     );
   }
@@ -285,7 +324,7 @@ extension _PaymentProblems on _PaymentScreenState {
     final edit = _flow == PayFlow.edit || _flow == PayFlow.swap;
     _showError(
       title: tr.tr('paymentFailed'),
-      message: tr.tr(edit ? 'psMaxEditBody' : 'psMaxBookingBody'),
+      message: tr.tr(edit ? 'pdMaxEditBody' : 'pdMaxBookingBody'),
       buttonLabel: tr.tr(edit ? 'psBackToReservation' : 'goToReservations'),
       onButton: () {
         if (!mounted) return;
@@ -293,8 +332,6 @@ extension _PaymentProblems on _PaymentScreenState {
             ? '/reservations/$_pendingBookingId'
             : Routes.reservations);
       },
-      secondaryLabel: tr.tr('psWriteUs'),
-      onSecondary: () => openContactUs(context),
       dismissible: false,
     );
   }
@@ -305,13 +342,16 @@ extension _PaymentProblems on _PaymentScreenState {
   Future<void> _verifyUncertain() async {
     if (!mounted || _completed) return;
     _setProcessing(true);
+    _markVerifying();
+    // Nejistý výsledek = přerušené spojení (ztracená odpověď / stav neznámý).
+    _netTrouble = true;
     final tr = t(context);
     showMotoGoToast(context,
         icon: '⏳',
         title: tr.tr('psUncertainTitle'),
         message: tr.tr('psUncertainBody'),
         duration: const Duration(seconds: 6));
-    await PaymentPendingMarker.set(_markerId, clientSecret: _activeClientSecret);
+    await _setMarker(clientSecret: _activeClientSecret);
     final state = await verifyPayment(
       bookingId: _pendingBookingId,
       orderId: _pendingOrderId,
@@ -344,7 +384,9 @@ extension _PaymentProblems on _PaymentScreenState {
     if (_completed || !mounted) return;
     _completed = true;
     _countdownTimer?.cancel();
-    await PaymentPendingMarker.set(_markerId, clientSecret: _activeClientSecret);
+    await _setMarker(clientSecret: _activeClientSecret);
+    // Doplatek změny: fronta ho dokončí, jakmile platba projde (D6).
+    await _enqueuePaidChange(paid: false);
     if (!mounted) return;
     _processingNotifier?.state = false;
     ref.read(paymentContextProvider.notifier).state = null;
@@ -358,8 +400,16 @@ extension _PaymentProblems on _PaymentScreenState {
             bookingId: id,
             expectedTotal: _expectedEditTotal,
             intentOnly: _flow == PayFlow.swap,
-            verified: _editSuccessOutcome(tr, Money.czk(_ctx?.amount ?? 0)))
-        : pendingBookingOutcome(tr, bookingId: id);
+            netTrouble: _netTrouble,
+            completeKey: _activePiId,
+            verified: _editSuccessOutcome(tr))
+        : pendingBookingOutcome(tr,
+            bookingId: id,
+            netTrouble: _netTrouble,
+            // Obnovená rezervace → děkovačka „znovu potvrzená"; nová rezervace
+            // s doprodejem → objednávka doplňků až po ověřeném zaplacení.
+            restore: _ctx?.isRestore ?? false,
+            upsell: _upsellBundled ? ref.read(bookingUpsellProvider) : const []);
     ref.read(paymentOutcomeProvider.notifier).state = outcome;
     context.go(Routes.paymentResult);
   }
@@ -378,7 +428,7 @@ extension _PaymentProblems on _PaymentScreenState {
         await cancelPendingBooking(bid,
             reason: 'Čas na zaplacení v appce vypršel');
       } catch (_) {/* cron rezervaci zruší sám */}
-      ref.invalidate(pendingBookingFabProvider);
+      if (mounted) ref.invalidate(pendingBookingFabProvider);
     }
     if (!mounted) return;
     final moto = ref.read(bookingMotoProvider);
@@ -401,14 +451,22 @@ extension _PaymentProblems on _PaymentScreenState {
   /// Šipka zpět / systémové „zpět". Během platby jen po potvrzení — odchod
   /// pak výsledek nezahodí (značka → FAB „Platba se ověřuje", ne „Zaplatit").
   Future<void> _onBack() async {
-    if (_processing) {
+    if (_processing && _completed) {
+      // Zaplaceno, dopisuje se změna (výměna motorky) — dokončí ji i server.
       if (!await confirmLeaveRunningPayment(context)) return;
-      await PaymentPendingMarker.set(_markerId, clientSecret: _activeClientSecret);
+      if (mounted) context.go(Routes.reservations);
+      return;
+    }
+    if (_processing && _submitted) {
+      if (!await confirmLeaveRunningPayment(context)) return;
+      await _setMarker(clientSecret: _activeClientSecret);
       if (!mounted) return;
       ref.invalidate(pendingBookingFabProvider);
       context.go(Routes.reservations);
       return;
     }
+    // Nic ještě neodešlo (zakládá se rezervace / platba) → odchod nic
+    // nestrhne; žádná značka „ověřuje se", žádný falešný stav.
     if (mounted) context.backOr(_backFallback);
   }
 
@@ -445,28 +503,27 @@ extension _PaymentProblems on _PaymentScreenState {
           onButton: _doPayment,
         );
       case _DraftKind.auth:
+        // Rezervace ještě nevznikla → v Rezervacích nic není (ne psAuthBooking).
         _showError(
           title: PaymentErrorMapper.text(tr.lang, 'authExpiredTitle'),
-          message: tr.tr('psAuthBooking'),
+          message: tr.tr('fxDraftAuthBody'),
           buttonLabel: tr.tr('login'),
-          onButton: () => context.go(Routes.login),
+          onButton: () => signInAgain(context),
         );
       case _DraftKind.input:
         // Chybí termín / motorka / údaje profilu — oprava je ve formuláři.
         _showError(
           title: tr.tr('bookingCreateFailed'),
-          message: _draftError ?? tr.tr('psDraftUnknownBody'),
+          message: _draftError ?? tr.tr('pdDraftServerBody'),
           buttonLabel: tr.tr('psEditBooking'),
           onButton: () => context.backOr(Routes.booking),
         );
       case _DraftKind.unknown:
         _showError(
           title: tr.tr('bookingCreateFailed'),
-          message: _draftError ?? tr.tr('psDraftUnknownBody'),
+          message: _draftError ?? tr.tr('pdDraftServerBody'),
           buttonLabel: tr.tr('retry'),
           onButton: _doPayment,
-          secondaryLabel: tr.tr('psWriteUs'),
-          onSecondary: () => openContactUs(context),
         );
     }
   }

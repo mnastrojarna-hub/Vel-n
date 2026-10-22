@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../core/native/gps_service.dart';
+import '../../core/friendly_error.dart';
+import '../../core/widgets/error_feedback.dart' show explainLocation;
 import 'booking_models.dart';
 import 'booking_provider.dart';
 import 'map_launcher.dart' show MapResult;
 import 'price_calculator.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/currency.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Pure UI helper functions for inline booking form in router.dart.
 /// NO ConsumerStatefulWidget, NO Riverpod — just widget builders.
@@ -233,232 +236,6 @@ const _mapyHeaders = <String, String>{
   'Accept': 'application/json',
   'X-Mapy-Api-Key': _mapyKey,
 };
-
-/// Full address dialog — autocomplete + GPS + distance.
-void showAddrDialog(BuildContext ctx, String title,
-    String city, String addr,
-    void Function(String city, String addr) onSave,
-    {void Function(double km, double fee)? onDistanceCalc}) {
-  final cCtrl = TextEditingController(text: city);
-  final aCtrl = TextEditingController(text: addr);
-  String? distInfo;
-  List<Map<String, dynamic>> suggestions = [];
-
-  showDialog(context: ctx, builder: (c) => StatefulBuilder(
-    builder: (c, ss) => AlertDialog(
-      title: Text(title),
-      content: SizedBox(width: double.maxFinite,
-        child: SingleChildScrollView(child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-          // City field with autocomplete
-          TextField(controller: cCtrl,
-            decoration: InputDecoration(
-              labelText: t(c).tr('cityLabel'),
-              prefixIcon: const Icon(Icons.location_city, size: 18)),
-            onChanged: (v) async {
-              if (v.length < 2) {
-                ss(() => suggestions = []);
-                return;
-              }
-              try {
-                final uri = Uri.parse(
-                  'https://api.mapy.cz/v1/suggest'
-                  '?query=${Uri.encodeComponent(v)}'
-                  '&lang=cs&limit=5'
-                  '&apikey=$_mapyKey');
-                final res = await http.get(uri, headers: _mapyHeaders)
-                    .timeout(const Duration(seconds: 3));
-                if (res.statusCode == 200) {
-                  final data = jsonDecode(res.body);
-                  final items = (data['items'] as List?) ?? [];
-                  ss(() => suggestions = items
-                      .map((e) => e as Map<String, dynamic>)
-                      .toList());
-                }
-              } catch (_) {}
-            }),
-          // Suggestions
-          if (suggestions.isNotEmpty)
-            Container(
-              constraints: const BoxConstraints(maxHeight: 150),
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: suggestions.length,
-                itemBuilder: (_, i) {
-                  final s = suggestions[i];
-                  final name = s['name'] as String? ?? '';
-                  return ListTile(
-                    dense: true,
-                    title: Text(name, style: const TextStyle(
-                      fontSize: 13)),
-                    onTap: () async {
-                      cCtrl.text = name;
-                      ss(() => suggestions = []);
-                      // Calc distance — use coords if available
-                      double km;
-                      final pos = s['position'] as Map<String, dynamic>?;
-                      if (pos != null) {
-                        final lat = (pos['lat'] as num?)?.toDouble();
-                        final lng = (pos['lon'] as num?)?.toDouble();
-                        if (lat != null && lng != null) {
-                          km = await routeKmFromBranch(lat, lng);
-                        } else {
-                          km = estimateKm(name).toDouble();
-                        }
-                      } else {
-                        km = estimateKm(name).toDouble();
-                      }
-                      final fee =
-                          PriceCalculator.calcDeliveryFee(km);
-                      ss(() => distInfo =
-                        '~${km.toStringAsFixed(0)} km · '
-                        '${Money.czk(fee)}');
-                      onDistanceCalc?.call(km, fee);
-                    });
-                })),
-          const SizedBox(height: 8),
-          // Street field
-          TextField(controller: aCtrl,
-            decoration: InputDecoration(
-              labelText: t(c).tr('streetAndNumber'),
-              prefixIcon: const Icon(Icons.place, size: 18))),
-          const SizedBox(height: 10),
-          // GPS button
-          GestureDetector(
-            onTap: () async {
-              ss(() => distInfo = t(c).tr('gettingLocation'));
-              try {
-                final pos = await GpsService.getCurrentPosition();
-                if (pos == null) {
-                  ss(() => distInfo = t(c).tr('gpsUnavailableManual'));
-                  return;
-                }
-                // Reverse geocode
-                final uri = Uri.parse(
-                  'https://nominatim.openstreetmap.org/reverse'
-                  '?format=json&lat=${pos.latitude}'
-                  '&lon=${pos.longitude}&zoom=18&addressdetails=1');
-                final res = await http.get(uri,
-                  headers: {'User-Agent': 'MotoGo24/2.0'})
-                  .timeout(const Duration(seconds: 5));
-                if (res.statusCode == 200) {
-                  final a = (jsonDecode(res.body)['address']
-                      as Map<String, dynamic>?) ?? {};
-                  final road = a['road'] as String? ?? '';
-                  final house = a['house_number'] as String? ?? '';
-                  final ct = (a['city'] ?? a['town'] ??
-                      a['village'] ?? '') as String;
-                  cCtrl.text = ct;
-                  aCtrl.text = road.isNotEmpty
-                      ? '$road${house.isNotEmpty ? " $house" : ""}'
-                      : '';
-                  ss(() => suggestions = []);
-                }
-                // Calc distance using real routing
-                final km = await routeKmFromBranch(
-                    pos.latitude, pos.longitude);
-                final fee = PriceCalculator.calcDeliveryFee(km);
-                ss(() => distInfo =
-                  '~${km.toStringAsFixed(0)} km · '
-                  '${Money.czk(fee)}');
-                onDistanceCalc?.call(km, fee);
-              } catch (_) {
-                ss(() => distInfo = t(c).tr('gpsErrorManual'));
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1FAF7),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFFD4E8E0))),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                const Icon(Icons.my_location, size: 16,
-                  color: Color(0xFF4A6357)),
-                const SizedBox(width: 6),
-                Text(t(c).tr('useMyLocation'),
-                  style: const TextStyle(fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF4A6357))),
-              ]))),
-          const SizedBox(height: 8),
-          // Distance info or calculate button
-          GestureDetector(
-            onTap: () async {
-              final address =
-                  '${aCtrl.text}, ${cCtrl.text}'.trim();
-              if (address.length < 3) return;
-              ss(() => distInfo = t(c).tr('calculating'));
-              // Try geocode → real routing instead of estimate
-              double km;
-              try {
-                final gUri = Uri.parse(
-                  'https://api.mapy.cz/v1/geocode'
-                  '?query=${Uri.encodeComponent(address)}'
-                  '&lang=cs&limit=1&locality=cz&apikey=$_mapyKey');
-                final gRes = await http.get(gUri, headers: _mapyHeaders)
-                    .timeout(const Duration(seconds: 5));
-                if (gRes.statusCode == 200) {
-                  final items = (jsonDecode(gRes.body)['items'] as List?) ?? [];
-                  if (items.isNotEmpty) {
-                    final pos = items[0]['position'];
-                    final lat = (pos?['lat'] as num?)?.toDouble();
-                    final lng = (pos?['lon'] as num?)?.toDouble();
-                    if (lat != null && lng != null) {
-                      km = await routeKmFromBranch(lat, lng);
-                    } else {
-                      km = estimateKm(address).toDouble();
-                    }
-                  } else {
-                    km = estimateKm(address).toDouble();
-                  }
-                } else {
-                  km = estimateKm(address).toDouble();
-                }
-              } catch (_) {
-                km = estimateKm(address).toDouble();
-              }
-              final fee = PriceCalculator.calcDeliveryFee(km);
-              ss(() => distInfo =
-                '~${km.toStringAsFixed(0)} km · '
-                '${Money.czk(fee)}');
-              onDistanceCalc?.call(km, fee);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8FFE8),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFF74FB71))),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                const Icon(Icons.route, size: 16,
-                  color: Color(0xFF1A8A18)),
-                const SizedBox(width: 6),
-                Flexible(child: Text(distInfo ?? t(c).tr('calcDistancePrice'),
-                  style: const TextStyle(fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A8A18)),
-                  maxLines: 2, overflow: TextOverflow.ellipsis)),
-              ]))),
-        ]))),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(c),
-          child: Text(t(c).tr('cancel'))),
-        ElevatedButton(onPressed: () {
-          onSave(cCtrl.text, aCtrl.text);
-          Navigator.pop(c);
-        }, child: Text(t(c).tr('save'))),
-      ],
-    )));
-}
 
 /// Address bottom sheet — autocomplete + GPS + map + distance.
 void showAddrBottomSheet(BuildContext ctx,
@@ -722,15 +499,22 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     _log('[GPS] start...');
     setState(() => _distInfo = t(context).tr('gettingLocation'));
     try {
-      final hasPerm = await GpsService.ensurePermission();
-      _log('[GPS] permission=$hasPerm');
-      final pos = await GpsService.getCurrentPosition();
+      // Bez vytahování do Nastavení: vypnutá poloha / chybějící oprávnění →
+      // proč + „Otevřít nastavení" až na klepnutí (dřív jen „GPS nedostupné").
+      final loc = await GpsService.locate();
+      _log('[GPS] status=${loc.status.name}');
+      final pos = loc.pos;
       if (pos == null) {
         _log('[GPS] ✗ position=null');
-        if (mounted) setState(() {
-          _distInfo = t(context).tr('gpsUnavailableManual');
+        if (!mounted) return;
+        final tr = t(context);
+        setState(() {
+          _distInfo = loc.status == GpsStatus.noFix
+              ? tr.tr('gpsUnavailableManual')
+              : '${FriendlyError(loc.status == GpsStatus.serviceOff ? FriendlyKind.locationOff : FriendlyKind.permission, perm: DevicePerm.location).compose(tr, tr.tr('fxLocUnavailable'))} ${tr.tr('fxLocManualHint')}';
           _isError = true;
         });
+        if (loc.status != GpsStatus.noFix) await explainLocation(context, loc.status);
         return;
       }
       _log('[GPS] ✓ lat=${pos.latitude} lng=${pos.longitude} acc=${pos.accuracy}m');
@@ -904,9 +688,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       padding: EdgeInsets.fromLTRB(20, 16, 20,
         MediaQuery.of(context).viewInsets.bottom + 16),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 40, height: 4, decoration: BoxDecoration(
-          color: const Color(0xFFD4E8E0),
-          borderRadius: BorderRadius.circular(2))),
+        const MgSheetHandle(),
         const SizedBox(height: 14),
         Text(widget.title, style: const TextStyle(fontSize: 15,
           fontWeight: FontWeight.w800)),
@@ -1055,9 +837,7 @@ class _PromoSheetBodyState extends State<_PromoSheetBody> {
       padding: EdgeInsets.fromLTRB(20, 16, 20,
         MediaQuery.of(context).viewInsets.bottom + 16),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 40, height: 4, decoration: BoxDecoration(
-          color: const Color(0xFFD4E8E0),
-          borderRadius: BorderRadius.circular(2))),
+        const MgSheetHandle(),
         const SizedBox(height: 14),
         Text(t(context).tr('discountCode'), style: const TextStyle(fontSize: 15,
           fontWeight: FontWeight.w800)),

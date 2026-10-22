@@ -10,6 +10,7 @@ import '../auth/widgets/toast_helper.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// Gift voucher screen — purchase only.
 class VoucherScreen extends ConsumerStatefulWidget {
@@ -52,7 +53,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
-        leading: GestureDetector(
+        leading: MgBackTap(
           onTap: () => context.backOr(Routes.shop),
           child: Center(
             child: Container(

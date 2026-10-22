@@ -66,7 +66,8 @@ Future<PickupInfo?> loadBookingPickupInfo(String? bookingId) async {
         .select('status, pickup_method, pickup_address, '
             'motorcycles!moto_id(branches($_branchCols))')
         .eq('id', bookingId)
-        .maybeSingle();
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
     if (r == null) return null;
     final st = r['status'] as String?;
     if (st == 'active' || st == 'completed' || st == 'cancelled') return null;
@@ -92,7 +93,8 @@ Future<PickupInfo?> loadMotoPickupInfo(String? motoId) async {
         .from('motorcycles')
         .select('branches($_branchCols)')
         .eq('id', motoId)
-        .maybeSingle();
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
     final info =
         PickupInfo.fromBranch(r?['branches'] as Map<String, dynamic>?);
     return info.isEmpty ? null : info;

@@ -13,6 +13,10 @@ import '../../catalog/moto_model.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../../payment/payment_provider.dart';
+import '../../payment/net_error.dart';
+import '../../payment/payment_refusals.dart' show PaymentRefusals;
+import '../../payment/widgets/card_rounding_note.dart';
+import 'reservation_edit_states.dart' show blockIfSurchargePending;
 import '../reservation_models.dart';
 import 'reservation_edit_widgets.dart';
 import '../../../core/date_days.dart';
@@ -182,6 +186,21 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
 
   bool _rpcOk(dynamic res) => res is Map && res['success'] == true;
 
+  /// Po ztracené odpovědi COMMITu: true = výměna je zapsaná (dry-run hlásí
+  /// `already_split` / `invalid_new_moto`, stejně jako PaymentScreen), false =
+  /// prokazatelně nezapsaná, null = nejde ověřit (pořád bez spojení).
+  Future<bool?> _swapCommittedAfterNetError(Map<String, dynamic> params) async {
+    try {
+      final res = await MotoGoSupabase.client.rpc('split_booking_moto_swap',
+          params: {...params, 'p_dry_run': true}).timeout(const Duration(seconds: 15));
+      final code = res is Map ? res['error']?.toString() : null;
+      if (code == 'already_split' || code == 'invalid_new_moto') return true;
+      return _rpcOk(res) ? false : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Hláška DB pojistky „vozík jen na obslužné pobočce" (ERRCODE 23514,
   /// `trg_check_trailer_overlap`, 20260921g). Do klienta nechodí jako kód, jen
   /// jako text. Tentýž trigger hlásí ještě obsazenost kusu vozíku —
@@ -196,24 +215,20 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   void _showSwapError(dynamic res) {
     if (!mounted) return;
     final code = (res is Map ? res['error']?.toString() : null) ?? '';
-    final msg = <String, String>{
-          'not_found': t(context).tr('swap.err.notFound'),
-          'forbidden': t(context).tr('swap.err.forbidden'),
-          'wrong_status': t(context).tr('swap.err.wrongStatus'),
-          'not_paid': t(context).tr('swap.err.notPaid'),
-          'invalid_new_moto': t(context).tr('swap.err.invalidMoto'),
-          'swap_date_out_of_range': t(context).tr('swap.err.dateRange'),
-          'already_split': t(context).tr('swap.err.alreadySplit'),
-          'new_moto_unavailable': t(context).tr('swap.err.unavailable'),
-          'license_insufficient': t(context).tr('swap.err.licenseInsufficient'),
+    // Stejné přesné texty jako odmítnutí platby (co se stalo, že se nic
+    // nestrhlo, co udělat — D5), viz PaymentRefusals.swapCodes.
+    final key = PaymentRefusals.swapCodes[code];
+    final msg = (key != null ? t(context).tr(key) : null) ??
+        <String, String>{
           // 20260921d: rezervace s vozíkem nesmí přejet na samoobslužnou
           // pobočku — RPC to vrátí už v dry-runu, tedy PŘED platbou.
-          'trailer_staffed_only': t(context).tr('swap.trailerStaffedOnly'),
+          'trailer_staffed_only': t(context).tr('fxTrailerStaffedOnly'),
         }[code] ??
         // RPC vrací jen KÓDY; texty triggeru (trg_check_trailer_overlap) chodí
         // jako PostgrestException a mapuje je vnější catch přes
-        // _isTrailerBranchError / _isTrailerOccupiedError.
-        t(context).error;
+        // _isTrailerBranchError / _isTrailerOccupiedError. Neznámý kód →
+        // srozumitelná rada místo holého „Chyba".
+        t(context).tr('pdSwapUnknown');
     showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: msg);
   }
 
@@ -242,7 +257,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       final dry = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
         ...swapParams,
         'p_dry_run': true,
-      });
+      }).timeout(const Duration(seconds: 15));
       if (!_rpcOk(dry)) {
         _showSwapError(dry);
         return;
@@ -250,8 +265,13 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       final net = (dry is Map ? (dry['net'] as num?)?.toDouble() : null) ?? 0;
 
       // 2a) DOPLATEK (net>0) — přes stávající edit-platbu (extension). COMMIT provede
-      // payment_screen po úspěšné platbě (klíč `_swap_commit`), NIKDY před ní.
-      if (net > 0.5) {
+      // server po úspěšné platbě (webhook / complete_extension), NIKDY před ní.
+      // D1: doplatek do 1 Kč se neúčtuje (server výměnu zapíše bez platby),
+      // 1–15 Kč se platí 15 Kč — platební obrazovka to ukáže předem.
+      if (net > 0) {
+        if (!mounted) return;
+        // Předchozí doplatek této rezervace se ještě ověřuje → žádný druhý.
+        if (await blockIfSurchargePending(context, widget.booking.id)) return;
         if (!mounted) return;
         final motos = ref.read(motorcyclesProvider).valueOrNull ?? const [];
         final newMoto = motos.where((m) => m.id == motoId).firstOrNull;
@@ -277,11 +297,35 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
       }
 
       // 2b+3) net<=0 → rovnou COMMIT; vratku dispatchne server po úspěšném zápisu.
-      final commit = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
-        ...swapParams,
-        'p_dry_run': false,
-        'p_settle_refund': true,
-      });
+      // Předchozí ZAPLACENÁ výměna / úprava téže rezervace se ještě dokončuje
+      // (webhook / fronta) → teď nic nezapisovat, jinak by ji dokončení přepsalo.
+      if (!mounted) return;
+      if (await blockIfSurchargePending(context, widget.booking.id)) return;
+      dynamic commit;
+      try {
+        commit = await MotoGoSupabase.client.rpc('split_booking_moto_swap', params: {
+          ...swapParams,
+          'p_dry_run': false,
+          'p_settle_refund': true,
+        }).timeout(const Duration(seconds: 20));
+      } catch (e) {
+        if (!isNetworkError(e)) rethrow;
+        // Odpověď se ztratila — výměna (i s vratkou) mohla na serveru proběhnout.
+        // Než řekneme „nic se nezměnilo", ověříme to dry-runem.
+        final done = await _swapCommittedAfterNetError(swapParams);
+        if (done == false) rethrow; // prokazatelně nezapsáno → psEditNet
+        if (done == null) {
+          if (mounted) {
+            showMotoGoToast(context,
+                icon: '⏳',
+                title: t(context).tr('psUncertainTitle'),
+                message: t(context).tr('fxEditUncertain'),
+                duration: const Duration(seconds: 8));
+          }
+          return;
+        }
+        commit = const {'success': true};
+      }
       if (!_rpcOk(commit)) {
         _showSwapError(commit);
         return;
@@ -296,14 +340,17 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
         // Výjimka z DB pojistky chodí jako PostgrestException s českým textem —
         // bez tohohle by se do toastu vypsala syrová včetně UUID motorky.
         final raw = '$e';
+        debugPrint('[Swap] confirm failed: $e');
         showMotoGoToast(context,
             icon: '✗',
             title: t(context).error,
             message: _isTrailerBranchError(raw)
-                ? t(context).tr('swap.trailerStaffedOnly')
+                ? t(context).tr('fxTrailerStaffedOnly')
                 : _isTrailerOccupiedError(raw)
                     ? t(context).tr('swap.trailerOccupied')
-                    : raw);
+                    : isNetworkError(e)
+                        ? t(context).tr('psEditNet')
+                        : t(context).tr('pdSwapUnknown'));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -585,6 +632,13 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                 ),
             ]),
           ),
+        ),
+      // Minimum karty (D1): doplatek 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
+      if (_newMotoId != null && !_netLoading && (_net ?? 0) > 0)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: CardRoundingNote(
+              due: _net!, roundKey: 'pdRoundSwapHint', waiveKey: 'pdWaiveSwapHint', showLine: false),
         ),
 
       // === POTVRDIT ===

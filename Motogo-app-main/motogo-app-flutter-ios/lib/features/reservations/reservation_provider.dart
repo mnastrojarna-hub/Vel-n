@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth_guard.dart';
+import '../../core/friendly_error.dart' show FriendlyError;
 import '../../core/supabase_client.dart';
 import '../catalog/catalog_provider.dart';
 import 'reservation_models.dart';
@@ -139,7 +140,10 @@ final reservationByIdProvider =
 /// VYDANÉ kódy, stav zadržených (bez čísla) čte `_fetchDoorCodes` přes RPC.
 final doorCodesProvider =
     StreamProvider.family<List<DoorCode>, String>((ref, bookingId) async* {
-  // Initial fetch
+  // Initial fetch — chyba (offline, slabé LTE) jde do AsyncError: karta pak
+  // ukáže proč + Zkusit znovu / Zprávy / Zavolat, už načtené kódy zůstanou
+  // vidět (skipError) s pruhem „starší data". Dřív se chyba spolkla na []
+  // a celá karta „Přístupové kódy" beze slova zmizela.
   yield await _fetchDoorCodes(bookingId);
 
   // Realtime subscription — same resilience as reservationsProvider: swallow
@@ -149,7 +153,14 @@ final doorCodesProvider =
         .from('branch_door_codes')
         .stream(primaryKey: ['id'])
         .eq('booking_id', bookingId)) {
-      yield await _fetchDoorCodes(bookingId);
+      try {
+        yield await _fetchDoorCodes(bookingId);
+      } catch (e) {
+        if (await handleAuthError(e)) return;
+        // Neúspěšné obnovení po změně: poslední kódy zůstanou (skipError),
+        // odběr běží dál a další změna / obnova to zkusí znovu.
+        yield* Stream<List<DoorCode>>.error(e);
+      }
     }
   } catch (e) {
     if (await handleAuthError(e)) return;
@@ -185,8 +196,11 @@ Future<List<DoorCode>> _fetchDoorCodes(String bookingId) async {
     return (res as List)
         .map((e) => DoorCode.fromJson(e as Map<String, dynamic>))
         .toList();
-  } catch (_) {
-    return [];
+  } catch (e) {
+    // Ani záložní dotaz neprošel (typicky bez spojení) → chyba, ne „žádné
+    // kódy" — prázdný seznam by kartu s kódy beze slova schoval.
+    FriendlyError.log('door_codes_fetch', e);
+    rethrow;
   }
 }
 
@@ -241,24 +255,102 @@ final resFilterProvider = StateProvider<String>((_) => 'all');
 final filteredReservationsProvider =
     Provider<AsyncValue<List<Reservation>>>((ref) {
   final filter = ref.watch(resFilterProvider);
-  return ref.watch(reservationsProvider).whenData((list) {
+  List<Reservation> apply(List<Reservation> list) {
     if (filter == 'all') return list;
     return list.where((r) {
       return r.displayStatus.name == filter;
     }).toList();
-  });
+  }
+  final src = ref.watch(reservationsProvider);
+  // Neúspěšná obnova (offline, slabý signál) NESMÍ zahodit už načtený
+  // seznam — `whenData` by z chyby s předchozí hodnotou udělal holou chybu.
+  // Že jde o starší data, pozná obrazovka z `reservationsProvider.hasError`.
+  final cached = src.valueOrNull;
+  if (cached != null) return AsyncData(apply(cached));
+  return src.whenData(apply);
 });
 
-/// Cancel booking via RPC — mirrors apiCancelBooking.
-Future<String?> cancelBooking(String bookingId, String reason) async {
+/// Výsledek storna (`cancel_booking_tracked`).
+class CancelResult {
+  final bool ok;
+  final int refundPercent;
+  final double refundAmount;
+  /// Proč storno neprošlo: already | forbidden | not_found | network |
+  /// uncertain (spojení spadlo, stav se nepodařilo ověřit) | failed.
+  final String? error;
+  /// false = storno proběhlo, ale odpověď se ztratila a výši vratky neznáme.
+  final bool refundKnown;
+  const CancelResult.success(this.refundPercent, this.refundAmount,
+      {this.refundKnown = true})
+      : ok = true,
+        error = null;
+  const CancelResult.failure(this.error)
+      : ok = false,
+        refundPercent = 0,
+        refundAmount = 0,
+        refundKnown = true;
+}
+
+/// Odpověď storna se ztratila (timeout / výpadek) — RPC mohla na serveru
+/// doběhnout. Než zákazníkovi řekneme „nic se nezměnilo", ověříme stav.
+Future<CancelResult> _cancelOutcomeAfterNetError(String bookingId) async {
   try {
-    await MotoGoSupabase.client.rpc('cancel_booking_tracked', params: {
+    final row = await MotoGoSupabase.client
+        .from('bookings')
+        .select('status')
+        .eq('id', bookingId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
+    if (row == null) return const CancelResult.failure('not_found');
+    if (row['status'] != 'cancelled') {
+      // Prokazatelně nezrušeno → opravdu se nic nezměnilo.
+      return const CancelResult.failure('network');
+    }
+    try {
+      final c = await MotoGoSupabase.client
+          .from('booking_cancellations')
+          .select('refund_percent, refund_amount')
+          .eq('booking_id', bookingId)
+          .limit(1)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
+      if (c != null) {
+        return CancelResult.success((c['refund_percent'] as num?)?.toInt() ?? 0,
+            (c['refund_amount'] as num?)?.toDouble() ?? 0);
+      }
+    } catch (_) {/* výši vratky neznáme — storno ale proběhlo */}
+    return const CancelResult.success(0, 0, refundKnown: false);
+  } catch (_) {
+    return const CancelResult.failure('uncertain');
+  }
+}
+
+/// Cancel booking via RPC — mirrors apiCancelBooking. RPC chyby NEhází, vrací
+/// `{error:'…'}` (česky) — dřív je appka ignorovala a hlásila úspěch.
+Future<CancelResult> cancelBooking(String bookingId, String reason) async {
+  try {
+    final r = await MotoGoSupabase.client.rpc('cancel_booking_tracked', params: {
       'p_booking_id': bookingId,
       'p_reason': reason,
-    });
-    return null; // success
+    }).timeout(const Duration(seconds: 20));
+    if (r is Map && r['success'] == true) {
+      return CancelResult.success((r['refund_percent'] as num?)?.toInt() ?? 0,
+          (r['refund_amount'] as num?)?.toDouble() ?? 0);
+    }
+    final err = r is Map ? '${r['error'] ?? ''}' : '';
+    if (err.contains('stornována')) return const CancelResult.failure('already');
+    if (err.contains('oprávnění')) return const CancelResult.failure('forbidden');
+    if (err.contains('nenalezena')) return const CancelResult.failure('not_found');
+    return const CancelResult.failure('failed');
   } catch (e) {
-    return 'Chyba storna: $e';
+    final m = e.toString().toLowerCase();
+    final network = e is TimeoutException ||
+        m.contains('socketexception') ||
+        m.contains('clientexception') ||
+        m.contains('failed host lookup') ||
+        m.contains('connection');
+    if (!network) return const CancelResult.failure('failed');
+    return _cancelOutcomeAfterNetError(bookingId);
   }
 }
 

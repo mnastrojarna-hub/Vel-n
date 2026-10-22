@@ -15,6 +15,9 @@ class ReservationCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onEdit;
   final VoidCallback? onCancel;
+  /// „Obnovit" u zrušené rezervace = obnovit a zaplatit (D3); bez něj detail,
+  /// kde je stejné tlačítko.
+  final VoidCallback? onRestore;
 
   const ReservationCard({
     super.key,
@@ -22,6 +25,7 @@ class ReservationCard extends StatelessWidget {
     required this.onTap,
     this.onEdit,
     this.onCancel,
+    this.onRestore,
   });
 
   @override
@@ -173,7 +177,7 @@ class ReservationCard extends StatelessWidget {
       case ResStatus.cancelled:
         return [
           _ActionBtn(label: '📋 ${t(context).detail}', onTap: onTap, primary: true),
-          _ActionBtn(label: '🔄 ${t(context).tr('restoreBtn')}', onTap: () => context.go(Routes.search), primary: true),
+          _ActionBtn(label: '🔄 ${t(context).tr('restoreBtn')}', onTap: onRestore ?? onTap, primary: true),
         ];
     }
   }

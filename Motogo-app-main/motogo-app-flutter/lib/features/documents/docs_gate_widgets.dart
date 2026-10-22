@@ -4,6 +4,9 @@ import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'document_models.dart';
 import 'docs_gate_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/doc_kind_sheet_v2.dart';
 
 /// UI k bráně dokladů (2026-10-10) pro obrazovku Moje doklady — mimo
 /// `documents_screen.dart` kvůli limitu velikosti souboru.
@@ -23,12 +26,20 @@ Future<(ScanDocType, String?, String)?> pickGalleryDocKind(BuildContext context)
   return showModalBottomSheet<(ScanDocType, String?, String)>(
     context: context,
     isScrollControlled: true,
-    builder: (ctx) => SafeArea(
+    builder: (ctx) => MgV2.on(ctx)
+        // v2 vzhled (kill-switch) — stejné volby a návratové hodnoty.
+        ? DocKindSheetV2(
+            title: t(ctx).tr('galleryPickDocType'),
+            labels: [for (final o in options) o.$2],
+            kinds: [for (final o in options) o.$3],
+            onPick: (i) => Navigator.pop(ctx, (options[i].$3, options[i].$4, options[i].$5)),
+          )
+        : SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(t(ctx).tr('galleryPickDocType'),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+          MgSheetTitleRow(title: Text(t(ctx).tr('galleryPickDocType'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black))),
           const SizedBox(height: 16),
           ...options.map((o) => ListTile(
                 leading: Text(o.$1, style: const TextStyle(fontSize: 22)),

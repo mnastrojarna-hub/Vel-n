@@ -107,7 +107,7 @@ $rezKeys = [
     'scan.allUploaded','scan.fileUploaded','scan.cantUpload','scan.uploadError','scan.mobileMirror',
     // Krok 1 — výbava, doklady, heslo, náhled faktury (pages-rezervace-steps.js)
     'steps.prev','steps.next','steps.photoAria','steps.inCart','steps.qty','steps.less','steps.more','steps.remove','steps.add','steps.noProducts',
-    'steps.invReservation','steps.invRental','steps.invDays','steps.invDiscount','steps.invItem','steps.invPrice','steps.invTotal',
+    'steps.invReservation','steps.invRental','steps.invDays','steps.invDiscount','steps.invItem','steps.invPrice','steps.invTotal','steps.invRounding','steps.invWaive',
     'steps.verifyAndPay','steps.qrTitle','steps.qrScan','steps.qrBranch','steps.qrValid','steps.docsOkTitle','steps.docsOkText',
     'steps.idTitle','steps.idSub','steps.idDoc','steps.docNumberLabel','steps.docNumberPh','steps.licNumberLabel','steps.licNumberPh',
     'steps.licGroupLabel','steps.licExpiryLabel','steps.licConfirmText','steps.uploadTitle','steps.uploadSub','steps.frontShort','steps.backShort',
@@ -123,6 +123,27 @@ $rezI18n = [];
 foreach ($rezKeys as $k) {
     $v = t('rez.' . $k);
     if (is_string($v)) $rezI18n['rez.' . $k] = $v;
+}
+// D1–D6 (2026-10-16): přeložené kódy odmítnutí process-payment u platby rezervace
+// (sdílené s úpravou rezervace — editRez.pay.*; mapování v pages-rezervace-scan.js).
+foreach (['validationUnavailable','amountMismatch','authRequired','forbidden','notFound','wrongStatus',
+          'belowMinimum','roundingUnavailable','inProgress','duplicate','gatewayDown','serverError','cancelled',
+          'voucherUnavailable','priceOutdated'] as $k) {
+    $v = t('editRez.pay.' . $k);
+    if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
+}
+// Texty pro NOVOU rezervaci, ne pro úpravu (scan.js mapuje kódy na editRez.pay.* — na této
+// stránce je nahradí rez.pay.*: below_minimum do nasazení SQL 20261016p1, platba už běží,
+// ověření, cena, přihlášení / účet, nenalezená / zrušená rezervace).
+foreach (['belowMinimum','roundingUnavailable','inProgress','duplicate','validationUnavailable','amountMismatch',
+          'authRequired','forbidden','notFound','wrongStatus','freeUnverified'] as $k) {
+    $v = t('rez.pay.' . $k);
+    if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
+}
+// Minimální platba kartou (odpověď majitele 2026-10-16, „i web") — js/card-rounding.js.
+foreach (['pay.card.round', 'pay.card.roundNote', 'rez.card.waive'] as $k) {
+    $v = t($k);
+    if (is_string($v)) $rezI18n[$k] = $v;
 }
 // Krátké názvy dnů — použité v denním rozpisu ceny (calcPriceBreakdown v api.js).
 foreach (['0','1','2','3','4','5','6'] as $dow) {
@@ -165,6 +186,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-steps.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
+<script src="' . assetUrl('/js/card-rounding.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script src="' . assetUrl('/js/rezervace-ux.js') . '"></script>

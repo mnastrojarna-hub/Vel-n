@@ -9,6 +9,11 @@ import '../../core/widgets/net_image.dart';
 import '../catalog/catalog_provider.dart';
 import '../catalog/moto_model.dart';
 import 'branches_widgets.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import 'v2/branches_v2_parts.dart';
+import 'v2/branch_moto_row_v2.dart';
 
 /// „Motorky na pobočce“ v detailu pobočky (výchozí zabalené): motorky dané
 /// pobočky z katalogu (`motorcyclesProvider`, stejné pořadí), klepnutí otevře
@@ -26,6 +31,22 @@ class BranchMotosSection extends ConsumerWidget {
     final motos = async.valueOrNull?.where((m) => m.branchId == id).toList();
     if (motos != null && motos.isEmpty) return const SizedBox.shrink();
     final title = t(context).tr('branchMotosTitle');
+    // v2 vzhled (kill-switch app_v2_ui): stejné motorky a stejné otevření.
+    if (MgV2.on(context)) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: BranchCollapsibleV2(
+          icon: MgIcons.moto,
+          title: motos == null ? title : '$title (${motos.length})',
+          children: motos == null
+              ? const [Center(child: CircularProgressIndicator(color: MgColors.link))]
+              : [
+                  for (final m in motos)
+                    BranchMotoRowV2(moto: m, onTap: () => _open(context, ref, m, motos)),
+                ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: CollapsibleSection(
@@ -38,6 +59,12 @@ class BranchMotosSection extends ConsumerWidget {
             : [for (final m in motos) _row(context, ref, m, motos)],
       ),
     );
+  }
+
+  /// Otevření detailu motorky (sdílené oběma vzhledy) — tělo beze změny.
+  void _open(BuildContext context, WidgetRef ref, Motorcycle m, List<Motorcycle> all) {
+        ref.read(filteredMotoIdsProvider.notifier).state = [for (final x in all) x.id];
+        context.push('/moto/${m.id}');
   }
 
   Widget _row(BuildContext context, WidgetRef ref, Motorcycle m, List<Motorcycle> all) {
@@ -53,10 +80,7 @@ class BranchMotosSection extends ConsumerWidget {
       child: const Icon(Icons.motorcycle, size: 20, color: MotoGoColors.g400),
     );
     return GestureDetector(
-      onTap: () {
-        ref.read(filteredMotoIdsProvider.notifier).state = [for (final x in all) x.id];
-        context.push('/moto/${m.id}');
-      },
+      onTap: () => _open(context, ref, m, all),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(10),

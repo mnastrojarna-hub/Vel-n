@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'booking_form_header_widget.dart';
 import 'widgets/moto_fx.dart';
+import 'widgets/state_views.dart';
 import 'booking_form_moto_card.dart';
 import 'booking_form_time_section.dart';
 import 'booking_form_pickup_section.dart';
@@ -22,6 +23,8 @@ import '../features/catalog/moto_model.dart';
 import '../features/catalog/widgets/availability_calendar.dart';
 import 'currency.dart';
 import 'engagement_service.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/booking/v2/booking_form_view_v2.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // INLINE BOOKING FORM — everything in ONE file, per-section try-catch
@@ -59,6 +62,26 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     ref.read(bookingDraftProvider.notifier).state = fn(d);
   }
 
+  // Obsluha sdílená starým i v2 vzhledem (těla beze změny, jen vytažená
+  // z inline closur, aby obě větve volaly totéž).
+  void _toggleNote() => setState(() => _noteOpen = !_noteOpen);
+
+  void _onNoteChanged(String v) => _upd((d) => d.copyWith(
+      notes: () => v.trim().isEmpty ? null : v.trim()));
+
+  void _openCalendar() => setState(() => _calOpen = true);
+
+  void _onDatesSelected(DateTime s, DateTime e) {
+    _upd((d) =>
+        d.copyWith(startDate: () => s, endDate: () => e));
+    setState(() => _calOpen = false);
+  }
+
+  void _onDatesReset() {
+    _upd((d) => d.copyWith(
+        startDate: () => null, endDate: () => null));
+  }
+
   // ─── Poznámka k rezervaci (rozbalovací karta) ────────────────────
   Widget _buildNoteSection(BuildContext context) {
     final hasNote = _noteCtrl.text.trim().isNotEmpty;
@@ -76,7 +99,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         child: Column(children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() => _noteOpen = !_noteOpen),
+            onTap: _toggleNote,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(children: [
@@ -137,8 +160,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                         color: Color(0xFF74FB71), width: 2),
                   ),
                 ),
-                onChanged: (v) => _upd((d) => d.copyWith(
-                    notes: () => v.trim().isEmpty ? null : v.trim())),
+                onChanged: _onNoteChanged,
               ),
             ),
         ]),
@@ -197,7 +219,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         children: [
           if (!_calOpen && hasDates)
             GestureDetector(
-              onTap: () => setState(() => _calOpen = true),
+              onTap: _openCalendar,
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
@@ -258,21 +280,25 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
             ),
             const SizedBox(height: 8),
             Consumer(builder: (context, ref, _) {
-              final booked =
-                  ref.watch(bookedDatesProvider(draft.motoId ?? ''));
+              final motoKey = draft.motoId ?? '';
+              final booked = ref.watch(bookedDatesProvider(motoKey));
+              // Obsazenost se nenačetla (offline, slabé LTE, server) —
+              // kalendář by ukázal všechny dny jako volné, což není pravda.
+              if (booked.hasError && !booked.hasValue) {
+                return MgErrorView(
+                  error: booked.error,
+                  what: t(context).tr('fxBookedDatesFail'),
+                  onRetry: () => ref.invalidate(bookedDatesProvider(motoKey)),
+                  compact: true,
+                  contact: false,
+                );
+              }
               return AvailabilityCalendar(
                 bookedDates: booked.valueOrNull ?? [],
                 selectedStart: draft.startDate,
                 selectedEnd: draft.endDate,
-                onRangeSelected: (s, e) {
-                  _upd((d) =>
-                      d.copyWith(startDate: () => s, endDate: () => e));
-                  setState(() => _calOpen = false);
-                },
-                onReset: () {
-                  _upd((d) => d.copyWith(
-                      startDate: () => null, endDate: () => null));
-                },
+                onRangeSelected: _onDatesSelected,
+                onReset: _onDatesReset,
               );
             }),
           ],
@@ -324,33 +350,50 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   Widget build(BuildContext context) {
     final moto = ref.watch(bookingMotoProvider);
     if (moto == null) {
+      // v2 vzhled (kill-switch app_v2_ui): stejné cíle jako tlačítko a šipka níže.
+      if (MgV2.on(context)) {
+        return BookingNoMotoV2(
+          onPick: () => GoRouter.of(context).go('/search'),
+          onBack: () => context.canPop() ? context.pop() : context.go('/search'),
+        );
+      }
       return Container(
         color: const Color(0xFFDFF0EC),
         child: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.motorcycle,
-                    size: 48, color: Color(0xFF8AAB99)),
-                const SizedBox(height: 12),
-                Text(
-                  t(context).tr('selectMotoFirst'),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F1A14),
-                    decoration: TextDecoration.none,
+          child: Stack(children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.motorcycle,
+                      size: 48, color: Color(0xFF8AAB99)),
+                  const SizedBox(height: 12),
+                  Text(
+                    t(context).tr('selectMotoFirst'),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F1A14),
+                      decoration: TextDecoration.none,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => GoRouter.of(context).go('/search'),
-                  child: Text(t(context).tr('selectMotoBtn')),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => GoRouter.of(context).go('/search'),
+                    child: Text(t(context).tr('selectMotoBtn')),
+                  ),
+                ],
+              ),
             ),
-          ),
+            // Viditelná šipka zpět i bez vybrané motorky (dřív jen tlačítko).
+            Positioned(
+              top: 8,
+              left: 8,
+              child: MgBackArrow(
+                onTap: () => context.canPop() ? context.pop() : context.go('/search'),
+              ),
+            ),
+          ]),
         ),
       );
     }
@@ -474,6 +517,81 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         city: moto.branchCity);
     String f(DateTime d) => '${d.day}.${d.month}.${d.year}';
 
+    // Obsluha sdílená starým i v2 vzhledem (těla beze změny, jen vytažená
+    // z inline closur stromu níže).
+    void setPickupTime(String t) =>
+        _upd((d) => d.copyWith(pickupTime: () => t));
+    void setReturnTime(String t) =>
+        _upd((d) => d.copyWith(returnTime: () => t));
+    void setVop(bool v) => _upd((d) => d.copyWith(consentVop: v));
+    void setGdpr(bool v) => _upd((d) => d.copyWith(consentGdpr: v));
+    void setKids(bool v) => _upd((d) => d.copyWith(consentKids: v));
+    // Pravidlo CTA (dřív inline v Builderu tlačítka) — jedno pro oba vzhledy.
+    bool canProceedNow() {
+      final consentsOk = draft.consentVop &&
+          draft.consentGdpr &&
+          (!isKids || draft.consentKids);
+      // Bez známé obsazenosti motorky se dál nejde — jinak by
+      // zákazník platil za termín, který může být obsazený.
+      final motoKey = draft.motoId ?? '';
+      final bookedAsync = motoKey.isEmpty
+          ? null
+          : ref.watch(bookedDatesProvider(motoKey));
+      final datesKnown =
+          bookedAsync == null || bookedAsync.hasValue;
+      final canProceed = draft.startDate != null &&
+          draft.endDate != null &&
+          missingSizes.isEmpty &&
+          err == null &&
+          profileErr == null &&
+          consentsOk &&
+          datesKnown;
+      return canProceed;
+    }
+
+    // v2 vzhled (kill-switch app_v2_ui): stejný stav, normalizace i obsluha,
+    // jen jiný strom (PLAN §2.3.1, technika S).
+    if (MgV2.on(context)) {
+      final motoKey = draft.motoId ?? '';
+      return BookingFormV2View(
+        moto: moto,
+        draft: draft,
+        bd: bd,
+        pricedExtras: pricedExtras,
+        err: err,
+        profileErr: profileErr,
+        hasDates: hasDates,
+        dayCount: dc,
+        isKids: isKids,
+        selfService: selfService,
+        selfServiceAtBranch: selfServiceAtBranch,
+        hideReturnTime: hideReturnTime,
+        deliveryBlocked: deliveryBlocked,
+        branchLabel: branchLabel,
+        missingSizes: missingSizes,
+        canProceed: canProceedNow(),
+        booked: motoKey.isEmpty ? null : ref.watch(bookedDatesProvider(motoKey)),
+        calOpen: _calOpen,
+        noteOpen: _noteOpen,
+        noteCtrl: _noteCtrl,
+        onUpd: _upd,
+        onBack: () => bookingFormBack(context, draft),
+        onOpenCalendar: _openCalendar,
+        onDatesSelected: _onDatesSelected,
+        onDatesReset: _onDatesReset,
+        onRetryBooked: () => ref.invalidate(bookedDatesProvider(motoKey)),
+        onPickupTime: setPickupTime,
+        onReturnTime: setReturnTime,
+        onToggleNote: _toggleNote,
+        onNoteChanged: _onNoteChanged,
+        onVop: setVop,
+        onGdpr: setGdpr,
+        onKids: setKids,
+        onProceed: () => GoRouter.of(context).push('/payment'),
+        onCompleteProfile: () => GoRouter.of(context).push('/profile'),
+      );
+    }
+
     return Material(
       color: const Color(0xFFDFF0EC),
       child: SafeArea(
@@ -487,10 +605,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                 _buildDateSection(context, draft, bd, hasDates, dc, f),
                 BookingFormTimeSection(
                   draft: draft,
-                  onTimeChanged: (t) =>
-                      _upd((d) => d.copyWith(pickupTime: () => t)),
-                  onReturnTimeChanged: (t) =>
-                      _upd((d) => d.copyWith(returnTime: () => t)),
+                  onTimeChanged: setPickupTime,
+                  onReturnTimeChanged: setReturnTime,
                   showReturn: !hideReturnTime,
                   selfService: selfServiceAtBranch,
                 ),
@@ -531,20 +647,20 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       bookingCheckbox(
                         t(context).tr('consentTermsVop'),
                         draft.consentVop,
-                        (v) => _upd((d) => d.copyWith(consentVop: v)),
+                        setVop,
                       ),
                       const SizedBox(height: 8),
                       bookingCheckbox(
                         t(context).tr('consentPersonalData'),
                         draft.consentGdpr,
-                        (v) => _upd((d) => d.copyWith(consentGdpr: v)),
+                        setGdpr,
                       ),
                       if (isKids) ...[
                         const SizedBox(height: 8),
                         bookingCheckbox(
                           t(context).tr('consentKidsGuardian'),
                           draft.consentKids,
-                          (v) => _upd((d) => d.copyWith(consentKids: v)),
+                          setKids,
                         ),
                       ],
                     ],
@@ -716,6 +832,34 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       ),
                     ),
                   ),
+                // Obsazenost motorky se nenačetla → proč je CTA zamčené + oprava.
+                Builder(builder: (context) {
+                  final motoKey = draft.motoId ?? '';
+                  if (motoKey.isEmpty) return const SizedBox.shrink();
+                  final b = ref.watch(bookedDatesProvider(motoKey));
+                  if (!b.hasError || b.hasValue) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: Row(children: [
+                      Expanded(
+                        child: Text(
+                          t(context).tr('fxBookedDatesWait'),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFA02020),
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            ref.invalidate(bookedDatesProvider(motoKey)),
+                        child: Text(t(context).tr('eoRetry')),
+                      ),
+                    ]),
+                  );
+                }),
                 // CTA — disabled when sizes are missing (přistavení), there is
                 // a validation error (err), profile is incomplete (profileErr)
                 // or mandatory consents are not ticked.
@@ -724,15 +868,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                   child: SizedBox(
                     height: 52,
                     child: Builder(builder: (context) {
-                    final consentsOk = draft.consentVop &&
-                        draft.consentGdpr &&
-                        (!isKids || draft.consentKids);
-                    final canProceed = draft.startDate != null &&
-                        draft.endDate != null &&
-                        missingSizes.isEmpty &&
-                        err == null &&
-                        profileErr == null &&
-                        consentsOk;
+                    final canProceed = canProceedNow();
                     return PressableScale(
                     enabled: canProceed,
                     child: ElevatedButton(

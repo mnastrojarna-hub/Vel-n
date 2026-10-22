@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_detail_bits_v2.dart';
 
 /// Simple card container used in reservation detail sections.
 class ResDetailCard extends StatelessWidget {
@@ -8,6 +10,7 @@ class ResDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) return ResDetailCardV2(children: children);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(

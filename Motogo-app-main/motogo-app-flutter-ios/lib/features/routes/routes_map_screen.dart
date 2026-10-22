@@ -14,6 +14,7 @@ import 'routes_map_picker.dart';
 import 'routes_map_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import '../../core/widgets/mg_nav_controls.dart';
 
 /// MAPA TRAS — na rozdíl od mapy míst ukazuje jen body, které leží na nějaké
 /// trase, a po klepnutí na bod dokreslí JEHO trasy, a to PO SILNICI.
@@ -86,8 +87,10 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   @override
   void initState() {
     super.initState();
+    // Poloha při otevření jen nenápadně (bez Nastavení) — vysvětlení a
+    // „Otevřít nastavení" nabídne až tlačítko „moje poloha".
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ensureLocation(ref);
+      if (mounted) requestLocationQuietly(ref);
     });
   }
 
@@ -229,7 +232,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
               children: [
                 _round(Icons.my_location, () async {
                   if (me == null) {
-                    final ok = await ensureLocation(ref);
+                    final ok = await ensureLocation(ref, context: context);
                     if (!ok || !mounted) return;
                   }
                   _mapKey.currentState?.centerOnMe();
@@ -289,8 +292,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           children: [
             Row(
               children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                MgBackTap(
                   onTap: () => context.backOr(Routes.routesList),
                   child: const Padding(
                     padding: EdgeInsets.all(4),
