@@ -16,24 +16,25 @@ return ['pages' => ['landing' => [
         'fleet_next' => 'More bikes',
         'license' => 'Licence {g}',
         'license_none' => 'No licence',
-        'card_book' => 'Book',
+        'card_book' => 'Select',
         'explore_title' => 'Explore MotoGo24',
         'more_open' => 'Read more',
         'more_close' => 'Show less',
         'sticky_reserve' => 'Book',
         'sticky_motos' => 'See bikes',
+        // Mobilní lišta: jedno tlačítko do katalogu (CS sticky_continue)
+        'sticky_continue' => 'Continue',
         'price_chip' => 'Bikes from {price}/day on weekdays',
         'fx_note' => 'Prices in other currencies are approximate; payment is in Czech crowns (CZK).',
-        'assurance' => 'Free cancellation up to 7 days ahead · Secure payment',
+        'assurance' => 'Move your dates for free · Free cancellation more than 7 days ahead',
         'offer' => 'Pick up from 12:00 and get the first day at half price (rentals of 2+ days).',
         'season_note' => '2026 season until 31 Oct · Book your 2027 dates now (from 26 Mar).',
         'cta' => [
             'title' => 'Ready to ride in Czechia?',
-            'text' => 'No deposit, rider gear included and free cancellation up to 7 days ahead.',
+            'text' => 'No deposit, rider gear included, free date changes and free cancellation more than 7 days ahead.',
             'buttons' => [
-                ['label' => 'BOOK A BIKE', 'href' => '/rezervace'],
+                ['label' => 'CONTINUE', 'href' => '/katalog'],
                 ['label' => 'Gift voucher', 'href' => '/poukazy'],
-                ['label' => 'See bikes', 'href' => '/katalog'],
             ],
         ],
         // Sekce důvěry (landing-trust.php) — CS defaulty a pravidla poboček v data/landing-trust.php
@@ -42,6 +43,10 @@ return ['pages' => ['landing' => [
         'reasons_more' => 'See all {n} benefits',
         'reasons_less' => 'Show less',
         'reasons' => [
+            // 2026-10-22: flexibilita rezervace do popředí (jako CS)
+            ['icon' => 'swap', 'title' => 'Free date changes, any time', 'text' => 'Weather or plans changed? Move your booking to other days at no charge.'],
+            ['icon' => 'resize', 'title' => 'Extend or shorten', 'text' => 'Extend any time with no change fee (you only pay for the extra days); shorten for free 7 or more days ahead.'],
+            ['icon' => 'edit', 'title' => 'Change your booking any time', 'text' => 'Add gear or boots, change the pick-up time or place, online or in the app.'],
             ['icon' => 'card', 'title' => 'No deposit', 'text' => 'Nothing gets blocked on your card.'],
             ['icon' => 'shield', 'title' => '100% damage cover', 'text' => 'Contractual cover: if you have an accident, your excess is €0.*'],
             ['icon' => 'helmet', 'title' => 'Gear included', 'text' => 'Riding gear, vest, first-aid kit and disc lock. In Mezná, rain gear too.'],
@@ -64,6 +69,18 @@ return ['pages' => ['landing' => [
             ['icon' => 'check', 'title' => 'Free cancellation', 'text' => 'No fee if you cancel more than 7 days ahead.'],
         ],
         'reasons_note' => '* Provided the rental conditions are met (General Terms, Art. 7).',
+        // Pruh garancí pod hero (landing-guarantee.php)
+        'guar_title' => 'MotoGo24 guarantees',
+        'guar_lead' => 'Plans change: you can adjust your booking any time, even if the weather turns bad.',
+        'guarantees' => [
+            ['icon' => 'shield', 'title' => '€0 excess', 'text' => 'when you keep to the contract*'],
+            ['icon' => 'swap', 'title' => 'Free date changes', 'text' => 'any time, e.g. due to weather'],
+            ['icon' => 'resize', 'title' => 'Extend any time', 'text' => 'no change fee'],
+            ['icon' => 'calendar', 'title' => 'Shorten for free', 'text' => '7+ days ahead'],
+            ['icon' => 'edit', 'title' => 'Changes any time', 'text' => 'gear, pick-up time & place'],
+            ['icon' => 'card', 'title' => 'No deposit', 'text' => 'nothing blocked on your card'],
+        ],
+        'guar_note' => '* Provided the rental conditions are met (General Terms, Art. 7).',
         'panel_rating' => '{r} · {n} reviews on Google',
         'reviews_title' => 'What riders say',
         'reviews_count' => '{n} reviews',
@@ -93,7 +110,7 @@ return ['pages' => ['landing' => [
             ['kind' => 'loyalty', 'title' => 'Loyalty programme', 'text' => 'Every ride moves you up a rank: up to 20% off and, from rank 3, passenger gear and boots free.'],
         ],
         'branches_title' => 'Two branches: pick yours',
-        'branch_book' => 'Book',
+        'branch_book' => 'Select',
         'branch_more' => 'Branch details',
         'branches' => [
             ['badge' => 'Staffed · 24/7', 'title' => 'Mezná (Vysočina)', 'text' => 'Personal handover at the time you choose, full gear included, a welcome coffee and delivery to your address.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 min from Prague']],
@@ -104,8 +121,8 @@ return ['pages' => ['landing' => [
         'h1' => 'Motorcycle rental in the Czech Republic',
         'lead' => 'Pick up 24/7 in Mezná, 90 min from Prague, or self-service 30 min from Brno.',
         'hero_eyebrow' => '<strong>Your motorcycle adventure</strong> in Czechia',
-        'cta_primary' => ['label' => 'BOOK NOW', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'SEE BIKES', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'CONTINUE', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['No deposit', 'Rider gear included', 'Unlimited km'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '€0 deposit', 'text' => 'and no hidden fees'],
@@ -127,8 +144,8 @@ return ['pages' => ['landing' => [
     'pujcovna' => [
         'h1' => 'Motorcycle rental in Czechia: prices & terms',
         'lead' => 'No deposit, rider gear included and unlimited km. Book online in a few minutes.',
-        'cta_primary' => ['label' => 'BOOK NOW', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'SEE BIKES', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'CONTINUE', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['2 branches: Vysočina & Brno', 'Nonstop pick-up'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '€0 deposit', 'text' => 'and no hidden fees'],

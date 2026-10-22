@@ -16,7 +16,11 @@ function lpTrustDefaults() {
         'reasons_lead' => 'Z půjčení jsme odstranili všechno, co nás jako motorkáře vždycky štvalo.',
         'reasons_more' => 'Zobrazit všech {n} výhod',
         'reasons_less' => 'Zobrazit méně',
+        // 2026-10-22: flexibilita rezervace do popředí (majitel: „nic není závazné, zvlášť při nepřízni počasí“)
         'reasons' => [
+            ['icon' => 'swap', 'title' => 'Termín posuneš kdykoliv zdarma', 'text' => 'Pokazí se počasí nebo plány? Přesuň rezervaci na jiné dny — bez poplatku.'],
+            ['icon' => 'resize', 'title' => 'Prodloužíš i zkrátíš', 'text' => 'Prodloužení kdykoliv bez poplatku za změnu (doplatíš jen dny navíc), zkrácení zdarma 7 a víc dní předem.'],
+            ['icon' => 'edit', 'title' => 'Rezervaci upravíš kdykoliv', 'text' => 'Přidáš výbavu nebo boty, změníš čas či místo převzetí — online i v aplikaci.'],
             ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'Nic ti neblokujeme na kartě.'],
             ['icon' => 'shield', 'title' => '100% smluvní krytí škod', 'text' => 'Při nehodě je tvoje spoluúčast 0 Kč.*'],
             ['icon' => 'helmet', 'title' => 'Výbava v ceně', 'text' => 'Motooblečení, vesta, lékárnička a kotoučový zámek. V Mezné i nepromoky.'],
@@ -39,6 +43,18 @@ function lpTrustDefaults() {
             ['icon' => 'check', 'title' => 'Storno zdarma', 'text' => 'Zrušení víc než 7 dní předem bez poplatku.'],
         ],
         'reasons_note' => '* Při dodržení podmínek nájmu (VOP čl. 7).',
+        // Pruh garancí hned pod hero (landing-guarantee.php)
+        'guar_title' => 'Garance MotoGo24',
+        'guar_lead' => 'Plány se mění — rezervaci kdykoliv upravíš, i když se pokazí počasí.',
+        'guarantees' => [
+            ['icon' => 'shield', 'title' => '0 Kč spoluúčast', 'text' => 'při dodržení smlouvy*'],
+            ['icon' => 'swap', 'title' => 'Posun termínu zdarma', 'text' => 'kdykoliv, třeba kvůli počasí'],
+            ['icon' => 'resize', 'title' => 'Prodloužení kdykoliv', 'text' => 'bez poplatku za změnu'],
+            ['icon' => 'calendar', 'title' => 'Zkrácení zdarma', 'text' => '7 a víc dní předem'],
+            ['icon' => 'edit', 'title' => 'Úpravy kdykoliv', 'text' => 'výbava, čas i místo převzetí'],
+            ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'nic ti neblokujeme'],
+        ],
+        'guar_note' => '* Při dodržení podmínek nájmu (VOP čl. 7).',
         'panel_rating' => '{r} · {n} hodnocení na Google',
         'reviews_title' => 'Co o nás říkají motorkáři',
         'reviews_count' => '{n} hodnocení',
@@ -68,7 +84,7 @@ function lpTrustDefaults() {
             ['kind' => 'loyalty', 'title' => 'Věrnostní program', 'text' => 'Každá jízda tě posune výš: sleva až 20 % a od ranku 3 výbava spolujezdce i boty zdarma.'],
         ],
         'branches_title' => 'Dvě pobočky — vyber si',
-        'branch_book' => 'Rezervovat',
+        'branch_book' => 'Vybrat',
         'branch_more' => 'Detail pobočky',
         'branches' => [
             ['badge' => 'S obsluhou · nonstop', 'title' => 'Mezná u Pelhřimova', 'text' => 'Osobní předání v čase, který si zvolíš, kompletní výbava v ceně, káva na uvítanou a přistavení motorky na adresu.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 min z Prahy']],

@@ -58,6 +58,7 @@ body.lp-v2{overflow-x:clip}
 #motogo-ai-bubble{transition:bottom .3s ease,opacity .25s ease,transform .25s ease}
 body.lp-cta-visible #motogo-ai-bubble{opacity:0;transform:scale(.6);pointer-events:none}
 .lp-cta-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.lp-cta-row--one{grid-template-columns:1fr}
 .lp-panel--bg .lp-panel-card{background:#0a1f14;padding-top:1.6rem}
 .lp-panel-bg{pointer-events:none}
 .lp-panel-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
@@ -223,6 +224,7 @@ body.lp-cta-visible #motogo-ai-bubble{opacity:0;transform:scale(.6);pointer-even
 /* --- Sticky CTA lišta (mobil) --- */
 .lp-sticky{position:fixed;left:0;right:0;bottom:0;z-index:950;display:grid;grid-template-columns:1.3fr 1fr;gap:.5rem;padding:.6rem .75rem calc(.6rem + env(safe-area-inset-bottom,0px));background:rgba(10,31,20,.95);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 -8px 24px rgba(0,0,0,.25);transform:translateY(110%);transition:transform .3s ease,visibility 0s linear .3s;visibility:hidden}
 .lp-sticky .lp-btn{min-height:46px;font-size:.84rem;border-radius:12px}
+.lp-sticky--one{grid-template-columns:1fr}
 .lp-sticky .lp-btn-primary,.lp-sticky .lp-btn-primary::after{animation-play-state:paused}
 body.lp-sticky-on .lp-sticky{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s}
 body.lp-sticky-on .lp-sticky .lp-btn-primary,body.lp-sticky-on .lp-sticky .lp-btn-primary::after{animation-play-state:running}

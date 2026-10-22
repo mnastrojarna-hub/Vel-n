@@ -56,6 +56,7 @@ return [
     'menu.howto.documents' => 'Dokumenty i instrukcje',
     'menu.howto.faq' => 'Najczęściej zadawane pytania',
     'menu.vouchers' => 'Bony',
+    'menu.gearRental' => 'Wypożycz odzież',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Sklep',
     'menu.branches' => 'Oddziały',

@@ -8,6 +8,7 @@ import { subscribeRatingAlerts } from '../lib/ratingAlerts'
 const ROUTE_LABELS = {
   '/': 'Velín',
   '/flotila': 'Flotila',
+  '/flotila/obleceni': 'Půjčení oblečení',
   '/rezervace': 'Rezervace',
   '/zakaznici': 'Zákazníci',
   '/finance': 'Finance',

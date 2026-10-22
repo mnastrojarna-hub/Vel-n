@@ -53,6 +53,7 @@ $lpAbout = renderLpMore(
 
 return '<main id="content" class="lp-main lp-main--page"><div class="container">' . $bc . '</div>' .
     $lpPanel .
+    renderLpGuarantees($TC) .
     renderLpOffer($TC) .
     renderLpFleet($lpMotos, $TC) .
     ($lpReasons !== '' ? $lpReasons : $lpUsp) .

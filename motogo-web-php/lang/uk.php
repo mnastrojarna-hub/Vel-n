@@ -59,6 +59,7 @@ return [
     'menu.howto.documents' => 'Документи та інструкції',
     'menu.howto.faq' => 'Часті запитання',
     'menu.vouchers' => 'Подаруйте враження',
+    'menu.gearRental' => 'Оренда спорядження',
     'menu.blog' => 'Блог',
     'menu.shop' => 'Інтернет-магазин',
     'menu.branches' => 'Філії',

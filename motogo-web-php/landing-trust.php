@@ -29,6 +29,9 @@ function lpIco2($name) {
         'moto' => '<circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 10h5l4.5 6.5M14 10l-2-4h3M9 10l-1.5-2.5"/>',
         'calendar' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M8 14l2.5 2.5L16 11"/>',
         'check' => '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+        'swap' => '<path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/>',
+        'edit' => '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/>',
+        'resize' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M9 15.5h6M7 15.5l1.5-1.5M7 15.5 8.5 17M17 15.5 15.5 14M17 15.5 15.5 17"/>',
     ];
     return '<svg class="lp-ico2" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$name] ?? $p['check']) . '</svg>';
 }

@@ -10,7 +10,7 @@
   var T = C.t, by = {}, today = K.today(), CZK = { code: 'CZK', rate: 1, dec: 0, sym: 'Kč' };
   var rm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   C.motos.forEach(function (m) { by[m.id] = m; });
-  var S = { branch: '', moto: '', start: null, end: null, y: +today.slice(0, 4), mo: +today.slice(5, 7) - 1, bk: {}, wait: {}, fail: false, live: false, note: '', shown: 0 };
+  var S = { branch: '', moto: '', start: null, end: null, open: false, y: +today.slice(0, 4), mo: +today.slice(5, 7) - 1, bk: {}, wait: {}, fail: false, live: false, note: '', shown: 0 };
   var q = function (s) { return root.querySelector(s); };
   var E = { sel: q('#kc-moto'), card: q('[data-kc-moto]'), cal: q('[data-kc-cal]'), hint: q('[data-kc-hint]'), note: q('[data-kc-note]'), sum: q('[data-kc-sum]') };
   var radios = root.querySelectorAll('input[name="kc-branch"]'), each = function (l, f) { Array.prototype.forEach.call(l, f); };
@@ -66,7 +66,7 @@
   function check() {
     if (!S.start || !ready()) return;
     for (var x = S.start; x <= (S.end || S.start); x = K.add(x, 1)) {
-      if (st(x) !== 'free') { S.start = S.end = null; S.note = S.moto ? T.moto_busy : T.range_busy; return; }
+      if (st(x) !== 'free') { S.start = S.end = null; S.open = false; S.note = S.moto ? T.moto_busy : T.range_busy; return; }
     }
   }
 
@@ -101,14 +101,17 @@
     E.sel.value = S.moto;
     changed();
   }
+  // 1. klik = hotový termín na 1 den (u motorky s minimem N dní rovnou N dní, jsou-li volné);
+  // dokud je výběr „otevřený“, klik na pozdější den nastaví den vrácení (2026-10-22).
+  function free(a, b) { for (var x = a; x <= b; x = K.add(x, 1)) if (st(x) !== 'free') return false; return true; }
   function pick(iso) {
     S.note = '';
-    if (!S.start || S.end || iso < S.start) { S.start = iso; S.end = null; }
-    else {
-      for (var x = K.add(S.start, 1); x < iso; x = K.add(x, 1)) {
-        if (st(x) !== 'free') { S.note = T.range_busy; render(); return; }
-      }
-      S.end = iso;
+    if (S.open && S.start && iso >= S.start) {
+      if (!free(S.start, iso)) { S.note = T.range_busy; render(); return; }
+      S.end = iso; S.open = false;
+    } else {
+      var m = S.moto ? by[S.moto] : null, mn = m ? (m.min || 1) : 1, e = K.add(iso, mn - 1);
+      S.start = iso; S.end = mn > 1 && free(iso, e) ? e : iso; S.open = true;
     }
     render();
   }
@@ -122,7 +125,7 @@
     var m = S.moto ? by[S.moto] : null, ch = m ? K.cardHtml(X, m) : '';
     E.card.hidden = !m;
     if (ch !== S.cardHtml) { E.card.innerHTML = ch; S.cardHtml = ch; }
-    E.hint.textContent = !S.start ? T.hint_start : (!S.end ? T.hint_end : T.hint_done);
+    E.hint.textContent = !S.start ? T.hint_start : (S.open ? T.hint_end : T.hint_done);
     E.note.textContent = S.note || (m ? K.tpl(T.legend_price, { cur: C.cur.sym }) : T.cal_any);
     E.note.classList.toggle('is-warn', !!S.note);
     each(root.querySelectorAll('[data-kc-step]'), function (li) {
@@ -187,14 +190,14 @@
     else if (b.getAttribute('data-d')) pick(b.getAttribute('data-d'));
   });
   E.cal.addEventListener('mouseover', function (ev) {
-    if (!S.start || S.end) return;
+    if (!S.start || !S.open) return;
     var b = ev.target.closest('[data-d]'), to = b && !b.disabled ? b.getAttribute('data-d') : '';
     each(E.cal.querySelectorAll('[data-d]'), function (x) { var v = x.getAttribute('data-d'); x.classList.toggle('is-hover', !!to && v > S.start && v <= to); });
   });
   E.sum.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-pick],[data-reset]');
     if (!b) return;
-    if (b.hasAttribute('data-reset')) { S.start = S.end = null; S.note = ''; render(); return; }
+    if (b.hasAttribute('data-reset')) { S.start = S.end = null; S.open = false; S.note = ''; render(); return; }
     setMoto(b.getAttribute('data-pick'));
   });
 
@@ -217,7 +220,7 @@
   K.calcSet = function (o) {
     o = o || {};
     if (o.start && o.end && o.start >= today && o.end >= o.start) {
-      S.start = o.start; S.end = o.end; S.y = +o.start.slice(0, 4); S.mo = +o.start.slice(5, 7) - 1;
+      S.start = o.start; S.end = o.end; S.open = false; S.y = +o.start.slice(0, 4); S.mo = +o.start.slice(5, 7) - 1;
     }
     setMoto(o.keepMoto ? S.moto : (o.moto || ''));
   };

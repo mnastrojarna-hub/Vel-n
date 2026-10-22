@@ -56,6 +56,7 @@ return [
     'menu.howto.documents' => 'Documenten en handleidingen',
     'menu.howto.faq' => 'Veelgestelde vragen',
     'menu.vouchers' => 'Cadeaubonnen',
+    'menu.gearRental' => 'Uitrusting huren',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Winkel',
     'menu.branches' => 'Filialen',

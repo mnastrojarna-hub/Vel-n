@@ -49,7 +49,7 @@ function _pageCacheEnabled() {
 function _pageCacheSkipPath($path) {
     $skipPrefixes = [
         '/rezervace', '/potvrzeni', '/kosik', '/checkout', '/upravit-rezervaci',
-        '/cms', '/api/', '/order-confirm', '/.well-known/',
+        '/cms', '/api/', '/order-confirm', '/.well-known/', '/pujceni-obleceni',
     ];
     foreach ($skipPrefixes as $p) {
         if ($path === $p || strpos($path, $p) === 0) return true;

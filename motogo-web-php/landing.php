@@ -46,12 +46,14 @@ function landingV2TextsReady($lang) {
 
 /** Assety v2 pro renderPage() meta. */
 function lpPageMeta() {
-    return ['styles' => ['/css/landing.css', '/css/landing-trust.css', '/css/landing-routes.css'], 'scripts' => ['/js/landing.js'], 'body_class' => 'lp-v2'];
+    return ['styles' => ['/css/landing.css', '/css/landing-trust.css', '/css/landing-routes.css'], 'scripts' => ['/js/landing.js', '/js/live-viewers.js'], 'body_class' => 'lp-v2'];
 }
 
 /** CS defaulty textů v2. */
 function lpDefaults() {
-    $cta = ['cta_primary' => ['label' => 'REZERVOVAT', 'href' => '/rezervace'], 'cta_secondary' => ['label' => 'VYBRAT MOTORKU', 'href' => '/katalog']];
+    // Jedno neutrální CTA (zadání majitele 2026-10-22: žádné „Rezervovat“ ani volba mezi
+    // dvěma tlačítky — každá volba navíc brzdí). Prázdný label sekundárního = nevykreslí se.
+    $cta = ['cta_primary' => ['label' => 'POKRAČOVAT', 'href' => '/katalog'], 'cta_secondary' => ['label' => '', 'href' => '']];
     $chips = ['Bez kauce', 'Výbava v ceně', 'Vyzvednutí nonstop'];
     return [
         'common' => [
@@ -70,13 +72,15 @@ function lpDefaults() {
             'more_close' => 'Zobrazit méně',
             'sticky_reserve' => 'Rezervovat',
             'sticky_motos' => 'Motorky',
+            // Mobilní lišta: jedno tlačítko do katalogu (výběr motorky = první krok)
+            'sticky_continue' => 'Pokračovat',
             'price_chip' => 'Motorky od {price} / den',
             // Jen u jiné měny než CZK: ceny jsou orientační přepočet, platí se v Kč
             'fx_note' => 'Ceny v cizí měně jsou orientační, platba probíhá v Kč.',
-            'card_book' => 'Rezervovat',
+            'card_book' => 'Vybrat',
             'license_none' => 'Bez ŘP',
             // Volitelné (prázdné = nezobrazí se): mikrotext pod CTA, nabídka pod panelem, sezónní poznámka
-            'assurance' => 'Storno zdarma víc než 7 dní předem · Bezpečná platba',
+            'assurance' => 'Termín posuneš zdarma · Storno zdarma víc než 7 dní předem',
             'offer' => 'Vyzvedni si motorku od 12:00 a první den máš za polovinu (výpůjčka na 2 a více dní).',
             'season_note' => 'Sezóna 2026 do 31. 10. · Termíny na 2027 rezervuj už teď (od 26. 3.).',
             // Volitelná náhrada CTA pásu (prázdný title = CTA z CMS stránky)
@@ -208,6 +212,7 @@ function lpIcon($name) {
 require_once __DIR__ . '/landing-sections.php';
 require_once __DIR__ . '/landing-trust.php';
 require_once __DIR__ . '/landing-routes.php';
+require_once __DIR__ . '/landing-guarantee.php';
 require_once __DIR__ . '/data/landing-trust.php';
 require_once __DIR__ . '/data/reviews.php';
 

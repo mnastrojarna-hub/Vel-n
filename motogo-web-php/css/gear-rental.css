@@ -1,0 +1,123 @@
+/* ===== MotoGo24 — Půjčení oblečení (pages/pujceni-obleceni.php, js/gear-rental.js) — mobile-first ===== */
+.gr-page{padding-bottom:3rem;color:#1a2e22}
+.gr-head{margin:.6rem 0 1.2rem}
+.gr-head h1{font-size:clamp(1.5rem,5.6vw,2.3rem);line-height:1.15;margin:.2rem 0 .6rem}
+.gr-lead{font-size:1rem;line-height:1.55;color:#33493b;max-width:46rem;margin:0 0 .8rem}
+.gr-chips{margin:0}
+.gr-chips .lp-chip{background:#effcef;color:#14532d;border-color:#c9f2c9}
+.gr-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:1.2rem}
+.gr-main,.gr-side{min-width:0}
+@media(min-width:960px){.gr-grid{grid-template-columns:minmax(0,1fr) 340px;align-items:start}.gr-side{position:sticky;top:1rem}}
+
+/* Kroky formuláře */
+.gr-form{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
+.gr-step{background:#fff;border:1px solid #d9eee2;border-radius:18px;padding:1rem;box-shadow:0 4px 14px rgba(20,80,40,.06)}
+.gr-step h2{display:flex;align-items:center;gap:.6rem;font-size:1.08rem;margin:0 0 .8rem}
+.gr-n{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#1a2e22;color:#74fb71;font-size:.85rem;font-weight:800;flex:0 0 auto}
+.gr-hint{font-size:.86rem;color:#4b6355;margin:-.2rem 0 .7rem}
+.gr-hint.is-warn{color:#b45309;font-weight:700}
+.gr-note{font-size:.84rem;margin:.6rem 0 0;padding:.6rem .8rem;border-radius:12px;background:#f6fef6;border:1.5px dashed #b8e6b8}
+
+/* Pobočky */
+.gr-branches{display:grid;gap:.6rem}
+@media(min-width:560px){.gr-branches{grid-template-columns:1fr 1fr}}
+.gr-br{position:relative;display:grid;gap:.15rem;padding:.8rem .9rem;border:2px solid #d9eee2;border-radius:14px;cursor:pointer;transition:border-color .15s,background .15s}
+.gr-br input{position:absolute;opacity:0;pointer-events:none}
+.gr-br.is-on{border-color:#37cf63;background:#f2fdf2}
+.gr-br:focus-within{outline:3px solid #74fb71;outline-offset:2px}
+.gr-br-n{display:flex;align-items:center;gap:.35rem;font-weight:800}
+.gr-br-n .lp-ico{width:16px;height:16px;color:#16a34a}
+.gr-br-s{font-size:.8rem;font-weight:700;color:#15803d}
+.gr-br-a{font-size:.78rem;color:#5b7366}
+
+/* Kalendář — vzhled z landing-calc.css (.kc-*), jen jiný kontejner */
+.gr-cal{margin:0;background:#0f2418;border-radius:16px;padding:.6rem .45rem}
+.gr-page [hidden]{display:none!important}
+.gr-time{display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:.8rem;font-size:.9rem;font-weight:700}
+.gr-time select{min-height:44px;border-radius:10px;border:1px solid #cfe5d7;padding:0 .6rem;font:inherit;background:#fff}
+
+/* Výbava */
+.gr-quick{display:grid;gap:.6rem;margin-bottom:.8rem}
+@media(min-width:560px){.gr-quick{grid-template-columns:1fr 1fr}}
+.gr-qs{display:grid;gap:.15rem;text-align:left;padding:.8rem .9rem;border-radius:14px;border:2px solid #1a2e22;background:#1a2e22;color:#fff;cursor:pointer;font:inherit}
+.gr-qs.is-on{background:#0f3d1f;border-color:#74fb71;box-shadow:0 0 0 3px rgba(116,251,113,.35)}
+.gr-qs-t{font-weight:800}
+.gr-qs-d{font-size:.78rem;opacity:.8}
+.gr-qs-p{font-weight:800;color:#74fb71}
+.gr-items{display:grid;gap:.5rem}
+.gr-it{border:1.5px solid #e1efe6;border-radius:12px;padding:.55rem .75rem;background:#fbfefc}
+.gr-it.is-on{border-color:#37cf63;background:#f4fdf4}
+.gr-it-h{display:flex;align-items:center;gap:.6rem;cursor:pointer;min-height:36px}
+.gr-it-h input{width:20px;height:20px;accent-color:#16a34a;flex:0 0 auto;margin:0}
+.gr-it-n{font-weight:700;flex:1}
+.gr-it-p{font-weight:800;white-space:nowrap}
+.gr-it-p small{font-weight:600;color:#5b7366}
+.gr-sizes{display:flex;flex-wrap:wrap;gap:.35rem;margin:.5rem 0 .1rem}
+.gr-sz{min-width:44px;min-height:38px;padding:0 .55rem;border-radius:10px;border:1.5px solid #cfe5d7;background:#fff;font:inherit;font-weight:700;cursor:pointer}
+.gr-sz.is-on{background:#1a2e22;border-color:#1a2e22;color:#74fb71}
+.gr-sz-hint{font-size:.78rem;color:#b45309;margin:.3rem 0 0;font-weight:700}
+
+/* Kontakt */
+.gr-fields{display:grid;gap:.55rem}
+.gr-fields input,.gr-fields textarea{width:100%;box-sizing:border-box;min-height:46px;border:1px solid #cfe5d7;border-radius:12px;padding:.6rem .8rem;font:inherit;background:#fff}
+.gr-fields textarea{min-height:64px;resize:vertical}
+.gr-row{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.gr-check{display:flex;align-items:flex-start;gap:.5rem;font-size:.88rem;cursor:pointer}
+.gr-check input{width:20px;height:20px;min-height:0;margin:.05rem 0 0;accent-color:#16a34a;flex:0 0 auto}
+.gr-company{display:grid;gap:.55rem}
+.gr-agree a{color:#15803d;font-weight:700}
+
+/* Souhrn + odeslání */
+.gr-sum{background:#0f2418;color:#fff;border-radius:18px;padding:1rem 1.1rem}
+.gr-sum-k{font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#74fb71;margin:0 0 .35rem}
+.gr-sum-e{margin:0;color:#c8d9cf;font-size:.9rem}
+.gr-sum-m{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin:0 0 .5rem;font-weight:700}
+.gr-sum-m .lp-ico{width:16px;height:16px;color:#74fb71}
+.gr-lines{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}
+.gr-lines li{display:flex;justify-content:space-between;gap:.8rem;font-size:.9rem}
+.gr-l-n small{display:block;color:#a7c2b3;font-size:.76rem}
+.gr-l-v{white-space:nowrap;font-weight:700}
+.gr-save{display:flex;align-items:center;gap:.35rem;margin:.6rem 0 0;font-size:.84rem;color:#a7f3a5;font-weight:700}
+.gr-save .lp-ico{width:16px;height:16px}
+.gr-total{display:flex;justify-content:space-between;align-items:baseline;margin:.7rem 0 0;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.15)}
+.gr-total b{font-size:1.5rem;color:#74fb71}
+.gr-err{margin:0;padding:.7rem .9rem;border-radius:12px;background:#fff4e5;border:1px solid #f0b268;color:#8a4b00;font-weight:700}
+.gr-payfail{margin-bottom:1rem}
+.gr-go{width:100%;min-height:58px;font-size:1rem}
+.gr-go[disabled]{opacity:.7;cursor:progress}
+.gr-assure{display:flex;align-items:center;justify-content:center;gap:.35rem;font-size:.82rem;color:#4b6355;margin:0}
+.gr-assure .lp-ico{width:16px;height:16px;color:#16a34a}
+.gr-assure span{min-width:0;flex:0 1 auto}
+.gr-unavail{padding:1rem;border-radius:14px;background:#f6fef6;border:1px solid #cfe5d7;font-weight:700}
+
+/* Ceník a FAQ (boční panel) */
+.gr-prices,.gr-faq{background:#fff;border:1px solid #d9eee2;border-radius:18px;padding:1rem;margin-bottom:1rem}
+.gr-prices h2,.gr-faq h2{font-size:1.1rem;margin:0 0 .7rem}
+.gr-prices h3{font-size:.92rem;margin:1rem 0 .4rem;color:#33493b}
+.gr-sets{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}
+.gr-set{display:grid;gap:.1rem;padding:.7rem .8rem;border-radius:14px;background:#1a2e22;color:#fff}
+.gr-set-t{font-weight:800}
+.gr-set-d{font-size:.78rem;opacity:.8}
+.gr-set-p{color:#74fb71}
+.gr-set-p .gr-pv{font-size:1.25rem;font-weight:800}
+.gr-itemlist{list-style:none;margin:0;padding:0}
+.gr-itemlist li{display:flex;justify-content:space-between;padding:.35rem 0;border-bottom:1px dashed #e1efe6;font-size:.9rem}
+.gr-itemlist .gr-pv{font-weight:800}
+.gr-itemlist small{font-weight:600;color:#5b7366}
+.gr-faq-i{border-bottom:1px solid #e9f3ec;padding:.55rem 0}
+.gr-faq-i summary{cursor:pointer;font-weight:700}
+.gr-faq-i p{margin:.4rem 0 0;font-size:.9rem;color:#33493b}
+
+/* Potvrzení po platbě */
+.gr-ok{max-width:640px;margin:0 auto;text-align:center;background:#fff;border:1px solid #d9eee2;border-radius:20px;padding:1.4rem 1.1rem;box-shadow:0 8px 24px rgba(20,80,40,.08)}
+.gr-ok-ico{width:64px;height:64px;margin:0 auto .6rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;background:#74fb71;color:#08230f}
+.gr-ok h2{margin:.2rem 0 .5rem}
+.gr-ok-sum{text-align:left;margin:1rem 0;padding:.9rem 1rem;border-radius:14px;background:#0f2418;color:#fff}
+.gr-ok-sum p{display:flex;align-items:center;gap:.4rem;margin:.2rem 0}
+.gr-ok-sum p span{opacity:.8}
+.gr-ok-sum ul{margin:.4rem 0 0;padding-left:1.1rem}
+.gr-ok-sum .lp-ico{width:16px;height:16px;color:#74fb71}
+.gr-ok-btns{display:flex;flex-wrap:wrap;gap:.8rem;justify-content:center;align-items:center;margin-top:1rem}
+.gr-link{font-weight:700;color:#15803d}
+.gr-ok .kc-spin{display:inline-block;width:28px;height:28px;border:3px solid #cfe5d7;border-top-color:#16a34a;border-radius:50%;animation:grSpin 1s linear infinite}
+@keyframes grSpin{to{transform:rotate(360deg)}}

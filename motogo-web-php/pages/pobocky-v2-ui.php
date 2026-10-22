@@ -98,9 +98,10 @@ function pbHeroHtml($o) {
             (lpPlain($o['highlight']) !== '' ? '<p class="pb-hl">' . pbIcon('bolt') . '<span>' . he(lpPlain($o['highlight'])) . '</span></p>' : '') .
             '<a class="pb-addr" href="' . he($o['maps']) . '" target="_blank" rel="noopener">' . pbIcon('pin') . '<span data-cms-key="' . he($o['addressKey']) . '">' . he(lpPlain($o['address'])) . '</span></a>' .
             pbStatsHtml($o['stats']) .
-            '<div class="lp-cta-row" data-lp-sentinel>' .
-                '<a class="lp-btn lp-btn-primary" href="' . he($p['href']) . '">' . lpIcon('cal') . '<span>' . he(lpPlain($p['label'])) . '</span></a>' .
-                '<a class="lp-btn lp-btn-ghost" href="' . he($s['href']) . '">' . lpIcon('moto') . '<span>' . he(lpPlain($s['label'])) . '</span></a></div>' .
+            // Sekundární CTA jen s popiskem (od 2026-10-22 jedno neutrální tlačítko → celá šířka)
+            '<div class="lp-cta-row' . (lpPlain($s['label'] ?? '') === '' ? ' lp-cta-row--one' : '') . '" data-lp-sentinel>' .
+                '<a class="lp-btn lp-btn-primary" href="' . he($p['href']) . '"><span>' . he(lpPlain($p['label'])) . '</span>' . lpIcon('arrow') . '</a>' .
+                (lpPlain($s['label'] ?? '') !== '' ? '<a class="lp-btn lp-btn-ghost" href="' . he($s['href']) . '">' . lpIcon('moto') . '<span>' . he(lpPlain($s['label'])) . '</span></a>' : '') . '</div>' .
             pbFactsHtml($o['facts']) .
         '</div></div></div></section>';
 }
