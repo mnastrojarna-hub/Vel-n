@@ -56,7 +56,11 @@ Widget _app(GoRouter router, {bool v2 = true}) => ProviderScope(
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        builder: (c, child) => MgV2Scope(enabled: v2, child: child!),
+        theme: v2TestTheme(),
+        builder: (c, child) => MgV2Scope(
+          enabled: v2,
+          child: MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.noScaling), child: child!),
+        ),
       ),
     );
 
@@ -266,7 +270,8 @@ void main() {
 
       final nomi = MockClient((r) async => r.url.host == 'api.mapy.cz'
           ? http.Response('{"items":[]}', 200)
-          : http.Response(jsonEncode({'address': {'road': 'Kotlářská', 'house_number': '5', 'town': 'Brno', 'postcode': '60200'}}), 200));
+          // UTF-8 bez charset v hlavičce (diakritika se nesmí rozbít).
+          : http.Response.bytes(utf8.encode(jsonEncode({'address': {'road': 'Kotlářská', 'house_number': '5', 'town': 'Brno', 'postcode': '60200'}})), 200));
       final b = await sosAddressAt(49.19, 16.6, client: nomi);
       expect((b.street, b.city), ('Kotlářská 5', 'Brno'));
 

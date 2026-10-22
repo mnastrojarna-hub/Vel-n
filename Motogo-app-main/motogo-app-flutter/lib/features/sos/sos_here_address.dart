@@ -28,7 +28,7 @@ Future<AddressSuggestion> sosAddressAt(double lat, double lng,
         }),
         const {'Accept': 'application/json'}).timeout(const Duration(seconds: 5));
     if (r.statusCode == 200) {
-      final items = (jsonDecode(r.body)['items'] as List?) ?? const [];
+      final items = (jsonDecode(utf8.decode(r.bodyBytes))['items'] as List?) ?? const [];
       if (items.isNotEmpty && items.first is Map) {
         final it = items.first as Map;
         var city = '';
@@ -57,7 +57,7 @@ Future<AddressSuggestion> sosAddressAt(double lat, double lng,
         }),
         const {'User-Agent': 'MotoGo24/2.0'}).timeout(const Duration(seconds: 5));
     if (r.statusCode == 200) {
-      final a = (jsonDecode(r.body)['address'] as Map?) ?? const {};
+      final a = (jsonDecode(utf8.decode(r.bodyBytes))['address'] as Map?) ?? const {};
       final road = '${a['road'] ?? ''}';
       final house = '${a['house_number'] ?? ''}';
       final city = '${a['city'] ?? a['town'] ?? a['village'] ?? ''}';
