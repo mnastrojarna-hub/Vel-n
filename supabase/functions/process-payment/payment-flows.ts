@@ -4,25 +4,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentRequest, resolveReturnOrigin, resolveSiteLang, resolveStripeLocale, withLangParam } from './stripe-customer.ts'
-import { CS, refuse } from './refusals.ts'
-import { waiveBooking } from './card-minimum.ts'
-import { waiveShopFlow } from './pp-waiver.ts'
-import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
-import { settleStoredSession, type StripeCheckoutLike } from './checkout-guard.ts'
-import { roundingLabel, webLabels, fillLabel, shippingLabel } from './checkout-labels.ts'
-import { webBookingMiss, freeShopPlan, WEB_TXT } from './web-booking-guards.ts'
-
-// D1/D2 (2026-10-16): web (hosted Checkout) — zbytek rezervace / objednávky do 1 Kč se
-// neúčtuje (rezervace jde přes ověření karty bez platby, objednávka se potvrdí), 1–15 Kč
-// se platí 15 Kč a Stripe stránka ukáže dorovnání jako samostatnou položku (do ceny ho
-// zapíše webhook až po zaplacení, metadata due / card_rounding). Bez SQL 20261016p1
-// (sloupec card_rounding) a u částek, které nejsou zbytkem (poukaz, odkaz z Velína),
-// zůstává srozumitelné odmítnutí below_minimum místo chyby Stripe amount_too_small.
-const CARD_MIN = 15
-const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100
-const belowMin = (amountCzk: number, text: string) =>
-  refuse(400, 'below_minimum', { due: r2(amountCzk), min: CARD_MIN, charge: CARD_MIN, update_required: false }, text)
-// Položka dorovnání na Stripe stránce v jazyce webu (checkout-labels.ts).
 
 /** Handle web anonymous booking checkout (no auth required) */
 export async function handleWebBookingCheckout(
@@ -39,8 +20,9 @@ export async function handleWebBookingCheckout(
 
   if (bErr || !booking) {
     console.error('Web booking lookup failed:', bErr?.message, 'booking_id:', body.booking_id)
-    // f1 (2026-10-22): proč — s kódem (web-booking-guards.ts; zaplaceno = potvrzení).
-    return await webBookingMiss(supabaseAdmin, body.booking_id!)
+    return new Response(JSON.stringify({ error: 'Booking not found or already paid' }), {
+      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
+    })
   }
 
   // Pojistka jazyka (audit 2026-10-10): web volá set_booking_language hned po vytvoření
@@ -56,70 +38,9 @@ export async function handleWebBookingCheckout(
     else bkLang.language = siteLang
   }
 
-  // D4 (oprava 2026-10-16): nejvýš jedna zaplatitelná session na rezervaci — předchozí otevřenou
-  // (druhá záložka, zpět + znovu zaplatit) zrušit, čerstvě zaplacenou neplatit znovu. PŘED
-  // odpuštěním / ověřením karty, aby stará session nezůstala zaplatitelná vedle nich.
-  const prevSess = await settleStoredSession(stripe as unknown as StripeCheckoutLike,
-    (booking as unknown as { stripe_session_id?: string | null }).stripe_session_id)
-  if (prevSess.action === 'refuse') return refuse(409, 'payment_in_progress', { booking_id: body.booking_id, session_id: prevSess.sessionId })
-
-  let amountCzk = booking.total_price || body.amount || 0
-  const currency = body.currency || 'czk'
-
-  // D1: přibalená objednávka e-shopu se do minima karty počítá (jedna platba).
-  const shopOrderIdPre = (body as unknown as Record<string, unknown>).shop_order_id as string | undefined
-  let shopSum = 0
-  if (shopOrderIdPre) {
-    const { data: so } = await supabaseAdmin.from('shop_orders')
-      .select('payment_status, shipping_cost, shop_order_items(quantity, unit_price)').eq('id', shopOrderIdPre).maybeSingle()
-    if (so && (so as Record<string, unknown>).payment_status !== 'paid') {
-      for (const it of (((so as Record<string, unknown>).shop_order_items as Array<Record<string, unknown>>) || [])) {
-        if (Number(it.unit_price) > 0) shopSum += Number(it.unit_price) * (Number(it.quantity) || 1)
-      }
-      shopSum += Math.max(Number((so as Record<string, unknown>).shipping_cost) || 0, 0)
-    }
-  }
-  let rounding: { due: number; r: number } | null = null
-  // Odpuštění zbytku do 1 Kč právě ověřené proti ceníku → bez platby (ověření karty) jako 100% sleva.
-  let waiverVerified = false
-  const payDue = r2(Number(amountCzk) + shopSum)
-  if (Number(amountCzk) > 0 && payDue < CARD_MIN) {
-    if (!('card_rounding' in (booking as Record<string, unknown>))) return belowMin(payDue, CS.below_minimum_web)
-    // Cenu rezervace zapisuje klient → odpustit / dorovnat jen zbytek, který server doloží.
-    // Nesoulad = price_outdated (jinou částku nenabízet — zaplaceno by se lišilo od dokladů).
-    const fc = await floorCheck(supabaseAdmin, booking as Record<string, unknown>,
-      { due: r2(Number(amountCzk)), kind: payDue <= 1 && !shopSum ? 'waive' : 'round', type: 'booking' })
-    if (fc === 'unavailable') return refuse(503, 'validation_unavailable')
-    if (fc === 'outdated') return refuse(409, 'price_outdated', { booking_id: body.booking_id })
-    if (payDue <= 1 && !shopSum) {
-      const cas = await waiveBooking(supabaseAdmin, body.booking_id!, r2(Number(amountCzk)))
-      if (cas === 'unavailable') return refuse(409, 'rounding_unavailable', { waiver: true }, CS.rounding_unavailable_waiver)
-      if (cas === 'error') return refuse(500, 'server_error')
-      amountCzk = 0 // odpuštěno → ověření karty bez platby (setup) jako u 100% slevy
-      waiverVerified = true
-      const bkw = booking as unknown as Record<string, unknown>
-      if (cas === 'done') {
-        bkw.card_rounding = r2(Number(bkw.card_rounding || 0) - Number(bkw.total_price || 0))
-        bkw.total_price = 0
-      } else {
-        // Souběh / už odpuštěno dřív (opuštěné ověření karty) → stav z DB.
-        const { data: re } = await supabaseAdmin.from('bookings').select('total_price, card_rounding, payment_status')
-          .eq('id', body.booking_id!).maybeSingle()
-        const rw = (re || {}) as Record<string, unknown>
-        if (!re || rw.payment_status === 'paid') return refuse(409, 'already_paid', { already_paid: true, booking_id: body.booking_id })
-        if (Number(rw.total_price) > 0) return refuse(409, 'amount_mismatch', { server_total: Math.round(Number(rw.total_price)) })
-        bkw.total_price = Number(rw.total_price) || 0
-        bkw.card_rounding = Number(rw.card_rounding) || 0
-      }
-    } else {
-      rounding = { due: r2(Number(amountCzk)), r: r2(CARD_MIN - payDue) }
-    }
-  } else if (Number(amountCzk) >= CARD_MIN) {
-    // D4: běžná platba — spodní mez ceny zatím jen do debug_log (PP_FLOOR_ENFORCE=1 vynutí).
-    const fc = await floorCheck(supabaseAdmin, booking as Record<string, unknown>, { due: r2(Number(amountCzk)), kind: 'ok', type: 'booking' })
-    if (fc === 'outdated') return refuse(409, 'price_outdated', { booking_id: body.booking_id })
-  }
+  const amountCzk = booking.total_price || body.amount || 0
   const amount = Math.round(amountCzk * 100)
+  const currency = body.currency || 'czk'
 
   // 100% sleva pro web — Stripe nestrhne nic, ale projde se přes Stripe Checkout v setup módu
   // (ověření karty, žádný charge). Po session.completed webhook potvrdí rezervaci jako paid.
@@ -152,27 +73,18 @@ export async function handleWebBookingCheckout(
       }
     }
 
-    // D1 (oprava 2026-10-16): zbytek do 1 Kč právě odpuštěný a ověřený výše, nebo slevy (víc poukazů /
-    // kódů) či dřívější odpuštění pokryjí cenu, kterou server DOLOŽÍ z ceníku. Dřív stačilo uložené
-    // card_rounding < 0 — zastaralé, když zákazník mezitím změnil motorku / termín přímo.
-    isTrue100 = waiverVerified || await freeVerifiedByFloor(supabaseAdmin, booking as unknown as Record<string, unknown>, isTrue100)
-
     if (!isTrue100) {
       console.error('Free booking rejected — discount is not truly 100%:', {
         booking_id: body.booking_id, total_price: booking.total_price,
         discount_amount: booking.discount_amount, promo_code_id: booking.promo_code_id
       })
-      return refuse(400, 'free_unverified', { booking_id: body.booking_id }, WEB_TXT.free_unverified)
+      return new Response(JSON.stringify({
+        error: 'Chyba kalkulace ceny. Sleva není 100%. Obnovte stránku a zkuste znovu.'
+      }), {
+        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
+      })
     }
   }
-
-  // f1 (2026-10-22): rezervace zdarma s přibaleným zbožím z doprodeje → platba jen za zboží
-  // (± dorovnání na 15 Kč), ne ověření karty bez platby (web-booking-guards.ts).
-  const fsp = freeShopPlan({ isFree: isFreeBooking, shopSum, roundingCol: 'card_rounding' in (booking as Record<string, unknown>),
-    bookingTotal: Number((booking as Record<string, unknown>).total_price) || 0 })
-  if (fsp.kind === 'below') return belowMin(shopSum, CS.below_minimum_web)
-  const freeWithShop = fsp.kind === 'pay'
-  if (fsp.kind === 'pay' && fsp.rounding) rounding = fsp.rounding
 
   const profile = booking.profiles as { full_name?: string; email?: string; phone?: string; stripe_customer_id?: string } | null
   const customerEmail = profile?.email || ''
@@ -197,7 +109,7 @@ export async function handleWebBookingCheckout(
 
   // -- 0 Kč rezervace: Stripe Checkout v `setup` módu (ověření karty bez stržení) --
   // Po dokončení webhook `checkout.session.completed` (mode=setup) potvrdí rezervaci.
-  if (isFreeBooking && !freeWithShop) {
+  if (isFreeBooking) {
     const setupMetadata: Record<string, string> = {
       booking_id: body.booking_id!, type: 'booking', source: 'web', action: 'verify_free_booking'
     }
@@ -238,18 +150,15 @@ export async function handleWebBookingCheckout(
   }
 
   // -- Bundled e-shop order (upsell from step 2): one Stripe session, two invoices --
-  // Popisky v jazyce webu (checkout-labels.ts); rezervace zdarma se zbožím → bez řádku pronájmu.
-  const L = webLabels(body.locale)
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = amount > 0 ? [{
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
     price_data: {
       currency,
       unit_amount: amount,
-      product_data: { name: L.booking, description: fillLabel(L.bookingDesc, { num: body.booking_id!.slice(-8).toUpperCase() }) }
+      product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id!.slice(-8).toUpperCase()}` }
     },
     quantity: 1
-  }] : []
-  const sessionMetadata: Record<string, string> = { booking_id: body.booking_id!, type: 'booking', source: 'web',
-    ...(rounding ? { due: String(rounding.due), card_rounding: String(rounding.r) } : {}) }
+  }]
+  const sessionMetadata: Record<string, string> = { booking_id: body.booking_id!, type: 'booking', source: 'web' }
 
   const shopOrderId = (body as Record<string, unknown>).shop_order_id as string | undefined
   if (shopOrderId) {
@@ -264,7 +173,7 @@ export async function handleWebBookingCheckout(
         const qty = Number(it.quantity) || 1
         const unit = Number(it.unit_price) || 0
         if (unit <= 0) continue
-        const sizeLbl = it.size ? ` ${fillLabel(L.size, { size: String(it.size) })}` : ''
+        const sizeLbl = it.size ? ` (${it.size})` : ''
         lineItems.push({
           price_data: {
             currency,
@@ -280,18 +189,13 @@ export async function handleWebBookingCheckout(
           price_data: {
             currency,
             unit_amount: Math.round(ship * 100),
-            product_data: { name: L.shipping }
+            product_data: { name: 'Doprava' }
           },
           quantity: 1
         })
       }
       sessionMetadata.shop_order_id = shopOrderId
     }
-  }
-  // Dorovnání až za přibalené zboží a dopravu — počítá se z celé platby (rezervace + e-shop),
-  // na stránce Stripe tak nevypadá, že patří jen k rezervaci.
-  if (rounding) {
-    lineItems.push({ price_data: { currency, unit_amount: Math.round(rounding.r * 100), product_data: { name: roundingLabel(body.locale) } }, quantity: 1 })
   }
 
   // Platební metody hosted Checkoutu (webová „stránka stripe"): JEN `['card']`.
@@ -335,11 +239,7 @@ export async function handleWebBookingCheckout(
   // DP zůstává vázaná na webhook-receiver po reálné Stripe platbě. Generate-invoice má
   // dedup per booking_id, takže opakované kliknutí ZF nezdvojí; webhook-receiver po platbě
   // existující ZF přeskočí a jen ji připne k potvrzovacímu emailu.
-  // D1 (oprava 2026-10-16): s dorovnáním na 15 Kč ZF PŘED platbou NEvzniká — dorovnání zapíše
-  // do ceny až webhook po zaplacení a ZF (s řádkem dorovnání = stržená částka) pak vygeneruje
-  // potvrzovací e-mail (send-booking-email, booking_advance). Jinak by ZF ukázala 10 Kč
-  // a strženo by bylo 15 Kč.
-  if (!rounding) try {
+  try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
@@ -349,9 +249,7 @@ export async function handleWebBookingCheckout(
     })
   } catch (e) { console.warn('[WebBookingCheckout] ZF generation failed:', e) }
 
-  // due / card_rounding / charge: web (i jiný klient) vidí, že Stripe stránka ukáže dorovnání (D1).
-  return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id,
-    ...(rounding ? { due: rounding.due, card_rounding: rounding.r, charge: CARD_MIN } : {}) }), {
+  return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id }), {
     headers: { ...CORS, 'Content-Type': 'application/json' }
   })
 }
@@ -376,7 +274,6 @@ export async function handleSosPaymentLink(
       status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
     })
   }
-  if (amountCzk < CARD_MIN) return belowMin(amountCzk, CS.below_minimum_operator)
 
   const { data: booking, error: bErr } = await supabaseAdmin
     .from('bookings')
@@ -474,10 +371,9 @@ async function handleWebProductCheckout(
   )
 
   // Načti objednávku + položky (RPC create_web_shop_order je už vytvořilo)
-  // `*`: sloupec card_rounding existuje až po SQL 20261016p1 (D2, detekce nasazení).
   const { data: order, error: orderErr } = await supabaseAdmin
     .from('shop_orders')
-    .select('*')
+    .select('id, total, subtotal, shipping_cost, discount, customer_email, customer_name, customer_phone, payment_status, shipping_method')
     .eq('id', orderId)
     .single()
   if (orderErr || !order) {
@@ -487,25 +383,6 @@ async function handleWebProductCheckout(
   if (order.payment_status === 'paid') {
     return new Response(JSON.stringify({ success: false, error: 'Tato objednávka je již zaplacena.' }),
       { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } })
-  }
-
-  // D4 (oprava 2026-10-16): předchozí otevřenou session objednávky zrušit, čerstvě zaplacenou
-  // neplatit znovu (i před odpuštěním do 1 Kč — stará session nesmí zůstat zaplatitelná).
-  const prevSess = await settleStoredSession(stripe as unknown as StripeCheckoutLike,
-    (order as unknown as { stripe_session_id?: string | null }).stripe_session_id)
-  if (prevSess.action === 'refuse') return refuse(409, 'payment_in_progress', { order_id: orderId, session_id: prevSess.sessionId })
-
-  const orderTotal = r2(Number(order.total) || 0)
-  // D2: cenu objednávky počítá server (create_web_shop_order) → do 1 Kč se neúčtuje, 1–15 Kč = 15 Kč.
-  let shopRounding: { due: number; r: number } | null = null
-  if (orderTotal > 0 && orderTotal < CARD_MIN) {
-    if (!('card_rounding' in (order as Record<string, unknown>))) return belowMin(orderTotal, CS.below_minimum_web)
-    if (order.payment_status !== 'pending') return refuse(409, 'wrong_status', {}, CS.wrong_status_shop)
-    if (orderTotal <= 1) {
-      const back = withLangParam(`${resolveReturnOrigin(body.origin, body.locale)}/potvrzeni?order_id=${orderId}`, body.locale)
-      return await waiveShopFlow(supabaseAdmin, orderId, orderTotal, false, back)
-    }
-    shopRounding = { due: orderTotal, r: r2(CARD_MIN - orderTotal) }
   }
 
   const { data: items } = await supabaseAdmin
@@ -540,7 +417,7 @@ async function handleWebProductCheckout(
   // Sestavit Stripe line items z DB (cena pochází z DB, ne z klienta)
   const lineItems: Record<string, unknown>[] = orderItems.map((it: Record<string, unknown>) => {
     const baseName = String(it.product_name || 'Produkt')
-    const size = it.size ? ` ${fillLabel(webLabels(body.locale).size, { size: String(it.size) })}` : ''
+    const size = it.size ? ` (vel. ${it.size})` : ''
     return {
       price_data: {
         currency,
@@ -557,7 +434,9 @@ async function handleWebProductCheckout(
   // Doprava jako samostatný line item (Stripe ji tak ukáže na účtence)
   const shipCost = Number(order.shipping_cost) || 0
   if (shipCost > 0) {
-    const shipName = shippingLabel(order.shipping_method, body.locale)
+    const shipName = order.shipping_method === 'zasilkovna' ? 'Doprava — Zásilkovna'
+                   : order.shipping_method === 'post'       ? 'Doprava — Česká pošta'
+                   : 'Doprava'
     lineItems.push({
       price_data: {
         currency,
@@ -576,19 +455,13 @@ async function handleWebProductCheckout(
       amount_off: Math.round(discount * 100),
       currency,
       duration: 'once',
-      name: webLabels(body.locale).discount,
+      name: 'Sleva',
     })
     discounts = [{ coupon: coupon.id }]
   }
 
-  if (shopRounding) {
-    lineItems.push({ price_data: { currency, unit_amount: Math.round(shopRounding.r * 100), product_data: { name: roundingLabel(body.locale) } }, quantity: 1 })
-  }
-
   const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
-  const productMetadata: Record<string, string> = { order_id: orderId, type: 'shop', source: 'web',
-    ...(isGear ? { kind: 'gear_rental' } : {}),
-    ...(shopRounding ? { due: String(shopRounding.due), card_rounding: String(shopRounding.r) } : {}) }
+  const productMetadata = { order_id: orderId, type: 'shop', source: 'web', ...(isGear ? { kind: 'gear_rental' } : {}) }
   const sessionParams: Record<string, unknown> = {
     mode: 'payment',
     // Jen karta + Apple Pay/Google Pay (card wallets), bez Linku — viz booking checkout.
@@ -613,10 +486,8 @@ async function handleWebProductCheckout(
     stripe_payment_intent_id: session.payment_intent as string,
   }).eq('id', orderId)
 
-  // ZF (proforma) — best-effort, neblokuje. D2 (oprava 2026-10-16): s dorovnáním na 15 Kč ne —
-  // dorovnání zapíše do objednávky až webhook po zaplacení a doklady po platbě ho obsahují
-  // (jinak by e-mailem odešla ZF na 10 Kč, zatímco strženo by bylo 15 Kč).
-  if (!shopRounding) try {
+  // ZF (proforma) — best-effort, neblokuje
+  try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
@@ -631,8 +502,7 @@ async function handleWebProductCheckout(
     url: session.url,           // alias pro web (kompatibilita s checkout.js)
     checkout_url: session.url,
     session_id: session.id,
-    order_id: orderId,
-    ...(shopRounding ? { due: shopRounding.due, card_rounding: shopRounding.r, charge: CARD_MIN } : {}),
+    order_id: orderId
   }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 
@@ -669,7 +539,6 @@ export async function handleWebShopCheckout(
   const amountCzk = body.amount
   const amountCents = Math.round(amountCzk * 100)
   const currency = body.currency || 'czk'
-  if (Number(amountCzk) > 0 && Number(amountCzk) < CARD_MIN) return belowMin(Number(amountCzk), CS.below_minimum_web)
 
   const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })
   let custId = customers.data.length > 0 ? customers.data[0].id : null

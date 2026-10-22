@@ -7,9 +7,6 @@ import Stripe from 'https://esm.sh/stripe@14'
 export const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-04-10',
   httpClient: Stripe.createFetchHttpClient(),
-  // D4 (2026-10-16): přerušené spojení / 5xx Stripe zopakuje SDK samo se STEJNÝM
-  // idempotency klíčem → výsledek stržení uložené karty se dořeší, nevznikne druhá platba.
-  maxNetworkRetries: 2,
 })
 
 export const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
