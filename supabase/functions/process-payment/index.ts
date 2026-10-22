@@ -7,78 +7,17 @@ import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, get
 import { authClassify } from '../_shared/auth.ts'
 import { handleWebBookingCheckout, handleWebShopCheckout, handleSosPaymentLink } from './payment-flows.ts'
 import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
-// D1–D6 (2026-10-16): minimum karty 15 Kč, ochrana proti dvojí platbě, kódy
-// odmítnutí bez kontaktů, dokončení zaplacené změny — logika v modulech:
-import { placeFingerprint, applyPaidExtension, chgFromMetadata, swapDone } from '../_shared/extension-apply.ts'
-import { handlePaidChangeFailure, changeKindOf } from '../_shared/paid-change-failure.ts'
-import { paidChangeEligibility, markApplied, historyHasRef, PREVIOUS_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
-import { classifyDue, bookingRoundingAvailable, gearRoundingAvailable, round2, CARD_MIN_CZK, type DueClass } from './card-minimum.ts'
-import { CS, refuse, respond, declineMessageCs, SWAP_DRY_CODES, cancelledReasonKey } from './refusals.ts'
-import { mapStripeError, isUncertainStripeError } from './stripe-errors.ts'
-import { sanitizeAttemptId, chgHash, idempotencyKey, guardStoredIntent, storeIntentId, markCheckoutStarted, sameAttempt, findRecentLiveIntent } from './intent-guard.ts'
-import { waiveBookingFlow, waiveShopFlow, waiveExtensionFlow, voucherProblem, waiveRef, restoreRefusal } from './pp-waiver.ts'
-import { priceAppChange } from './app-change-price.ts'
-import { handleCompleteExtension } from './complete-extension.ts'
-import { roundingLabel, editLineLabel } from './checkout-labels.ts'
-import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
-import { settleMatchingSessions, type StripeCheckoutLike } from './checkout-guard.ts'
-import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
-import { duplicateRow } from '../_shared/duplicate-payment.ts'
-import { failureRow } from '../_shared/paid-change-guard.ts'
-import { verifyShopSession, type StripeSessionsLike } from './verify-shop-session.ts'
 
-/** Dokončená web session doplatku už zpracovaná (zapsaná / vyhodnocená / vrácená) → další úpravu neblokuje. */
-// deno-lint-ignore no-explicit-any
-async function extensionSettled(sb: any, bookingId: string, piId: string | null, md: Record<string, string>, sessionId: string): Promise<boolean> {
-  if (md.applied_at || md.duplicate_of) return true
-  for (const ref of [piId, sessionId]) {
-    if (ref && (await historyHasRef(sb, bookingId, ref) || await failureRow(sb, ref) || await duplicateRow(sb, ref))) return true
-  }
-  return false
-}
-
-/** Doprodej v rezervaci (feature flag reservation_upsell, Velín) — zapnutý? Nenačtený = zapnutý
- *  (přebytek nad cenou se pak jako dosud nepovažuje za chybu — raději neodmítnout platbu). */
-// deno-lint-ignore no-explicit-any
-async function upsellEnabled(sb: any): Promise<boolean> {
-  try {
-    const { data, error } = await sb.from('feature_flags').select('enabled').eq('key', 'reservation_upsell').maybeSingle()
-    if (error) return true
-    return !!data && data.enabled === true
-  } catch { return true }
-}
-
-/** Návratová adresa webu po odpuštěném doplatku (stejná validace jako success_url Checkoutu).
- *  Bez Stripe se zástupný `{CHECKOUT_SESSION_ID}` nedosadí → parametr session_id se vynechá. */
-function safeRedirect(u: string | undefined | null): string | null {
-  if (!u) return null
-  try {
-    const p = new URL(u)
-    if (p.protocol !== 'https:' && p.protocol !== 'http:') return null
-    if (/CHECKOUT_SESSION_ID/.test(p.searchParams.get('session_id') || '')) {
-      p.searchParams.delete('session_id')
-      return p.toString()
-    }
-    return u
-  } catch { return null }
-}
-
-/** Web: odpuštěný doplatek (≤ 1 Kč) server už zapsal — `waived=1` řekne webu, že nic neplatil
- *  a změnu nemá zapisovat znovu ani ukazovat „Platba potvrzena". Starší web parametr ignoruje. */
-function waivedRedirect(u: string): string {
-  try {
-    const p = new URL(u)
-    p.searchParams.set('waived', '1')
-    return p.toString()
-  } catch { return u }
-}
-
-/** Web úprava rezervace (hosted Checkout): návrat ze Stripe nese id Checkout Session, aby se web
- *  zeptal serveru na výsledek (`complete_extension` se session_id) — i u jádra webu, které
- *  success_url skládá samo bez session_id. */
-function withSessionParam(u: string): string {
-  if (u.includes('{CHECKOUT_SESSION_ID}')) return u
-  return u + (u.includes('?') ? '&' : '?') + 'session_id={CHECKOUT_SESSION_ID}'
+// Otisk místa rezervace (delivery_fee + způsob a adresa obou stran) —
+// webhook-receiver ho porovná s aktuálním řádkem (stejný výpočet tam).
+function placeFingerprint(r: Record<string, unknown> | null): string {
+  if (!r) return ''
+  const norm = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+  const src = [Math.round(Number(r.delivery_fee || 0)), norm(r.pickup_method), norm(r.pickup_address),
+    norm(r.return_method), norm(r.return_address)].join('|')
+  let h = 2166136261
+  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0 }
+  return h.toString(16)
 }
 
 Deno.serve(async (req: Request) => {
@@ -194,14 +133,184 @@ Deno.serve(async (req: Request) => {
     }
 
     // --- Sync fallback: ověř Stripe SHOP session a potvrď voucher/e-shop objednávku ---
-    // (stránka /potvrzeni; logika + D2 dorovnání před potvrzením ve verify-shop-session.ts)
+    // Voucher/e-shop potvrzení dosud záviselo VÝHRADNĚ na asynchronním Stripe webhooku
+    // (webhook-receiver → confirmShopPayment). Když webhook nedorazil / zpozdil se, objednávka
+    // zůstala `pending`, voucher se nevygeneroval a mail „Váš dárkový poukaz od MotoGo24"
+    // nedorazil — zákazník po stržené platbě uvízl na „Platba ještě nebyla potvrzena" (viz
+    // bug report). /potvrzeni page teď volá tuto akci se `session_id` (+ `order_id`) ze
+    // success_url a potvrdí platbu synchronně, nezávisle na doručení webhooku.
+    // Idempotence: confirm_shop_payment je atomic (UPDATE … WHERE payment_status<>'paid'
+    // RETURNING) a vrací `was_already_paid` — když webhook (nebo dřívější poll) potvrdil dřív,
+    // jen vrátíme already_paid a NEposíláme druhý mail. Když atomic flip vyhrajeme my,
+    // dogenerujeme voucher/FV a pošleme mail (stejný flow jako confirmShopPayment v webhooku).
     if ((body as Record<string, unknown>).action === 'verify_shop_session') {
-      return await verifyShopSession(body as unknown as Record<string, unknown>, {
-        sb: createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!),
-        stripe: stripe as unknown as StripeSessionsLike,
-        supabaseUrl: Deno.env.get('SUPABASE_URL') ?? '',
-        serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      })
+      const sessionId = (body as Record<string, unknown>).session_id as string | undefined
+      let orderId = ((body as Record<string, unknown>).order_id as string | undefined) || null
+      if (!sessionId && !orderId) {
+        return new Response(JSON.stringify({ success: false, error: 'Missing session_id or order_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      try {
+        // Dohledej stripe_session_id z objednávky, pokud klient session_id neposlal
+        // (starší odkaz / přímá navigace na /potvrzeni?order_id=…).
+        let sid = sessionId || null
+        if (!sid && orderId) {
+          const { data: ord } = await supabaseAdmin.from('shop_orders')
+            .select('stripe_session_id').eq('id', orderId).maybeSingle()
+          sid = (ord?.stripe_session_id as string | null) || null
+        }
+        if (!sid) {
+          return new Response(JSON.stringify({ success: false, error: 'No session to verify' }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const session = await stripe.checkout.sessions.retrieve(sid)
+        const md = (session.metadata || {}) as Record<string, string>
+        // BEZPEČNOST 2026-09-24: objednávku určuje VÝHRADNĚ zaplacená session
+        // (metadata.order_id / client_reference_id), ne order_id z požadavku —
+        // jinak by šla jednou zaplacenou session potvrdit libovolná jiná
+        // objednávka. order_id z požadavku smí jen souhlasit.
+        const sessionOrderId = md.order_id || (session.client_reference_id as string | null) || null
+        if (sessionOrderId) {
+          if (orderId && orderId !== sessionOrderId) {
+            return new Response(JSON.stringify({ success: false, error: 'order_mismatch' }),
+              { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+          orderId = sessionOrderId
+        } else if (orderId && sessionId) {
+          // Session bez vazby na objednávku → přijmi jen, když ji má u sebe
+          // uloženou sama objednávka (web ji zapisuje při vytvoření session).
+          const { data: ord } = await supabaseAdmin.from('shop_orders')
+            .select('stripe_session_id').eq('id', orderId).maybeSingle()
+          if ((ord?.stripe_session_id as string | null) !== sid) {
+            return new Response(JSON.stringify({ success: false, error: 'order_mismatch' }),
+              { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+        }
+        if (!orderId) {
+          return new Response(JSON.stringify({ success: false, error: 'No order_id in session' }),
+            { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        // Dokud Stripe platbu nepotvrdil, vrátíme pending — klient pollne znovu
+        // (webhook může dorazit mezitím). Potvrzujeme JEN reálně zaplacenou
+        // session (dřív stačilo status 'complete', které nastane i bez platby).
+        const freeSession = session.payment_status === 'no_payment_required' &&
+          (session.amount_total ?? 0) === 0  // web objednávka celá pokrytá slevou
+        if (session.payment_status !== 'paid' && !freeSession) {
+          return new Response(JSON.stringify({ success: false, payment_status: session.payment_status, status: session.status }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        const piId = typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : ((session.payment_intent as { id?: string } | null)?.id || null)
+
+        // ATOMIC confirm — stejná RPC jako webhook (confirmShopPayment). was_already_paid=true
+        // → webhook nebo dřívější poll už potvrdil; skončíme bez druhého mailu.
+        const { data: confirmData, error: rpcErr } = await supabaseAdmin.rpc('confirm_shop_payment', {
+          p_order_id: orderId, p_method: 'card',
+        })
+        if (rpcErr) {
+          // Fallback přímý UPDATE — BEFORE UPDATE trigger auto_process_voucher_order vygeneruje
+          // voucher i tak (OLD.payment_status='pending' → NEW.payment_status='paid').
+          await supabaseAdmin.from('shop_orders')
+            .update({ payment_status: 'paid', payment_method: 'card', confirmed_at: new Date().toISOString() })
+            .eq('id', orderId).neq('payment_status', 'paid')
+        }
+        const wasAlreadyPaid = !!(confirmData as Record<string, unknown> | null)?.was_already_paid
+
+        if (piId) {
+          try {
+            await supabaseAdmin.from('shop_orders')
+              .update({ stripe_payment_intent_id: piId, stripe_session_id: sid })
+              .eq('id', orderId).is('stripe_payment_intent_id', null)
+          } catch { /* ignore */ }
+        }
+
+        try {
+          await supabaseAdmin.from('debug_log').insert({
+            source: 'process-payment', action: 'verify_shop_session_confirmed',
+            component: 'voucher_checkout', status: 'ok',
+            request_data: { session_id: sid, order_id: orderId, was_already_paid: wasAlreadyPaid },
+          })
+        } catch { /* ignore */ }
+
+        if (wasAlreadyPaid) {
+          return new Response(JSON.stringify({ success: true, already_paid: true, order_id: orderId }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+
+        // Vyhráli jsme atomic flip → dogenerujeme voucher (pojistka, kdyby trigger selhal),
+        // FV (účetní doklad) a pošleme voucher_purchased mail — zrcadlí confirmShopPayment.
+        try {
+          const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+          const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+          const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
+
+          const { data: order } = await supabaseAdmin.from('shop_orders')
+            .select('customer_name, customer_email, order_number, status, total')
+            .eq('id', orderId).single()
+          const { data: items } = await supabaseAdmin.from('shop_order_items')
+            .select('product_name').eq('order_id', orderId)
+          const hasVoucherItem = (items || []).some((it: { product_name?: string }) =>
+            /voucher|poukaz/i.test(String(it.product_name || '')))
+          let { data: vouchers } = await supabaseAdmin.from('vouchers')
+            .select('code, amount, valid_until').eq('order_id', orderId)
+          if (hasVoucherItem && (!vouchers || vouchers.length === 0)) {
+            try { await supabaseAdmin.rpc('regen_voucher_for_order', { p_order_id: orderId }) } catch { /* ignore */ }
+            const re = await supabaseAdmin.from('vouchers')
+              .select('code, amount, valid_until').eq('order_id', orderId)
+            vouchers = re.data
+          }
+          // FV (shop_final) pro doručený elektronický voucher — jen účetní doklad ve Velínu.
+          if (order?.status === 'delivered') {
+            try {
+              await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ type: 'shop_final', order_id: orderId, send_email: false }),
+              })
+            } catch { /* ignore */ }
+          }
+          if (order?.customer_email && vouchers && vouchers.length > 0) {
+            const orderNum = order.order_number || orderId.slice(-8).toUpperCase()
+            const firstVoucher = vouchers[0] as { code: string; amount: number; valid_until: string }
+            const allCodes = vouchers
+              .map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`)
+              .join(', ')
+            await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                type: 'voucher_purchased',
+                customer_email: order.customer_email,
+                customer_name: order.customer_name || '',
+                voucher_code: allCodes,
+                voucher_value: String(firstVoucher.amount),
+                voucher_expiry: firstVoucher.valid_until,
+                order_number: orderNum,
+                order_id: orderId,
+                source: 'web',
+              }),
+            })
+          }
+        } catch (e) {
+          try {
+            await supabaseAdmin.from('debug_log').insert({
+              source: 'process-payment', action: 'verify_shop_session_postprocess_failed',
+              component: 'voucher_checkout', status: 'error',
+              error_message: (e as Error).message,
+              request_data: { order_id: orderId },
+            })
+          } catch { /* ignore */ }
+        }
+
+        return new Response(JSON.stringify({ success: true, confirmed: true, order_id: orderId }),
+          { headers: { ...CORS, 'Content-Type': 'application/json' } })
+      } catch (e) {
+        return new Response(JSON.stringify({ success: false, error: (e as Error).message }),
+          { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
     }
 
     // --- Velín operátor: Stripe odkaz pro placenou SOS náhradu ---
@@ -215,12 +324,6 @@ Deno.serve(async (req: Request) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
       )
       return await handleSosPaymentLink(body, supabaseAdmin)
-    }
-
-    // --- D6 (2026-10-16): dokončení zaplacené změny rezervace (appka, trvalá fronta) ---
-    if ((body as unknown as Record<string, unknown>).action === 'complete_extension') {
-      const sbCx = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
-      return await handleCompleteExtension(req, body as unknown as Record<string, unknown>, sbCx)
     }
 
     // --- Web anonymous checkout (no auth required) ---
@@ -244,7 +347,10 @@ Deno.serve(async (req: Request) => {
     // libovolné rezervaci bookings.stripe_payment_intent_id. U 'shop' se booking_id
     // ignoruje (appka ho neposílá; vlastník se ověřuje jen u objednávky).
     if (!['booking', 'shop', 'extension', 'sos'].includes(paymentType)) {
-      return refuse(400, 'invalid_type')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Neznámý typ platby.', code: 'invalid_type' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
     const booking_id = paymentType === 'shop' ? undefined : body.booking_id
     // `let` — u rezervačních typů se cizí/nečekající order_id zahodí (viz níže).
@@ -252,24 +358,13 @@ Deno.serve(async (req: Request) => {
     const paymentMode = mode || 'intent'
     const explicitSuccessUrl = (body as Record<string, unknown>).success_url as string | undefined
     const explicitCancelUrl = (body as Record<string, unknown>).cancel_url as string | undefined
-    // D1/D4 (2026-10-16): nová appka posílá `card_min: true` (umí dorovnání na 15 Kč
-    // a odpuštění do 1 Kč) a `attempt_id` (jedno klepnutí „Zaplatit" = jeden klíč).
-    // `card_min` platí jen pro PaymentIntent appky. Hosted Checkout (web) dorovnává sám na
-    // serveru (po SQL 20261016p1): `checkoutRounding` + samostatná položka „Dorovnání…" na
-    // stránce Stripe; odpuštění do 1 Kč zapíše změnu bez platby (waiveExtensionFlow).
-    const rawBody = body as unknown as Record<string, unknown>
-    const cardMin = rawBody.card_min === true && paymentMode === 'intent'
-    const attemptId = sanitizeAttemptId(rawBody.attempt_id)
-    const savedCardReq = !!payment_method_id
-    let dueClass: DueClass | null = null
-    // D1/D2: dorovnání k zápisu do ceny AŽ PO zaplacení (webhook) — due = cena řádku, r = dorovnání.
-    let chargeRounding: { due: number; r: number } | null = null
-    // D1 (web hosted Checkout, doplatek 1–15 Kč): Stripe stránka ukáže doplatek + dorovnání.
-    let checkoutRounding: { due: number; r: number } | null = null
 
     // Validate required fields
     if ((paymentType === 'booking' || paymentType === 'extension' || paymentType === 'sos') && !booking_id) {
-      return refuse(400, 'missing_booking_id')
+      return new Response(
+        JSON.stringify({ success: false, error: `Missing booking_id for ${paymentType} payment` }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
 
     // -- Duplicate payment guard --
@@ -283,15 +378,23 @@ Deno.serve(async (req: Request) => {
         .eq('id', booking_id)
         .single()
       if (bk?.payment_status === 'paid') {
-        // „už zaplaceno" = pro appku úspěch (already_paid), pro starou appku jasný text.
-        return refuse(409, 'already_paid', { already_paid: true, booking_id })
+        return new Response(
+          JSON.stringify({ success: false, error: 'Tato rezervace je již zaplacena.' }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
     }
     if (paymentType === 'shop' && !order_id) {
-      return refuse(400, 'missing_order_id')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing order_id for shop payment' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
-    if (amount == null || !Number.isFinite(Number(amount))) {
-      return refuse(400, 'invalid_amount')
+    if (amount == null) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing amount' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
 
     // ── E-shop z appky: částku určuje SERVER (2026-09-24) ─────────────────
@@ -302,48 +405,34 @@ Deno.serve(async (req: Request) => {
     // Web (source 'web' + customer_email) sem nechodí — handleWebShopCheckout
     // výše si cenu bere z DB sám.
     if (paymentType === 'shop') {
+      const json = (status: number, payload: Record<string, unknown>) => new Response(
+        JSON.stringify({ success: false, ...payload }),
+        { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
       const who = await authClassify(req)
-      if (who.kind === 'none') return refuse(401, 'auth_required')
+      if (who.kind === 'none') {
+        return json(401, { error: 'Přihlášení chybí nebo vypršelo — přihlaste se prosím znovu.', code: 'auth_required' })
+      }
       const sbShop = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
-      // `*`: sloupec card_rounding existuje až po SQL 20261016p1 (detekce nasazení).
       const { data: ord } = await sbShop.from('shop_orders')
-        .select('*')
+        .select('id, customer_id, payment_status, total')
         .eq('id', order_id!).maybeSingle()
-      if (!ord) return refuse(404, 'order_not_found')
+      if (!ord) return json(404, { error: 'Objednávka nenalezena.', code: 'order_not_found' })
       const owner = who.kind === 'service' || who.kind === 'admin' ||
         (who.kind === 'user' && !!who.userId && who.userId === ord.customer_id)
-      if (!owner) return refuse(403, 'forbidden', {}, CS.forbidden_shop)
-      if (ord.payment_status === 'paid') return refuse(409, 'already_paid', { already_paid: true, order_id }, CS.already_paid_shop)
-      if (ord.payment_status !== 'pending') return refuse(409, 'wrong_status', {}, CS.wrong_status_shop)
-      const due = round2(Number(ord.total) || 0)
-      if (due <= 0) return refuse(409, 'no_payment_needed')
-      const shopRounding = 'card_rounding' in ord
-      // D2 (2026-10-16): objednávka do 1 Kč se neúčtuje, 1–15 Kč se platí 15 Kč
-      // (cenu objednávky počítá server — create_shop_order — takže ji není třeba ověřovat).
-      dueClass = classifyDue(due, Number(amount), cardMin)
-      if (dueClass.kind === 'waive') {
-        const g = await guardStoredIntent(stripe, { storedPiId: ord.stripe_payment_intent_id, type: 'shop', refKey: 'order_id',
-          refId: order_id!, sheet: false, chargeCents: 0, chg: null, reuseOpen: false, rowUnpaid: true })
-        if (g.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: g.piId, pi_status: g.status })
-        return await waiveShopFlow(sbShop, order_id!, due, savedCardReq)
-      }
-      if (dueClass.kind === 'below') {
-        return refuse(400, 'below_minimum', { due, min: CARD_MIN_CZK, charge: CARD_MIN_CZK, update_required: !cardMin },
-          cardMin ? CS.below_minimum_app : undefined)
-      }
-      if (dueClass.kind === 'round') {
-        // Dorovnání se do objednávky zapíše až PO zaplacení (webhook, metadata due/card_rounding).
-        if (!shopRounding) return refuse(409, 'rounding_unavailable')
-        chargeRounding = { due, r: dueClass.rounding }
-      } else if (Math.round(Number(amount)) !== Math.round(due)) {
-        return refuse(409, 'amount_mismatch', { server_total: Math.round(due) }, CS.amount_mismatch_shop)
-      } else if (shopRounding) {
-        // Platba v celých Kč u ceny s haléři (99,50 → 100) — rozdíl jako zaokrouhlení na dokladu.
-        const sub = round2(Math.round(Number(amount) * 100) / 100 - due)
-        if (sub !== 0 && Math.abs(sub) < 1) chargeRounding = { due, r: sub }
+      if (!owner) return json(403, { error: 'Tuto objednávku nelze zaplatit z tohoto účtu.', code: 'forbidden' })
+      if (ord.payment_status === 'paid') return json(409, { error: 'Objednávka je už zaplacená.', code: 'already_paid' })
+      if (ord.payment_status !== 'pending') return json(409, { error: 'Tuto objednávku už nelze zaplatit.', code: 'wrong_status' })
+      const serverCzk = Math.round(Number(ord.total) || 0)
+      if (serverCzk <= 0) return json(409, { error: 'Objednávka nevyžaduje platbu.', code: 'no_payment_needed' })
+      if (serverCzk < 15) return json(400, { error: 'Minimální částka platby kartou je 15 Kč.', code: 'below_minimum' })
+      if (Math.round(Number(amount)) !== serverCzk) {
+        return json(409, {
+          error: `Cena objednávky se přepočítala na ${serverCzk} Kč. Vraťte se prosím do košíku a objednávku odešlete znovu.`,
+          code: 'amount_mismatch', server_total: serverCzk,
+        })
       }
     }
 
@@ -360,105 +449,51 @@ Deno.serve(async (req: Request) => {
     //  • order_id u těchto typů jen čekající objednávka TÉHOŽ zákazníka — jinak se
     //    zahodí (dřív se cizí objednávce přepsal stripe_payment_intent_id).
     if (paymentType === 'booking' || paymentType === 'sos' || paymentType === 'extension') {
+      const json = (status: number, payload: Record<string, unknown>) => new Response(
+        JSON.stringify({ success: false, ...payload }),
+        { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
       if (paymentType === 'extension' && !(change && typeof change === 'object')) {
-        return refuse(409, 'validation_unavailable')
+        return json(409, {
+          error: 'Nepodařilo se ověřit změnu rezervace — platba doplatku zrušena, zkuste to prosím za chvíli znovu.',
+          code: 'validation_unavailable',
+        })
       }
       const amt = Number(amount)
-      if (!Number.isFinite(amt)) return refuse(400, 'invalid_amount')
+      if (!Number.isFinite(amt)) return json(400, { error: 'Neplatná částka.', code: 'invalid_amount' })
       const sbChk = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
-      // `*`: sloupce card_rounding / restore_count existují až po SQL 20261016p1/p2 (detekce nasazení).
       const { data: bkc, error: bkcErr } = await sbChk.from('bookings')
-        .select('*')
+        .select('user_id, total_price, sos_replacement')
         .eq('id', booking_id!).maybeSingle()
-      if (bkcErr) return refuse(503, 'validation_unavailable')
-      if (!bkc) return refuse(404, 'booking_not_found')
-      // order_id u rezervačních typů jen čekající objednávka TÉHOŽ zákazníka — jinak se
-      // zahodí (dřív se cizí objednávce přepsal stripe_payment_intent_id).
-      let orderDue = 0
-      if (order_id) {
-        const { data: ordc } = await sbChk.from('shop_orders')
-          .select('customer_id, payment_status, total').eq('id', order_id).maybeSingle()
-        if (!ordc || ordc.payment_status !== 'pending' || !bkc.user_id || ordc.customer_id !== bkc.user_id) {
-          order_id = undefined
-        } else {
-          orderDue = round2(Math.max(Number(ordc.total) || 0, 0))
-        }
-      }
+      if (bkcErr) return json(503, { error: 'Nepodařilo se ověřit rezervaci — zkuste to prosím za chvíli znovu.', code: 'validation_unavailable' })
+      if (!bkc) return json(404, { error: 'Rezervace nebyla nalezena.', code: 'booking_not_found' })
       if (paymentType !== 'extension') {
         // (doplatek si vlastníka ověřuje ve validátoru níže)
         const who = await authClassify(req)
-        if (who.kind === 'none') return refuse(401, 'auth_required')
+        if (who.kind === 'none') {
+          return json(401, { error: 'Přihlášení chybí nebo vypršelo — přihlaste se prosím znovu.', code: 'auth_required' })
+        }
         const owner = who.kind === 'service' || who.kind === 'admin' ||
           (who.kind === 'user' && !!who.userId && who.userId === bkc.user_id)
-        if (!owner) return refuse(403, 'forbidden')
-        if (paymentType === 'sos' && bkc.sos_replacement !== true) return refuse(409, 'not_sos_replacement')
-        // D3/D4 (2026-10-16): zrušená rezervace (cron 30 min / zákazník / obsluha) se platbou
-        // tiše „neoživuje" — appka ji nejdřív obnoví (customer_restore_booking). Jen když je
-        // nasazené SQL 20261016p2 (sloupec restore_count); do té doby beze změny. Když obnovení
-        // odmítla pojistka v DB (stará appka), text řekne proč.
-        if (bkc.status === 'cancelled' && 'restore_count' in bkc) {
-          const why = await restoreRefusal(sbChk, booking_id!, bkc.cancelled_at || null)
-          return refuse(409, 'booking_cancelled', { booking_id, ...(why ? { reason: why.reason } : {}),
-            ...(why?.code ? { voucher_code: why.code } : {}) }, CS[cancelledReasonKey(why?.reason)])
+        if (!owner) return json(403, { error: 'Tuto rezervaci nelze zaplatit z tohoto účtu.', code: 'forbidden' })
+        if (paymentType === 'sos' && bkc.sos_replacement !== true) {
+          return json(409, { error: 'Rezervace není SOS náhradou.', code: 'not_sos_replacement' })
         }
-        if (bkc.payment_status === 'paid') return refuse(409, 'already_paid', { already_paid: true, booking_id })
-        // Poukaz rezervace mezitím použitý jinde / vypršelý → neplatit (po zaplacení by se uplatnil podruhé).
-        const vcode = await voucherProblem(sbChk, booking_id!)
-        if (vcode) return refuse(409, 'voucher_unavailable', { voucher_code: vcode, booking_id })
-        // D1 (2026-10-16): zbývá do 1 Kč → neúčtuje se; 1–15 Kč → platí se 15 Kč. S přibalenou
-        // objednávkou e-shopu se minimum posuzuje na celou platbu (dorovnání jde k rezervaci).
-        const due = round2(Number(bkc.total_price) || 0)
-        const payDue = round2(due + orderDue)
-        dueClass = classifyDue(payDue, amt, cardMin)
-        if (dueClass.kind === 'waive' && (paymentType === 'sos' || order_id)) {
-          // SOS náhradu (cenu určuje obsluha / appka) ani platbu s objednávkou server neumí
-          // ověřit na odpuštění → kartou 15 Kč.
-          dueClass = Math.round(amt) === CARD_MIN_CZK
-            ? { kind: 'round', due: payDue, charge: CARD_MIN_CZK, rounding: round2(CARD_MIN_CZK - payDue) }
-            : { kind: 'below', due: payDue, charge: CARD_MIN_CZK, rounding: round2(CARD_MIN_CZK - payDue) }
-          if (dueClass.kind === 'below') {
-            return refuse(400, 'below_minimum', { due: payDue, min: CARD_MIN_CZK, charge: CARD_MIN_CZK, update_required: false, waiver_unverified: true },
-              CS.waiver_unverified)
-          }
+        const serverCzk = Math.round(Number(bkc.total_price) || 0)
+        if (amt > 0 && Math.round(amt) < serverCzk - 1) {
+          return json(409, {
+            error: `Cena rezervace je ${serverCzk} Kč. Obnovte prosím rezervaci a zaplaťte znovu.`,
+            code: 'amount_mismatch', server_total: serverCzk,
+          })
         }
-        // Cenu rezervace zapisuje klient → odpustit / dorovnat jen zbytek, který server doloží
-        // (D1, vynuceno); u běžné platby zatím jen záznam do debug_log (PP_FLOOR_ENFORCE=1 vynutí).
-        // Nesoulad = `price_outdated`: nabídnout jinou částku nejde (zaplaceno ≠ doklady).
-        if (paymentType === 'booking' || paymentType === 'sos') {
-          const fc = await floorCheck(sbChk, bkc, { due, kind: dueClass.kind, type: paymentType })
-          if (fc === 'unavailable') return refuse(503, 'validation_unavailable')
-          if (fc === 'outdated') return refuse(409, 'price_outdated', { booking_id })
-        }
-        if (dueClass.kind === 'waive') {
-          const g = await guardStoredIntent(stripe, { storedPiId: bkc.stripe_payment_intent_id, type: paymentType, refKey: 'booking_id',
-            refId: booking_id!, sheet: false, chargeCents: 0, chg: null, reuseOpen: false, rowUnpaid: bkc.payment_status === 'unpaid' })
-          if (g.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: g.piId, pi_status: g.status })
-          return await waiveBookingFlow(sbChk, booking_id!, due, savedCardReq)
-        }
-        if (dueClass.kind === 'below') {
-          return refuse(400, 'below_minimum', { due: payDue, min: CARD_MIN_CZK, charge: CARD_MIN_CZK, update_required: !cardMin },
-            cardMin ? CS.below_minimum_app : undefined)
-        }
-        if (dueClass.kind === 'round') {
-          // Dorovnání se do ceny zapíše až PO zaplacení (webhook, metadata due/card_rounding) —
-          // opuštěná platba tak nezanechá dorovnání, které se nestrhlo.
-          if (!('card_rounding' in bkc)) return refuse(409, 'rounding_unavailable')
-          chargeRounding = { due, r: dueClass.rounding }
-        } else if (amt > 0 && Math.round(amt) < Math.round(payDue) - 1) {
-          return refuse(409, 'amount_mismatch', { server_total: Math.round(payDue) })
-        } else if (amt > 0 && !order_id && Math.round(amt) > Math.round(payDue) + 1 && !(await upsellEnabled(sbChk))) {
-          // Víc, než je cena, se smí strhnout jen s přibaleným doprodejem (appka ho přičítá
-          // k platbě a objednávku zakládá až po ní) — doprodej je vypnutý (D7), takže přebytek
-          // by nikde nebyl zapsaný (doklady = cena rezervace). Dorovnání na 15 Kč má vlastní
-          // cestu (card_min → 'round', zapisuje se do ceny).
-          return refuse(409, 'amount_mismatch', { server_total: Math.round(payDue) })
-        } else if (amt > 0 && 'card_rounding' in bkc) {
-          // Platba v celých Kč u ceny s haléři (15,40 → 15) — rozdíl jako zaokrouhlení na dokladu.
-          const sub = round2(Math.round(amt * 100) / 100 - payDue)
-          if (sub !== 0 && Math.abs(sub) < 1) chargeRounding = { due, r: sub }
+      }
+      if (order_id) {
+        const { data: ordc } = await sbChk.from('shop_orders')
+          .select('customer_id, payment_status').eq('id', order_id).maybeSingle()
+        if (!ordc || ordc.payment_status !== 'pending' || !bkc.user_id || ordc.customer_id !== bkc.user_id) {
+          order_id = undefined
         }
       }
     }
@@ -515,14 +550,7 @@ Deno.serve(async (req: Request) => {
     if (paymentType === 'extension' && booking_id && change && typeof change === 'object') {
       const c = change as Record<string, unknown>
       let expected: number | null = null
-      // D1: přesný doplatek (haléře) pro zařazení pod minimum karty; `expected` je pro kontrolu ±1 Kč.
-      let dueExact: number | null = null
-      // D1: je nasazená split_booking_moto_swap rev.12 (p_card_rounding, SQL 20261016p3)?
-      let swapS3 = false
       let dryErr: string | null = null
-      // D1: app formát (DB názvy sloupců) cenu NEověřuje dry-runem — odpuštění do 1 Kč
-      // jen po serverovém přecenění (viz níže), jinak se platí kartou 15 Kč.
-      let appFormat = false
       const day = (v: unknown) => String(v || '').slice(0, 10)
       const hm = (v: unknown) => (v == null ? '' : String(v).slice(0, 5))
 
@@ -534,13 +562,12 @@ Deno.serve(async (req: Request) => {
         moto_id: string | null; start_date: string | null; end_date: string | null; pickup_time: string | null
         delivery_fee: number | null; pickup_method: string | null; pickup_address: string | null
         return_method: string | null; return_address: string | null
-        extras_price: number | null; discount_amount: number | null; loyalty_discount_amount: number | null
         motorcycles: { is_trailer: boolean | null } | { is_trailer: boolean | null }[] | null
       }
       let cur: CurRow | null = null
       try {
         const { data, error } = await supabase.from('bookings')
-          .select('user_id, status, total_price, trailer_moto_id, moto_id, start_date, end_date, pickup_time, delivery_fee, pickup_method, pickup_address, return_method, return_address, extras_price, discount_amount, loyalty_discount_amount, motorcycles!moto_id(is_trailer)')
+          .select('user_id, status, total_price, trailer_moto_id, moto_id, start_date, end_date, pickup_time, delivery_fee, pickup_method, pickup_address, return_method, return_address, motorcycles!moto_id(is_trailer)')
           .eq('id', booking_id).maybeSingle()
         if (error) dryErr = 'validation_unavailable'
         else if (!data) dryErr = 'booking_not_found'
@@ -562,32 +589,27 @@ Deno.serve(async (req: Request) => {
           // Chybějící / neplatný / expirovaný token → 401 (appka spustí re-login
           // flow authExpired a rezervaci si nechá; web ukáže výzvu k přihlášení).
           // 403 níže je jen pro PŘIHLÁŠENÉHO ne-vlastníka.
-          return refuse(401, 'auth_required', {}, CS.auth_required_edit)
+          return new Response(
+            JSON.stringify({ success: false, error: 'Přihlášení chybí nebo vypršelo — přihlaste se prosím znovu a úpravu zopakujte.', code: 'auth_required' }),
+            { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
         }
         // `service` = podepsaný service_role JWT (isServiceRole ověřuje podpis
         // přes PostgREST; pouhý claim v payloadu by šel podvrhnout).
         const owner = who.kind === 'service' || who.kind === 'admin' ||
           (who.kind === 'user' && !!who.userId && who.userId === cur.user_id)
-        if (!owner) return refuse(403, 'forbidden', {}, CS.forbidden_edit)
+        if (!owner) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Tuto rezervaci nelze upravit z tohoto účtu. Přihlaste se prosím účtem, kterým byla vytvořena.', code: 'forbidden' }),
+            { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
       }
 
       // Stornovaná / ukončená rezervace se neupravuje (a nesmí se za ni platit —
       // confirm_payment by ji jinak „oživil“). RPC větve to hlídají samy
       // (wrong_status), app formát dosud ne.
       if (!dryErr && cur && ['cancelled', 'completed'].includes(String(cur.status || ''))) dryErr = 'wrong_status'
-
-      // D1/D6: opakované odeslání TÉHOŽ odpuštěného doplatku (ztracená odpověď) — změna už
-      // je zapsaná (značka waive:attempt_id v historii) → stejná úspěšná odpověď, ne chyba.
-      const waiverRetryDone = async (): Promise<Response | null> => {
-        if (!cardMin || Number(amount) > 1 || !attemptId) return null
-        const ref = await waiveRef(attemptId, booking_id, change)
-        const sw = c._swap as { m?: string; d?: string } | undefined
-        const done = sw && sw.m && sw.d ? await swapDone(supabase, booking_id, { m: sw.m, d: sw.d }, ref, null)
-          : ((await historyHasRef(supabase, booking_id, ref)) ? booking_id : null)
-        if (!done) return null
-        return respond(200, { success: true, free: true, waived: true, applied: true, state: 'already_applied', charge: 0,
-          booking_id, new_booking_id: done !== booking_id ? done : null, ...(savedCardReq ? { off_session: true, status: 'succeeded' } : {}) })
-      }
 
       // ── 2) Výchozí stav klienta (`_base`: s/e = termín, t = čas vyzvednutí,
       // p = cena) musí odpovídat AKTUÁLNÍ rezervaci. Změna naceněná proti
@@ -601,10 +623,8 @@ Deno.serve(async (req: Request) => {
           (base.t !== undefined && hm(base.t) !== hm(cur.pickup_time)) ||
           (base.p != null && Math.round(Number(base.p)) !== Math.round(Number(cur.total_price || 0)))
         ) {
-          const again = await waiverRetryDone()
-          if (again) return again
           return new Response(
-            JSON.stringify({ success: false, error: 'Rezervace se mezitím změnila (jiné zařízení nebo web). Načti ji prosím znovu a úpravu zopakuj – nic jsme nestrhli.', code: 'stale_booking' }),
+            JSON.stringify({ success: false, error: 'Rezervace se mezitím změnila (jiné zařízení nebo web). Načtěte ji prosím znovu a úpravu zopakujte.', code: 'stale_booking' }),
             { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
           )
         }
@@ -624,19 +644,10 @@ Deno.serve(async (req: Request) => {
           const sw = c._swap as { m?: string; d?: string; t?: string } | undefined
           const gear = c._gear as { sizes?: Record<string, unknown> } | undefined
           if (sw && typeof sw === 'object' && sw.m && sw.d) {
-            const swArgs = {
+            const { data, error } = await userClient.rpc('split_booking_moto_swap', {
               p_booking_id: booking_id, p_new_moto_id: sw.m, p_swap_date: sw.d,
               p_swap_time: sw.t || null, p_dry_run: true,
-            }
-            // Nová appka (card_min) i web (hosted Checkout dorovnává sám): dry-run s 7. parametrem
-            // zároveň ověří nasazení rev.12.
-            const probeS3 = cardMin || paymentMode === 'checkout'
-            let { data, error } = await userClient.rpc('split_booking_moto_swap', probeS3 ? { ...swArgs, p_card_rounding: 0 } : swArgs)
-            if (probeS3) {
-              if (error && /PGRST202|42883|could not find the function/i.test(`${error.code || ''} ${error.message || ''}`)) {
-                ({ data, error } = await userClient.rpc('split_booking_moto_swap', swArgs))
-              } else if (!error) swapS3 = true
-            }
+            })
             if (!error && data?.success === true) expected = Number(data.net || 0)
             else if (!error && data?.error) dryErr = String(data.error)
             else dryErr = 'validation_unavailable'
@@ -669,12 +680,10 @@ Deno.serve(async (req: Request) => {
             else if (!error && data?.error) dryErr = String(data.error)
             else dryErr = 'validation_unavailable'
           } else if (c.total_price != null && Number.isFinite(Number(c.total_price))) {
-            appFormat = true
             // App formát (DB názvy sloupců, payment_screen.dart): appka účtuje
             // effectivePriceDiff = nová total_price − total_price rezervace, takže
             // doplatek MUSÍ sedět na rozdíl vůči AKTUÁLNÍ ceně v DB.
             expected = Math.round(Number(c.total_price) - Number(cur.total_price || 0))
-            dueExact = round2(Number(c.total_price) - Number(cur.total_price || 0))
             // Vozík vydává jen OBSLUŽNÁ pobočka (20260921b–h). Appka mění motorku
             // PŘÍMÝM UPDATE, takže `_apply_booking_changes_core` ani jeho guard
             // nikdy nezavolá — jediné místo PŘED platbou, kudy tahle cesta projde,
@@ -785,155 +794,39 @@ Deno.serve(async (req: Request) => {
           active_pickup_time_locked: 'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit. Platba doplatku zrušena.',
           location_requires_route: 'Přistavení nebo vrácení na novou adresu se počítá podle trasy — zadejte prosím adresu znovu, aby se trasa ocenila.',
         }
-        if (c._swap) {
-          const again = await waiverRetryDone()
-          if (again) return again
-        }
-        // D5 (2026-10-16): žádný surový kód v textu — kódy výměny mají vlastní větu,
-        // ostatní neznámé → change_not_applicable (+ reason = původní kód).
-        if (dryMsgs[dryErr]) return refuse(409, dryErr, {}, dryMsgs[dryErr])
-        if (SWAP_DRY_CODES.includes(dryErr)) return refuse(409, dryErr)
-        return refuse(409, 'change_not_applicable', { reason: dryErr })
+        const dryMsg = dryMsgs[dryErr] ?? `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
+        return new Response(
+          JSON.stringify({ success: false, error: dryMsg, code: dryErr }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
-
-      // D4/D6: předchozí zaplacená úprava této rezervace, kterou webhook ještě nezapsal →
-      // nejdřív ji dokonči (jinak by nová úprava nacenila starý stav); zpracovávaná → čekat.
-      // Jen platba, kterou smí zapsat (paid-change-guard): nová (attempt_id / chg_hash),
-      // do 72 h, nevrácená, ještě nevyhodnocená a nezapsaná — jinak je vyřízená a pokračuje se.
-      {
-        const { data: spi } = await supabase.from('bookings').select('stripe_payment_intent_id').eq('id', booking_id).maybeSingle()
-        const g = await guardStoredIntent(stripe, { storedPiId: spi?.stripe_payment_intent_id, type: 'extension', refKey: 'booking_id',
-          refId: booking_id, sheet: false, chargeCents: 0, chg: null, liveOnly: true })
-        // previous_change: platba PŘEDCHOZÍ úpravy (appka: „tuhle novou jsme nezaplatili").
-        if (g.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: g.piId, pi_status: g.status, previous_change: true })
-        if (g.action === 'paid_extension') {
-          // Znovuodeslaný TENTÝŽ pokus (nejistý výsledek) → zaplaceno: appka ověří a dokončí (fronta).
-          if (sameAttempt(g.pi, attemptId)) {
-            return refuse(409, 'payment_in_progress', { payment_intent_id: g.pi.id, pi_status: 'succeeded',
-              pending_change: !(await historyHasRef(supabase, booking_id, g.pi.id)) })
-          }
-          const el = await paidChangeEligibility(supabase, g.pi, { bookingId: booking_id, requireNewCode: true, maxAgeH: PREVIOUS_MAX_AGE_H, stripe })
-          if (el.ok) {
-            const pmd = (g.pi.metadata || {}) as Record<string, string>
-            const paidPrev = (g.pi.amount_received || g.pi.amount || 0) / 100
-            const prev = await applyPaidExtension(supabase, { bookingId: booking_id, chg: chgFromMetadata(pmd), srv: pmd.srv || null,
-              paidCzk: paidPrev, payRef: g.pi.id, rounding: Number(pmd.card_rounding || 0) || 0,
-              since: new Date(g.pi.created * 1000).toISOString(), via: 'process-payment' })
-            if (prev.state === 'applied' || prev.state === 'already_applied') await markApplied(stripe, g.pi.id)
-            if (prev.state === 'duplicate') {
-              // Předchozí platba byla druhá platba za už zapsanou změnu → vrátit ji, nová úprava pokračuje.
-              await refundDuplicatePayment(supabase, stripe as unknown as StripeDupLike, { piId: g.pi.id, table: 'bookings', refId: booking_id,
-                keepRef: prev.otherRef, amountCzk: paidPrev, via: 'process-payment', autoRefund: !pmd.shop_order_id })
-            }
-            if (prev.state === 'applied') return refuse(409, 'stale_booking', { previous_change: true }, CS.previous_change_applied)
-            if (prev.state === 'retry') {
-              // Předchozí zaplacenou úpravu teď nejde dopsat → dokončí ji webhook / fronta v appce
-              // (change_kind + paid_amount jí řeknou, co dokončuje); tahle nová se nezaplatila.
-              return refuse(409, 'payment_in_progress', { payment_intent_id: g.pi.id, pi_status: 'succeeded', pending_change: true,
-                previous_change: true, change_kind: (chgFromMetadata(pmd) || '').includes('"_swap"') ? 'swap' : 'edit',
-                paid_amount: paidPrev })
-            }
-            if (prev.state === 'failed') {
-              await handlePaidChangeFailure(supabase, { bookingId: booking_id, payRef: g.pi.id, paidCzk: paidPrev, code: prev.code,
-                reason: prev.reason, via: 'process-payment', review: prev.manual === true, autoRefund: !pmd.shop_order_id, stripe,
-                kind: changeKindOf(chgFromMetadata(pmd)) })
-            }
-          }
-        }
-      }
-
-      // D1 (2026-10-16): doplatek do 1 Kč se neúčtuje (změna se zapíše hned, bez platby),
-      // 1–15 Kč se platí 15 Kč (dorovnání jde do metadat → webhook / complete_extension
-      // ho zapíše do ceny i card_rounding). Nová appka (card_min) i web (hosted Checkout:
-      // částku určuje server, dorovnání je na Stripe stránce samostatná položka); staré
-      // appky pod 15 Kč dostanou below_minimum (nic se nestrhne).
-      const isSwap = !!(c._swap && typeof c._swap === 'object')
-      const extDue = round2(dueExact ?? expected ?? 0)
-      const webCheckout = paymentMode === 'checkout'
-      if (webCheckout && expected != null && Math.abs(Number(amount) - extDue) > 1) {
-        return refuse(400, 'amount_mismatch', { expected }, CS.amount_mismatch_edit)
-      }
-      const reqAmount = webCheckout ? (extDue <= 1 ? 0 : extDue < CARD_MIN_CZK ? CARD_MIN_CZK : Number(amount)) : Number(amount)
-      dueClass = classifyDue(extDue, reqAmount, cardMin || webCheckout)
-      let waiveSrv = metadata.srv || null
-      if (dueClass.kind === 'waive' && appFormat) {
-        // App formát: cenu spočítal klient → odpustit jen po serverovém přecenění.
-        const userClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: req.headers.get('Authorization') || '' } } })
-        const v = cur ? await priceAppChange(userClient, booking_id, c, cur as unknown as Record<string, unknown>) : null
-        if (v && v.net > 0 && v.net <= 1 && Math.abs(v.net - extDue) <= 1) {
-          dueClass = { kind: 'waive', due: v.net, charge: 0, rounding: round2(-v.net) }
-          if (v.newTotal != null) waiveSrv = JSON.stringify({ t: v.newTotal, f: placeFingerprint(cur as unknown as Record<string, unknown>) })
-        } else if (Math.round(reqAmount) === CARD_MIN_CZK) {
-          dueClass = { kind: 'round', due: extDue, charge: CARD_MIN_CZK, rounding: round2(CARD_MIN_CZK - extDue) }
-        } else {
-          return refuse(400, 'below_minimum', { due: extDue, min: CARD_MIN_CZK, charge: CARD_MIN_CZK, update_required: false, waiver_unverified: true, expected },
-            CS.waiver_unverified)
-        }
-      }
-      if (dueClass.kind === 'waive' || dueClass.kind === 'round') {
-        // Bez payloadu v metadatech by změnu (a dorovnání) nemohl zapsat server.
-        if (!metadata.chg) return refuse(409, 'change_too_large')
-        // Výbava: dorovnání jen s apply_paid_gear_change rev.2 (SQL 20261016p4) — jinak by šlo
-        // dorovnání druhým zápisem a mail o úpravě / DP by ho nezachytil.
-        const isGear = !isSwap && !!(c._gear && typeof c._gear === 'object')
-        if (isSwap ? !swapS3 : (!(await bookingRoundingAvailable(supabase, booking_id)) || (isGear && !(await gearRoundingAvailable(supabase))))) {
-          return dueClass.kind === 'waive' ? refuse(409, 'rounding_unavailable', { waiver: true }, CS.rounding_unavailable_waiver) : refuse(409, 'rounding_unavailable')
-        }
-        if (dueClass.kind === 'waive') {
-          if (webCheckout) {
-            // Starší otevřená session téže úpravy nesmí zůstat zaplatitelná vedle odpuštění (D4).
-            const pg = await settleMatchingSessions(stripe as unknown as StripeCheckoutLike, { customerId: null,
-              refKey: 'booking_id', refId: booking_id, type: 'extension',
-              settled: (piId, md, sid) => extensionSettled(supabase, booking_id, piId, md, sid) })
-            if (pg.action === 'refuse') return refuse(409, 'payment_in_progress', { session_id: pg.sessionId, previous_change: true })
-          }
-          return await waiveExtensionFlow(supabase, { bookingId: booking_id, change: c, srv: waiveSrv,
-            due: dueClass.due, saved: savedCardReq, attemptId,
-            redirect: webCheckout ? waivedRedirect(safeRedirect(explicitSuccessUrl) || `${SITE_URL}/upravit-rezervaci?paid_booking=${booking_id}`) : null })
-        }
-        metadata.due = String(dueClass.due)
-        metadata.card_rounding = String(dueClass.rounding)
-        if (webCheckout) checkoutRounding = { due: dueClass.due, r: dueClass.rounding }
-      } else if (dueClass.kind === 'below') {
-        // Starší appka (bez card_min, 4.1.3): aktualizace pro iOS / Android nemusí existovat → skutečná
-        // cesta = úprava na webu, který doplatek dorovná sám (jen když to server už umí — p1, výměna p3,
-        // výbava p4); jinak text bez slibu (f1 2026-10-22).
-        let legacyText: string | undefined
-        if (!webCheckout && !cardMin) {
-          const isGearB = !isSwap && !!(c._gear && typeof c._gear === 'object')
-          const webCan = isSwap ? swapS3 : ((await bookingRoundingAvailable(supabase, booking_id)) && (!isGearB || await gearRoundingAvailable(supabase)))
-          legacyText = webCan ? CS.below_minimum_legacy_edit : undefined
-        }
-        return refuse(400, 'below_minimum', { due: dueClass.due, min: CARD_MIN_CZK, charge: CARD_MIN_CZK, update_required: !cardMin, expected },
-          webCheckout ? CS.below_minimum_web : (cardMin ? CS.below_minimum_app : legacyText))
-      } else if (expected != null && Math.abs(Number(amount) - expected) > 1) {
-        return refuse(400, 'amount_mismatch', { expected }, CS.amount_mismatch_edit)
-      } else if (!isSwap && dueClass.kind === 'ok' && (await bookingRoundingAvailable(supabase, booking_id))) {
-        // Platba v celých Kč u doplatku s haléři (14,60 → 15) — rozdíl jako zaokrouhlení na
-        // dokladu (u výměny ho z p_paid spočítá split_booking_moto_swap sama).
-        const sub = round2(Math.round(Number(amount) * 100) / 100 - extDue)
-        if (sub !== 0 && Math.abs(sub) < 1) { metadata.due = String(extDue); metadata.card_rounding = String(sub) }
+      if (expected != null && Math.abs(Number(amount) - expected) > 1) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Částka doplatku neodpovídá výpočtu serveru (${expected} Kč). Obnovte stránku a zkuste znovu.`, code: 'amount_mismatch', expected }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
     }
 
-    // Doplatek úpravy s nulovou / zápornou částkou se neplatí (appka ho platbou neřeší).
-    if (amount <= 0 && paymentType === 'extension') return refuse(400, 'invalid_amount')
-
     // -- FREE BOOKING (100% discount) — POUZE pokud je sleva skutečně 100% --
     if (amount <= 0 && booking_id) {
-      // `*`: card_rounding existuje až po SQL 20261016p1.
       const { data: dbBooking } = await supabase.from('bookings')
-        .select('*')
+        .select('total_price, payment_status, promo_code_id, voucher_id, discount_amount')
         .eq('id', booking_id)
         .single()
 
       if (dbBooking?.payment_status === 'paid') {
-        return refuse(409, 'already_paid', { already_paid: true, booking_id })
+        return new Response(
+          JSON.stringify({ success: false, error: 'Tato rezervace je již zaplacena.' }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
 
       if (dbBooking && dbBooking.total_price > 0) {
-        return refuse(400, 'free_mismatch', { server_total: Number(dbBooking.total_price) })
+        return new Response(
+          JSON.stringify({ success: false, error: 'Částka neodpovídá ceně rezervace (' + dbBooking.total_price + ' Kč). Obnovte stránku a zkuste znovu.' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
 
       // Ověření, že sleva pokryje 100% ceny (percent=100, fixed >= originalPrice, nebo voucher >= originalPrice)
@@ -959,17 +852,16 @@ Deno.serve(async (req: Request) => {
           isTrue100 = true
         }
       }
-      // D1 (oprava 2026-10-16): zdarma i když slevy (víc poukazů / kódů v booking_discounts) nebo
-      // odpuštění do 1 Kč pokryjí cenu, kterou server DOLOŽÍ (spodní mez z ceníku). Dřív stačilo
-      // uložené card_rounding < 0 — zastaralé po změně motorky / termínu přímo z klienta.
-      if (dbBooking) isTrue100 = await freeVerifiedByFloor(supabase, dbBooking as Record<string, unknown>, isTrue100)
 
       if (!isTrue100) {
         console.error('Free booking rejected — discount is not truly 100%:', {
           booking_id, total_price: dbBooking?.total_price,
           discount_amount: dbBooking?.discount_amount, promo_code_id: dbBooking?.promo_code_id
         })
-        return refuse(400, 'free_mismatch', { server_total: 0 }, CS.free_unverified)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Chyba kalkulace ceny. Sleva není 100%. Obnovte stránku a zkuste znovu.' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
 
       const { error: rpcError } = await supabase.rpc('confirm_payment', {
@@ -979,7 +871,10 @@ Deno.serve(async (req: Request) => {
 
       if (rpcError) {
         console.error('confirm_payment RPC failed for free booking:', rpcError.message)
-        return refuse(500, 'free_confirm_failed')
+        return new Response(
+          JSON.stringify({ success: false, error: 'Potvrzení rezervace selhalo. Zkuste to znovu.' }),
+          { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
 
       try {
@@ -990,91 +885,15 @@ Deno.serve(async (req: Request) => {
         })
       } catch { /* ignore */ }
 
-      // Požadavek s uloženou kartou dostane i tvar „off-session succeeded" (appka ≤ 4.1.3).
-      return respond(200, { success: true, free: true, booking_id, ...(savedCardReq ? { off_session: true, status: 'succeeded' } : {}) })
+      return new Response(
+        JSON.stringify({ success: true, free: true, booking_id }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
 
     // -- MODE: INTENT --
     if (paymentMode === 'intent') {
       const amountCents = Math.round(amount * 100)
-
-      // D4 (2026-10-16): identita pokusu + nejvýš jeden strhnutelný PaymentIntent.
-      const chg = paymentType === 'extension' ? await chgHash(change) : null
-      if (chg) metadata.chg_hash = chg
-      if (attemptId) metadata.attempt_id = attemptId
-      // D1/D2: dorovnání do metadat — do ceny rezervace / objednávky ho zapíše webhook AŽ PO
-      // zaplacení (u doplatku webhook / complete_extension spolu se změnou).
-      if (chargeRounding) {
-        metadata.due = String(chargeRounding.due)
-        metadata.card_rounding = String(chargeRounding.r)
-      }
-      const respExtra = {
-        charge: amountCents / 100,
-        due: dueClass ? dueClass.due : null,
-        card_rounding: dueClass && dueClass.kind === 'round' ? dueClass.rounding : Number(metadata.card_rounding || 0) || 0,
-      }
-      const refId = paymentType === 'shop' ? order_id! : booking_id!
-      const { data: storedRow } = await supabase.from(paymentType === 'shop' ? 'shop_orders' : 'bookings')
-        .select('stripe_payment_intent_id, payment_status').eq('id', refId).maybeSingle()
-      // řádek čeká na platbu → i částečně vrácená uložená platba (storno + obnovení) neblokuje
-      const rowUnpaid = storedRow?.payment_status === (paymentType === 'shop' ? 'pending' : 'unpaid')
-      const guard = await guardStoredIntent(stripe, {
-        storedPiId: storedRow?.stripe_payment_intent_id, type: paymentType,
-        refKey: paymentType === 'shop' ? 'order_id' : 'booking_id', refId,
-        sheet: !payment_method_id, chargeCents: amountCents, chg, attemptId,
-        matchMeta: { due: metadata.due, card_rounding: metadata.card_rounding }, rowUnpaid,
-      })
-      if (guard.action === 'refuse') {
-        return refuse(409, 'payment_in_progress', { payment_intent_id: guard.piId, pi_status: guard.status,
-          ...(paymentType === 'extension' ? { previous_change: true } : {}) })
-      }
-      // Zaplacený doplatek: předchozí úpravu dokončila kontrola výše; jen TENTÝŽ pokus = čekat.
-      if (guard.action === 'paid_extension' && sameAttempt(guard.pi, attemptId)) {
-        return refuse(409, 'payment_in_progress', { payment_intent_id: guard.pi.id, pi_status: guard.pi.status })
-      }
-      const ephemeralKeyFor = async (): Promise<string | null> => {
-        if (!customerId) return null
-        try {
-          const ek = await stripe.ephemeralKeys.create({ customer: customerId }, { apiVersion: '2024-04-10' })
-          return ek.secret ?? null
-        } catch { return null } // non-blocking — Payment Sheet works without it
-      }
-      // Platba probíhá (i znovu otevřený list s existujícím PaymentIntentem) → cron ji 10 min neruší.
-      if (paymentType === 'booking' || paymentType === 'sos') await markCheckoutStarted(supabase, booking_id!)
-      if (guard.action === 'reuse' && payment_method_id) {
-        // Uložená karta, znovuodeslaný TENTÝŽ pokus: vrať stav původního PaymentIntentu.
-        const p = guard.pi
-        if (p.status === 'requires_action' || p.status === 'requires_confirmation') {
-          return respond(200, { success: true, off_session: true, status: p.status, client_secret: p.client_secret,
-            payment_intent_id: p.id, amount, currency: currency || 'czk', reused: true, ...respExtra })
-        }
-        const le = (p.last_payment_error || {}) as { code?: string; decline_code?: string }
-        return respond(200, {
-          success: false, off_session: true, error: 'off_session_charge_failed', code: 'off_session_charge_failed',
-          error_code: le.code || null, decline_code: le.decline_code || null,
-          message: declineMessageCs(le.code, le.decline_code), payment_intent_id: p.id,
-        })
-      }
-      if (guard.action === 'reuse') {
-        try {
-          await supabase.from('debug_log').insert({
-            source: 'process-payment', action: 'stripe_intent_reused', component: paymentType, status: 'ok',
-            request_data: { booking_id, order_id, amount, type: paymentType }, response_data: { payment_intent_id: guard.pi.id },
-          })
-        } catch { /* ignore */ }
-        return respond(200, {
-          success: true, client_secret: guard.pi.client_secret, payment_intent_id: guard.pi.id, amount,
-          currency: currency || 'czk', customer_id: customerId || null, ephemeral_key: await ephemeralKeyFor(),
-          reused: true, ...respExtra,
-        })
-      }
-      // Uložená karta (stržení hned) bez uloženého živého PaymentIntentu: nedávná zaplacená /
-      // zpracovávaná platba téže rezervace / objednávky (ztracená odpověď, neuložené id) → nestrhnout znovu.
-      if (payment_method_id && guard.action === 'proceed' && paymentType !== 'extension') {
-        const recent = await findRecentLiveIntent(stripe, { refKey: paymentType === 'shop' ? 'order_id' : 'booking_id', refId, type: paymentType, rowUnpaid })
-        if (recent) return refuse(409, 'payment_in_progress', { payment_intent_id: recent.piId, pi_status: recent.status })
-      }
-      const idemKey = idempotencyKey({ type: paymentType, refId, chargeCents: amountCents, pm: payment_method_id || null, attemptId, chg })
 
       // -- SAVED CARD (one-tap charge, customer PRESENT) --
       // Když klient pošle payment_method_id, strhneme uloženou kartu rovnou
@@ -1107,8 +926,11 @@ Deno.serve(async (req: Request) => {
           description: productName,
         }
         try {
-          const intent = await stripe.paymentIntents.create(offSessionParams, { idempotencyKey: idemKey })
-          await storeIntentId(supabase, booking_id, order_id, intent.id)
+          const intent = await stripe.paymentIntents.create(offSessionParams)
+          try {
+            if (booking_id) await supabase.from('bookings').update({ stripe_payment_intent_id: intent.id }).eq('id', booking_id)
+            if (order_id) await supabase.from('shop_orders').update({ stripe_payment_intent_id: intent.id }).eq('id', order_id)
+          } catch { /* non-blocking */ }
           try {
             await supabase.from('debug_log').insert({
               source: 'process-payment', action: 'stripe_off_session_attempt',
@@ -1119,54 +941,41 @@ Deno.serve(async (req: Request) => {
           } catch { /* ignore */ }
           // succeeded → hotovo, webhook potvrdí v DB
           if (intent.status === 'succeeded') {
-            // client_secret i u succeeded (D6): appka podle něj po restartu ověří PI.
-            return respond(200, {
-              success: true, off_session: true, status: 'succeeded', client_secret: intent.client_secret,
-              payment_intent_id: intent.id, amount, currency: currency || 'czk', ...respExtra,
-            })
+            return new Response(
+              JSON.stringify({
+                success: true, off_session: true, status: 'succeeded',
+                payment_intent_id: intent.id, amount, currency: currency || 'czk',
+              }),
+              { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+            )
           }
           // requires_action → klient musí dokončit SCA (3DS) přes Stripe SDK
           if (intent.status === 'requires_action' || intent.status === 'requires_confirmation') {
-            return respond(200, {
-              success: true, off_session: true, status: intent.status,
-              client_secret: intent.client_secret,
-              payment_intent_id: intent.id, amount, currency: currency || 'czk', ...respExtra,
-            })
+            return new Response(
+              JSON.stringify({
+                success: true, off_session: true, status: intent.status,
+                client_secret: intent.client_secret,
+                payment_intent_id: intent.id, amount, currency: currency || 'czk',
+              }),
+              { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+            )
           }
           // jiný stav (canceled/processing/requires_payment_method) — vrátíme jako fallback,
           // klient ukáže Payment Sheet
-          return respond(200, {
-            success: false, off_session: true, status: intent.status,
-            error: 'off_session_unexpected_status', code: 'off_session_unexpected_status',
-            payment_intent_id: intent.id,
-          })
+          return new Response(
+            JSON.stringify({
+              success: false, off_session: true, status: intent.status,
+              error: 'off_session_unexpected_status',
+              payment_intent_id: intent.id,
+            }),
+            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
         } catch (e) {
           // Typicky `authentication_required`, `card_declined`, `insufficient_funds`,
           // `expired_card`. Pro authentication_required obsahuje err.raw.payment_intent
           // klientův PI — vrátíme ho, aby klient pokračoval přes handleNextAction.
           const stripeErr = e as Stripe.StripeRawError & { payment_intent?: { id: string, client_secret: string, status: string } }
           const piFromError = (stripeErr.raw as Record<string, unknown> | undefined)?.payment_intent as { id: string, client_secret: string, status: string } | undefined
-          // Ne-karetní chyba: spojení / 5xx PO odeslání (SDK už opakovalo se stejným klíčem)
-          // → výsledek NEJISTÝ (karta mohla být stržena) → payment_uncertain 502, appka ověří
-          // a neplatí znovu. Ostatní (idempotence, neplatný požadavek) → vnější catch
-          // (mapStripeError: duplicate_request / server_error).
-          const errType = String((e as { type?: string }).type || '')
-          const rawType = String((e as { rawType?: string }).rawType || (stripeErr.raw as { type?: string } | undefined)?.type || '')
-          if (errType !== 'StripeCardError' && rawType !== 'card_error' && !piFromError) {
-            if (isUncertainStripeError(e)) {
-              try {
-                await supabase.from('debug_log').insert({
-                  source: 'process-payment', action: 'stripe_off_session_uncertain', component: paymentType, status: 'error',
-                  request_data: { booking_id, order_id, amount, payment_method_id, idempotency_key: idemKey },
-                  error_message: (e as Error).message,
-                })
-              } catch { /* ignore */ }
-              return refuse(502, 'payment_uncertain', { uncertain: true, booking_id: booking_id || null, order_id: order_id || null })
-            }
-            throw e
-          }
-          // PI neúspěšného pokusu se k rezervaci NEukládá (process-refund vrací z uloženého PI);
-          // znovuodeslání téhož pokusu vrátí Stripe idempotence (stejný klíč = stejná odpověď).
           try {
             await supabase.from('debug_log').insert({
               source: 'process-payment', action: 'stripe_off_session_failed',
@@ -1177,21 +986,25 @@ Deno.serve(async (req: Request) => {
             })
           } catch { /* ignore */ }
           if (stripeErr.code === 'authentication_required' && piFromError?.client_secret) {
-            return respond(200, {
-              success: true, off_session: true, status: 'requires_action',
-              client_secret: piFromError.client_secret,
-              payment_intent_id: piFromError.id, amount, currency: currency || 'czk', ...respExtra,
-            })
+            return new Response(
+              JSON.stringify({
+                success: true, off_session: true, status: 'requires_action',
+                client_secret: piFromError.client_secret,
+                payment_intent_id: piFromError.id, amount, currency: currency || 'czk',
+              }),
+              { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+            )
           }
-          // D5: `message` česky a bez kontaktů (appka ≤ 4.1.3 ho zobrazuje); anglický text Stripe jen do debug_log.
-          return respond(200, {
-            success: false, off_session: true,
-            error: 'off_session_charge_failed', code: 'off_session_charge_failed',
-            error_code: stripeErr.code || null,
-            decline_code: stripeErr.decline_code || null,
-            message: declineMessageCs(stripeErr.code, stripeErr.decline_code),
-            payment_intent_id: piFromError?.id || null,
-          })
+          return new Response(
+            JSON.stringify({
+              success: false, off_session: true,
+              error: 'off_session_charge_failed',
+              error_code: stripeErr.code || null,
+              decline_code: stripeErr.decline_code || null,
+              message: stripeErr.message || 'Strhnutí uložené karty selhalo.',
+            }),
+            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
         }
       }
 
@@ -1226,12 +1039,28 @@ Deno.serve(async (req: Request) => {
       if (customerId) {
         intentParams.customer = customerId
       }
-      const intent = await stripe.paymentIntents.create(intentParams as Stripe.PaymentIntentCreateParams, { idempotencyKey: idemKey })
+      const intent = await stripe.paymentIntents.create(intentParams as Stripe.PaymentIntentCreateParams)
 
       // Create ephemeral key for Payment Sheet (saved cards support)
-      const ephemeralKey = await ephemeralKeyFor()
+      let ephemeralKey: string | null = null
+      if (customerId) {
+        try {
+          const ek = await stripe.ephemeralKeys.create(
+            { customer: customerId },
+            { apiVersion: '2024-04-10' }
+          )
+          ephemeralKey = ek.secret ?? null
+        } catch (e) { /* non-blocking — Payment Sheet works without it */ }
+      }
 
-      await storeIntentId(supabase, booking_id, order_id, intent.id)
+      try {
+        if (booking_id) {
+          await supabase.from('bookings').update({ stripe_payment_intent_id: intent.id }).eq('id', booking_id)
+        }
+        if (order_id) {
+          await supabase.from('shop_orders').update({ stripe_payment_intent_id: intent.id }).eq('id', order_id)
+        }
+      } catch (e) { /* non-blocking */ }
 
       try {
         await supabase.from('debug_log').insert({
@@ -1242,32 +1071,29 @@ Deno.serve(async (req: Request) => {
         })
       } catch (e) { /* ignore */ }
 
-      return respond(200, {
-        success: true, client_secret: intent.client_secret,
-        payment_intent_id: intent.id, amount, currency: currency || 'czk',
-        // Payment Sheet support — Flutter uses these for saved cards
-        customer_id: customerId || null,
-        ephemeral_key: ephemeralKey,
-        ...respExtra,
-      })
+      return new Response(
+        JSON.stringify({
+          success: true, client_secret: intent.client_secret,
+          payment_intent_id: intent.id, amount, currency: currency || 'czk',
+          // Payment Sheet support — Flutter uses these for saved cards
+          customer_id: customerId || null,
+          ephemeral_key: ephemeralKey,
+        }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
 
     // -- MODE: CHECKOUT --
-    // D1 (2026-10-16): doplatek úpravy 1–15 Kč se na webu platí 15 Kč (checkoutRounding,
-    // dorovnání jako samostatná položka na Stripe stránce); jiná drobná částka = odmítnutí.
-    if (!checkoutRounding && Number(amount) > 0 && Number(amount) < CARD_MIN_CZK) {
-      return refuse(400, 'below_minimum', { due: Number(amount), min: CARD_MIN_CZK, charge: CARD_MIN_CZK, update_required: false }, CS.below_minimum_web)
-    }
     // Jazyk stránky Stripe: z requestu (locale), jinak jazyk rezervace/objednávky — dřív
     // natvrdo 'cs' (web „upravit rezervaci“ locale neposílá).
-    const checkoutLang = async (): Promise<string> => {
-      if (body.locale) return body.locale
+    const checkoutLocale = async (): Promise<string> => {
+      if (body.locale) return resolveStripeLocale(body.locale)
       try {
         const sb = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
         const { data } = paymentType === 'shop'
           ? await sb.from('shop_orders').select('language').eq('id', order_id!).maybeSingle()
           : await sb.from('bookings').select('language').eq('id', booking_id!).maybeSingle()
-        return (data as { language?: string } | null)?.language || 'cs'
+        return resolveStripeLocale((data as { language?: string } | null)?.language || 'cs')
       } catch { return 'cs' }
     }
     let successPath: string
@@ -1295,25 +1121,14 @@ Deno.serve(async (req: Request) => {
       if (!u) return false
       try { const p = new URL(u); return p.protocol === 'https:' || p.protocol === 'http:' } catch { return false }
     }
-    const finalSuccessUrl = isValidHttpsUrl(explicitSuccessUrl)
-      ? (paymentType === 'extension' ? withSessionParam(explicitSuccessUrl!) : explicitSuccessUrl!)
-      : SITE_URL + successPath
+    const finalSuccessUrl = isValidHttpsUrl(explicitSuccessUrl) ? explicitSuccessUrl! : SITE_URL + successPath
     const finalCancelUrl  = isValidHttpsUrl(explicitCancelUrl)  ? explicitCancelUrl!  : SITE_URL + cancelPath
 
-    // Položky v jazyce zákazníka: jazyk webu (locale), jinak jazyk rezervace. Doplatek úpravy
-    // podle druhu změny (výměna / výbava / úprava) — dřív vždy „Prodloužení rezervace".
-    const siteLang = await checkoutLang()
-    const stripeLocale = resolveStripeLocale(siteLang)
-    const lineName = paymentType === 'extension' ? editLineLabel(change, siteLang) : productName
     const sessionParams: Record<string, unknown> = {
-      line_items: checkoutRounding ? [
-        { price_data: { currency: currency || 'czk', product_data: { name: lineName }, unit_amount: Math.round(checkoutRounding.due * 100) }, quantity: 1 },
-        { price_data: { currency: currency || 'czk', product_data: { name: roundingLabel(siteLang) },
-          unit_amount: Math.round(checkoutRounding.r * 100) }, quantity: 1 },
-      ] : [{
+      line_items: [{
         price_data: {
           currency: currency || 'czk',
-          product_data: { name: lineName },
+          product_data: { name: productName },
           unit_amount: Math.round(amount * 100),
         },
         quantity: 1,
@@ -1327,20 +1142,11 @@ Deno.serve(async (req: Request) => {
       success_url: finalSuccessUrl,
       cancel_url: finalCancelUrl,
       metadata,
-      locale: stripeLocale,
+      locale: await checkoutLocale(),
     }
 
     if (customerId) {
       sessionParams.customer = customerId
-    }
-
-    // D4 (oprava 2026-10-16): nejvýš jedna zaplatitelná session na rezervaci / objednávku / doplatek —
-    // starší otevřenou zrušit, čerstvě zaplacenou (webhook ještě běží) = neplatit znovu.
-    const prevSess = await settleMatchingSessions(stripe as unknown as StripeCheckoutLike, { customerId: customerId || null,
-      refKey: paymentType === 'shop' ? 'order_id' : 'booking_id', refId: referenceId, type: paymentType,
-      settled: paymentType === 'extension' ? (piId, md, sid) => extensionSettled(supabase, referenceId, piId, md, sid) : undefined })
-    if (prevSess.action === 'refuse') {
-      return refuse(409, 'payment_in_progress', { session_id: prevSess.sessionId, ...(paymentType === 'extension' ? { previous_change: true } : {}) })
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams as Stripe.Checkout.SessionCreateParams)
@@ -1357,15 +1163,12 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true, checkout_url: session.url, session_id: session.id,
-        amount: checkoutRounding ? CARD_MIN_CZK : amount, currency: currency || 'czk',
-        ...(checkoutRounding ? { due: checkoutRounding.due, card_rounding: checkoutRounding.r, charge: CARD_MIN_CZK } : {}),
+        amount, currency: currency || 'czk',
       }),
       { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
     console.error('Stripe payment error:', err)
-    // D4/D5 (2026-10-16): stabilní kód + český text; anglický text Stripe jen do logu.
-    const mapped = mapStripeError(err)
 
     try {
       const supabase = createClient(
@@ -1376,10 +1179,12 @@ Deno.serve(async (req: Request) => {
         source: 'process-payment', action: 'stripe_error',
         component: 'stripe', status: 'error',
         error_message: (err as Error).message,
-        response_data: { code: mapped.code, stripe_code: mapped.stripe_code },
       })
     } catch (e) { /* ignore */ }
 
-    return respond(mapped.status, { success: false, code: mapped.code, error: mapped.error, stripe_code: mapped.stripe_code })
+    return new Response(
+      JSON.stringify({ success: false, error: 'Payment processing failed: ' + (err as Error).message }),
+      { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
   }
 })
