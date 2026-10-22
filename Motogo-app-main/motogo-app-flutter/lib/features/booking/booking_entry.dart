@@ -12,17 +12,17 @@ import 'booking_provider.dart';
 /// BEZE ZMĚNY z tlačítka REZERVOVAT v detailu motorky (`moto_detail_page`):
 /// nastaví `bookingMotoProvider`, založí čerstvý `BookingDraft` s velikostmi
 /// výbavy z profilu (boty se nepředvyplňují) a otevře `/booking`.
-/// Volají ho detail (starý i v2), funnel na Domů a kalkulačka. Jediné
-/// rozšíření: volitelný [pickupTime] (null = návrh bajtově stejný jako dřív;
-/// kalkulačka posílá '12:00' při volbě vyzvednutí od poledne).
+/// Volají ho detail (starý i v2), funnel na Domů a kalkulačka. Čas
+/// vyzvednutí se NEpředává (majitel 2026-10-22): volí se jen ve formuláři
+/// rezervace — vstupy před ním ukazují výhodu vyzvednutí od 12:00 jen jako
+/// informaci.
 void startBookingFromSelection(
   BuildContext ctx,
   WidgetRef ref,
   Motorcycle moto,
   DateTime start,
-  DateTime end, {
-  String? pickupTime,
-}) {
+  DateTime end,
+) {
   // Předvyplň velikosti výbavy z minulé rezervace
   // (profiles.gear_sizes.rider) — zákazník je nemusí lovit z paměti.
   final gs = ref.read(profileProvider).valueOrNull?['gear_sizes'];
@@ -40,7 +40,6 @@ void startBookingFromSelection(
     motoImage: moto.displayImage,
     startDate: start,
     endDate: end,
-    pickupTime: pickupTime,
     ownGear: riderOwn,
     helmetSize: rg('helmet'),
     glovesSize: rg('gloves'),

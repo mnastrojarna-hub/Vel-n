@@ -89,9 +89,8 @@ class _FreeRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final has = moto.prices != null && (moto.prices?.cheapest ?? 0) > 0;
-    final total = has
-        ? quoteFor(moto, st.start!, st.end!, pickupTime: st.late ? '12:00' : null, loyalty: loyalty).total
-        : null;
+    // Standard pickup price (the 12:00 saving is info on the bike's total).
+    final total = has ? quoteFor(moto, st.start!, st.end!, loyalty: loyalty).total : null;
     return Semantics(
       button: true,
       label: '${moto.model}, ${calcMeta(tr, moto)}${total == null ? '' : ', ${catMoney(total)}'}',

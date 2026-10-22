@@ -17,9 +17,11 @@ import 'home_links.dart';
 import 'home_reveal.dart';
 
 /// Light block under the funnel (V22 §2.4 #5): the ½ offer (the screen's one
-/// tint) with the centred bike's real 12:00 price, then a white card with
-/// "Spočítat přesnou cenu" (→ calculator, prefilled) and "Všechny motorky"
-/// (→ Motorky with the funnel dates).
+/// tint) as INFORMATION — the centred bike's real saving at 12:00 vs the
+/// standard price the funnel shows, and that the time is chosen in the
+/// booking form (owner 2026-10-22) — then a white card with "Spočítat
+/// přesnou cenu" (→ calculator, prefilled) and "Všechny motorky" (→ Motorky
+/// with the funnel dates).
 class HomeOfferBlockV2 extends ConsumerWidget {
   const HomeOfferBlockV2({super.key});
 
@@ -33,8 +35,9 @@ class HomeOfferBlockV2 extends ConsumerWidget {
     final moto = list.isEmpty ? null : list[i.clamp(0, list.length - 1)];
     String sub = tr.tr('v2HomeOfferSub');
     if (moto != null && range.days >= 2) {
+      final std = quoteFor(moto, range.start, range.end, loyalty: loyalty).total;
       final late = quoteFor(moto, range.start, range.end, pickupTime: '12:00', loyalty: loyalty).total;
-      sub = tr.trArgs('v2HomeOfferPrice', {'bike': moto.model, 'amount': Money.czk(late)});
+      if (std > late) sub = tr.trArgs('v2LpHomeSave', {'bike': moto.model, 'amount': Money.czk(std - late)});
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),

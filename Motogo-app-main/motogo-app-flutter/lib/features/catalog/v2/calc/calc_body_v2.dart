@@ -28,10 +28,12 @@ import 'calc_total_v2.dart';
 
 /// The v2 price calculator — Motorky tab, mode "Spočítat cenu" (PLAN
 /// §2.2.4, NEW, light steps + one dark total, V22 §2.4): ① pobočka,
-/// ② motorka, ③ termín, ④ předání (pickup time only), receipt + total.
+/// ② motorka, ③ termín, ④ předání (info only), receipt + total.
 /// Prices = `quoteFor` (the booking form's own calculation for a fresh
-/// draft); REZERVOVAT = `startBookingFromSelection` (PM-3) with the same
-/// bike, dates and the chosen pickup time — the form takes it from there.
+/// draft, standard pickup); the 12:00 half-day saving is information only
+/// (owner 2026-10-22: no time choice before the form). REZERVOVAT =
+/// `startBookingFromSelection` (PM-3) with the same bike and dates — the
+/// pickup time is chosen in the booking form.
 class CalcBodyV2 extends ConsumerStatefulWidget {
   const CalcBodyV2({super.key});
 
@@ -109,8 +111,7 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
     if (moto == null && st.hasRange) {
       result = CalcFreeListV2(st: st, onShowAll: () => _showFree(st));
     } else if (moto != null && st.hasRange && hasPrices) {
-      final q = quoteFor(moto, st.start!, st.end!, pickupTime: st.late ? '12:00' : null, loyalty: loyalty);
-      final q9 = quoteFor(moto, st.start!, st.end!, loyalty: loyalty);
+      final q = quoteFor(moto, st.start!, st.end!, loyalty: loyalty);
       final q12 = quoteFor(moto, st.start!, st.end!, pickupTime: '12:00', loyalty: loyalty);
       final loading = booked != null && !booked.hasValue && !booked.hasError;
       final failed = booked != null && booked.hasError;
@@ -127,17 +128,14 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
         const SizedBox(height: 12),
         CalcTotalV2(
           q: q,
-          q9: q9,
           q12: q12,
-          late: st.late,
-          onSetLate: () => n.setPickup('12:00'),
           rankName: q.loyaltyRankName,
           loyaltyFailed: loyaltyAsync.hasError,
           onRetryLoyalty: () => ref.invalidate(loyaltyStatusProvider),
           blockedReason: blocked,
           onBook: blocked != null
               ? null
-              : () => startBookingFromSelection(context, ref, m, st.start!, st.end!, pickupTime: st.late ? '12:00' : null),
+              : () => startBookingFromSelection(context, ref, m, st.start!, st.end!),
         ),
       ]);
     } else if (moto != null && st.start == null && hasPrices) {
@@ -211,16 +209,9 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
           n: 4,
           done: moto != null && st.hasRange,
           title: tr.tr('v2CalcStepHandover'),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(tr.tr('v2CalcPickupTime'), style: MgType.meta.copyWith(color: MgColors.meta)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              MgChoiceChip(label: '09:00', selected: !st.late, onTap: () => n.setPickup('09:00')),
-              MgChoiceChip(label: '12:00', sub: tr.tr('v2CalcHalfTag'), selected: st.late, onTap: () => n.setPickup('12:00')),
-            ]),
-            const SizedBox(height: 10),
-            CalcHint(tr.tr('v2CalcHandoverNote')),
-          ]),
+          // Info only (owner 2026-10-22): the pickup time — and with it the
+          // 12:00 half-day saving — is chosen in the booking form.
+          child: CalcHint(tr.tr('v2LpCalcHandover')),
         ),
         const SizedBox(height: 16),
         result,

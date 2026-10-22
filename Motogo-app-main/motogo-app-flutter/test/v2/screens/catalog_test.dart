@@ -104,10 +104,11 @@ void main() {
       after: null,
     ),
     (
-      name: 'calc__late_12',
+      // 1-day trip: the ½ card gives way to the general 12:00 note.
+      name: 'calc__one_day',
       build: motorky,
       overrides: () => [
-        ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we, pickupTime: '12:00')),
+        ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: ws)),
         calcMode,
       ],
       after: null,
