@@ -1,0 +1,21 @@
+_kiosk_return_rideout(p_booking_id uuid, p_branch_id uuid, p_ts timestamp with time zone, p_session text, p_event text, p_event_id uuid, p_need_pending boolean) -> void
+_ride_finalize(p_ride_id uuid, p_ended_at timestamp with time zone DEFAULT NULL::timestamp with time zone) -> jsonb
+_ride_json(p_ride user_rides) -> jsonb
+_ride_stats(p_track jsonb) -> jsonb
+_ride_track_cap(p_track jsonb, p_max integer DEFAULT 4000) -> jsonb
+_ride_track_km(p_track jsonb) -> numeric
+admin_booking_live_ride(p_booking_id uuid) -> jsonb
+admin_finish_user_ride(p_ride_id uuid) -> jsonb
+append_ride_track(p_ride_id uuid, p_points jsonb, p_max_speed_kmh numeric DEFAULT NULL::numeric) -> jsonb
+close_stale_user_rides() -> jsonb
+create_manual_ride(p_name text, p_description text DEFAULT NULL::text, p_points jsonb DEFAULT '[]'::jsonb) -> jsonb
+delete_ride_point(p_id uuid) -> jsonb
+delete_user_ride(p_id uuid) -> jsonb
+finish_user_ride(p_ride_id uuid, p_points jsonb DEFAULT NULL::jsonb, p_name text DEFAULT NULL::text) -> jsonb
+get_booking_rides(p_booking_id uuid) -> jsonb
+get_my_rides(p_limit integer DEFAULT 100) -> jsonb
+get_public_rides(p_limit integer DEFAULT 50, p_offset integer DEFAULT 0) -> jsonb
+save_ride_point(p_ride_id uuid, p_id uuid DEFAULT NULL::uuid, p_kind text DEFAULT 'stop'::text, p_name text DEFAULT NULL::text, p_note text DEFAULT NULL::text, p_lat double precision DEFAULT NULL::double precision, p_lng double precision DEFAULT NULL::double precision, p_photos text[] DEFAULT NULL::text[], p_sort_order integer DEFAULT NULL::integer, p_happened_at timestamp with time zone DEFAULT NULL::timestamp with time zone) -> jsonb
+start_user_ride(p_booking_id uuid DEFAULT NULL::uuid, p_lat double precision DEFAULT NULL::double precision, p_lng double precision DEFAULT NULL::double precision) -> jsonb
+trg_notify_ride_completed() -> trigger
+update_user_ride(p_id uuid, p_name text DEFAULT NULL::text, p_description text DEFAULT NULL::text, p_visibility text DEFAULT NULL::text, p_cover_image text DEFAULT NULL::text) -> jsonb
