@@ -93,6 +93,7 @@ $static = [
     ['loc' => '/jak-pujcit/vraceni-jinde',    'priority' => '0.7', 'changefreq' => 'monthly'],
     ['loc' => '/jak-pujcit/faq',         'priority' => '0.8',  'changefreq' => 'monthly'],
     ['loc' => '/poukazy',                'priority' => '0.8',  'changefreq' => 'monthly'],
+    ['loc' => '/pujceni-obleceni',       'priority' => '0.7',  'changefreq' => 'monthly'],
     ['loc' => '/eshop',                  'priority' => '0.8',  'changefreq' => 'weekly'],
     ['loc' => '/blog',                   'priority' => '0.7',  'changefreq' => 'weekly'],
     ['loc' => '/pobocky',                'priority' => '0.7',  'changefreq' => 'monthly'],

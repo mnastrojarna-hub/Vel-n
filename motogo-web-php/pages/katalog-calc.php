@@ -29,7 +29,7 @@ function kcDefaults() {
         'detail' => 'Detail motorky',
         'cal_any' => 'Bez vybrané motorky uvidíš dny, kdy je volná aspoň jedna motorka.',
         'cal_loading' => 'Načítám obsazenost…', 'cal_error' => 'Obsazenost se nepodařilo načíst.', 'retry' => 'Zkusit znovu',
-        'hint_start' => 'Klepni na den vyzvednutí', 'hint_end' => 'Teď den vrácení (může být i stejný den)', 'hint_done' => 'Klepnutím na jiný den termín změníš',
+        'hint_start' => 'Klepni na den vyzvednutí', 'hint_end' => 'Vybraný 1 den — nebo klepni na den vrácení', 'hint_done' => 'Klepnutím na jiný den termín změníš',
         'legend_free' => 'Volno', 'legend_busy' => 'Obsazeno', 'legend_pending' => 'Čeká na potvrzení', 'legend_sel' => 'Tvůj termín',
         'legend_price' => 'Cena/den v {cur}',
         'range_busy' => 'V tomto rozmezí je obsazený den. Vyber jiný termín.',
@@ -51,14 +51,17 @@ function kcDefaults() {
         'late_text' => 'a 1. den máš za půlku: ušetříš {amount}, zaplatíš {total}. Čas vyzvednutí zvolíš v rezervaci.',
         'late_one' => 'Při pronájmu na 2 a více dní vyzvedni od 12:00 a 1. den máš za půlku.',
         'includes' => ['Bez kauce', 'Výbava pro řidiče v ceně', 'Bez limitu km'],
-        'cta' => 'Rezervovat tento termín', 'cta_moto' => 'Rezervovat tuto motorku', 'cta_any' => 'Zobrazit volné motorky a rezervovat',
-        'assure' => 'Storno zdarma do 7 dní před začátkem · Bezpečná platba',
+        // 2026-10-22: tlačítka bez slova „rezervovat“ (stresuje) — výběr a pokračování
+        'cta' => 'Vybrat tento termín', 'cta_moto' => 'Vybrat tuto motorku', 'cta_any' => 'Zobrazit volné motorky',
+        'assure' => 'Termín posuneš zdarma · Storno zdarma víc než 7 dní předem',
         'reset' => 'Zrušit termín',
         'free_title' => 'Volné v tvém termínu: {n}',
         'free_none' => 'V tomto termínu na pobočce žádná motorka volná není. Zkus jiný termín nebo pobočku.',
         'free_more' => 'a dalších {n} v rezervaci',
         'card_btn' => 'Spočítat cenu',
-        'sticky' => 'Rezervovat',
+        'sticky' => 'Pokračovat',
+        // Detail motorky: jediné CTA v hlavičce → kalendář (katalog-detail.php)
+        'detail_cta' => 'Vyber termín',
     ];
 }
 
@@ -176,7 +179,8 @@ function renderKatalogCalc($sb, $motos, $opts = []) {
             '<div class="kc-field"><label class="kc-label" for="kc-moto">' . $n(1 + $o) . $s('step_moto') . '</label>' .
             '<div class="kc-select"><select id="kc-moto"><option value="">' . he(lpPlain($T['moto_any'])) . '</option></select></div>' .
             '<div class="kc-moto" data-kc-moto hidden></div></div></div>' .
-        '<div class="kc-cal"><p class="kc-label">' . $n(2 + $o) . $s('step_dates') . '<span class="kc-hint" data-kc-hint aria-live="polite"></span></p>' .
+        // Detail motorky: kotva #termin pro jediné CTA „Vyber termín“ v hlavičce (katalog-detail.php)
+        '<div class="kc-cal"' . ($det ? ' id="termin"' : '') . '><p class="kc-label">' . $n(2 + $o) . $s('step_dates') . '<span class="kc-hint" data-kc-hint aria-live="polite"></span></p>' .
             '<div class="kc-cal-box" data-kc-cal></div>' .
             '<ul class="kc-legend">' . $legend . '</ul><p class="kc-note" data-kc-note></p></div>' .
         '<div class="kc-sum" data-kc-sum aria-live="polite"><div class="kc-sum-in"><p class="kc-sum-k">' . he(lpPlain($T['sum_title'])) . '</p><p class="kc-sum-p">' . he(lpPlain($T['sum_empty'])) . '</p></div></div>' .

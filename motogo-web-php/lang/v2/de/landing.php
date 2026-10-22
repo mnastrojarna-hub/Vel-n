@@ -16,24 +16,25 @@ return ['pages' => ['landing' => [
         'fleet_next' => 'Weitere Motorräder',
         'license' => 'Klasse {g}',
         'license_none' => 'Ohne Führerschein',
-        'card_book' => 'Reservieren',
+        'card_book' => 'Auswählen',
         'explore_title' => 'Entdecke MotoGo24',
         'more_open' => 'Weiterlesen',
         'more_close' => 'Weniger anzeigen',
         'sticky_reserve' => 'Reservieren',
         'sticky_motos' => 'Motorräder',
+        // Mobilní lišta: jedno tlačítko do katalogu (CS sticky_continue)
+        'sticky_continue' => 'Weiter',
         'price_chip' => 'Motorräder ab {price}/Tag unter der Woche',
         'fx_note' => 'Preise in Euro sind Richtwerte; bezahlt wird in tschechischen Kronen (CZK).',
-        'assurance' => 'Mehr als 7 Tage vorher kostenlos stornieren · Sichere Zahlung',
+        'assurance' => 'Termin kostenlos verschieben · Mehr als 7 Tage vorher kostenlos stornieren',
         'offer' => 'Hol dein Motorrad ab 12:00 Uhr ab und zahl für den 1. Tag nur die Hälfte (bei Miete ab 2 Tagen).',
         'season_note' => 'Saison 2026 bis 31.10. · Sichere dir schon jetzt deinen Termin für 2027 (ab 26.03.).',
         'cta' => [
             'title' => 'Bereit für eine Tour durch Tschechien?',
-            'text' => 'Keine Kaution, Fahrerausrüstung inklusive, und mehr als 7 Tage vorher stornierst du kostenlos.',
+            'text' => 'Keine Kaution, Fahrerausrüstung inklusive, Termin kostenlos verschieben und mehr als 7 Tage vorher kostenlos stornieren.',
             'buttons' => [
-                ['label' => 'MOTORRAD RESERVIEREN', 'href' => '/rezervace'],
+                ['label' => 'WEITER', 'href' => '/katalog'],
                 ['label' => 'Geschenkgutschein', 'href' => '/poukazy'],
-                ['label' => 'Motorräder ansehen', 'href' => '/katalog'],
             ],
         ],
         // Sekce důvěry (landing-trust.php) — CS defaulty a pravidla poboček v data/landing-trust.php
@@ -42,6 +43,10 @@ return ['pages' => ['landing' => [
         'reasons_more' => 'Alle {n} Vorteile anzeigen',
         'reasons_less' => 'Weniger anzeigen',
         'reasons' => [
+            // 2026-10-22: flexibilita rezervace do popředí (jako CS)
+            ['icon' => 'swap', 'title' => 'Termin jederzeit gratis verschieben', 'text' => 'Wetter oder Pläne ändern sich? Verschieb deine Reservierung auf andere Tage, ohne Gebühr.'],
+            ['icon' => 'resize', 'title' => 'Verlängern und verkürzen', 'text' => 'Verlängern jederzeit ohne Änderungsgebühr (du zahlst nur die zusätzlichen Tage), verkürzen kostenlos mindestens 7 Tage vorher.'],
+            ['icon' => 'edit', 'title' => 'Reservierung jederzeit anpassen', 'text' => 'Ausrüstung oder Stiefel hinzufügen, Abholzeit oder Abholort ändern, online und in der App.'],
             ['icon' => 'card', 'title' => 'Keine Kaution', 'text' => 'Wir blockieren nichts auf deiner Karte.'],
             ['icon' => 'shield', 'title' => 'Schäden zu 100 % gedeckt', 'text' => 'Vertragliche Deckung: Bei einem Unfall beträgt deine Selbstbeteiligung 0 €.*'],
             ['icon' => 'helmet', 'title' => 'Ausrüstung inklusive', 'text' => 'Motorradbekleidung, Warnweste, Verbandskasten und Bremsscheibenschloss. In Mezná auch Regenkombis.'],
@@ -64,6 +69,18 @@ return ['pages' => ['landing' => [
             ['icon' => 'check', 'title' => 'Kostenlose Stornierung', 'text' => 'Ohne Gebühr, wenn du mehr als 7 Tage vorher stornierst.'],
         ],
         'reasons_note' => '* Bei Einhaltung der Mietbedingungen (AGB, Art. 7).',
+        // Pruh garancí pod hero (landing-guarantee.php)
+        'guar_title' => 'MotoGo24-Garantien',
+        'guar_lead' => 'Pläne ändern sich: Deine Reservierung passt du jederzeit an, auch wenn das Wetter umschlägt.',
+        'guarantees' => [
+            ['icon' => 'shield', 'title' => '0 € Selbstbeteiligung', 'text' => 'bei Einhaltung des Vertrags*'],
+            ['icon' => 'swap', 'title' => 'Termin gratis verschieben', 'text' => 'jederzeit, z. B. wegen Wetter'],
+            ['icon' => 'resize', 'title' => 'Jederzeit verlängern', 'text' => 'ohne Änderungsgebühr'],
+            ['icon' => 'calendar', 'title' => 'Gratis verkürzen', 'text' => 'mindestens 7 Tage vorher'],
+            ['icon' => 'edit', 'title' => 'Jederzeit anpassen', 'text' => 'Ausrüstung, Zeit und Abholort'],
+            ['icon' => 'card', 'title' => 'Keine Kaution', 'text' => 'wir blockieren nichts'],
+        ],
+        'guar_note' => '* Bei Einhaltung der Mietbedingungen (AGB, Art. 7).',
         'panel_rating' => '{r} · {n} Bewertungen auf Google',
         'reviews_title' => 'Das sagen Motorradfahrer über uns',
         'reviews_count' => '{n} Bewertungen',
@@ -93,7 +110,7 @@ return ['pages' => ['landing' => [
             ['kind' => 'loyalty', 'title' => 'Treueprogramm', 'text' => 'Mit jeder Fahrt steigst du auf: bis zu 20 % Rabatt und ab Rang 3 Sozius-Ausrüstung und Stiefel gratis.'],
         ],
         'branches_title' => 'Zwei Filialen – wähle deine',
-        'branch_book' => 'Reservieren',
+        'branch_book' => 'Auswählen',
         'branch_more' => 'Zur Filiale',
         'branches' => [
             ['badge' => 'Mit Personal · nonstop', 'title' => 'Mezná (Vysočina)', 'text' => 'Persönliche Übergabe zur Zeit deiner Wahl, komplette Ausrüstung inklusive, Begrüßungskaffee und Lieferung an deine Adresse.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 Min. von Prag']],
@@ -104,8 +121,8 @@ return ['pages' => ['landing' => [
         'h1' => 'Motorradvermietung in Tschechien',
         'lead' => 'Abholung nonstop in Mezná, 90 Min. von Prag, oder per Selbstbedienung 30 Min. von Brno.',
         'hero_eyebrow' => '<strong>Dein Motorradabenteuer</strong> in Tschechien',
-        'cta_primary' => ['label' => 'RESERVIEREN', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'MOTORRAD WÄHLEN', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'WEITER', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['Keine Kaution', 'Fahrerausrüstung inklusive', 'Unbegrenzte Kilometer'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '0 € Kaution', 'text' => 'und keine versteckten Gebühren'],
@@ -127,8 +144,8 @@ return ['pages' => ['landing' => [
     'pujcovna' => [
         'h1' => 'Motorradvermietung in Tschechien: Preise und Bedingungen',
         'lead' => 'Keine Kaution, Fahrerausrüstung inklusive und unbegrenzte Kilometer. In wenigen Minuten online gebucht.',
-        'cta_primary' => ['label' => 'RESERVIEREN', 'href' => '/rezervace'],
-        'cta_secondary' => ['label' => 'MOTORRAD WÄHLEN', 'href' => '#catalogue'],
+        'cta_primary' => ['label' => 'WEITER', 'href' => '/katalog'],
+        'cta_secondary' => ['label' => '', 'href' => ''],
         'chips' => ['2 Filialen: Vysočina und Brno', 'Abholung nonstop'],
         'usp' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => '0 € Kaution', 'text' => 'und keine versteckten Gebühren'],

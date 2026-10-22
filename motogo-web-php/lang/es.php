@@ -60,6 +60,7 @@ return [
     'menu.howto.documents' => 'Documentos y manuales',
     'menu.howto.faq' => 'Preguntas frecuentes',
     'menu.vouchers' => 'Vales',
+    'menu.gearRental' => 'Alquiler de equipo',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Tienda',
     'menu.branches' => 'Sucursales',

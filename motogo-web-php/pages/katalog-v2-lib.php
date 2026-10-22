@@ -49,7 +49,7 @@ function kfDefaults() {
     return [
         'f_dates' => 'Termín',
         'f_dates_title' => 'Kdy chceš vyrazit?',
-        'f_dates_lead' => 'Vyber den vyzvednutí a vrácení — ukážeme jen motorky volné po celý termín i s cenou.',
+        'f_dates_lead' => 'Klepni na den vyzvednutí (jeden klik = jeden den), případně i na den vrácení — ukážeme jen motorky volné po celý termín i s cenou.',
         'f_filters' => 'Filtry',
         'f_calc' => 'Spočítat cenu',
         'f_close' => 'Zavřít',
@@ -68,7 +68,8 @@ function kfDefaults() {
         'f_calc_open' => 'Otevřít kalkulačku',
         // Karta s přepínačem režimu [Najít motorku | Spočítat cenu] (renderKatalogV2)
         'f_mode_aria' => 'Co chceš udělat?',
-        'f_mode_find' => 'Najít motorku',
+        // 2026-10-22: výzva místo „Najít motorku“ (zadání majitele — neutrální, k akci)
+        'f_mode_find' => 'Vyber motorku',
         'f_mode_find_sub' => 'Filtr nabídky',
         'f_mode_calc_sub' => 'Volné dny a cena',
         'f_type' => 'Typ motorky',

@@ -59,6 +59,7 @@ return [
     'menu.howto.documents' => 'Documents et manuels',
     'menu.howto.faq' => 'Foire aux questions',
     'menu.vouchers' => 'Bons cadeaux',
+    'menu.gearRental' => 'Location d’équipement',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Boutique',
     'menu.branches' => 'Agences',

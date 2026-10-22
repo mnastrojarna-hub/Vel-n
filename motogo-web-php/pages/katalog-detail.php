@@ -113,21 +113,24 @@ if ($kcV2) {
         . ($mdBr !== '' ? '<li class="lp-chip">' . lpIcon('pin') . he($mdBr) . '</li>' : '');
     $mdFrom = getMinPrice($moto) > 0 ? he(str_replace('{price}', lpMoneyFrom(getMinPrice($moto)), lpS($mdT['fleet_from'] ?? ''))) : '';
     $mdPd = he(lpS($mdT['fleet_per_day'] ?? ''));
-    $mdRez = BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']);
+    $mdCta = he(lpPlain(kcTexts($sb)['detail_cta'] ?? ''));
     $headerHtml = '<div class="moto-detail-header md-head"><div class="md-head-main">'
         . ($badgeHtml ? '<div>' . $badgeHtml . '</div>' : '')
         . '<h1>' . $model . $h1Suffix . '</h1>'
         . ($mdChips !== '' ? '<ul class="lp-chips md-chips">' . $mdChips . '</ul>' : '')
         . $branchHtml
         . ($mdFrom !== '' ? '<p class="md-price"><b>' . $mdFrom . '</b> <span>' . $mdPd . '</span></p>' : '')
-        . '</div><div class="lp-cta-row md-cta" data-md-sentinel>'
-        . '<a class="lp-btn lp-btn-primary" href="' . $mdRez . '">' . lpIcon('cal') . '<span>' . te('common.reserveOnline') . '</span></a>'
-        . '<a class="lp-btn lp-btn-ghost md-calc-btn" href="#kalkulacka"><span data-cms-key="web.landing_katalog.card_btn">' . he(lpPlain(kcTexts($sb)['card_btn'] ?? '')) . '</span></a>'
+        // Skutečný počet dalších zájemců (js/live-viewers.js, RPC get_live_viewers) — bez dat skryté
+        . '<p class="lp-live md-live" data-live-moto="' . he($moto['id']) . '" hidden></p>'
+        // 2026-10-22 (zadání majitele): jediné CTA „Vyber termín“ → kalendář s cenou níže
+        // (místo „Rezervovat online“ + „Spočítat cenu“); rezervace až po výběru termínu.
+        . '</div><div class="lp-cta-row lp-cta-row--one md-cta" data-md-sentinel>'
+        . '<a class="lp-btn lp-btn-primary md-date-btn" href="#termin">' . lpIcon('cal') . '<span data-cms-key="web.landing_katalog.detail_cta">' . $mdCta . '</span></a>'
         . (lpPlain($mdT['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($mdT['assurance'])) . '</p>' : '')
         . lpPanelRating($mdT) . '</div></div>';
     $mdSticky = '<div class="md-sticky" data-md-sticky aria-hidden="true"><span class="md-sticky-t"><span class="md-sticky-m">' . $model . '</span>'
         . ($mdFrom !== '' ? '<span class="md-sticky-v">' . $mdFrom . ' <small>' . $mdPd . '</small></span>' : '') . '</span>'
-        . '<a class="lp-btn lp-btn-primary" href="' . $mdRez . '" tabindex="-1">' . lpIcon('cal') . '<span>' . he(lpS($mdT['sticky_reserve'] ?? '')) . '</span></a></div>';
+        . '<a class="lp-btn lp-btn-primary md-date-btn" href="#termin" tabindex="-1">' . lpIcon('cal') . '<span>' . $mdCta . '</span></a></div>';
 }
 
 // Short desc + features (auto-překlad popisku z translations JSONB sloupce)
@@ -774,7 +777,7 @@ $mdMeta = [];
 if ($kcV2) {
     $mdMeta = kcPageMeta();
     array_push($mdMeta['styles'], '/css/landing-trust.css', '/css/moto-detail-v2.css');
-    array_push($mdMeta['scripts'], '/js/landing.js', '/js/moto-detail-v2.js');
+    array_push($mdMeta['scripts'], '/js/landing.js', '/js/moto-detail-v2.js', '/js/live-viewers.js');
     $mdMeta['body_class'] = trim(($mdMeta['body_class'] ?? '') . ' md-v2');
 }
 renderPage($model . ' ' . t('detail.titleSuffix'), $content, '/katalog/' . $motoId, $mdMeta + [

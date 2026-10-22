@@ -557,6 +557,11 @@ switch (true) {
         require __DIR__ . '/pages/poukazy-objednat.php';
         break;
 
+    // Půjčení oblečení — jen výbava bez motorky (2026-10-22, gear_rentals)
+    case $path === '/pujceni-obleceni':
+        require __DIR__ . '/pages/pujceni-obleceni.php';
+        break;
+
     // E-shop (produkty z Velínu, texty lokalizované přes helper localized())
     // Legacy alias /e-shop — 301 na kanonický/lokalizovaný tvar (/eshop, /shop,
     // /tienda, …), aby alias nezůstával nepřeložený na cizojazyčných doménách.

@@ -217,9 +217,12 @@ export default function Fleet() {
   return (
     <div>
       {isMobile ? (
+        <>
         <FleetMobileFilters filters={filters} update={patch => { setPage(1); setFilters(f => ({ ...f, ...patch })) }} onReset={resetFilters}
           branches={branches} categories={CATEGORIES} statusOptions={STATUS_OPTIONS} sortOptions={SORT_OPTIONS}
           selectedCount={selected.size} onBulk={() => setShowBulk(true)} onAdd={() => setShowAdd(true)} />
+        <Button onClick={() => navigate('/flotila/obleceni')} className="w-full justify-center mb-4 min-h-[44px]">👕 Půjčení oblečení</Button>
+        </>
       ) : (
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SearchInput
@@ -276,6 +279,7 @@ export default function Fleet() {
             style={{ background: selected.size > 0 ? '#fde68a' : '#f1faf7', color: '#92400e', opacity: selected.size === 0 ? 0.5 : 1 }}>
             ☰ Hromadná správa{selected.size > 0 ? ` (${selected.size})` : ''}
           </Button>
+          <Button onClick={() => navigate('/flotila/obleceni')}>👕 Půjčení oblečení</Button>
           <Button green onClick={() => setShowAdd(true)}>+ Nová motorka</Button>
         </div>
       </div>

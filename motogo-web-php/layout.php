@@ -44,6 +44,8 @@ function getMenuItems() {
         // odkaz (žádné rozbalovací submenu); kraje se zobrazí až na /oblasti.
         ['label' => tc('menu.areas'), 'route' => '/oblasti'],
         ['label' => tc('menu.vouchers'), 'route' => '/poukazy', 'highlight' => true],
+        // Půjčení samotné výbavy bez motorky (2026-10-22) — hned vedle poukazů
+        ['label' => tc('menu.gearRental'), 'route' => '/pujceni-obleceni'],
         // E-shop je v menu dočasně skrytý (zadání majitele 2026-10-01) — vrátí se
         // zapnutím flagu `eshop_visible` ve Velíně (Web CMS → Feature flags).
         // Na jeho místě je přehled poboček (Mezná + Velké Němčice).

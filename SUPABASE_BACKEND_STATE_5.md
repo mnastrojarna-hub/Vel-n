@@ -5,6 +5,11 @@
 
 ## 6. RLS POLITIKY (kompletní)
 
+### Půjčení výbavy (2026-10-22, `20261022_gear_rental.sql`)
+- `gear_rental_prices`: `gear_rental_prices_public_read` FOR SELECT USING (`is_active OR is_admin()`) — web čte ceník pod anon; `gear_rental_prices_admin` FOR ALL `is_admin()`.
+- `gear_rentals`: `gear_rentals_admin` FOR ALL `is_admin()`; anon bez přístupu (REVOKE ALL). Zápis z webu jen přes SECURITY DEFINER `create_gear_rental_order`.
+- `app_settings` klíč `gear_rental` = `{enabled, max_days, max_ahead_days}` (veřejné čtení přes stávající `Public read non-secret`).
+
 ### Bezpečnost 2026-10-11 (`20261011b_…_b_confirm.sql`, `20261011d_…_b_views_storage.sql`)
 - `bookings_anon_pending_realtime` ZRUŠENA (anon četl všechny rozpracované web rezervace vč. UUID a údajů). Důsledek: nepřihlášený host na PC nevidí banner „pokračuješ na mobilu“ (přihlášený ano).
 - `booking_complaints`: politika „Admin full access“ s USING (true) pro PUBLIC nahrazena `booking_complaints_admin_all` (is_admin); anon bez práv.
@@ -119,6 +124,7 @@ Ověřené vzory z živého schématu (`schema_public.sql`):
 > **2026-06-24 (ověření proti živému snapshotu):** v `supabase/functions/` reálně existují i adresáře funkcí, které tu dosud chyběly: **`cms-admin-auth`, `extract-document`, `seo-check`, `slevomat-voucher`** — doplněny do tabulky níže. Všechny mají `verify_jwt = false` v `config.toml`. Historické počty „28/32" jsou orientační a neaktuální (viz pozn. níže).
 
 ### V repozitáři (~~28~~ — všechny deployované)
+> **UPDATE 2026-10-22 (půjčení výbavy bez motorky):** `process-payment` — produktová web větev (`handleWebProductCheckout`) pozná objednávku s řádkem `gear_rentals`: Stripe `success_url` = `/pujceni-obleceni?order_id=&session_id=`, `cancel_url` = `/pujceni-obleceni?order_id=&payfail=1`, metadata `kind: gear_rental`, ZF bez e-mailu. `send-booking-email` — po zaplacení (`shop_order_confirmed` z triggeru `trg_shop_order_confirmed_email`) u objednávky s `gear_rentals` renderuje `gear_rental_confirmed` (`gear-rental.ts`, 8 jazyků: termín, pobočka, výbava s velikostmi, jak vyzvednout/vrátit; DB šablona `(web_)gear_rental_confirmed` by měla přednost); slug v logu a příloha DP beze změny.
 
 **`_shared/auth.ts` — BEZPEČNOSTNÍ FIX 2026-09-22 (5. kolo review vozíku, nález soudce):** `isServiceRole(token)` dosud brala za service_role KAŽDÝ třídílný token s `role:"service_role"` v payloadu — jen dekódování, bez ověření podpisu. U funkcí s `verify_jwt=false` (gateway podpis neověřuje) tak nepodepsaný token `x.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.y` prošel jako service_role do všeho, co helper používá: `process-refund`, `send-broadcast`, `send-email`, `send-order-email`, `generate-invoice`, `receive-invoice`, `extract-document`, `pdf-to-html`, `submit-handover-protocol`, `process-payment` (přes `requireAdminOrService` / `authClassify`) + lokální kopie téže funkce v `send-push`, `fio-sync`, `translate-content`, `mirror-route-images`, `backfill-poi-photos` (`backfill-route-translations`, `backfill-poi-surroundings` mají verify_jwt=true → gateway podpis ověřuje). Nově je `isServiceRole` **async**: přesná shoda s env `SUPABASE_SERVICE_ROLE_KEY` = fast-path bez sítě; claim-only token se ověří HEAD dotazem přes PostgREST (`admin_users`, `head:true`) — podpis kontroluje JWT secret projektu, podvržený/expirovaný → 401 → false; rotované platné service klíče dál projdou. Lokální kopie v pěti funkcích nahrazeny importem sdíleného helperu (`await`). Pre-existing od 2026-06-10 (`e9090217`), zjištěno až tím, že se na helper spolehla kontrola vlastnictví v `process-payment`.
 

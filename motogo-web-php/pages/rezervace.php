@@ -189,6 +189,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/card-rounding.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
+<script src="' . assetUrl('/js/rezervace-ux.js') . '"></script>
 <script>
 // Vynucení min_rental_days / max_rental_days z DB (per-motorka, nastavuje admin ve Velíně).
 // Default je 1 den. Hookne se na _rezPickDate (po vyběru rozsahu v kalendáři),
@@ -261,7 +262,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 
 // Landing v2 vzhled formuláře — JEN prezentace (css/rezervace-v2.css + js/rezervace-v2.js, logika beze změny);
 // mimo v2 (?landing=v1) se meta nemění → stránka je stejná jako dřív.
-$rezV2Meta = landingV2Enabled() ? ['styles' => ['/css/rezervace-v2.css'], 'scripts' => ['/js/rezervace-v2.js'], 'body_class' => 'rez-v2'] : [];
+$rezV2Meta = landingV2Enabled() ? ['styles' => ['/css/rezervace-v2.css', '/css/rezervace-ux.css'], 'scripts' => ['/js/rezervace-v2.js'], 'body_class' => 'rez-v2'] : ['styles' => ['/css/rezervace-ux.css']];
 renderPage(t('rezervace.title'), $content . $rezervaceJs, '/rezervace', $rezV2Meta + [
     'description' => t('rezervace.description'),
     'keywords' => t('rezervace.keywords'),

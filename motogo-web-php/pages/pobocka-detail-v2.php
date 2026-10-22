@@ -45,8 +45,9 @@ $pbHero = pbHeroHtml([
     'maps' => $pbMaps,
     'stats' => $pbStats,
     'facts' => $VB['facts'] ?? [],
-    'primary' => ['label' => $V['book_branch'], 'href' => $rezHref],
-    'secondary' => ['label' => $V['motos_branch'], 'href' => $pbKat !== '' ? $pbKat : '/katalog'],
+    // 2026-10-22: jedno neutrální CTA (bez „Rezervovat“) — výběr motorky na této pobočce
+    'primary' => ['label' => $V['motos_branch'], 'href' => $pbKat !== '' ? $pbKat : '/katalog'],
+    'secondary' => ['label' => '', 'href' => ''],
     'video' => $pbVideo !== '' ? lpPlain($V['video_badge']) : '',
 ]);
 

@@ -53,6 +53,7 @@ const I18N_SLUG_ROUTES = [
     '/jak-pujcit/dokumenty' => ['en' => '/how-to-rent/documents', 'de' => '/mietanleitung/dokumente', 'es' => '/como-alquilar/documentos', 'fr' => '/comment-louer/documents', 'nl' => '/hoe-huren/documenten', 'pl' => '/jak-wypozyczyc/dokumenty', 'uk' => '/how-to-rent/documents'],
     '/jak-pujcit/faq' => ['en' => '/how-to-rent/faq', 'de' => '/mietanleitung/faq', 'es' => '/como-alquilar/faq', 'fr' => '/comment-louer/faq', 'nl' => '/hoe-huren/faq', 'pl' => '/jak-wypozyczyc/faq', 'uk' => '/how-to-rent/faq'],
     '/poukazy' => ['en' => '/vouchers', 'de' => '/gutscheine', 'es' => '/tarjetas-regalo', 'fr' => '/bons-cadeaux', 'nl' => '/cadeaubonnen', 'pl' => '/vouchery', 'uk' => '/vouchers'],
+    '/pujceni-obleceni' => ['en' => '/gear-rental', 'de' => '/ausruestung-mieten', 'es' => '/alquiler-de-equipo', 'fr' => '/location-equipement', 'nl' => '/uitrusting-huren', 'pl' => '/wypozyczenie-odziezy', 'uk' => '/gear-rental'],
     '/koupit-darkovy-poukaz' => ['en' => '/buy-gift-voucher', 'de' => '/gutschein-kaufen', 'es' => '/comprar-tarjeta-regalo', 'fr' => '/acheter-bon-cadeau', 'nl' => '/cadeaubon-kopen', 'pl' => '/kup-voucher', 'uk' => '/buy-gift-voucher'],
     '/pobocky' => ['en' => '/branches', 'de' => '/filialen', 'es' => '/sucursales', 'fr' => '/agences', 'nl' => '/filialen', 'pl' => '/oddzialy', 'uk' => '/branches'],
     '/kontakt' => ['en' => '/contact', 'de' => '/kontakt', 'es' => '/contacto', 'fr' => '/contact', 'nl' => '/contact', 'pl' => '/kontakt', 'uk' => '/contact'],

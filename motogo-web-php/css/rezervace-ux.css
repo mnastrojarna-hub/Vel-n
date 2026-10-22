@@ -1,0 +1,33 @@
+/* ===== MotoGo24 — Rezervace: výběr motorky s miniaturou (js/rezervace-ux.js) ===== */
+.ux-pk-native{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;border:0!important;opacity:0!important;pointer-events:none!important}
+.ux-pk-wrap{position:relative}
+.ux-pk-wrap::after{display:none!important}
+.ux-pk-btn{display:flex;align-items:center;gap:.7rem;width:100%;min-height:64px;padding:.45rem .8rem .45rem .5rem;border:1.5px solid #bfe3c9;border-radius:14px;background:#fff;color:#1a2e22;font:inherit;text-align:left;cursor:pointer;box-shadow:0 6px 16px -12px rgba(13,110,13,.6);transition:border-color .15s,box-shadow .15s}
+.ux-pk-btn:hover,.ux-pk-btn[aria-expanded="true"]{border-color:#37cf63}
+.ux-pk-btn:focus-visible{outline:3px solid #74fb71;outline-offset:2px}
+.ux-pk-img{flex:0 0 auto;width:72px;height:48px;border-radius:10px;object-fit:cover;background:#eef7f1}
+.ux-pk-any{display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#16a34a;background:#e9fbe9}
+.ux-pk-tx{display:grid;min-width:0;flex:1}
+.ux-pk-n{font-weight:800;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ux-pk-s{font-size:.78rem;color:#4b6355;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ux-pk-chev{flex:0 0 auto;width:10px;height:10px;margin-right:.2rem;border-right:2.5px solid #16a34a;border-bottom:2.5px solid #16a34a;transform:rotate(45deg) translateY(-3px)}
+.ux-pk-ok{flex:0 0 auto;font-weight:900;color:#16a34a}
+/* Seznam: desktop = rozbalovací pod tlačítkem, mobil = spodní panel */
+.ux-pk-ov{position:fixed;inset:0;z-index:1990;background:transparent}
+.ux-pk-list{position:absolute;z-index:2000;background:#fff;border:1.5px solid #bfe3c9;border-radius:16px;box-shadow:0 18px 40px -12px rgba(10,40,20,.35);overflow:hidden;display:flex;flex-direction:column}
+.ux-pk-list.is-drop{max-height:min(420px,70vh)}
+.ux-pk-list.is-drop .ux-pk-head{display:none}
+.ux-pk-list.is-sheet{position:fixed;left:0;right:0;bottom:0;max-height:78vh;border-radius:20px 20px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px)}
+html.ux-pk-lock{overflow:hidden}
+html.ux-pk-lock .ux-pk-ov{background:rgba(8,25,15,.45)}
+.ux-pk-head{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1rem .5rem;font-weight:800;color:#1a2e22;border-bottom:1px solid #e3f2e8}
+.ux-pk-x{width:40px;height:40px;border:0;border-radius:50%;background:#f1faf4;font-size:1.5rem;line-height:1;cursor:pointer;color:#1a2e22}
+.ux-pk-scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:.35rem}
+.ux-pk-opt{display:flex;align-items:center;gap:.7rem;width:100%;min-height:60px;padding:.4rem .55rem;border:0;border-radius:12px;background:transparent;color:#1a2e22;font:inherit;text-align:left;cursor:pointer}
+.ux-pk-opt:hover,.ux-pk-opt:focus-visible{background:#f1faf4;outline:none}
+.ux-pk-opt.is-on{background:#e6f9ea}
+.ux-pk-opt[disabled]{opacity:.45;cursor:not-allowed}
+.ux-pk-list .ux-pk-n{white-space:normal}
+.ux-one-hint{display:inline-block;margin-top:.2rem;font-size:.8rem;font-weight:600;opacity:.85}
+@media(prefers-reduced-motion:no-preference){.ux-pk-list.is-sheet{animation:uxPkUp .22s ease-out}}
+@keyframes uxPkUp{from{transform:translateY(30%);opacity:.4}to{transform:none;opacity:1}}

@@ -33,11 +33,14 @@ function renderLpPanel($o) {
     $lead = lpPlain($o['lead'] ?? '') !== '' ? '<p class="lp-lead" data-cms-key="' . he($o['leadKey'] ?? '') . '">' . sanitizeHtml(lpS($o['lead'])) . '</p>' : '';
     return '<section class="lp-panel' . ($bg ? ' lp-panel--bg' : '') . '" aria-labelledby="lp-h1"><div class="container"><div class="lp-panel-card">' . $bg .
         '<div class="lp-panel-text"><h1 id="lp-h1" data-cms-key="' . he($o['h1Key']) . '">' . sanitizeHtml(lpS($o['h1'] ?? '')) . '</h1>' . $lead . '</div>' .
-        '<div class="lp-cta-row" data-lp-sentinel>' .
-            '<a class="lp-btn lp-btn-primary" href="' . he(lpS($p['href'] ?? '') ?: '/rezervace') . '">' . lpIcon('cal') . '<span data-cms-key="' . $kb . '.cta_primary.label">' . he(lpPlain($p['label'] ?? '')) . '</span></a>' .
-            '<a class="lp-btn lp-btn-ghost" href="' . he(lpS($s['href'] ?? '') ?: '/katalog') . '">' . lpIcon('moto') . '<span data-cms-key="' . $kb . '.cta_secondary.label">' . he(lpPlain($s['label'] ?? '')) . '</span></a>' .
+        // Sekundární CTA jen s vyplněným popiskem (od 2026-10-22 výchozí jen jedno tlačítko → řádek na celou šířku)
+        '<div class="lp-cta-row' . (lpPlain($s['label'] ?? '') === '' ? ' lp-cta-row--one' : '') . '" data-lp-sentinel>' .
+            '<a class="lp-btn lp-btn-primary" href="' . he(lpS($p['href'] ?? '') ?: '/katalog') . '"><span data-cms-key="' . $kb . '.cta_primary.label">' . he(lpPlain($p['label'] ?? '')) . '</span>' . lpIcon('arrow') . '</a>' .
+            (lpPlain($s['label'] ?? '') !== '' ? '<a class="lp-btn lp-btn-ghost" href="' . he(lpS($s['href'] ?? '') ?: '/katalog') . '">' . lpIcon('moto') . '<span data-cms-key="' . $kb . '.cta_secondary.label">' . he(lpPlain($s['label'])) . '</span></a>' : '') .
             (lpPlain($o['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($o['assurance'])) . '</p>' : '') .
             ($o['rating'] ?? '') .
+            // Kolik lidí právě vybírá (js/live-viewers.js) — jen skutečný nenulový počet, jinak skryté
+            '<p class="lp-live" data-live-site hidden></p>' .
         '</div>' .
         ($chips ? '<ul class="lp-chips">' . $chips . '</ul>' : '') .
         (lpPlain($o['season'] ?? '') !== '' ? '<p class="lp-season" data-cms-key="web.landing.common.season_note">' . lpIcon('cal') . he(lpPlain($o['season'])) . '</p>' : '') .
@@ -188,11 +191,15 @@ function renderLpMore($title, $titleKey, $bodyHtml, $T, $id = 'lp-more') {
         '</div></div></section>';
 }
 
-/** Sticky spodní CTA lišta (jen mobil; zobrazí JS po odscrollování akčního panelu). */
+/**
+ * Sticky spodní CTA lišta (jen mobil; zobrazí JS po odscrollování akčního panelu).
+ * Od 2026-10-22 jediné neutrální tlačítko „Pokračovat“ do katalogu (= výběr motorky,
+ * první krok trychtýře); $primaryHref zůstává kvůli volajícím, nepoužívá se.
+ */
 function renderLpSticky($T, $primaryHref = '/rezervace', $secondaryHref = '/katalog') {
-    return '<div class="lp-sticky" data-lp-sticky aria-hidden="true">' .
-        '<a class="lp-btn lp-btn-primary" href="' . he($primaryHref) . '" tabindex="-1">' . lpIcon('cal') . '<span>' . he(lpS($T['sticky_reserve'])) . '</span></a>' .
-        '<a class="lp-btn lp-btn-ghost" href="' . he($secondaryHref) . '" tabindex="-1">' . lpIcon('moto') . '<span>' . he(lpS($T['sticky_motos'])) . '</span></a></div>';
+    $label = lpPlain($T['sticky_continue'] ?? '') ?: lpPlain($T['sticky_motos'] ?? '');
+    return '<div class="lp-sticky lp-sticky--one" data-lp-sticky aria-hidden="true">' .
+        '<a class="lp-btn lp-btn-primary" href="' . he($secondaryHref) . '" tabindex="-1"><span>' . he($label) . '</span>' . lpIcon('arrow') . '</a></div>';
 }
 
 /** CTA pás — data jako legacy renderCta() ($C['cta']), první tlačítko velké. */

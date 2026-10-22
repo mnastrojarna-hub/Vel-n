@@ -59,6 +59,7 @@ return [
     'menu.howto.documents' => 'Documents and manuals',
     'menu.howto.faq' => 'Frequently asked questions',
     'menu.vouchers' => 'Vouchers',
+    'menu.gearRental' => 'Gear rental',
     'menu.blog' => 'Blog',
     'menu.shop' => 'Shop',
     'menu.branches' => 'Branches',
