@@ -83,5 +83,5 @@ Deno.test('zákaznický e-mail: bez e-mailu v profilu se nic neposílá; neznám
   const m = paidChangeCustomerMail({ lang: 'xx', bookingId: BID, amount: 7.5, taken: false, staff: false, site: 'https://www.motogo24.cz' })
   eq(m.lang, 'cs')
   ok(m.subject.startsWith('Rezervace #0000ABCD: změnu nešlo zapsat'), m.subject)
-  ok(m.html.includes('7,5 Kč') && m.html.includes('rezervace mezitím změnila'), 'obecný důvod + částka s haléři')
+  ok(m.html.includes('7,50 Kč') && m.html.includes('rezervace mezitím změnila'), 'obecný důvod + částka s haléři (2 desetinná místa jako web)')
 })

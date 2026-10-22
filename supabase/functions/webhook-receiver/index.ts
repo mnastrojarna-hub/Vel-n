@@ -9,8 +9,8 @@ import { confirmBookingPayment, confirmSosPayment, confirmShopPayment, ingestFin
 import { syncCardFromSetupSession, syncCardsForCustomer } from './stripe-card-sync.ts'
 import { resolveBookingLanguage } from './customer-lang.ts'
 import { applyPaidExtension, chgFromMetadata, type ApplyResult } from '../_shared/extension-apply.ts'
-import { handlePaidChangeFailure } from '../_shared/paid-change-failure.ts'
-import { paidChangeEligibility, markApplied, type PiLike } from '../_shared/paid-change-guard.ts'
+import { handlePaidChangeFailure, changeKindOf } from '../_shared/paid-change-failure.ts'
+import { paidChangeEligibility, markApplied, failureRow, type PiLike } from '../_shared/paid-change-guard.ts'
 import { applyChargeRounding } from '../_shared/charge-rounding.ts'
 import { refundLatePaymentOnCancelled } from './late-payment.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
@@ -105,7 +105,8 @@ async function finishPaidChange(
   }
   if (res.state === 'failed') {
     await handlePaidChangeFailure(supabase, { bookingId: a.bookingId, payRef: a.payRef, paidCzk: a.failCzk ?? a.paidCzk ?? 0,
-      code: res.code, reason: res.reason, via: 'webhook', autoRefund: a.autoRefund, review: res.manual === true, stripe })
+      code: res.code, reason: res.reason, via: 'webhook', autoRefund: a.autoRefund, review: res.manual === true, stripe,
+      kind: changeKindOf(a.chg) })
   }
   return false
 }
@@ -419,7 +420,10 @@ Deno.serve(async (req: Request) => {
 
       // Capture card brand + last4 from the underlying Charge so Velín booking detail
       // can show "Visa **** 4242" without an on-demand Stripe call.
-      if (resolvedBookingId) {
+      // Doplatek změny, kterou nešlo zapsat (vrací se celý, rezervace beze změny — f1 2026-10-22),
+      // kartu rezervace nepřepisuje.
+      const unappliedChange = paymentType === 'extension' && !!(await failureRow(supabase, paymentIntent.id))
+      if (resolvedBookingId && !unappliedChange) {
         try {
           const chargeId = typeof (paymentIntent as any).latest_charge === 'string'
             ? (paymentIntent as any).latest_charge

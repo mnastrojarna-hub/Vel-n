@@ -13,7 +13,7 @@
 // přehraje se stejným id) → i zbytek: co už se k TÉTO hlavní vratce vrátilo (i z jiné
 // platby), se od požadavku odečte a stejná částka z téže platby dostane stejný klíč.
 // Legitimní pozdější vratka má novou hlavní vratku → nový klíč.
-import { otherRefundableIntents, type BookingIntentsStripe } from '../_shared/booking-intents.ts'
+import { otherRefundableIntents, outsidePrice, type BookingIntentsStripe, type IntentLike, type Outside, type RefundLike } from '../_shared/booking-intents.ts'
 
 // deno-lint-ignore no-explicit-any
 type Sb = any
@@ -65,11 +65,49 @@ export async function refundRemainder(stripe: OtherIntentsStripe, sb: Sb, a: {
 export async function pickMainIntent(stripe: OtherIntentsStripe, sb: Sb, a: {
   bookingId: string; storedPi: string | null; chargedHaleru: number | null; refundableHaleru: number | null
   isCustomer: boolean; amount: number | null | undefined
+  /** uložená platba stojí mimo cenu rezervace (outsidePrice) → hledat i když z ní vracet jde */
+  force?: boolean
 }): Promise<{ piId: string; refundableHaleru: number } | null> {
   if (a.isCustomer || !(Number(a.amount) > 0)) return null
-  if (!(a.chargedHaleru === 0 || a.refundableHaleru === 0)) return null
+  if (!a.force && !(a.chargedHaleru === 0 || a.refundableHaleru === 0)) return null
   const cands = (await otherRefundableIntents(stripe, sb, a.bookingId, a.storedPi)).filter((c) => c.refundableHaleru > 0)
   return cands.length ? { piId: cands[0].id, refundableHaleru: cands[0].refundableHaleru } : null
+}
+
+export type MainSource =
+  | { kind: 'stored' }
+  | { kind: 'retarget'; piId: string; refundableHaleru: number; outside: Outside | null }
+  | { kind: 'manual'; outside: Outside }
+  /** zákaznická vratka z doplatku, který ještě nikdo nezapsal → nic automaticky, vyřídí obsluha */
+  | { kind: 'customer_staff' }
+
+/** Z čeho storno / vratka obsluhy vrací (oprava f1 2026-10-22):
+ *  • uložená platba nemá z čeho vracet (nikdy nezaplacená / celá vrácená) → nejstarší jiná platba kartou,
+ *  • uložená platba stojí MIMO cenu rezervace (doplatek nezapsané / ještě nezapsané změny, duplicita,
+ *    platba vrácená jen jako peníze mimo cenu — outsidePrice) → nejstarší jiná platba kartou; když
+ *    žádná není (rezervace placená QR / převodem / hotově), ruční vratka (dobropis + refund_pending).
+ *    Dřív: storno vrátilo část ceny z doplatku ještě nezapsané změny (doplatek se pak nezapsal ani
+ *    nevrátil), resp. u vyčerpaného doplatku skončilo no_op → 'refunded' a nevrátilo nic,
+ *  • jinak z uložené platby jako dosud. Vratka bez částky beze změny; zákaznická vratka (appka) z ještě
+ *    nezapsaného doplatku → obsluha (customer_staff), jinak beze změny. */
+export async function mainSource(stripe: OtherIntentsStripe, sb: Sb, a: {
+  bookingId: string; storedPiId: string | null; storedPi: IntentLike | null; storedRefunds: RefundLike[] | null
+  chargedHaleru: number | null; refundableHaleru: number | null; isCustomer: boolean; amount: number | null | undefined; nowMs?: number
+}): Promise<MainSource> {
+  let outside: Outside | null = null
+  if (Number(a.amount) > 0 && a.storedPi && Number(a.chargedHaleru) > 0) {
+    outside = await outsidePrice(sb, a.bookingId, a.storedPi, { refunds: a.storedRefunds, errAs: false, nowMs: a.nowMs })
+  }
+  if (a.isCustomer) {
+    // Zákaznická vratka (appka) jde dál jen z uložené platby — ne z doplatku, který webhook / fronta
+    // teprve zapíše (vratka by ho označila „vrácený" a změna by se nezapsala ani nevrátila).
+    return outside === 'pending' ? { kind: 'customer_staff' } : { kind: 'stored' }
+  }
+  if (!(a.chargedHaleru === 0 || a.refundableHaleru === 0 || outside)) return { kind: 'stored' }
+  const main = await pickMainIntent(stripe, sb, { bookingId: a.bookingId, storedPi: a.storedPiId, chargedHaleru: a.chargedHaleru,
+    refundableHaleru: a.refundableHaleru, isCustomer: a.isCustomer, amount: a.amount, force: !!outside })
+  if (main) return { kind: 'retarget', ...main, outside }
+  return outside ? { kind: 'manual', outside } : { kind: 'stored' }
 }
 
 /** payment_status rezervace po vratce: Stripe ještě nepotvrdil → refund_pending; zákaznická

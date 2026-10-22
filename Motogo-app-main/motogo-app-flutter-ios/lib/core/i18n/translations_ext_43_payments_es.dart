@@ -62,6 +62,7 @@ const Map<String, String> ext43PaymentsEs = {
   'pdFailTaken': 'Otra persona ha reservado la moto elegida mientras pagabas, así que no se ha podido registrar el cambio. Tu reserva original sigue igual.',
   'pdFailStatus': 'Mientras tanto la reserva ha terminado o se ha cancelado, así que no se ha podido registrar el cambio.',
   'pdFailDate': 'Mientras tanto ha pasado el día del cambio, así que no se ha podido registrar. Tu reserva original sigue igual.',
+  'pdFailLicense': 'No tienes el permiso de conducir necesario para la moto elegida, así que no se ha podido registrar el cambio. Tu reserva original sigue igual.',
   'pdFailOther': 'Mientras tanto la reserva ha cambiado de forma que no se ha podido registrar la modificación. Tu reserva sigue como estaba.',
   'pdRefundAuto': 'Te devolvemos automáticamente el suplemento de {amount} a la tarjeta: el dinero suele volver en 5–10 días laborables.',
   'pdRefundStaff': 'Nuestro equipo te devolverá el suplemento de {amount} en 2 días laborables: no tienes que hacer nada.',

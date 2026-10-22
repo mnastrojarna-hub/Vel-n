@@ -7,7 +7,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { authClassify, forbidden } from '../_shared/auth.ts'
-import { refundRemainder, pickMainIntent, refundedStatus, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
+import { refundRemainder, mainSource, refundedStatus, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -1208,8 +1208,12 @@ Deno.serve(async (req: Request) => {
     let refundableHaleru: number | null = null
     let refundableCZK: number | null = null
     let chargedHaleru: number | null = null
+    // uložená platba + její vratky (mainSource: patří vůbec do ceny rezervace?)
+    let storedPi: any = null
+    let storedRefunds: any[] | null = null
     try {
       const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId)
+      storedPi = pi
       // POZOR (fix 2026-08-21): dřívější fallback `|| pi.amount` počítal i
       // NEZAPLACENÝ PI jako nabitý (pi.amount = pouze POŽADOVANÁ částka) —
       // refunds.create pak na PI bez charge spadl („no successful charge")
@@ -1220,6 +1224,7 @@ Deno.serve(async (req: Request) => {
       let alreadyRefunded = 0
       try {
         const refundsList = await stripe.refunds.list({ payment_intent: stripePaymentIntentId, limit: 100 })
+        storedRefunds = refundsList.data
         for (const r of refundsList.data) {
           if (r.status === 'succeeded' || r.status === 'pending') alreadyRefunded += r.amount
         }
@@ -1232,22 +1237,31 @@ Deno.serve(async (req: Request) => {
 
     // Uložená platba nemá z čeho vracet (nikdy nezaplacený PI opuštěného doplatku, nebo
     // doplatek nezapsané změny, který se už celý vrátil přímo ze Stripe — oprava 2026-10-16),
-    // ale rezervace má jiné úspěšné platby kartou → hlavní vratka z nejstarší z nich (typicky
-    // původní platba rezervace), zbytek níže z ostatních. Dřív: no_op → 'refunded' bez vrácení
-    // peněz, resp. ruční vratka převodem, i když peníze leží na kartě. Jen storno / vratka
-    // obsluhy s částkou (zákaznická vratka z appky jde dál jen z uložené platby).
-    if (booking_id && (chargedHaleru === 0 || refundableHaleru === 0)) {
+    // nebo stojí MIMO cenu rezervace (doplatek změny, kterou webhook ještě nezapsal, platba
+    // vrácená jen jako peníze mimo cenu — oprava f1 2026-10-22), ale rezervace má jiné úspěšné
+    // platby kartou → hlavní vratka z nejstarší z nich (typicky původní platba rezervace),
+    // zbytek níže z ostatních. Platba mimo cenu a žádná jiná platba kartou (rezervace placená
+    // QR / převodem / hotově) → ruční vratka (dobropis + refund_pending). Dřív: no_op →
+    // 'refunded' bez vrácení peněz, resp. storno část ceny z ještě nezapsaného doplatku. Jen
+    // storno / vratka obsluhy s částkou (zákaznická vratka z appky jde dál jen z uložené platby).
+    if (booking_id && (chargedHaleru === 0 || refundableHaleru === 0 || storedPi)) {
       try {
-        const main = await pickMainIntent(stripe as unknown as OtherIntentsStripe, supabase, {
-          bookingId: booking_id, storedPi: stripePaymentIntentId, chargedHaleru, refundableHaleru, isCustomer, amount,
+        const src = await mainSource(stripe as unknown as OtherIntentsStripe, supabase, {
+          bookingId: booking_id, storedPiId: stripePaymentIntentId, storedPi, storedRefunds, chargedHaleru, refundableHaleru, isCustomer, amount,
         })
-        if (main) {
-          await dlog('main_pi_retargeted', 'info', { stored_payment_intent_id: stripePaymentIntentId, payment_intent_id: main.piId,
-            stored_charged_haleru: chargedHaleru, refundable_haleru: main.refundableHaleru })
-          stripePaymentIntentId = main.piId
-          chargedHaleru = main.refundableHaleru
-          refundableHaleru = main.refundableHaleru
+        if (src.kind === 'retarget') {
+          await dlog('main_pi_retargeted', 'info', { stored_payment_intent_id: stripePaymentIntentId, payment_intent_id: src.piId,
+            stored_charged_haleru: chargedHaleru, refundable_haleru: src.refundableHaleru, stored_outside_price: src.outside })
+          stripePaymentIntentId = src.piId
+          chargedHaleru = src.refundableHaleru
+          refundableHaleru = src.refundableHaleru
           refundableCZK = refundableHaleru / 100
+        } else if (src.kind === 'manual') {
+          await dlog('stored_pi_outside_price_manual', 'info', { payment_intent_id: stripePaymentIntentId, outside: src.outside })
+          return await manualBookingRefund(supabase, booking_id, amount, reason, dlog, isCustomer)
+        } else if (src.kind === 'customer_staff') {
+          await dlog('stored_pi_pending_change', 'info', { payment_intent_id: stripePaymentIntentId })
+          return await customerRefundNeedsStaff(supabase, booking_id, amount, reason, dlog)
         }
       } catch (e) {
         await dlog('main_pi_retarget_failed', 'error', { error: (e as Error).message })

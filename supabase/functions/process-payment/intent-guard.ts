@@ -8,6 +8,11 @@
 //  • Stripe idempotency klíč na každém paymentIntents.create — ztracená odpověď
 //    + automatické opakování = žádná druhá platba.
 // Guard je pojistka: chyba Stripe při kontrole platbu NEblokuje (proceed).
+// Vrácená platba (f1 2026-10-22): PaymentIntent zůstává po vratce 'succeeded'. Rezervace
+// zaplacená, zrušená s vratkou a obsluhou obnovená (pending / unpaid, uložený PI zůstal)
+// by jinak zaplatit nešla nikdy (payment_in_progress pořád dokola). Celá vrácená platba
+// (rezervace / SOS / e-shop) = nic neprobíhá → pokračovat; částečně vrácená jen u řádku,
+// který na platbu čeká (unpaid / pending) — zaplacený řádek odmítá already_paid dřív.
 import type Stripe from 'https://esm.sh/stripe@14'
 
 // deno-lint-ignore no-explicit-any
@@ -49,9 +54,21 @@ export type GuardResult =
   | { action: 'paid_extension'; pi: Stripe.PaymentIntent }
 
 type StripeLike = { paymentIntents: {
-  retrieve: (id: string) => Promise<Stripe.PaymentIntent>; cancel: (id: string) => Promise<Stripe.PaymentIntent>
-  search?: (p: { query: string; limit?: number }) => Promise<{ data: Stripe.PaymentIntent[] }>
+  retrieve: (id: string, p?: Record<string, unknown>) => Promise<Stripe.PaymentIntent>; cancel: (id: string) => Promise<Stripe.PaymentIntent>
+  search?: (p: { query: string; limit?: number; expand?: string[] }) => Promise<{ data: Stripe.PaymentIntent[] }>
 } }
+
+/** Zaplacený PI, ze kterého se peníze vrátily (celé; s `rowUnpaid` i částečně) → už neprobíhá.
+ *  latest_charge musí být rozbalený (expand) — jinak nevíme → false (jako dosud). */
+export function refundedOut(p: { status?: string; amount?: number | null; amount_received?: number | null; latest_charge?: unknown },
+  rowUnpaid = false): boolean {
+  if (p.status !== 'succeeded') return false
+  const lc = p.latest_charge as { amount?: number | null; amount_refunded?: number | null } | null | undefined
+  if (!lc || typeof lc !== 'object') return false
+  const back = Number(lc.amount_refunded || 0)
+  const got = Number(p.amount_received || lc.amount || p.amount || 0)
+  return back > 0 && (back >= got || rowUnpaid)
+}
 
 /** Krok A (stav=live) + krok B (otevřený PI → reuse / cancel). */
 export async function guardStoredIntent(stripe: StripeLike, a: {
@@ -64,16 +81,20 @@ export async function guardStoredIntent(stripe: StripeLike, a: {
   /** metadata, která musí u znovupoužitého listu sedět (due / card_rounding — dorovnání
    *  zapisuje webhook podle metadat PI, takže starý PI s jiným dorovnáním nejde použít) */
   matchMeta?: Record<string, string | undefined>
+  /** řádek na platbu čeká (rezervace unpaid / objednávka pending) → i částečně vrácený PI neblokuje */
+  rowUnpaid?: boolean
 }): Promise<GuardResult> {
   const id = a.storedPiId
   if (!id || !id.startsWith('pi_')) return { action: 'proceed' }
   let pi: Stripe.PaymentIntent
-  try { pi = await stripe.paymentIntents.retrieve(id) } catch { return { action: 'proceed' } }
+  try { pi = await stripe.paymentIntents.retrieve(id, { expand: ['latest_charge'] }) } catch { return { action: 'proceed' } }
   const md = (pi.metadata || {}) as Record<string, string>
   if (md[a.refKey] !== a.refId) return { action: 'proceed' }
   const live = (p: Stripe.PaymentIntent): GuardResult | null => {
     if (!LIVE.includes(p.status)) return null
     const pmd = (p.metadata || {}) as Record<string, string>
+    // Vrácená platba rezervace / SOS / objednávky neprobíhá (doplatky hlídá paidChangeEligibility).
+    if (a.type !== 'extension' && refundedOut(p, a.rowUnpaid === true)) return null
     if (a.type === 'extension') {
       // Původní platba rezervace (type booking) doplatku nevadí.
       if (pmd.type !== 'extension') return { action: 'proceed' }
@@ -111,16 +132,16 @@ export async function guardStoredIntent(stripe: StripeLike, a: {
  *  ve Stripe nedávný zaplacený / zpracovávaný PI téhož typu (ztracená odpověď, neuložené
  *  id) → refuse. Vyhledávání Stripe je jen pojistka (zpoždění indexu ~1 min): chyba = proceed. */
 export async function findRecentLiveIntent(stripe: StripeLike, a: {
-  refKey: 'booking_id' | 'order_id'; refId: string; type: string; nowMs?: number
+  refKey: 'booking_id' | 'order_id'; refId: string; type: string; nowMs?: number; rowUnpaid?: boolean
 }): Promise<{ piId: string; status: string } | null> {
   if (!stripe.paymentIntents.search || !/^[0-9a-f-]{36}$/i.test(a.refId)) return null
   try {
     const since = Math.floor(((a.nowMs ?? Date.now()) - 30 * 60_000) / 1000)
     const res = await stripe.paymentIntents.search({
       query: `metadata['${a.refKey}']:'${a.refId}' AND metadata['type']:'${a.type.replace(/[^a-z_]/g, '')}' AND created>${since}`,
-      limit: 10,
+      limit: 10, expand: ['data.latest_charge'],
     })
-    const hit = (res.data || []).find((p) => LIVE.includes(p.status))
+    const hit = (res.data || []).find((p) => LIVE.includes(p.status) && !refundedOut(p, a.rowUnpaid === true))
     return hit ? { piId: hit.id, status: hit.status } : null
   } catch { return null }
 }

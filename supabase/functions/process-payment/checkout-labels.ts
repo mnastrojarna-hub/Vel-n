@@ -4,6 +4,8 @@
 //  • dorovnání na minimální platbu kartou (D1/D2, doplatek / rezervace / objednávka 1–15 Kč),
 //  • doplatek webové úpravy rezervace podle druhu změny (výměna motorky / výbava / úprava) —
 //    dřív vždy „Prodloužení rezervace". Jen popisky: částky ani metadata se nemění.
+//  • webová rezervace a e-shop (f1 2026-10-22): pronájem + „Rezervace #…", velikost, doprava,
+//    sleva — dřív česky i na en/de/… stránce (vedle přeloženého dorovnání).
 import { resolveSiteLang } from './stripe-customer.ts'
 
 const ROUNDING: Record<string, string> = {
@@ -46,4 +48,41 @@ export function editKind(change: unknown): EditKind {
 export function editLineLabel(change: unknown, lang: string | null | undefined): string {
   const t = EDIT[resolveSiteLang(lang)] || EDIT.cs
   return `MotoGo24 — ${t[editKind(change)]}`
+}
+
+type Web = { booking: string; bookingDesc: string; shipping: string; shippingZasilkovna: string; shippingPost: string; size: string; discount: string }
+// {num} = číslo rezervace, {size} = velikost
+const WEB: Record<string, Web> = {
+  cs: { booking: 'MotoGo24 — Pronájem motorky', bookingDesc: 'Rezervace #{num}', shipping: 'Doprava', shippingZasilkovna: 'Doprava — Zásilkovna',
+    shippingPost: 'Doprava — Česká pošta', size: '(vel. {size})', discount: 'Sleva' },
+  en: { booking: 'MotoGo24 — Motorcycle rental', bookingDesc: 'Booking #{num}', shipping: 'Shipping', shippingZasilkovna: 'Shipping — Packeta (Zásilkovna)',
+    shippingPost: 'Shipping — Czech Post', size: '(size {size})', discount: 'Discount' },
+  de: { booking: 'MotoGo24 — Motorradmiete', bookingDesc: 'Buchung Nr. {num}', shipping: 'Versand', shippingZasilkovna: 'Versand — Packeta (Zásilkovna)',
+    shippingPost: 'Versand — Tschechische Post', size: '(Größe {size})', discount: 'Rabatt' },
+  es: { booking: 'MotoGo24 — Alquiler de moto', bookingDesc: 'Reserva n.º {num}', shipping: 'Envío', shippingZasilkovna: 'Envío — Packeta (Zásilkovna)',
+    shippingPost: 'Envío — Correos checos', size: '(talla {size})', discount: 'Descuento' },
+  fr: { booking: 'MotoGo24 — Location de moto', bookingDesc: 'Réservation n° {num}', shipping: 'Livraison', shippingZasilkovna: 'Livraison — Packeta (Zásilkovna)',
+    shippingPost: 'Livraison — Poste tchèque', size: '(taille {size})', discount: 'Remise' },
+  nl: { booking: 'MotoGo24 — Motorverhuur', bookingDesc: 'Boeking nr. {num}', shipping: 'Verzending', shippingZasilkovna: 'Verzending — Packeta (Zásilkovna)',
+    shippingPost: 'Verzending — Tsjechische post', size: '(maat {size})', discount: 'Korting' },
+  pl: { booking: 'MotoGo24 — Wynajem motocykla', bookingDesc: 'Rezerwacja nr {num}', shipping: 'Dostawa', shippingZasilkovna: 'Dostawa — Packeta (Zásilkovna)',
+    shippingPost: 'Dostawa — Poczta Czeska', size: '(rozm. {size})', discount: 'Rabat' },
+  uk: { booking: 'MotoGo24 — Оренда мотоцикла', bookingDesc: 'Бронювання № {num}', shipping: 'Доставка', shippingZasilkovna: 'Доставка — Packeta (Zásilkovna)',
+    shippingPost: 'Доставка — Чеська пошта', size: '(розмір {size})', discount: 'Знижка' },
+}
+
+/** Popisky položek webové rezervace / e-shopu na Stripe stránce v jazyce webu (neznámý → čeština). */
+export function webLabels(lang: string | null | undefined): Web {
+  return WEB[resolveSiteLang(lang)] || WEB.cs
+}
+
+/** Doplní {num} / {size} do popisku. */
+export function fillLabel(s: string, v: Record<string, string>): string {
+  return s.replace(/\{(\w+)\}/g, (_m, k) => v[k] ?? '')
+}
+
+/** Název dopravy podle způsobu doručení e-shopu. */
+export function shippingLabel(method: string | null | undefined, lang: string | null | undefined): string {
+  const t = webLabels(lang)
+  return method === 'zasilkovna' ? t.shippingZasilkovna : method === 'post' ? t.shippingPost : t.shipping
 }

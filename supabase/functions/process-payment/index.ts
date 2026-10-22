@@ -10,7 +10,7 @@ import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 // D1–D6 (2026-10-16): minimum karty 15 Kč, ochrana proti dvojí platbě, kódy
 // odmítnutí bez kontaktů, dokončení zaplacené změny — logika v modulech:
 import { placeFingerprint, applyPaidExtension, chgFromMetadata, swapDone } from '../_shared/extension-apply.ts'
-import { handlePaidChangeFailure } from '../_shared/paid-change-failure.ts'
+import { handlePaidChangeFailure, changeKindOf } from '../_shared/paid-change-failure.ts'
 import { paidChangeEligibility, markApplied, historyHasRef, PREVIOUS_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
 import { classifyDue, bookingRoundingAvailable, gearRoundingAvailable, round2, CARD_MIN_CZK, type DueClass } from './card-minimum.ts'
 import { CS, refuse, respond, declineMessageCs, SWAP_DRY_CODES, cancelledReasonKey } from './refusals.ts'
@@ -326,7 +326,7 @@ Deno.serve(async (req: Request) => {
       dueClass = classifyDue(due, Number(amount), cardMin)
       if (dueClass.kind === 'waive') {
         const g = await guardStoredIntent(stripe, { storedPiId: ord.stripe_payment_intent_id, type: 'shop', refKey: 'order_id',
-          refId: order_id!, sheet: false, chargeCents: 0, chg: null, reuseOpen: false })
+          refId: order_id!, sheet: false, chargeCents: 0, chg: null, reuseOpen: false, rowUnpaid: true })
         if (g.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: g.piId, pi_status: g.status })
         return await waiveShopFlow(sbShop, order_id!, due, savedCardReq)
       }
@@ -434,7 +434,7 @@ Deno.serve(async (req: Request) => {
         }
         if (dueClass.kind === 'waive') {
           const g = await guardStoredIntent(stripe, { storedPiId: bkc.stripe_payment_intent_id, type: paymentType, refKey: 'booking_id',
-            refId: booking_id!, sheet: false, chargeCents: 0, chg: null, reuseOpen: false })
+            refId: booking_id!, sheet: false, chargeCents: 0, chg: null, reuseOpen: false, rowUnpaid: bkc.payment_status === 'unpaid' })
           if (g.action === 'refuse') return refuse(409, 'payment_in_progress', { payment_intent_id: g.piId, pi_status: g.status })
           return await waiveBookingFlow(sbChk, booking_id!, due, savedCardReq)
         }
@@ -835,7 +835,8 @@ Deno.serve(async (req: Request) => {
             }
             if (prev.state === 'failed') {
               await handlePaidChangeFailure(supabase, { bookingId: booking_id, payRef: g.pi.id, paidCzk: paidPrev, code: prev.code,
-                reason: prev.reason, via: 'process-payment', review: prev.manual === true, autoRefund: !pmd.shop_order_id, stripe })
+                reason: prev.reason, via: 'process-payment', review: prev.manual === true, autoRefund: !pmd.shop_order_id, stripe,
+                kind: changeKindOf(chgFromMetadata(pmd)) })
             }
           }
         }
@@ -895,8 +896,17 @@ Deno.serve(async (req: Request) => {
         metadata.card_rounding = String(dueClass.rounding)
         if (webCheckout) checkoutRounding = { due: dueClass.due, r: dueClass.rounding }
       } else if (dueClass.kind === 'below') {
+        // Starší appka (bez card_min, 4.1.3): aktualizace pro iOS / Android nemusí existovat → skutečná
+        // cesta = úprava na webu, který doplatek dorovná sám (jen když to server už umí — p1, výměna p3,
+        // výbava p4); jinak text bez slibu (f1 2026-10-22).
+        let legacyText: string | undefined
+        if (!webCheckout && !cardMin) {
+          const isGearB = !isSwap && !!(c._gear && typeof c._gear === 'object')
+          const webCan = isSwap ? swapS3 : ((await bookingRoundingAvailable(supabase, booking_id)) && (!isGearB || await gearRoundingAvailable(supabase)))
+          legacyText = webCan ? CS.below_minimum_legacy_edit : undefined
+        }
         return refuse(400, 'below_minimum', { due: dueClass.due, min: CARD_MIN_CZK, charge: CARD_MIN_CZK, update_required: !cardMin, expected },
-          webCheckout ? CS.below_minimum_web : (cardMin ? CS.below_minimum_app : undefined))
+          webCheckout ? CS.below_minimum_web : (cardMin ? CS.below_minimum_app : legacyText))
       } else if (expected != null && Math.abs(Number(amount) - expected) > 1) {
         return refuse(400, 'amount_mismatch', { expected }, CS.amount_mismatch_edit)
       } else if (!isSwap && dueClass.kind === 'ok' && (await bookingRoundingAvailable(supabase, booking_id))) {
@@ -1005,12 +1015,14 @@ Deno.serve(async (req: Request) => {
       }
       const refId = paymentType === 'shop' ? order_id! : booking_id!
       const { data: storedRow } = await supabase.from(paymentType === 'shop' ? 'shop_orders' : 'bookings')
-        .select('stripe_payment_intent_id').eq('id', refId).maybeSingle()
+        .select('stripe_payment_intent_id, payment_status').eq('id', refId).maybeSingle()
+      // řádek čeká na platbu → i částečně vrácená uložená platba (storno + obnovení) neblokuje
+      const rowUnpaid = storedRow?.payment_status === (paymentType === 'shop' ? 'pending' : 'unpaid')
       const guard = await guardStoredIntent(stripe, {
         storedPiId: storedRow?.stripe_payment_intent_id, type: paymentType,
         refKey: paymentType === 'shop' ? 'order_id' : 'booking_id', refId,
         sheet: !payment_method_id, chargeCents: amountCents, chg, attemptId,
-        matchMeta: { due: metadata.due, card_rounding: metadata.card_rounding },
+        matchMeta: { due: metadata.due, card_rounding: metadata.card_rounding }, rowUnpaid,
       })
       if (guard.action === 'refuse') {
         return refuse(409, 'payment_in_progress', { payment_intent_id: guard.piId, pi_status: guard.status,
@@ -1059,7 +1071,7 @@ Deno.serve(async (req: Request) => {
       // Uložená karta (stržení hned) bez uloženého živého PaymentIntentu: nedávná zaplacená /
       // zpracovávaná platba téže rezervace / objednávky (ztracená odpověď, neuložené id) → nestrhnout znovu.
       if (payment_method_id && guard.action === 'proceed' && paymentType !== 'extension') {
-        const recent = await findRecentLiveIntent(stripe, { refKey: paymentType === 'shop' ? 'order_id' : 'booking_id', refId, type: paymentType })
+        const recent = await findRecentLiveIntent(stripe, { refKey: paymentType === 'shop' ? 'order_id' : 'booking_id', refId, type: paymentType, rowUnpaid })
         if (recent) return refuse(409, 'payment_in_progress', { payment_intent_id: recent.piId, pi_status: recent.status })
       }
       const idemKey = idempotencyKey({ type: paymentType, refId, chargeCents: amountCents, pm: payment_method_id || null, attemptId, chg })

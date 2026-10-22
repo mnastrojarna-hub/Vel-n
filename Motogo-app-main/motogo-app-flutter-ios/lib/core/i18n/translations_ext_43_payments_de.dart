@@ -62,6 +62,7 @@ const Map<String, String> ext43PaymentsDe = {
   'pdFailTaken': 'Jemand anderes hat das gewählte Motorrad gebucht, während du gezahlt hast, deshalb ließ sich die Änderung nicht eintragen. Deine ursprüngliche Buchung gilt unverändert.',
   'pdFailStatus': 'Die Buchung ist inzwischen beendet oder storniert, deshalb ließ sich die Änderung nicht eintragen.',
   'pdFailDate': 'Der Tauschtag ist inzwischen vorbei, deshalb ließ sich der Tausch nicht eintragen. Deine ursprüngliche Buchung gilt unverändert.',
+  'pdFailLicense': 'Für das gewählte Motorrad hast du nicht die nötige Führerscheinklasse, deshalb ließ sich der Tausch nicht eintragen. Deine ursprüngliche Buchung gilt unverändert.',
   'pdFailOther': 'Die Buchung hat sich inzwischen so geändert, dass sich die Änderung nicht eintragen ließ. Deine Buchung gilt in der ursprünglichen Form.',
   'pdRefundAuto': 'Die Zuzahlung von {amount} erstatten wir dir automatisch auf die Karte – das Geld ist meist innerhalb von 5–10 Werktagen zurück.',
   'pdRefundStaff': 'Die Zuzahlung von {amount} erstattet dir unser Team innerhalb von 2 Werktagen – du musst nichts tun.',

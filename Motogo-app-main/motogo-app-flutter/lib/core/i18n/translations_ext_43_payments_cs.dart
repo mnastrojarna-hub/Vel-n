@@ -64,6 +64,7 @@ const Map<String, String> ext43PaymentsCs = {
   'pdFailTaken': 'Vybranou motorku si během tvé platby zarezervoval někdo jiný, takže změnu nešlo zapsat. Tvoje původní rezervace platí beze změny.',
   'pdFailStatus': 'Rezervace mezitím skončila nebo byla zrušená, takže změnu nešlo zapsat.',
   'pdFailDate': 'Den výměny mezitím uplynul, takže výměnu nešlo zapsat. Tvoje původní rezervace platí beze změny.',
+  'pdFailLicense': 'Na vybranou motorku nemáš potřebné řidičské oprávnění, takže výměnu nešlo zapsat. Tvoje původní rezervace platí beze změny.',
   'pdFailOther': 'Rezervace se mezitím změnila tak, že úpravu nešlo zapsat. Tvoje rezervace platí v původní podobě.',
   'pdRefundAuto': 'Doplatek {amount} ti automaticky vracíme na kartu – peníze bývají zpět do 5–10 pracovních dnů.',
   'pdRefundStaff': 'Doplatek {amount} ti vrátí obsluha do 2 pracovních dnů – nemusíš nic dělat.',

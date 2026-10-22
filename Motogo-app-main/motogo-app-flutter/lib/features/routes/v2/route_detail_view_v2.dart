@@ -152,7 +152,9 @@ class RouteDetailViewV2 extends StatelessWidget {
           if (pois.isNotEmpty) ...[
             RtSectionV2(icon: MgIcons.pin, title: tr.tr('routePoisHeader'), count: pois.length),
             SizedBox(
-              height: 200,
+              // Photo 112 + padding + name + 2 description lines — grows
+              // with large text so the 2nd line is not cut.
+              height: RoutePoiCardV2.heightFor(MediaQuery.textScalerOf(context)),
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),

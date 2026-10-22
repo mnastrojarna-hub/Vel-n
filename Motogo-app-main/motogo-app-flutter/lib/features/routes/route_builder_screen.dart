@@ -252,7 +252,16 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
       },
       child: Scaffold(
       backgroundColor: MgV2.on(context) ? MgColors.canvas : MotoGoColors.bg,
-      body: Column(
+      // v2: mapa nahoře a dok dole stojí, souhrn + návrhy v okolí + zastávky
+      // mezi nimi rolují jako JEDEN seznam (_stopsList) — na 320 dp / velkém
+      // písmu se nic nepřetéká ani neusekne.
+      body: MgV2.on(context)
+          ? Column(children: [
+              _mapSection(context),
+              Expanded(child: _stopsList(context)),
+              _bottomBar(context, canNav, canSuggest),
+            ])
+          : Column(
         children: [
           _mapSection(context),
           _statsBar(context),
@@ -508,28 +517,34 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
   // ── Seznam zastávek (přehazovatelný) ──
   Widget _stopsList(BuildContext context) {
     if (MgV2.on(context)) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        BuilderStopsHeaderV2(count: _stops.length, onAdd: _addFromPois),
-        Expanded(
-          child: _stops.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(t(context).tr('routeBuilderEmpty'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: MgColors.lead)),
-                  ),
-                )
-              : ReorderableListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  itemCount: _stops.length,
-                  // Stejné onReorder jako starý seznam (_reorder počítá s jeho indexy).
-                  // ignore: deprecated_member_use
-                  onReorder: _reorder,
-                  itemBuilder: (context, i) => _stopTile(context, i),
-                ),
-        ),
-      ]);
+      return ReorderableListView.builder(
+        padding: const EdgeInsets.only(bottom: 12),
+        // Nepřesouvatelná hlavička seznamu (indexy zastávek se nemění).
+        header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _statsBar(context),
+          NearbyPoiPanel(
+            stops: _stops.map((s) => s.point).toList(),
+            excludedPoiIds: _stops.map((s) => s.poi?.id).whereType<String>().toSet(),
+            onAdd: _addSuggestedPoi,
+          ),
+          BuilderStopsHeaderV2(count: _stops.length, onAdd: _addFromPois),
+        ]),
+        footer: _stops.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(t(context).tr('routeBuilderEmpty'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: MgColors.lead)),
+              )
+            : null,
+        // Tažená karta bez obdélníku přes celou šířku (karta má vlastní stín).
+        proxyDecorator: (child, _, __) => Material(type: MaterialType.transparency, child: child),
+        itemCount: _stops.length,
+        // Stejné onReorder jako starý seznam (_reorder počítá s jeho indexy).
+        // ignore: deprecated_member_use
+        onReorder: _reorder,
+        itemBuilder: (context, i) => _stopTile(context, i),
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,13 +620,16 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     final s = _stops[i];
     final label = s.name ?? '${t(context).tr('routeBuilderStop')} ${i + 1}';
     if (MgV2.on(context)) {
-      return BuilderStopTileV2(
+      return Padding(
         key: ValueKey(s),
-        number: i + 1,
-        label: label,
-        sub: '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
-        onRemove: () => _removeAt(i),
-        wrapHandle: (h) => ReorderableDragStartListener(index: i, child: h),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: BuilderStopTileV2(
+          number: i + 1,
+          label: label,
+          sub: '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
+          onRemove: () => _removeAt(i),
+          wrapHandle: (h) => ReorderableDragStartListener(index: i, child: h),
+        ),
       );
     }
     return Container(

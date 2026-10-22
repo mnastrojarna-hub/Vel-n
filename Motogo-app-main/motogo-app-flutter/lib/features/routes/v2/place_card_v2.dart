@@ -32,10 +32,10 @@ class PlaceThumbFallbackV2 extends StatelessWidget {
       );
 }
 
-/// Place card of the Místa list (board TrasyHub): 84 px photo (selection
-/// order badge), name, category / route / community line, ★ and distance,
-/// add / remove disc. Tap = detail, long-press or disc = toggle — the SAME
-/// callbacks as the old card.
+/// Place card of the Místa list (board TrasyHub): 84 px photo (64 px on
+/// phones under 360 dp — the text column needs the room), name, category /
+/// route / community line, ★ and distance, add / remove disc. Tap = detail,
+/// long-press or disc = toggle — the SAME callbacks as the old card.
 class PlaceCardV2 extends StatelessWidget {
   final RoutePoi poi;
   final String name;
@@ -71,6 +71,10 @@ class PlaceCardV2 extends StatelessWidget {
       PlaceSubKind.community => const MgIcon(MgIcons.user, size: 14, color: MgColors.link),
     };
     final rated = poi.ratingCount > 0;
+    // Under 360 dp a smaller photo leaves the name / type column ~20 px more
+    // (a long type like „Bezienswaardigheden“ stays whole, no ellipsis).
+    final narrow = MediaQuery.sizeOf(context).width < 360;
+    final thumb = narrow ? 64.0 : 84.0;
     final sem = [
       name,
       subtitle,
@@ -105,8 +109,8 @@ class PlaceCardV2 extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
                   child: Row(children: [
                     SizedBox(
-                      width: 84,
-                      height: 84,
+                      width: thumb,
+                      height: thumb,
                       child: Stack(children: [
                         Positioned.fill(
                           child: ClipRRect(
@@ -136,16 +140,23 @@ class PlaceCardV2 extends StatelessWidget {
                                   shape: BoxShape.circle,
                                   border: Border.all(color: MgColors.surface, width: 2),
                                 ),
-                                child: Center(
-                                  child: Text('$order',
-                                      style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon))),
+                                // Pořadí 10+ při velkém písmu se do kolečka vejde (číslo, ne text).
+                                child: Padding(
+                                  padding: const EdgeInsets.all(1),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text('$order',
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon))),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                       ]),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: narrow ? 10 : 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                         Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
@@ -154,9 +165,10 @@ class PlaceCardV2 extends StatelessWidget {
                           subIcon,
                           const SizedBox(width: 5),
                           Flexible(
-                            // Typ místa celý (zmenší se, smí na 2 řádky), ne „…".
+                            // Typ místa celý (smí na 2 řádky; jedno dlouhé slovo
+                            // jako „Bezienswaardigheden“ se raději zmenší), ne „…".
                             child: MgWordFit(
-                              minScale: 0.8,
+                              minScale: 0.62,
                               child: Text(subtitle,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -178,7 +190,8 @@ class PlaceCardV2 extends StatelessWidget {
                               Row(mainAxisSize: MainAxisSize.min, children: [
                                 const MgIcon(MgIcons.navigate, size: 13, color: MgColors.meta),
                                 const SizedBox(width: 3),
-                                Text(dist!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
+                                // „128.5 km · 2h 47m“ wraps at a space in a narrow column.
+                                Flexible(child: Text(dist!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta)))),
                               ]),
                           ]),
                         ],

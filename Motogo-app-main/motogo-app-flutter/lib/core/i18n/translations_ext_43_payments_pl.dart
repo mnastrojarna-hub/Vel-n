@@ -62,6 +62,7 @@ const Map<String, String> ext43PaymentsPl = {
   'pdFailTaken': 'Ktoś inny zarezerwował wybrany motocykl w trakcie twojej płatności, więc zmiany nie dało się zapisać. Twoja pierwotna rezerwacja obowiązuje bez zmian.',
   'pdFailStatus': 'Rezerwacja w międzyczasie się zakończyła albo została anulowana, więc zmiany nie dało się zapisać.',
   'pdFailDate': 'Dzień wymiany w międzyczasie minął, więc wymiany nie dało się zapisać. Twoja pierwotna rezerwacja obowiązuje bez zmian.',
+  'pdFailLicense': 'Nie masz wymaganej kategorii prawa jazdy na wybrany motocykl, więc wymiany nie dało się zapisać. Twoja pierwotna rezerwacja obowiązuje bez zmian.',
   'pdFailOther': 'Rezerwacja w międzyczasie zmieniła się tak, że zmiany nie dało się zapisać. Twoja rezerwacja obowiązuje w pierwotnej postaci.',
   'pdRefundAuto': 'Dopłatę {amount} automatycznie zwracamy na twoją kartę – pieniądze zwykle wracają w ciągu 5–10 dni roboczych.',
   'pdRefundStaff': 'Dopłatę {amount} zwróci ci nasz zespół w ciągu 2 dni roboczych – nie musisz nic robić.',

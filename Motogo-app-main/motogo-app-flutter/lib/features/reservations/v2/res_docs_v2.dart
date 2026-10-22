@@ -62,7 +62,13 @@ class ResDocsV2 extends ConsumerWidget {
         MgEyebrow(tr.tr('documentsSection'), dark: false),
         const SizedBox(height: 4),
         for (var i = 0; i < items.length; i++)
-          _DocRow(icon: items[i].$1, label: items[i].$2, onTap: items[i].$3, divider: i < items.length - 1),
+          _DocRow(
+            icon: items[i].$1,
+            label: items[i].$2,
+            onTap: items[i].$3,
+            divider: i < items.length - 1,
+            all: [for (final x in items) x.$2],
+          ),
       ]),
     );
   }
@@ -73,7 +79,10 @@ class _DocRow extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool divider;
-  const _DocRow({required this.icon, required this.label, required this.onTap, required this.divider});
+
+  /// Labels of the whole list: every row picks the same layout.
+  final List<String> all;
+  const _DocRow({required this.icon, required this.label, required this.onTap, required this.divider, required this.all});
 
   @override
   Widget build(BuildContext context) {
@@ -90,15 +99,16 @@ class _DocRow extends StatelessWidget {
           decoration: BoxDecoration(
             border: divider ? const Border(bottom: BorderSide(color: MgColors.line)) : null,
           ),
-          // „Otevřít" vedle názvu jen když se název vejde celými slovy
-          // (nl „Overdrachtsprotocol" na 320 dp) — jinak pod názvem.
+          // „Otevřít" vedle názvu jen když se všechny názvy seznamu vejdou
+          // celými slovy (nl „Overdrachtsprotocol" na 320 dp) — jinak pod
+          // názvem (celý seznam stejně).
           child: LayoutBuilder(builder: (context, c) {
             final labelStyle = MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink);
             final openStyle = MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.link);
             final open = Text(tr.tr('v2ResOpenDoc'), style: openStyle);
             final rest = c.maxWidth - 36 - 12 - 18; // dlaždice ikony 36 + mezera + šipka
-            final inline = resWordsFit(context, label, labelStyle,
-                rest - 8 - resLineWidth(context, tr.tr('v2ResOpenDoc'), openStyle), minScale: 0.85);
+            final openW = resLineWidth(context, tr.tr('v2ResOpenDoc'), openStyle);
+            final inline = all.every((l) => resWordsFit(context, l, labelStyle, rest - 8 - openW, minScale: 0.85));
             final title = MgWordFit(minScale: 0.8, child: Text(label, style: labelStyle));
             return Row(children: [
               MgIconTileLight(icon),

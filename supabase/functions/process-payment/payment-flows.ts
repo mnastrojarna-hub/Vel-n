@@ -9,7 +9,8 @@ import { waiveBooking } from './card-minimum.ts'
 import { waiveShopFlow } from './pp-waiver.ts'
 import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
 import { settleStoredSession, type StripeCheckoutLike } from './checkout-guard.ts'
-import { roundingLabel } from './checkout-labels.ts'
+import { roundingLabel, webLabels, fillLabel, shippingLabel } from './checkout-labels.ts'
+import { webBookingMiss, freeShopPlan, WEB_TXT } from './web-booking-guards.ts'
 
 // D1/D2 (2026-10-16): web (hosted Checkout) — zbytek rezervace / objednávky do 1 Kč se
 // neúčtuje (rezervace jde přes ověření karty bez platby, objednávka se potvrdí), 1–15 Kč
@@ -38,9 +39,8 @@ export async function handleWebBookingCheckout(
 
   if (bErr || !booking) {
     console.error('Web booking lookup failed:', bErr?.message, 'booking_id:', body.booking_id)
-    return new Response(JSON.stringify({ error: 'Booking not found or already paid' }), {
-      status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
-    })
+    // f1 (2026-10-22): proč — s kódem (web-booking-guards.ts; zaplaceno = potvrzení).
+    return await webBookingMiss(supabaseAdmin, body.booking_id!)
   }
 
   // Pojistka jazyka (audit 2026-10-10): web volá set_booking_language hned po vytvoření
@@ -162,13 +162,17 @@ export async function handleWebBookingCheckout(
         booking_id: body.booking_id, total_price: booking.total_price,
         discount_amount: booking.discount_amount, promo_code_id: booking.promo_code_id
       })
-      return new Response(JSON.stringify({
-        error: 'Chyba kalkulace ceny. Sleva není 100%. Obnovte stránku a zkuste znovu.'
-      }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
-      })
+      return refuse(400, 'free_unverified', { booking_id: body.booking_id }, WEB_TXT.free_unverified)
     }
   }
+
+  // f1 (2026-10-22): rezervace zdarma s přibaleným zbožím z doprodeje → platba jen za zboží
+  // (± dorovnání na 15 Kč), ne ověření karty bez platby (web-booking-guards.ts).
+  const fsp = freeShopPlan({ isFree: isFreeBooking, shopSum, roundingCol: 'card_rounding' in (booking as Record<string, unknown>),
+    bookingTotal: Number((booking as Record<string, unknown>).total_price) || 0 })
+  if (fsp.kind === 'below') return belowMin(shopSum, CS.below_minimum_web)
+  const freeWithShop = fsp.kind === 'pay'
+  if (fsp.kind === 'pay' && fsp.rounding) rounding = fsp.rounding
 
   const profile = booking.profiles as { full_name?: string; email?: string; phone?: string; stripe_customer_id?: string } | null
   const customerEmail = profile?.email || ''
@@ -193,7 +197,7 @@ export async function handleWebBookingCheckout(
 
   // -- 0 Kč rezervace: Stripe Checkout v `setup` módu (ověření karty bez stržení) --
   // Po dokončení webhook `checkout.session.completed` (mode=setup) potvrdí rezervaci.
-  if (isFreeBooking) {
+  if (isFreeBooking && !freeWithShop) {
     const setupMetadata: Record<string, string> = {
       booking_id: body.booking_id!, type: 'booking', source: 'web', action: 'verify_free_booking'
     }
@@ -234,14 +238,16 @@ export async function handleWebBookingCheckout(
   }
 
   // -- Bundled e-shop order (upsell from step 2): one Stripe session, two invoices --
-  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
+  // Popisky v jazyce webu (checkout-labels.ts); rezervace zdarma se zbožím → bez řádku pronájmu.
+  const L = webLabels(body.locale)
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = amount > 0 ? [{
     price_data: {
       currency,
       unit_amount: amount,
-      product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id!.slice(-8).toUpperCase()}` }
+      product_data: { name: L.booking, description: fillLabel(L.bookingDesc, { num: body.booking_id!.slice(-8).toUpperCase() }) }
     },
     quantity: 1
-  }]
+  }] : []
   const sessionMetadata: Record<string, string> = { booking_id: body.booking_id!, type: 'booking', source: 'web',
     ...(rounding ? { due: String(rounding.due), card_rounding: String(rounding.r) } : {}) }
 
@@ -258,7 +264,7 @@ export async function handleWebBookingCheckout(
         const qty = Number(it.quantity) || 1
         const unit = Number(it.unit_price) || 0
         if (unit <= 0) continue
-        const sizeLbl = it.size ? ` (${it.size})` : ''
+        const sizeLbl = it.size ? ` ${fillLabel(L.size, { size: String(it.size) })}` : ''
         lineItems.push({
           price_data: {
             currency,
@@ -274,7 +280,7 @@ export async function handleWebBookingCheckout(
           price_data: {
             currency,
             unit_amount: Math.round(ship * 100),
-            product_data: { name: 'Doprava' }
+            product_data: { name: L.shipping }
           },
           quantity: 1
         })
@@ -528,7 +534,7 @@ async function handleWebProductCheckout(
   // Sestavit Stripe line items z DB (cena pochází z DB, ne z klienta)
   const lineItems: Record<string, unknown>[] = orderItems.map((it: Record<string, unknown>) => {
     const baseName = String(it.product_name || 'Produkt')
-    const size = it.size ? ` (vel. ${it.size})` : ''
+    const size = it.size ? ` ${fillLabel(webLabels(body.locale).size, { size: String(it.size) })}` : ''
     return {
       price_data: {
         currency,
@@ -545,9 +551,7 @@ async function handleWebProductCheckout(
   // Doprava jako samostatný line item (Stripe ji tak ukáže na účtence)
   const shipCost = Number(order.shipping_cost) || 0
   if (shipCost > 0) {
-    const shipName = order.shipping_method === 'zasilkovna' ? 'Doprava — Zásilkovna'
-                   : order.shipping_method === 'post'       ? 'Doprava — Česká pošta'
-                   : 'Doprava'
+    const shipName = shippingLabel(order.shipping_method, body.locale)
     lineItems.push({
       price_data: {
         currency,
@@ -566,7 +570,7 @@ async function handleWebProductCheckout(
       amount_off: Math.round(discount * 100),
       currency,
       duration: 'once',
-      name: 'Sleva',
+      name: webLabels(body.locale).discount,
     })
     discounts = [{ coupon: coupon.id }]
   }

@@ -11,6 +11,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_segmented.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../routes_provider.dart' show RouteProfile;
 
 /// Dark gradient band over the top of the planner map: back + eyebrow +
@@ -64,7 +65,9 @@ class BuilderTopBarV2 extends StatelessWidget {
   }
 }
 
-/// Gesture hint pill over the bottom of a planner / submit map.
+/// Gesture hint pill over the bottom of a planner / submit map. The whole
+/// hint is shown (wraps onto more lines on a narrow phone / large text; a
+/// one-line hint stays a pill, more lines a rounded card).
 class BuilderHintV2 extends StatelessWidget {
   final String text;
   const BuilderHintV2(this.text, {super.key});
@@ -74,13 +77,13 @@ class BuilderHintV2 extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: MgColors.surface,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: MgShadows.icon,
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           const MgIcon(MgIcons.finger, size: 16, color: MgColors.link),
           const SizedBox(width: 6),
-          Flexible(child: Text(text, maxLines: 2, style: MgType.meta.copyWith(color: MgColors.ink))),
+          Flexible(child: Text(text, style: MgType.meta.copyWith(color: MgColors.ink))),
         ]),
       );
 }
@@ -163,13 +166,12 @@ class BuilderStopsHeaderV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    // Title and button share a row while both fit; else the button goes on
+    // its own line under the title (320 dp, large text, long languages).
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 12, 8),
-      child: Row(children: [
-        Expanded(
-          child: Text('${tr.tr('routePoisHeader')} · $count',
-              style: MgType.tab(MgType.section.copyWith(color: MgColors.ink))),
-        ),
+      child: Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, spacing: 12, runSpacing: 8, children: [
+        Text('${tr.tr('routePoisHeader')} · $count', style: MgType.tab(MgType.section.copyWith(color: MgColors.ink))),
         Semantics(
           button: true,
           label: tr.tr('routeBuilderAddPoi'),
@@ -177,8 +179,8 @@ class BuilderStopsHeaderV2 extends StatelessWidget {
           child: MgPress(
             onTap: onAdd,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 44, maxWidth: 190),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              constraints: const BoxConstraints(minHeight: 44, maxWidth: 220),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: MgColors.surface,
                 borderRadius: BorderRadius.circular(12),
@@ -187,9 +189,16 @@ class BuilderStopsHeaderV2 extends StatelessWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const MgIcon(MgIcons.pinPlus, size: 18, color: MgColors.link),
                 const SizedBox(width: 6),
+                // „Uit bezienswaardigheden“: wraps at the space; a word wider
+                // than the button shrinks a little instead of splitting.
                 Flexible(
-                  child: Text(tr.tr('routeBuilderAddPoi'),
-                      maxLines: 2, style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
+                  child: MgWordFit(
+                    minScale: 0.75,
+                    child: Text(tr.tr('routeBuilderAddPoi'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
+                  ),
                 ),
               ]),
             ),

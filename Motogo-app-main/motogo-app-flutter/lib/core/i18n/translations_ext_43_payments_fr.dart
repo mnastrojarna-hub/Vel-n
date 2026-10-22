@@ -62,6 +62,7 @@ const Map<String, String> ext43PaymentsFr = {
   'pdFailTaken': 'Quelqu’un d’autre a réservé la moto choisie pendant ton paiement, la modification n’a donc pas pu être enregistrée. Ta réservation d’origine reste inchangée.',
   'pdFailStatus': 'La réservation s’est terminée ou a été annulée entre-temps, la modification n’a donc pas pu être enregistrée.',
   'pdFailDate': 'Le jour de l’échange est passé entre-temps, l’échange n’a donc pas pu être enregistré. Ta réservation d’origine reste inchangée.',
+  'pdFailLicense': 'Tu n’as pas la catégorie de permis requise pour la moto choisie, l’échange n’a donc pas pu être enregistré. Ta réservation d’origine reste inchangée.',
   'pdFailOther': 'La réservation a changé entre-temps de sorte que la modification n’a pas pu être enregistrée. Ta réservation reste telle qu’elle était.',
   'pdRefundAuto': 'Nous te remboursons automatiquement le supplément de {amount} sur ta carte – l’argent revient en général sous 5 à 10 jours ouvrés.',
   'pdRefundStaff': 'Notre équipe te remboursera le supplément de {amount} sous 2 jours ouvrés – tu n’as rien à faire.',

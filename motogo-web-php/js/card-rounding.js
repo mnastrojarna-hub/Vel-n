@@ -35,6 +35,8 @@
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
   MG.CARD_MIN = MIN;
+  /** Přesná částka v Kč (sdílí háčky úprav rezervace — f1 2026-10-22). */
+  MG.fmtCzkExact = fp;
   /** Pravidlo serveru: ≤ 0 nic, ≤ 1 odpustit, 1–15 zaplatit 15 (dorovnání +x), ≥ 15 beze změny. */
   MG.cardCharge = function (due) {
     var d = r2(due);
@@ -65,6 +67,13 @@
     return livePromise;
   };
   MG.cardRoundingIsLive = function () { return liveVal; };
+  /** Částka doplatku vedle věty o minimu karty: s dorovnáním / odpuštěním přesně v Kč („7,50 Kč",
+   *  stejně jako věta, doklad i Stripe), jinak null (volající nechá svůj formát). */
+  MG.cardAmountText = function (due) {
+    if (!liveVal) return null;
+    var k = MG.cardCharge(due).kind;
+    return k === 'round' || k === 'waive' ? fp(due) : null;
+  };
 
   /** Úprava rezervace: věta k doplatku (prázdná, když se nic nemění / dorovnání není nasazené). */
   MG.cardNoteEdit = function (due, compact) {
@@ -126,6 +135,45 @@
     var html = online && isFinite(due) ? MG.cardNoteLines(due, 'rez') : '';
     place(amt.parentNode, 'mg-card-round-rez', html);
     payAmount(amt, html ? chargeText(due) : null, isFinite(due) ? fpDisplay(due) : null);
+    invoiceRow(html ? MG.cardCharge(due) : null);
+  }
+
+  /** Náhled dokladu v kroku platby (#rez-invoice-box): řádek dorovnání / odpuštění a celkem = co se
+   *  zaplatí kartou — stejně jako vystavená ZF / DP (dřív náhled 10 Kč, pod tlačítkem 15 Kč). */
+  function invoiceRow(c) {
+    var box = document.getElementById('rez-invoice-box');
+    if (!box) return;
+    var table = box.querySelector('table');
+    var tot = box.querySelector('.rez-invoice-total strong:last-child');
+    var row = document.getElementById('mg-card-round-inv');
+    var on = !!(c && (c.kind === 'round' || c.kind === 'waive'));
+    if (!on || !table) {
+      if (row && row.parentNode) row.parentNode.removeChild(row);
+      if (tot && tot.getAttribute('data-mg-orig') != null) {
+        tot.textContent = tot.getAttribute('data-mg-orig');
+        tot.removeAttribute('data-mg-orig');
+      }
+      return;
+    }
+    var key = c.kind + ':' + c.rounding;
+    if (!row || !row.parentNode || !box.contains(row)) {
+      if (row && row.parentNode) row.parentNode.removeChild(row);
+      row = document.createElement('tr');
+      row.id = 'mg-card-round-inv';
+      row.className = 'rez-invoice-row-rounding';
+      (table.tBodies && table.tBodies[0] ? table.tBodies[0] : table).appendChild(row);
+    }
+    if (row.getAttribute('data-mg-key') !== key) {
+      row.setAttribute('data-mg-key', key);
+      row.innerHTML = '<td><span class="rez-inv-ico">&#128179;</span>'
+        + esc(t(c.kind === 'round' ? 'rez.steps.invRounding' : 'rez.steps.invWaive')) + '</td><td>'
+        + (c.rounding > 0 ? '+' : '−') + esc(fp(Math.abs(c.rounding))) + '</td>';
+    }
+    if (tot) {
+      if (tot.getAttribute('data-mg-orig') == null) tot.setAttribute('data-mg-orig', tot.textContent);
+      var ct = fp(c.charge);
+      if (tot.textContent !== ct) tot.textContent = ct;
+    }
   }
 
   /** Co se opravdu zaplatí kartou: dorovnání → 15 Kč, odpuštění (do 1 Kč) → 0 Kč, jinak nic neměnit. */
@@ -147,11 +195,22 @@
     }
   }
 
-  // ── Háček 2: pokladna e-shopu — celkem z [data-checkout-total] (checkout.js: „1 234 Kč") ──
+  // ── Háček 2: pokladna e-shopu — k zaplacení PŘESNĚ z košíku (checkout.js zobrazuje součet
+  // zaokrouhlený na celé Kč: 7,50 → „8 Kč", dorovnání by vyšlo 7 místo 7,50 jako na serveru a dokladu) ──
+  var SHIP = { pickup: 0, post: 99 }; // jako checkout.js (cenu dopravy na serveru počítá create_web_shop_order)
+  function shopDue(tot) {
+    var cart = null;
+    try { cart = window.MGCart && typeof window.MGCart.load === 'function' ? window.MGCart.load() : null; } catch (e) { cart = null; }
+    if (!cart || !cart.length) return Number(String(tot.textContent || '').replace(/[^\d]/g, ''));
+    var sum = 0;
+    cart.forEach(function (it) { sum += (Number(it.price) || 0) * (Number(it.qty) || 0); });
+    var m = document.querySelector('[data-ship-method]:checked');
+    return r2(sum + (SHIP[m ? m.value : 'pickup'] || 0));
+  }
   function refreshShop() {
     var tot = document.querySelector('[data-checkout-total]');
     if (!tot) return;
-    var due = Number(String(tot.textContent || '').replace(/[^\d]/g, ''));
+    var due = shopDue(tot);
     var dl = tot.closest ? tot.closest('dl') : null;
     var html = due > 0 ? MG.cardNoteLines(due, 'shop') : '';
     place(dl || tot, 'mg-card-round-shop', html);

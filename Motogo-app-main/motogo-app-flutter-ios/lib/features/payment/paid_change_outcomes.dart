@@ -16,8 +16,10 @@ import 'payment_provider.dart';
 String paidChangeReasonText(AppTranslations tr, String? reason) {
   final key = switch (reason) {
     'new_moto_unavailable' || 'moto_unavailable' => 'pdFailTaken',
-    'wrong_status' || 'not_found' || 'not_paid' => 'pdFailStatus',
+    // rezervace mezitím zrušená / ukončená (extension-apply: booking_cancelled / booking_completed)
+    'wrong_status' || 'not_found' || 'not_paid' || 'booking_cancelled' || 'booking_completed' => 'pdFailStatus',
     'swap_date_out_of_range' => 'pdFailDate',
+    'license_insufficient' => 'pdFailLicense',
     'other_account' => 'pdFailForeign',
     'gone' => 'pdFailGone',
     'refunded' => 'pdFailRefunded',

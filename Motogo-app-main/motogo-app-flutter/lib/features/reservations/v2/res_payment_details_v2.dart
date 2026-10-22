@@ -51,26 +51,36 @@ class ResPaymentDetailsV2 extends StatelessWidget {
     final tr = t(context).tr;
     final d = this.d;
     final rounding = d?.n('card_rounding') ?? 0;
-    final rows = <Widget>[
-      _row(tr('reservationNumber'), res.shortId),
-      _row(tr('paymentStatusLabel'), statusLabel, color: res.paymentStatus == 'paid' ? MgColors.link : null),
-      _row(tr('totalAmount'), Money.czk(res.totalPrice), bold: true),
+    final rows = <_PayRow>[
+      _PayRow(tr('reservationNumber'), res.shortId),
+      _PayRow(tr('paymentStatusLabel'), statusLabel, color: res.paymentStatus == 'paid' ? MgColors.link : null),
+      _PayRow(tr('totalAmount'), Money.czk(res.totalPrice), bold: true),
       if (d != null && rounding != 0)
-        _row(tr(rounding > 0 ? 'pdMinCardLine' : 'pdWaiveLine'), '${rounding > 0 ? '+' : ''}${kcExact(rounding)}'),
-      if (refunded > 0) _row(tr('payRefunded'), Money.czk(refunded), color: MgColors.link),
-      if (surcharge > 0) _row(tr('paySurchargeDue'), Money.czk(surcharge), bold: true, color: MgColors.err),
-      _row(tr('paymentMethodLabel'), methodLabel),
-      if (card != null) _row(tr('payCard'), card!),
-      if (paidAt != null) _row(tr('payPaidAt'), paidAt!),
-      if (stripeTx != null) _CopyRowV2(label: tr('payStripeTx'), value: stripeTx!),
-      if (d?.s('payment_reference') != null) _CopyRowV2(label: tr('payReference'), value: d!.s('payment_reference')!),
-      if (d?.s('payment_vs') != null) _CopyRowV2(label: tr('payVs'), value: d!.s('payment_vs')!),
+        _PayRow(tr(rounding > 0 ? 'pdMinCardLine' : 'pdWaiveLine'), '${rounding > 0 ? '+' : ''}${kcExact(rounding)}'),
+      if (refunded > 0) _PayRow(tr('payRefunded'), Money.czk(refunded), color: MgColors.link),
+      if (surcharge > 0) _PayRow(tr('paySurchargeDue'), Money.czk(surcharge), bold: true, color: MgColors.err),
+      _PayRow(tr('paymentMethodLabel'), methodLabel),
+      if (card != null) _PayRow(tr('payCard'), card!),
+      if (paidAt != null) _PayRow(tr('payPaidAt'), paidAt!),
+      if (stripeTx != null) _PayRow(tr('payStripeTx'), stripeTx!, copy: true),
+      if (d?.s('payment_reference') != null) _PayRow(tr('payReference'), d!.s('payment_reference')!, copy: true),
+      if (d?.s('payment_vs') != null) _PayRow(tr('payVs'), d!.s('payment_vs')!, copy: true),
       if (surcharge > 0 && d?.s('mod_surcharge_vs') != null)
-        _CopyRowV2(label: tr('paySurchargeVs'), value: d!.s('mod_surcharge_vs')!),
-      if (d?.s('stripe_refund_id') != null) _CopyRowV2(label: tr('payStripeRefund'), value: d!.s('stripe_refund_id')!),
+        _PayRow(tr('paySurchargeVs'), d!.s('mod_surcharge_vs')!, copy: true),
+      if (d?.s('stripe_refund_id') != null) _PayRow(tr('payStripeRefund'), d!.s('stripe_refund_id')!, copy: true),
     ];
+    // Všechny řádky stejně: hodnota vpravo vedle popisku, jen když se do
+    // řádku vejdou celými slovy všechny popisky (de „Reservierungsnummer"
+    // na 320 dp s velkým písmem) — jinak u všech hodnota pod popiskem.
+    final table = LayoutBuilder(builder: (context, c) {
+      final stacked = rows.any((r) => !_LabelValue.fits(context, r, c.maxWidth));
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (final r in rows)
+          r.copy ? _CopyRowV2(row: r, stacked: stacked, maxWidth: c.maxWidth) : _row(r, stacked, c.maxWidth),
+      ]);
+    });
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      ...rows,
+      table,
       if (loading)
         const Padding(
           padding: EdgeInsets.only(top: 8),
@@ -102,68 +112,80 @@ class ResPaymentDetailsV2 extends StatelessWidget {
     ]);
   }
 
-  Widget _row(String label, String value, {bool bold = false, Color? color}) => Container(
+  Widget _row(_PayRow r, bool stacked, double maxWidth) => Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: MgColors.line))),
         child: _LabelValue(
-          label: label,
-          value: Text(value,
-              textAlign: TextAlign.right,
-              style: MgType.tab(MgType.small.copyWith(
-                  fontWeight: bold ? FontWeight.w900 : FontWeight.w700, color: color ?? MgColors.ink))),
-          valueText: value,
-          valueStyle: MgType.small.copyWith(fontWeight: bold ? FontWeight.w900 : FontWeight.w700),
+          label: r.label,
+          stacked: stacked,
+          valueMax: maxWidth * 0.6 + r.trailing,
+          value: Text(r.value, textAlign: TextAlign.right, style: r.valueStyle.copyWith(color: r.color ?? MgColors.ink)),
         ),
       );
 }
 
-/// Label vlevo a hodnota vpravo v jednom řádku, jen když se popisek vejde
-/// celými slovy (de „Reservierungsnummer", „Zahlungsmethode" na 320 dp s
-/// velkým písmem) — jinak hodnota pod popiskem (nikdy přetečení ani slovo
-/// rozdělené uprostřed).
+/// One "Platební údaje" line: label, value (bold / colour as today) and
+/// whether a tap copies it (long IDs).
+class _PayRow {
+  final String label;
+  final String value;
+  final bool bold;
+  final Color? color;
+  final bool copy;
+  const _PayRow(this.label, this.value, {this.bold = false, this.color, this.copy = false});
+
+  TextStyle get valueStyle => MgType.tab(MgType.small.copyWith(fontWeight: bold ? FontWeight.w900 : FontWeight.w700));
+
+  /// Copy icon + gap after the value.
+  double get trailing => copy ? 22 : 0;
+}
+
+/// Label on the left, value on the right ([stacked] = value under the label).
 class _LabelValue extends StatelessWidget {
   final String label;
   final Widget value;
-  final String valueText;
-  final TextStyle valueStyle;
-  final double trailing;
-  const _LabelValue({
-    required this.label,
-    required this.value,
-    required this.valueText,
-    required this.valueStyle,
-    this.trailing = 0,
-  });
+  final bool stacked;
+
+  /// Widest the value may get on one line with the label (60 % + icon).
+  final double valueMax;
+  const _LabelValue({required this.label, required this.value, required this.stacked, required this.valueMax});
 
   static final _labelStyle = MgType.small.copyWith(color: MgColors.lead);
 
+  /// true when [r] fits one line of [width] with every word whole: the
+  /// value gets what it needs (at most 60 %), the label the rest.
+  static bool fits(BuildContext context, _PayRow r, double width) {
+    final slot = (resLineWidth(context, r.value, r.valueStyle) + 1).clamp(0.0, width * 0.6) + r.trailing;
+    return resWordsFit(context, r.label, _labelStyle, width - 12 - slot, minScale: 0.85);
+  }
+
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        final labelText = MgWordFit(minScale: 0.85, child: Text(label, style: _labelStyle));
-        final valueW = resLineWidth(context, valueText, valueStyle);
-        // Hodnota dostane, co potřebuje (max. 60 %), popisek zbytek.
-        final valueSlot = valueW.clamp(0.0, c.maxWidth * 0.6) + trailing;
-        final inline = resWordsFit(context, label, _labelStyle, c.maxWidth - 12 - valueSlot, minScale: 0.85);
-        if (inline) {
-          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: labelText),
-            const SizedBox(width: 12),
-            ConstrainedBox(constraints: BoxConstraints(maxWidth: valueSlot), child: value),
-          ]);
-        }
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          labelText,
-          const SizedBox(height: 2),
-          Align(alignment: AlignmentDirectional.centerEnd, child: value),
-        ]);
-      });
+  Widget build(BuildContext context) {
+    final labelText = MgWordFit(minScale: 0.85, child: Text(label, style: _labelStyle));
+    if (!stacked) {
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: labelText),
+        const SizedBox(width: 12),
+        ConstrainedBox(constraints: BoxConstraints(maxWidth: valueMax), child: value),
+      ]);
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      labelText,
+      const SizedBox(height: 2),
+      Align(alignment: AlignmentDirectional.centerEnd, child: value),
+    ]);
+  }
 }
 
 /// Long ID row — tap copies it (same as today's `_CopyRow`).
 class _CopyRowV2 extends StatelessWidget {
-  final String label;
-  final String value;
-  const _CopyRowV2({required this.label, required this.value});
+  final _PayRow row;
+  final bool stacked;
+  final double maxWidth;
+  const _CopyRowV2({required this.row, required this.stacked, required this.maxWidth});
+
+  String get label => row.label;
+  String get value => row.value;
 
   @override
   Widget build(BuildContext context) {
@@ -183,14 +205,11 @@ class _CopyRowV2 extends StatelessWidget {
           decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: MgColors.line))),
           child: _LabelValue(
             label: label,
-            valueText: value,
-            valueStyle: MgType.small.copyWith(fontWeight: FontWeight.w700),
-            trailing: 22,
+            stacked: stacked,
+            valueMax: maxWidth * 0.6 + row.trailing,
             value: Row(mainAxisSize: MainAxisSize.min, children: [
               Flexible(
-                child: Text(value,
-                    textAlign: TextAlign.right,
-                    style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink))),
+                child: Text(value, textAlign: TextAlign.right, style: row.valueStyle.copyWith(color: MgColors.ink)),
               ),
               const SizedBox(width: 6),
               const MgIcon(MgIcons.copy, size: 16, color: MgColors.meta),

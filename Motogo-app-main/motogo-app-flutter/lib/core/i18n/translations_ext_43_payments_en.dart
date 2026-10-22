@@ -62,6 +62,7 @@ const Map<String, String> ext43PaymentsEn = {
   'pdFailTaken': 'Someone else booked the selected motorcycle while you were paying, so the change couldn’t be recorded. Your original booking stays unchanged.',
   'pdFailStatus': 'The booking has ended or been cancelled in the meantime, so the change couldn’t be recorded.',
   'pdFailDate': 'The swap day has passed in the meantime, so the swap couldn’t be recorded. Your original booking stays unchanged.',
+  'pdFailLicense': 'You don’t have the driving licence category required for the chosen motorcycle, so the swap couldn’t be recorded. Your original booking stays unchanged.',
   'pdFailOther': 'The booking has changed in the meantime so that the change couldn’t be recorded. Your booking stays as it was.',
   'pdRefundAuto': 'We’re automatically refunding the surcharge of {amount} to your card – the money is usually back within 5–10 working days.',
   'pdRefundStaff': 'Our staff will refund the surcharge of {amount} within 2 working days – you don’t need to do anything.',

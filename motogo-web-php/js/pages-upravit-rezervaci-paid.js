@@ -263,9 +263,56 @@
     var span = document.createElement('span');
     span.className = 'erez-card-note';
     span.textContent = s;
+    // f1 (2026-10-22): částka hned vedle věty (jádro: „Doplatek 8 Kč", „+1 Kč za celou rezervaci",
+    // řádek celkem u místa) je v zobrazovacím formátu — s dorovnáním / odpuštěním ji po vykreslení
+    // přepíšeme přesně v Kč jako ve větě (7,50 Kč). Jádro je minifikované, proto háček až v DOM.
+    var exact = MG.cardAmountText ? MG.cardAmountText(due) : null;
+    if (exact && typeof MG.formatPrice === 'function') {
+      span.setAttribute('data-mg-due', String(due));
+      setTimeout(fixAmounts, 0);
+    }
     return span.outerHTML;
   };
 
+  /** Najde u věty o minimu karty sousední částku jádra a přepíše ji přesně v Kč. */
+  function fixAmounts() {
+    var notes = [];
+    try { notes = document.querySelectorAll('.erez-card-note[data-mg-due]:not([data-mg-fixed])'); } catch (e) { return; }
+    Array.prototype.forEach.call(notes, function (n) {
+      n.setAttribute('data-mg-fixed', '1');
+      var due = Number(n.getAttribute('data-mg-due'));
+      var exact = MG.cardAmountText ? MG.cardAmountText(due) : null;
+      var shown = MG.formatPrice(due);
+      if (!exact || !shown || exact === shown) return;
+      var p = n.previousElementSibling;
+      var host = p && /erez-loc-calc/.test(p.className || '') ? p.querySelector('.erez-loc-calc-total strong')
+        : n.parentNode;
+      if (host) replaceText(host, shown, exact, n);
+    });
+  }
+  function replaceText(el, from, to, skip) {
+    if (el === skip) return false;
+    if (el.nodeType === 3) {
+      if (el.nodeValue.indexOf(from) < 0) return false;
+      el.nodeValue = el.nodeValue.split(from).join(to);
+      return true;
+    }
+    var kids = el.childNodes || [];
+    for (var i = 0; i < kids.length; i++) { if (replaceText(kids[i], from, to, skip)) return true; }
+    return false;
+  }
+
+  // f1: platba PŘEDCHOZÍ zaplacené úpravy se ještě zapisuje (payment_in_progress + previous_change) —
+  // tuhle NOVOU úpravu jsme nezaplatili. Jádro by ukázalo „Platba za tuto úpravu už proběhla…".
+  var innerPayErr = ER._payErr;
+  if (innerPayErr) {
+    ER._payErr = function (u) {
+      if (u && u.code === 'payment_in_progress' && u.previous_change) return t('editRez.pay.previousChange');
+      return innerPayErr.apply(this, arguments);
+    };
+  }
+
   // Test hook (node): výběr výsledku bez DOM.
-  ER._paidTest = { sessionIdFromUrl: sessionIdFromUrl, renderOutcome: renderOutcome, price: price, failedOutcome: failedOutcome };
+  ER._paidTest = { sessionIdFromUrl: sessionIdFromUrl, renderOutcome: renderOutcome, price: price, failedOutcome: failedOutcome,
+    fixAmounts: fixAmounts };
 })();

@@ -267,11 +267,14 @@
         '</span><strong>' + (delta > 0 ? '−' : '+') + MG.formatPrice(Math.abs(delta)) + '</strong></div>';
     }
     var cls = net > 0 ? 'erez-loc-diff-pay' : (net < 0 || refund > 0) ? 'erez-loc-diff-refund' : '';
-    var label = net > 0 ? MG.t('editRez.loc.calc.surchargeStripe')
+    // Doplatek s dorovnáním na 15 Kč / odpuštěním do 1 Kč: přesně v Kč a bez „(Stripe)" — kartou se
+    // platí 15 Kč (resp. nic), což říká věta pod řádkem (dřív „Doplatek (Stripe) 7 Kč" vedle „7,50 Kč").
+    var exact = net > 0 && MG.cardAmountText ? MG.cardAmountText(net) : null;
+    var label = net > 0 ? MG.t(exact ? 'editRez.loc.calc.surcharge' : 'editRez.loc.calc.surchargeStripe')
       : (net < 0 || refund > 0) ? MG.t('editRez.loc.calc.refund') : MG.t('editRez.loc.calc.noChange');
     var amount = net > 0 ? net : (refund || Math.abs(net));
     rows += '<div class="erez-loc-calc-row erez-loc-calc-total ' + cls + '"><span>' + label +
-      '</span><strong>' + MG.formatPrice(amount) + '</strong></div>';
+      '</span><strong>' + (exact || MG.formatPrice(amount)) + '</strong></div>';
     // D1 na webu: minimální platba kartou (1–15 Kč → 15 Kč / do 1 Kč neúčtujeme) — klientský
     // řádek jádra s touto větou se níže skrývá, proto ji serverový blok nese sám ('' bez SQL).
     if (net > 0 && ER._cardNote) rows += ER._cardNote(net);

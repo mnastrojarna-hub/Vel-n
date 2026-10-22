@@ -24,7 +24,7 @@
 // vratka, obsluha zkontroluje, jestli je změna zapsaná, a případně vrátí ručně.
 import type { Sb } from './extension-apply-types.ts'
 import { lastRefundableIntent, type BookingIntentsStripe } from './booking-intents.ts'
-import { sendPaidChangeCustomerMail } from './paid-change-customer-mail.ts'
+import { sendPaidChangeCustomerMail, type MailWhy } from './paid-change-customer-mail.ts'
 
 type StripeRefundLike = {
   refunds: {
@@ -36,18 +36,35 @@ type StripeRefundLike = {
 }
 
 /** Po vrácení doplatku: když rezervace jako „svou" platbu ukládá právě vrácený doplatek
- *  (process-payment ho uložil při založení, appka), vrátit tam poslední platbu, ze které se
- *  ještě dá vracet (storno / vratka obsluhy z ní vychází). Jen když tam pořád je tenhle doplatek. */
-async function restoreStoredIntent(sb: Sb, stripe: StripeRefundLike, bookingId: string, piId: string): Promise<string | null> {
+ *  (process-payment ho uložil při založení, appka; webhook u rezervace bez platby kartou),
+ *  vrátit tam poslední platbu, ze které se ještě dá vracet (storno / vratka obsluhy z ní
+ *  vychází). Žádná taková není (rezervace placená QR / převodem / hotově) → uloženou platbu
+ *  VYMAZAT (i session doplatku): process-refund pak jde ruční vratkou (dobropis + refund_pending).
+ *  Dřív zůstal uložený vrácený doplatek a storno skončilo no_op → 'refunded' bez vrácení peněz
+ *  (oprava f1 2026-10-22). Jen když tam pořád je tenhle doplatek; chyba Stripe = nic neměnit. */
+async function restoreStoredIntent(sb: Sb, stripe: StripeRefundLike, bookingId: string, piId: string, payRef: string): Promise<{ keep: string | null; cleared: boolean } | null> {
   if (!stripe.paymentIntents?.search || !stripe.refunds.list) return null
   try {
-    const { data } = await sb.from('bookings').select('stripe_payment_intent_id').eq('id', bookingId).maybeSingle()
+    const { data } = await sb.from('bookings').select('stripe_payment_intent_id, stripe_session_id').eq('id', bookingId).maybeSingle()
     if (!data || data.stripe_payment_intent_id !== piId) return null
-    const keep = await lastRefundableIntent(stripe as unknown as BookingIntentsStripe, sb, bookingId, piId)
-    if (!keep) return null
-    await sb.from('bookings').update({ stripe_payment_intent_id: keep }).eq('id', bookingId).eq('stripe_payment_intent_id', piId)
-    return keep
+    let keep: string | null
+    try { keep = await lastRefundableIntent(stripe as unknown as BookingIntentsStripe, sb, bookingId, piId) } catch { return null }
+    const patch: Record<string, unknown> = { stripe_payment_intent_id: keep }
+    if (!keep && data.stripe_session_id && await sessionOfIntent(stripe, String(data.stripe_session_id), payRef, piId)) patch.stripe_session_id = null
+    await sb.from('bookings').update(patch).eq('id', bookingId).eq('stripe_payment_intent_id', piId)
+    return { keep, cleared: !keep }
   } catch { return null }
+}
+
+/** Je uložená Checkout Session session TÉTO platby (webový doplatek)? */
+async function sessionOfIntent(stripe: StripeRefundLike, sid: string, payRef: string, piId: string): Promise<boolean> {
+  if (sid === payRef) return true
+  if (!stripe.checkout) return false
+  try {
+    const s = await stripe.checkout.sessions.retrieve(sid)
+    const pi = typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent?.id
+    return pi === piId
+  } catch { return false }
 }
 
 /** Důvody, kdy rezervace už neběží (zrušená / ukončená / vrácená). */
@@ -56,6 +73,20 @@ export const CLOSED_BOOKING_REASONS = new Set(['booking_cancelled', 'booking_com
 export const TAKEN_REASONS = new Set(['new_moto_unavailable', 'moto_unavailable'])
 
 export type FailureMode = 'auto' | 'staff' | 'none' | 'duplicate'
+
+/** Který text dostane zákazník v e-mailu (stejné rozlišení jako web editRez.paid.why.* a appka). */
+export function mailWhy(reason: string): MailWhy {
+  if (TAKEN_REASONS.has(reason)) return 'taken'
+  if (CLOSED_BOOKING_REASONS.has(reason)) return 'closed'
+  if (reason === 'swap_date_out_of_range') return 'date'
+  if (reason === 'license_insufficient') return 'license'
+  return 'failed'
+}
+
+/** Druh změny z payloadu (metadata chg) — výměna motorky má v e-mailu odkaz rovnou na záložku Výměna. */
+export function changeKindOf(chg: string | null | undefined): 'swap' | 'edit' | null {
+  return chg ? (chg.includes('"_swap"') ? 'swap' : 'edit') : null
+}
 
 const OPS_EMAIL = 'info@motogo24.cz'
 
@@ -87,6 +118,8 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
   bookingId: string; payRef: string; paidCzk: number; code: string; reason: string; via: string; autoRefund?: boolean; review?: boolean
   /** Stripe klient — doplatek se vrací přímo z PaymentIntentu této platby */
   stripe?: StripeRefundLike | null
+  /** druh změny (e-mail zákazníkovi: výměna → odkaz na záložku Výměna) */
+  kind?: 'swap' | 'edit' | null
 }): Promise<FailureMode> {
   const url = Deno.env.get('SUPABASE_URL') ?? ''
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -140,10 +173,11 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
       }
     }
   }
-  const keptPi = mode === 'auto' && piId && a.stripe ? await restoreStoredIntent(sb, a.stripe, a.bookingId, piId) : null
+  const kept = mode === 'auto' && piId && a.stripe ? await restoreStoredIntent(sb, a.stripe, a.bookingId, piId, a.payRef) : null
   if (myId) {
     try {
-      await sb.from('debug_log').update({ response_data: { refund: mode, refund_id: refundId, payment_intent_id: piId, kept_payment_intent_id: keptPi } })
+      await sb.from('debug_log').update({ response_data: { refund: mode, refund_id: refundId, payment_intent_id: piId,
+        kept_payment_intent_id: kept?.keep ?? null, stored_payment_cleared: kept?.cleared === true } })
         .eq('id', myId)
     } catch { /* ignore */ }
   }
@@ -180,7 +214,8 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
   // po 3 dnech pokusů stále nedoběhl) ne — tam teprve rozhodne obsluha, jestli změnu zapíše, nebo vrátí.
   const ambiguous = !!a.review || a.reason.startsWith('retry_exhausted') || a.reason.startsWith('stale_payment')
   if (!ambiguous && (mode === 'auto' || mode === 'staff')) {
-    await sendPaidChangeCustomerMail(sb, { bookingId: a.bookingId, amount: a.paidCzk, taken: TAKEN_REASONS.has(a.reason), staff: mode === 'staff' })
+    await sendPaidChangeCustomerMail(sb, { bookingId: a.bookingId, amount: a.paidCzk, taken: TAKEN_REASONS.has(a.reason), staff: mode === 'staff',
+      why: mailWhy(a.reason), kind: a.kind ?? null })
   }
   return mode
 }

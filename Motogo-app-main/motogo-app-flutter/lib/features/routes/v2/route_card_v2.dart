@@ -6,6 +6,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../home/v2/home_sketch.dart';
 import '../route_image.dart';
 import '../routes_model.dart';
@@ -14,19 +15,23 @@ import 'rt_v2_text.dart';
 /// Route type pill on photos / dark cards ("Okruh" / "Za místy").
 class RouteTypePillV2 extends StatelessWidget {
   final bool loop;
-  const RouteTypePillV2({super.key, required this.loop});
+
+  /// The label may wrap at a space (the pill sits in a bounded row).
+  final bool wrap;
+  const RouteTypePillV2({super.key, required this.loop, this.wrap = false});
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    final label = Text(tr.tr(loop ? 'routeTypeLoop' : 'routeTypePoi'),
+        style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.onNeon));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: MgColors.neon, borderRadius: BorderRadius.circular(999)),
+      decoration: BoxDecoration(color: MgColors.neon, borderRadius: BorderRadius.circular(wrap ? 14 : 999)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         MgIcon(loop ? MgIcons.loop : MgIcons.pin, size: 14, color: MgColors.onNeon),
         const SizedBox(width: 5),
-        Text(tr.tr(loop ? 'routeTypeLoop' : 'routeTypePoi'),
-            style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.onNeon)),
+        if (wrap) Flexible(child: MgWordFit(minScale: 0.7, child: label)) else label,
       ]),
     );
   }

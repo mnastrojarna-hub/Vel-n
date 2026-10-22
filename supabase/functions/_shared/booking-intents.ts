@@ -10,7 +10,10 @@
 // mode 'checkout') metadata na PaymentIntentu nemají a search je nenajde.
 // Nikdy: e-shop (type shop) a přibalená e-shop část platby, duplicitní platba
 // (duplicate_of / záznam duplicate_payment — vrací se celá zvlášť), platba nezapsané změny
-// (paid_change_failed — vrací se celá zvlášť, do ceny nepatří), platba jiné rezervace.
+// (paid_change_failed — vrací se celá zvlášť, do ceny nepatří), doplatek úpravy, kterou
+// webhook / fronta ještě nezapsala (oprava f1 2026-10-22: storno v tu chvíli vrátilo z doplatku
+// část ceny, doplatek se pak kvůli „už vracené" platbě nezapsal ani nevrátil — zákazník přišel
+// o doplatek), platba jiné rezervace. Viz `outsidePrice`.
 
 // deno-lint-ignore no-explicit-any
 type Sb = any
@@ -33,24 +36,61 @@ export type Candidate = { id: string; refundableHaleru: number; created: number;
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-async function logged(sb: Sb, action: string, payRef: string): Promise<boolean> {
+async function logged(sb: Sb, action: string, payRef: string, errAs = true): Promise<boolean> {
   try {
-    const { data } = await sb.from('debug_log').select('id').eq('action', action).eq('request_data->>payment_ref', payRef).limit(1)
+    const { data, error } = await sb.from('debug_log').select('id').eq('action', action).eq('request_data->>payment_ref', payRef).limit(1)
+    if (error) return errAs
     return Array.isArray(data) && data.length > 0
-  } catch { return true } // nejistota → tuhle platbu nepoužít (raději vyřídí obsluha)
+  } catch { return errAs } // nejistota → u ostatních plateb tuhle nepoužít (raději vyřídí obsluha)
 }
 
-/** Platby z historie úprav rezervace (pi_ přímo, cs_ přes session) — jen ty, které search nenašel. */
-async function historyIntents(stripe: BookingIntentsStripe, sb: Sb, bookingId: string, known: Set<string>): Promise<IntentLike[]> {
-  if (!stripe.paymentIntents.retrieve) return []
-  let refs: string[] = []
+/** Platby, na které odkazuje historie úprav rezervace (payment_ref `pi_…` / `cs_…`). */
+async function historyRefs(sb: Sb, bookingId: string): Promise<string[]> {
   try {
     const { data } = await sb.from('bookings').select('modification_history').eq('id', bookingId).maybeSingle()
     const h = data?.modification_history
-    if (Array.isArray(h)) refs = h.map((e: Record<string, unknown> | null) => String((e && e.payment_ref) || '')).filter((r: string) => /^(pi|cs)_[A-Za-z0-9_]+$/.test(r))
+    if (!Array.isArray(h)) return []
+    return [...new Set(h.map((e: Record<string, unknown> | null) => String((e && e.payment_ref) || '')).filter((r: string) => /^(pi|cs)_[A-Za-z0-9_]+$/.test(r)))] as string[]
   } catch { return [] }
+}
+
+export type Outside = 'failed' | 'duplicate' | 'pending' | 'returned'
+/** Zdroje vratek, které vracejí peníze MIMO cenu rezervace (ne storno / vratku ceny). */
+const OUTSIDE_REFUND_SOURCES = ['unapplied_change', 'duplicate_payment', 'late_payment']
+/** Doplatek bez zápisu starší než fronta v appce (7 dní) už není „čekající" (zapsaný klientem bez značky). */
+const PENDING_MAX_AGE_S = 7 * 24 * 3600
+
+/** Platba NEpatří do ceny rezervace → storno ani vratka obsluhy z ní nevrací (null = patří):
+ *  'failed'    — doplatek nezapsané změny (paid_change_failed; vrací se celý zvlášť),
+ *  'duplicate' — druhá platba (duplicate_of / duplicate_payment; vrací se celá zvlášť),
+ *  'pending'   — doplatek úpravy z nového process-payment (attempt_id / chg_hash), který ještě
+ *                nikdo nezapsal (bez značky applied_at a bez payment_ref v historii, do 7 dní) —
+ *                webhook / fronta ho teprve vyhodnotí; u zrušené rezervace ho vrátí celý,
+ *  'returned'  — (jen s `refunds`) z platby se vracelo výhradně mimo cenu (doplatek nezapsané
+ *                změny, duplicita, pozdní platba zrušené rezervace).
+ *  `errAs` = výsledek při chybě čtení debug_log (ostatní platby: raději nepoužít). */
+export async function outsidePrice(sb: Sb, bookingId: string, pi: IntentLike, o: {
+  refunds?: RefundLike[] | null; history?: string[] | null; errAs?: boolean; nowMs?: number
+} = {}): Promise<Outside | null> {
+  const md = (pi.metadata || {}) as Record<string, string>
+  const errAs = o.errAs !== false
+  if (await logged(sb, 'paid_change_failed', pi.id, errAs)) return 'failed'
+  if (md.duplicate_of || await logged(sb, 'duplicate_payment', pi.id, errAs)) return 'duplicate'
+  if (md.type === 'extension' && !md.applied_at && (md.attempt_id || md.chg_hash)) {
+    const h = o.history ?? await historyRefs(sb, bookingId)
+    const ageS = (o.nowMs ?? Date.now()) / 1000 - Number(pi.created || 0)
+    if (!h.includes(pi.id) && (!pi.created || ageS <= PENDING_MAX_AGE_S)) return 'pending'
+  }
+  const back = (o.refunds || []).filter((r) => r.status === 'succeeded' || r.status === 'pending')
+  if (back.length && back.every((r) => OUTSIDE_REFUND_SOURCES.includes(String((r.metadata || {}).mg_source || '')))) return 'returned'
+  return null
+}
+
+/** Platby z historie úprav rezervace (pi_ přímo, cs_ přes session) — jen ty, které search nenašel. */
+async function historyIntents(stripe: BookingIntentsStripe, sb: Sb, bookingId: string, known: Set<string>, refs: string[]): Promise<IntentLike[]> {
+  if (!stripe.paymentIntents.retrieve) return []
   const out: IntentLike[] = []
-  for (const ref of [...new Set(refs)]) {
+  for (const ref of refs) {
     let piId: string | null = ref.startsWith('pi_') ? ref : null
     if (!piId && stripe.checkout) {
       try {
@@ -84,14 +124,17 @@ export async function otherRefundableIntents(stripe: BookingIntentsStripe, sb: S
   const all: IntentLike[] = [...(found?.data || [])]
   const known = new Set(all.map((p) => p.id))
   if (mainPi) known.add(mainPi)
-  all.push(...await historyIntents(stripe, sb, bookingId, known))
+  const refs = await historyRefs(sb, bookingId)
+  const fromHistory = await historyIntents(stripe, sb, bookingId, known, refs)
+  all.push(...fromHistory)
+  const history = [...refs, ...fromHistory.map((p) => p.id)] // i PI webové session (cs_) z historie = zapsaná platba
   const rows = all.filter((p) => p.id !== mainPi && p.status === 'succeeded'
     && (p.metadata || {}).booking_id === bookingId && ((p.metadata || {}).type || 'booking') !== 'shop'
     && !(p.metadata || {}).duplicate_of)
   rows.sort((a, b) => (Number(a.created || 0) - Number(b.created || 0)) || (a.id < b.id ? -1 : 1))
   const out: Candidate[] = []
   for (const p of rows) {
-    if (await logged(sb, 'paid_change_failed', p.id) || await logged(sb, 'duplicate_payment', p.id)) continue
+    if (await outsidePrice(sb, bookingId, p, { history })) continue
     const received = Number(p.amount_received || 0)
     if (!(received > 0)) continue
     let refunded = 0
@@ -114,10 +157,9 @@ export async function otherRefundableIntents(stripe: BookingIntentsStripe, sb: S
   return out
 }
 
-/** Poslední (nejnovější) úspěšná platba rezervace, ze které se ještě dá vracet — kromě `excludePi`. */
+/** Poslední (nejnovější) úspěšná platba rezervace, ze které se ještě dá vracet — kromě `excludePi`.
+ *  null = žádná taková není; chyba Stripe / DB se propaguje (volající rozliší „nevím" od „není"). */
 export async function lastRefundableIntent(stripe: BookingIntentsStripe, sb: Sb, bookingId: string, excludePi: string): Promise<string | null> {
-  try {
-    const c = (await otherRefundableIntents(stripe, sb, bookingId, excludePi)).filter((x) => x.refundableHaleru > 0)
-    return c.length ? c[c.length - 1].id : null
-  } catch { return null }
+  const c = (await otherRefundableIntents(stripe, sb, bookingId, excludePi)).filter((x) => x.refundableHaleru > 0)
+  return c.length ? c[c.length - 1].id : null
 }

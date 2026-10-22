@@ -62,6 +62,7 @@ const Map<String, String> ext43PaymentsNl = {
   'pdFailTaken': 'Iemand anders heeft de gekozen motor geboekt terwijl jij betaalde, dus de wijziging kon niet worden vastgelegd. Je oorspronkelijke boeking blijft ongewijzigd.',
   'pdFailStatus': 'De boeking is intussen afgelopen of geannuleerd, dus de wijziging kon niet worden vastgelegd.',
   'pdFailDate': 'De ruildag is intussen voorbij, dus de ruil kon niet worden vastgelegd. Je oorspronkelijke boeking blijft ongewijzigd.',
+  'pdFailLicense': 'Je hebt niet het vereiste rijbewijs voor de gekozen motor, dus de ruil kon niet worden vastgelegd. Je oorspronkelijke boeking blijft ongewijzigd.',
   'pdFailOther': 'De boeking is intussen zo veranderd dat de wijziging niet kon worden vastgelegd. Je boeking blijft zoals ze was.',
   'pdRefundAuto': 'We betalen de bijbetaling van {amount} automatisch terug op je kaart – het geld staat meestal binnen 5–10 werkdagen terug.',
   'pdRefundStaff': 'Ons team betaalt de bijbetaling van {amount} binnen 2 werkdagen terug – je hoeft niets te doen.',

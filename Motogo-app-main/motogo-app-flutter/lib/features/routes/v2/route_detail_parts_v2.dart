@@ -11,6 +11,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../route_image.dart';
 import '../routes_model.dart';
 import 'place_card_v2.dart';
@@ -83,15 +84,27 @@ class RouteStatsCardV2 extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          RouteTypePillV2(loop: route.isLoop),
-          const Spacer(),
-          if (sib != null) ...[
+        LayoutBuilder(builder: (context, c) {
+          if (sib == null) return Row(children: [Flexible(child: RouteTypePillV2(loop: route.isLoop, wrap: true))]);
+          final pagerText = '${sib.$1} / ${sib.$2}';
+          final pagerStyle = MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark));
+          final pager = Row(mainAxisSize: MainAxisSize.min, children: [
             MgIconButton(icon: MgIcons.chevronLeft, onTap: sib.$1 > 1 ? onPrev : null, semanticLabel: tr.tr('v2RtPrev'), size: 40),
-            Text('${sib.$1} / ${sib.$2}', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
+            Text(pagerText, style: pagerStyle),
             MgIconButton(icon: MgIcons.chevronRight, onTap: sib.$1 < sib.$2 ? onNext : null, semanticLabel: tr.tr('v2RtNext'), size: 40),
-          ],
-        ]),
+          ]);
+          // Pill (padding 20 + icon 19) + gap 8 + pager (2 × 44 + "3 / 12"):
+          // side by side when it fits, else the pager under the pill (right).
+          final need = _textW(context, tr.tr(route.isLoop ? 'routeTypeLoop' : 'routeTypePoi'), MgType.meta.copyWith(fontWeight: FontWeight.w800)) +
+              39 + 8 + 88 + _textW(context, pagerText, pagerStyle) + 2;
+          if (need <= c.maxWidth) {
+            return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [RouteTypePillV2(loop: route.isLoop), pager]);
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Align(alignment: AlignmentDirectional.centerStart, child: RouteTypePillV2(loop: route.isLoop, wrap: true)),
+            Align(alignment: AlignmentDirectional.centerEnd, child: pager),
+          ]);
+        }),
         const SizedBox(height: 10),
         Semantics(header: true, child: Text(name, style: MgType.h2.copyWith(color: MgColors.onDark))),
         if (startLine != null) ...[
@@ -106,8 +119,12 @@ class RouteStatsCardV2 extends StatelessWidget {
           const SizedBox(height: 14),
           LayoutBuilder(builder: (context, c) {
             final w = (c.maxWidth - 8) / 2;
+            // Icon beside the texts only while every word of every tile fits
+            // next to it; else the icon goes on top (the texts get the whole
+            // tile width) — „Schwierigkeit“, „Makkelijk“ never split.
+            final side = _wordsFit(context, tiles, w - 20 - 44);
             return Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final x in tiles) SizedBox(width: w, child: _StatTile(icon: x.$1, value: x.$2, label: x.$3)),
+              for (final x in tiles) SizedBox(width: w, child: _StatTile(icon: x.$1, value: x.$2, label: x.$3, side: side)),
             ]);
           }),
         ],
@@ -126,40 +143,70 @@ class RouteStatsCardV2 extends StatelessWidget {
   }
 }
 
+/// Single-line width of [txt] in [st] at the current text scale.
+double _textW(BuildContext context, String txt, TextStyle st) {
+  final tp = TextPainter(
+    text: TextSpan(text: txt, style: DefaultTextStyle.of(context).style.merge(st)),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: 1,
+  )..layout();
+  final w = tp.width;
+  tp.dispose();
+  return w;
+}
+
+/// True when the longest word of every value / label fits [w] px.
+bool _wordsFit(BuildContext context, List<(String, String, String)> tiles, double w) {
+  final base = DefaultTextStyle.of(context).style;
+  final dir = Directionality.of(context);
+  final scaler = MediaQuery.textScalerOf(context);
+  for (final (_, v, l) in tiles) {
+    for (final (txt, st) in [(v, MgType.tab(MgType.title)), (l, MgType.meta)]) {
+      final tp = TextPainter(text: TextSpan(text: txt, style: base.merge(st)), textDirection: dir, textScaler: scaler)..layout();
+      final need = tp.minIntrinsicWidth;
+      tp.dispose();
+      if (need > w) return false;
+    }
+  }
+  return true;
+}
+
 class _StatTile extends StatelessWidget {
   final String icon;
   final String value;
   final String label;
-  const _StatTile({required this.icon, required this.value, required this.label});
+  final bool side;
+  const _StatTile({required this.icon, required this.value, required this.label, required this.side});
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        label: '$label: $value',
-        excludeSemantics: true,
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: MgColors.white(0.06),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: MgColors.white(0.10)),
-          ),
-          child: Row(children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(color: MgColors.neonA(0.12), borderRadius: BorderRadius.circular(10)),
-              child: Center(child: MgIcon(icon, size: 18, color: MgColors.neon)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(value, style: MgType.tab(MgType.title.copyWith(color: MgColors.onDark))),
-                Text(label, maxLines: 2, style: MgType.meta.copyWith(color: MgColors.onDarkMeta)),
-              ]),
-            ),
-          ]),
+  Widget build(BuildContext context) {
+    final iconBox = Container(
+      width: side ? 34 : 30,
+      height: side ? 34 : 30,
+      decoration: BoxDecoration(color: MgColors.neonA(0.12), borderRadius: BorderRadius.circular(side ? 10 : 9)),
+      child: Center(child: MgIcon(icon, size: side ? 18 : 16, color: MgColors.neon)),
+    );
+    final texts = Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      MgWordFit(child: Text(value, style: MgType.tab(MgType.title.copyWith(color: MgColors.onDark)))),
+      MgWordFit(child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.meta.copyWith(color: MgColors.onDarkMeta))),
+    ]);
+    return Semantics(
+      label: '$label: $value',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: MgColors.white(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: MgColors.white(0.10)),
         ),
-      );
+        child: side
+            ? Row(children: [iconBox, const SizedBox(width: 10), Expanded(child: texts)])
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [iconBox, const SizedBox(height: 8), texts]),
+      ),
+    );
+  }
 }
 
 class _GlassChip extends StatelessWidget {
@@ -238,6 +285,13 @@ class RoutePoiCardV2 extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
   const RoutePoiCardV2({super.key, required this.poi, required this.number, required this.lang, required this.active, required this.onTap});
+
+  /// Card height: photo 112 + padding 18 + name + gap 3 + 2 description
+  /// lines (+ borders), never under the board's 200.
+  static double heightFor(TextScaler s) {
+    final h = 112 + 18 + s.scale(MgType.title.fontSize!) * MgType.title.height! + 3 + 2 * s.scale(MgType.small.fontSize!) * MgType.small.height! + 4;
+    return h < 200 ? 200 : h.ceilToDouble();
+  }
 
   @override
   Widget build(BuildContext context) {

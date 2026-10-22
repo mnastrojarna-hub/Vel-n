@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
@@ -9,6 +11,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import 'rt_v2_text.dart';
 
 /// Lead line on canvas under the hub header (the old header subtitle).
@@ -24,6 +27,8 @@ class TrasyLeadV2 extends StatelessWidget {
 }
 
 /// "Zapni polohu…" — white card with the SAME action as the old prompt.
+/// The button sits next to the text; when that would leave the text a
+/// column too narrow for its words (320 dp, large text), it moves under it.
 class PlacesLocationPromptV2 extends StatelessWidget {
   final VoidCallback onTap;
   const PlacesLocationPromptV2({super.key, required this.onTap});
@@ -31,6 +36,8 @@ class PlacesLocationPromptV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    final text = Text(tr.tr('poiLocationPrompt'), style: MgType.small.copyWith(color: MgColors.ink, fontWeight: FontWeight.w700));
+    final btn = MgBtnInk(label: tr.tr('poiLocationEnable'), onTap: onTap, height: 44, expand: false);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
@@ -41,15 +48,29 @@ class PlacesLocationPromptV2 extends StatelessWidget {
           border: Border.all(color: MgColors.line),
           boxShadow: MgShadows.card,
         ),
-        child: Row(children: [
-          const MgIconTileLight(MgIcons.near),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(tr.tr('poiLocationPrompt'), style: MgType.small.copyWith(color: MgColors.ink, fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(width: 8),
-          MgBtnInk(label: tr.tr('poiLocationEnable'), onTap: onTap, height: 44, expand: false),
-        ]),
+        child: LayoutBuilder(builder: (context, c) {
+          final scaler = MediaQuery.textScalerOf(context);
+          final tp = TextPainter(
+            text: TextSpan(text: tr.tr('poiLocationEnable'), style: DefaultTextStyle.of(context).style.merge(MgType.button)),
+            textDirection: Directionality.of(context),
+            textScaler: scaler,
+            maxLines: 1,
+          )..layout();
+          // Button = label + 16 px padding each side (+ border); icon tile 36 + 12.
+          final textW = c.maxWidth - 48 - 8 - (tp.width + 36);
+          tp.dispose();
+          final side = textW >= scaler.scale(150);
+          return Row(crossAxisAlignment: side ? CrossAxisAlignment.center : CrossAxisAlignment.start, children: [
+            const MgIconTileLight(MgIcons.near),
+            const SizedBox(width: 12),
+            Expanded(
+              child: side
+                  ? text
+                  : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [text, const SizedBox(height: 10), btn]),
+            ),
+            if (side) ...[const SizedBox(width: 8), btn],
+          ]);
+        }),
       ),
     );
   }
@@ -167,12 +188,17 @@ class TrasyToolChipV2 extends StatelessWidget {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               if (iconWidget != null) ...[iconWidget!, const SizedBox(width: 7)],
               if (icon != null) ...[MgIcon(icon!, size: 16, color: danger ? MgColors.err : MgColors.link), const SizedBox(width: 7)],
+              // A long label („Aussichtspunkte & Gipfel“, „Фільтри та
+              // сортування“) gets a wider cap on wider phones and wraps at
+              // a space onto a 2nd line instead of „…“.
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 210),
-                child: Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg)),
+                constraints: BoxConstraints(maxWidth: math.max(210, MediaQuery.sizeOf(context).width - 150)),
+                child: MgWordFit(
+                  child: Text(label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.25)),
+                ),
               ),
               if (count != null) ...[
                 const SizedBox(width: 7),

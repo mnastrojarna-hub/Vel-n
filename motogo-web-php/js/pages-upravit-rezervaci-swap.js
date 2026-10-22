@@ -223,8 +223,9 @@
               var dry = await window.sb.rpc('split_booking_moto_swap', dryParams);
               if (dry.error || !dry.data || dry.data.success === false) { swapErr(dry, dryParams); return; }
               var net = Number(dry.data.net || 0);
+              // s dorovnáním / odpuštěním přesně v Kč jako věta pod ním (7,50 Kč, ne „8 Kč" / „+1 Kč")
               netLine = net > 0.5
-                ? MG.t('editRez.swap.net.surcharge', { amount: MG.formatPrice(net) })
+                ? MG.t('editRez.swap.net.surcharge', { amount: (MG.cardAmountText && MG.cardAmountText(net)) || MG.formatPrice(net) })
                 : net < -0.5
                   ? MG.t('editRez.swap.net.refund', { amount: MG.formatPrice(-net) })
                   : MG.t('editRez.swap.net.same');

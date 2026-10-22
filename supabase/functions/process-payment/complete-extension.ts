@@ -28,7 +28,7 @@
 import { stripe as stripeLive } from './stripe-customer.ts'
 import { authClassify } from '../_shared/auth.ts'
 import { applyPaidExtension, chgFromMetadata } from '../_shared/extension-apply.ts'
-import { handlePaidChangeFailure, TAKEN_REASONS } from '../_shared/paid-change-failure.ts'
+import { handlePaidChangeFailure, TAKEN_REASONS, changeKindOf } from '../_shared/paid-change-failure.ts'
 import { paidChangeEligibility, markApplied, markPaidAfterChange, QUEUE_MAX_AGE_H, PREVIOUS_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { CS, refuse, respond } from './refusals.ts'
@@ -184,7 +184,7 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   }
   const mode = await handlePaidChangeFailure(sb, {
     bookingId, payRef: pi.id, paidCzk, code: r.code, reason: r.reason, via: 'complete_extension', review: r.manual === true,
-    autoRefund: !md.shop_order_id, stripe,
+    autoRefund: !md.shop_order_id, stripe, kind: changeKindOf(chgFromMetadata(md)),
   })
   const staff = mode === 'staff' || mode === 'none'
   return respond(200, {

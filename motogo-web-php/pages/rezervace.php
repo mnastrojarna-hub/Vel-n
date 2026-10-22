@@ -107,7 +107,7 @@ $rezKeys = [
     'scan.allUploaded','scan.fileUploaded','scan.cantUpload','scan.uploadError','scan.mobileMirror',
     // Krok 1 — výbava, doklady, heslo, náhled faktury (pages-rezervace-steps.js)
     'steps.prev','steps.next','steps.photoAria','steps.inCart','steps.qty','steps.less','steps.more','steps.remove','steps.add','steps.noProducts',
-    'steps.invReservation','steps.invRental','steps.invDays','steps.invDiscount','steps.invItem','steps.invPrice','steps.invTotal',
+    'steps.invReservation','steps.invRental','steps.invDays','steps.invDiscount','steps.invItem','steps.invPrice','steps.invTotal','steps.invRounding','steps.invWaive',
     'steps.verifyAndPay','steps.qrTitle','steps.qrScan','steps.qrBranch','steps.qrValid','steps.docsOkTitle','steps.docsOkText',
     'steps.idTitle','steps.idSub','steps.idDoc','steps.docNumberLabel','steps.docNumberPh','steps.licNumberLabel','steps.licNumberPh',
     'steps.licGroupLabel','steps.licExpiryLabel','steps.licConfirmText','steps.uploadTitle','steps.uploadSub','steps.frontShort','steps.backShort',
@@ -136,7 +136,7 @@ foreach (['validationUnavailable','amountMismatch','authRequired','forbidden','n
 // stránce je nahradí rez.pay.*: below_minimum do nasazení SQL 20261016p1, platba už běží,
 // ověření, cena, přihlášení / účet, nenalezená / zrušená rezervace).
 foreach (['belowMinimum','roundingUnavailable','inProgress','duplicate','validationUnavailable','amountMismatch',
-          'authRequired','forbidden','notFound','wrongStatus'] as $k) {
+          'authRequired','forbidden','notFound','wrongStatus','freeUnverified'] as $k) {
     $v = t('rez.pay.' . $k);
     if (is_string($v)) $rezI18n['editRez.pay.' . $k] = $v;
 }

@@ -20,26 +20,31 @@ class EditGearHeaderV2 extends StatelessWidget {
   final List<Text> trailing;
   const EditGearHeaderV2({super.key, required this.icon, required this.label, required this.trailing});
 
+  // Plná šířka jako dřívější Row se Spacer: rámeček výběru velikosti se
+  // nezúží na obsah a pravá část zůstane vpravo.
   @override
-  Widget build(BuildContext context) => Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 8,
-        runSpacing: 2,
-        children: [
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            icon,
-            const SizedBox(width: 6),
-            Flexible(child: MgWordFit(child: label)),
-          ]),
-          if (trailing.isNotEmpty)
+  Widget build(BuildContext context) => SizedBox(
+        width: double.infinity,
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 2,
+          children: [
             Row(mainAxisSize: MainAxisSize.min, children: [
-              for (var i = 0; i < trailing.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Flexible(child: MgWordFit(child: trailing[i])),
-              ],
+              icon,
+              const SizedBox(width: 6),
+              Flexible(child: MgWordFit(child: label)),
             ]),
-        ],
+            if (trailing.isNotEmpty)
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                for (var i = 0; i < trailing.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Flexible(child: MgWordFit(child: trailing[i])),
+                ],
+              ]),
+          ],
+        ),
       );
 }
 

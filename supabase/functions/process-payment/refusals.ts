@@ -63,11 +63,14 @@ export const CS: Record<string, string> = {
   booking_cancelled_price: 'Rezervace je zrušená a ceník se od jejího vytvoření změnil, proto ji za původní cenu obnovit nejde. ' + NOTHING + ' Vytvoř si prosím novou rezervaci – cenu spočítáme podle aktuálního ceníku.',
   booking_cancelled_other: 'Rezervace je zrušená a v tomhle stavu ji obnovit ani zaplatit nejde. ' + NOTHING + ' ' + NEW_BOOKING,
   voucher_unavailable: 'Poukaz {voucher_code} mezitím vypršel nebo byl použitý jinde, takže rezervaci s ním zaplatit nejde. Nic jsme nestrhli. Vytvoř si prosím rezervaci znovu – bez poukazu, nebo s jiným.',
-  below_minimum: 'Zbývá zaplatit {due} Kč, ale kartou jde zaplatit nejméně 15 Kč. Tahle verze aplikace drobnou částku neumí dorovnat – aktualizuj prosím aplikaci MotoGo24 a zkus to znovu. Nic jsme nestrhli.',
+  // Starší appka (4.1.3) ukazuje `error` doslova — aktualizace (iOS / Android) ještě nemusí existovat,
+  // proto bez slibu (f1 2026-10-22); u úpravy skutečná cesta přes web (below_minimum_legacy_edit).
+  below_minimum: 'Zbývá zaplatit {due} Kč, ale kartou jde zaplatit nejméně 15 Kč a tahle verze aplikace drobnou částku dorovnat neumí. Nic jsme nestrhli. Když ti obchod s aplikacemi nabídne aktualizaci MotoGo24, nainstaluj ji – nová verze částku dorovná na 15 Kč.',
+  below_minimum_legacy_edit: 'Drobný doplatek {due} Kč tahle verze aplikace kartou zaplatit neumí (kartou jde zaplatit nejméně 15 Kč). Úpravu dokončíš na našem webu v sekci Upravit rezervaci, kde se doplatek dorovná na 15 Kč. Nic jsme nestrhli.',
   below_minimum_app: 'Kartou jde zaplatit nejméně 15 Kč – zbývá {due} Kč. Zaplať 15 Kč, rozdíl uvidíš na dokladu jako dorovnání. Nic jsme nestrhli.',
   // web před nasazením SQL 20261016p1 (po něm web dorovná sám) — web ukazuje vlastní přeložený text
   below_minimum_web: 'Kartou jde zaplatit nejméně 15 Kč – zbývá {due} Kč, a tuhle částku teď kartou zaplatit nejde. Nic jsme nestrhli.',
-  below_minimum_generic: 'Kartou jde zaplatit nejméně 15 Kč. Nic jsme nestrhli – aktualizuj prosím aplikaci MotoGo24 a zkus to znovu.',
+  below_minimum_generic: 'Kartou jde zaplatit nejméně 15 Kč, takže tuhle platbu teď dokončit nejde. Nic jsme nestrhli. Když ti obchod s aplikacemi nabídne aktualizaci MotoGo24, nainstaluj ji – nová verze drobnou částku dorovná na 15 Kč.',
   below_minimum_operator: 'Minimální částka platby kartou je 15 Kč – zadej prosím alespoň 15 Kč.',
   // odpuštění do 1 Kč jen u ceny, kterou server ověří (jinak se platí kartou 15 Kč)
   waiver_unverified: 'Zbývá {due} Kč. Tuhle částku teď nejde odpustit, protože ji server nedokázal ověřit – kartou jde zaplatit nejméně 15 Kč. Zaplať 15 Kč, rozdíl uvidíš na dokladu jako dorovnání. Nic jsme nestrhli.',
