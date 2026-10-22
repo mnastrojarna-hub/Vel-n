@@ -54,7 +54,10 @@ class DocumentsScreen extends ConsumerWidget {
         verifiedAsync: verifiedAsync,
         onBack: onBack,
         onScan: () => context.push(Routes.docScan),
-        onScanDl: () => context.push('${Routes.docScan}?mode=dl_only'),
+        // Jen chybějící strany — nic nahraného se znovu nefotí (2026-10-22).
+        onScanMissing: () => context.push('${Routes.docScan}?mode=missing'),
+        onScanId: () => context.push('${Routes.docScan}?mode=missing_id'),
+        onScanDl: () => context.push('${Routes.docScan}?mode=missing_dl'),
         onUpload: () => _uploadFromGallery(context, ref),
         onReset: (docType) => _resetDoc(context, ref, docType),
         onRetry: () => ref.invalidate(docsScreenStatusProvider),

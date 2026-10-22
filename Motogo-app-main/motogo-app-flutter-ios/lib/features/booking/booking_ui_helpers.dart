@@ -310,6 +310,18 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
   // ── Mapy.cz Suggest — matches original frontend exactly ──
   void _onChanged(String q) {
+    // Psaní ruší předvyplněnou / dřív vybranou adresu i její vzdálenost —
+    // POTVRDIT pak uloží napsaný text (dřív vrátilo předvyplněnou adresu).
+    if (_city.isNotEmpty || _addr.isNotEmpty || _distInfo != null) {
+      setState(() {
+        _city = '';
+        _addr = '';
+        _lat = null;
+        _lng = null;
+        _distInfo = null;
+        _isError = false;
+      });
+    }
     _debounce?.cancel();
     if (q.length < 2) { setState(() => _sug = []); return; }
     _debounce = Timer(const Duration(milliseconds: 200), () => _search(q));

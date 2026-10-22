@@ -14,19 +14,26 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
+import '../doc_scan_plan.dart';
 import '../docs_gate_provider.dart';
 import 'docs_parts_v2.dart';
 
 /// Moje doklady in the v2 look (PLAN §2.5.2, seam view of
 /// `DocumentsScreen`): dark compact app bar, verification banner, the dark
 /// hero with the two document cards (OP/Pas, ŘP) + the screen's ONE looping
-/// CTA "NASKENOVAT DOKLADY KAMEROU", the ŘP-only scan when the ID is done,
-/// "NAHRÁT Z GALERIE", tips behind ⓘ, then the gate line / codes-ready box.
+/// CTA, "NAHRÁT Z GALERIE", tips behind ⓘ, then the gate line / codes-ready
+/// box. Nothing already uploaded is photographed again (owner 2026-10-22):
+/// the CTA and the card buttons scan only the missing sides ([onScanMissing],
+/// [onScanId], [onScanDl]); complete docs → only a secondary full rescan.
 /// Outside the shell (no nav) — back as today. All actions are the screen's.
 class DocsViewV2 extends StatelessWidget {
   final AsyncValue<DocsScreenStatus> verifiedAsync;
   final VoidCallback onBack;
+  /// Full scan (today's flow) — unknown status, nothing uploaded, rescan.
   final VoidCallback onScan;
+  /// Only the sides the gate still lacks (ID + ŘP / ID only / ŘP only).
+  final VoidCallback onScanMissing;
+  final VoidCallback onScanId;
   final VoidCallback onScanDl;
   final VoidCallback onUpload;
   final ValueChanged<String> onReset;
@@ -37,6 +44,8 @@ class DocsViewV2 extends StatelessWidget {
     required this.verifiedAsync,
     required this.onBack,
     required this.onScan,
+    required this.onScanMissing,
+    required this.onScanId,
     required this.onScanDl,
     required this.onUpload,
     required this.onReset,
@@ -72,15 +81,11 @@ class DocsViewV2 extends StatelessWidget {
             if (loading)
               const DocCardsSkeletonV2()
             else if (v != null)
-              _DocCards(v: v, onReset: onReset, onScan: onScan, onScanDl: onScanDl),
+              _DocCards(v: v, onReset: onReset, onScanId: onScanId, onScanDl: onScanDl),
             const SizedBox(height: 12),
             const DocTipsV2(),
             const SizedBox(height: 4),
-            MgCta(label: tr.tr('scanDocsCamera'), loop: true, onTap: onScan),
-            if (v != null && v.hasIdOrPassport && !v.hasLicense) ...[
-              const SizedBox(height: 10),
-              MgBtnGhostDark(label: tr.tr('scanDlOnly'), icon: MgIcons.license, onTap: onScanDl),
-            ],
+            ..._scanActions(context, v),
             const SizedBox(height: 10),
             MgBtnGhostDark(label: tr.tr('uploadFromGallery'), icon: MgIcons.image, onTap: onUpload),
           ]),
@@ -93,6 +98,35 @@ class DocsViewV2 extends StatelessWidget {
         if (v != null) ..._statusFooter(context, v),
       ],
     );
+  }
+
+  /// Status unknown / nothing uploaded → today's full scan; something
+  /// missing → THE looping CTA "Doplnit chybějící" (+ exactly what gets
+  /// photographed; the ŘP-only button it replaces did the same); complete →
+  /// no looping CTA, only the secondary full rescan.
+  List<Widget> _scanActions(BuildContext context, DocsScreenStatus? v) {
+    final tr = t(context);
+    if (v != null && v.isComplete) {
+      return [MgBtnGhostDark(label: tr.tr('v2DocsRescan'), icon: MgIcons.camera, onTap: onScan)];
+    }
+    if (v == null || docsNothingUploaded(v)) {
+      return [MgCta(label: tr.tr('scanDocsCamera'), loop: true, onTap: onScan)];
+    }
+    final gate = v.gate;
+    final what = gate != null
+        ? docsGateMissingLabels(context, gate, docsOnly: true)
+        : [
+            if (!v.hasIdOrPassport) tr.tr('idOrPassport'),
+            if (!v.hasLicense) tr.tr('driversLicense').toLowerCase(),
+          ];
+    return [
+      MgCta(label: tr.tr('v2DocsScanMissing'), loop: true, onTap: onScanMissing),
+      if (what.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Text(tr.tr('v2DocsScanMissingHint').replaceAll('{what}', what.join(', ')),
+            textAlign: TextAlign.center, style: MgType.small.copyWith(color: MgColors.onDarkLead)),
+      ],
+    ];
   }
 
   List<Widget> _statusFooter(BuildContext context, DocsScreenStatus v) {
@@ -142,9 +176,9 @@ class DocsViewV2 extends StatelessWidget {
 class _DocCards extends StatelessWidget {
   final DocsScreenStatus v;
   final ValueChanged<String> onReset;
-  final VoidCallback onScan;
+  final VoidCallback onScanId;
   final VoidCallback onScanDl;
-  const _DocCards({required this.v, required this.onReset, required this.onScan, required this.onScanDl});
+  const _DocCards({required this.v, required this.onReset, required this.onScanId, required this.onScanDl});
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +189,7 @@ class _DocCards extends StatelessWidget {
             title: tr.tr('idCardPassport'),
             verified: v.hasIdOrPassport,
             onReset: () => onReset('id_card'),
-            onScan: v.hasIdOrPassport ? null : onScan,
+            onScan: v.hasIdOrPassport ? null : onScanId,
             layout: layout,
           ),
           DocCardV2(

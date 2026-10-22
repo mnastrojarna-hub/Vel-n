@@ -21,6 +21,7 @@ import '../payment/net_error.dart' show isNetworkError;
 import 'reservation_models.dart';
 import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
+import 'reservation_edit_address.dart';
 import 'reservation_provider.dart';
 import 'booking_gate_provider.dart';
 import 'widgets/reservation_edit_widgets.dart';
@@ -1402,6 +1403,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
+    // Adresa, kterou rezervace už má, se ukáže vyplněná; list nabídne adresu
+    // druhé strany a z profilu (2026-10-22, nic nevyplňovat dvakrát).
+    final addrCarry = EditAddressCarry.of(_booking!, pickupMethod: _pickupMethod,
+        returnMethod: _returnMethod, pickupNew: _pickupAddrNew, returnNew: _returnAddrNew);
+
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: ListView(
@@ -1535,6 +1541,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               AddressPickerWidget(label: t(context).pickup, isPickup: true, method: _pickupMethod,
                 branchLabel: _effBranchLabel,
                 deliveryBlocked: pickupBlocked,
+                initialAddress: addrCarry.savedPickup,
+                currentAddress: _pickupAddrNew,
+                quick: addrCarry.quick(t(context).tr, pickup: true, profile: profile.valueOrNull),
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (a) => setState(() => _pickupAddrNew = _addrText(a)),
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f)),
@@ -1573,6 +1582,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             AddressPickerWidget(label: t(context).returnLabel, isPickup: false, method: _returnMethod,
               branchLabel: _effBranchLabel,
               deliveryBlocked: returnBlocked,
+              initialAddress: addrCarry.savedReturn,
+              currentAddress: _returnAddrNew,
+              quick: addrCarry.quick(t(context).tr, pickup: false, profile: profile.valueOrNull),
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (a) => setState(() => _returnAddrNew = _addrText(a)),
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f)),

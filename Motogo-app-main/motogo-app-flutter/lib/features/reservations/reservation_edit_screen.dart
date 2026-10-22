@@ -1406,6 +1406,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
+    // Adresa, kterou rezervace už má, se ukáže vyplněná; list nabídne adresu
+    // druhé strany a z profilu (2026-10-22, nic nevyplňovat dvakrát).
+    final addrCarry = EditAddressCarry.of(_booking!, pickupMethod: _pickupMethod,
+        returnMethod: _returnMethod, pickupNew: _pickupAddrNew, returnNew: _returnAddrNew);
+
     // ── v2 (PLAN §2.4.3): tytéž sekce, zavření i akce vytažené beze změny
     // (hoist), ať je starý i nový strom použijí stejně. ──
     final canMove = _booking!.status == 'reserved' &&
@@ -1455,10 +1460,6 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             onShortenStart: () => setState(() { _shortenDir = 'start'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
             onShortenEnd: () => setState(() { _shortenDir = 'end'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
           );
-    // Adresa, kterou rezervace už má, se ukáže vyplněná; list nabídne adresu
-    // druhé strany a z profilu (2026-10-22, nic nevyplňovat dvakrát).
-    final addrCarry = EditAddressCarry.of(_booking!, pickupMethod: _pickupMethod,
-        returnMethod: _returnMethod, pickupNew: _pickupAddrNew, returnNew: _returnAddrNew);
     final AddressRowBuilder? addrRowV2 =
         MgV2.on(context) ? (c, d) => ResEditAddressRowV2(data: d) : null;
     final pickupPlace = AddressPickerWidget(label: t(context).pickup, isPickup: true, method: _pickupMethod,
