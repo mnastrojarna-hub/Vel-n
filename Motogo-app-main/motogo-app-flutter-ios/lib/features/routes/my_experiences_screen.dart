@@ -9,10 +9,12 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/moto_fx.dart';
 import 'active_ride_provider.dart';
-import 'ride_card.dart';
 import 'ride_model.dart';
 import 'ride_provider.dart';
+import 'ride_rec_controls.dart';
 import 'ride_recorder.dart';
+import 'ride_trip.dart' show groupRides, rideTripsAvailable;
+import 'ride_trip_card.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart' show CustomNavArgs;
 import 'route_image.dart';
@@ -482,6 +484,7 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
   /// Bez povolené polohy se místo karet ukáže vysvětlení, proč nic nevzniká.
   List<Widget> _ridesSection(BuildContext context, List<UserRide> rides) {
     final rec = ref.watch(rideRecorderProvider);
+    final items = groupRides(rides);
     return [
       if (rec.recording && rec.gpsLost) const RideGpsLostBanner(),
       Padding(
@@ -499,7 +502,10 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           '🛰️ ${t(context).tr('rideRecordTitle')}',
@@ -509,26 +515,8 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
                               color: MotoGoColors.black,
                               decoration: TextDecoration.none),
                         ),
-                        if (rec.recording) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: MotoGoColors.redBg,
-                              borderRadius:
-                                  BorderRadius.circular(MotoGoRadius.pill),
-                            ),
-                            child: Text(
-                              '⏺ ${t(context).tr('rideRecording')}',
-                              style: const TextStyle(
-                                  fontSize: MotoGoTypo.sizeSm,
-                                  fontWeight: MotoGoTypo.w800,
-                                  color: MotoGoColors.red,
-                                  decoration: TextDecoration.none),
-                            ),
-                          ),
-                        ],
+                        // Stav záznamu: nahrává / čeká na rozjezd / pozastaveno.
+                        const RideRecChip(),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -554,81 +542,13 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
           ),
         ),
       ),
-      _manualRideCard(context, rec),
-      for (final r in rides)
-        RideCard(ride: r, siblingIds: [for (final x in rides) x.id]),
+      // Záznam: start vlastní jízdy, během záznamu (vlastní i výpůjčka)
+      // stav + Pozastavit / Pokračovat (+ Ukončit u vlastní jízdy).
+      RideRecControlsCard(onStartStop: (running) => _toggleManualRide(context, running)),
+      // Jízdy seskupené do cest (sloučené / jedna výpůjčka) + slučování.
+      if (rideTripsAvailable(rides, items)) const RideMergeRow(),
+      ...rideListWidgets(rides, items: items),
     ];
-  }
-
-  /// Ruční záznam jízdy — pro vlastní motorku, BEZ výpůjčky. Automatika se
-  /// rozjede jen při běžící rezervaci, takže bez tohoto tlačítka si jezdec
-  /// vlastní vyjížďku zaznamenat nemohl.
-  Widget _manualRideCard(BuildContext context, RideRecorderState rec) {
-    final running = rec.recording && rec.manual;
-    // Během automatického záznamu (běžící výpůjčka) tlačítko nedává smysl —
-    // jízda se už nahrává sama.
-    if (rec.recording && !rec.manual) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: PressableScale(
-        pressedScale: 0.97,
-        onTap: () => _toggleManualRide(context, running),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: running ? MotoGoColors.redBg : Colors.white,
-            borderRadius: BorderRadius.circular(MotoGoRadius.card),
-            border: Border.all(
-                color: running ? MotoGoColors.red : MotoGoColors.greenDark,
-                width: 1.6),
-            boxShadow: MotoGoShadows.cardSmall,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: running
-                      ? MotoGoColors.red.withValues(alpha: 0.14)
-                      : MotoGoColors.greenPale,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(running ? Icons.stop : Icons.fiber_manual_record,
-                    size: 20,
-                    color: running ? MotoGoColors.red : MotoGoColors.greenDark),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t(context).tr(running ? 'rideManualStop' : 'rideManualStart'),
-                      style: TextStyle(
-                          fontSize: MotoGoTypo.sizeXl,
-                          fontWeight: MotoGoTypo.w900,
-                          color: running ? MotoGoColors.red : MotoGoColors.black,
-                          decoration: TextDecoration.none),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      t(context).tr(running ? 'rideManualRunning' : 'rideManualHint'),
-                      style: const TextStyle(
-                          fontSize: MotoGoTypo.sizeMd,
-                          fontWeight: MotoGoTypo.w600,
-                          color: MotoGoColors.g500,
-                          height: 1.35,
-                          decoration: TextDecoration.none),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _toggleManualRide(BuildContext context, bool running) async {
@@ -649,7 +569,8 @@ class _MyExperiencesScreenState extends ConsumerState<MyExperiencesScreen> {
     final tr = t(context);
     final r = await n.startManualResult();
     if (!mounted) return;
-    showRideStartResult(msg, tr, r);
+    // Záznam čeká na rozjezd (auto-pauza) → řekne to hláška.
+    showRideStartResult(msg, tr, r, armed: ref.read(rideRecorderProvider).isArmed);
   }
 
   /// Výrazné tlačítko „Vytvořit novou trasu" → otevře editor s prázdnou

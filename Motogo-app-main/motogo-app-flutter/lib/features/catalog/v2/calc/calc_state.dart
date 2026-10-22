@@ -5,8 +5,13 @@ import '../../moto_model.dart';
 
 /// State of the v2 price calculator (PLAN §2.2.4): IN MEMORY only. It never
 /// touches `bookingDraftProvider` / `catalogFilterProvider` until the user
-/// taps REZERVOVAT (→ `startBookingFromSelection`) or "Zobrazit volné
-/// motorky" (→ the same date write as the catalog date picker).
+/// taps REZERVOVAT (→ `startBookingFromSelection`), "Zobrazit volné
+/// motorky" / "Detail ›" or switches to "Najít motorku" (→ the same date
+/// write as the catalog date picker, `catalog_mode_sync.dart`).
+///
+/// No pickup time here (owner 2026-10-22): the time is chosen only in the
+/// booking form; the calculator prices the standard pickup (the form's
+/// 09:00 default) and shows the 12:00 saving as information.
 class CalcState {
   /// null = all branches.
   final String? branchId;
@@ -14,27 +19,21 @@ class CalcState {
   final DateTime? start;
   final DateTime? end;
 
-  /// '09:00' (default — the booking form's default) or '12:00' (½ 1st day).
-  final String pickupTime;
-
-  const CalcState({this.branchId, this.motoId, this.start, this.end, this.pickupTime = '09:00'});
+  const CalcState({this.branchId, this.motoId, this.start, this.end});
 
   bool get hasRange => start != null && end != null;
-  bool get late => pickupTime == '12:00';
 
   CalcState copyWith({
     String? Function()? branchId,
     String? Function()? motoId,
     DateTime? Function()? start,
     DateTime? Function()? end,
-    String? pickupTime,
   }) =>
       CalcState(
         branchId: branchId != null ? branchId() : this.branchId,
         motoId: motoId != null ? motoId() : this.motoId,
         start: start != null ? start() : this.start,
         end: end != null ? end() : this.end,
-        pickupTime: pickupTime ?? this.pickupTime,
       );
 }
 
@@ -56,8 +55,6 @@ class CalcStateNotifier extends StateNotifier<CalcState> {
 
   void clearDates() => state = state.copyWith(start: () => null, end: () => null);
 
-  void setPickup(String time) => state = state.copyWith(pickupTime: time);
-
   /// Entry from Home ("Spočítat přesnou cenu ›"): bike and / or dates.
   void prefill({String? motoId, DateTime? start, DateTime? end}) {
     state = CalcState(
@@ -65,7 +62,6 @@ class CalcStateNotifier extends StateNotifier<CalcState> {
       motoId: motoId ?? state.motoId,
       start: start ?? state.start,
       end: end ?? (start != null ? null : state.end),
-      pickupTime: state.pickupTime,
     );
   }
 }

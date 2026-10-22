@@ -1,5 +1,9 @@
 import 'package:latlong2/latlong.dart';
 
+import 'ride_stage.dart';
+
+export 'ride_stage.dart';
+
 /// Model „Mojí jízdy" — projetá trasa jezdce (tabulky `user_rides` +
 /// `user_ride_points`, čte se přes RPC `get_my_rides` / `get_booking_rides`).
 ///
@@ -11,46 +15,51 @@ double? _toD(dynamic v) =>
     v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 int? _toI(dynamic v) =>
     v == null ? null : (v is num ? v.toInt() : int.tryParse(v.toString()));
+String? _str(dynamic v) {
+  final s = v?.toString().trim();
+  return s == null || s.isEmpty ? null : s;
+}
 
-/// Rozdělí stopu na souvislé úseky a mezery mezi nimi — stejnou hranicí jako
-/// server (`_ride_stats`): dlouhá pauza S POSUNEM je mezera, dlouhá pauza bez
-/// posunu je jen stání na místě (semafor, tankování, focení).
+/// Rozdělí stopu na souvislé úseky a mezery / pauzy mezi nimi — STEJNÝM
+/// pravidlem jako server (`_ride_stats_v2`, SPEC §3.2) a Velín:
+///   pauza  = bod se značkou (`kmh < 0`), nebo ticho > 180 s, které NENÍ
+///            projetím a trvá ≥ 5 min (noc, oběd — i když se telefon posunul)
+///   mezera = ticho > 180 s, ve kterém se ujelo > 300 m rychlostí ≥ 15 km/h
+///            (slabý signál, vypnutá appka: nevíme, kudy jel)
+/// Ticho ≥ 30 dní nebo čas jdoucí zpět = vadný čas (nedělí se).
 ///
 /// Stopa BEZ časových značek (starý klient, ručně poskládaná jízda) se nedělí
 /// vůbec — nemáme podle čeho, a řezat ji podle vzdálenosti by rozbilo ruční
 /// trasy, které jsou rovnou spojnicí bodů záměrně.
-List<RideSegment> _splitOnGaps(List<LatLng> track, List<int?> times) {
+List<RideSegment> _splitOnGaps(List<LatLng> track, List<double?> times, List<bool> flags) {
   if (track.isEmpty) return const [];
   if (track.length == 1) return [RideSegment(List.unmodifiable(track))];
 
-  // Haversine, ne výchozí Vincenty: stejný vzorec jako server (_ride_stats)
-  // a Velín (rideTrack.js), takže hranice 300 m padne u všech tří stejně —
-  // a na 4000 bodech × 100 jízd při každém parsování seznamu je i řádově
-  // levnější.
-  // roundResult: false je NUTNÉ — výchozí true zaokrouhlí výsledek v km na
-  // CELÉ kilometry, takže 0,08 km vyšlo 0 a 0,6 km vyšlo 1: appka pak dělila
-  // stopu až od 500 m, zatímco server a Velín od 300 m.
+  // Haversine (roundResult: false — výchozí zaokrouhlí km na CELÉ km):
+  // stejný vzorec jako server a Velín, hranice 300 m padne u všech stejně.
   const dist = Distance(roundResult: false, calculator: Haversine());
   final out = <RideSegment>[];
   var current = <LatLng>[track.first];
   RideGap? pendingGap;
-  int? prevTs = times.isNotEmpty ? times.first : null;
+  double? prevTs = times.isNotEmpty ? times.first : null;
 
   for (var i = 1; i < track.length; i++) {
     final ts = i < times.length ? times[i] : null;
     final dt = (ts != null && prevTs != null) ? ts - prevTs : null;
     final km = dist.as(LengthUnit.Kilometer, track[i - 1], track[i]);
-    final isGap =
-        dt != null && dt > kRideGapSec && dt < 86400 && km > kRideStillKm;
-
-    if (isGap) {
+    RideGapKind? kind;
+    if (dt != null && dt >= 0 && dt < kRideBadDtSec) {
+      final flag = i < flags.length && flags[i];
+      final through = dt > 0 && km / dt * 3600 >= 15 && km > kRideStillKm;
+      if (flag) {
+        kind = RideGapKind.pause;
+      } else if (dt > kRideGapSec) {
+        kind = through ? RideGapKind.gap : (dt >= kRidePauseSec ? RideGapKind.pause : null);
+      }
+    }
+    if (kind != null) {
       out.add(RideSegment(List.unmodifiable(current), gapBefore: pendingGap));
-      pendingGap = RideGap(
-        from: track[i - 1],
-        to: track[i],
-        sec: dt,
-        km: km,
-      );
+      pendingGap = RideGap(from: track[i - 1], to: track[i], sec: dt!.round(), km: km, kind: kind);
       current = <LatLng>[track[i]];
     } else {
       current.add(track[i]);
@@ -62,21 +71,29 @@ List<RideSegment> _splitOnGaps(List<LatLng> track, List<int?> times) {
   return List.unmodifiable(out);
 }
 
+/// Druh přerušení stopy: mezera (bez signálu) / pauza (stání, noc, přesun
+/// trajektem — do km ani do času na cestě se nepočítá).
+enum RideGapKind { gap, pause }
+
 /// Mezera ve stopě: appka běžela na pozadí bez signálu / s vypnutou polohou,
 /// takže mezi dvěma body NEVÍME, kudy jezdec jel. Spojit je plnou čarou by
 /// znamenalo tvrdit trasu, která se nestala.
 class RideGap {
   final LatLng from;
   final LatLng to;
-  final int sec; // jak dlouho jsme byli "slepí"
+  final int sec; // jak dlouho jsme byli "slepí" / jak dlouho pauza trvala
   final double km; // vzdušná čára přes mezeru (NE ujetá vzdálenost)
+  final RideGapKind kind;
 
   const RideGap({
     required this.from,
     required this.to,
     required this.sec,
     required this.km,
+    this.kind = RideGapKind.gap,
   });
+
+  bool get isPause => kind == RideGapKind.pause;
 }
 
 /// Souvislý úsek stopy (mezi dvěma mezerami) + mezera, která mu předchází.
@@ -95,6 +112,10 @@ const int kRideGapSec = 180; // delší pauza = už ne souvislá jízda
 /// 5 s je první fix po rozjezdu 40–100 m od posledního, takže 50 m dělalo
 /// mezeru i z tříminutového tankování.
 const double kRideStillKm = 0.3;
+/// Ticho od 5 min bez projetí = pauza (noc, oběd), ne zastávka.
+const int kRidePauseSec = 300;
+/// Ticho od 30 dní = vadný čas (nic se nepočítá ani nedělí).
+const int kRideBadDtSec = 2592000;
 
 /// Bod na jízdě: `start` / `end` (krajní body stopy) nebo `stop` (zastávka).
 class RidePoint {
@@ -163,10 +184,24 @@ class UserRide {
   final DateTime startedAt;
   final DateTime? endedAt;
   final double distanceKm;
-  final int? durationMin; // celkový čas (start → konec)
-  final int movingSec; // čas v pohybu
-  final int idleSec; // čas stání (pauzy, zastávky, semafory)
+  /// Čas NA CESTĚ v minutách = start → konec BEZ pauz (nový server; u jízdy
+  /// bez pauz totéž co dřív „celkem").
+  final int? durationMin;
+  final int movingSec; // čas v sedle (jen jízda ≥ 7 km/h podle Doppleru)
+  final int idleSec; // zastávky (semafory, krátké stání) = zbytek času na cestě
   final int gapSec; // čas BEZ GPS signálu (km přes něj se nepočítají)
+  /// Pauzy (noc, oběd, ruční pauza…) — mimo čas na cestě i zastávky.
+  final int pauseSec;
+  /// Jízdu nahrála appka, která sama pauzuje (server `pause_aware`).
+  final bool pauseAware;
+  /// Cesta: null = výchozí seskupení (podle výpůjčky), == id = samostatná,
+  /// jiné = člen cesty s tímhle klíčem (viz `ride_trip.dart`).
+  final String? tripId;
+  final String? tripName;
+  /// Etapy (dny) ze serveru; starý server → prázdné.
+  final List<RideStage> stages;
+  /// Řádek přišel z nového serveru (zná pauzy a cesty).
+  final bool serverV2;
   final DateTime? lastFixAt; // kdy naposledy dorazil GPS bod
   final double? avgSpeedKmh; // průměr z času jízdy
   final double? maxSpeedKmh;
@@ -194,6 +229,12 @@ class UserRide {
     this.movingSec = 0,
     this.idleSec = 0,
     this.gapSec = 0,
+    this.pauseSec = 0,
+    this.pauseAware = false,
+    this.tripId,
+    this.tripName,
+    this.stages = const [],
+    this.serverV2 = false,
     this.lastFixAt,
     this.avgSpeedKmh,
     this.maxSpeedKmh,
@@ -216,8 +257,29 @@ class UserRide {
   /// Čas bez GPS signálu v minutách.
   int get gapMin => (gapSec / 60).round();
 
-  /// Má jízda díry ve stopě? (Pak je „celkem ujeto" jen to, co víme jistě.)
-  bool get hasGaps => gapSec > 0 || segments.length > 1;
+  /// Má jízda díry ve stopě (bez signálu)? Pauzy sem nepatří.
+  bool get hasGaps =>
+      gapSec > 0 || segments.any((s) => s.gapBefore != null && !s.gapBefore!.isPause);
+
+  /// Pauzy v minutách.
+  int get pauseMin => (pauseSec / 60).round();
+
+  /// Počet pauz (úseky stopy oddělené pauzou).
+  int get pauseCount => segments.where((s) => s.gapBefore?.isPause == true).length;
+
+  /// Čas na cestě bez pauz (min).
+  int get activeMin => totalMin;
+
+  /// Dny na cestě: z etap serveru, jinak kalendářní dny jízdy (jen když se
+  /// opravdu jelo ≥ 5 min).
+  int get days {
+    if (stages.isNotEmpty) return rideDaysOfStages(stages);
+    if (movingSec < 300) return 1;
+    return rideCalendarDays(startedAt, endedAt ?? lastFixAt ?? startedAt);
+  }
+
+  /// Člen explicitní cesty (sloučené jezdcem)?
+  bool get inExplicitTrip => tripId != null && tripId != id;
 
   /// Celkový čas jízdy v minutách (fallback ze součtu jízda + stání + mezery).
   int get totalMin => durationMin ?? ((movingSec + idleSec + gapSec) / 60).round();
@@ -272,7 +334,8 @@ class UserRide {
     // z čeho poznat, že mezi dvěma body uběhly hodiny — a kreslila je
     // spojené rovnou čarou.
     final track = <LatLng>[];
-    final times = <int?>[];
+    final times = <double?>[];
+    final flags = <bool>[];
     final t = j['track'];
     if (t is List) {
       for (final p in t) {
@@ -283,7 +346,9 @@ class UserRide {
           track.add(LatLng(lat, lng));
           // Čas může přijít i jako desetinné číslo (1758000000.4) — `_toI`
           // by ho zahodil a mezery by se v appce přestaly poznávat.
-          times.add(p.length > 2 ? _toD(p[2])?.floor() : null);
+          times.add(p.length > 2 ? _toD(p[2]) : null);
+          // kmh < 0 = značka pauzy (první bod po pauze).
+          flags.add(p.length > 3 && (_toD(p[3]) ?? 0) < 0);
         }
       }
     }
@@ -311,7 +376,7 @@ class UserRide {
           : j['description'].toString(),
       source: j['source']?.toString() ?? 'auto',
       track: track,
-      segments: _splitOnGaps(track, times),
+      segments: _splitOnGaps(track, times, flags),
       startedAt: DateTime.tryParse(j['started_at']?.toString() ?? '') ?? DateTime.now(),
       endedAt: DateTime.tryParse(j['ended_at']?.toString() ?? ''),
       distanceKm: _toD(j['distance_km']) ?? 0,
@@ -319,6 +384,12 @@ class UserRide {
       movingSec: _toI(j['moving_sec']) ?? 0,
       idleSec: _toI(j['idle_sec']) ?? 0,
       gapSec: _toI(j['gap_sec']) ?? 0,
+      pauseSec: _toI(j['pause_sec']) ?? 0,
+      pauseAware: j['pause_aware'] == true,
+      tripId: _str(j['trip_id']),
+      tripName: _str(j['trip_name']),
+      stages: RideStage.listFromJson(j['stages']),
+      serverV2: j.containsKey('pause_aware'),
       lastFixAt: DateTime.tryParse(j['last_fix_at']?.toString() ?? ''),
       avgSpeedKmh: _toD(j['avg_speed_kmh']),
       maxSpeedKmh: _toD(j['max_speed_kmh']),

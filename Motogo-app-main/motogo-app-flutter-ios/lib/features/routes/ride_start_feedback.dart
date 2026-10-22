@@ -8,9 +8,11 @@ import 'ride_recorder.dart';
 
 /// Hláška k ručnímu startu záznamu jízdy: co je špatně a jak to opravit
 /// (dřív pro všechno „přihlas se a povol polohu", i když chyběl internet).
-void showRideStartResult(ScaffoldMessengerState msg, AppTranslations tr, RideStartResult r) {
+/// [armed] = záznam je připravený a začne až po rozjezdu (auto-pauza).
+void showRideStartResult(ScaffoldMessengerState msg, AppTranslations tr, RideStartResult r,
+    {bool armed = false}) {
   final key = switch (r) {
-    RideStartResult.ok => 'rideManualStarted',
+    RideStartResult.ok => armed ? 'rpToastArmed' : 'rideManualStarted',
     RideStartResult.notSignedIn => 'eoRideNotSignedIn',
     RideStartResult.locationOff => 'eoRideLocOff',
     RideStartResult.noPermission => 'eoRideNoPerm',
@@ -35,6 +37,21 @@ void showRideStartResult(ScaffoldMessengerState msg, AppTranslations tr, RideSta
                       : FriendlyKind.permission)),
             )
           : null,
+    ));
+}
+
+/// Hláška k ruční pauze / pokračování záznamu (SPEC §9.1). Pozastavení
+/// vypne GPS (šetří baterii); po „Pokračovat" se nahrává až po rozjezdu
+/// ([armed]), bez auto-pauzy hned.
+void showRidePauseFeedback(ScaffoldMessengerState msg, AppTranslations tr,
+    {required bool paused, bool armed = true}) {
+  msg
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text(tr.tr(paused
+          ? 'rpToastPaused'
+          : (armed ? 'rpToastResumed' : 'rideManualStarted'))),
+      duration: const Duration(seconds: 5),
     ));
 }
 

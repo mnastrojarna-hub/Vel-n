@@ -1,0 +1,18 @@
+[
+ {
+  "severity": "major",
+  "area": "rides",
+  "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/v2/rides/ride_detail_parts_v2.dart:60,219 + ride_detail_view_v2.dart:98 + ride_card_v2.dart:72 + moje_cards_v2.dart:239",
+  "problem": "Ride detail:\n- Title 'Aufgezeichnete Fahrt', 'Przejechana trasa' breaks or truncates beside the 3 action icons (x1.0 de, pl at 320 and 360).\n- Stat captions 'Höchsttempo', 'Unterbrechungen', 'hoogtemeters' break (219).\n- Section 'Stopps und Sehenswürdigkeiten' (98) breaks.\n- Ride card 'Aufgezeichnete Fahrt' (72) and Moje card 'Navigation' (239) break.",
+  "fix": "Below 360dp move the share / edit / delete actions under the title (or into a ⋯ menu). Captions: 2 lines with scale-down.",
+  "verifier": "render"
+ },
+ {
+  "severity": "minor",
+  "area": "rides",
+  "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/v2/rides/recorder_screen_v2.dart:70",
+  "problem": "The stop button runs _run(() => trasyConfirmStopRide(...)), so it switches to busy and shows a spinning CircularProgressIndicator while the 'Ukončit záznam?' confirm dialog is still waiting for the user. The spinner keeps animating under reduced motion (rides/recorder manual-stop-confirm never settles, all languages and sizes).",
+  "fix": "Show the confirm first, and only on ok == true call _run(() => toggleManualRide(context, ref, running: true)). Split trasyConfirmStopRide into confirm and stop, or add a confirm-only helper. Behaviour stays the same.",
+  "verifier": "render"
+ }
+]

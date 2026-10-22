@@ -12,6 +12,8 @@ import 'price_calculator.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/booking_address_carry.dart' show AddrQuick;
+import 'widgets/address_quick_options.dart';
 
 /// Pure UI helper functions for inline booking form in router.dart.
 /// NO ConsumerStatefulWidget, NO Riverpod — just widget builders.
@@ -238,11 +240,14 @@ const _mapyHeaders = <String, String>{
 };
 
 /// Address bottom sheet — autocomplete + GPS + map + distance.
+/// [quick] = rychlé volby (adresa druhé strany předání, z profilu) — jdou
+/// stejnou cestou jako položka našeptávače (2026-10-22).
 void showAddrBottomSheet(BuildContext ctx,
     String title, String? city, String? addr,
     void Function(String city, String addr) onSave,
     {void Function(double km, double fee)? onDistCalc,
-    Future<MapResult?> Function(BuildContext)? onMapTap}) {
+    Future<MapResult?> Function(BuildContext)? onMapTap,
+    List<AddrQuick> quick = const []}) {
   final cCtrl = TextEditingController(
       text: [addr, city].where((s) => s != null && s.isNotEmpty).join(', '));
   showModalBottomSheet(
@@ -257,7 +262,8 @@ void showAddrBottomSheet(BuildContext ctx,
       initialAddr: addr ?? '',
       onSave: (city, addr) { onSave(city, addr); Navigator.pop(c); },
       onDistCalc: onDistCalc,
-      onMapTap: onMapTap),
+      onMapTap: onMapTap,
+      quick: quick),
   );
 }
 
@@ -268,9 +274,11 @@ class _AddrSheetBody extends StatefulWidget {
   final void Function(String city, String addr) onSave;
   final void Function(double km, double fee)? onDistCalc;
   final Future<MapResult?> Function(BuildContext)? onMapTap;
+  final List<AddrQuick> quick;
   const _AddrSheetBody({required this.ctrl, required this.title,
     this.initialCity = '', this.initialAddr = '',
-    required this.onSave, this.onDistCalc, this.onMapTap});
+    required this.onSave, this.onDistCalc, this.onMapTap,
+    this.quick = const []});
   @override
   State<_AddrSheetBody> createState() => _AddrSheetBodyState();
 }
@@ -302,6 +310,18 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
   // ── Mapy.cz Suggest — matches original frontend exactly ──
   void _onChanged(String q) {
+    // Psaní ruší předvyplněnou / dřív vybranou adresu i její vzdálenost —
+    // POTVRDIT pak uloží napsaný text (dřív vrátilo předvyplněnou adresu).
+    if (_city.isNotEmpty || _addr.isNotEmpty || _distInfo != null) {
+      setState(() {
+        _city = '';
+        _addr = '';
+        _lat = null;
+        _lng = null;
+        _distInfo = null;
+        _isError = false;
+      });
+    }
     _debounce?.cancel();
     if (q.length < 2) { setState(() => _sug = []); return; }
     _debounce = Timer(const Duration(milliseconds: 200), () => _search(q));
@@ -727,6 +747,9 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
                       : null,
                   onTap: () => _pick(s));
               })),
+        // Rychlá volba — jen než zákazník začne psát / vybere adresu.
+        if (_sug.isEmpty && _distInfo == null)
+          AddressQuickOptions(options: widget.quick, onPick: (q) => _pick(q.asSuggestion)),
         const SizedBox(height: 10),
         // GPS + Map buttons
         Row(children: [

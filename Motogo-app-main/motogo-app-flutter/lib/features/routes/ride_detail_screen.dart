@@ -6,13 +6,16 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
-import 'ride_card.dart'
-    show rideDate, rideDateTime, rideDuration, rideKm, rideSpeed;
+import 'ride_card.dart' show rideDateRange;
 import 'ride_map.dart';
 import 'ride_model.dart';
 import 'ride_point_sheet.dart';
 import 'ride_provider.dart';
+import 'ride_recorder.dart';
 import 'ride_share.dart';
+import 'ride_stage_list.dart';
+import 'ride_stats_grid.dart';
+import 'ride_trip_row.dart';
 import 'route_image.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/error_feedback.dart';
@@ -225,16 +228,27 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
   }
 
   Future<void> _delete() async {
+    // Právě nahrávaná jízda: varovat, co smazání udělá se záznamem, a před
+    // smazáním záznamník odpojit (jinak by hned nahrával do smazané jízdy).
+    final rec = ref.read(rideRecorderProvider);
+    final live = rec.recording && rec.rideId == ride.id;
+    final warn = !live
+        ? null
+        // Výpůjčka se po smazání nahrává znovu od teď (hlídač ji rozjede),
+        // pokud má jezdec automatický záznam zapnutý.
+        : t(context).tr(rec.bookingId != null && rec.enabled
+            ? 'rpDeleteRecordingRentalQ'
+            : 'rpDeleteRecordingOwnQ');
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => MgV2.on(c)
-          ? rideConfirmDeleteV2(c, title: t(c).tr('rideDeleteConfirm'), body: ride.name)
+          ? rideConfirmDeleteV2(c, title: t(c).tr('rideDeleteConfirm'), body: warn ?? ride.name)
           : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(c).tr('rideDeleteConfirm'),
             style: const TextStyle(
                 fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900)),
-        content: Text(ride.name),
+        content: Text(warn ?? ride.name),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),
@@ -250,6 +264,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
       ),
     );
     if (ok != true) return;
+    if (live) await ref.read(rideRecorderProvider.notifier).discardCurrent();
     final deleted = await deleteUserRide(ride.id);
     if (!deleted) {
       // Nesmazáno → zůstat na detailu a říct to (dřív odešel jako smazané).
@@ -301,8 +316,13 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
                 children: [
                   _mapCard(),
                   const SizedBox(height: 12),
-                  _statsCard(context),
+                  RideStatsGrid(ride: ride),
                   const SizedBox(height: 12),
+                  if (rideDisplayStages(ride.stages).length >= 2) ...[
+                    RideStageList(stages: ride.stages),
+                    const SizedBox(height: 12),
+                  ],
+                  RideTripRow(ride: ride),
                   _sharingCard(context),
                   const SizedBox(height: 16),
                   Text(
@@ -387,7 +407,7 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
                     const SizedBox(height: 2),
                     Text(
                       [
-                        rideDate(ride.startedAt),
+                        rideDateRange(ride.startedAt, ride.endedAt ?? ride.lastFixAt ?? ride.startedAt),
                         if ((ride.motoName ?? '').isNotEmpty) ride.motoName!,
                       ].join(' · '),
                       maxLines: 1,
@@ -434,144 +454,6 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
             onMapTap: _addStop,
             onPointTap: (i) => _editPoint(ride.points[i]),
           ),
-        ),
-      );
-
-  Widget _statsCard(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(MotoGoRadius.card),
-          boxShadow: MotoGoShadows.cardSmall,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Kompletní přehled jízdy — km, časy (celkem / v sedle / stání),
-            // rychlosti, nastoupáno, zastávky a fotky.
-            _statRow([
-              _stat('📏', rideKm(ride.distanceKm), t(context).tr('rideStatDistance')),
-              _stat('⏱️', rideDuration(ride.totalMin), t(context).tr('rideStatDuration')),
-              _stat('🏍️', ride.movingSec > 0 ? rideDuration(ride.movingMin) : '—',
-                  t(context).tr('rideStatMoving')),
-            ]),
-            const SizedBox(height: 12),
-            _statRow([
-              _stat('⏸️', ride.idleSec > 0 ? rideDuration(ride.idleMin) : '—',
-                  t(context).tr('rideStatIdle')),
-              _stat('📊', rideSpeed(ride.avgSpeedKmh ?? ride.avgOverallKmh),
-                  t(context).tr('rideStatAvg')),
-              _stat('🚀', rideSpeed(ride.maxSpeedKmh), t(context).tr('rideStatMax')),
-            ]),
-            const SizedBox(height: 12),
-            _statRow([
-              _stat('⛰️', ride.elevationGainM > 0 ? '${ride.elevationGainM} m' : '—',
-                  t(context).tr('rideStatClimb')),
-              _stat('📍', '${ride.stops.length}', t(context).tr('rideStatStops')),
-              _stat('📷', '${ride.photoCount}', t(context).tr('rideStatPhotos')),
-            ]),
-            // Čas bez signálu — bez něj se u děravé stopy hodiny prostě
-            // ztratí a čísla spolu nesedí (celkem ≠ jízda + stání).
-            if (ride.gapSec > 0) ...[
-              const SizedBox(height: 12),
-              _statRow([
-                _stat('📵', rideDuration(ride.gapMin), t(context).tr('rideStatGap')),
-                _stat('🛰️', '${ride.track.length}', t(context).tr('rideStatPoints')),
-                _stat('✂️', '${ride.segments.where((s) => s.gapBefore != null).length}',
-                    t(context).tr('rideStatBreaks')),
-              ]),
-            ],
-            // Poctivé vysvětlení děravé stopy. Bez něj jezdec vidí trasu
-            // slepenou z rovných čar a myslí si, že appka lže o tom, kudy jel.
-            if (ride.hasGaps) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: MotoGoColors.amberBg,
-                  border: Border.all(color: MotoGoColors.amberBorder),
-                  borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-                ),
-                child: Text(
-                  '📵 ${t(context).tr('rideGapNotice')}',
-                  style: const TextStyle(
-                      fontSize: MotoGoTypo.sizeSm,
-                      fontWeight: MotoGoTypo.w700,
-                      color: MotoGoColors.amber,
-                      decoration: TextDecoration.none),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            // Kdy se jelo — od kdy do kdy (u rozjeté jízdy jen start).
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: MotoGoColors.g100,
-                borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-              ),
-              child: Text(
-                '🕘 ${t(context).tr('rideStatStart')} ${rideDateTime(ride.startedAt)}'
-                '${ride.endedAt != null ? '   →   ${t(context).tr('rideStatEnd')} ${rideDateTime(ride.endedAt!)}' : ''}',
-                style: const TextStyle(
-                    fontSize: MotoGoTypo.sizeMd,
-                    fontWeight: MotoGoTypo.w700,
-                    color: MotoGoColors.g600,
-                    decoration: TextDecoration.none),
-              ),
-            ),
-            if ((ride.motoName ?? '').isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                '🏍️ ${ride.motoName}',
-                style: const TextStyle(
-                    fontSize: MotoGoTypo.sizeBase,
-                    fontWeight: MotoGoTypo.w700,
-                    color: MotoGoColors.g600,
-                    decoration: TextDecoration.none),
-              ),
-            ],
-            if ((ride.description ?? '').isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                ride.description!,
-                style: const TextStyle(
-                    fontSize: MotoGoTypo.sizeBase,
-                    fontWeight: MotoGoTypo.w600,
-                    color: MotoGoColors.g600,
-                    height: 1.45,
-                    decoration: TextDecoration.none),
-              ),
-            ],
-          ],
-        ),
-      );
-
-  /// Řádek tří statistik (stejně široké sloupce).
-  Widget _statRow(List<Widget> children) => Row(children: children);
-
-  Widget _stat(String emoji, String value, String label) => Expanded(
-        child: Column(
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 4),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: MotoGoTypo.sizeXl,
-                    fontWeight: MotoGoTypo.w900,
-                    color: MotoGoColors.black,
-                    decoration: TextDecoration.none)),
-            Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: MotoGoTypo.sizeSm,
-                    fontWeight: MotoGoTypo.w700,
-                    color: MotoGoColors.g400,
-                    decoration: TextDecoration.none)),
-          ],
         ),
       );
 

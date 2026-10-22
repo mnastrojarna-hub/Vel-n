@@ -121,7 +121,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine) // registrace pluginů — povinné
         // Dart: RideKeepAlive — záznam jízdy běží → engine při zavření okna nerušit.
-        RideEngineKeeper.register(flutterEngine)
+        RideEngineKeeper.register(flutterEngine, this)
         // Dart: PushService.clearDelivered() — otevření appky = zákazník upozornění viděl.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "cz.motogo24/notifications")
             .setMethodCallHandler { call, result ->

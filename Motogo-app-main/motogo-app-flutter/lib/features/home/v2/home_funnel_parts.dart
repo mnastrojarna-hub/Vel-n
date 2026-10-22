@@ -226,9 +226,11 @@ class FunnelPresets extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final p = funnelPresets(DateTime.now());
+    final now = DateTime.now();
+    final p = funnelPresets(now);
+    final selected = selection.preset(now);
     Widget chip(int i, String label, FunnelRange r, TextStyle labelStyle) {
-      final on = selection.preset == i;
+      final on = selected == i;
       final dates = '${tripShortDate(tr, r.start)} – ${tripShortDate(tr, r.end)}';
       return Semantics(
         button: true,
@@ -276,7 +278,7 @@ class FunnelPresets extends StatelessWidget {
       );
     }
 
-    final calOn = selection.preset == 2;
+    final calOn = selected == 2;
     final l1 = tr.tr('v2HomeFnPreset1'), l2 = tr.tr('v2HomeFnPreset2');
     Widget cal({required bool wide}) => MgFabAvoid(
           // Vlastní termín (vpravo dole, pod AI tlačítkem) = tap zóna.

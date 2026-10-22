@@ -8,15 +8,20 @@ import '../../../../core/v2/states/mg_state_screen.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../ride_map.dart';
 import '../../ride_model.dart';
 import '../../route_image.dart';
 import 'ride_detail_parts_v2.dart';
+import 'ride_stages_v2.dart';
+import 'ride_trip_row_v2.dart';
 
 /// v2 ride detail (board Zazitky "Detail jízdy"): dark header, the EXISTING
 /// interactive track map (tap = new stop, tap a stop = edit), the one dark
-/// stats card overlapping it, then light: sharing switch, stops with notes
-/// and photos. A dumb view — every callback is the old State's method.
+/// stats card overlapping it (SPEC §9.3), then light: the trip row (part of
+/// a trip / add to a trip — reads the ride list itself), sharing switch,
+/// Etapy (multi-day ride), stops with notes and photos. A dumb view for
+/// the ride itself — every callback is the old State's method.
 class RideDetailViewV2 extends StatelessWidget {
   final UserRide ride;
   final bool busy;
@@ -87,15 +92,22 @@ class RideDetailViewV2 extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 16),
+              RideTripRowV2(ride: ride),
+              const SizedBox(height: 8),
               RideVisibilityCardV2(isPublic: ride.isPublic, busy: busy, onChanged: onVisibility),
+              if (ride.stages.length >= 2) ...[
+                const SizedBox(height: 24),
+                RideStagesV2(stages: ride.stages),
+              ],
               const SizedBox(height: 24),
               Row(children: [
                 const MgIcon(MgIcons.pin, size: 20, color: MgColors.routeGreen),
                 const SizedBox(width: 8),
                 Expanded(
+                  // r1: „Stopps und Sehenswürdigkeiten" celé, slovo se nedělí.
                   child: Semantics(
                     header: true,
-                    child: Text(tr.tr('rideStops'), style: MgType.section.copyWith(color: MgColors.ink)),
+                    child: MgWordFit(minScale: 0.75, child: Text(tr.tr('rideStops'), style: MgType.section.copyWith(color: MgColors.ink))),
                   ),
                 ),
                 if (ride.points.isNotEmpty)
@@ -132,7 +144,7 @@ class _MapHint extends StatelessWidget {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const MgIcon(MgIcons.finger, size: 14, color: MgColors.neon),
               const SizedBox(width: 6),
-              Flexible(child: Text(text, style: MgType.meta.copyWith(color: MgColors.onDark))),
+              Flexible(child: MgWordFit(minScale: 0.8, child: Text(text, style: MgType.meta.copyWith(color: MgColors.onDark)))),
             ]),
           ),
         ),
@@ -190,7 +202,12 @@ class RidePointCardV2 extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink))),
+                Expanded(
+                  child: MgWordFit(
+                    minScale: 0.8,
+                    child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
+                  ),
+                ),
                 const MgIcon(MgIcons.edit, size: 18, color: MgColors.meta),
               ]),
               if ((p.note ?? '').isNotEmpty) ...[

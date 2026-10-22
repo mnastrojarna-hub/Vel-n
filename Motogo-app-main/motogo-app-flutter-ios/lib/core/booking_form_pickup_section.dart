@@ -5,6 +5,8 @@ import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import '../features/booking/map_launcher.dart';
+import '../features/auth/auth_provider.dart' show profileProvider;
+import 'booking_address_carry.dart';
 import 'booking_form_locked_option.dart';
 import 'i18n/i18n_provider.dart';
 
@@ -60,7 +62,8 @@ class BookingFormPickupSection extends ConsumerWidget {
               t(context).tr('deliveryPriceInfo'),
               t(context).tr('deliveryFrom'),
               draft.pickupMethod == 'delivery',
-              () => onUpd((d) => d.copyWith(pickupMethod: 'delivery')),
+              // Bez vlastní adresy převezme adresu druhé strany předání (2026-10-22).
+              () => handoverToDelivery(ref, onUpd, draft, pickup: true),
             ),
           if (!deliveryBlocked && draft.pickupMethod == 'delivery') ...[
             const SizedBox(height: 10),
@@ -72,10 +75,9 @@ class BookingFormPickupSection extends ConsumerWidget {
                 t(context).tr('pickupAddressLabel'),
                 draft.pickupCity,
                 draft.pickupAddress,
-                (city, addr) => onUpd((d) => d.copyWith(
-                      pickupCity: () => city,
-                      pickupAddress: () => addr,
-                    )),
+                (city, addr) => handoverSaveAddress(ref, onUpd, draft, pickup: true, city: city, addr: addr),
+                quick: handoverQuickOptions(t(context).tr, draft,
+                    pickup: true, profile: ref.read(profileProvider).valueOrNull),
                 onDistCalc: (km, fee) {
                   ref.read(pickupDelivFeeProvider.notifier).state = fee;
                   ref.read(pickupDistKmProvider.notifier).state = km;

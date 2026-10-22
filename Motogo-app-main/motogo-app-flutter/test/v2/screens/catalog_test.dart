@@ -104,10 +104,26 @@ void main() {
       after: null,
     ),
     (
-      name: 'calc__late_12',
+      // A given range folds into summary + "Změnit" (owner 2026-10-22);
+      // "Změnit" reopens the calendar.
+      name: 'calc__dates_reopened',
+      build: motorky,
+      overrides: () => [...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we)), calcMode],
+      after: (t) async {
+        await t.pump(const Duration(milliseconds: 50));
+        final change = find.byWidgetPredicate((w) => w is MgBtnText && w.icon == MgIcons.edit);
+        await t.ensureVisible(change);
+        await t.pump();
+        await t.tap(change);
+        await t.pump(const Duration(milliseconds: 400));
+      },
+    ),
+    (
+      // 1-day trip: the ½ card gives way to the general 12:00 note.
+      name: 'calc__one_day',
       build: motorky,
       overrides: () => [
-        ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we, pickupTime: '12:00')),
+        ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: ws)),
         calcMode,
       ],
       after: null,

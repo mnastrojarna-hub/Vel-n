@@ -24,6 +24,7 @@ import 'funnel_carousel_v2.dart';
 import 'funnel_provider.dart';
 import 'home_date_sheet_v2.dart';
 import 'home_funnel_parts.dart';
+import 'home_links.dart';
 import 'home_reveal.dart';
 
 /// Home funnel "Tvoje příští jízda" (S0 / S10, DESIGN_V21 §4 + V22 §2.4 #4):
@@ -31,6 +32,8 @@ import 'home_reveal.dart';
 /// range (licence-filtered, real availability), your price from the SAME
 /// price engine the booking form uses, presets + calendar, and the one
 /// looping CTA "REZERVOVAT · {cena}" → the existing booking start (PM-3).
+/// The dates are the ones the customer gave anywhere (`homeGiveDates`):
+/// a pick here also fills Motorky, and the bike detail opens with them.
 class HomeFunnelV2 extends ConsumerStatefulWidget {
   const HomeFunnelV2({super.key});
 
@@ -39,20 +42,33 @@ class HomeFunnelV2 extends ConsumerStatefulWidget {
 }
 
 class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
-  final PageController _pc = PageController();
+  PageController? _pc;
+  FunnelRange? _pcRange;
 
   @override
   void dispose() {
-    _pc.dispose();
+    _pc?.dispose();
     super.dispose();
   }
 
+  /// One pager per date range, opened at the centred bike: back on Domů =
+  /// the bike the customer left, other dates = their first bike — photo,
+  /// "n / m" and REZERVOVAT always show the SAME bike.
+  PageController _pager(FunnelRange range, int center) {
+    final cur = _pc;
+    if (cur != null && _pcRange == range) return cur;
+    if (cur != null) WidgetsBinding.instance.addPostFrameCallback((_) => cur.dispose());
+    _pcRange = range;
+    return _pc = PageController(initialPage: center);
+  }
+
   void _go(int page) {
-    if (!_pc.hasClients) return;
+    final pc = _pc;
+    if (pc == null || !pc.hasClients) return;
     if (MgMotion.reduced(context)) {
-      _pc.jumpToPage(page);
+      pc.jumpToPage(page);
     } else {
-      _pc.animateToPage(page, duration: MgMotion.pop, curve: MgMotion.out);
+      pc.animateToPage(page, duration: MgMotion.pop, curve: MgMotion.out);
     }
   }
 
@@ -60,15 +76,16 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final picked = await showHomeDateSheet(context,
         initial: current, applyLabel: t(context).tr('v2HomeDateUse'));
     if (picked == null || !mounted) return;
-    ref.read(funnelSelectionProvider.notifier).state = FunnelSelection(2, picked);
-    ref.read(funnelCenterProvider.notifier).state = 0;
-    if (_pc.hasClients) _pc.jumpToPage(0);
+    _select(picked);
   }
 
-  void _select(FunnelSelection s) {
-    ref.read(funnelSelectionProvider.notifier).state = s;
+  /// A preset / calendar pick (null = ✕): the dates for the whole app.
+  void _select(FunnelRange? range) {
+    homeGiveDates(ref, range);
+    if (range == null) ref.read(funnelGivenProvider.notifier).state = null;
     ref.read(funnelCenterProvider.notifier).state = 0;
-    if (_pc.hasClients) _pc.jumpToPage(0);
+    final pc = _pc;
+    if (pc != null && pc.hasClients) pc.jumpToPage(0);
   }
 
   @override
@@ -76,7 +93,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
     final sel = ref.watch(funnelSelectionProvider);
-    final range = sel.range(DateTime.now());
+    final now = DateTime.now();
+    final range = sel.range(now);
     final async = ref.watch(funnelCandidatesProvider(range));
     final loyaltyAsync = ref.watch(loyaltyStatusProvider);
     final loyalty = loyaltyAsync.valueOrNull;
@@ -105,7 +123,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
       data: (l) => l.isEmpty
           ? FunnelEmptySlot(error: false, title: tr.tr('v2HomeFnNoneTitle'), text: tr.tr('v2HomeFnNoneText'))
           : PageView.builder(
-              controller: _pc,
+              key: ValueKey(range),
+              controller: _pager(range, center),
               itemCount: l.length,
               onPageChanged: (i) => ref.read(funnelCenterProvider.notifier).state = i,
               itemBuilder: (_, i) {
@@ -123,6 +142,9 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                   listPrice: listOf(m),
                   onTap: () {
                     ref.read(filteredMotoIdsProvider.notifier).state = [for (final x in l) x.id];
+                    // The detail opens with the dates this card is priced
+                    // for (folded, "Změnit") — not an empty calendar.
+                    homeGiveDates(ref, range);
                     homePushMoto(context, m.id);
                   },
                 );
@@ -202,12 +224,14 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 loyalty: loyalty,
                 onRetry: () => ref.invalidate(loyaltyStatusProvider),
               ),
-              if (sel.preset == 2)
-                FunnelDateLine(range: range, onClear: () => _select(const FunnelSelection(0))),
+              if (sel.preset(now) == 2) FunnelDateLine(range: range, onClear: () => _select(null)),
               const SizedBox(height: 10),
               FunnelPresets(
                 selection: sel,
-                onPreset: (i) => _select(FunnelSelection(i)),
+                onPreset: (i) {
+                  final p = funnelPresets(DateTime.now());
+                  _select(i == 1 ? p.$2 : p.$1);
+                },
                 onCalendar: () => _pickDates(range),
               ),
               const SizedBox(height: 10),

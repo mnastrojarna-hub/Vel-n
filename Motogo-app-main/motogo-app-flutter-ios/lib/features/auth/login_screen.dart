@@ -17,7 +17,10 @@ import 'widgets/login_footer.dart';
 
 /// Login screen — 1:1 replica of the Capacitor MotoGo24 login UI.
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  /// E-mail z registrace („účet už existuje → Přihlásit“) — zákazník ho
+  /// nepíše znovu (`/login?email=…`, stejně jako obnova hesla).
+  final String? initialEmail;
+  const LoginScreen({super.key, this.initialEmail});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -30,10 +33,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _bioAvailable = false;
   bool _bioEnabled = false;
   bool _obscurePass = true;
+  // Zapamatovaný e-mail posledního přihlášení (do registrace se nenese —
+  // ten účet už existuje).
+  String? _savedEmail;
 
   @override
   void initState() {
     super.initState();
+    _carryEmail(widget.initialEmail);
     _prefillEmail();
     _checkBiometric();
     // Appka zákazníka odhlásila sama (neplatné / zneplatněné přihlášení) →
@@ -51,11 +58,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  @override
+  void didUpdateWidget(LoginScreen old) {
+    super.didUpdateWidget(old);
+    // Návrat z registrace na už otevřené přihlášení (`go` stránku znovu použije).
+    if (widget.initialEmail != old.initialEmail) _carryEmail(widget.initialEmail);
+  }
+
+  void _carryEmail(String? email) {
+    final e = email?.trim() ?? '';
+    if (e.isNotEmpty) _emailCtrl.text = e;
+  }
+
   Future<void> _prefillEmail() async {
     final email = await AuthService.getSavedEmail();
+    _savedEmail = email;
     if (email != null && _emailCtrl.text.isEmpty) {
       _emailCtrl.text = email;
     }
+  }
+
+  /// Registrace s e-mailem, který zákazník už napsal (ne zapamatovaný
+  /// e-mail existujícího účtu; [unknown] = ověřeně bez účtu) — nepíše ho
+  /// podruhé.
+  void _openRegister({bool unknown = false}) {
+    final e = _emailCtrl.text.trim();
+    final carry = e.isNotEmpty && (unknown || e != _savedEmail?.trim());
+    context.push(carry
+        ? Uri(path: Routes.register, queryParameters: {'email': e}).toString()
+        : Routes.register);
   }
 
   Future<void> _checkBiometric() async {
@@ -122,7 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.push(Routes.register);
+              _openRegister(unknown: true);
             },
             child: Text(t(context).registerBtn,
                 style: const TextStyle(color: MotoGoColors.greenDark, fontWeight: FontWeight.w800)),
@@ -305,7 +336,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                       // REGISTROVAT SE button
                       LoginRegisterButton(
-                        onPressed: () => context.push(Routes.register),
+                        onPressed: () => _openRegister(),
                       ),
 
                       const SizedBox(height: 24),

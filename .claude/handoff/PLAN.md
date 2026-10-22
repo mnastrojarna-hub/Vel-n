@@ -1,4 +1,39 @@
-# Handoff 2026-10-16 → navázání po resetu týdenního limitu (čt 22. 10. 15:00)
+# Handoff 2026-10-22 → pokračování „za týden“ (majitel: „pozastav to dokončíme to za týden“)
+
+> Pracovní podklady Clauda pro větev `claude/moto-go-mobile-conversion-gqg5qo`. **Složku `.claude/handoff/` smazat před dalším mergem do `main`** (už v main je její starší verze z #2212 — v dalším PR ji smazat).
+> **PR #2214 (z této větve) je převedený na KONCEPT (draft) se souhlasem majitele — nechat jako koncept, dokud není vše ověřené.** Majitel merguje bez čtení → mergovat jen po zprávě „ověřeno, můžete mergovat“.
+
+## Rozhodnutí majitele 2026-10-22 (doslova shrnuto)
+- Záznam jízdy (R1–R6, doslovné zadání v `workflows/rides-pause-trips-wf_ace31e66-1f7.js`, konstanta OWNER): ruční PAUZA, AUTOMATICKÁ pauza/pokračování podle pohybu (stání, chůze, noc), vícedenní cesta = JEDEN záznam (vlastní i výpůjčka), SLOUČENÍ jízd do tripu (+ zpět), smysluplné statistiky.
+- Kalkulačka: přepínač „vyzvednutí od 12:00“ PRYČ, jen informace (+ úspora); čas se volí jen v rezervaci. **Zákazník nikdy nevyplňuje nic dvakrát.** (hotovo, čeká na ověření)
+- E-mail zákazníkovi při nezapsané placené změně: **NE** (odstraněno, commit 1d57d742; obsluze e-mail zůstává).
+- „4. důležité“ = prodejní texty (`app-v2-sales-copy.js`), UX kontrola (`app-v2-ux-review.js`), pojistka funkčnosti (`functional-diff-audit.js`) — udělat PŘED vydáním (ride změny jsou teď vyžádané majitelem → povolené).
+- „5. ani neposílej“ = SQL majiteli NEposílat ke schválení; po ověření dát rovnou jako migrace do `supabase/migrations/` (názvy řadit ZA nejnovější soubor v main — main má už `20261022_gear_rental.sql`, `20261022b_live_viewers.sql`) + STATE_1–6 ve stejném commitu. Merge = aplikace na živou DB → jen 100% ověřené, idempotentní.
+- „7. ne“ = ostatní otevřené otázky (VOP čl. 5 l), PREHLED.md) teď neřešit.
+- „1., 2., 3. dotáhni a jdeme zkusit android app novou verzi buildnout“ → po dokončení 1–3 testovací build v Codemagic („MotoGo24 Android Build“, větev `claude/moto-go-mobile-conversion-gqg5qo`, bez merge).
+
+## ⚠️ ŽIVÁ CHYBA (neopravená, majitel ví) — storno z Velínu s částečnou / žádnou vratkou
+DB trigger `trg_notify_booking_cancelled_email` po `status→cancelled` volá `send-cancellation-email` BEZ částky; funkce si dopočte vratku podle storno tabulky, zavolá `process-refund` a získá `claim_email_send` dřív než Velín → volba obsluhy (0 % / 50 %) se přebije (≥ 7 dní před začátkem → 100 %). Nezávisle zopakováno: `stornofix/REPRO.md`. Oprava NEZAČATA (worktree byl bez změn). Další krok: workflow `workflows/storno-refund-hotfix-wf_d7459438-494.js` (worktree z origin/main na samostatné větvi `claude/hotfix-storno-refund-gqg5qo`) — **před pushnutím té větve požádat majitele o souhlas** (jako u #2213). Dočasně: majitel po stornu s částečnou vratkou kontroluje Stripe. Harness: `paydec/vrf/` (README.txt).
+
+## Stav main (živé)
+- Edge funkce plateb = `550ad417` (hotfix #2213 vrátil neověřené platby z #2212). Vývojová větev drží svou verzi plateb (merge 5200139c zachoval `supabase/functions` větve) — při dalším `merge origin/main` znovu ohlídat, aby revert nepřepsal platby ve větvi.
+- Žádné SQL z této větve v main není.
+
+## STAV úloh při zastavení (22. 10. ~21:00 Praha)
+1. **Jízdy** (run `wf_ace31e66-1f7`, výsledky `reports/rides.json`): hotovo understand ×3, 2 návrhy, `rides/SPEC.md` (+ `SPEC_OWNER_CS.md`), impl logika (oba stromy, `rides/LOGIC_API.md`), SQL koncepty `rides/sql/` (+ test, `STATE_PATCH.md`, `rides/setup.sh` pro PG16), obrazovky starý vzhled (oba stromy) i v2 (Android). **Přerušeno: impl:velin.** Nezačato: verify (scenarios, sql, ui, code) + opravy.
+2. **Appka v2** (run `wf_13a7a4b2-0f3`, `reports/v2-continue.json`): hotovo opravy kola 1 (catalog, profile, reservations, routes), 12:00 jako informace, audit + opravy „nic dvakrát“ (home, catalog, booking, shared, reservations, profile, routes). **Přerušeno: verify r2** (parity, render). Pak verify/fix kola.
+3. **Platby** (`reports/payments-finish.json` — dokončeno; `reports/payments-verify-final.json` — g1: refunds + charges hotové, ux přerušené). **Otevřené blockery** (verify:refunds:g1): (a) webhook charge.refunded → pojistný storno e-mail volá process-refund s částkou → druhá vratka (oprava: `skip_refund: true` v tom volání); (b) vratka storna není „právě jednou“ (zámek claim_email_send 'refund_cancellation' + cílová částka minus už vrácené dle metadat Stripe); (c) = živá chyba výše; + majory (refund_pending navždy po pending vratce, živá rezervace „refunded“ po vyčerpání doplatku, Velín 100 % „částečné vrácení“ nic nevrátí, plné storno ignoruje QR část). verify:charges:g1: major — měna z klienta (`currency || 'czk'`) a webhook nekontroluje měnu. Další krok: fix:g1 se všemi, pak verify kola (skript `workflows/payments-verify-final-wf_3128b0af-700.js`).
+4. **Build Androidu nanečisto** (`build/`): **debug APK se úspěšně sestavil** (snapshot cab35677, 18,5 min, Flutter 3.47.7, AGP 8.11.1, Kotlin 2.2.20, JDK 17) → konfigurace sestavení je v pořádku. Release (R8) build nedoběhl (zastaveno). V novém kontejneru SDK znovu instalovat (~9 GB s Gradle cache — hlídat disk) nebo nechat rovnou Codemagic.
+
+## Jak navázat
+- **Stejný kontejner (journály v `~/.claude/projects/.../subagents/workflows/<run>/journal.jsonl` existují):** `Workflow({scriptPath: <skript>, resumeFromRunId: <run>})` — hotoví agenti se vezmou z cache. Skripty: `~/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/` (kopie v `workflows/`).
+- **Nový kontejner:** skripty z `workflows/`, přepsat `const S = '…'` na nový scratchpad, obnovit podklady (`rides/*` → `S/rides/`, `paydec/*` → `S/paydec/`, `reports/r1_area_issues.json` → `S/v2cont/`), a napsat POKRAČOVACÍ skripty (ne od začátku!): jízdy = impl:velin → verify/fix; v2 = verify r2 → fix; platby = fix:g1 (issues z `reports/payments-verify-final.json`) → verify; storno hotfix = fix → verify. Vstupy z `reports/*.json`.
+- **Pořadí:** (0) začátek session dle CLAUDE.md (STATE, issues, `git fetch && merge origin/main` + ohlídat revert plateb), (1) storno hotfix (živá chyba), (2) jízdy + v2 souběžně, (3) platby, (4) „4. důležité“ (texty, UX, pojistka), (5) SQL jako migrace + STATE, (6) „můžete buildit“ → Codemagic, (7) vydání.
+- **Limity:** 4 workflow souběžně ≈ 9,5 %/h týdne a ~1 %/min pětihodinového okna → nejvýš 2 workflow současně. Disk ~39 GB allowance: mazat `/tmp/flutter_tools.*` starší 20 min, goldeny, staré PG clustery.
+
+---
+# (Historie) 
+## Handoff 2026-10-16 → navázání po resetu týdenního limitu (čt 22. 10. 15:00)
 
 > Pracovní podklady Clauda pro větev `claude/moto-go-mobile-conversion-gqg5qo`.
 > **Celou složku `.claude/handoff/` smazat před mergem do `main`.**
@@ -6,6 +41,10 @@
 
 ## Proč pauza
 Týdenní limit účtu byl ~97 %, dokupování je vypnuté. Úlohy byly zastaveny ručně a vše rozpracované je uložené (STAV níže).
+
+
+## POZOR — revert plateb v main (2026-10-22)
+PR #2212 (merge vývojové větve majitelem 22. 10. 16:43) nasadil neověřené platby; hotfix PR #2213 (větev claude/hotfix-payments-revert-gqg5qo) vrací supabase/functions na 550ad417. Při PŘÍŠTÍM `git merge origin/main` do vývojové větve si git vezme i ten revert a smazal by platby z větve → po merge OBNOV `supabase/functions` z předchozí HEAD větve (`git checkout <HEAD před merge> -- supabase/functions` + smaž soubory, které revert přidal/změnil zpět), ověř deno check/test a teprve pak commit. Při dalším PR do main se platby vrátí naživo — jen po úplném ověření.
 
 ## STAV (doplněno při zastavení)
 Zastaveno 16. 10. 2026 ~23:15 (Praha) při týdenním limitu ~95 %. Úlohy jsou ZASTAVENÉ, ne dokončené.

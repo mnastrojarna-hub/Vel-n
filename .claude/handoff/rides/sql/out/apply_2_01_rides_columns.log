@@ -1,0 +1,7 @@
+psql:<stdin>:13: NOTICE:  column "pause_sec" of relation "user_rides" already exists, skipping
+psql:<stdin>:14: NOTICE:  column "pause_aware" of relation "user_rides" already exists, skipping
+psql:<stdin>:15: NOTICE:  column "stats_state" of relation "user_rides" already exists, skipping
+psql:<stdin>:16: NOTICE:  column "stages" of relation "user_rides" already exists, skipping
+psql:<stdin>:17: NOTICE:  column "trip_id" of relation "user_rides" already exists, skipping
+psql:<stdin>:18: NOTICE:  column "trip_name" of relation "user_rides" already exists, skipping
+psql:<stdin>:31: NOTICE:  relation "idx_user_rides_trip" already exists, skipping
