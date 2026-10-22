@@ -2,7 +2,7 @@
 // Minimální in-memory náhrada supabase-js klienta pro jednotkové testy plateb
 // (deno test, bez sítě a bez DB). Podporuje řetězení, které používají moduly
 // process-payment / _shared/extension-apply: from().select/update/insert/delete,
-// eq/neq/not(in)/in/gt/lte/order/limit, maybeSingle/single, rpc().
+// eq/neq/not(in)/in/gt/lte/is/like/order/limit, maybeSingle/single, rpc().
 // `missingCols` simuluje nenasazené SQL (sloupec neexistuje → PostgREST 42703).
 type Row = Record<string, unknown>
 type Err = { code?: string; message: string }
@@ -67,6 +67,10 @@ class Query implements PromiseLike<Res> {
   lte(c: string, v: number) { this.filters.push((r) => Number(get(r, c)) <= v); return this }
   in(c: string, vs: unknown[]) { this.filters.push((r) => vs.some((v) => same(get(r, c), v))); return this }
   is(c: string, v: unknown) { this.filters.push((r) => get(r, c) == v); return this }
+  like(c: string, pat: string) {
+    const rx = new RegExp('^' + pat.split('%').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$')
+    this.filters.push((r) => rx.test(String(get(r, c) ?? ''))); return this
+  }
   not(c: string, op: string, v: string) {
     if (op === 'in') { const vs = v.replace(/[()]/g, '').split(','); this.filters.push((r) => !vs.includes(String(get(r, c)))) }
     return this

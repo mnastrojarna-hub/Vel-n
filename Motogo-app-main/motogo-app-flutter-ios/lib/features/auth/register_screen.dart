@@ -15,7 +15,9 @@ import '../../core/widgets/error_feedback.dart' show confirmDiscard;
 
 /// 3-step registration — mirrors auth-register.js (regStep 1/2/3).
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  /// E-mail napsaný na přihlášení (`/register?email=…`) — nepíše se znovu.
+  final String? initialEmail;
+  const RegisterScreen({super.key, this.initialEmail});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -55,10 +57,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   /// Krok 1 má vyplněné údaje → odchod z registrace jen po potvrzení
   /// (systémové zpět / swipe / šipka by je jinak potichu zahodily).
+  /// Převzatý e-mail z přihlášení není „rozepsaný“ údaj (zůstává i tam).
   bool get _dirty =>
       _step > 1 ||
-      [_fnameCtrl, _lnameCtrl, _emailCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]
+      [_fnameCtrl, _lnameCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]
           .any((c) => c.text.trim().isNotEmpty) ||
+      _emailCtrl.text.trim() != (widget.initialEmail?.trim() ?? '') ||
       _phoneCtrl.text.replaceAll(' ', '') != '+420';
   bool _wasDirty = false;
 
@@ -70,6 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    _emailCtrl.text = widget.initialEmail?.trim() ?? '';
     for (final c in [_fnameCtrl, _lnameCtrl, _emailCtrl, _phoneCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]) {
       c.addListener(_onFieldChanged);
     }
@@ -130,7 +135,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.go(Routes.login);
+              // E-mail jde s sebou — na přihlášení se nepíše znovu.
+              final e = _emailCtrl.text.trim();
+              context.go(e.isEmpty
+                  ? Routes.login
+                  : Uri(path: Routes.login, queryParameters: {'email': e}).toString());
             },
             child: Text(t(context).login,
                 style: const TextStyle(

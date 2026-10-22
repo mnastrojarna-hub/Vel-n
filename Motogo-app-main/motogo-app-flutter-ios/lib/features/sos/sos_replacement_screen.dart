@@ -13,6 +13,7 @@ import '../catalog/moto_model.dart';
 import '../../core/friendly_error.dart';
 import '../../core/widgets/state_views.dart';
 import 'sos_feedback.dart';
+import 'sos_here_address.dart';
 import 'sos_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 
@@ -39,6 +40,12 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
   void _onAddressSelected(AddressSuggestion s) {
     _addrStreet = s.street;
     _addrCity = s.city;
+  }
+
+  /// „Kde právě jsi“ → adresa do pole (zůstává upravitelné).
+  void _onHerePicked(AddressSuggestion s) {
+    _addrKey.currentState?.setAddress(s.street, s.city, s.zip);
+    _onAddressSelected(s);
   }
 
   void _onAddressCleared() {
@@ -201,6 +208,8 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
 
                     // Address
                     Text(t(context).tr('deliveryAddress'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
+                    const SizedBox(height: 8),
+                    SosHereAddress(onPick: _onHerePicked),
                     const SizedBox(height: 8),
                     AddressAutocompleteField(
                       key: _addrKey,

@@ -7,6 +7,10 @@
 ## Proč pauza
 Týdenní limit účtu byl ~97 %, dokupování je vypnuté. Úlohy byly zastaveny ručně a vše rozpracované je uložené (STAV níže).
 
+
+## POZOR — revert plateb v main (2026-10-22)
+PR #2212 (merge vývojové větve majitelem 22. 10. 16:43) nasadil neověřené platby; hotfix PR #2213 (větev claude/hotfix-payments-revert-gqg5qo) vrací supabase/functions na 550ad417. Při PŘÍŠTÍM `git merge origin/main` do vývojové větve si git vezme i ten revert a smazal by platby z větve → po merge OBNOV `supabase/functions` z předchozí HEAD větve (`git checkout <HEAD před merge> -- supabase/functions` + smaž soubory, které revert přidal/změnil zpět), ověř deno check/test a teprve pak commit. Při dalším PR do main se platby vrátí naživo — jen po úplném ověření.
+
 ## STAV (doplněno při zastavení)
 Zastaveno 16. 10. 2026 ~23:15 (Praha) při týdenním limitu ~95 %. Úlohy jsou ZASTAVENÉ, ne dokončené.
 

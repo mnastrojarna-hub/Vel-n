@@ -7,7 +7,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
 import { authClassify, forbidden } from '../_shared/auth.ts'
-import { refundRemainder, mainSource, refundedStatus, customerCapHaleru, CUSTOMER_SHORT_TOLERANCE_HALERU, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
+import { refundRemainder, mainSource, refundedStatus, customerCapHaleru, staffFullBalanceHaleru, CUSTOMER_SHORT_TOLERANCE_HALERU, type ExtraRefund, type OtherIntentsStripe } from './other-intents.ts'
+import { reconcileCreditNote, remainderForMainHaleru } from './credit-note-sync.ts'
+import { isRecoveryOnlyReason } from '../_shared/refund-recovery.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -269,7 +271,15 @@ async function createCreditNoteForExistingRefund(
 
     // Načti Stripe refund + charge pro autoritní data (amount, card brand/last4)
     const refund = await stripe.refunds.retrieve(bk.stripe_refund_id)
-    const refundedAmountCZK = (refund.amount || 0) / 100
+    const rmd = ((refund.metadata || {}) as Record<string, string>)
+    // Oprava f3: vratku rozdělenou mezi více plateb (hlavní + zbytek z ostatních plateb rezervace,
+    // metadata mg_main_refund) započítat celou — dřív dobropis jen z hlavní vratky (podhodnocený).
+    let restHaleru = 0
+    if (rmd.mg_source === 'process-refund' && rmd.mg_part !== 'remainder') {
+      const mainPi = typeof refund.payment_intent === 'string' ? refund.payment_intent : (refund.payment_intent as any)?.id || null
+      restHaleru = await remainderForMainHaleru(stripe as unknown as OtherIntentsStripe, supabase, { bookingId, mainPi, mainRefundId: refund.id })
+    }
+    const refundedAmountCZK = ((refund.amount || 0) + restHaleru) / 100
     let cardBrand: string | null = null
     let cardLast4: string | null = null
     try {
@@ -299,11 +309,20 @@ async function createCreditNoteForExistingRefund(
     const originalInvoiceId = origInvs?.[0]?.id || null
     const originalInvoiceNumber = origInvs?.[0]?.number || null
 
+    // Souběh s process-refund, které právě vystavuje dobropis k téže vratce (Stripe volání výše
+    // trvají) → znovu ověřit těsně před vložením.
+    const { data: dupe2 } = await supabase.from('invoices')
+      .select('id, pdf_path').eq('stripe_refund_id', bk.stripe_refund_id).limit(1)
+    if (dupe2?.length) {
+      return { creditNoteId: dupe2[0].id, pdfPath: dupe2[0].pdf_path, refundId: bk.stripe_refund_id }
+    }
+
     // Číslo dobropisu (DB-YYYY-NNNN) — atomicky, automatická řada < 5000.
     const cnNumber = await nextDocNumber(supabase, 'DB')
     const issueDate = new Date().toISOString().slice(0, 10)
     const motoModel = (bkRow as any).motorcycles?.model || 'motorky'
-    const reasonText = 'Storno rezervace'
+    // Důvod z naší vratky (zkrácení / výměna / úprava …); externí vratka (Stripe portál) = storno.
+    const reasonText = rmd.mg_source === 'process-refund' && rmd.mg_reason ? reasonTextFor(rmd.mg_reason) : 'Storno rezervace'
 
     const { data: cnInv } = await supabase.from('invoices').insert({
       number: cnNumber,
@@ -314,7 +333,8 @@ async function createCreditNoteForExistingRefund(
       subtotal: -refundedAmountCZK,
       tax_amount: 0,
       total: -refundedAmountCZK,
-      notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText} (recovery).`,
+      notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText} (recovery).`
+        + (restHaleru > 0 ? ` Vráceno z více plateb: ${refund.id} + ${restHaleru / 100} Kč z dalších plateb rezervace.` : ''),
       issue_date: issueDate,
       due_date: issueDate,
       status: 'issued',
@@ -967,13 +987,16 @@ Deno.serve(async (req: Request) => {
       // minul o ~1 s (credit_note ještě nebyla v DB a Stripe idempotency klíč
       // se lišil kvůli mezitím změněnému refundable) → vznikla DRUHÁ reálná
       // 556Kč vratka a duplicitní dobropis DB-2026-0002.
-      if (typeof reason === 'string' && /_retry$/.test(reason)) {
+      // Webhook charge.refunded volá s důvodem `webhook_refund_retry` (oprava f3 — dřív bez důvodu
+      // a u 'refund_pending' tak vznikla druhá plná vratka), viz _shared/refund-recovery.ts.
+      if (isRecoveryOnlyReason(reason)) {
         let result = await ensureCreditNotePdf(supabase, booking_id, data)
         if (!result.creditNoteId && data.stripe_refund_id) {
           result = await createCreditNoteForExistingRefund(supabase, booking_id, data)
         }
         await dlog('recovery_only_dispatch', result.creditNoteId ? 'ok' : 'info', {
           credit_note_id: result.creditNoteId, pdf_path: result.pdfPath,
+          webhook_refund_id: typeof (body as Record<string, unknown>).refund_id === 'string' ? (body as Record<string, unknown>).refund_id : null,
         })
         return new Response(
           JSON.stringify({
@@ -1228,10 +1251,27 @@ Deno.serve(async (req: Request) => {
     // 'refunded' bez vrácení peněz, resp. storno část ceny z ještě nezapsaného doplatku. Jen
     // vratka s částkou — storno, obsluha i zákaznická vratka z appky (oprava f2 2026-10-22:
     // dřív jen z uložené platby, tj. z posledního doplatku oříznutá na jeho zbytek).
+    // Vratka obsluhy / služby BEZ částky (Velín plné storno — bookingMessageHelpers isFull,
+    // BookingDetail „Potvrdit vrácení" na celou cenu) = celý zůstatek plateb V CENĚ rezervace
+    // (uložená platba, patří-li do ceny, + ostatní platby) a dál stejná cesta jako vratka s částkou
+    // (mainSource → hlavní vratka → zbytek). Oprava f3 2026-10-22: dřív jen zbytek uložené platby —
+    // po zaplacené úpravě / výměně je to doplatek, takže plné storno 3000 + 115 Kč vrátilo 115 Kč,
+    // zapsalo 'refunded' a navazující volání na celou cenu (send-cancellation-email) skončilo
+    // v idempotentní větvi: původní platba (i dorovnání na 15 Kč) se nevrátila nikdy; po nezapsané
+    // výměně (uložený vrácený doplatek) no_op → 'refunded' a 0 Kč. Recovery (`_retry`) a idempotentní
+    // větev výše se nemění; zákazník částku posílá vždy. Nelze zjistit → dosavadní chování.
+    let reqAmount: number | undefined = amount
+    let fullBalance = false
+    if (booking_id && !isCustomer && !(Number(amount) > 0) && refundableHaleru != null) {
+      const balH = await staffFullBalanceHaleru(stripe as unknown as OtherIntentsStripe, supabase, { bookingId: booking_id, storedPi, storedRefunds })
+      await dlog('full_refund_balance', 'info', { balance_haleru: balH, stored_refundable_haleru: refundableHaleru, payment_intent_id: stripePaymentIntentId })
+      if (balH != null && balH > 0) { reqAmount = balH / 100; fullBalance = true }
+    }
+
     if (booking_id && (chargedHaleru === 0 || refundableHaleru === 0 || storedPi)) {
       try {
         const src = await mainSource(stripe as unknown as OtherIntentsStripe, supabase, {
-          bookingId: booking_id, storedPiId: stripePaymentIntentId, storedPi, storedRefunds, chargedHaleru, refundableHaleru, isCustomer, amount,
+          bookingId: booking_id, storedPiId: stripePaymentIntentId, storedPi, storedRefunds, chargedHaleru, refundableHaleru, isCustomer, amount: reqAmount,
         })
         if (src.kind === 'retarget') {
           await dlog('main_pi_retargeted', 'info', { stored_payment_intent_id: stripePaymentIntentId, payment_intent_id: src.piId,
@@ -1261,8 +1301,8 @@ Deno.serve(async (req: Request) => {
 
     // Decide effective amount (in haléře). Null = full refund.
     let effectiveAmountHaleru: number | null = null
-    if (amount && amount > 0) {
-      effectiveAmountHaleru = Math.round(amount * 100)
+    if (reqAmount && reqAmount > 0) {
+      effectiveAmountHaleru = Math.round(reqAmount * 100)
       if (refundableHaleru != null && effectiveAmountHaleru > refundableHaleru) {
         console.warn(`[process-refund] requested ${effectiveAmountHaleru/100} CZK > refundable ${refundableHaleru/100} CZK — clamping`)
         effectiveAmountHaleru = refundableHaleru
@@ -1361,7 +1401,7 @@ Deno.serve(async (req: Request) => {
     // (customerCapH) — dřív šla jen z hlavní platby a zbytek se tiše ztratil.
     let extra: { refunds: ExtraRefund[]; refundedHaleru: number; leftHaleru: number; error?: string } =
       { refunds: [], refundedHaleru: 0, leftHaleru: 0 }
-    const requestedHaleru = amount && amount > 0 ? Math.round(amount * 100) : null
+    const requestedHaleru = reqAmount && reqAmount > 0 ? Math.round(reqAmount * 100) : null
     const targetHaleru = requestedHaleru == null ? null
       : (isCustomer ? Math.min(requestedHaleru, customerCapH ?? 0) : requestedHaleru)
     if (booking_id && targetHaleru != null && effectiveAmountHaleru != null && targetHaleru > effectiveAmountHaleru) {
@@ -1422,8 +1462,8 @@ Deno.serve(async (req: Request) => {
       //  - jinak (plné vrácení / succeeded) → 'refunded'.
       // Zákaznická vratka = jen přeplatek → rezervace s nenulovou cenou zůstává zaplacená
       // (i když se tím vyčerpá aktuální PI, např. doplatkový).
-      const newStatus = refundedStatus({ refundStatus: refund.status, isCustomer, bookingTotalPrice, amount,
-        refundableHaleru, effectiveAmountHaleru, leftHaleru: extra.leftHaleru, shortHaleru })
+      const newStatus = refundedStatus({ refundStatus: refund.status, isCustomer, bookingTotalPrice, amount: reqAmount,
+        refundableHaleru, effectiveAmountHaleru, leftHaleru: extra.leftHaleru, shortHaleru, fullBalance })
       const bkPatch: Record<string, any> = { payment_status: newStatus, stripe_refund_id: refund.id }
       if (cardBrand) bkPatch.card_brand = cardBrand
       if (cardLast4) bkPatch.card_last4 = cardLast4
@@ -1457,9 +1497,13 @@ Deno.serve(async (req: Request) => {
           const originalInvoiceId = origInvs?.[0]?.id || null
           const originalInvoiceNumber = origInvs?.[0]?.number || null
 
+          const cnNotes = `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}`
+            + (extra.refunds.length ? ` Vráceno z více plateb: ${refund.id} + ${extra.refunds.map((x) => x.refundId).join(', ')}.` : '')
+          const cnMotoModel = (bk as any).motorcycles?.model || 'motorky'
+
           // Idempotency: if a credit_note already exists for this booking + refund, reuse it
           const { data: existingCn } = await supabase.from('invoices')
-            .select('id, number, pdf_path')
+            .select('id, number, pdf_path, total, status')
             .eq('booking_id', booking_id)
             .eq('type', 'credit_note')
             .eq('stripe_refund_id', refund.id)
@@ -1470,12 +1514,26 @@ Deno.serve(async (req: Request) => {
           if (existingCn?.length) {
             cnId = existingCn[0].id
             cnNumber = existingCn[0].number
+            // Oprava f3: dobropis mohla k této vratce vystavit recovery z webhooku charge.refunded
+            // dřív, než tohle volání vrátilo zbytek z ostatních plateb — jen z částky hlavní vratky.
+            // Dorovnat na skutečně vrácenou částku (položka, základ, celkem, poznámka, účetní záznam).
+            if (existingCn[0].status !== 'cancelled') {
+              try {
+                const fixed = await reconcileCreditNote(supabase, { cnId: cnId!, cnNumber, bookingId: booking_id,
+                  currentTotal: Number(existingCn[0].total || 0), targetCzk: refundedAmountCZK,
+                  description: `Dobropis – ${reasonText} (${cnMotoModel})`, reasonText, notes: cnNotes,
+                  issueDate: new Date().toISOString().slice(0, 10) })
+                if (fixed != null) await dlog('credit_note_reconciled', 'info', { credit_note_id: cnId, from: existingCn[0].total, to: -fixed })
+              } catch (e) {
+                await dlog('credit_note_reconcile_failed', 'error', { credit_note_id: cnId, error: (e as Error).message })
+              }
+            }
           } else {
             // Číslo dobropisu (DB-YYYY-NNNN) — atomicky, automatická řada < 5000.
             cnNumber = await nextDocNumber(supabase, 'DB')
 
             const issueDate = new Date().toISOString().slice(0, 10)
-            const motoModel = (bk as any).motorcycles?.model || 'motorky'
+            const motoModel = cnMotoModel
             const { data: cnInv, error: cnErr } = await supabase.from('invoices').insert({
               number: cnNumber,
               type: 'credit_note',
@@ -1489,8 +1547,7 @@ Deno.serve(async (req: Request) => {
               subtotal: -refundedAmountCZK,
               tax_amount: 0,
               total: -refundedAmountCZK,
-              notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}`
-                + (extra.refunds.length ? ` Vráceno z více plateb: ${refund.id} + ${extra.refunds.map((x) => x.refundId).join(', ')}.` : ''),
+              notes: cnNotes,
               issue_date: issueDate,
               due_date: issueDate,
               status: 'issued',

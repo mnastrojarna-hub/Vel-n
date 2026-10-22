@@ -83,6 +83,7 @@ import 'translations_ext_43_payments.dart';
 import 'translations_ext_44_payfix.dart';
 import 'translations_ext_45_payments.dart';
 import 'translations_ext_46_booking_prefill.dart';
+import 'translations_ext_48_shared_carry.dart';
 import 'translations_ext_50_v2_core_a.dart';
 import 'translations_ext_50_v2_core_b.dart';
 import 'translations_ext_50_v2_core_c.dart';
@@ -190,6 +191,7 @@ final translations = _mergeAll([
   translationsExt44Payfix,
   translationsExt45Payments,
   translationsExt46BookingPrefill,
+  translationsExt48SharedCarry,
   // v2 vzhled (klíče jen s prefixem `v2`, staré texty nepřepisují).
   translationsExt50V2CoreA,
   translationsExt50V2CoreB,

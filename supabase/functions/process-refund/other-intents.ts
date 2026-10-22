@@ -122,26 +122,53 @@ export async function mainSource(stripe: OtherIntentsStripe, sb: Sb, a: {
  *  takže by strop nafoukly a zákazník by je přes vratku z původní platby dostal podruhé.
  *  Chyba čtení ostatních plateb → jen uložená platba (jako dřív při chybě vyhledávání).
  *  null = nelze ověřit (→ vyřídí obsluha). */
+/** Co z ULOŽENÉ platby rezervace ještě zbývá vrátit V CENĚ rezervace (haléře): 0, když platba patří
+ *  jiné rezervaci / e-shopu nebo stojí mimo cenu (outsidePrice); bez přibalené e-shop části.
+ *  `errAs` = výsledek outsidePrice při chybě čtení debug_log (výchozí true = raději nepočítat). */
+async function storedInPriceHaleru(stripe: OtherIntentsStripe, sb: Sb, a: {
+  bookingId: string; storedPi: IntentLike | null; storedRefunds: RefundLike[] | null; nowMs?: number; errAs?: boolean
+}): Promise<number> {
+  const p = a.storedPi
+  const md = (p?.metadata || {}) as Record<string, string>
+  const received = Number(p?.amount_received || 0)
+  if (!(p && received > 0 && (!md.booking_id || md.booking_id === a.bookingId) && md.type !== 'shop')) return 0
+  const refunds = a.storedRefunds ?? ((await stripe.refunds.list({ payment_intent: p.id, limit: 100 }))?.data || [])
+  if (await outsidePrice(sb, a.bookingId, p, { refunds, nowMs: a.nowMs, errAs: a.errAs })) return 0
+  const back = refunds.filter((r) => r.status === 'succeeded' || r.status === 'pending').reduce((s, r) => s + Number(r.amount || 0), 0)
+  let shopPart = 0
+  if (md.shop_order_id) {
+    const { data: so } = await sb.from('shop_orders').select('total').eq('id', md.shop_order_id).maybeSingle()
+    shopPart = Math.round((Number(so?.total) || 0) * 100)
+  }
+  return Math.max(0, received - back - shopPart)
+}
+
+/** Vratka obsluhy / služby BEZ částky (Velín plné storno: bookingMessageHelpers isFull, BookingDetail
+ *  „Potvrdit vrácení" na celou cenu) = celý zůstatek plateb V CENĚ rezervace, haléře: uložená platba
+ *  (patří-li do ceny; outsidePrice jako mainSource — errAs false) + ostatní platby (tentýž výběr, ze
+ *  kterého vrací hlavní vratka i zbytek). Oprava f3 2026-10-22: dřív jen zbytek uložené platby — po
+ *  zaplacené úpravě / výměně je to doplatek (process-payment ukládá každý PaymentIntent doplatku),
+ *  takže plné storno 3000 + 115 Kč vrátilo 115 Kč a zapsalo 'refunded'; po nezapsané výměně (uložený
+ *  vrácený doplatek) no_op → 'refunded' a 0 Kč. null = nelze zjistit (→ dosavadní chování). */
+export async function staffFullBalanceHaleru(stripe: OtherIntentsStripe, sb: Sb, a: {
+  bookingId: string; storedPi: IntentLike | null; storedRefunds: RefundLike[] | null; nowMs?: number
+}): Promise<number | null> {
+  try {
+    const stored = await storedInPriceHaleru(stripe, sb, { ...a, errAs: false })
+    const others = (await otherRefundableIntents(stripe, sb, a.bookingId, a.storedPi?.id || null)).reduce((s, c) => s + c.refundableHaleru, 0)
+    return stored + others
+  } catch (e) {
+    console.warn('[process-refund] full balance failed:', (e as Error).message)
+    return null
+  }
+}
+
 export async function customerCapHaleru(stripe: OtherIntentsStripe, sb: Sb, a: {
   bookingId: string; storedPi: IntentLike | null; storedRefunds: RefundLike[] | null; totalPrice: number; nowMs?: number
 }): Promise<number | null> {
   try {
     const p = a.storedPi
-    const md = (p?.metadata || {}) as Record<string, string>
-    const received = Number(p?.amount_received || 0)
-    let stored = 0
-    if (p && received > 0 && (!md.booking_id || md.booking_id === a.bookingId) && md.type !== 'shop') {
-      const refunds = a.storedRefunds ?? ((await stripe.refunds.list({ payment_intent: p.id, limit: 100 }))?.data || [])
-      if (!(await outsidePrice(sb, a.bookingId, p, { refunds, nowMs: a.nowMs }))) {
-        const back = refunds.filter((r) => r.status === 'succeeded' || r.status === 'pending').reduce((s, r) => s + Number(r.amount || 0), 0)
-        let shopPart = 0
-        if (md.shop_order_id) {
-          const { data: so } = await sb.from('shop_orders').select('total').eq('id', md.shop_order_id).maybeSingle()
-          shopPart = Math.round((Number(so?.total) || 0) * 100)
-        }
-        stored = Math.max(0, received - back - shopPart)
-      }
-    }
+    const stored = await storedInPriceHaleru(stripe, sb, { bookingId: a.bookingId, storedPi: p, storedRefunds: a.storedRefunds, nowMs: a.nowMs })
     let others = 0
     try {
       others = (await otherRefundableIntents(stripe, sb, a.bookingId, p?.id || null)).reduce((s, c) => s + c.refundableHaleru, 0)
@@ -165,9 +192,12 @@ export const CUSTOMER_SHORT_TOLERANCE_HALERU = 100
 export function refundedStatus(a: {
   refundStatus: string | null | undefined; isCustomer: boolean; bookingTotalPrice: number; amount: number | null | undefined
   refundableHaleru: number | null; effectiveAmountHaleru: number | null; leftHaleru: number; shortHaleru?: number
+  /** f3: vratka celého zůstatku v ceně (staffFullBalanceHaleru) — částečná jen když na platbách
+   *  rezervace něco zůstalo (ne kvůli přibalené e-shop části hlavní platby) */
+  fullBalance?: boolean
 }): 'refund_pending' | 'partial_refund' | 'refunded' {
-  const isPartial = (a.isCustomer && (a.bookingTotalPrice > 0 || (a.shortHaleru || 0) > 0)) ||
+  const isPartial = a.fullBalance ? a.leftHaleru > 0 : ((a.isCustomer && (a.bookingTotalPrice > 0 || (a.shortHaleru || 0) > 0)) ||
     (!!a.amount && a.refundableHaleru != null && a.effectiveAmountHaleru != null && a.effectiveAmountHaleru < a.refundableHaleru) ||
-    a.leftHaleru > 0
+    a.leftHaleru > 0)
   return a.refundStatus === 'pending' ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
 }
