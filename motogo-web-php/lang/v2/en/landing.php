@@ -86,8 +86,8 @@ return ['pages' => ['landing' => [
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
         'anchor_big' => 'Almost CZK 40,000 up front for a weekend?',
         'anchor_ours' => 'Our deposit: {zero}.',
-        'anchor_sub' => 'Elsewhere, a big bike usually means a refundable deposit of CZK 20,000–30,000{approx} plus CZK 6,000–10,000 weekend rent — together it can come to almost CZK 40,000 up front.*** With us you leave no deposit, you only pay the rent, and your accident excess is {zero}.*',
-        'anchor_src' => '*** MotoGo24 survey of 17 Czech rentals, price lists checked on 22 Oct 2026: refundable deposits for big bikes CZK 10,000–50,000 (most often CZK 20,000–30,000), weekend rent usually CZK 6,000–10,000; deposit plus rent CZK 27,000–68,000, median about CZK 37,000.',
+        'anchor_sub' => 'Elsewhere, a big bike usually means a refundable deposit of CZK 20,000–30,000{approx} plus CZK 6,000–10,000 weekend rent.***',
+        'anchor_src' => '*** Together that can come to almost CZK 40,000 up front; with us you leave no deposit and only pay the rent. MotoGo24 survey of 17 Czech rentals, price lists checked on 22 Oct 2026: refundable deposits for big bikes CZK 10,000–50,000 (most often CZK 20,000–30,000), weekend rent usually CZK 6,000–10,000; deposit plus rent CZK 27,000–68,000, median about CZK 37,000.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Gear rental',

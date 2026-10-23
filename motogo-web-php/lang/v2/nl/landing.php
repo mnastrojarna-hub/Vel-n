@@ -87,8 +87,8 @@ return ['pages' => ['landing' => [
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
         'anchor_big' => 'Bijna 40.000 CZK vooraf voor een weekend?',
         'anchor_ours' => 'Borg bij ons: {zero}.',
-        'anchor_sub' => 'Elders betaal je voor een grote motor meestal 20.000–30.000 CZK{approx} terugbetaalbare borg plus 6.000–10.000 CZK weekendhuur — samen kan dat bijna 40.000 CZK vooraf zijn.*** Bij ons laat je geen borg achter, betaal je alleen de huur en is je eigen risico bij een ongeval {zero}.*',
-        'anchor_src' => '*** MotoGo24-onderzoek bij 17 Tsjechische verhuurders, prijslijsten gecontroleerd op 22-10-2026: terugbetaalbare borg voor grote motoren 10.000–50.000 CZK (meestal 20.000–30.000 CZK), weekendhuur meestal 6.000–10.000 CZK; borg en huur samen 27.000–68.000 CZK, mediaan ongeveer 37.000 CZK.',
+        'anchor_sub' => 'Elders betaal je voor een grote motor meestal 20.000–30.000 CZK{approx} terugbetaalbare borg plus 6.000–10.000 CZK weekendhuur.***',
+        'anchor_src' => '*** Samen kan dat bijna 40.000 CZK vooraf zijn; bij ons laat je geen borg achter en betaal je alleen de huur. MotoGo24-onderzoek bij 17 Tsjechische verhuurders, prijslijsten gecontroleerd op 22-10-2026: terugbetaalbare borg voor grote motoren 10.000–50.000 CZK (meestal 20.000–30.000 CZK), weekendhuur meestal 6.000–10.000 CZK; borg en huur samen 27.000–68.000 CZK, mediaan ongeveer 37.000 CZK.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Uitrustingsverhuur',

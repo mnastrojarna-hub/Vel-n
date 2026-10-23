@@ -86,8 +86,8 @@ return ['pages' => ['landing' => [
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
         'anchor_big' => '¿Casi 40.000 CZK por adelantado para un fin de semana?',
         'anchor_ours' => 'Nuestra fianza: {zero}.',
-        'anchor_sub' => 'En otros alquileres, una moto grande suele suponer una fianza reembolsable de 20.000–30.000 CZK{approx} más 6.000–10.000 CZK de alquiler de fin de semana: en total puede llegar a casi 40.000 CZK por adelantado.*** Con nosotros no dejas fianza, solo pagas el alquiler y tu franquicia en caso de accidente es {zero}.*',
-        'anchor_src' => '*** Estudio de MotoGo24 sobre 17 alquileres checos, tarifas comprobadas el 22/10/2026: fianza reembolsable para motos grandes de 10.000 a 50.000 CZK (lo más habitual 20.000–30.000 CZK), alquiler de fin de semana normalmente 6.000–10.000 CZK; fianza más alquiler 27.000–68.000 CZK, mediana de unos 37.000 CZK.',
+        'anchor_sub' => 'En otros alquileres, una moto grande suele suponer una fianza reembolsable de 20.000–30.000 CZK{approx} más 6.000–10.000 CZK de alquiler de fin de semana.***',
+        'anchor_src' => '*** En total puede llegar a casi 40.000 CZK por adelantado; con nosotros no dejas fianza y solo pagas el alquiler. Estudio de MotoGo24 sobre 17 alquileres checos, tarifas comprobadas el 22/10/2026: fianza reembolsable para motos grandes de 10.000 a 50.000 CZK (lo más habitual 20.000–30.000 CZK), alquiler de fin de semana normalmente 6.000–10.000 CZK; fianza más alquiler 27.000–68.000 CZK, mediana de unos 37.000 CZK.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Alquiler de equipo',

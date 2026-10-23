@@ -86,8 +86,8 @@ return ['pages' => ['landing' => [
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
         'anchor_big' => 'Fast 40.000 CZK im Voraus fürs Wochenende?',
         'anchor_ours' => 'Kaution bei uns: {zero}.',
-        'anchor_sub' => 'Anderswo hinterlegst du für ein großes Motorrad meist 20.000–30.000 CZK{approx} rückzahlbare Kaution und zahlst 6.000–10.000 CZK Wochenendmiete — zusammen können es fast 40.000 CZK im Voraus sein.*** Bei uns hinterlegst du nichts, zahlst nur die Miete, und deine Selbstbeteiligung bei einem Unfall beträgt {zero}.*',
-        'anchor_src' => '*** MotoGo24-Umfrage bei 17 tschechischen Vermietern, Preislisten geprüft am 22. 10. 2026: rückzahlbare Kaution für große Motorräder 10.000–50.000 CZK (meist 20.000–30.000 CZK), Wochenendmiete meist 6.000–10.000 CZK; Kaution und Miete zusammen 27.000–68.000 CZK, Median etwa 37.000 CZK.',
+        'anchor_sub' => 'Anderswo hinterlegst du für ein großes Motorrad meist 20.000–30.000 CZK{approx} rückzahlbare Kaution und zahlst 6.000–10.000 CZK Wochenendmiete.***',
+        'anchor_src' => '*** Zusammen können das fast 40.000 CZK im Voraus sein; bei uns hinterlegst du keine Kaution und zahlst nur die Miete. MotoGo24-Umfrage bei 17 tschechischen Vermietern, Preislisten geprüft am 22. 10. 2026: rückzahlbare Kaution für große Motorräder 10.000–50.000 CZK (meist 20.000–30.000 CZK), Wochenendmiete meist 6.000–10.000 CZK; Kaution und Miete zusammen 27.000–68.000 CZK, Median etwa 37.000 CZK.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Ausrüstungsverleih',

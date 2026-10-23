@@ -79,8 +79,8 @@ function lpTrustDefaults() {
         // {approx} = přepočet 20–30 tis. Kč do cizí měny „ (≈ …)“, u CZK prázdné. Částky v Kč NEpřepočítávat.
         'anchor_big' => 'Na víkend skoro 40 000 Kč předem?',
         'anchor_ours' => 'U nás kauce {zero}.',
-        'anchor_sub' => 'Jinde u velké motorky složíš obvykle vratnou kauci 20–30 tisíc Kč{approx} a k tomu zaplatíš 6–10 tisíc za víkendový nájem — dohromady to dá i skoro 40 000 Kč předem.*** U nás neskládáš nic, platíš jen nájem a spoluúčast při nehodě máš {zero}.*',
-        'anchor_src' => '*** Průzkum MotoGo24: ceníky 17 českých půjčoven ověřené 22. 10. 2026 — vratná kauce u velkých motorek 10 000–50 000 Kč (nejčastěji 20 000–30 000 Kč), víkendový nájem obvykle 6 000–10 000 Kč; kauce s nájmem dohromady 27 000–68 000 Kč, medián asi 37 000 Kč.',
+        'anchor_sub' => 'Jinde u velké motorky složíš obvykle vratnou kauci 20–30 tisíc Kč{approx} a k tomu zaplatíš 6–10 tisíc za víkendový nájem.***',
+        'anchor_src' => '*** Dohromady to dá i skoro 40 000 Kč předem; u nás kauci neskládáš a platíš jen nájem. Průzkum MotoGo24: ceníky 17 českých půjčoven ověřené 22. 10. 2026 — vratná kauce u velkých motorek 10 000–50 000 Kč (nejčastěji 20 000–30 000 Kč), víkendový nájem obvykle 6 000–10 000 Kč; kauce s nájmem dohromady 27 000–68 000 Kč, medián asi 37 000 Kč.',
         // Promo „jen výbava“ dole na úvodní stránce a na /pujcovna-motorek (landing-gear-promo.php);
         // {set} {price} = název a cena nejlevnějšího aktivního kompletu z gear_rental_prices (Velín; dnes „Komplet bez bot“),
         // sekce jen při zapnutém půjčení.

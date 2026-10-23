@@ -87,8 +87,8 @@ return ['pages' => ['landing' => [
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
         'anchor_big' => 'Prawie 40 000 CZK z góry na weekend?',
         'anchor_ours' => 'U nas kaucja: {zero}.',
-        'anchor_sub' => 'Gdzie indziej za duży motocykl zostawiasz zwykle zwrotną kaucję 20 000–30 000 CZK{approx} i płacisz 6 000–10 000 CZK za weekendowy wynajem — razem może to być prawie 40 000 CZK z góry.*** U nas nie zostawiasz kaucji, płacisz tylko za wynajem, a twój udział własny przy wypadku wynosi {zero}.*',
-        'anchor_src' => '*** Badanie MotoGo24: cenniki 17 czeskich wypożyczalni sprawdzone 22.10.2026 — zwrotna kaucja za duże motocykle 10 000–50 000 CZK (najczęściej 20 000–30 000 CZK), wynajem na weekend zwykle 6 000–10 000 CZK; kaucja z wynajmem razem 27 000–68 000 CZK, mediana około 37 000 CZK.',
+        'anchor_sub' => 'Gdzie indziej za duży motocykl zostawiasz zwykle zwrotną kaucję 20 000–30 000 CZK{approx} i płacisz 6 000–10 000 CZK za weekendowy wynajem.***',
+        'anchor_src' => '*** Razem może to być prawie 40 000 CZK z góry; u nas nie zostawiasz kaucji i płacisz tylko za wynajem. Badanie MotoGo24: cenniki 17 czeskich wypożyczalni sprawdzone 22.10.2026 — zwrotna kaucja za duże motocykle 10 000–50 000 CZK (najczęściej 20 000–30 000 CZK), wynajem na weekend zwykle 6 000–10 000 CZK; kaucja z wynajmem razem 27 000–68 000 CZK, mediana około 37 000 CZK.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Wypożyczenie wyposażenia',

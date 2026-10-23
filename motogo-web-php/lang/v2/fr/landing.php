@@ -86,8 +86,8 @@ return ['pages' => ['landing' => [
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
         'anchor_big' => 'Presque 40 000 CZK d\'avance pour un week-end ?',
         'anchor_ours' => 'Chez nous, caution : {zero}.',
-        'anchor_sub' => 'Ailleurs, une grosse moto, c\'est souvent une caution remboursable de 20 000–30 000 CZK{approx} plus 6 000–10 000 CZK de location pour le week-end — au total, cela peut atteindre presque 40 000 CZK d\'avance.*** Chez nous, tu ne laisses aucune caution, tu paies seulement la location et ta franchise en cas d\'accident est de {zero}.*',
-        'anchor_src' => '*** Étude MotoGo24 auprès de 17 loueurs tchèques, tarifs vérifiés le 22/10/2026 : caution remboursable pour les grosses motos de 10 000 à 50 000 CZK (le plus souvent 20 000–30 000 CZK), location du week-end généralement 6 000–10 000 CZK ; caution et location ensemble 27 000–68 000 CZK, médiane d\'environ 37 000 CZK.',
+        'anchor_sub' => 'Ailleurs, une grosse moto, c\'est souvent une caution remboursable de 20 000–30 000 CZK{approx} plus 6 000–10 000 CZK de location pour le week-end.***',
+        'anchor_src' => '*** Au total, cela peut atteindre presque 40 000 CZK d\'avance ; chez nous, tu ne laisses aucune caution et tu paies seulement la location. Étude MotoGo24 auprès de 17 loueurs tchèques, tarifs vérifiés le 22/10/2026 : caution remboursable pour les grosses motos de 10 000 à 50 000 CZK (le plus souvent 20 000–30 000 CZK), location du week-end généralement 6 000–10 000 CZK ; caution et location ensemble 27 000–68 000 CZK, médiane d\'environ 37 000 CZK.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Location d\'équipement',
