@@ -24,6 +24,7 @@ import { cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import BookingsToolbarPhone from './booking/BookingsToolbarPhone'
 import { autoCancelStale, autoActivateReserved, autoFixPendingPaid, autoGenerateKF } from './booking/bookingsAutoFix'
 import { branchOrFilter } from '../lib/bookingBranch'
+import { applyKindFilter, KIND_OPTIONS } from '../lib/bookingKind'
 
 function localIso(d) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
@@ -54,14 +55,16 @@ export default function Bookings() {
     paymentStatuses: [], customer: '', motoModel: '', branch: '',
     priceMin: '', priceMax: '', durationMin: '', durationMax: '',
     hasInvoice: '', hasContract: '', country: '', licenseGroup: '',
-    sortBy: 'start_date', sortDir: 'desc', futureOnly: false, hideTest: false
+    sortBy: 'start_date', sortDir: 'desc', futureOnly: false, hideTest: false, kind: ''
   }
   const [filters, setFilters] = useState(() => {
+    // ?kind=gear (odkaz z Flotila → Půjčení oblečení) má přednost před uloženým filtrem
+    const urlKind = ['gear', 'moto'].includes(searchParams.get('kind')) ? { kind: searchParams.get('kind') } : {}
     try {
       const saved = localStorage.getItem('velin_bookings_filters')
-      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved), ...urlKind }
     } catch {}
-    return defaultFilters
+    return { ...defaultFilters, ...urlKind }
   })
   useEffect(() => { try { localStorage.setItem('velin_bookings_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
   const [showAdd, setShowAdd] = useState(false)
@@ -169,6 +172,7 @@ export default function Bookings() {
         // Skrýt testovací rezervace (is_test) — NULL/false = reálná, projde vždy
         if (filters.hideTest) query = query.not('is_test', 'is', true)
         if (searchOr) query = query.or(searchOr)
+        query = applyKindFilter(query, filters.kind)
         // Pobočka rezervace = bookings.branch_id (kde zákazník převzal), u NULL záloha přes motorky pobočky;
         // filtrováno na serveru (dřív až po stránkování → stránka mohla být prázdná). Další .or() = AND se searchOr.
         if (branchMotoIds) query = query.or(branchOrFilter(filters.branch, branchMotoIds))
@@ -281,6 +285,7 @@ export default function Bookings() {
       <CheckboxFilterGroup label="Platba" values={filters.paymentStatuses}
         onChange={v => { setPage(1); setFilters(f => ({ ...f, paymentStatuses: v })) }}
         options={PAYMENT_STATUS_FILTER_OPTIONS} />
+      <FilterSelect value={filters.kind || ''} onChange={v => setF('kind', v)} options={KIND_OPTIONS} />
       <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
         options={[{ value: 'start_date', label: 'Datum začátku' }, { value: 'end_date', label: 'Datum konce' }, { value: 'total_price', label: 'Částka' }, { value: 'created_at', label: 'Vytvořeno' }]} />
       <FilterSelect value={filters.sortDir} onChange={v => setF('sortDir', v)}
@@ -360,7 +365,7 @@ export default function Bookings() {
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Bookings</strong><br/>
         <div>bookings: {bookings.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
-        <div>filtry: status={filters.statuses.length > 0 ? filters.statuses.join(',') : 'vše'}, payment={filters.paymentStatuses.length > 0 ? filters.paymentStatuses.join(',') : 'vše'}, search="{filters.search}", future={filters.futureOnly ? 'ano' : 'ne'}</div>
+        <div>filtry: status={filters.statuses.length > 0 ? filters.statuses.join(',') : 'vše'}, payment={filters.paymentStatuses.length > 0 ? filters.paymentStatuses.join(',') : 'vše'}, kind={filters.kind || 'vše'}, search="{filters.search}", future={filters.futureOnly ? 'ano' : 'ne'}</div>
         <div>branches: {branches.length}, motos: {motos.length}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>

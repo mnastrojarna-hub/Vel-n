@@ -11,6 +11,8 @@ import KioskReturnInfo from './KioskReturnInfo'
 import TempCodesList from './TempCodesList'
 import { effBranch } from '../../lib/bookingBranch'
 import { fetchDocsGate } from '../../lib/docsGate'
+import { isGearBooking, bookingGateBranchId, gearDocsGate } from '../../lib/bookingKind'
+import { GearDetailCard } from './GearBookingParts'
 
 // Stav motorky pro zobrazení: syrový `motorcycles.status` říká „V servisu" i motorce,
 // která má jen NAPLÁNOVANÝ servis v budoucnu (pending log). Otevřené záznamy
@@ -46,7 +48,9 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   const anyCodeSent = doorCodes.some(c => c.is_active && c.sent_to_customer)
   // Kód schránky s klíčem od vjezdové brány AKTUÁLNÍ pobočky motorky (branch_gate_access; null = pobočka bez brány).
   // Přistavení na adresu kód brány nedostává (stejné pravidlo jako SQL _booking_gate_code) → neukazovat ani ve Velínu.
-  const branchGateCode = useBranchGateCode(booking?.motorcycles?.branch_id)
+  // Výpůjčka výbavy (bez motorky): pobočka rezervace (bookings.branch_id).
+  const gear = isGearBooking(booking)
+  const branchGateCode = useBranchGateCode(bookingGateBranchId(booking))
   const isDelivery = booking?.pickup_method === 'delivery' || !!String(booking?.pickup_address || '').trim()
   const gateCode = isDelivery ? null : branchGateCode
 
@@ -87,9 +91,10 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   useEffect(() => {
     if (!booking?.id || !anyCodeSent) { setDocsGate(null); return }
     let alive = true
-    fetchDocsGate({ bookingId: booking.id }).then(g => { if (alive) setDocsGate(g) })
+    // výbava: jen doklad totožnosti + 18+ (backendová brána u NULL motorky jinak chce i ŘP)
+    fetchDocsGate({ bookingId: booking.id }).then(g => { if (alive) setDocsGate(gear ? gearDocsGate(g) : g) })
     return () => { alive = false }
-  }, [booking?.id, booking?.moto_id, anyCodeSent])
+  }, [booking?.id, booking?.moto_id, anyCodeSent, gear])
 
   useEffect(() => {
     const mid = booking?.motorcycles?.id
@@ -157,7 +162,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         <InfoRow label="Město" value={booking.profiles?.city} />
       </Card>
 
-      <Card>
+      {gear ? <GearDetailCard booking={booking} /> : <Card>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Motorka</h3>
           {booking.motorcycles?.id && (
@@ -169,7 +174,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         <InfoRow label="Stav" value={motoStatusDisplay(booking.motorcycles?.status, motoOpenLogs)} />
         {/* Pobočka rezervace (bookings.branch_id = kde zákazník převzal), u NULL pobočka motorky */}
         <InfoRow label="Pobočka" value={effBranch(booking)?.name} />
-      </Card>
+      </Card>}
 
       <SOSSection booking={booking} sosIncidents={sosIncidents} navigate={navigate} />
 

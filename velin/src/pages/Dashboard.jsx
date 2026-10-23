@@ -12,6 +12,7 @@ import ExportBar from '../components/ui/ExportBar'
 import BannerEditor from './DashboardBannerEditor'
 import KioskAlertsBanner from '../components/KioskAlertsBanner'
 import { useKioskAlerts } from '../hooks/useKioskAlerts'
+import { isGearBooking } from '../lib/bookingKind'
 import {
   WidgetCard, fmtKc, RevenueChartCard, BookingRowsCard, ModificationsCard, PaymentsCard,
   ShopOrdersCard, ServiceCard, StkCard, EmailsCard, DocsCard, VisitorsCard, AiConvCard,
@@ -60,10 +61,11 @@ export default function Dashboard() {
         newBookR, emailsR, shopR, msgsR, serviceR, visitorsR, aiR, modsR] =
         await debugAction('dashboard.fetchAll', 'Dashboard', () => Promise.allSettled([
           supabase.from('motorcycles').select('id, model, spz, status, stk_valid_until'),
-          supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']).not('is_test', 'is', true),
+          supabase.from('bookings').select('id, status, moto_id').in('status', ['active', 'pending', 'reserved']).not('is_test', 'is', true),
           supabase.from('messages').select('id', { count: 'exact', head: true }).eq('direction', 'customer').is('read_at', null),
           supabase.from('inventory').select('id, stock, min_stock'),
-          supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price, created_via_ai')
+          // select('*') záměrně (jen 5 řádků): booking_kind (výpůjčka výbavy) bez závislosti na pořadí nasazení migrace
+          supabase.from('bookings').select('*')
             .or(`start_date.gte.${today},status.eq.active`)
             .in('status', ['active', 'reserved', 'pending'])
             .not('is_test', 'is', true)
@@ -94,7 +96,7 @@ export default function Dashboard() {
             .is('completed_date', null).order('service_date', { ascending: true }).limit(5),
           supabase.rpc('get_visitor_stats', { p_from: weekAgo, p_to: now.toISOString(), p_host: null, p_granularity: 'day' }),
           supabase.from('ai_public_conversations').select('id, outcome').gte('started_at', weekAgo).limit(1000),
-          supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, modification_history, updated_at')
+          supabase.from('bookings').select('*')
             .not('is_test', 'is', true)
             .neq('modification_history', '[]').order('updated_at', { ascending: false }).limit(5),
         ]))
@@ -106,7 +108,10 @@ export default function Dashboard() {
       const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'reserved').length
       const pendingBookings = bookings.filter(b => b.status === 'pending').length
       const lowStock = val(invStockR).filter(i => i.stock <= (i.min_stock || 0)).length
-      const utilization = activeMotos > 0 ? Math.min(Math.round((activeBookings / activeMotos) * 100), 100) : 0
+      // Využití flotily = jen rezervace MOTOREK — výpůjčka jen výbavy (moto_id NULL; u živé rezervace NULL
+      // motorka = výbava, smazání motorky s živou rezervací Velín blokuje) motorku neobsazuje.
+      const activeMotoBookings = bookings.filter(b => (b.status === 'active' || b.status === 'reserved') && b.moto_id).length
+      const utilization = activeMotos > 0 ? Math.min(Math.round((activeMotoBookings / activeMotos) * 100), 100) : 0
       const in30days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
       const stkExpiring = allMotos.filter(m => m.stk_valid_until && m.stk_valid_until <= in30days)
 
@@ -152,7 +157,7 @@ export default function Dashboard() {
         : { data: [] }
       const profileMap = Object.fromEntries((profilesR.data || []).map(p => [p.id, p.full_name]))
       const motoMap = Object.fromEntries(allMotos.map(m => [m.id, m.model]))
-      const enrich = (b) => ({ ...b, customer_name: profileMap[b.user_id] || null, motorcycle_name: motoMap[b.moto_id] || null })
+      const enrich = (b) => ({ ...b, customer_name: profileMap[b.user_id] || null, motorcycle_name: isGearBooking(b) ? 'Jen výbava' : (motoMap[b.moto_id] || null) })
 
       // ── Servis ──
       const serviceLogs = val(serviceR).map(l => ({ ...l, motorcycle_name: motoMap[l.moto_id] || null }))
@@ -207,7 +212,7 @@ export default function Dashboard() {
       </div>
 
       <div className="mb-4">
-        <button onClick={() => setQuickCheckIn(true)} title="Odbavit odjezd kódem motorky — bez hledání rezervace"
+        <button onClick={() => setQuickCheckIn(true)} title="Odbavit odjezd kódem motorky (u výpůjčky jen výbavy kódem šatny) — bez hledání rezervace"
           className="cursor-pointer"
           style={{ background: '#74FB71', border: 'none', borderRadius: 12, padding: '11px 22px',
             fontSize: 14, fontWeight: 800, color: '#1a2e22', boxShadow: '0 4px 14px rgba(116,251,113,.35)' }}>

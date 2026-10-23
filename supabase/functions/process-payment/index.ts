@@ -7,6 +7,10 @@ import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentType, PaymentRequest, get
 import { authClassify } from '../_shared/auth.ts'
 import { handleWebBookingCheckout, handleWebShopCheckout, handleSosPaymentLink } from './payment-flows.ts'
 import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
+// Výpůjčka výbavy (2026-10-23): gear rezervace (booking_kind = 'gear') — název platby, mail po 0 Kč
+// ověření, odmítnutí nepovolených doplatků (gear-checkout.ts, ../webhook-receiver/gear-docs.ts).
+import { bookingKindForEdit, loadIsGear, gearBookingLabel, gearChangeBlock, GEAR_DRY_TXT } from './gear-checkout.ts'
+import { paidMailType } from '../webhook-receiver/gear-docs.ts'
 
 // Otisk místa rezervace (delivery_fee + způsob a adresa obou stran) —
 // webhook-receiver ho porovná s aktuálním řádkem (stejný výpočet tam).
@@ -94,13 +98,19 @@ Deno.serve(async (req: Request) => {
             const profile = (booking?.profiles ?? null) as { full_name?: string; email?: string } | null
             if (profile?.email) {
               const moto = (booking?.motorcycles ?? null) as { model?: string; manual_url?: string } | null
+              // Výpůjčka výbavy (2026-10-23): web + chybějící doklad totožnosti → potvrzení platby
+              // s výzvou k dokladu (jako webhook, gear-docs.ts). Motorka beze změny: booking_reserved.
+              // Řádek s motorkou = vždy motorka (CHECK bookings_gear_shape) → bez dotazu na booking_kind.
+              const gearMail = !moto && await loadIsGear(supabaseAdmin, bookingId)
+                ? await paidMailType(supabaseAdmin, { id: bookingId }, booking?.booking_source || 'web', 'gear')
+                : 'booking_reserved'
               const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
               const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
               await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
                 body: JSON.stringify({
-                  type: 'booking_reserved',
+                  type: gearMail,
                   booking_id: bookingId,
                   customer_email: profile.email,
                   customer_name: profile.full_name || '',
@@ -506,7 +516,8 @@ Deno.serve(async (req: Request) => {
     const customerId = await getOrCreateStripeCustomer(supabase, req)
 
     const referenceId = paymentType === 'shop' ? order_id! : booking_id!
-    const productName = PRODUCT_NAMES[paymentType]
+    // Výpůjčka výbavy (2026-10-23): popis platby appky „Půjčení výbavy“ místo „Pronájem motorky“ (gear-checkout.ts).
+    const productName = paymentType === 'booking' && await loadIsGear(supabase, booking_id) ? gearBookingLabel('cs') : PRODUCT_NAMES[paymentType]
 
     const metadata: Record<string, string> = {
       type: paymentType,
@@ -610,6 +621,13 @@ Deno.serve(async (req: Request) => {
       // confirm_payment by ji jinak „oživil“). RPC větve to hlídají samy
       // (wrong_status), app formát dosud ne.
       if (!dryErr && cur && ['cancelled', 'completed'].includes(String(cur.status || ''))) dryErr = 'wrong_status'
+      // Výpůjčka výbavy (2026-10-23): doplatek jen za termín naceněný serverem (`p_new_*` →
+      // apply_booking_changes); motorka / výbava motorkové rezervace / app formát → odmítnout (gear-checkout.ts).
+      // Rezervace s motorkou je vždy motorková (bookings_gear_shape) → bez druhého dotazu (bookingKindForEdit).
+      const bkKind = await bookingKindForEdit(supabase, cur, booking_id)
+      if (!dryErr && bkKind === null) dryErr = 'validation_unavailable'
+      const gearBk = bkKind === 'gear'
+      if (!dryErr && gearBk) dryErr = gearChangeBlock(c)
 
       // ── 2) Výchozí stav klienta (`_base`: s/e = termín, t = čas vyzvednutí,
       // p = cena) musí odpovídat AKTUÁLNÍ rezervaci. Změna naceněná proti
@@ -793,6 +811,13 @@ Deno.serve(async (req: Request) => {
           delivery_fee_guard: 'Poplatek za přistavení/odvoz neodpovídá změně místa (chybí adresa nebo cena trasy) — platba doplatku zrušena. Zadejte adresu a zkuste to znovu.',
           active_pickup_time_locked: 'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit. Platba doplatku zrušena.',
           location_requires_route: 'Přistavení nebo vrácení na novou adresu se počítá podle trasy — zadejte prosím adresu znovu, aby se trasa ocenila.',
+        }
+        // Výpůjčka výbavy (2026-10-23): vlastní text (tykání) pod stabilním kódem change_not_applicable (+ reason).
+        if (gearBk && GEAR_DRY_TXT[dryErr]) {
+          return new Response(
+            JSON.stringify({ success: false, error: GEAR_DRY_TXT[dryErr], code: 'change_not_applicable', reason: dryErr }),
+            { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
         }
         const dryMsg = dryMsgs[dryErr] ?? `Změnu nelze aplikovat (${dryErr}) — platba doplatku zrušena. Obnovte stránku a zkuste znovu.`
         return new Response(

@@ -4,6 +4,7 @@ import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import { logAudit } from './bookingMessageHelpers'
 import PickupReadiness from './PickupReadiness'
+import { isGearBooking, bookingBranchType, gearSizeSummary } from '../../lib/bookingKind'
 
 // Rychlé odbavení kódem motorky (záložka Velín): operátor nemusí hledat, kdo
 // přijel — začne 6místným kódem k motorce, který zákazník nadiktuje. Podle kódu
@@ -11,6 +12,8 @@ import PickupReadiness from './PickupReadiness'
 // skupiny ŘP) a odbavení končí elektronickým předávacím protokolem, který se
 // zákazníkovi odešle e-mailem — stejné flow jako „Odbavit" v Rezervacích.
 // Kód je zároveň ověřením identity, v protokolu se už znovu nezadává.
+// Výpůjčka JEN výbavy (booking_kind 'gear', bez motorky): identitu ověřuje KÓD ŠATNY téže rezervace —
+// kód šatny se přijme jen u gear rezervace (u motorky dál jen kód motorky).
 
 const fmtDay = (s) => {
   const d = (s || '').split('T')[0]
@@ -25,10 +28,13 @@ const eligible = (b) => !!b && ['pending', 'reserved'].includes(b.status)
   && !b.picked_up_at && !b.handover_protocol_filled_at
 
 function BookingSummaryBox({ b }) {
-  const br = b.motorcycles?.branches
+  const gear = isGearBooking(b)
+  const br = gear ? b.branch : b.motorcycles?.branches
   return (
     <div className="p-3 rounded-card" style={{ background: '#f1faf7', fontSize: 13, color: '#1a2e22' }}>
-      <strong>{b.profiles?.full_name || 'Zákazník'}</strong> · {b.motorcycles?.model || '—'}{b.motorcycles?.spz ? ` (${b.motorcycles.spz})` : ''}
+      <strong>{b.profiles?.full_name || 'Zákazník'}</strong> · {gear
+        ? `Jen výbava${gearSizeSummary(b) ? ` · ${gearSizeSummary(b)}` : ''}`
+        : <>{b.motorcycles?.model || '—'}{b.motorcycles?.spz ? ` (${b.motorcycles.spz})` : ''}</>}
       <div className="mt-1" style={{ color: '#64748b' }}>
         {bookingNo(b.id)} · {fmtDay(b.start_date)} – {fmtDay(b.end_date)}
         {b.pickup_method === 'delivery' ? ` · 🚚 ${b.pickup_address || 'na adresu'}` : br?.name ? ` · 🏍️ ${br.name}` : ''}
@@ -51,9 +57,10 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
     const code = codeInput.trim()
     if (!code) return
     setSearching(true); setError(null); setCandidates(null); setBooking(null)
+    // `*` rezervace (ne výčet) — booking_kind + velikosti výbavy bez závislosti na pořadí nasazení migrace
     const { data, error: err } = await supabase.from('branch_door_codes')
-      .select('booking_id, created_at, bookings!booking_id(id, user_id, moto_id, status, payment_status, start_date, end_date, pickup_time, picked_up_at, handover_protocol_filled_at, pickup_method, pickup_address, profiles(full_name), motorcycles!moto_id(model, spz, branches(name, type)))')
-      .eq('door_code', code).eq('code_type', 'motorcycle')
+      .select('booking_id, code_type, created_at, bookings!booking_id(*, profiles(full_name), motorcycles!moto_id(model, spz, branches(name, type)), branch:branches!bookings_branch_id_fkey(name, type))')
+      .eq('door_code', code).in('code_type', ['motorcycle', 'accessories'])
       .order('created_at', { ascending: false })
     if (err) { setError('Vyhledání selhalo: ' + err.message); setSearching(false); return }
     // Dedup na rezervaci (víc řádků kódů k jedné rezervaci) + jen čekající na odjezd.
@@ -61,6 +68,8 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
     const found = []
     for (const r of data || []) {
       const b = r.bookings
+      // kód šatny ověřuje identitu jen u výpůjčky výbavy (motorka = kód motorky)
+      if (r.code_type === 'accessories' && !isGearBooking(b)) continue
       if (!b || seen.has(b.id)) continue
       seen.add(b.id)
       found.push(b)
@@ -70,7 +79,7 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
     if (waiting.length === 1) setBooking(waiting[0])
     else if (waiting.length > 1) setCandidates(waiting)
     else if (found.length > 0) setError('Rezervace s tímto kódem už je odbavená nebo ukončená. Zkontrolujte ji v Rezervacích.')
-    else setError('Kód nenalezen — zkontrolujte ho u zákazníka (6místný kód k motorce z aplikace / e-mailu).')
+    else setError('Kód nenalezen — zkontrolujte ho u zákazníka (6místný kód k motorce, u výpůjčky výbavy kód šatny — z aplikace / e-mailu).')
     setSearching(false)
   }
 
@@ -83,8 +92,8 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
       .eq('id', booking.id)
     if (err) { setError('Aktivace rezervace selhala: ' + err.message); setSaving(false); return }
     await logAudit('booking_checkin_pickup', {
-      booking_id: booking.id, method: 'moto_code',
-      branch_type: booking.motorcycles?.branches?.type || null,
+      booking_id: booking.id, method: isGearBooking(booking) ? 'locker_code' : 'moto_code',
+      branch_type: bookingBranchType(booking),
     })
     setSaving(false)
     onDone?.()
@@ -93,20 +102,20 @@ export default function QuickCheckInModal({ open, onClose, onDone }) {
   if (!open) return null
 
   return (
-    <Modal open={open} title="Odbavit — kódem motorky" onClose={onClose}>
+    <Modal open={open} title="Odbavit — kódem motorky / šatny" onClose={onClose}>
       <div className="space-y-4">
         {error && <div style={noteBox('#dc2626', '#fee2e2', '#dc2626')}>{error}</div>}
 
         {!booking && (
           <>
             <div style={noteBox('#2563eb', '#eff6ff', '#1e3a8a')}>
-              Požádejte zákazníka o jeho <strong>kód k motorce</strong> (z aplikace / e-mailu).
+              Požádejte zákazníka o jeho <strong>kód k motorce</strong> (z aplikace / e-mailu) — u výpůjčky jen výbavy o <strong>kód šatny</strong>.
               Podle kódu se najde rezervace a ověří identita — pak už jen doplníte
               chybějící údaje a podepíšete předávací protokol.
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: '#1a2e22', display: 'block', marginBottom: 6 }}>
-                Kód k motorce od zákazníka
+                Kód k motorce (u výpůjčky výbavy kód šatny) od zákazníka
               </label>
               <div className="flex items-center gap-2">
                 <input type="text" inputMode="numeric" autoFocus value={codeInput}

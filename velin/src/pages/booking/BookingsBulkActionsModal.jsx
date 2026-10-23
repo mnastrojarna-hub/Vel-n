@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import { isGearBooking, bookingItemLabel } from '../../lib/bookingKind'
 
 export default function BookingsBulkActionsModal({ open, onClose, selectedBookings, onUpdated }) {
   const [busy, setBusy] = useState(false)
@@ -84,7 +85,8 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
         // po posunu se sloupec přepočítá serverovým helperem, aby řádek slevy na
         // dokladech odpovídal novému termínu. Cena se (jako u posunu zdarma)
         // nemění; rozdíl srovná korekční řádek v invoiceUtils. Best-effort.
-        if (Number(b.late_pickup_discount_amount) > 0 || b.pickup_time) {
+        // výpůjčka jen výbavy slevu za pozdní vyzvednutí nemá (late_pickup 0) → bez přepočtu
+        if (!isGearBooking(b) && (Number(b.late_pickup_discount_amount) > 0 || b.pickup_time)) {
           try {
             const { data: late, error: lateErr } = await supabase.rpc('_late_pickup_discount', {
               p_moto_id: b.moto_id,
@@ -129,7 +131,7 @@ export default function BookingsBulkActionsModal({ open, onClose, selectedBookin
       b.profiles?.full_name || b.customer_name || '',
       b.profiles?.email || '',
       b.profiles?.phone || '',
-      b.motorcycles?.model || '',
+      isGearBooking(b) ? bookingItemLabel(b) : (b.motorcycles?.model || ''),
       b.motorcycles?.spz || '',
       b.start_date?.slice(0, 10) || '',
       b.end_date?.slice(0, 10) || '',

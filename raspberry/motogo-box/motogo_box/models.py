@@ -92,6 +92,9 @@ class EventKind(str, Enum):
     ODOMETER_REJECTED = "ODOMETER_REJECTED"
     ODOMETER_UPLOAD_FAILED = "ODOMETER_UPLOAD_FAILED"
     ODOMETER_DISPUTED = "ODOMETER_DISPUTED"
+    # Výpůjčka výbavy bez motorky (1.3.0, CONTRACT §33): zákazník po zavření šatny na displeji potvrdil „vracím všechnu
+    # výbavu“ → kiosk_log_open (kind accessories, session_id návštěvy šatny) → server rezervaci hned dokončí.
+    GEAR_RETURN_CONFIRMED = "GEAR_RETURN_CONFIRMED"
 
 
 @dataclass(frozen=True)
@@ -356,12 +359,16 @@ class ResolveResult:
     # Krátkodobý kód z Velína (2026-10-06, §32): jen dané dveře, BEZ rezervace (km, protokol, šatna-první, zámek přejímky).
     temp: bool = False
     temp_code_id: str | None = None
+    # Výpůjčka výbavy bez motorky (1.3.0, §33): top-level `gear_only` z RPC / `protocol.gear_only` / `codes[].gear_only`
+    # — šatna je celé převzetí i vrácení (bez kódu motorky). False = běžná rezervace / stará DB / stará cache.
+    gear_only: bool = False
 
     def __post_init__(self) -> None:
         # Krátkodobý kód nikdy nenese rezervaci ani hradla převzetí/vrácení a otevírá jen kóji / šatnu (pojistka proti
         # nečekané odpovědi serveru — druh `service` by jinak dal servisní panel / nouzové otevření).
         if self.temp:
             self.booking_id = self.protocol = self.odo = self.release_at = self.return_final_from = None
+            self.gear_only = False
             if self.ok and self.kind not in TEMP_KINDS:
                 self.ok, self.error, self.kind = False, "invalid_code", ""
 
@@ -397,6 +404,7 @@ class ResolveResult:
                 err = CODE_NO_GEAR          # 1.2.7: „šatnu nepotřebujete, zadejte kód k motorce“ (starší = revoked)
             else:
                 err = RPC_REASON_ERRORS.get(str(reason or ""), err)
+        proto = m.get("protocol") if isinstance(m.get("protocol"), dict) else None
         return cls(
             ok=bool(m.get("ok")),
             error=err,
@@ -407,12 +415,13 @@ class ResolveResult:
             door_configured=bool(m.get("door_configured")) or bool(door),
             doors=doors,
             action=str(m.get("action") or "service"),
-            protocol=m.get("protocol") if isinstance(m.get("protocol"), dict) else None,
+            protocol=proto,
             odo=m.get("odo") if isinstance(m.get("odo"), dict) else None,
             release_at=str(m["release_at"]) if m.get("release_at") else None,
             return_final_from=str(m["return_final_from"]) if m.get("return_final_from") else None,
             temp=m.get("temp") is True,
             temp_code_id=str(m["temp_code_id"]) if m.get("temp_code_id") else None,
+            gear_only=m.get("gear_only") is True or (proto or {}).get("gear_only") is True,
         )
 
 

@@ -3,6 +3,10 @@ import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { renderEmail, normalizeLang, helpCardLabels, type Lang } from './i18n.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
+import { buildGearVars, GEAR_DEFAULT_ATTACHMENTS, gearCancellationReason, gearSubjectVars, loadGearBooking } from '../_shared/email-gear.ts'
+import { gearFallbackLang, gearFallbackTemplate, gearFallbackVars, logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
+import { gearTexts } from '../_shared/email-gear-blocks.ts'
+import { refundTierPercent } from './refund-tier.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -260,7 +264,7 @@ serve(async (req) => {
       try {
         // Load booking data for refund calculation
         const { data: booking } = await supabase.from('bookings')
-          .select('start_date, end_date, total_price, payment_status, stripe_payment_intent_id, booking_source, motorcycles!moto_id(model)')
+          .select('start_date, end_date, pickup_time, total_price, payment_status, stripe_payment_intent_id, booking_source, motorcycles!moto_id(model)')
           .eq('id', booking_id).single()
 
         if (booking) {
@@ -294,11 +298,9 @@ serve(async (req) => {
           }).then(() => {}, () => {})
 
           // Calculate refund based on storno policy if not provided
+          // Pásmo = DB _refund_tier_pct (DESIGN-GEAR §1.11): do pražského času vyzvednutí, ≥168 h / ≥48 h.
           if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null) {
-            const hoursUntilStart = (new Date(booking.start_date).getTime() - Date.now()) / 3600000
-            if (hoursUntilStart > 7 * 24) { refund_percent = 100 }
-            else if (hoursUntilStart > 48) { refund_percent = 50 }
-            else { refund_percent = 0 }
+            refund_percent = refundTierPercent(booking.start_date, booking.pickup_time)
             refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
           }
 
@@ -446,8 +448,25 @@ serve(async (req) => {
     // před detekcí jazyka, takže přepíšeme až teď.
     vars.site_url = siteForLang(custLang)
 
+    // Výpůjčka JEN výbavy (bookings.booking_kind='gear', 2026-10-23): šablona gear_booking_cancelled
+    // (Velín) s proměnnými výbavy v jazyce zákazníka, nikdy motorkový text. Logovaný slug zůstává
+    // booking_cancelled (claim/idempotence výše). Bez gear šablony → gear fallback + debug_log.
+    const gear = booking_id ? await loadGearBooking(supabase, booking_id, (reqBody as any).booking_kind) : null
+    // Jazyk textu mailu (gear fallback má jen cs/en) — dovětek o vratce převodem jde ve stejném jazyce.
+    let bodyLang: string = custLang
+    const gearVarsFor = gear
+      ? (l: string) => ({
+          ...buildGearVars(gear, l, { site: siteForLang(custLang), customerName: customer_name }),
+          cancellation_reason: gearCancellationReason(cancellation_reason, l),
+        })
+      : null
+    if (gearVarsFor) Object.assign(vars, gearVarsFor(custLang))
+    const subjVars = (v: Record<string, string>) => gear ? gearSubjectVars(v, gear, customer_name) : v
+
     // Try web-specific template first if source=web
-    const slugsToTry = source === 'web'
+    const slugsToTry = gear
+      ? (source === 'web' ? ['web_gear_booking_cancelled', 'gear_booking_cancelled'] : ['gear_booking_cancelled'])
+      : source === 'web'
       ? ['web_booking_cancelled', 'booking_cancelled']
       : ['booking_cancelled']
 
@@ -467,12 +486,24 @@ serve(async (req) => {
         // Velín = jen CZ. Non-cz → dynamický překlad přes API (cache + hash).
         const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
         templateHtml = renderTemplate(resolved.body, vars)
-        subject = renderTemplate(resolved.subject, vars)
+        subject = renderTemplate(resolved.subject, subjVars(vars))
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
         }
         break
       }
+    }
+
+    // Výpůjčka výbavy bez gear šablony: minimální gear text (CZ/EN) + výchozí přílohy seedu.
+    if (!templateHtml && gear) {
+      // de/es/fr/… → anglický text i s proměnnými výbavy v angličtině (odkazy v jazyce zákazníka).
+      bodyLang = gearFallbackLang(custLang)
+      Object.assign(vars, gearFallbackVars(custLang, vars, gearVarsFor!))
+      const fb = gearFallbackTemplate('gear_booking_cancelled', bodyLang, vars)
+      templateHtml = renderTemplate(fb.body, vars)
+      subject = renderTemplate(fb.subject, subjVars(vars))
+      dbAttachmentsList = [...GEAR_DEFAULT_ATTACHMENTS.gear_booking_cancelled]
+      await logGearTemplateFallback(supabase, 'send-cancellation-email', { slug: 'gear_booking_cancelled', booking_id, source, language: custLang })
     }
 
     // Velín admin-configured attachments z email_templates.attachments — etalon ve Velíně.
@@ -535,7 +566,9 @@ serve(async (req) => {
         pl: 'Kwotę zwrócimy przelewem na Twoje konto w ciągu 14 dni (rezerwacja nie została opłacona kartą).',
         uk: 'Суму повернемо банківським переказом на ваш рахунок протягом 14 днів (бронювання не було оплачено карткою).',
       }
-      templateHtml += `<p><strong>${manualNotes[custLang] || manualNotes.cs}</strong></p>`
+      // Výpůjčka výbavy: tykání (styl gear šablon), v jazyce skutečně odeslaného textu.
+      const note = gear ? gearTexts(bodyLang).manualRefund : (manualNotes[custLang] || manualNotes.cs)
+      templateHtml += `<p><strong>${note}</strong></p>`
     }
 
     templateHtml = localizeBodyLinks(templateHtml, custLang)
@@ -547,8 +580,22 @@ serve(async (req) => {
     if (custLang !== 'cs') {
       let csTemplateHtml = ''
       let csSubject = ''
-      const csI18n = renderEmail('booking_cancelled', 'cs', vars)
-      if (csI18n) { csSubject = csI18n.subject; csTemplateHtml = csI18n.body }
+      if (gear && gearVarsFor) {
+        // Výpůjčka výbavy: CZ originál gear šablony s českými proměnnými, jinak gear fallback.
+        const varsCs = { ...vars, ...gearVarsFor('cs') }
+        let src: { subject: string; body: string } | null = null
+        for (const trySlug of slugsToTry) {
+          const { data: tpl } = await supabase.from('email_templates')
+            .select('subject, body_html').eq('slug', trySlug).eq('active', true).maybeSingle()
+          if (tpl?.body_html) { src = { subject: tpl.subject || '', body: tpl.body_html }; break }
+        }
+        src = src || gearFallbackTemplate('gear_booking_cancelled', 'cs', varsCs)
+        csTemplateHtml = renderTemplate(src.body, varsCs)
+        csSubject = renderTemplate(src.subject, subjVars(varsCs))
+      } else {
+        const csI18n = renderEmail('booking_cancelled', 'cs', vars)
+        if (csI18n) { csSubject = csI18n.subject; csTemplateHtml = csI18n.body }
+      }
       if (csTemplateHtml) {
         adminHtml = wrapInBrandedLayout(csTemplateHtml, 'cs')
         adminSubject = csSubject

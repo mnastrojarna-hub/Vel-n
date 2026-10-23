@@ -6,6 +6,7 @@
 import { parseDocLang } from '../_shared/doc-i18n.ts'
 import { HO_A } from './i18n-a.ts'
 import { HO_B } from './i18n-b.ts'
+import { HO_GEAR, HO_GEAR_CS } from './i18n-gear.ts'
 
 export const HO_CS: Record<string, string> = {
   title: 'Předávací protokol', heading: 'PŘEDÁVACÍ PROTOKOL', forBooking: 'k rezervaci č. {bn} ze dne {today}',
@@ -29,9 +30,13 @@ export const HO_CS: Record<string, string> = {
   whereKiosk: 'na displeji pobočky (zařízení {device})', whereApp: 'v aplikaci MotoGo24',
   footer: 'Tento protokol byl vyplněn a elektronicky podepsán nájemcem na samoobslužné pobočce {where} dne {at}. Případné nesrovnalosti nahlaste neprodleně přes aplikaci nebo e-mailem na info@motogo24.cz.',
   g_helmet: 'Helma', g_jacket: 'Bunda', g_pants: 'Kalhoty', g_boots: 'Boty', g_gloves: 'Rukavice', who_rider: 'řidič', who_passenger: 'spolujezdec',
+  // výpůjčka JEN výbavy (gr_*, 2026-10-23) — i18n-gear.ts
+  ...HO_GEAR_CS,
 }
 
-const FOREIGN: Record<string, Record<string, string>> = { ...HO_A, ...HO_B }
+// + texty výpůjčky jen výbavy (gr_*) do každého cizího slovníku
+const FOREIGN: Record<string, Record<string, string>> = Object.fromEntries(
+  Object.entries({ ...HO_A, ...HO_B }).map(([l, d]) => [l, { ...d, ...(HO_GEAR[l] || {}) }]))
 export const PROTOCOL_LANGS = ['cs', ...Object.keys(FOREIGN)]
 
 export function esc(s: unknown): string {

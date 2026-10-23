@@ -72,7 +72,9 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
         .select(`*, bookings(id, status, start_date, end_date, user_id${cols}, profiles:user_id(full_name, email)), motorcycles:moto_id(model, spz)`)
         .eq('branch_id', branch.id)
         .order('created_at', { ascending: false })
-      let { data, error } = await q(', own_gear, handover_protocol_filled_at, gear_collected_at')
+      // booking_kind (výpůjčka jen výbavy → „Čeká na protokol“ u kódu šatny) — bez sloupce o krok zpět
+      let { data, error } = await q(', own_gear, handover_protocol_filled_at, gear_collected_at, booking_kind')
+      if (error && /booking_kind/.test(error.message || '')) ({ data, error } = await q(', own_gear, handover_protocol_filled_at, gear_collected_at'))
       if (error && /own_gear|handover_protocol|gear_collected/.test(error.message || '')) ({ data, error } = await q(''))
       if (error) {
         console.warn('[Branches] branch_door_codes query failed:', error.message)
@@ -90,21 +92,32 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   // Kontrola „rezervace bez kódů“ (záložka Kódy): ZÁMĚRNĚ podle AKTUÁLNÍ pobočky motorky, ne bookings.branch_id —
   // kódy dveří aktivních/potvrzených rezervací jdou s motorkou (_door_codes_follow_moto) a nouzové generování
   // je zakládá na této pobočce. U nevyzvednutých rezervací je to stejné jako pobočka rezervace.
+  // Výpůjčka JEN výbavy (booking_kind 'gear', bez motorky) patří pobočce rezervace (bookings.branch_id) —
+  // načítá se zvlášť (bez sloupce booking_kind v DB dotaz selže a seznam zůstane jen s motorkami).
   async function loadActiveBookings() {
     try {
       const { data: branchMotos } = await supabase
         .from('motorcycles')
         .select('id')
         .eq('branch_id', branch.id)
-      if (!branchMotos || branchMotos.length === 0) { setActiveBookings([]); return }
-      const motoIds = branchMotos.map(m => m.id)
-      const { data } = await supabase
-        .from('bookings')
-        .select('id, moto_id, status, start_date, end_date, user_id, profiles:user_id(full_name)')
-        .in('moto_id', motoIds)
-        .in('status', ['active', 'reserved'])
-        .order('start_date')
-      setActiveBookings(data || [])
+      const motoIds = (branchMotos || []).map(m => m.id)
+      const [motoRes, gearRes] = await Promise.all([
+        motoIds.length ? supabase
+          .from('bookings')
+          .select('id, moto_id, status, start_date, end_date, user_id, profiles:user_id(full_name)')
+          .in('moto_id', motoIds)
+          .in('status', ['active', 'reserved'])
+          .order('start_date') : Promise.resolve({ data: [] }),
+        supabase
+          .from('bookings')
+          .select('id, moto_id, status, start_date, end_date, user_id, booking_kind, branch_id, profiles:user_id(full_name)')
+          .eq('booking_kind', 'gear').eq('branch_id', branch.id)
+          .in('status', ['active', 'reserved'])
+          .order('start_date'),
+      ])
+      const list = [...(motoRes.data || []), ...(gearRes.error ? [] : (gearRes.data || []))]
+      list.sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+      setActiveBookings(list)
     } catch {
       setActiveBookings([])
     }

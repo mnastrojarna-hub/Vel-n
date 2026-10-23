@@ -7,6 +7,8 @@ import { buildSku, parseSku, normalizeSlug } from '../lib/sku'
 import { accSku, deductFromWarehouse, returnToWarehouse, loadAccessoryTypes } from './BranchHelpers'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { StockReceiveLineMobile, StockCalendarPickInfo } from './stock/StockLogistikaMobile'
+import GearSettingToggle from '../components/gear/GearSettingToggle'
+import { STOCK_TOGGLE } from '../components/gear/gearToggleConfigs'
 
 // Bezpečné volání RPC: supabase builder NEMÁ .catch() (jen .then) → přímé `.rpc(...).catch()` hází
 // TypeError. Tady chytneme síťovou výjimku a vrátíme null (volající si ošetří).
@@ -82,13 +84,17 @@ export default function Logistika() {
             Dostupnost výbavy, deficity z rezervací, přesuny, sklad a objednávky
           </p>
         </div>
-        {showBranch && (
-          <select value={branchId} onChange={e => setBranchId(e.target.value)}
-            className="rounded-btn text-sm font-semibold outline-none"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        )}
+        {/* Kontrola skladu u výpůjček výbavy — stejné nastavení jako Flotila → Půjčení oblečení */}
+        <div className="flex items-start gap-2 flex-wrap">
+          <GearSettingToggle {...STOCK_TOGGLE} title="Kontrola skladu u výpůjček výbavy" compact component="Logistika" />
+          {showBranch && (
+            <select value={branchId} onChange={e => setBranchId(e.target.value)}
+              className="rounded-btn text-sm font-semibold outline-none"
+              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">

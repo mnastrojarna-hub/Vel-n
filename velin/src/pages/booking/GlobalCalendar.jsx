@@ -7,6 +7,8 @@ import { shortBranchName } from './BranchChips'
 import { effBranchId } from '../../lib/bookingBranch'
 import { fetchAllRows, loadMotoMoves, buildFleetTimeline, dayNum } from '../../lib/branchFleet'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
+import { isGearBooking } from '../../lib/bookingKind'
+import { GearItemCell } from './GearBookingParts'
 
 function localIso(d) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
@@ -74,8 +76,10 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
     const [bRes, mRes] = await Promise.all([
       // trailer_moto_id = kus přiřazený jako příslušenství „Vozík" — blokuje
       // jeho kalendář stejně jako přímá rezervace (parita s get_moto_booked_dates).
+      // `*` kvůli booking_kind + velikostem výpůjčky JEN výbavy (sloupec z 20261023a — explicitní seznam by
+      // před migrací shodil celý kalendář); obsazenost motorek dál jen podle moto_id / trailer_moto_id.
       supabase.from('bookings')
-        .select('id, start_date, end_date, status, moto_id, trailer_moto_id, branch_id, is_test, profiles(full_name), motorcycles!moto_id(model, spz, branch_id), trailer:motorcycles!trailer_moto_id(model, spz, branch_id), total_price')
+        .select('*, profiles(full_name), motorcycles!moto_id(model, spz, branch_id), trailer:motorcycles!trailer_moto_id(model, spz, branch_id)')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model, spz, branch_id, status, acquired_at, created_at, is_trailer, branches(name)').eq('status', 'active'),
@@ -213,8 +217,10 @@ export default function GlobalCalendar({ branchId = '', branches = [] }) {
                   {dayDetail.map(b => (
                     <div key={b.id} className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
                       <div className="flex items-center gap-2 mb-1 max-lg:flex-wrap max-lg:gap-y-1">
-                        <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
-                        <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
+                        {isGearBooking(b) ? <GearItemCell b={b} /> : (<>
+                          <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
+                          <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
+                        </>)}
                         <StatusBadge status={getDisplayStatus(b)} />
                         {!branchId && effBranchId(b) && <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#e0f2fe', color: '#0369a1' }}>{branchNameOf[effBranchId(b)] || 'Pobočka'}</span>}
                         {b.is_test && <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" title="Testovací rezervace (obsazenost kalendáře)" style={{ background: '#f3e8ff', color: '#7c3aed' }}>TEST</span>}

@@ -14,6 +14,8 @@ import { convertPdfToHtml } from '../../lib/pdfImport'
 const CONTRACT_TYPES = [
   { type: 'vop', label: 'Obchodní podmínky (VOP)', icon: '📜', description: 'Všeobecné obchodní podmínky pro pronájem motocyklů' },
   { type: 'rental_contract', label: 'Nájemní smlouva', icon: '📋', description: 'Smlouva o pronájmu motocyklu s automatickým vyplněním údajů' },
+  // Výpůjčka výbavy bez motorky (booking_kind='gear'): generate-document ji použije místo rental_contract (seed 20261023d)
+  { type: 'gear_rental_contract', label: 'Smlouva o nájmu výbavy', icon: '🧥', description: 'Smlouva o nájmu motorkářské výbavy (výpůjčka výbavy bez motorky) s automatickým vyplněním údajů — příloha „Smlouva“ u výpůjček výbavy' },
   { type: 'handover_protocol', label: 'Předávací protokol', icon: '📝', description: 'Protokol o předání motocyklu včetně výbavových položek' },
   { type: 'damage_protocol', label: 'Protokol o poškození', icon: '⚠️', description: 'Protokol o poškození motocyklu při vrácení (závady, fotodokumentace, odhad nákladů)' },
   { type: 'gdpr', label: 'GDPR — souhlas se zpracováním', icon: '🔒', description: 'Informace a souhlas zákazníka se zpracováním osobních údajů (GDPR)' },
@@ -38,6 +40,18 @@ const TEMPLATE_VARS = {
     'branch_name', 'branch_address',
     'today', 'booking_number',
     'company_name', 'company_address', 'company_ico', 'company_dic',
+  ],
+  // Proměnné plní edge generate-document (gear větev) — {{gear_items_table}} = tabulka kusů a velikostí
+  gear_rental_contract: [
+    'customer_name', 'customer_address', 'customer_id_number', 'customer_id_expiry',
+    'customer_phone', 'customer_email', 'customer_dob', 'customer_ico', 'customer_dic',
+    'gear_items_table', 'gear_period', 'gear_days',
+    'start_date', 'start_time', 'end_date', 'end_time',
+    'total_price', 'total_price_words',
+    'branch_name', 'branch_address',
+    'today', 'booking_number',
+    'company_name', 'company_address', 'company_ico', 'company_dic',
+    'company_phone', 'company_email', 'company_web',
   ],
   handover_protocol: [
     'booking_number', 'customer_name', 'customer_id_number', 'customer_license',

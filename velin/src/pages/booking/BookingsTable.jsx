@@ -4,6 +4,8 @@ import { useIsMobile } from '../../hooks/useIsMobile'
 import { shortBranchName, bookingBranchId } from './BranchChips'
 import { bookingDaysInfo, DaysDelta, SourceTags, PaymentPill, StatusTags } from './bookingsListParts'
 import BookingsListMobile from './BookingsListMobile'
+import { GearItemCell } from './GearBookingParts'
+import { isGearBooking, bookingNeedsLicense } from '../../lib/bookingKind'
 
 export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, scanStatus = {}, appInstalls = {}, setDeleteConfirm, setCancelTarget, selected, setSelected, branches = [], onBulk = null }) {
   const isMobile = useIsMobile() // < 1024 px → karty (BookingsListMobile), desktop tabulka beze změny
@@ -37,7 +39,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
                 className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }} />
             </TH>
           )}
-          <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH><TH>Pobočka</TH>
+          <TH>ID</TH><TH>Zákazník</TH><TH>Motorka / výbava</TH><TH>Pobočka</TH>
           <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH><TH>Doklady</TH><TH>Vytvořeno</TH><TH>Akce</TH>
         </TRow>
       </thead>
@@ -62,7 +64,7 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
               )}
               <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
               <TD bold>{b.customer_name || b.profiles?.full_name || '—'}<SourceTags b={b} install={appInstalls[b.user_id]} /></TD>
-              <TD>{b.motorcycles?.model || '—'} <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span></TD>
+              <TD>{isGearBooking(b) ? <GearItemCell b={b} /> : <>{b.motorcycles?.model || '—'} <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span></>}</TD>
               {/* pobočka = pobočka motorky (přistavení na adresu = 🚚 + pobočka motorky) */}
               <TD>{branchName[bookingBranchId(b)] || '—'}{b.pickup_method === 'delivery' ? <span className="ml-1" title="Přistavení na adresu">🚚</span> : null}</TD>
               <TD>{fmtDateRange(b.start_date)}</TD>
@@ -73,9 +75,9 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
               <TD><StatusTags b={b} /></TD>
               <TD>
                 {/* KROK 4 = čísla dokladů z profilu; SKEN = fotka/OCR. Bez ŘP u dětské
-                    motorky (N). Sdílené UI s Customers.jsx (DocsStatusPills). */}
+                    motorky (N) a u výpůjčky jen výbavy. Sdílené UI s Customers.jsx (DocsStatusPills). */}
                 <DocsStatusPills profile={b.profiles} scan={scanStatus[b.user_id]}
-                  requireLicense={String(b.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
+                  requireLicense={bookingNeedsLicense(b)} />
               </TD>
               <TD><span className="text-sm" style={{ color: '#1a2e22' }}>{b.created_at ? new Date(b.created_at).toLocaleString('cs-CZ') : '—'}</span></TD>
               <TD>

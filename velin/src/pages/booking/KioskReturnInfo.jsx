@@ -52,7 +52,9 @@ export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
 
   const v = kioskReturnView(row, booking)
   const u = booking?.motorcycles?.tracking_unit === 'mh' ? 'MH' : 'km'
-  const box = row.box_number != null ? boxLabel(row.box_number) : 'Kóje'
+  // výpůjčka jen výbavy: řádek vede šatna (box_number NULL, closed_at = zavření šatny při vrácení)
+  const gearRow = booking?.booking_kind === 'gear' || row.detail?.gear_only === true
+  const box = gearRow ? 'Šatna' : row.box_number != null ? boxLabel(row.box_number) : 'Kóje'
   // Dokončeno automaticky a obsluha to nevrátila zpět (reverted → řádek zůstává 'completed', rezervace ne)
   const done = row.state === 'completed' && booking?.status === 'completed'
   const clk = kioskClockNote(row)
@@ -73,7 +75,7 @@ export default function KioskReturnInfo({ booking, hasLockerCode = false }) {
       <div className="space-y-1">
         {row.grant_at && <SumRow label="Kód motorky zadán" value={`${fmtPragueWhen(row.grant_at)}${row.km != null ? ` · stav ${row.km} ${u}` : ''}${clk}`} />}
         {row.closed_at && <SumRow label={`${box} zavřena`} value={`${fmtPragueWhen(row.closed_at)}${clk}`} strong />}
-        {row.locker_closed_at && <SumRow label="Šatna zavřena" value={`${fmtPragueWhen(row.locker_closed_at)}${clk}`} />}
+        {row.locker_closed_at && !(gearRow && row.locker_closed_at === row.closed_at) && <SumRow label="Šatna zavřena" value={`${fmtPragueWhen(row.locker_closed_at)}${clk}`} />}
         {row.state === 'out' && row.out_at && <SumRow label={foreign ? 'Otevřeno krátkodobým kódem' : 'Znovu vyjeto'} value={`${fmtPragueWhen(row.out_at)}${clk}`} />}
         {done && row.completed_at && <SumRow label="Dokončeno serverem" value={fmtPragueWhen(row.completed_at)} />}
         {row.moto_code_until && <SumRow label="Kód motorky platí do" value={fmtPragueWhen(row.moto_code_until)} />}

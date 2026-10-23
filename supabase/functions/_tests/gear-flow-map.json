@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "https://deno.land/std@0.177.0/http/server.ts": "./gear-flow-stubs.ts",
+    "https://esm.sh/@supabase/supabase-js@2": "./gear-flow-stubs.ts"
+  }
+}

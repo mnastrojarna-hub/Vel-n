@@ -253,7 +253,9 @@ window.MOTOGO_CONFIRM_CMS_KEYS = ' . json_encode($confirmCmsKeys, JSON_UNESCAPED
 <script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
 <script src="' . assetUrl('/js/supabase-init.js') . '"></script>
 <script src="' . assetUrl('/js/api.js') . '"></script>
-<script src="' . assetUrl('/js/pages-potvrzeni.js') . '"></script>';
+<script src="' . assetUrl('/js/pages-potvrzeni.js') . '"></script>
+<!-- 2026-10-23: potvrzení výpůjčky výbavy → stránka výbavy -->
+<script src="' . assetUrl('/js/gear-rental-redirect.js') . '" data-gear-url="' . htmlspecialchars(BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath('/pujceni-obleceni') : '/pujceni-obleceni'), ENT_QUOTES) . '"></script>';
 
 $pageTitle = $isShop ? t('confirm.titleOrder') : t('confirm.titleBooking');
 renderPage($pageTitle, $content . $potvrzeniJs, '/potvrzeni', [

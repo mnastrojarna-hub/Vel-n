@@ -37,6 +37,8 @@ import { customerLanguage, LANG_NAME_CS } from '../_shared/agent-knowledge/custo
 import { agentMsg } from '../_shared/agent-knowledge/agent-messages.ts'
 import { getLegalDocument } from '../_shared/agent-knowledge/legal-docs.ts'
 import { getBranchesTool } from '../_shared/agent-knowledge/branch-facts.ts'
+import { GEAR_OFFER_TOOL, getGearRentalOffer } from '../_shared/agent-knowledge/gear-offer.ts'
+import { annotateGearLookup, withGearFacts } from '../_shared/agent-knowledge/gear-booking.ts'
 import { classifyAnthropicError } from '../_shared/anthropic-errors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -306,9 +308,10 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_extras_catalog',
-    description: 'Vrátí seznam příslušenství, které lze přiobjednat (top case, GPS, přistavení, atd.) s cenami + ceník výbavy/oblečení v `gear_pricing` (helma, bunda, kalhoty, rukavice, boty, kukla — pro řidiče i spolujezdce, vč. toho co je v ceně a co za příplatek).',
+    description: 'Vrátí seznam příslušenství, které lze přiobjednat K REZERVACI MOTORKY (top case, GPS, přistavení, atd.) s cenami + ceník výbavy/oblečení k motorce v `gear_pricing` (helma, bunda, kalhoty, rukavice, boty, kukla — pro řidiče i spolujezdce, vč. toho co je v ceně a co za příplatek). Samostatná výpůjčka výbavy BEZ motorky → `get_gear_rental_offer`.',
     input_schema: { type: 'object', properties: {} },
   },
+  GEAR_OFFER_TOOL,
   {
     name: 'get_branches',
     description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS, typem/režimem výdeje (`mode`) a provozní dobou (`opening_hours_text`; obě pobočky fungují NONSTOP).',
@@ -325,7 +328,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'create_booking_request',
-    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a spustí platbu. NOVÝ FLOW (platba PŘED doklady): čísla dokladů (OP/pas, ŘP) ANI jejich fotky se v chatu vůbec NESBÍRAJÍ — zákazník je doplní až PO zaplacení přímo v rezervaci na webu / v appce. NIKDY tedy nevyžaduj číslo OP, číslo ŘP, platnost ŘP ani sken/foto dokladu; s doklady zákazníka v chatu NEOTRAVUJ. ABSOLUTNÍ PODMÍNKY VOLÁNÍ (musí být splněny VŠECHNY): (1) máš vyplněna VŠECHNA povinná pole bez výjimky (moto_id, start_date, end_date, name, email, phone, street, city, zip, date_of_birth, password); (1b) máš consent_vop=true a consent_gdpr=true, protože zákazník v chatu VÝSLOVNĚ odsouhlasil VOP a zpracování osobních údajů (GDPR) — bez obou souhlasů tool NIKDY nevol (na webu jsou to povinné checkboxy, tady je nahrazuje výslovné „souhlasím"); (2) v poslední uživatelské zprávě je EXPLICITNÍ potvrzení rezervace ("ano / rezervuj / potvrzuju / pošli platbu") jako reakce na tvůj kompletní souhrn (motorka, termín, vyzvednutí/vrácení, extras, cena) VČETNĚ potvrzení souhlasů; (3) ŽÁDNÉ pole nesmí být odhadnuté nebo "doplněné z hlavy" — pokud zákazník údaj neřekl, doptej se a tool nevol. PLATEBNÍ METODA: parametr `payment_method` — "card" = online kartou (Stripe, okamžité potvrzení, default), "qr" = QR kód / bankovní převod (zákazník dostane číslo účtu + VS + QR, splatnost 4 h, potvrzení ruční po připsání). Zeptej se zákazníka, kterou chce, PŘED voláním. Po zavolání s "card" NEPIŠ URL platební brány do zprávy — systém automaticky doplní tlačítko "Pokračovat k platbě". Po zavolání s "qr" tool vrátí platební údaje (účet, IBAN, VS, částka) — ty je přehledně zopakuj v textu a řekni, že stejné údaje + QR kód dostal i e-mailem.',
+    description: 'Vytvoří skutečnou rezervaci MOTORKY v systému (status pending) a spustí platbu — NIKDY ne pro výpůjčku výbavy bez motorky (tu zákazník objedná přes `order_url` z `get_gear_rental_offer`). NOVÝ FLOW (platba PŘED doklady): čísla dokladů (OP/pas, ŘP) ANI jejich fotky se v chatu vůbec NESBÍRAJÍ — zákazník je doplní až PO zaplacení přímo v rezervaci na webu / v appce. NIKDY tedy nevyžaduj číslo OP, číslo ŘP, platnost ŘP ani sken/foto dokladu; s doklady zákazníka v chatu NEOTRAVUJ. ABSOLUTNÍ PODMÍNKY VOLÁNÍ (musí být splněny VŠECHNY): (1) máš vyplněna VŠECHNA povinná pole bez výjimky (moto_id, start_date, end_date, name, email, phone, street, city, zip, date_of_birth, password); (1b) máš consent_vop=true a consent_gdpr=true, protože zákazník v chatu VÝSLOVNĚ odsouhlasil VOP a zpracování osobních údajů (GDPR) — bez obou souhlasů tool NIKDY nevol (na webu jsou to povinné checkboxy, tady je nahrazuje výslovné „souhlasím"); (2) v poslední uživatelské zprávě je EXPLICITNÍ potvrzení rezervace ("ano / rezervuj / potvrzuju / pošli platbu") jako reakce na tvůj kompletní souhrn (motorka, termín, vyzvednutí/vrácení, extras, cena) VČETNĚ potvrzení souhlasů; (3) ŽÁDNÉ pole nesmí být odhadnuté nebo "doplněné z hlavy" — pokud zákazník údaj neřekl, doptej se a tool nevol. PLATEBNÍ METODA: parametr `payment_method` — "card" = online kartou (Stripe, okamžité potvrzení, default), "qr" = QR kód / bankovní převod (zákazník dostane číslo účtu + VS + QR, splatnost 4 h, potvrzení ruční po připsání). Zeptej se zákazníka, kterou chce, PŘED voláním. Po zavolání s "card" NEPIŠ URL platební brány do zprávy — systém automaticky doplní tlačítko "Pokračovat k platbě". Po zavolání s "qr" tool vrátí platební údaje (účet, IBAN, VS, částka) — ty je přehledně zopakuj v textu a řekni, že stejné údaje + QR kód dostal i e-mailem.',
     input_schema: {
       type: 'object',
       properties: {
@@ -394,7 +397,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'lookup_my_bookings',
-    description: 'READ-ONLY ověření rezervací zákazníka podle E-MAILU NEBO TELEFONU — BEZ HESLA. Použij VŽDY, když zákazník chce ověřit stav rezervace a NEMÁ číslo `#XXXXXXXX`, ale dá e-mail nebo telefon, na který rezervoval (typicky „nemám číslo, ale mail je …", „už mi přišla rezervace", „je to zaplacené?"). Vrací `bookings[]`: booking_number (`#XXXXXXXX` — tím rezervaci předáš dalším toolům, např. find_my_booking / get_booking_emails; plné UUID tool NEVRACÍ a nevymýšlej ho), status (pending/reserved/active/completed/cancelled), payment_status (unpaid/paid/partial_refund/refund_pending/refunded), booking_source (web/app), start_date, end_date, total_price, moto_name, pickup_method, created_at, confirmed_at, abandoned_email_sent + reserved_email_sent (bool) a `emails` = přehled reálně odeslaných mailů (template_slug, subject, status, sent_at). NEOBSAHUJE citlivá data (číslo dokladu, ŘP, heslo, celé bydliště). SLOUŽÍ JEN KE ČTENÍ — úprava rezervace za peníze dál vyžaduje heslo (find_my_booking FULL + apply_booking_change). Ověření zaplacení: podívej se na `payment_status` a jestli je mezi `emails` slug `booking_reserved`/`web_booking_reserved` (chodí AŽ po platbě) vs. jen `booking_abandoned` (Nedokončená rezervace = NEzaplaceno). NIKDY netvrď stav rezervace bez zavolání tohoto toolu nebo find_my_booking.',
+    description: 'READ-ONLY ověření rezervací zákazníka podle E-MAILU NEBO TELEFONU — BEZ HESLA. Použij VŽDY, když zákazník chce ověřit stav rezervace a NEMÁ číslo `#XXXXXXXX`, ale dá e-mail nebo telefon, na který rezervoval (typicky „nemám číslo, ale mail je …", „už mi přišla rezervace", „je to zaplacené?"). Vrací `bookings[]`: booking_number (`#XXXXXXXX` — tím rezervaci předáš dalším toolům, např. find_my_booking / get_booking_emails; plné UUID tool NEVRACÍ a nevymýšlej ho), status (pending/reserved/active/completed/cancelled), payment_status (unpaid/paid/partial_refund/refund_pending/refunded), booking_source (web/app), start_date, end_date, total_price, moto_name, pickup_method, created_at, confirmed_at, abandoned_email_sent + reserved_email_sent (bool), u výpůjčky JEN výbavy navíc `booking_kind=\'gear\'` + `gear_items` + `branch` (moto_name pak null — o motorce nemluv), a `emails` = přehled reálně odeslaných mailů (template_slug, subject, status, sent_at). NEOBSAHUJE citlivá data (číslo dokladu, ŘP, heslo, celé bydliště). SLOUŽÍ JEN KE ČTENÍ — úprava rezervace za peníze dál vyžaduje heslo (find_my_booking FULL + apply_booking_change). Ověření zaplacení: podívej se na `payment_status` a jestli je mezi `emails` slug `booking_reserved`/`web_booking_reserved` (chodí AŽ po platbě) vs. jen `booking_abandoned` (Nedokončená rezervace = NEzaplaceno). NIKDY netvrď stav rezervace bez zavolání tohoto toolu nebo find_my_booking.',
     input_schema: {
       type: 'object',
       properties: {
@@ -416,7 +419,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_booking_readiness',
-    description: 'READ-ONLY — připravenost rezervace k VYZVEDNUTÍ (bez hesla, JEN STAV, NIKDY samotné kódy ani čísla dokladů). Vstup: číslo rezervace `#XXXXXXXX` nebo plné UUID. POUŽIJ na dotazy „jak se dostanu k motorce", „nepřišly mi přístupové kódy", „ověřili jste mi doklady", „co mi ještě chybí před vyzvednutím". Vrací: `docs_ok` (bool), `docs_missing_reason` (text nebo null — např. „Chybí ŘP"), `codes_issued` (bool = kódy aktivní A odeslané), `codes_active`, `codes_sent`, `codes_withheld_reason` (typicky „Chybí doklady…"), `status`, `payment_status`. Logika k vysvětlení zákazníkovi: kódy se vydají, až je (a) zaplaceno a (b) nahrané doklady; když `docs_ok=false`, řekni KONKRÉTNĚ co chybí a naveď na nahrání (Mindee/QR, bod 29). NIKDY netvrď, že kódy dorazily/nedorazily ani že doklady jsou OK, bez zavolání tohoto toolu.',
+    description: 'READ-ONLY — připravenost rezervace k VYZVEDNUTÍ (bez hesla, JEN STAV, NIKDY samotné kódy ani čísla dokladů). Vstup: číslo rezervace `#XXXXXXXX` nebo plné UUID. POUŽIJ na dotazy „jak se dostanu k motorce", „nepřišly mi přístupové kódy", „ověřili jste mi doklady", „co mi ještě chybí před vyzvednutím". Vrací: `docs_ok` (bool), `docs_missing_reason` (text nebo null — např. „Chybí ŘP"), `codes_issued` (bool = kódy aktivní A odeslané), `codes_active`, `codes_sent`, `codes_withheld_reason` (typicky „Chybí doklady…"), `status`, `payment_status`; u výpůjčky JEN výbavy navíc `booking_kind=\'gear\'` + `gear_only` + `gear_note` (pobočku ani velikosti tool záměrně nevrací; doklady = jen doklad totožnosti, kódy = šatna + případně brána, bod 45). Logika k vysvětlení zákazníkovi: kódy se vydají, až je (a) zaplaceno a (b) nahrané doklady; když `docs_ok=false`, řekni KONKRÉTNĚ co chybí a naveď na nahrání (Mindee/QR, bod 29). NIKDY netvrď, že kódy dorazily/nedorazily ani že doklady jsou OK, bez zavolání tohoto toolu.',
     input_schema: {
       type: 'object',
       properties: {
@@ -483,7 +486,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'redirect_to_booking',
-    description: 'Vygeneruje URL na rezervační formulář s předvyplněnými údaji. Použij když zákazník chce rezervaci dokončit sám na webu, nebo když chybí citlivé údaje pro create_booking_request.',
+    description: 'Vygeneruje URL na rezervační formulář MOTORKY s předvyplněnými údaji (výpůjčka výbavy bez motorky má vlastní odkaz `order_url` z `get_gear_rental_offer`). Použij když zákazník chce rezervaci dokončit sám na webu, nebo když chybí citlivé údaje pro create_booking_request.',
     input_schema: {
       type: 'object',
       properties: {
@@ -541,6 +544,12 @@ const EDIT_ERROR_HINTS: Record<string, string> = {
   location_requires_route: 'Přistavení / odvoz (přidání nebo jiná adresa) se nacení jen podle trasy vybrané na mapě — v chatu to nejde. Pošli zákazníka do aplikace MotoGo24 (Rezervace → Upravit rezervaci) nebo na web Upravit rezervaci (odkaz v jeho jazyce ze sekce ODKAZY NA WEB); tam místo zvolí a případný rozdíl doplatí.',
   active_pickup_locked: 'Motorka už byla vyzvednuta — místo vyzvednutí už nelze změnit. Změnit jde jen konec a místo vrácení (web nebo appka → Upravit rezervaci).',
   active_pickup_time_locked: 'Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.',
+  // Výpůjčka jen výbavy (2026-10-23, 20261023e): motorku k ní nelze přidat; termín hlídá sklad + otevření pobočky.
+  gear_no_moto: 'Rezervace je výpůjčka JEN VÝBAVY — motorku k ní přidat ani vyměnit nejde. Motorku si zákazník zarezervuje zvlášť; u výpůjčky výbavy jde v chatu měnit jen termín.',
+  out_of_stock: 'V novém termínu nejsou volné kusy výbavy v požadované velikosti — nabídni jiný termín nebo velikost (dostupnost přes get_gear_rental_offer), změnu velikostí udělá zákazník v Upravit rezervaci.',
+  branch_closed: 'Pobočka má v novém termínu zavřeno — nabídni jiný termín.',
+  gear_no_delivery: 'Výpůjčka výbavy se vyzvedává i vrací jen na pobočce — přistavení ani odvoz u ní nejsou.',
+  too_long: 'Nový termín výpůjčky výbavy je delší, než Velín povoluje (max. délku vrátí get_gear_rental_offer) — nabídni kratší.',
 }
 function withEditHint(data: unknown): unknown {
   const e = (data as Record<string, unknown> | null)?.error
@@ -1033,8 +1042,12 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
           price_kc: a.pricing_unit === 'free' ? 0 : Number(a.price_czk || 0),
           pricing_unit: a.pricing_unit, // free = v ceně | per_booking = jednorázově za rezervaci | per_day = za každý den
         })),
-        gear_notice: 'Ceny výbavy (oblečení) ber VÝHRADNĚ z `gear_pricing`: `free`/0 Kč = v ceně pronájmu, `per_booking` = jednorázový příplatek za rezervaci, `per_day` = příplatek za každý den. Základní výbava ŘIDIČE (helma, bunda, kalhoty, rukavice) je v ceně; placené bývají boty řidiče a výbava spolujezdce — ale řiď se daty, ne touto větou. Když je `gear_pricing` prázdné, řekni, že přesný ceník výbavy potvrdí půjčovna — NEVYMÝŠLEJ částky.',
+        gear_notice: 'Ceny výbavy (oblečení) ber VÝHRADNĚ z `gear_pricing`: `free`/0 Kč = v ceně pronájmu, `per_booking` = jednorázový příplatek za rezervaci, `per_day` = příplatek za každý den. Základní výbava ŘIDIČE (helma, bunda, kalhoty, rukavice) je v ceně; placené bývají boty řidiče a výbava spolujezdce — ale řiď se daty, ne touto větou. Když je `gear_pricing` prázdné, řekni, že přesný ceník výbavy potvrdí půjčovna — NEVYMÝŠLEJ částky. Tohle je výbava K REZERVACI MOTORKY; samostatná výpůjčka výbavy bez motorky má vlastní ceník → `get_gear_rental_offer`.',
       }
+    }
+    case 'get_gear_rental_offer': {
+      // Výpůjčka výbavy bez motorky (2026-10-23): živý ceník, pobočky, kalkulace serveru, odkaz.
+      return await getGearRentalOffer(sb, args, lang)
     }
     case 'get_branches': {
       // Sdílená implementace (_shared/agent-knowledge/branch-facts.ts, 2026-10-11): čitelná provozní
@@ -1290,7 +1303,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (!hasFull) {
         const { data, error } = await sb.rpc('find_booking_light', { p_booking_id: bid })
         if (error) return { success: false, error: error.message }
-        return data
+        // Ověřeno jen číslem rezervace → u výbavy jen druh rezervace, ne pobočka ani velikosti (bod 32).
+        return await withGearFacts(sb, data, bid, { minimal: true })
       }
       const { data, error } = await sb.rpc('find_booking_for_modification', {
         p_booking_id: bid,
@@ -1298,7 +1312,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
         p_password_last4: a.password_last4,
       })
       if (error) return { success: false, error: error.message }
-      return data
+      return await withGearFacts(sb, data, bid)
     }
     case 'lookup_my_bookings': {
       // READ-ONLY ověření podle e-mailu/telefonu — bez hesla. Vrací stav + odeslané maily, NE citlivá PII.
@@ -1307,7 +1321,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (!contact) return { success: false, error: 'missing_inputs' }
       const { data, error } = await sb.rpc('ai_lookup_bookings_by_contact', { p_contact: contact })
       if (error) return { success: false, error: error.message }
-      return data
+      return await annotateGearLookup(sb, data)
     }
     case 'get_booking_emails': {
       // READ-ONLY — které maily reálně odešly k rezervaci. Bez hesla. Slouží k ověření platby/stavu.
@@ -1325,7 +1339,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>, lang:
       if (ref.error) return { success: false, error: ref.error }
       const { data, error } = await sb.rpc('ai_booking_readiness', { p_ref: ref.id })
       if (error) return { success: false, error: error.message }
-      return data
+      // Jen stav jako u motorky: u výbavy druh rezervace + pravidla, bez pobočky a velikostí (bod 32).
+      return await withGearFacts(sb, data, ref.id, { minimal: true })
     }
     case 'get_order_status': {
       // READ-ONLY — stav e-shop objednávky / poukazu podle e-mailu nebo čísla objednávky. PII-minimal.
@@ -1448,7 +1463,7 @@ function pageTypeFromPath(path: string): string {
   const map: Record<string, string> = {
     '/kontakt': 'kontakt', '/pujcovna-motorek': 'pujcovna', '/partneri': 'partneri', '/poukazy': 'poukazy',
     '/koupit-darkovy-poukaz': 'poukazy_objednat', '/rezervace': 'rezervace', '/potvrzeni': 'potvrzeni',
-    '/upravit-rezervaci': 'upravit_rezervaci', '/pobocky': 'pobocky',
+    '/upravit-rezervaci': 'upravit_rezervaci', '/pobocky': 'pobocky', '/pujceni-obleceni': 'pujceni_obleceni',
   }
   return map[p] || (p.startsWith('/pobocky/') ? 'pobocka_detail' : p.startsWith('/dokumenty/') ? 'dokument' : 'other')
 }
@@ -1534,6 +1549,9 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   lines.push('- Když je type=blog_detail / faq / jak_pujcit / pujcovna a user se ptá obecně, vycházej z aktuálního obsahu stránky a doplň relevantní fakta přes get_faq / get_policies (NIKDY z hlavy).')
   lines.push('- Pokud kontext stránky koliduje s něčím v konverzaci (např. user otevřel jinou motorku), zmiň to a doptej se: "vidím že koukáš na X, mluvíme o tomhle nebo o té předtím?".')
   lines.push('- Kontext je read-only; když user explicitně řekne "ne tuhle, jinou", přepni se a použij to, co řekl.')
+  if (type === 'pujceni_obleceni') {
+    lines.push('- PŮJČENÍ VÝBAVY BEZ MOTORKY: zákazník je na stránce samostatné výpůjčky výbavy (bod 45). Ceny, velikosti, pobočky a dostupnost ber z `get_gear_rental_offer`; objednává se přímo ve formuláři na této stránce (v chatu ji nezakládáš). Doklady jen doklad totožnosti (18+), ŘP ne.')
+  }
   if (type === 'katalog') {
     lines.push('- KATALOG: Zákazník je ve výpisu motorek. Když napíše krátký dotaz ("125ccm", "něco menšího", "co tu máte", "na tohle") bez upřesnění, ber AKTIVNÍ FILTRY KATALOGU výše jako jeho zadání a ZAVOLEJ `search_motorcycles` s odpovídajícími filtry (license_group ze „skupina ŘP", category z „kategorie", kw/ccm/cena z „hledaný text"). Odpověz POUZE z toho, co tool vrátí — nikdy „od oka".')
     lines.push('- KATALOG zobrazuje aktuální flotilu. JESTLI MÁME daný typ stroje (skútr, naked, cestovní, supermoto, dětská…) NEHÁDEJ z hlavy — řiď se sekcí „KOMPLETNÍ FLOTILA" výše (pole „kat."; skútr = kategorie „scootery") a/nebo zavolej `search_motorcycles` s `category`. Když tam kategorie je, potvrď a nabídni; když není, řekni rovně, že tu kategorii teď nemáme. NIKDY netvrď paušálně „skútry nepronajímáme", pokud skútr v živé flotile je. A NIKDY si neprotiřeč: co potvrdíš, v další větě nepopři.')

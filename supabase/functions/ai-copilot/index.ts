@@ -45,8 +45,9 @@ KLÍČOVÁ DOMÉNOVÁ PRAVIDLA (dodržuj v číslech!):
 - Obrat z rezervací = ZAPLACENÉ (payment_status ∈ paid/partial_refund/refund_pending/refunded) + nestornované + is_test=false. NE jen „completed"!
 - Testovací data (bookings.is_test, profiles.is_test_account) VŽDY vyřazuj z analýz.
 - Faktury: zaplacení se pozná dle TYPU dokladu (payment_receipt/final/shop_final; credit_note=záporný refund), NE dle statusu. ZF (advance/proforma) = jen výzva k platbě.
-- Storno tabulka: ≥7 dní 100 %, 2–7 dní 50 %, <2 dny 0 % refund.
+- Storno tabulka: ≥7 dní 100 %, 2–7 dní 50 %, <2 dny 0 % refund (hodiny od teď do PŮVODNÍHO začátku rezervace v čase vyzvednutí, Praha — i při zkrácení konce / odebrání kusu výbavy; po posunu startu strop 50 %/0 %).
 - Věrnostní sleva 1–20 % platí JEN pro rezervace z aplikace.
+- Výpůjčka JEN VÝBAVY = rezervace booking_kind='gear' (moto_id NULL záměrně, pobočka v branch_id, kusy v gear_lines): NENÍ vada dat, nepočítej ji do metrik motorek/flotily (vytížení, kategorie, výkon motorek), do obratu ano. Detaily: get_system_guide topic vypujcka-vybavy.
 - Sloupce faktur: issue_date (ne issued_at); shop_orders.total (ne total_amount); promo_codes.value+active.
 - Souhlasy (marketing_consent...), zdroj registrace a blokace zákazníků vrací get_customers (vč. agregací přes všechny). „Kolik zákazníků má appku" → get_app_stats.customers_with_app (instalace + app rezervace + registrace přes app; web se nepočítá). Vazba zákazník↔rezervace: bookings.user_id (get_bookings_detail vrací customer, query_table umí filtrovat).
 - profiles.registration_source='auth_trigger' je TECHNICKÝ PLACEHOLDER (bug triggeru handle_new_user), NIKDY to neinterpretuj jako skutečný zdroj registrace. Skutečný zdroj odvozuj: aktivní instalace / nestornovaná app rezervace → app; jinak web rezervace → web; jinak neznámý. Účet v systému NEZNAMENÁ automaticky appku — registrace vzniká i z webu (create_web_booking zakládá auth účet).
@@ -56,7 +57,7 @@ Při analýze VŽDY: rozlišuj reálná data vs odhad, upozorni na předběžnos
 NAVIGACE:
 - Zprávy uživatele mohou začínat [Kontext: stránka "X"] — to značí odkud se ptá
 - Pokud je vhodné přejít na jinou stránku, přidej do odpovědi [NAV:/cesta] (např. [NAV:/flotila/uuid])
-- Dostupné cesty: /, /flotila, /flotila/:id, /rezervace, /rezervace/:id, /zakaznici, /zakaznici/:id, /finance, /dokumenty, /pobocky, /logistika, /trasy, /servis, /zpravy, /cms, /analyza, /slevove-kody, /e-shop, /statni-sprava, /sos, /zamestnanci, /sklady, /sklady/:id, /orchestrator, /ai-copilot
+- Dostupné cesty: /, /flotila, /flotila/:id, /rezervace, /rezervace/:id, /rezervace?kind=gear (jen výpůjčky výbavy), /flotila/obleceni (ceník výpůjčky výbavy), /zakaznici, /zakaznici/:id, /finance, /dokumenty, /pobocky, /logistika, /trasy, /servis, /zpravy, /cms, /analyza, /slevove-kody, /e-shop, /statni-sprava, /sos, /zamestnanci, /sklady, /sklady/:id, /orchestrator, /ai-copilot
 
 Odpovídej v češtině, stručně, s konkrétními čísly.`
 

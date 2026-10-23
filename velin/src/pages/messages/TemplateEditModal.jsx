@@ -14,6 +14,8 @@ const AVAILABLE_VARS = [
   'customer_name', 'booking_number', 'motorcycle', 'start_date', 'end_date',
   'total_price', 'door_code_moto', 'door_code_gear', 'gate_code', 'voucher_code',
   'review_link', 'link', 'discount', 'price',
+  // Výpůjčka výbavy (door_codes_gear_only / door_codes_gate_gear_only): číslo dveří šatny + platnost kódu
+  'locker_door', 'valid_from', 'valid_to',
 ]
 
 const SAMPLE_VARS = {
@@ -31,6 +33,9 @@ const SAMPLE_VARS = {
   link: 'https://www.motogo24.cz',
   discount: '20%',
   price: '2 500 Kč',
+  locker_door: '8',
+  valid_from: '15. 6. 2026 10:00',
+  valid_to: '18. 6. 2026 18:00',
 }
 
 // Všech 8 jazyků zákazníků (send-message hledá šablonu podle jazyka zákazníka, audit DB-11)

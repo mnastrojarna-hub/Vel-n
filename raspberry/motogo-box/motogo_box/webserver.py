@@ -20,6 +20,7 @@ from typing import Any, Awaitable, Callable
 
 from aiohttp import WSMsgType, web
 
+from . import handover_gear
 from . import webserver_service as svc
 from .models import Event, EventKind
 
@@ -170,6 +171,7 @@ class WebServer:
         r.add_post("/api/protocol/submit", self._protocol_submit)
         r.add_post("/api/protocol/dismiss", self._protocol_dismiss)
         r.add_post("/api/protocol/touch", self._protocol_touch)
+        r.add_post("/api/gear/return", self._delegate(handover_gear.http_return))   # vrácení výbavy Ano/Ne (§33)
         r.add_get("/api/diagnostics", self._delegate(svc.diagnostics_get))
         r.add_post("/api/diagnostics/run", self._delegate(svc.diagnostics_run))
         for name, handler in (("open", svc.service_open), ("music", svc.service_music),

@@ -36,6 +36,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { isServiceRole } from '../_shared/auth.ts'
+import { bookingKindOf, paidMailType } from '../webhook-receiver/gear-docs.ts'
+import { gearPaidMessageFor } from './gear-msg.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -349,22 +351,15 @@ serve(async (req) => {
         const profile = (booking.profiles ?? null) as { full_name?: string; email?: string } | null
         const moto = (booking.motorcycles ?? null) as { model?: string; manual_url?: string } | null
         const source = String(booking.booking_source || 'app')
+        // Výpůjčka výbavy (2026-10-23): doklady per rezervace (jen totožnost + 18+) a vlastní
+        // text zprávy do appky — webhook-receiver/gear-docs.ts; motorka beze změny.
+        // Řádek s motorkou = vždy motorka (CHECK bookings_gear_shape) → bez dotazu na booking_kind.
+        const kind = booking.moto_id ? 'moto' : await bookingKindOf(sb, bId)
         if (profile?.email) {
-          let mailType = 'booking_reserved'
-          if (source === 'web') {
-            let docsOk = !!booking.docs_completed_at
-            if (!docsOk) {
-              try {
-                const { data: ds } = await sb.rpc('check_booking_docs_status', {
-                  p_user_id: booking.user_id,
-                  p_end_date: String(booking.end_date || '').slice(0, 10),
-                  p_moto_id: booking.moto_id,
-                })
-                docsOk = (ds === null || ds === undefined)
-              } catch { docsOk = false }
-            }
-            mailType = docsOk ? 'booking_reserved' : 'invoice_payment_receipt'
-          }
+          const mailType = await paidMailType(sb, {
+            id: bId, user_id: booking.user_id as string | null, end_date: booking.end_date as string | null,
+            moto_id: booking.moto_id as string | null, docs_completed_at: booking.docs_completed_at as string | null,
+          }, source, kind)
           try {
             const mr = await fetch(SUPABASE_URL + '/functions/v1/send-booking-email', {
               method: 'POST',
@@ -387,7 +382,10 @@ serve(async (req) => {
           const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Prague' })
           const newStatus = String(booking.start_date || '').slice(0, 10) <= today ? 'active' : 'reserved'
           const fmtCs = (s: unknown) => s ? new Date(String(s)).toLocaleDateString('cs-CZ') : ''
-          const msg = newStatus === 'active'
+          // gear: text v jazyce zákazníka (gear-msg.ts, 8 jazyků); motorka beze změny
+          const msg = kind === 'gear'
+            ? await gearPaidMessageFor(sb, bId, booking.start_date, booking.end_date)
+            : newStatus === 'active'
             ? `Motorka ${moto?.model || ''} byla vydána. Přejeme příjemnou jízdu! V případě problému nás kontaktujte nebo použijte SOS tlačítko.`
             : `Vaše rezervace motorky ${moto?.model || ''} (${fmtCs(booking.start_date)} – ${fmtCs(booking.end_date)}) byla potvrzena. Smlouvu a fakturu najdete v sekci Dokumenty.`
           const userId = String(booking.user_id || '')
