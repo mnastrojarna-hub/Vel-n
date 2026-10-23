@@ -1,0 +1,84 @@
+/* ===== MotoGo24 — Dárkové poukazy: /poukazy (pages/poukazy.php) + /koupit-darkovy-poukaz (pages/poukazy-objednat.php) =====
+   Jen vzhled (2026-10-23) v jazyce landingu v2 (tmavě zelené karty, akcent #74fb71). Mobile-first.
+   Formulář objednávky má navíc css/voucher-form.css. Texty, CMS klíče, ikony, pole formuláře i inline JS beze změny — tady se mění jen prezentace. */
+.gv-page{--gv-d:#0e2a1c;--gv-t:#0f2418;--gv-m:#4b6355;--gv-l:#d9eee2;--gv-mint:linear-gradient(160deg,#f3fdf3,#e6f9ea);--gv-dark:radial-gradient(120% 140% at 100% 0,#24563b 0,#0e2a1c 55%,#0a1f14 100%);--gv-grad:linear-gradient(135deg,#8dff86,#37cf63);--gv-sh:0 12px 30px -22px rgba(14,42,28,.45);--gv-ck-n:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2374fb71' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");--gv-ck-d:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308230f' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");--gv-arr:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308230f' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9.5 6 6 6-6 6'/%3E%3C/svg%3E")}
+
+/* Hlavní tlačítka (hero, závěrečné CTA, platba) = zelený gradient jako landing v2 */
+.gv-page .gv-hero-cta .btn,.gv-page .gv-cta .btn,.gv-page #gvSubmitBtn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:.75rem 1.4rem;border:0;border-radius:14px;background:var(--gv-grad);color:#08230f;font-weight:800;letter-spacing:.02em;line-height:1.2;box-shadow:0 10px 24px -10px rgba(55,207,99,.85)}
+.gv-page .gv-hero-cta .btn:hover,.gv-page .gv-cta .btn:hover,.gv-page #gvSubmitBtn:hover{background:linear-gradient(135deg,#a8ff9f,#5edc5a);color:#08230f;border:0}
+.gv-page .btn:focus-visible{outline:3px solid #74fb71;outline-offset:3px}
+
+/* ---------- /poukazy ---------- */
+.gv-page .ccontent>section{margin:0 0 1.25rem}
+.gv-page .ccontent>section:last-child{margin-bottom:0}
+@media(min-width:769px){.gv-page .ccontent>section{margin-bottom:2rem}}
+
+/* Úvod = hero karta */
+.gv-hero{position:relative;overflow:hidden;display:grid;gap:1.1rem;padding:1.2rem 1.05rem 1.1rem;border-radius:20px;background:var(--gv-dark);color:#cfe7da;box-shadow:0 18px 40px -16px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
+.gv-hero::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,transparent,#74fb71,transparent)}
+.gv-hero-txt,.gv-hero-img{min-width:0}
+.gv-page .gv-hero h1{color:#fff;font-size:clamp(1.4rem,5.6vw,2.15rem);line-height:1.2;margin:0 0 .7rem;hyphens:none;text-wrap:balance}
+.gv-hero-lead p{margin:0 0 .5rem;color:#cfe7da;font-size:.97rem;line-height:1.55}
+.gv-hero-lead strong{color:#fff}
+.gv-hero-lead a{color:#74fb71}
+.gv-hero-cta{margin:1rem 0 0}
+.gv-page .gv-hero-cta .btn{width:100%}
+.gv-hero-img img{border-radius:14px;box-shadow:0 14px 30px -12px rgba(0,0,0,.6)}
+@media(min-width:560px) and (max-width:768px){.gv-hero-img{max-width:520px}}
+@media(min-width:769px){.gv-hero{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:center;gap:2rem;padding:2rem}.gv-page .gv-hero-cta .btn{width:auto;padding:.8rem 1.8rem}}
+
+/* Kroky: mobil = svislá časová osa, desktop = 3 vedle sebe se spojnicí */
+.gv-how{padding:1.05rem 1rem 1rem;border:1px solid var(--gv-l);border-radius:20px;background:#fff;box-shadow:var(--gv-sh)}
+.gv-page .gv-eyebrow{margin:0 0 .9rem;font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#15803d}
+.gv-steps{display:grid;margin:0;padding:0;list-style:none}
+.gv-step{position:relative;display:grid;grid-template-columns:52px minmax(0,1fr);align-content:start;column-gap:.85rem;padding:0 0 1rem}
+.gv-step:last-child{padding-bottom:0}
+.gv-step::before{content:"";position:absolute;left:25px;top:58px;bottom:6px;width:2px;border-radius:2px;background:linear-gradient(#74fb71,#c9f2c9)}
+.gv-step:last-child::before{display:none}
+.gv-step-ico{position:relative;display:flex;align-items:center;justify-content:center;width:52px;height:52px;border:1.5px solid #c9f2c9;border-radius:16px;background:var(--gv-mint)}
+.gv-step-ico .icon{width:36px;height:30px;object-fit:contain}
+.gv-step-n{position:absolute;top:-8px;right:-8px;display:flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:var(--gv-d);color:#74fb71;font-size:.74rem;font-weight:800;box-shadow:0 0 0 2px #fff}
+.gv-step-body{min-width:0;padding-top:.15rem}
+.gv-page .gv-step-t{margin:0 0 .15rem;font-size:1.02rem;line-height:1.3;color:var(--gv-t)}
+.gv-step-x{margin:0;font-size:.9rem;line-height:1.45;color:var(--gv-m)}
+@media(min-width:769px){
+  .gv-how{padding:1.4rem 1.5rem 1.3rem}
+  .gv-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:1.5rem}
+  .gv-step{grid-template-columns:minmax(0,1fr);padding:0}
+  .gv-step::before{left:66px;right:calc(14px - 1.5rem);top:25px;bottom:auto;width:auto;height:2px}
+  .gv-step-body{padding-top:.8rem}
+}
+/* Platnost poukazu = zvýrazněný info štítek */
+.gv-note{display:flex;align-items:flex-start;gap:.65rem;margin:1.1rem 0 0;padding:.75rem .9rem;border:1.5px solid #c9f2c9;border-radius:14px;background:var(--gv-mint);color:#14532d}
+.gv-note-ico{flex:0 0 auto;width:24px;height:24px;color:#16a34a}
+.gv-note p{margin:0;font-size:.92rem;font-weight:600;line-height:1.5}
+.gv-note strong{color:#0f3d1f}
+
+/* Proč koupit / Na co uplatnit = karty s odrážkami-ikonami */
+.gv-cards{display:grid;gap:.9rem}
+@media(min-width:769px){.gv-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem}}
+.gv-card{min-width:0;padding:1.1rem 1rem;border:1px solid var(--gv-l);border-radius:20px;background:#fff;box-shadow:var(--gv-sh)}
+.gv-page .gv-card h2{margin:0 0 .8rem;font-size:clamp(1.12rem,4.4vw,1.3rem)}
+.gv-list{display:grid;gap:.6rem;margin:0;padding:0;list-style:none}
+.gv-list>li{position:relative;min-width:0;padding-left:2rem;font-size:.93rem;line-height:1.5;color:#2f4a39;overflow-wrap:break-word}
+.gv-list>li::before{content:"";position:absolute;left:0;top:.05rem;width:22px;height:22px;border-radius:7px;background:var(--gv-d) var(--gv-ck-n) center/14px no-repeat}
+.gv-card--how .gv-list>li::before{background:var(--gv-grad)}
+.gv-card--how .gv-list>li::after{content:"";position:absolute;left:0;top:.05rem;width:22px;height:22px;background:var(--gv-arr) center/14px no-repeat}
+.gv-list strong{color:var(--gv-t)}
+.gv-list ul,.gv-list li li{margin:0;padding:0;list-style:none}
+.gv-list li li+li,.gv-list li>div{margin-top:.35rem}
+.gv-lists-cta{margin:1rem 0 0}
+.gv-page .gv-lists-cta .btn{width:100%;min-height:50px;border-radius:14px;background:var(--gv-d);color:#74fb71;font-weight:800;box-shadow:0 10px 22px -14px rgba(10,31,20,.8)}
+.gv-page .gv-lists-cta .btn:hover{background:#163d29;color:#a8ff9f}
+@media(min-width:769px){.gv-page .gv-lists-cta .btn{width:auto;padding:.75rem 1.6rem}}
+
+/* FAQ + závěrečné CTA */
+.gv-page .gv-faq h2{margin:0 0 .8rem}
+.gv-page .gv-faq .gr2{gap:.6rem 1rem;align-items:start}
+.gv-page .gv-faq .faq-item{margin:0;border-color:var(--gv-l);border-radius:14px;box-shadow:0 6px 18px -14px rgba(14,42,28,.5)}
+.gv-page .gv-faq .faq-item summary::after{border-radius:10px;background:var(--gv-grad);color:#08230f}
+.gv-page section.gv-cta{position:relative;overflow:hidden;padding:1.5rem 1.1rem;border-radius:20px;background:var(--gv-dark);box-shadow:0 18px 40px -16px rgba(10,31,20,.6),inset 0 0 0 1px rgba(116,251,113,.25)}
+.gv-page .gv-cta p{margin:0 auto;max-width:52rem;color:#cfe7da;line-height:1.6}
+.gv-page .gv-cta .gv-cta-btns{display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem;margin-top:1.1rem}
+.gv-page .gv-cta .btn{margin:0;padding:.8rem 1.8rem}
+@media(min-width:769px){.gv-page section.gv-cta{padding:2rem}}

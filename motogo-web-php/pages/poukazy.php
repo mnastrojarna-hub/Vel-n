@@ -63,31 +63,44 @@ $C = $sb->siteContent('poukazy', $defaults);
 
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.vouchers')]);
 $kp = 'web.poukazy';
+// Vzhled (2026-10-23, css/voucher.css): hero karta, kroky jako číslovaný stepper, seznamy jako karty.
+// Texty, CMS klíče, ikony i pořadí bloků beze změny; mezery řeší CSS (žádné <p>&nbsp;</p>).
 
 $img = is_array($C['intro_image'] ?? null) ? $C['intro_image'] : ($defaults['intro_image']);
 $imgSrc = BASE_URL . '/' . ltrim($img['src'] ?? '', '/');
 
 $intro_cta = is_array($C['intro_cta'] ?? null) ? $C['intro_cta'] : ($defaults['intro_cta']);
-$intro = '<section aria-labelledby="title"><h1 id="title" data-cms-key="' . $kp . '.h1">' . sanitizeHtml($C['h1'] ?? '') . '</h1>' .
-    '<div class="gr2"><div><div data-cms-key="' . $kp . '.intro_left">' . sanitizeHtml($C['intro_left'] ?? '') . '</div>' .
-    '<p>&nbsp;</p>' .
-    '<p class="cta"><a aria-label="' . htmlspecialchars($intro_cta['aria'] ?? ($intro_cta['label'] ?? '')) . '" class="btn btngreen" href="' . BASE_URL . ($intro_cta['href'] ?? '#') . '" data-cms-key="' . $kp . '.intro_cta.label">' . sanitizeHtml($intro_cta['label'] ?? '') . '</a></p>' .
-    '<p>&nbsp;</p>' .
-    '</div><div>' .
+// Prázdné odstavce-mezery (<p>&nbsp;</p>) z CMS textu úvodu nahrazuje CSS mezera; v CMS admin režimu se
+// nechávají, ať inline editor uloží text beze změny.
+$introLeft = sanitizeHtml($C['intro_left'] ?? '');
+if (!mgCmsAdminValid()) $introLeft = preg_replace('#<p>(?:\s|&nbsp;|&\#160;|\xC2\xA0)*</p>#i', '', $introLeft);
+$intro = '<section aria-labelledby="title" class="gv-hero"><div class="gv-hero-txt">' .
+    '<h1 id="title" data-cms-key="' . $kp . '.h1">' . sanitizeHtml($C['h1'] ?? '') . '</h1>' .
+    '<div class="gv-hero-lead" data-cms-key="' . $kp . '.intro_left">' . $introLeft . '</div>' .
+    '<p class="cta gv-hero-cta"><a aria-label="' . htmlspecialchars($intro_cta['aria'] ?? ($intro_cta['label'] ?? '')) . '" class="btn btngreen" href="' . BASE_URL . ($intro_cta['href'] ?? '#') . '" data-cms-key="' . $kp . '.intro_cta.label">' . sanitizeHtml($intro_cta['label'] ?? '') . '</a></p>' .
+    '</div><div class="gv-hero-img">' .
     '<img alt="' . htmlspecialchars($img['alt'] ?? '') . '" class="imgres" loading="lazy" src="' . htmlspecialchars($imgSrc) . '">' .
-    '</div></div></section>';
+    '</div></section>';
 
-$stepsHtml = '<section aria-label="' . htmlspecialchars(t('poukazy.steps.aria')) . '"><div class="gr3">';
+// Kroky: ikona + číslo + titulek + text. Když už titulek z CMS číslo má („1. Vyber“), odznak s číslem se nekreslí.
+// Nadpis sekce = dosavadní aria-label (poukazy.steps.aria), přes tc() editovatelný v CMS admin režimu (web.layout.*).
+$stepsHtml = '<section class="gv-how" aria-labelledby="gv-how-t"><h2 id="gv-how-t" class="gv-eyebrow">' . tc('poukazy.steps.aria') . '</h2><ol class="gv-steps">';
+$n = 0;
 foreach ((is_array($C['steps'] ?? null) ? $C['steps'] : []) as $i => $s) {
     if (!is_array($s)) continue;
+    $n++;
     $kBase = $kp . '.steps.' . $i;
-    $stepsHtml .= renderWbox(
-        $s['icon'] ?? '',
-        '<span data-cms-key="' . $kBase . '.title">' . sanitizeHtml($s['title'] ?? '') . '</span>',
-        '<span data-cms-key="' . $kBase . '.text">' . sanitizeHtml($s['text'] ?? '') . '</span>'
-    );
+    $title = sanitizeHtml($s['title'] ?? '');
+    $hasNum = (bool)preg_match('/^\s*\d+\s*[.)]/u', html_entity_decode(strip_tags($title), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $icon = (string)($s['icon'] ?? '');
+    $stepsHtml .= '<li class="gv-step">' .
+        '<span class="gv-step-ico">' . ($icon !== '' ? '<img src="' . htmlspecialchars(BASE_URL . '/' . ltrim($icon, '/')) . '" class="icon" alt="' . htmlspecialchars(trim(strip_tags($title))) . '" aria-hidden="true" loading="lazy">' : '') .
+        ($hasNum ? '' : '<span class="gv-step-n" aria-hidden="true">' . $n . '</span>') . '</span>' .
+        '<div class="gv-step-body"><h3 class="gv-step-t"><span data-cms-key="' . $kBase . '.title">' . $title . '</span></h3>' .
+        '<p class="gv-step-x"><span data-cms-key="' . $kBase . '.text">' . sanitizeHtml($s['text'] ?? '') . '</span></p></div></li>';
 }
-$stepsHtml .= '</div><p>&nbsp;</p><p data-cms-key="' . $kp . '.validity_note">' . sanitizeHtml($C['validity_note'] ?? '') . '</p><p>&nbsp;</p><p>&nbsp;</p>';
+$stepsHtml .= '</ol><div class="gv-note"><svg class="gv-note-ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3zM8.5 12l2.5 2.5 4.5-5"/></svg>' .
+    '<p data-cms-key="' . $kp . '.validity_note">' . sanitizeHtml($C['validity_note'] ?? '') . '</p></div></section>';
 
 $whyLis = '';
 foreach ((is_array($C['why']['items'] ?? null) ? $C['why']['items'] : []) as $i => $item) {
@@ -98,10 +111,10 @@ foreach ((is_array($C['how']['items'] ?? null) ? $C['how']['items'] : []) as $i 
     $howLis .= '<li data-cms-key="' . $kp . '.how.items.' . $i . '">' . sanitizeHtml($item) . '</li>';
 }
 $catCta = is_array($C['catalog_cta'] ?? null) ? $C['catalog_cta'] : ($defaults['catalog_cta']);
-$stepsHtml .= '<div class="gr2"><div><h2 data-cms-key="' . $kp . '.why.title">' . sanitizeHtml($C['why']['title'] ?? '') . '</h2><ul>' . $whyLis . '</ul></div>' .
-    '<div><h2 data-cms-key="' . $kp . '.how.title">' . sanitizeHtml($C['how']['title'] ?? '') . '</h2><ul>' . $howLis . '</ul></div></div>' .
-    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . ($catCta['href'] ?? '#') . '" data-cms-key="' . $kp . '.catalog_cta.label">' . sanitizeHtml($catCta['label'] ?? '') . '</a></p>' .
-    '<p>&nbsp;</p><p>&nbsp;</p></section>';
+$listsHtml = '<section class="gv-lists"><div class="gv-cards">' .
+    '<div class="gv-card gv-card--why"><h2 data-cms-key="' . $kp . '.why.title">' . sanitizeHtml($C['why']['title'] ?? '') . '</h2><ul class="gv-list">' . $whyLis . '</ul></div>' .
+    '<div class="gv-card gv-card--how"><h2 data-cms-key="' . $kp . '.how.title">' . sanitizeHtml($C['how']['title'] ?? '') . '</h2><ul class="gv-list">' . $howLis . '</ul></div></div>' .
+    '<p class="gv-lists-cta"><a class="btn btngreen" href="' . BASE_URL . ($catCta['href'] ?? '#') . '" data-cms-key="' . $kp . '.catalog_cta.label">' . sanitizeHtml($catCta['label'] ?? '') . '</a></p></section>';
 
 $faqItemsHtml = '';
 foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $faq) {
@@ -112,30 +125,30 @@ foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i 
         '<span data-cms-key="' . $kBase . '.a">' . sanitizeHtml($faq['a'] ?? '') . '</span>'
     );
 }
-$faqSection = '<h2 data-cms-key="' . $kp . '.faq.title">' . sanitizeHtml($C['faq']['title'] ?? '') . '</h2>' .
-    '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">' . $faqItemsHtml . '</div></div></div>';
+$faqSection = '<section class="gv-faq" aria-labelledby="gv-faq-t"><h2 id="gv-faq-t" data-cms-key="' . $kp . '.faq.title">' . sanitizeHtml($C['faq']['title'] ?? '') . '</h2>' .
+    '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">' . $faqItemsHtml . '</div></div></div></section>';
 
-$ctaButtonsKeyed = [];
+// CTA = struktura renderCta() (section[aria-labelledby=cta]) bez <p>&nbsp;</p> mezer; fallback titulku stejný.
+$ctaTitle = '<span data-cms-key="' . $kp . '.cta.title">' . sanitizeHtml($C['cta']['title'] ?? '') . '</span>';
+if (trim(strip_tags($ctaTitle)) === '' && !mgCmsAdminValid()) $ctaTitle = 'Rezervujte si motorku';
+$ctaBtns = '';
 foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
     if (!is_array($btn)) continue;
-    $b = $btn;
-    $b['label'] = '<span data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . sanitizeHtml($btn['label'] ?? '') . '</span>';
-    $ctaButtonsKeyed[] = $b;
+    $ctaBtns .= '<a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '"><span data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . sanitizeHtml($btn['label'] ?? '') . '</span></a>';
 }
-$ctaHtml = renderCta(
-    '<span data-cms-key="' . $kp . '.cta.title">' . sanitizeHtml($C['cta']['title'] ?? '') . '</span>',
-    '<span data-cms-key="' . $kp . '.cta.text">' . sanitizeHtml($C['cta']['text'] ?? '') . '</span>',
-    $ctaButtonsKeyed
-);
+$ctaHtml = '<section aria-labelledby="cta" class="gv-cta"><h2 id="cta">' . $ctaTitle . '</h2>' .
+    '<p><span data-cms-key="' . $kp . '.cta.text">' . sanitizeHtml($C['cta']['text'] ?? '') . '</span></p>' .
+    '<p class="gv-cta-btns">' . $ctaBtns . '</p></section>';
 
-$content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' . $intro . $stepsHtml . $faqSection . $ctaHtml .
+$content = '<main id="content" class="gv-page"><div class="container">' . $bc .
+    '<div class="ccontent">' . $intro . $stepsHtml . $listsHtml . $faqSection . $ctaHtml .
     '</div></div></main>';
 
 renderPage($C['seo']['title'], $content, '/poukazy', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'og_image' => $C['seo']['og_image'] ?? null,
+    'styles' => ['/css/voucher.css'],
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
         ['name' => t('breadcrumb.vouchers'), 'url' => siteCanonicalUrl('/poukazy')],
