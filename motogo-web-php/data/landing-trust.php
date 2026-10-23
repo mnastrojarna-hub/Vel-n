@@ -15,6 +15,10 @@
 // Moravamotors 45k, Yamaha PEMM Brno 30k, Race Tool KTM 30/50k, Motoverse 40/30/50k, Profi-moto 30k,
 // AMG Moto Ostrava 40k, Motoráj Zásadka 40k, HD Praha 10k, MTT Brno 15k, Westmoto 15k, motopujcovna-praha 20k
 // → rozpětí 10–50 tis., medián 25 tis., 30 tis. přesně u 6 půjčoven; spoluúčast obvykle 10 %, min. 10 000 Kč.
+// Víkendový nájem velké motorky (pá–ne) tamtéž: Renocar 7 000, BASE NEXT 9 000, Legendy 7 500, NajmiMoto 9 900, PM Praha
+// 9 500/6 600, Motolety 6 500–7 000, Moravamotors 9 100/7 400/7 000, PEMM 6 000–6 600, Motoráj 9 500 → obvykle 6–10 tis.;
+// kauce + víkendový nájem 27 000 (Renocar) – 68 000 (Race Tool 1390), medián ~36 800 → „i skoro 40 000 Kč předem“ (2026-10-23,
+// zadání majitele: velké číslo = kauce + nájem na víkend). Kauce je VRATNÁ — v textu vždy „vratná“, nikdy „běžně/vždy 40 000“.
 // Zdroje: veřejné ceníky na webech uvedených půjčoven (screenshoty uchovat u majitele). Nejmenovat konkurenty
 // (OZ § 2980), neškrtat cizí částky (dojem slevy), kauci nesčítat se spoluúčastí. Ověřit 1× za sezónu.
 
@@ -73,10 +77,10 @@ function lpTrustDefaults() {
         'guar_note' => '* Při dodržení podmínek nájmu (VOP čl. 7); nevztahuje se na odcizení. ** Posun termínu a úpravy rezervace kdykoliv do začátku pronájmu. Po vrácení části platby (zkrácení) změnu termínu vyřídí obsluha. Storno a zkrácení: víc než 7 dní před dnem převzetí vracíme 100 % (u zkrácení z ceny odebraných dní), víc než 2 dny před dnem převzetí 50 %, později vratku negarantujeme. Zkrácením na 1 den zaniká sleva „1. den za polovinu“. Po předchozím posunu začátku vracíme při stornu i zkrácení nejvýš 50 %, a pokud byl posun méně než 7 dní předem, nic.',
         // Cenová kotva nad garancemi (důkaz v hlavičce souboru). {zero} = „0 Kč“ v měně návštěvníka,
         // {approx} = přepočet 20–30 tis. Kč do cizí měny „ (≈ …)“, u CZK prázdné. Částky v Kč NEpřepočítávat.
-        'anchor_big' => '30 000 Kč kauce?',
-        'anchor_ours' => 'U nás {zero}.',
-        'anchor_sub' => 'Za velkou motorku chtějí půjčovny běžně 20–30 tisíc Kč{approx} kauci, u silných strojů i 50 tisíc. U nás neskládáš nic a spoluúčast při nehodě máš {zero}.*',
-        'anchor_src' => 'Průzkum MotoGo24: ceníky 17 českých půjčoven ověřené 22. 10. 2026 — kauce u velkých motorek 10 000–50 000 Kč, nejčastěji 20 000–30 000 Kč.',
+        'anchor_big' => 'Na víkend skoro 40 000 Kč předem?',
+        'anchor_ours' => 'U nás kauce {zero}.',
+        'anchor_sub' => 'Jinde u velké motorky složíš obvykle vratnou kauci 20–30 tisíc Kč{approx} a k tomu zaplatíš 6–10 tisíc za víkendový nájem — dohromady to dá i skoro 40 000 Kč předem.*** U nás neskládáš nic, platíš jen nájem a spoluúčast při nehodě máš {zero}.*',
+        'anchor_src' => '*** Průzkum MotoGo24: ceníky 17 českých půjčoven ověřené 22. 10. 2026 — vratná kauce u velkých motorek 10 000–50 000 Kč (nejčastěji 20 000–30 000 Kč), víkendový nájem obvykle 6 000–10 000 Kč; kauce s nájmem dohromady 27 000–68 000 Kč, medián asi 37 000 Kč.',
         // Promo „jen výbava“ dole na úvodní stránce a na /pujcovna-motorek (landing-gear-promo.php);
         // {set} {price} = název a cena nejlevnějšího aktivního kompletu z gear_rental_prices (Velín; dnes „Komplet bez bot“),
         // sekce jen při zapnutém půjčení.

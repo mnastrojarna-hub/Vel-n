@@ -62,6 +62,8 @@ function lpFootnotesHtml() {
     $n = (array)($GLOBALS['mgLpFootnotes'] ?? []);
     if (isset($n['guar'], $n['reasons']) && !lpAdmin()) unset($n['reasons']);
     $out = '';
+    // pořadí jako hvězdičky: * / ** (garance, důvody), pak *** zdroj cenové kotvy
+    uksort($n, function ($a, $b) { $o = ['guar' => 0, 'reasons' => 1, 'anchor' => 2]; return ($o[$a] ?? 9) <=> ($o[$b] ?? 9); });
     foreach ($n as [$key, $text]) {
         $out .= '<p data-cms-key="' . he($key) . '">' . he(lpNbspTxt($text)) . '</p>';
     }
@@ -143,7 +145,7 @@ function lpAnchorFill($tpl, $zeroCls = '', $iso = false) {
     return implode($zero, array_map(function ($p) { return he(lpNbsp($p)); }, explode('{zero}', $tpl)));
 }
 
-/** Cenová kotva „30 000 Kč kauce? U nás 0 Kč.“ + vysvětlení + datovaný zdroj (prázdný anchor_big = nic). */
+/** Cenová kotva „Na víkend skoro 40 000 Kč předem? U nás kauce 0 Kč.“ + vysvětlení; zdroj → poznámky nad patičkou. */
 function renderLpAnchor($T) {
     if (lpPlain($T['anchor_big'] ?? '') === '') return '';
     $k = 'web.landing.common.';
@@ -155,5 +157,6 @@ function renderLpAnchor($T) {
         $el('span', 'anchor_big', 'lp-anchor-was', $txt('anchor_big')) . ' ' .
         $el('span', 'anchor_ours', 'lp-anchor-now', lpAnchorFill($T['anchor_ours'] ?? '', 'lp-anchor-zero', true)) . '</p>' .
         $el('p', 'anchor_sub', 'lp-anchor-sub', lpAnchorFill($T['anchor_sub'] ?? '', '', true)) .
-        $el('p', 'anchor_src', 'lp-anchor-src', $txt('anchor_src')) . '</div>';
+        // datovaný zdroj (***) drobně nad patičkou s ostatními poznámkami (majitel 2026-10-23)
+        lpFootnoteAdd('anchor', 'web.landing.common.anchor_src', $T['anchor_src'] ?? '') . '</div>';
 }

@@ -271,6 +271,14 @@ function lpHeroLazy($slidesHtml, $heroJs) {
 
 /** Pruh s nabídkou (např. sleva za vyzvednutí od 12:00) — jen když je text vyplněný. */
 function renderLpOffer($T) {
-    if (lpPlain($T['offer'] ?? '') === '') return '';
-    return '<aside class="lp-offer"><div class="container"><p class="lp-offer-in" data-cms-key="web.landing.common.offer"><span class="lp-offer-pct" aria-hidden="true">%</span><span>' . he(lpPlain($T['offer'])) . '</span></p></div></aside>';
+    $txt = lpPlain($T['offer'] ?? '');
+    if ($txt === '') return '';
+    // 2026-10-23 (majitel): výrazněji — hlavní věta velkým písmem, závorka („výpůjčka na 2 a více dní“) menším pod ní.
+    // CMS admin: syrový text v jednom spanu (inline editor ukládá innerHTML prvku s data-cms-key).
+    $body = he($txt);
+    if (!lpAdmin() && preg_match('/^(.+?)\s*\(([^()]+)\)\s*\.?$/u', $txt, $m)) {
+        $body = '<strong class="lp-offer-main">' . he(rtrim($m[1], ' .')) . '</strong><small class="lp-offer-note">' . he($m[2]) . '</small>';
+    }
+    return '<aside class="lp-offer"><div class="container"><p class="lp-offer-in"><span class="lp-offer-pct" aria-hidden="true">%</span>' .
+        '<span class="lp-offer-t" data-cms-key="web.landing.common.offer">' . $body . '</span></p></div></aside>';
 }

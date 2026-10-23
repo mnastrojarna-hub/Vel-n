@@ -85,10 +85,10 @@ return ['pages' => ['landing' => [
         ],
         'guar_note' => '* Mits je de huurvoorwaarden naleeft (algemene voorwaarden, art. 7); geldt niet bij diefstal. ** Data verzetten en wijzigen kan altijd tot de huur begint. Na een gedeeltelijke terugbetaling (inkorten) regelt ons team een datumwijziging. Annuleren en inkorten: meer dan 7 dagen voor de ophaaldag betalen we 100% terug (bij inkorten van de prijs van de geschrapte dagen), meer dan 2 dagen voor de ophaaldag 50%; daarna is terugbetaling niet gegarandeerd. Bij inkorten tot 1 dag vervalt de korting ‘1e dag voor de halve prijs’. Is de begindatum al eerder verzet, dan betalen we bij annuleren en inkorten hoogstens 50% terug, en niets als dat verzetten minder dan 7 dagen vooraf gebeurde.',
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
-        'anchor_big' => '30.000 CZK borg?',
-        'anchor_ours' => 'Bij ons {zero}.',
-        'anchor_sub' => 'Voor een grote motor vragen Tsjechische verhuurders meestal 20.000–30.000 CZK{approx} borg, voor zware machines tot 50.000 CZK. Bij ons laat je niets achter en je eigen risico bij een ongeval is {zero}.*',
-        'anchor_src' => 'MotoGo24-onderzoek bij 17 Tsjechische verhuurders, prijslijsten gecontroleerd op 22-10-2026: borg voor grote motoren 10.000–50.000 CZK, meestal 20.000–30.000 CZK.',
+        'anchor_big' => 'Bijna 40.000 CZK vooraf voor een weekend?',
+        'anchor_ours' => 'Borg bij ons: {zero}.',
+        'anchor_sub' => 'Elders betaal je voor een grote motor meestal 20.000–30.000 CZK{approx} terugbetaalbare borg plus 6.000–10.000 CZK weekendhuur — samen kan dat bijna 40.000 CZK vooraf zijn.*** Bij ons laat je geen borg achter, betaal je alleen de huur en is je eigen risico bij een ongeval {zero}.*',
+        'anchor_src' => '*** MotoGo24-onderzoek bij 17 Tsjechische verhuurders, prijslijsten gecontroleerd op 22-10-2026: terugbetaalbare borg voor grote motoren 10.000–50.000 CZK (meestal 20.000–30.000 CZK), weekendhuur meestal 6.000–10.000 CZK; borg en huur samen 27.000–68.000 CZK, mediaan ongeveer 37.000 CZK.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Uitrustingsverhuur',
