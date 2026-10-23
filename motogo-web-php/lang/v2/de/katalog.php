@@ -8,6 +8,9 @@ return ['pages' => ['landing_katalog' => [
     'title' => 'Berechne deinen Preis',
     'lead' => 'Wähle Filiale, Motorrad und Termin: Wir zeigen dir die freien Tage und den genauen Preis. Mit einem Tipp geht\'s dann zur fertig ausgefüllten Reservierung.',
     'lead_detail' => 'Wähle den Termin: Wir zeigen dir die freien Tage und den genauen Preis dieses Motorrads. Mit einem Tipp geht\'s dann zur fertig ausgefüllten Reservierung.',
+    // Detail motorky: nadpis kalendáře (CS title_detail / eyebrow_detail)
+    'eyebrow_detail' => 'Freie Tage & Preis',
+    'title_detail' => 'Wähle deinen Termin',
     'step_branch' => 'Filiale',
     'step_moto' => 'Motorrad',
     'step_dates' => 'Termin',
@@ -65,6 +68,7 @@ return ['pages' => ['landing_katalog' => [
     'cta_any' => 'Freie Motorräder anzeigen',
     'assure' => 'Termin kostenlos verschieben · Mehr als 7 Tage vorher kostenlos stornieren',
     'reset' => 'Termin zurücksetzen',
+    'cal_clear' => 'Auswahl löschen',
     'free_title' => 'Frei in deinem Zeitraum: {n}',
     'free_none' => 'In diesem Zeitraum ist in dieser Filiale kein Motorrad frei. Versuch einen anderen Termin oder eine andere Filiale.',
     'free_more' => 'und {n} weitere in der Reservierung',

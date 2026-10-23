@@ -15,6 +15,6 @@ return ['pages' => [
     'jak_pujcit_cena' => ['outro' => [
         'title' => 'Uczciwe warunki, bez ukrytych niespodzianek',
         'body1' => 'W MotoGo24 od pierwszego dnia budujemy cennik tak, aby był <strong>jak najbardziej przejrzysty</strong>. To, co jest w cenie wynajmu, naprawdę jest w cenie – bez dopłat za wyposażenie kierowcy, za odbiór poza zwykłymi godzinami, za formalności czy za podstawowe ubezpieczenie. Jeśli potrzebujesz czegoś dodatkowego (dostawy motocykla, dodatkowego wyposażenia, dłuższej rezerwacji), zawsze z góry podamy Ci cenę.',
-        'body2' => 'Typowy model „5 000 CZK kaucji płatnej przed odbiorem” porzuciliśmy od razu – <strong>u nas nie płacisz żadnej kaucji</strong>. Zamiast tego stawiamy na zaufanie, solidne umowy i to, że nasze motocykle są w pełni ubezpieczone. A gdyby jednak coś się stało, nasza linia SOS działa 24/7, a motocykl zastępczy zorganizujemy w ciągu 24 godzin, żeby Twój urlop czy wyjazd nie przepadł.',
+        'body2' => 'Z typowej kaucji płatnej przed odbiorem zrezygnowaliśmy od razu – <strong>u nas nie płacisz żadnej kaucji</strong>. Zamiast tego stawiamy na zaufanie, solidne umowy i to, że nasze motocykle są w pełni ubezpieczone. A gdyby jednak coś się stało, nasza linia SOS działa 24/7, a motocykl zastępczy zorganizujemy w ciągu 24 godzin, żeby Twój urlop czy wyjazd nie przepadł.',
     ]],
 ]];

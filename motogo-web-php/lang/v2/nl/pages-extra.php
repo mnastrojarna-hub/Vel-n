@@ -15,6 +15,6 @@ return ['pages' => [
     'jak_pujcit_cena' => ['outro' => [
         'title' => 'Eerlijke voorwaarden, geen verborgen verrassingen',
         'body1' => 'Bij MotoGo24 hebben we onze prijslijst vanaf dag één <strong>zo transparant mogelijk</strong> opgezet. Wat bij de huurprijs inbegrepen is, is ook echt inbegrepen – geen extra kosten voor rijdersuitrusting, voor ophalen buiten de gewone openingstijden, voor administratie of voor de basisverzekering. Heb je iets extra’s nodig (bezorging van de motor, extra uitrusting, een langere reservering), dan vertellen we je de prijs altijd vooraf.',
-        'body2' => 'Het gebruikelijke model „5.000 CZK borg vóór het ophalen” hebben we meteen geschrapt – <strong>bij ons betaal je geen borg</strong>. In plaats daarvan rekenen we op vertrouwen, degelijke contracten en het feit dat onze motoren volledig verzekerd zijn. En gebeurt er toch iets, dan is onze SOS-lijn 24/7 bereikbaar en regelen we binnen 24 uur een vervangende motor, zodat je vakantie of rit niet in het water valt.',
+        'body2' => 'De gebruikelijke borg vóór het ophalen hebben we meteen geschrapt – <strong>bij ons betaal je geen borg</strong>. In plaats daarvan rekenen we op vertrouwen, degelijke contracten en het feit dat onze motoren volledig verzekerd zijn. En gebeurt er toch iets, dan is onze SOS-lijn 24/7 bereikbaar en regelen we binnen 24 uur een vervangende motor, zodat je vakantie of rit niet in het water valt.',
     ]],
 ]];

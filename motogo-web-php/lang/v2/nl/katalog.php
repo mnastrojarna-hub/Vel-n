@@ -8,6 +8,9 @@ return ['pages' => ['landing_katalog' => [
     'title' => 'Bereken je prijs',
     'lead' => 'Kies vestiging, motor en periode: we tonen de vrije dagen en de exacte prijs. Met één tik ga je naar de reservering, alles al ingevuld.',
     'lead_detail' => 'Kies je periode: we tonen de vrije dagen en de exacte prijs van deze motor. Met één tik ga je naar de reservering, alles al ingevuld.',
+    // Detail motorky: nadpis kalendáře (CS title_detail / eyebrow_detail)
+    'eyebrow_detail' => 'Vrije dagen & prijs',
+    'title_detail' => 'Kies je data',
     'step_branch' => 'Vestiging',
     'step_moto' => 'Motor',
     'step_dates' => 'Periode',
@@ -65,6 +68,7 @@ return ['pages' => ['landing_katalog' => [
     'cta_any' => 'Vrije motoren bekijken',
     'assure' => 'Je data gratis verzetten · Gratis annuleren meer dan 7 dagen vooraf',
     'reset' => 'Periode wissen',
+    'cal_clear' => 'Selectie wissen',
     'free_title' => 'Vrij in jouw periode: {n}',
     'free_none' => 'In deze periode is er bij deze vestiging geen motor vrij. Probeer een andere periode of vestiging.',
     'free_more' => 'en nog {n} in de reservering',

@@ -33,7 +33,7 @@
     try { var p = { timeZone: 'UTC' }; for (var k in o) p[k] = o[k]; return new Intl.DateTimeFormat(C.lang, p).format(new Date(K.ms(iso))); } catch (e) { return iso; }
   }
   var X = {
-    C: C, T: T, S: S, by: by, today: today, st: st, pool: pool, ready: ready, firstFree: firstFree, fmt: fmt,
+    C: C, T: T, S: S, by: by, today: today, st: st, pool: pool, ready: ready, firstFree: firstFree, fmt: fmt, clear: T.cal_clear || T.reset,
     money: function (v) { return K.money(C.cur, v); }, czk: function (v) { return K.money(CZK, v); },
     days: function (n) { return K.tpl(n === 1 ? T.days_one : (n >= 2 && n <= 4 ? T.days_few : T.days_many), { n: n }); },
     branch: function (id) { for (var i = 0; i < C.branches.length; i++) if (C.branches[i].id === id) return C.branches[i]; return null; },
@@ -115,6 +115,12 @@
     }
     render();
   }
+  // Zrušit termín (souhrn „Zrušit termín“ i „Zrušit výběr“ pod kalendářem); z kalendáře → fokus na 1. volný den
+  function reset(cal) {
+    S.start = S.end = null; S.open = false; S.note = ''; render();
+    var f = cal && E.cal.querySelector('.kc-day.is-free');
+    if (f) f.focus({ preventScroll: true });
+  }
 
   // --- Vykreslení ---
   function render() {
@@ -187,6 +193,7 @@
       if (S.mo < 0) { S.mo = 11; S.y--; } else if (S.mo > 11) { S.mo = 0; S.y++; }
       render();
     } else if (b.hasAttribute('data-retry')) { S.fail = false; load(); render(); }
+    else if (b.hasAttribute('data-clear')) reset(true);
     else if (b.getAttribute('data-d')) pick(b.getAttribute('data-d'));
   });
   E.cal.addEventListener('mouseover', function (ev) {
@@ -197,7 +204,7 @@
   E.sum.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-pick],[data-reset]');
     if (!b) return;
-    if (b.hasAttribute('data-reset')) { S.start = S.end = null; S.open = false; S.note = ''; render(); return; }
+    if (b.hasAttribute('data-reset')) { reset(false); return; }
     setMoto(b.getAttribute('data-pick'));
   });
 

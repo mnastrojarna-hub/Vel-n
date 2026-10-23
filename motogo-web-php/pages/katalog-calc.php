@@ -16,6 +16,9 @@ function kcDefaults() {
         'jump' => 'Zobrazit všech {n} motorek',
         'eyebrow' => 'Kalkulačka ceny',
         'title' => 'Spočítej si cenu',
+        // Detail motorky (2026-10-22, zadání majitele): kalendář je hlavní krok → „Vyber si termín“
+        'eyebrow_detail' => 'Volné dny a cena',
+        'title_detail' => 'Vyber si termín',
         'lead' => 'Vyber pobočku, motorku a termín — ukážeme volné dny a přesnou cenu. Jedním klepnutím pak přejdeš do rezervace se vším předvyplněným.',
         'lead_detail' => 'Vyber termín — ukážeme volné dny a přesnou cenu této motorky. Jedním klepnutím pak přejdeš do rezervace se vším předvyplněným.',
         'step_branch' => 'Pobočka', 'step_moto' => 'Motorka', 'step_dates' => 'Termín',
@@ -53,8 +56,11 @@ function kcDefaults() {
         'includes' => ['Bez kauce', 'Výbava pro řidiče v ceně', 'Bez limitu km'],
         // 2026-10-22: tlačítka bez slova „rezervovat“ (stresuje) — výběr a pokračování
         'cta' => 'Vybrat tento termín', 'cta_moto' => 'Vybrat tuto motorku', 'cta_any' => 'Zobrazit volné motorky',
+        // stejné znění jako hero věta a garance (landing.php 'assurance', data/landing-trust.php; shorten_verdict §4)
         'assure' => 'Termín posuneš zdarma · Storno zdarma víc než 7 dní předem',
         'reset' => 'Zrušit termín',
+        // Tlačítko pod kalendářem (K.calHtml, opt-in X.clear) — zruší vybraný termín
+        'cal_clear' => 'Zrušit výběr',
         'free_title' => 'Volné v tvém termínu: {n}',
         'free_none' => 'V tomto termínu na pobočce žádná motorka volná není. Zkus jiný termín nebo pobočku.',
         'free_more' => 'a dalších {n} v rezervaci',
@@ -168,9 +174,11 @@ function renderKatalogCalc($sb, $motos, $opts = []) {
     $legend = '';
     foreach (['free', 'busy', 'pending', 'sel'] as $lg) $legend .= '<li class="kc-lg kc-lg--' . $lg . '"><i aria-hidden="true"></i>' . $s('legend_' . $lg) . '</li>';
     $lead = $det ? 'lead_detail' : 'lead';
+    // Detail: vlastní nadpis „Vyber si termín“ + ikona kalendáře (katalog: „Spočítej si cenu“ + kalkulačka)
+    $tk = $det ? 'title_detail' : 'title';
     return '<section class="kc' . ($det ? ' kc--detail' : '') . '" id="' . he($opts['id'] ?? 'kalkulacka') . '" aria-labelledby="kc-h" data-kc><div class="kc-card">' .
-        '<header class="kc-head"><p class="kc-eyebrow">' . $calc . $s('eyebrow') . '</p>' .
-        '<h2 id="kc-h" data-cms-key="' . $k . 'title">' . he(lpPlain($T['title'])) . '</h2>' .
+        '<header class="kc-head"><p class="kc-eyebrow">' . ($det ? lpIcon('cal') : $calc) . $s($det ? 'eyebrow_detail' : 'eyebrow') . '</p>' .
+        '<h2 id="kc-h" data-cms-key="' . $k . $tk . '">' . he(lpPlain($T[$tk])) . '</h2>' .
         '<p class="kc-lead" data-cms-key="' . $k . $lead . '">' . he(lpPlain($T[$lead])) . '</p>' .
         '<ol class="kc-steps" aria-hidden="true">' . ($det ? '' : '<li data-kc-step="1">' . $n(1) . $s('step_branch') . '</li>') .
             '<li data-kc-step="2">' . $n(1 + $o) . $s('step_moto') . '</li><li data-kc-step="3">' . $n(2 + $o) . $s('step_dates') . '</li></ol></header>' .

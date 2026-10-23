@@ -206,3 +206,9 @@
 /* Bez JS: parametry bez prázdného sloupce ikony, výbava bez prázdných dlaždic */
 @media(scripting:none){.md-spec{grid-template-columns:minmax(0,1fr);grid-template-areas:"l" "v"}.md-gear-ico{display:none}}
 @media(prefers-reduced-motion:reduce){.md-head::before{animation:none}.md-sticky,.md-arr,.md-thumbs button{transition:none}}
+
+/* --- Pořadí v2 (2026-10-22): garance hned pod hero, popis motorky na konci informací (katalog-detail.php) --- */
+.md-guar{margin:0 0 1.75rem}.md-guar .lp-guar{margin:0}.md-guar .container{max-width:none;padding:0}
+.md-info.md-desc{margin:0 0 2rem}.md-desc .moto-desc-rich{margin:0}
+/* základní údaje | výbava a výhody vedle sebe bez řádku popisu nad nimi */
+@media(min-width:900px){.md-info--split .moto-shortdesc>h3{grid-row:1}.md-info--split .moto-shortdesc>h3+ul{grid-row:2}}

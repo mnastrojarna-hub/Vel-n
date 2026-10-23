@@ -8,6 +8,9 @@ return ['pages' => ['landing_katalog' => [
     'title' => 'Work out your price',
     'lead' => 'Choose a branch, bike and dates: we show the available days and the exact price. One tap takes you to the booking with everything pre-filled.',
     'lead_detail' => 'Choose your dates: we show the available days and the exact price of this bike. One tap takes you to the booking with everything pre-filled.',
+    // Detail motorky: nadpis kalendáře (CS title_detail / eyebrow_detail)
+    'eyebrow_detail' => 'Available days & price',
+    'title_detail' => 'Choose your dates',
     'step_branch' => 'Branch',
     'step_moto' => 'Bike',
     'step_dates' => 'Dates',
@@ -65,6 +68,7 @@ return ['pages' => ['landing_katalog' => [
     'cta_any' => 'Show available bikes',
     'assure' => 'Move your dates for free · Free cancellation more than 7 days ahead',
     'reset' => 'Clear dates',
+    'cal_clear' => 'Clear selection',
     'free_title' => 'Available on your dates: {n}',
     'free_none' => 'No bike is available at this branch on those dates. Try other dates or another branch.',
     'free_more' => 'and {n} more in the booking',
