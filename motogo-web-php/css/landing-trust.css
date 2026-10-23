@@ -149,8 +149,6 @@ a.lp-rbadge:hover{box-shadow:0 0 0 2px #37cf63,0 6px 14px -10px rgba(26,46,34,.5
 .lp-hl-stores a:hover{background:#74fb71;color:#08230f}
 .lp-rbadge .lp-rec{padding:.1rem .45rem;font-size:.64rem;white-space:nowrap}
 .lp-rbadge .lp-rec::before{width:10px;height:10px}
-.lp-reasons-note{margin:.8rem 0 0;color:#8fb3a1;font-size:.7rem;line-height:1.4}
-@media(min-width:769px){.lp-reasons-note{text-align:center;font-size:.76rem}}
 /* Hodnocení v akčním panelu (nad ohybem); velká varianta .lp-rating--big v landing-promo.css */
 .lp-rating{grid-column:1/-1;display:inline-flex;align-items:center;gap:.4rem;justify-self:start;color:#e8f5ee;font-size:.76rem;font-weight:700;text-decoration:none}
 .lp-rating .lp-stars i{width:13px;height:13px}

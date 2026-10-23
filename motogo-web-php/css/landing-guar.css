@@ -34,7 +34,9 @@
 .lp-guar-i--big .lp-guar-ico .lp-ico2{width:28px;height:28px}
 .lp-guar-i--big .lp-guar-t{font-size:clamp(1.12rem,4.9vw,1.35rem);line-height:1.15;color:#fff}
 .lp-guar-i--big .lp-guar-s{font-size:.9rem;color:#cfe7da}
-.lp-guar-note{margin:.7rem 0 0;font-size:.74rem;line-height:1.45;color:#5b7366}
+/* poznámky k hvězdičkám — drobně těsně nad patičkou (lpFootnotesHtml, layout.php) */
+.lp-footnotes{padding:1.4rem 0 1.2rem}
+.lp-footnotes p{margin:0 0 .35rem;font-size:.7rem;line-height:1.45;color:#7a8c82}
 .lp-guar--compact .lp-guar-card{padding:.9rem .85rem}
 .lp-main .lp-guar--compact h2{font-size:1.2rem;margin-bottom:.6rem}
 .lp-guar--compact .lp-guar-i--big{padding:.65rem .8rem}

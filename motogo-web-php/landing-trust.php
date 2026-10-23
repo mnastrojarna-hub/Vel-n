@@ -60,7 +60,8 @@ function renderLpReasons($title, $titleKey, $lead, $items, $keyBase, $T, $visibl
     return '<section class="lp-reasons" id="' . $id . '"' . $aria . '><div class="container">' . $h2 .
         (lpPlain($lead) !== '' ? '<p class="lp-reasons-lead">' . sanitizeHtml(lpS($lead)) . '</p>' : '') .
         '<ol class="lp-reasons-list">' . $html . '</ol>' . $more .
-        (lpPlain($T['reasons_note'] ?? '') !== '' ? '<p class="lp-reasons-note" data-cms-key="web.landing.common.reasons_note">' . he(function_exists('lpNbspTxt') ? lpNbspTxt($T['reasons_note']) : lpPlain($T['reasons_note'])) . '</p>' : '') . '</div></section>';
+        // poznámka k hvězdičkám → nad patičku (lpFootnotesHtml, landing-guarantee.php)
+        (function_exists('lpFootnoteAdd') ? lpFootnoteAdd('reasons', 'web.landing.common.reasons_note', $T['reasons_note'] ?? '') : '') . '</div></section>';
 }
 
 /** Číslo s 1 desetinným místem dle jazyka (en: 5.0, ostatní: 5,0). */
