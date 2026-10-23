@@ -12,6 +12,8 @@ absence se ale NIKDY nepamatuje jako podpis a z cesty sync/boot se kóje NIKDY n
 otevírá jen `submit` z displeje a příkaz `protocol_signed` doručený během viditelného overlaye s `then_open`.
 Zámek přejímky (2026-09-28, `handover_lock.py`, `self.lock`): po každém zákaznickém zavření šatny přijímá kiosk jen kódy
 téže rezervace, dokud se neotevře kóje motorky (nebo `handover_lock_s` bez aktivity); persist v témže kv (klíč `lock`).
+Výpůjčka výbavy bez motorky (1.3.0, `handover_gear.py`, `self.gear`): protokol jen s výbavou, identita = kód šatny, zámek do
+podpisu; zavření šatny podepsané rezervace = dotaz „Vracíš všechnu výbavu?“ (CONTRACT §33).
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
 from . import gear_limits as gl
+from . import handover_gear as hg
 from . import handover_submit as hs
 from .handover_lock import DEFAULT_LOCK_S, HandoverLock, iso_ts
 from .models import ACCESSORIES_NAME, Event, EventKind, ResolveResult
@@ -40,7 +43,7 @@ DEFAULT_IDLE_S = 600             # 2026-09-29: protokol po zavření šatny 10 m
 STAGE_PROTOCOL, STAGE_DONE = "protocol", "done"
 GEAR_KEYS = ("helmet", "jacket", "pants", "boots", "gloves")
 PERSISTED = ("booking_id", "kind_origin", "zone", "data", "is_child", "shown_at", "last_touch",
-             "dismissed_at", "shown_logged", "created_at", "moto_id", "needs_locker")
+             "dismissed_at", "shown_logged", "created_at", "moto_id", "needs_locker", "gear_only", "sizes_catalog")
 
 
 @dataclass
@@ -61,6 +64,8 @@ class HandoverItem:
     in_flight: bool = False              # právě probíhá podpis z displeje (submit)
     moto_id: str | None = None           # `protocol.moto_id` (2026-09-29) — km převzetí z neodeslaného vrácení téže motorky
     needs_locker: bool = False            # `protocol.needs_locker` (2026-10-05) — UI nabídne zápis výbavy i po kódu motorky
+    gear_only: bool = False               # výbava bez motorky (1.3.0, §33): identita = kód šatny, bez kóje a výbavy motorky
+    sizes_catalog: dict | None = None     # `protocol.sizes_catalog` výpůjčky výbavy (velikosti z ceníku ∩ meze samoobsluhy)
 
     def persisted(self) -> dict:
         d = asdict(self)
@@ -90,6 +95,7 @@ class HandoverManager:
         self.inflight: set[str] = set()
         self.wake = asyncio.Event()              # probudí protocol_loop (nový podpis / obnovené spojení)
         self.lock = HandoverLock(clock, lambda: self.lock_s, self._save)   # zámek přejímky (2026-09-28)
+        self.gear = hg.GearState(self)           # výbava bez motorky: návštěvy šatny + dotaz na vrácení (1.3.0, §33)
         self._load()
 
     # ─── stav a persist ──────────────────────────────────────────────────────
@@ -158,6 +164,7 @@ class HandoverManager:
         """Kód šatny prošel: protokol rezervace z odpovědi RPC (čerstvější než cache) pro zavření dveří."""
         if rr.booking_id and isinstance(rr.protocol, dict):
             self.protocols[str(rr.booking_id)] = rr.protocol
+        self.gear.visit(rr)                      # výbava bez motorky (§33): rezervace se pozná i bez protokolu v cache
 
     # ─── zobrazení ───────────────────────────────────────────────────────────
     async def _show(self, item: HandoverItem, then_open: dict | None) -> None:
@@ -180,13 +187,13 @@ class HandoverManager:
                 detail={"source": "kiosk", "then_open": then_open is not None}))
         self._save()
 
-    def _show_done(self, booking_id: str, zone: int | None, data: dict) -> None:
+    def _show_done(self, booking_id: str, zone: int | None, data: dict, gear_only: bool = False) -> None:
         now = self.clock()
         for other in self.items.values():
             other.visible, other.then_open = False, None
         self.items[booking_id] = HandoverItem(booking_id=booking_id, kind_origin="accessories", zone=zone, data=data,
                                               stage=STAGE_DONE, visible=True, shown_at=now, last_touch=now,
-                                              created_at=now)
+                                              created_at=now, gear_only=gear_only)
 
     async def on_wardrobe_closed(self, zone: int, booking_id: str | None, protocol: dict | None = None) -> str | None:
         """DOOR_CLOSED šatny s rezervací: nepodepsáno → overlay protokolu; podepsáno → toast DONE; neznámo → nic."""
@@ -200,6 +207,11 @@ class HandoverManager:
             log.info("handover: šatna zavřena po vrácení motorky (rezervace %s) — bez zámku a protokolu", bid)
             return None
         p = protocol if isinstance(protocol, dict) else (self.protocols.get(bid) or self._cache_protocol(bid))
+        gear = self.gear.is_gear(bid, p)
+        if gear:     # výbava bez motorky (§33): podepsáno → dotaz na vrácení (bez zámku); nepodepsáno → protokol níže
+            handled, res = await self.gear.closed(zone, bid, p)
+            if handled:
+                return res
         # Zámek přejímky (2026-09-28): od teď kiosk přijímá jen kódy této rezervace, dokud se neotevře její kóje motorky —
         # při KAŽDÉM zákaznickém zavření (i podepsáno jinde / stav neznámý = fail-open hradla, zámek platí stejně).
         self.lock.set(bid, zone, (p.get("data") or {}).get("customer_name") if isinstance(p, dict) else None)
@@ -218,12 +230,16 @@ class HandoverManager:
         item.kind_origin, item.zone = "accessories", zone
         item.data, item.is_child = dict(p.get("data") or {}), bool(p.get("is_child"))
         item.moto_id, item.needs_locker = p.get("moto_id") or item.moto_id, p.get("needs_locker") is True
+        item.gear_only, item.sizes_catalog = gear, hg.catalog(p) if gear else None
         await self._show(item, None)
         return "protocol"
 
     def on_wardrobe_opened(self, zone: int, booking_id: str | None) -> bool:
         """Šatna znovu otevřena (2026-10-10): viditelný protokol šatny této rezervace schovat — při otevřených dveřích
-        se protokol neukazuje, další zavření ho ukáže znovu. Rozepsaný podpis (in_flight) ani then_open se neruší."""
+        se protokol neukazuje, další zavření ho ukáže znovu. Rozepsaný podpis (in_flight) ani then_open se neruší.
+        Dotaz na vrácení výbavy (§33) téže rezervace a šatny se schová taky."""
+        if self.gear.reopened(zone, booking_id):
+            return True
         item = self.items.get(str(booking_id or ""))
         if item is None or not item.visible or item.stage != STAGE_PROTOCOL or item.in_flight \
                 or item.then_open is not None or item.kind_origin != "accessories" or item.zone != zone:
@@ -260,6 +276,8 @@ class HandoverManager:
         (vrací `opened`); jinak viditelný → toast DONE. Sync (`reconcile`) volá s `may_open=False` — z cesty
         sync/boot se kóje nikdy neotevře (CONTRACT §28 pravidlo 1). Idempotentní."""
         bid = str(booking_id or "")
+        if self.gear.is_gear(bid):               # výbava bez motorky: kóje nepřijde → zámek přejímky končí podpisem
+            self.lock.release(bid, "protokol výbavy podepsán jinde")
         self.signed[bid] = self.clock()
         self.protocols.pop(bid, None)
         return await self._drop(bid, may_open)
@@ -286,7 +304,7 @@ class HandoverManager:
                 if err:
                     log.warning("handover: otevření po vzdáleném podpisu selhalo (%s)", err)
             else:
-                self._show_done(bid, item.zone, item.data)
+                self._show_done(bid, item.zone, item.data, gear_only=item.gear_only)
         self._save()
         return opened
 
@@ -318,6 +336,7 @@ class HandoverManager:
         zámek přejímky bez aktivity `lock_s` → zaniká (persist řeší HandoverLock sám)."""
         now = self.clock() if now is None else now
         self.lock.expire(now)
+        self.gear.tick(now)                      # dotaz na vrácení výbavy bez odpovědi → pryč (§33)
         changed = False
         for bid, item in list(self.items.items()):
             if item.stage == STAGE_DONE:
@@ -364,6 +383,8 @@ class HandoverManager:
                 item.moto_id = p.get("moto_id") or item.moto_id
                 if "needs_locker" in p:
                     item.needs_locker = p.get("needs_locker") is True
+                if item.gear_only and hg.catalog(p) is not None:
+                    item.sizes_catalog = hg.catalog(p)
         if stale:
             self._save()
 
@@ -373,7 +394,7 @@ class HandoverManager:
         now = self.clock() if now is None else now
         item = self.active()
         return bool(item and item.stage == STAGE_PROTOCOL and (item.in_flight or now - item.last_touch < self.idle_s)) \
-            or self.lock.active(now)
+            or self.lock.active(now) or self.gear.asking(now)
 
     def retry_failed(self) -> int:
         fn = getattr(self.ctrl.storage, "protocol_queue_retry_failed", None)
@@ -402,15 +423,18 @@ class HandoverManager:
                                                      else f"Zóna {item.zone}")
             to_valid = self.then_open_valid(item, now)
             expires = (item.shown_at or now) + DONE_TTL_S if item.stage == STAGE_DONE else item.last_touch + self.idle_s
-            sizes, data = self._sizes(item.is_child), dict(item.data)   # item.data beze změny (persist/reconcile)
+            sizes, data = hg.sizes_for(item, self._sizes(item.is_child)), dict(item.data)   # item.data beze změny
             if "gear" in data:          # rezervovaná velikost mimo rozsah → nejbližší povolená (5XL → 4XL)
                 data["gear"] = gl.clamp_gear(data["gear"], sizes, item.is_child)
             active = {"booking_id": item.booking_id, "stage": item.stage, "zone": item.zone, "zone_label": label,
                       "kind": zc.zone.kind if zc else item.kind_origin, "kind_origin": item.kind_origin, "then_open": to_valid,
                       "needs_code": not to_valid, "data": data, "sizes": sizes,
                       "is_child": bool(item.is_child), "needs_locker": bool(item.needs_locker),
-                      "shown_at": iso_ts(item.shown_at), "expires_at": iso_ts(expires), "saving": item.in_flight}
-        return {"active": active, "pending": list(self.queue_state.get("pending", [])),
-                "failed": list(self.queue_state.get("failed", [])),
-                "waiting": [b for b, i in self.items.items() if i.stage == STAGE_PROTOCOL and not i.in_flight],
-                "lock": self.lock.status(now)}
+                      "shown_at": iso_ts(item.shown_at), "expires_at": iso_ts(expires), "saving": item.in_flight,
+                      **({"gear_only": True} if item.gear_only else {})}   # výbava bez motorky (§33)
+        out = {"active": active, "pending": list(self.queue_state.get("pending", [])),
+               "failed": list(self.queue_state.get("failed", [])),
+               "waiting": [b for b, i in self.items.items() if i.stage == STAGE_PROTOCOL and not i.in_flight],
+               "lock": self.gear.lock_status(self.lock.status(now))}
+        gear = self.gear.status(now)             # výbava bez motorky (§33): klíč jen při aktivitě (motorky beze změny)
+        return {**out, "gear": gear} if gear else out

@@ -1,6 +1,7 @@
 // Read tools 1-8: Bookings, Fleet, SOS, Branches, Customers
 import type { SB } from './tools-constants.ts'
 import { PAID_BOOKING_STATUSES } from './tools-constants.ts'
+import { selectGearSafe } from '../_shared/agent-knowledge/gear-booking.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -33,14 +34,20 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
 
     case 'get_bookings_detail': {
       const limit = (input.limit as number) || 20
-      let q = sb.from('bookings')
-        .select('id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit, created_via_ai, is_test')
-        .order('start_date', { ascending: false }).limit(limit)
-      if (input.include_test !== true) q = q.eq('is_test', false)
-      if (input.status) q = q.eq('status', input.status)
-      if (input.date_from) q = q.gte('start_date', input.date_from)
-      if (input.date_to) q = q.lte('start_date', input.date_to)
-      const { data: bookings } = await q
+      const cols = 'id, user_id, moto_id, start_date, end_date, status, payment_status, total_price, pickup_method, return_method, booking_source, notes, created_at, pickup_time, promo_code, discount_amount, extras_price, deposit, created_via_ai, is_test, booking_kind, branch_id, gear_lines, gear_per_day, helmet_size, jacket_size, pants_size, gloves_size, boots_size'
+      // selectGearSafe: bez migrace 20261023a dotaz bez gear sloupců (vše jsou motorky; kind=gear → prázdno)
+      const { data: bookings } = await selectGearSafe(cols, (c) => {
+        let q = sb.from('bookings').select(c).order('start_date', { ascending: false }).limit(limit)
+        if (input.include_test !== true) q = q.eq('is_test', false)
+        // kind: 'moto' = rezervace motorek, 'gear' = výpůjčky JEN VÝBAVY (bez motorky, pobočka v branch_id)
+        const hasKind = c.includes('booking_kind')
+        if (hasKind && (input.kind === 'moto' || input.kind === 'gear')) q = q.eq('booking_kind', input.kind)
+        else if (!hasKind && input.kind === 'gear') q = q.eq('id', '00000000-0000-0000-0000-000000000000')
+        if (input.status) q = q.eq('status', input.status)
+        if (input.date_from) q = q.gte('start_date', input.date_from)
+        if (input.date_to) q = q.lte('start_date', input.date_to)
+        return q
+      })
       if (!bookings || bookings.length === 0) return { bookings: [], count: 0 }
       const motoIds = [...new Set(bookings.map((b: R) => b.moto_id).filter(Boolean))]
       const userIds = [...new Set(bookings.map((b: R) => b.user_id).filter(Boolean))]
@@ -50,7 +57,7 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
       ])
       const mm: R = {}; for (const m of (motos || [])) mm[m.id] = m
       const pm: R = {}; for (const p of (profiles || [])) pm[p.id] = p
-      const enriched = bookings.map((b: R) => ({ ...b, motorcycle: mm[b.moto_id] || null, customer: pm[b.user_id] || null }))
+      const enriched = bookings.map((b: R) => ({ ...b, motorcycle: mm[b.moto_id] || null, customer: pm[b.user_id] || null, ...(b.booking_kind === 'gear' ? { gear_only: true } : {}) }))
       return { bookings: enriched, count: enriched.length }
     }
 
@@ -128,7 +135,8 @@ export async function execReadCore(name: string, input: R, sb: SB): Promise<unkn
       else if (input.name_search) { const { data } = await sb.from('profiles').select('*').ilike('full_name', `%${input.name_search}%`).limit(1); profile = data?.[0] || null }
       if (!profile) return { error: 'Zákazník nenalezen' }
       const [bookingsR, documentsR, reviewsR] = await Promise.all([
-        sb.from('bookings').select('id, start_date, end_date, status, payment_status, total_price, moto_id').eq('user_id', profile.id).order('start_date', { ascending: false }).limit(20),
+        // booking_kind/branch_id: výpůjčka JEN VÝBAVY (gear) má moto_id NULL záměrně — není to chybějící motorka
+        selectGearSafe('id, start_date, end_date, status, payment_status, total_price, moto_id, booking_kind, branch_id', (c) => sb.from('bookings').select(c).eq('user_id', profile!.id).order('start_date', { ascending: false }).limit(20)),
         sb.from('documents').select('id, type, created_at').eq('user_id', profile.id).order('created_at', { ascending: false }),
         sb.from('reviews').select('id, rating, created_at').eq('user_id', profile.id),
       ])

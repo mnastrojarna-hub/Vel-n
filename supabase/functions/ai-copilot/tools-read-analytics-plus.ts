@@ -1,6 +1,7 @@
 // Read tools: Analýza+ — návštěvnost webu, funnely, AI konverzace, aplikace, km, servisní plán, loyalty, trasy
 import type { SB } from './tools-constants.ts'
 import { PAID_BOOKING_STATUSES } from './tools-constants.ts'
+import { selectGearSafe } from '../_shared/agent-knowledge/gear-booking.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -24,10 +25,12 @@ export async function execReadAnalyticsPlus(name: string, input: R, sb: SB, sbUs
     case 'get_web_funnel': {
       const days = (input.days as number) || 30
       const from = new Date(now.getTime() - days * 86400000).toISOString()
-      const { data: rows } = await sb.from('bookings')
-        .select('id, status, payment_status, created_at, checkout_started_at, docs_completed_at, created_device, completed_device, chosen_payment_method, pay_channel, form_fill_seconds, payment_fill_seconds, abandoned_email_sent_at, total_price, created_via_ai')
-        .eq('booking_source', 'web').eq('is_test', false).gte('created_at', from)
-      const all = rows || []
+      const { data: rows } = await selectGearSafe('id, status, payment_status, created_at, checkout_started_at, docs_completed_at, created_device, completed_device, chosen_payment_method, pay_channel, form_fill_seconds, payment_fill_seconds, abandoned_email_sent_at, total_price, created_via_ai, booking_kind',
+        (c) => sb.from('bookings').select(c).eq('booking_source', 'web').eq('is_test', false).gte('created_at', from))
+      // Funnel = rezervační formulář MOTOREK; výpůjčky JEN VÝBAVY (vlastní stránka /pujceni-obleceni) zvlášť.
+      const all = ((rows || []) as R[]).filter((b: R) => b.booking_kind !== 'gear')
+      const gearRows = ((rows || []) as R[]).filter((b: R) => b.booking_kind === 'gear')
+      const gearPaid = gearRows.filter((b: R) => PAID_BOOKING_STATUSES.includes(b.payment_status) && b.status !== 'cancelled')
       const paid = all.filter((b: R) => PAID_BOOKING_STATUSES.includes(b.payment_status) && b.status !== 'cancelled')
       const gateway = all.filter((b: R) => !PAID_BOOKING_STATUSES.includes(b.payment_status) && b.checkout_started_at)
       const cnt = (arr: R[], key: string) => { const m: R = {}; for (const b of arr) { const v = b[key] || 'unknown'; m[v] = (m[v] || 0) + 1 } return m }
@@ -44,6 +47,7 @@ export async function execReadAnalyticsPlus(name: string, input: R, sb: SB, sbUs
         avg_form_fill_seconds: avg(all.map((b: R) => b.form_fill_seconds).filter(Boolean)),
         avg_payment_fill_seconds: avg(all.map((b: R) => b.payment_fill_seconds).filter(Boolean)),
         paid_revenue: paid.reduce((s: number, b: R) => s + (b.total_price || 0), 0),
+        gear_rental: { created: gearRows.length, paid: gearPaid.length, paid_revenue: gearPaid.reduce((s: number, b: R) => s + (b.total_price || 0), 0) },
       }
     }
 

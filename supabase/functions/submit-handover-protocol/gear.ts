@@ -153,13 +153,16 @@ type Admin = any
  * `allowRemove=false` (starý klient bez opt-in `form.gear_remove`): nepřevzatá
  * položka je jen ☐ v dokumentu jako dřív — rezervace se nemění.
  * `markExtra` (kiosk s `form.gear_add`): „navíc“ v dokumentu; jiný klient výbavu navíc přidat neumí → bez označení.
+ * `allowedOverride` (výpůjčka jen výbavy, gear-only.ts): číselník velikostí z ceníku výpůjčky místo accessory_types.
  */
-export async function resolveGearUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[], allowRemove = true, allowAdd = false, markExtra = allowAdd): Promise<SizeUpdates> {
+export async function resolveGearUpdates(admin: Admin, booking: Record<string, unknown>, items: AccessoryItem[], allowRemove = true, allowAdd = false, markExtra = allowAdd,
+  allowedOverride?: Map<string, Set<string>>): Promise<SizeUpdates> {
   const linked = items.filter((a) => a.field && a.key && a.who)
   const res: SizeUpdates = { updates: {}, changes: {} }
   if (!linked.length) return res
   let allowed = new Map<string, Set<string>>()
-  if (linked.some((a) => a.checked && a.size)) {
+  if (allowedOverride) allowed = allowedOverride
+  else if (linked.some((a) => a.checked && a.size)) {
     const { data: types, error } = await admin.from('accessory_types').select('key, sizes, is_active').in('key', [...GEAR_KEYS])
     // chyba dotazu = bez číselníku i zálohy → velikost se nezapíše (jako dřív)
     if (!error) allowed = allowedSizes((types || []) as Array<{ key: string; sizes: string[] | null; is_active: boolean | null }>, bookingIsChild(booking))

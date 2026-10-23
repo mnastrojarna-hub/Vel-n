@@ -160,6 +160,7 @@ foreach (['0','1','2','3','4','5','6'] as $dow) {
 }
 
 // Supabase SDK + konfigurace + JS moduly pro rezervaci
+// 2026-10-23: js/gear-rental-redirect.js — /rezervace?resume=<výpůjčka výbavy> → stránka výbavy (DESIGN-GEAR §3.5)
 $rezervaceJs = '<script>
 window.MOTOGO_CONFIG = {
   SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
@@ -197,6 +198,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script src="' . assetUrl('/js/rezervace-ux.js') . '"></script>
+<script src="' . assetUrl('/js/gear-rental-redirect.js') . '" data-gear-url="' . htmlspecialchars(BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath('/pujceni-obleceni') : '/pujceni-obleceni'), ENT_QUOTES) . '"></script>
 <script src="' . assetUrl('/js/rezervace-dates.js') . '"></script>
 <script src="' . assetUrl('/js/rezervace-dayprice.js') . '"></script>
 <script>

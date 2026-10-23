@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugLog } from '../lib/debugLog'
 import GearPriceList from '../components/gear/GearPriceList'
-import GearRentals from '../components/gear/GearRentals'
+import GearBookingsLink from '../components/gear/GearBookingsLink'
 
 // Flotila → Půjčení oblečení: půjčení JEN výbavy (bez motorky) z webu /pujceni-obleceni.
-// Ceník gear_rental_prices + nastavení app_settings.gear_rental, výpůjčky gear_rentals
-// (platba v shop_orders). Backend: supabase/migrations/20261022_gear_rental.sql.
+// Ceník gear_rental_prices + nastavení app_settings.gear_rental / gear_stock_check.
+// Výpůjčky = rezervace bookings.booking_kind='gear' (od 20261023a) → záložka „Výpůjčky“
+// odkazuje do Rezervací (/rezervace?kind=gear); starý seznam gear_rentals jen pro dřívější objednávky.
 
 const TABS = ['Ceník', 'Výpůjčky']
 const TAB_STORE = 'velin_gear_rental_tab'
@@ -75,7 +76,7 @@ export default function GearRental() {
         ))}
       </div>
 
-      {tab === 'Výpůjčky' && <GearRentals prices={prices} />}
+      {tab === 'Výpůjčky' && <GearBookingsLink prices={prices} />}
       {tab === 'Ceník' && <GearPriceList prices={prices} loading={loading} error={error} reload={loadPrices} />}
     </div>
   )

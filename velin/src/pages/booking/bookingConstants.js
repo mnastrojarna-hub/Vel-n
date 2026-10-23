@@ -1,3 +1,5 @@
+import { isGearHistoryEntry, describeGearHistory } from './gearHistory'
+
 export const TABS = ['Detail', 'Mapa a poloha', 'Kalendář motorky', 'Dokumenty', 'Platby', 'Reklamace']
 
 export const ACTIONS = {
@@ -109,8 +111,10 @@ const _isUuid = s => typeof s === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(
 // DB trigger track_booking_content_changes (auto:true) — klíče se liší podle
 // zapisovatele, proto se každá dvojice from/to porovnává (core píše i nezměněné).
 export function describeHistoryEntry(h) {
-  const dm = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
-  const dateChanged = dm.startDelta !== 0 || dm.endDelta !== 0
+  // Termín jen u záznamů, které data nesou (gear_sizes / gear_remove je nemají → dřív falešné „přesunuto — – —“)
+  const hasDates = !!(h.from_start && h.from_end && h.to_start && h.to_end)
+  const dm = hasDates ? describeModification(h.from_start, h.from_end, h.to_start, h.to_end) : null
+  const dateChanged = !!dm && (dm.startDelta !== 0 || dm.endDelta !== 0)
   const changes = []
   if (dateChanged) changes.push(`termín ${_histDate(h.from_start)} – ${_histDate(h.from_end)} → ${_histDate(h.to_start)} – ${_histDate(h.to_end)} (${dm.detail})`)
 
@@ -142,14 +146,18 @@ export function describeHistoryEntry(h) {
     changes.push(`výbava: ${parts.join(', ')}`)
   }
 
-  const diff = Number(h.price_diff ?? h.net_diff ?? NaN)
+  // Výpůjčka výbavy (gear RPC): kusy/velikosti, pobočka a cena z vlastních klíčů záznamu (gearHistory.js)
+  const gearRec = isGearHistoryEntry(h) ? describeGearHistory(h) : null
+  if (gearRec) changes.push(...gearRec.changes)
+  const diff = gearRec ? NaN : Number(h.price_diff ?? h.net_diff ?? NaN)
   if (Number.isFinite(diff) && diff !== 0) changes.push(diff > 0 ? `doplatek +${Math.abs(diff).toLocaleString('cs-CZ')} Kč` : `vratka −${Math.abs(diff).toLocaleString('cs-CZ')} Kč`)
 
   let typeLabel, color, bg
   if (dateChanged) { typeLabel = dm.type; color = dm.color; bg = dm.bg }
   else if (motoChanged) { typeLabel = 'výměna motorky'; color = '#7c3aed'; bg = '#ede9fe' }
   else if (pickupTimeChanged || returnTimeChanged) { typeLabel = 'změna času'; color = '#d97706'; bg = '#fef3c7' }
-  else if (gearChanged) { typeLabel = 'změna výbavy'; color = '#0891b2'; bg = '#cffafe' }
+  else if (gearChanged || gearRec?.items.length) { typeLabel = 'změna výbavy'; color = '#0891b2'; bg = '#cffafe' }
+  else if (gearRec?.branchChanged) { typeLabel = 'změna pobočky'; color = '#0891b2'; bg = '#cffafe' }
   else if (changes.length > 0) { typeLabel = 'změna místa'; color = '#0891b2'; bg = '#cffafe' }
   else { typeLabel = 'upraveno'; color = '#4a5a52'; bg = '#f1faf7' }
   if (changes.length === 0) changes.push('úprava rezervace')

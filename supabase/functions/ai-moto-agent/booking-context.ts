@@ -4,6 +4,7 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { BRANCH_GATE_TITLE, GATE_BRANCH_NOTE_CS } from '../_shared/agent-knowledge/branch-gate.ts'
 import { bookingBranchName } from './customer-branch.ts'
+import { bookingTitle, formatGearBookingContext, formatGearBranchLines, isGearBooking } from './gear-context.ts'
 
 export const FALLBACK_SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24 — půjčovny motorek.
 
@@ -97,7 +98,8 @@ sám to NEDĚLÁŠ (na to nemáš nástroj) — ale řekneš mu přesný postup:
 - Informace o rezervaci zákazníka
 - Vyhledat motorky v katalogu a porovnat je (search_motorcycles), spočítat cenu (calculate_price), zjistit dostupnost (get_availability). POZOR: „motorka je v servisu" smíš tvrdit JEN podle datumů z get_availability (\`service_blocks\` from–to, \`in_service_today\`) — budoucí plánovaný servis (např. zimní) NENÍ „je v servisu", do jeho začátku je stroj normálně dostupný.
 - Odpovědět z FAQ a oficiálních podmínek (get_faq, get_policies) i ze smluvních/právních dokumentů (get_legal_document)
-- Příslušenství a ceny (get_extras_catalog — pole \`extras\` = top case/GPS/přistavení, pole \`gear_pricing\` = ceník výbavy/oblečení vč. výbavy spolujezdce; ceny výbavy NIKDY z hlavy), pobočky (get_branches), ověřit promo/voucher (validate_promo_or_voucher)
+- Příslušenství a ceny (get_extras_catalog — pole \`extras\` = top case/GPS/přistavení, pole \`gear_pricing\` = ceník výbavy/oblečení k motorce vč. výbavy spolujezdce; ceny výbavy NIKDY z hlavy), pobočky (get_branches), ověřit promo/voucher (validate_promo_or_voucher)
+- Výpůjčka výbavy BEZ motorky (helma, bunda, kalhoty, rukavice, boty): živý ceník, velikosti, pobočky, kalkulace a odkaz na objednávku (get_gear_rental_offer) — pravidla v sekci VÝPŮJČKA VÝBAVY BEZ MOTORKY
 - Obecné rady pro jízdu a bezpečnost
 
 ## NEUMÍŠ (a nepředstírej, že umíš):
@@ -235,7 +237,7 @@ Pobočku, její REŽIM a u samoobsluhy i ČÍSLO KÓJE máš v KONTEXTU REZERVAC
 - DO KDY: rozhoduje PŘEVZETÍ motorky, ne kalendář — žádná lhůta typu „do půlnoci den před začátkem" NEEXISTUJE a nikdy ji netvrď. Posun jde, **dokud si zákazník motorku nepřevzal**: na samoobslužné pobočce ho překlápí teprve zadání kódu k motorce do boxu, na obslužné předání obsluhou (předávací protokol). Takže i ráno v DEN vyzvednutí — záložka „Posunout termín" je v appce i na webu dostupná. Jediný strop: nejpozději v den začátku termínu; od druhého dne už se nevyzvednutá rezervace řeší stornem dle podmínek (server vrátí „termín už začal")). Po převzetí se začátek ani motorka nemění, měnit jde jen konec (prodloužení / zkrácení).
 - ČAS VYZVEDNUTÍ (i u samoobslužné pobočky) se mění v „Upravit rezervaci" (appka / web): dřívější čas než 12:00 = sleva 50 % na 1. den zanikne → doplatek (u samoobsluhy pak kiosk vydá motorku hned); pozdější od 12:00 (výpůjčka 2+ dny) = sleva (vratka se krátí storno tabulkou). Po převzetí motorky se čas vyzvednutí už změnit nedá („Motorka už byla vyzvednuta — čas vyzvednutí už nelze změnit.“). Čas vrácení se u samoobsluhy nevolí (do 24:00 posledního dne).
 - JINÁ ZMĚNA NEŽ STEJNĚ DLOUHÝ POSUN (prodloužení, zkrácení, jiná motorka, jiné místo vyzvednutí/vrácení) jde přes stejné „Upravit rezervaci", ale cenu počítá SERVER: doplatek se platí kartou, vratka za odebrané dny se krátí storno tabulkou. Přesnou částku i procento ukáže appka/web PŘED potvrzením — ty je nehádej.
-- STORNO TABULKA (konkrétní čísla sděl, až když je potvrdí get_policies / get_legal_document): 7+ dní (168 h) před začátkem = 100 % zpět, 2–7 dní (48–168 h) = 50 %, méně než 2 dny (<48 h) = 0 %. Počítá se v HODINÁCH do začátku pronájmu, ne podle kalendářních dnů — u hraničního termínu nikdy netvrď přesný den a hodinu z hlavy.
+- STORNO TABULKA (konkrétní čísla sděl, až když je potvrdí get_policies / get_legal_document): 7+ dní (168 h) před začátkem = 100 % zpět, 2–7 dní (48–168 h) = 50 %, méně než 2 dny (<48 h) = 0 %. Počítá se v HODINÁCH od teď do PŮVODNÍHO začátku rezervace (čas vyzvednutí, Praha — i když se zkracuje jen konec), ne podle kalendářních dnů; platí stejně pro motorky i výpůjčku výbavy — u hraničního termínu nikdy netvrď přesný den a hodinu z hlavy.
 - POSUN A STORNO SPOLU SOUVISÍ (řekni to VŽDY, když zákazník zvažuje posun a zároveň zmíní rušení): samotný stejně dlouhý posun je zdarma, ALE jakmile se termín jednou posune, pozdější storno už NIKDY nevrátí 100 % — posun provedený 7+ dní (168 h) před tehdejším začátkem nechává strop 50 %, posun provedený později strop 0 %. Nikdy netvrď, že „storno podmínky se změny termínu netýkají".
 - ZRUŠENÍ celé rezervace: appka → detail rezervace → „Zrušit rezervaci"; web → motogo24.cz/upravit-rezervaci → Zrušit. Vratku vyčíslí systém při samotném stornu ze skutečně zaplacené částky (po slevách) — konkrétní Kč nehádej.
 - Na dotaz „do kdy můžu změnit termín" odpověz rovnou podle pravidel výše. Odpověď „to ti řekne až půjčovna" je u změny termínu ZAKÁZANÁ — kontakt nabízej jen jako doplněk (den vyzvednutí, kolize termínů, nestandardní případ).`
@@ -403,7 +405,14 @@ export function formatPickupStateLine(b: Record<string, unknown>): string {
   return `\n- Stav převzetí: ${pickedUp ? 'motorka je PŘEVZATÁ (termín ani motorku už měnit nelze, jen konec pronájmu)' : 'motorka zatím NENÍ převzatá (posun termínu zdarma je stále možný — viz sekce ZMĚNA TERMÍNU)'}${b.handover_protocol_filled_at ? ' | předávací protokol vyplněn' : b.handover_protocol_started_at ? ' | předávací protokol rozpracovaný (60min okno běží)' : ''}`
 }
 
+// Řádek další rezervace ve výpisech (motorka / „Výpůjčka výbavy (…)“).
+function otherBookingLine(ob: Record<string, unknown>): string {
+  return `#${(ob.id as string).slice(-8).toUpperCase()}: ${bookingTitle(ob)} (${ob.status}, ${ob.start_date} – ${ob.end_date}) — pobočka ${bookingBranchName(ob)}`
+}
+
 export function formatBookingContext(b: Record<string, unknown>, otherBookings: Array<Record<string, unknown>> | null): string {
+  // Výpůjčka JEN VÝBAVY (booking_kind='gear', 2026-10-23) — vlastní kontext bez motorky.
+  if (isGearBooking(b)) return formatGearBookingContext(b, otherBookings, otherBookingLine)
   const m = b.motorcycles as Record<string, unknown> | null
   if (!m) {
     return `\n\n## KONTEXT REZERVACE:
@@ -436,30 +445,48 @@ ${formatBranchLines(m)}${formatPickupStateLine(b)}
 
 DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`
 
-  if (otherBookings && otherBookings.length > 0) {
+  // Souběžně PROBÍHAJÍCÍ výpůjčka jen výbavy (smí se krýt s motorkou) není „nadcházející“ — zvlášť.
+  const runningGear = (otherBookings || []).filter(ob => isGearBooking(ob) && ob.status === 'active')
+  const upcoming = (otherBookings || []).filter(ob => !runningGear.includes(ob))
+  if (upcoming.length > 0) {
     ctx += `\n\nZákazník má také nadcházející rezervace:`
-    for (const ob of otherBookings) {
+    for (const ob of upcoming) {
       const om = ob.motorcycles as Record<string, unknown> | null
-      ctx += `\n- #${(ob.id as string).slice(-8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date}) — pobočka ${bookingBranchName(ob)}`
+      ctx += isGearBooking(ob) ? `\n- ${otherBookingLine(ob)}`
+        : `\n- #${(ob.id as string).slice(-8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date}) — pobočka ${bookingBranchName(ob)}`
     }
     ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`
+  }
+  if (runningGear.length > 0) {
+    ctx += `\n\nSouběžně zákazníkovi PROBÍHÁ i výpůjčka jen výbavy (bez motorky):`
+    for (const ob of runningGear) ctx += `\n- ${otherBookingLine(ob)}`
+    ctx += `\nDotazy k motorce (závada, nehoda, SOS, km, tankování) se týkají aktivní motorky výše; dotazy k vypůjčené výbavě (velikosti, vrácení výbavy, kód šatny) se týkají této výpůjčky — viz pravidla VÝPŮJČKA VÝBAVY BEZ MOTORKY.`
   }
 
   return ctx
 }
 
 export function formatMultipleBookingsContext(bookings: Array<Record<string, unknown>>): string {
+  // Jen rezervace motorek → texty beze změny; s výpůjčkou výbavy neutrálně „rezervace“.
+  const allMoto = bookings.every(b => !isGearBooking(b))
+  const allGear = bookings.every(b => isGearBooking(b))
   let ctx = `\n\n## KONTEXT REZERVACE — VÍCE REZERVACÍ:
 Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`
   for (const b of bookings) {
     const m = b.motorcycles as Record<string, unknown> | null
-    ctx += `- #${(b.id as string).slice(-8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date}) — pobočka ${bookingBranchName(b)}\n`
+    ctx += isGearBooking(b) ? `- ${otherBookingLine(b)}\n`
+      : `- #${(b.id as string).slice(-8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date}) — pobočka ${bookingBranchName(b)}\n`
   }
   // Všechny na jedné pobočce → obecné dotazy k pobočce (adresa, výdej, vrácení) bez doptávání.
-  const ids = new Set(bookings.map(b => ((b.motorcycles as Record<string, unknown> | null)?.branches as Record<string, unknown> | null)?.id).filter(Boolean))
+  const brOf = (b: Record<string, unknown>) => (((b.motorcycles as Record<string, unknown> | null)?.branches || b.gear_branch) as Record<string, unknown> | null)
+  const ids = new Set(bookings.map(b => brOf(b)?.id).filter(Boolean))
   if (ids.size === 1) {
-    ctx += `\nVŠECHNY tyto rezervace jsou na STEJNÉ pobočce — na dotazy k pobočce (kde je, výdej, vrácení, mytí, tankování) odpovídej rovnou pro ni, neptej se, o kterou rezervaci jde:\n${formatBranchLines(bookings[0].motorcycles as Record<string, unknown> | null, false)}\n`
+    // Pobočka vypsaná z první rezervace MOTORKY (u samých výpůjček výbavy řádky výbavy).
+    const motoB = bookings.find(b => !isGearBooking(b))
+    ctx += `\nVŠECHNY tyto rezervace jsou na STEJNÉ pobočce — na dotazy k pobočce (kde je, výdej, vrácení${allGear ? '' : ', mytí, tankování'}) odpovídej rovnou pro ni, neptej se, o kterou rezervaci jde:\n${motoB ? formatBranchLines(motoB.motorcycles as Record<string, unknown> | null, false) : formatGearBranchLines(brOf(bookings[0]))}\n`
   }
-  ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`
+  ctx += allMoto
+    ? `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`
+    : `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou rezervaci jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou rezervaci se jedná?"${allGear ? ' Jsou to jen výpůjčky výbavy bez motorky — o motorce, kóji ani SOS nemluv.' : ''}`
   return ctx
 }

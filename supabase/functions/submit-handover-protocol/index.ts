@@ -5,6 +5,8 @@
 //                   apikey, auth = device_id + device_token (RPC kiosk_device_branch) a
 //                   rezervace musí mít na téže pobočce VYDANÝ kód k motorce.
 // mode='auto'     : ZRUŠENO 2026-09-25 (automatické vyplnění po 1 h) → 403.
+// Výpůjčka JEN výbavy (booking_kind='gear', 2026-10-23): identita kiosku = vydaný kód ŠATNY, pobočka
+// z bookings.branch_id, bez km/motorky, vlastní dokument a e-mail — gear-only.ts, html-gear.ts.
 //
 // Tok: auth → rezervace → idempotence (already_filled) → stav (wrong_status/too_early;
 // too_early i před `release_at` — sleva za vyzvednutí od 12:00, odpověď nese release_at)
@@ -30,6 +32,11 @@ import { authClassify } from '../_shared/auth.ts'
 import { buildHtml, normalizeMotoEquipment, type Signer, type Vars } from './html.ts'
 import { makeTr, resolveProtocolLang } from './i18n.ts'
 import { bookingGearItems, normalizeAccessories, resolveGearUpdates } from './gear.ts'
+import { buildGearHtml } from './html-gear.ts'
+import {
+  BASE_MAIL_SLUG, GEAR_MAIL_SLUG, type GearBranch, gearKioskChecks, gearMailVars, isGearBooking, keepLastGearItem,
+  kioskIdentityCodeType, loadGearAllowedSizes, loadGearBranch, sendProtocolMail, syncGearLines,
+} from './gear-only.ts'
 import {
   CORS, fail, fmtDate, json, parseSignedAt, positiveKm, pragueDay, removeDocument, resolvePickupKm, SIG_MAX_APP,
   SIG_MAX_KIOSK, SIG_RE, signatureBytes, storeDocument, UUID_RE,
@@ -98,13 +105,17 @@ serve(async (req) => {
     // z fronty po výpadku sítě nesmí skončit „forbidden" jen proto, že kód mezitím zanikl.
     if (booking.handover_protocol_filled_at) return json({ success: true, already_filled: true })
 
+    // Výpůjčka JEN výbavy (2026-10-23): pobočka z bookings.branch_id, identita kódem šatny, bez motorky (gear-only.ts).
+    const gear = isGearBooking(booking)
+    const gearBranch: GearBranch | null = gear ? await loadGearBranch(admin, booking.branch_id) : null
+
     if (mode === 'kiosk') {
-      // Kiosk smí podepsat jen rezervaci, které pobočka zařízení VYDALA kód k motorce.
+      // Kiosk smí podepsat jen rezervaci, které pobočka zařízení VYDALA kód k motorce (gear: kód šatny).
       // Bez `is_active`: kód mohl mezitím zaniknout (regenerace, completed) — podpis
       // z fronty musí projít; vydání (sent_to_customer) je identita, ne platnost.
       const { data: code, error: cErr } = await admin
         .from('branch_door_codes').select('id')
-        .eq('booking_id', bookingId).eq('code_type', 'motorcycle').eq('branch_id', branchId)
+        .eq('booking_id', bookingId).eq('code_type', kioskIdentityCodeType(gear)).eq('branch_id', branchId)
         .eq('sent_to_customer', true)
         .limit(1).maybeSingle()
       if (cErr) return fail('auth_error', 500, { detail: cErr.message })
@@ -113,7 +124,7 @@ serve(async (req) => {
 
     const okStatus = mode === 'kiosk' ? OK_STATUS_KIOSK : OK_STATUS_APP
     if (!okStatus.includes(String(booking.status))) return fail('wrong_status', 400, { status: booking.status })
-    const branchType = ((moto.branches || {}) as Record<string, unknown>).type
+    const branchType = gear ? gearBranch?.type : ((moto.branches || {}) as Record<string, unknown>).type
     if (branchType !== 'samoobslužná') return fail('not_self_service', 400)
     // Appka: ne dřív než v den převzetí (kiosk protokol ukáže jen s platným kódem).
     if (mode === 'customer' && !booking.handover_protocol_started_at && pragueDay(new Date(booking.start_date)) > pragueDay(now)) {
@@ -159,12 +170,13 @@ serve(async (req) => {
     // pole → vše předáno, starší build APPKY bez pole → sekce v dokumentu není.
     // Při poslané skupině html.ts vynechá kotoučový zámek a reflexní prvky ze
     // „Doplňkového vybavení" (jsou ve skupině — dokument se nezdvojí ani neodporuje).
-    const motoEquipment = normalizeMotoEquipment(form.moto_equipment, mode === 'kiosk' ? true : null)
+    const motoEquipment = gear ? null : normalizeMotoEquipment(form.moto_equipment, mode === 'kiosk' ? true : null)
     if (motoEquipment) form.moto_equipment = motoEquipment
     else delete form.moto_equipment
     if (mode === 'kiosk') {
       if (!Array.isArray(form.accessories)) accessories = bookingGearItems(booking)
-      form.checks = { clean: true, docs: true, keys: true, instructed: true, gear: accessories.some((a) => a.checked), ...((form.checks && typeof form.checks === 'object') ? form.checks as Record<string, unknown> : {}) }
+      form.checks = gear ? gearKioskChecks(form.checks)
+        : { clean: true, docs: true, keys: true, instructed: true, gear: accessories.some((a) => a.checked), ...((form.checks && typeof form.checks === 'object') ? form.checks as Record<string, unknown> : {}) }
       if (!form.damage || typeof form.damage !== 'object') form.damage = { checked: false, desc: '' }
       if (typeof form.notes !== 'string') form.notes = ''
     }
@@ -177,7 +189,8 @@ serve(async (req) => {
     // (výbava už vyzvednutá, nebo vydaný kód šatny) — u rezervace bez šatny by přidání velikosti vydalo nový kód
     // šatny uprostřed převzetí (trg_sync_locker_code). Chyba dotazu = bez přidání (dokument ji ukáže jako „navíc“).
     let allowAdd = false
-    if (mode === 'kiosk' && form.gear_add === true
+    // gear: kus navíc se nepřidává (každý kus výpůjčky je placený) — v dokumentu jen „(navíc)“
+    if (!gear && mode === 'kiosk' && form.gear_add === true
         && accessories.some((a) => a.checked && a.field && !String(booking[a.field] ?? '').trim())) {
       if (booking.gear_collected_at) allowAdd = true
       else {
@@ -199,8 +212,9 @@ serve(async (req) => {
     // hodnota jednotky, je-li to kladné celé číslo — v její offline frontě může
     // ještě čekat neodeslaný stav vrácení předchozího zákazníka (a vrácení téže
     // rezervace může dorazit dřív než podpis převzetí); jinak totéž RPC.
-    let pickupKm = mode === 'kiosk' ? positiveKm(form.mileage) : null
-    if (pickupKm == null) pickupKm = await resolvePickupKm(admin, bookingId, moto.mileage)
+    // gear: bez motorky → bez km (RPC se nevolá, mileage_start se nemění)
+    let pickupKm = !gear && mode === 'kiosk' ? positiveKm(form.mileage) : null
+    if (pickupKm == null && !gear) pickupKm = await resolvePickupKm(admin, bookingId, moto.mileage)
     const mileageUnit: 'km' | 'mh' = moto.tracking_unit === 'mh' ? 'mh' : 'km'
     form.mileage = pickupKm != null ? String(pickupKm) : ''
     form.mileage_unit = mileageUnit
@@ -236,12 +250,17 @@ serve(async (req) => {
     // `removed` pro dokument). Ceny / booking_extras se NEMĚNÍ (rozhodnutí majitele
     // čeká — vratku řeší Velín ručně).
     try {
-      const { updates, changes } = await resolveGearUpdates(admin, booking, accessories, allowRemove, allowAdd,
-        mode === 'kiosk' && form.gear_add === true)
+      const res = await resolveGearUpdates(admin, booking, accessories, allowRemove, allowAdd,
+        mode === 'kiosk' && form.gear_add === true, gear ? await loadGearAllowedSizes(admin) : undefined)
+      // gear: poslední kus se neodebírá; změněná velikost i do gear_lines (doklady)
+      const keptAll = gear ? keepLastGearItem(booking, res, accessories) : []
+      if (keptAll.length) console.warn('[handover] gear: last item kept', bookingId, keptAll)
+      const { updates, changes } = res
+      const gearLines = gear ? syncGearLines(booking.gear_lines, updates) : null
       if (Object.keys(updates).length) {
         const entry = { at: now.toISOString(), auto: true, source: 'protocol', signed_by: signer.by, ...(deviceId ? { device_id: deviceId } : {}), gear_changes: changes }
         const hist = Array.isArray(booking.modification_history) ? booking.modification_history : []
-        const { error: uErr } = await admin.from('bookings').update({ ...updates, modification_history: [...hist, entry] })
+        const { error: uErr } = await admin.from('bookings').update({ ...updates, ...(gearLines ? { gear_lines: gearLines } : {}), modification_history: [...hist, entry] })
           .eq('id', bookingId).is('handover_protocol_filled_at', null)
         if (uErr) throw uErr
       }
@@ -257,7 +276,9 @@ serve(async (req) => {
     }
 
     // ── Dokument do bucketu PŘED claimem (viz hlavička) ────────────────────
-    const html = buildHtml(vars, form, signature, signer, docLang)
+    const html = gear
+      ? buildGearHtml(vars, form, signature, signer, docLang, { branch: [gearBranch?.name, gearBranch?.address, gearBranch?.city].filter(Boolean).join(', ') })
+      : buildHtml(vars, form, signature, signer, docLang)
     const docId = crypto.randomUUID()
     let pdfPath = ''
     try { pdfPath = await storeDocument(admin, bookingId, docId, html) } catch (e) {
@@ -287,6 +308,7 @@ serve(async (req) => {
       ...(deviceId ? { _device_id: deviceId } : {}),
       _mileage: pickupKm,
       _mileage_unit: mileageUnit,
+      ...(gear ? { _gear_only: true } : {}),
     }
     const { error: gErr } = await admin.from('generated_documents').insert({
       id: docId, template_id: null, booking_id: bookingId, customer_id: booking.user_id, filled_data: filled, pdf_path: pdfPath,
@@ -315,7 +337,21 @@ serve(async (req) => {
     // Protokol zákazníkovi e-mailem (best-effort; v appce ho má přes sync do `documents`).
     let emailSent = false
     const custEmail = (customer.email as string) || ''
-    if (custEmail) {
+    if (custEmail && gear) {
+      // Výpůjčka výbavy: vlastní šablona, chybí-li (404) → základní šablona protokolu (gear-only.ts).
+      try {
+        const gearDoc = docLang === 'cs' ? 'Předávací protokol — výbava' : `${makeTr(docLang).plain('gr_title')} / Předávací protokol — výbava`
+        emailSent = await sendProtocolMail(`${SUPABASE_URL}/functions/v1/send-email`, SERVICE_KEY, {
+          to: custEmail,
+          template_slug: GEAR_MAIL_SLUG,
+          template_vars: gearMailVars(booking, accessories, gearBranch, docLang, { customer_name: vars.customer_name, booking_number: bn, doc_name: gearDoc }),
+          language: docLang,
+          customer_id: booking.user_id || null,
+          booking_id: bookingId,
+          attachment_paths: [{ filename: `Predavaci_protokol_${bn}.${pdfPath.endsWith('.html') ? 'html' : 'pdf'}`, path: pdfPath }],
+        }, BASE_MAIL_SLUG)
+      } catch (_) { /* mail je best-effort */ }
+    } else if (custEmail) {
       try {
         const filename = `Predavaci_protokol_${bn}.${pdfPath.endsWith('.html') ? 'html' : 'pdf'}`
         const er = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {

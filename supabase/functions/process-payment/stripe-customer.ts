@@ -27,7 +27,11 @@ export function resolveReturnOrigin(origin: string | null | undefined, locale: s
   if (origin) {
     try {
       const u = new URL(origin)
-      if (u.hostname.endsWith('motogo24.cz') || u.hostname.endsWith('motogo24.com')) {
+      // Jen naše domény a jejich subdomény přes https — `endsWith('motogo24.cz')` pustil i cizí
+      // evilmotogo24.cz (session_id v návratové URL → údaje rezervace; bezpečnostní review 2026-10-23).
+      const h = u.hostname.toLowerCase()
+      const ours = (d: string) => h === d || h.endsWith('.' + d)
+      if (u.protocol === 'https:' && (ours('motogo24.cz') || ours('motogo24.com'))) {
         return `${u.protocol}//${u.host}`
       }
     } catch { /* ignore */ }

@@ -6,7 +6,7 @@ import { PUBLIC_READ_TOOLS } from './public-tools.ts'
 const APP_TOOLS = [
   {
     name: 'get_active_booking',
-    description: 'Vrátí aktivní nebo nadcházející rezervaci zákazníka s kompletními detaily motorky. Volej jako první krok při každém dotazu, abys zjistil jakou motorku zákazník právě má.',
+    description: 'Vrátí aktivní nebo nadcházející rezervaci zákazníka s kompletními detaily motorky (u výpůjčky JEN VÝBAVY `gear_only=true`, `gear_items`, `branch` a žádná motorka). Volej jako první krok při každém dotazu, abys zjistil jakou motorku zákazník právě má.',
     input_schema: {
       type: 'object' as const,
       properties: {},

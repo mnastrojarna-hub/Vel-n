@@ -825,6 +825,11 @@ zámek založila), until (ISO = last_activity + handover_lock_s), customer_name 
 která právě zavřela šatnu a ještě neotevřela kóji motorky: kiosk přijímá jen její kódy, ostatní zákazníci dostanou
 `handover_in_progress`; UI z něj kreslí pruh `#handover-lock`. `kiosk_report_status` nese totéž — NIKDY podpis ani formulář
 (limit 256 KiB). `timings` (§16) nově i `handover_idle_s` a `handover_lock_s`.
+**1.3.0 (§33, výpůjčka výbavy bez motorky) — aditivně, jen když se týká výbavy (snapshot rezervací s motorkou beze změny):**
+`active.gear_only: true` (protokol jen s výbavou; `sizes` z `protocol.sizes_catalog`), `lock.gear_only: true` (zámek drží
+výpůjčka výbavy — UI pruh „zákazník podepisuje protokol“) a klíč `handover.gear = {return: null | {booking_id, zone, data
+{customer_name?, start_date?, end_date?}, expires_at, grace_min}, visits: {booking_id: "pickup"|"return"}}` — dotaz „Vracíš všechnu
+výbavu?“ a návštěvy šatny výpůjček výbavy (≤ 24 h); bez výpůjčky výbavy klíč `gear` chybí.
 `odometer` (2026-09-29, §30) = `{pending: [booking_id…], failed: [booking_id…]}` z `odometer_queue_status` — stavy tachometru
 zadané na displeji a dosud NEpotvrzené serverem (`pending` = síť/5xx/RPC nenasazená, opakuje se á 30 s; `failed` = RPC trvale
 odmítla, zpět jen `reload`/`sync_config`). `timings` nese i `odometer_idle_s`.
@@ -907,6 +912,7 @@ v ACCESS_GRANTED a server dál bere `last_open_phase` jen z ACCESS_GRANTED.
 | OPEN_TIMEOUT | relace | false | ano | relace | jako grant relace | — (server: opakovaný kód motorky po zaparkování bez otevření → řádek zpět `parked`) |
 | FORCED_OPEN | `unknown` / null | false | ano | — | — | `reason` |
 | ACCESS_DENIED, PIN_INVALID, PROTOCOL_SHOWN | viz výše | false/false/true | ano | — | — | `reason` (nově `returned`, §32) |
+| GEAR_RETURN_CONFIRMED (1.3.0, §33) | `accessories` / rezervace výbavy, `door_id` šatny | true | ano (= čas potvrzení) | relace návštěvy šatny | — | `source:'kiosk'`, `offline`, `closed_ts` (zavření šatny té návštěvy, ISO ms) |
 
 `ts` = `Event.ts` (vznik události na jednotce, ISO 8601 UTC s ms, `2026-10-06T16:42:05.123+00:00`) — i u události doručené
 z outboxu po výpadku; server ho validuje proti času příjmu (neparsovatelné / > `created_at`+5 min / < `created_at`−30 dní →
@@ -975,6 +981,10 @@ aiohttp na `local.web.host:port` (default 127.0.0.1:8080):
   `POST /api/protocol/dismiss {"booking_id"}` → `handover.dismiss` (tlačítko „Zpět“) → `{ok:true, dismissed: bool}`;
   `POST /api/protocol/touch {"booking_id"}` → `handover.touch` (UI throttle 5 s; prodlužuje `expires_at`) → `{ok:true, active: bool}`
   (false = položka není viditelná). Všechny tři: chybějící/prázdné `booking_id` → 400 `missing_booking_id`.
+  `POST /api/gear/return {"booking_id", "answer": "yes"|"no"}` (1.3.0, §33; `handover_gear.http_return`, zákazník bez tokenu)
+  → `{ok, confirmed, error}`: `yes` = GEAR_RETURN_CONFIRMED (jednou, dotaz se spotřebuje), `no` = nic; dotaz neexistuje / jiná
+  rezervace / vypršel → `{ok:false, confirmed:false, error:'not_pending'}`; chybí `booking_id` → 400 `missing_booking_id`,
+  jiná odpověď → 400 `bad_answer`.
   Limit těla je GLOBÁLNÍ `client_max_size = BODY_MAX_BYTES = 1 MiB` (webserver.py, všechny endpointy) → aiohttp 413 se pro `/api/*`
   a `/ws` mapuje na `{"ok":false,"error":"body_too_large"}` (404 `not_found`, 405 `method_not_allowed`, jinak `http_error`).
 Chybové odpovědi `{"ok":false,"error":"…"}`; neplatný service_token → 403.
@@ -983,8 +993,10 @@ UI (`ui/index.html`, `ui/app.js`, `ui/style.css` + `ui/style-overlays.css`, `ui/
 `ui/diag.js` (§24), `ui/shell.js` (§27) a od 2026-09-25 `ui/i18n-handover.js` (skupiny `ho.*`/`g.*` přes `MG.i18n.extend`, načítá se
 hned po `i18n.js`), `ui/signature.js` (`MG.Signature`), `ui/handover.js` (`MG.Handover`), `ui/style-handover.css`, od 2026-09-29
 `ui/i18n-locker.js`, `ui/i18n-odometer.js`, `ui/odometer.js` (`MG.Odometer`, §30) a `ui/style-odometer.css`, od 2026-10-01
-`ui/i18n-pickup.js` (§31), od 2026-10-05 `ui/i18n-codes.js` — pořadí `<script>` v `index.html`: i18n, i18n-handover, i18n-locker,
-i18n-odometer, i18n-pickup, i18n-codes, keyboard, signature, panel, diag, shell, handover, odometer, app; vanilla JS,
+`ui/i18n-pickup.js` (§31), od 2026-10-05 `ui/i18n-codes.js`, od 1.3.0 (§33) `ui/i18n-gear.js` (`hg.*`), `ui/i18n-gear-return.js`
+(`gr.*`), `ui/handover-gear.js` (`MG.HandoverGear`) a `ui/style-gear.css` — pořadí `<script>` v `index.html`: i18n, i18n-handover,
+i18n-locker, i18n-odometer, i18n-pickup, i18n-codes, i18n-gear, i18n-gear-return, keyboard, signature, panel, diag, shell,
+handover-gear, handover, odometer, app; vanilla JS,
 žádné CDN, offline). **Redesign 2026-09-10 pro široký nízký dotykový displej:** rozložení **100vw × 100vh, responzivní** —
 žádné pevné 1920×1080 ani `fit()` transformace (ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400; nic se
 nepřekrývá). **Světlé téma MotoGo24** v barvách webu/appky (zelená #74FB71, tmavá #1A2E22, pozadí #F1FAF7…); technické
@@ -993,8 +1005,8 @@ overlaye (servisní panel, setup, diagnostika) zůstávají tmavé, ale responzi
 nečinnosti), **název pobočky VÝHRADNĚ z Velína** (`snapshot().branch_name` = `branches.name`; bez něj je místo prázdné —
 žádný automatický text) + tečka online. **Tělo ve třech sloupcích:** (1) výzva „Zadejte přístupový kód“ + vysvětlivky
 `hint1` „Kód najdete v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / `hint2`
-(2026-09-25) „Berete si oblečení? Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód
-motorky.“ (délku na nízkém displeji kontrolovat — de/uk nejdelší) + pole kódu (znaky VIDITELNÉ — rozhodnutí
+(2026-10-23, 1.3.0) „Berete si oblečení? Nejdřív kód šatny, pak kód motorky (bez motorky stačí kód šatny). Vlastní
+výbava? Rovnou kód motorky.“ (délku na nízkém displeji kontrolovat — de/uk nejdelší) + pole kódu (znaky VIDITELNÉ — rozhodnutí
 2026-09-11: žádné maskování tečkami, `masked()` z `app.js` odstraněno; platí pro kód rezervace, servisní heslo i diagnostický kód
 z hlavní klávesnice) + upozornění zóny; (2) klávesnice — rozměr kláves se počítá z kontejneru (CSS container query,
 `--k`), numerická i QWERTY (tlačítko „ABC“ pro servisní hesla) se nikdy nepřekrývají, klávesy ≥ 48 px, ⌫, Smazat, OK;
@@ -1865,7 +1877,9 @@ class HandoverItem:
     shown_at: float | None = None ; last_touch: float = 0.0 ; dismissed_at: float | None = None
     shown_logged: bool = False ; created_at: float = 0.0 ; in_flight: bool = False   # in_flight = submit právě běží
     moto_id: str | None = None                  # 2026-09-29 (§30): `protocol.moto_id` — km převzetí z neodeslaného vrácení téže motorky
-    # persist (PERSISTED): booking_id, kind_origin, zone, data, is_child, shown_at, last_touch, dismissed_at, shown_logged, created_at, moto_id
+    needs_locker: bool = False ; gear_only: bool = False ; sizes_catalog: dict | None = None   # 1.3.0 (§33): výbava bez motorky
+    # persist (PERSISTED): booking_id, kind_origin, zone, data, is_child, shown_at, last_touch, dismissed_at, shown_logged, created_at, moto_id,
+    #   needs_locker, gear_only, sizes_catalog
     def persisted(self) -> dict ; @classmethod def from_dict(cls, d) -> HandoverItem | None   # vždy visible=False, then_open=None
 
 class HandoverManager:
@@ -2272,3 +2286,108 @@ krátkodobých kódů podle `kiosk_devices.app_version` v SQL záměrně NENÍ (
 `1.2.10` < `1.2.8` je chybné). Nové klíče (`return_final_from`, `temp`, `temp_code_id`) 1.2.7 ignoruje → bez offline hradla
 vrácení (offline kód platí do půlnoci po posledním dni / do dalšího syncu) a bez `ts`/`session_id` (server páruje zavření
 s posledním nenouzovým ACCESS_GRANTED rezervace do 12 h; `ts` := `created_at`).
+
+---
+
+## 33. `handover_gear.py` — výpůjčka výbavy bez motorky (1.3.0, rozhodnutí majitele 2026-10-22)
+
+**Zadání (DESIGN výpůjčky výbavy, rozhodnutí 1.3–1.5):** výpůjčka výbavy je řádek `bookings` s `booking_kind='gear'` (`moto_id`
+NULL, pobočka = `bookings.branch_id`). Na samoobslužné pobočce dostane zákazník JEN kód brány (mimo kiosk) a kód ŠATNY — nikdy
+kód motorky. Šatna je celé převzetí i vrácení:
+1. **Převzetí:** kód šatny → šatna (bez držení hudby/relace „do kódu motorky“ — `hold_until_moto_code` se nenastaví, místo toho
+   `light_off_on_secure = True`, světlo zhasne s koncem relace) → zavření → protokol JEN s výbavou: objednané položky (sloupce
+   řidiče; bez spolujezdce a bez výbavy navíc — každá položka je placená), velikosti z `protocol.sizes_catalog` (ceník výpůjčky
+   ∩ meze samoobsluhy, znovu prohnané `gear_limits.allowed_sizes`), „✕ Neberu“ smí, ale aspoň jedna položka musí zůstat
+   převzatá (`hg.pickOne`, edge poslední položku taky neodebere); krok 2 = podpis + **„Kód šatny“** (identita = kód šatny TÉŽE
+   rezervace, `handover_submit._verify_code`; kód jiné rezervace = hádání jako dosud). Kóje se neotvírá; **zámek přejímky končí
+   podpisem** (displej `submit`, Velín/appka `mark_signed_remote`) nebo vypršením `handover_lock_s` jako dosud („Zpět“ ho nechává —
+   zákazník protokol vyvolá dalším zavřením šatny). Podepsáno jinde (Velín / appka — i příkaz `protocol_signed`, který plní
+   `hm.signed`) a výbava ještě nevyzvednutá → zavření šatny = převzetí → jen toast `hg.signed`, bez zámku a bez dotazu.
+2. **Vrácení (varianta B):** zavření šatny PODEPSANÉ výpůjčky (`signed` / fronta podpisů / `protocol.required=false` / offline
+   `absent`), jejíž výbava byla vyzvednutá PŘED touto návštěvou — rozhoduje stav při grantu kódu (`visit`), takže znovuzavření
+   v téže relaci ani druhé zavření při převzetí dotaz nevyvolá. Důkaz vyzvednutí (`_returning`): šatna výpůjčky už byla na TÉTO
+   jednotce zavřena (`picked`, kv `handover_gear`, drží max(40 dní, konec výpůjčky + 2 dny), přežije restart i výpadek LTE),
+   podpis z displeje ve frontě (`pending`/`failed`), nebo server `protocol.gear_collected_at` (jen nenulová hodnota; null nic
+   nevyvrací — událost zavření může čekat ve frontě). `hm.signed` se jako důkaz NEPOUŽÍVÁ (plní ho i podpis ve Velíně před
+   převzetím). Nová návštěva do `PICKUP_GRACE_S` (30 min) od zavření šatny PŘI PŘEVZETÍ na této jednotce (`picked.at`) je ještě
+   převzetí (zákazník se vrátil pro zapomenutý kus → toast, bez dotazu); bylo-li první zavření na jednotce už vrácením
+   (`at` = 0), lhůta neplatí. Bez důkazu (offline `absent` bez záznamu jednotky, zastaralá cache) = převzetí s toastem — fail-safe: nikdy
+   nedokončí výpůjčku omylem, v nejhorším ji dokončí obsluha. Dotaz: modální **„Vracíš všechnu výbavu?“** (`#gear-return`,
+   Ano / Ne, `ASK_S` = 60 s bez odpovědi = Ne), BEZ zámku přejímky. **Ano** → událost `GEAR_RETURN_CONFIRMED` → server
+   rezervaci hned dokončí (`returned_at` = čas potvrzení) a kód šatny nechá doběhnout 15 min po zavření šatny; **Ne** / bez odpovědi / znovuotevření šatny → nic (výpůjčka běží, další zavření se zeptá
+   znovu). Restart procesu dotaz zahodí (nepersistuje se — nikdy nic nedokončí sám). „Ano“, které jednotka odmítne `not_pending`
+   (dotaz mezitím vypršel), UI ohlásí `gr.expiredTitle`/`gr.expired` („zadej znovu kód šatny, otevři a zavři dveře“).
+
+```python
+# handover_gear.py — stav v HandoverManager.gear (GearState); persist jen `picked` (kv `handover_gear`)
+ASK_S = 60 ; VISIT_KEEP_S = 24*3600 ; KV = "handover_gear" ; PICKED_KEEP_S = 40*86400 ; PICKUP_GRACE_S = 30*60
+LOCK_TEXT = "Nejprve musí být dokončena předchozí přejímka — … podepisuje protokol. …"   # zákazník (handover_in_progress)
+LOCK_EVENT_TEXT = "Kód odmítnut — probíhá přejímka jiné rezervace (zákazník podepisuje protokol výbavy)"   # ACCESS_DENIED
+def protocol_gear(p) -> bool                      # p.gear_only is True
+def catalog(p) -> dict | None                     # p.sizes_catalog {klíč: [velikosti]} | None
+def sizes_for(item, fallback) -> dict             # gear_only + katalog → {k: gear_limits.allowed_sizes(k, cat[k])}; jinak fallback (_sizes)
+class GearState:
+    visits: dict[str, dict]                       # booking_id → {returning, offline, at, end} — z grantu kódu šatny (remember → visit)
+    picked: dict[str, dict]                       # booking_id → {at: zavření při převzetí | 0, until} (unix, persist kv)
+    ask: dict | None                              # {booking_id, zone, door_id, box_number, session_id, closed_ts, shown_at, offline, data}
+    def is_gear(self, booking_id, p=None) -> bool # visits ∨ p.gear_only ∨ protocols[bid].gear_only ∨ položka gear_only
+    def visit(self, rr) -> None                   # rr.gear_only: returning = _returning(bid, rr.protocol) (stav PŘED návštěvou)
+    async def closed(self, zone, bid, p) -> tuple[bool, str | None]
+        # zapíše picked; podepsáno → returning ? (dotaz, 'return_ask') : (_show_done gear_only, 'done'); p None → (True, None);
+        # nepodepsáno → (False, None) = běžná cesta on_wardrobe_closed (zámek + protokol s gear_only/sizes_catalog)
+    def reopened(self, zone, booking_id) -> bool  # on_wardrobe_opened: dotaz téže rezervace a šatny pryč
+    async def answer(self, booking_id, yes) -> dict   # {ok, confirmed, error}; Ano → ctrl.emit(GEAR_RETURN_CONFIRMED) jednou
+    def asking(self, now) -> bool ; def tick(self, now) -> None   # busy() ∨ asking; tick: dotaz po ASK_S, visits po 24 h, picked po až
+    def lock_status(self, lock) -> dict | None    # + gear_only:true, drží-li zámek výpůjčka výbavy
+    def status(self, now) -> dict | None          # snapshot handover.gear (§14) | None bez výpůjčky výbavy
+def lock_message(handover) -> str | None          # submit_code: CZ hláška handover_in_progress při zámku výbavy (+ LOCK_EVENT_TEXT)
+async def http_return(server, request)            # POST /api/gear/return (§16)
+```
+
+**Háčky v existujících modulech (minimální, motorkový tok beze změny — testy `test_gear_only.py::test_moto_booking_flow_unchanged`
+a celá dosavadní sada):** `models.ResolveResult.gear_only` (RPC top-level `gear_only` ∨ `protocol.gear_only`; krátkodobý kód vždy
+False), `pins.LocalResolver` (`codes[].gear_only` ∨ `protocols[].gear_only`), `controller_codes.submit_code` (bez
+`hold_until_moto_code`, CZ hláška zámku výbavy), `LOG_OPEN_KINDS` + `GEAR_RETURN_CONFIRMED`, `handover.HandoverItem.gear_only /
+sizes_catalog` (persist), `on_wardrobe_closed` / `on_wardrobe_opened` / `mark_signed_remote` / `tick` / `busy` / `status`,
+`handover_submit` (identita kód šatny, bez km a výbavy motorky, `form.gear_add=false`, payload `gear_only: true`, PROTOCOL_SIGNED a
+PROTOCOL_UPLOAD_FAILED s `code_kind='accessories'`, podpis = `lock.release`, odpověď `{…, opened: null, gear_only: true}`),
+`return_gate` (klíč `gear`), `webserver` (route).
+
+**Událost `GEAR_RETURN_CONFIRMED`** (`kiosk_log_open`, §15): `door_id` = dveře šatny, `kind` = `accessories`, `booking_id`,
+`success=true`, `detail = {event:'GEAR_RETURN_CONFIRMED', session_id: <relace návštěvy šatny, která dotaz vyvolala>, ts: <čas
+potvrzení na jednotce>, zone, box_number, source:'kiosk', offline: bool (kód ověřen z cache ∨ jednotka bez spojení), closed_ts:
+<zavření šatny té návštěvy, ISO ms>}`. Jde přes outbox (offline se doručí po obnově spojení, `ts` zůstává). Server (DB-B,
+`_kiosk_return_from_door_event` → `booking_kiosk_returns` → `kiosk_process_returns`) dokončí jen aktivní výpůjčku výbavy
+s podepsaným protokolem; nezaplacená → `skipped` (obsluha). Žádný nový vzdálený příkaz (podpis odjinud dál `protocol_signed`).
+
+**Offline hradlo (`return_gate`):** `observe` z `GEAR_RETURN_CONFIRMED` (kind accessories) zapíše `gear` = `detail.closed_ts` (jinak
+`ts` události); `blocks(rr)` pro OFFLINE `ok` kód šatny výpůjčky výbavy (`rr.gear_only`) = `now > max(gear, locker) + grace`
+(`timings.return_code_grace_min`, 15) — bez pravidla posledního dne a bez `return_final_from`; další zavření šatny v okně (`locker`)
+čas posune; odmítnutí = `code_revoked` bez lockoutu + ACCESS_DENIED `reason: returned`. Online rozhoduje server.
+
+**Payload podpisu pro edge `submit-handover-protocol` (mode kiosk):** `{booking_id, form, signature, signed_at, lang?, gear_only:
+true}`; `form = {accessories: [{key, who:'rider', field, size, checked}], gear_add: false}` — BEZ `moto_equipment` a `mileage`
+(edge pro výpůjčku výbavy nesmí doplnit výbavu motorky ani km; identita = odeslaný kód `accessories` téže rezervace na pobočce
+zařízení; typ pobočky z `bookings.branch_id`). `gear_only` v těle je jen nápověda — edge rozhoduje podle `bookings.booking_kind`.
+
+**UI (§16):** `ui/handover-gear.js` (`MG.HandoverGear`: varianta protokolu — třída `#handover.gear-only`, `data-i18n` popisků
+přepíná na `hg.*`, řádky jen objednané výbavy bez skupin; dotaz `#gear-return` z `st.handover.gear.return`, POST `/api/gear/return`,
+zodpovězený dotaz se ze snapshotu znovu neotevře; modální hláška šatny při vrácení `gr.close(No)`/`gr.closeSub` dle
+`gear.visits`; pruh zámku `hg.lockTitle` dle `lock.gear_only`; podtitulek `handover_in_progress` mimo češtinu), `ui/i18n-gear.js`
+(`hg`, oslovení jako zbytek protokolu v daném jazyce) a `ui/i18n-gear-return.js` (`gr`, tykání dle zadání majitele) v 8 jazycích,
+`ui/style-gear.css` (z-index `#gear-return` 44 = nad `#wardrobe` 42, pod `#handover` 45; dvě velká tlačítka, nízký displej bez
+ikony). Fyzická klávesnice během dotazu nic nedělá (Enter za zákazníka neodpoví). Háčky: `handover.js` (rowsOf, renderMeta,
+renderGear, needsPick, confirm, showDone, resolveWait, onState, init, rerender), `app.js` (renderWardrobe, chyba zámku, klávesnice).
+
+**Nasazení / kompatibilita:** SQL DB-B (`gear_only` v `_kiosk_protocol` / `kiosk_resolve_code` / `codes[]`, `sizes_catalog`,
+vydávání kódu šatny výpůjčkám výbavy, zpracování `GEAR_RETURN_CONFIRMED`) a edge (EDGE-B gear varianta protokolu) jdou PŘED
+rolloutem 1.3.0. Jednotka ≤ 1.2.12 klíče ignoruje → u výpůjčky výbavy po zavření šatny ukáže protokol s „Kód motorky“, který
+zákazník nemá (podpis nejde, zámek přejímky 10 min) — výpůjčky výbavy na samoobslužné pobočce proto zapnout (vydávat jim kód šatny)
+až po rolloutu 1.3.0 na jednotku pobočky (ne podle `kiosk_devices.app_version` v SQL — textové porovnání verzí je chybné, §32).
+**Pořadí nasazení (checklist):** (1) SQL + edge do `main` — vydávání kódu šatny výpůjčkám výbavy na samoobslužné pobočce musí
+zůstat VYPNUTÉ (přepínač ve Velíně, viz CONTRACT ISSUE pro DB-B) nebo se web/appka pro samoobslužnou pobočku nezapnou;
+(2) release 1.3.0 (`kiosk_releases`) → Velín: aktualizace jednotky pobočky (canary), ověřit `app_version` 1.3.0 na kartě jednotky;
+(3) teprve pak vydávání kódů šatny výpůjčkám výbavy na té pobočce zapnout; (4) zkušební výpůjčka (`is_test`): převzetí, podpis
+kódem šatny, vrácení „Ano“.
+Jednotka 1.3.0 se starou DB (bez `gear_only`) se chová přesně jako 1.2.12. Testy `tests/test_gear_only.py`, `tests/test_gear_return.py`,
+`tests/test_gear_pickup_detect.py` (převzetí vs. vrácení).

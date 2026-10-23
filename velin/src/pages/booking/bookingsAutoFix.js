@@ -55,6 +55,11 @@ async function _autoActivateReserved() {
       .select('id, user_id, motorcycles!moto_id(branch_id, branches!branch_id(type))')
       .eq('status', 'reserved').eq('payment_status', 'paid')
       .not('is_test', 'is', true) // testovací rezervace se nikdy neaktivují (parita se SQL cronem)
+      // Výpůjčku JEN výbavy (bez motorky) Velín z prohlížeče nikdy neaktivuje — vydává se vždy na
+      // pobočce (protokol / šatna). Bez motorky by tu typ pobočky vyšel prázdný a rezervace by se
+      // překlopila na active (resp. dostala výzvu k ŘP). Motorka NULL u reserved = jen výbava
+      // (smazání motorky s živou rezervací Velín blokuje) — filtr nezávisí na sloupci booking_kind.
+      .not('moto_id', 'is', null)
       .lte('start_date', today)
     if (!ready || !ready.length) return
 
@@ -109,13 +114,14 @@ export async function autoFixPendingPaid() { return _once('pendingPaid', _autoFi
 async function _autoFixPendingPaid() {
   try {
     const today = localIso(new Date())
-    const { data: stuck } = await supabase.from('bookings').select('id, start_date')
+    const { data: stuck } = await supabase.from('bookings').select('id, start_date, moto_id')
       .eq('status', 'pending').eq('payment_status', 'paid')
       .not('is_test', 'is', true) // testovací rezervace nechat na pokoji
     if (stuck && stuck.length > 0) {
       for (const b of stuck) {
         const startLocal = b.start_date ? b.start_date.slice(0, 10) : ''
-        if (startLocal <= today) {
+        // výpůjčka jen výbavy (bez motorky) → jen reserved, aktivuje ji až předání na pobočce
+        if (startLocal <= today && b.moto_id) {
           // confirmed_at i tady: na pobočce strážce trg_gate_obsluzna_activation přechod bez
           // protokolu srazí na 'reserved' (2026-09-28 i samoobsluha) — rezervace pak musí mít čas potvrzení.
           const now = new Date().toISOString()

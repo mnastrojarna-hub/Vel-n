@@ -1,5 +1,6 @@
 // Write tools: Bookings, Fleet, Customers, SOS
 import type { SB } from './tools-constants.ts'
+import { selectGearSafe } from '../_shared/agent-knowledge/gear-booking.ts'
 
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
@@ -40,9 +41,15 @@ export async function execWriteCore(name: string, input: R, sb: SB, dryRun: bool
 
     case 'update_booking_details': {
       const { booking_id, ...fields } = input
-      const { data: booking } = await sb.from('bookings').select('id, notes, start_date, end_date').eq('id', booking_id).single()
+      const { data: booking } = await selectGearSafe<R>('id, notes, start_date, end_date, booking_kind', (c) => sb.from('bookings').select(c).eq('id', booking_id).single())
       if (!booking) return { error: 'Rezervace nenalezena' }
       const changes = Object.keys(fields).filter(k => fields[k] !== undefined)
+      // Výpůjčka JEN VÝBAVY: termín/cena se musí přepočítat (gear_lines × dny, sklad, zavřená pobočka) —
+      // přímý zápis by rozbil cenu; tady jen poznámka, zbytek přes admin_update_gear_booking (Velín).
+      const gearBlocked = booking.booking_kind === 'gear' ? changes.filter(k => k !== 'notes') : []
+      if (gearBlocked.length) {
+        return { error: `Výpůjčka jen výbavy: ${gearBlocked.join(', ')} tu měnit nejde (cena = kusy × dny, kontrola skladu a otevření pobočky). Uprav ji ve Velínu → Rezervace → detail → Upravit (RPC admin_update_gear_booking, nejdřív náhled). Poznámku (notes) změnit lze.` }
+      }
       const summary = `Úprava rezervace: ${changes.join(', ')}`
       if (dryRun) return { status: 'preview', summary, current: booking, changes: fields }
       const { error } = await sb.from('bookings').update(fields).eq('id', booking_id)

@@ -10,6 +10,7 @@ import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { siteUrl } from '../_shared/agent-knowledge/site-url.ts'
 import { getLegalDocument } from '../_shared/agent-knowledge/legal-docs.ts'
 import { getBranchesTool } from '../_shared/agent-knowledge/branch-facts.ts'
+import { GEAR_OFFER_TOOL, getGearRentalOffer } from '../_shared/agent-knowledge/gear-offer.ts'
 
 function motoDisplayName(brand: string | null | undefined, model: string | null | undefined): string {
   const b = (brand || '').trim()
@@ -93,9 +94,10 @@ export const PUBLIC_READ_TOOLS = [
   },
   {
     name: 'get_extras_catalog',
-    description: 'Vrátí seznam příslušenství, které lze přiobjednat (top case, GPS, přistavení, atd.) s cenami + ceník výbavy/oblečení v `gear_pricing` (helma, bunda, kalhoty, rukavice, boty, kukla — pro řidiče i spolujezdce, vč. toho co je v ceně a co za příplatek).',
+    description: 'Vrátí seznam příslušenství, které lze přiobjednat K REZERVACI MOTORKY (top case, GPS, přistavení, atd.) s cenami + ceník výbavy/oblečení k motorce v `gear_pricing` (helma, bunda, kalhoty, rukavice, boty, kukla — pro řidiče i spolujezdce, vč. toho co je v ceně a co za příplatek). Samostatná výpůjčka výbavy BEZ motorky → `get_gear_rental_offer`.',
     input_schema: { type: 'object' as const, properties: {} },
   },
+  GEAR_OFFER_TOOL,
   {
     name: 'get_branches',
     description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS, typem/režimem výdeje (`mode`) a provozní dobou (`opening_hours_text`; obě pobočky fungují NONSTOP).',
@@ -518,8 +520,12 @@ export async function execPublicReadTool(
           price_kc: a.pricing_unit === 'free' ? 0 : Number(a.price_czk || 0),
           pricing_unit: a.pricing_unit, // free = v ceně | per_booking = jednorázově za rezervaci | per_day = za každý den
         })),
-        gear_notice: 'Ceny výbavy (oblečení) ber VÝHRADNĚ z `gear_pricing`: `free`/0 Kč = v ceně pronájmu, `per_booking` = jednorázový příplatek za rezervaci, `per_day` = příplatek za každý den. Základní výbava ŘIDIČE (helma, bunda, kalhoty, rukavice) je v ceně; placené bývají boty řidiče a výbava spolujezdce — ale řiď se daty, ne touto větou. Když je `gear_pricing` prázdné, řekni, že přesný ceník výbavy potvrdí půjčovna — NEVYMÝŠLEJ částky.',
+        gear_notice: 'Ceny výbavy (oblečení) ber VÝHRADNĚ z `gear_pricing`: `free`/0 Kč = v ceně pronájmu, `per_booking` = jednorázový příplatek za rezervaci, `per_day` = příplatek za každý den. Základní výbava ŘIDIČE (helma, bunda, kalhoty, rukavice) je v ceně; placené bývají boty řidiče a výbava spolujezdce — ale řiď se daty, ne touto větou. Když je `gear_pricing` prázdné, řekni, že přesný ceník výbavy potvrdí půjčovna — NEVYMÝŠLEJ částky. Tohle je výbava K REZERVACI MOTORKY; samostatná výpůjčka výbavy bez motorky má vlastní ceník → `get_gear_rental_offer`.',
       }
+    }
+    case 'get_gear_rental_offer': {
+      // Výpůjčka výbavy bez motorky (2026-10-23) — sdílená implementace s webovým agentem.
+      return await getGearRentalOffer(sb, args, lang)
     }
     case 'get_branches': {
       // Sdílená implementace s webovým agentem (_shared/agent-knowledge/branch-facts.ts, 2026-10-11):

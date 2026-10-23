@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from . import fixed_codes, handover_locker, pickup_gate, return_gate, shell
+from . import fixed_codes, handover_gear, handover_locker, pickup_gate, return_gate, shell
 from .models import ACCESSORIES_NAME, CODE_NO_GEAR, Event, EventKind, ResolveResult, ServiceDoor
 from .pins import hmac_code, mask, normalize_code
 
@@ -28,6 +28,7 @@ LOG_OPEN_KINDS = frozenset({
     EventKind.ACCESS_GRANTED, EventKind.ACCESS_DENIED, EventKind.DOOR_OPENED, EventKind.DOOR_CLOSED,
     EventKind.SESSION_COMPLETED, EventKind.OPEN_TIMEOUT, EventKind.FORCED_OPEN, EventKind.PIN_INVALID,
     EventKind.PROTOCOL_SHOWN,      # DB trigger nastaví started_at/prompted_at rezervace + push do appky (§2b)
+    EventKind.GEAR_RETURN_CONFIRMED,   # 1.3.0 (§33): vrácení výbavy bez motorky potvrzeno na displeji → server dokončí
 })
 # Události zapisované přes kiosk_log_event (kiosk_logs) → zdroj
 LOG_EVENT_SOURCES: dict[EventKind, str] = {
@@ -361,13 +362,15 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
     if lock is not None and rr.booking_id and lock.blocks(rr.booking_id):
         # Jiná rezervace právě zavřela šatnu a ještě neotevřela kóji motorky → tenhle zákazník počká. Kód je platný:
         # žádný lockout (není v INVALID_CODE_ERRORS), jen ACCESS_DENIED s důvodem handover_in_progress do Velína.
+        gear_text = handover_gear.lock_message(handover)      # zámek drží výpůjčka výbavy (§33) — kód motorky nepřijde
         await ctrl.emit(Event(kind=EventKind.ACCESS_DENIED, success=False, level="warn", code_kind=rr.kind,
                               door_id=rr.door_id, booking_id=rr.booking_id, box_number=rr.box_number,
-                              message="Kód odmítnut — probíhá přejímka jiné rezervace (nejdřív kód motorky po zavření šatny)",
+                              message=handover_gear.LOCK_EVENT_TEXT if gear_text else
+                              "Kód odmítnut — probíhá přejímka jiné rezervace (nejdřív kód motorky po zavření šatny)",
                               detail={"source": source, "reason": "handover_in_progress",
                                       "locked_booking_id": lock.booking_id, "offline": rr.offline}))
         return {**base, "kind": rr.kind, "booking_id": rr.booking_id, "error": "handover_in_progress",
-                "message": error_text("handover_in_progress")}
+                "message": gear_text or error_text("handover_in_progress")}
     if lock is not None:
         lock.touch(rr.booking_id)             # přijatý kód zamčené rezervace = aktivita (zámek nevyprší zákazníkovi pod rukama)
     zc = zone_for_code(ctrl, rr.door_id, rr.box_number, rr.kind)
@@ -415,7 +418,10 @@ async def submit_code(ctrl: "BoxController", code: str, source: str, *, diagnost
     if ok and handover is not None and rr.kind == "accessories":
         handover.remember(rr)                 # protokol k rezervaci pro okamžik zavření šatny
     if ok and rr.kind == "accessories" and rr.booking_id and not returning and not rr.temp:
-        zc.hold_until_moto_code = True        # šatna: hudba + relace až do kódu motorky (2026-10-10, zone_access.wardrobe_hold)
+        if rr.gear_only:                      # výbava bez motorky (1.3.0, §33): kód motorky nepřijde — světlo zhasne s relací
+            zc.light_off_on_secure = True
+        else:
+            zc.hold_until_moto_code = True    # šatna: hudba + relace až do kódu motorky (2026-10-10, zone_access.wardrobe_hold)
     if ok and lock is not None and rr.kind == "motorcycle" and rr.booking_id:   # None by uvolnil zámek KOHOKOLI (temp kód)
         lock.release(rr.booking_id, "kóje motorky otevřena")   # přejímka dokončena → další zákazník na řadě
     if not ok:

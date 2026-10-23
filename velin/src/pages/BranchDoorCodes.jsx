@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { generateDoorCode, Spinner, EmptyState } from './BranchHelpers'
 import { fetchDocsGate } from '../lib/docsGate'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import { isGearBooking, gearDocsGate } from '../lib/bookingKind'
+import { GearOnlyPill } from './booking/GearBookingParts'
 
 // Důvod zadržení kódu šatny, který zapisuje DB trigger _sync_locker_code u rezervace bez zapůjčené výbavy
 // (hodnota v DB — NEMĚNIT). Obsluze se ukazuje OWN_GEAR_LABEL: vlastní výbava i „nic nevybral“ (20261005g).
@@ -60,11 +62,14 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       // auto_generate_door_codes). Dřív stačil JAKÝKOLI řádek smlouvy/protokolu nebo číslo ŘP
       // (smlouvu má každá rezervace) → nouzové kódy šly zákazníkovi i bez dokladů. Nejde-li
       // brána vyhodnotit, kódy se zadrží (pojistka trg_zz_door_codes_docs_gate to vynutí i tak).
-      const gate = await fetchDocsGate({ bookingId: booking.id })
+      // Výpůjčka JEN výbavy: jen doklad totožnosti + 18+ (bez ŘP) a JEN kód šatny (žádný kód motorky)
+      const gear = isGearBooking(booking)
+      const rawGate = await fetchDocsGate({ bookingId: booking.id })
+      const gate = gear ? gearDocsGate(rawGate) : rawGate
       const hasDocuments = gate?.ok === true
       const withheldReason = hasDocuments ? null : (gate?.reason || 'Doklady nelze ověřit')
       // Kód šatny JEN když má zákazník v šatně co vyzvednout (parita s auto_generate_door_codes)
-      const needsLocker = await bookingNeedsLocker(booking.id)
+      const needsLocker = gear || await bookingNeedsLocker(booking.id)
 
       // Parita s DB triggerem auto_generate_door_codes: kódy platí od potvrzení
       // rezervace (reserved), ne až od aktivace — rezervace se nově překlápí na
@@ -83,7 +88,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         sent_at: hasDocuments ? new Date().toISOString() : null,
         withheld_reason: withheldReason,
       })
-      const codes = needsLocker ? [row('motorcycle'), row('accessories')] : [row('motorcycle')]
+      const codes = gear ? [row('accessories')] : needsLocker ? [row('motorcycle'), row('accessories')] : [row('motorcycle')]
 
       const { error: insertErr } = await supabase.from('branch_door_codes').insert(codes)
       if (insertErr) throw insertErr
@@ -92,7 +97,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: 'door_codes_emergency_generated',
-        new_data: { booking_id: booking.id, branch_id: branchId, withheld: !hasDocuments, docs_reason: withheldReason, locker: needsLocker },
+        new_data: { booking_id: booking.id, branch_id: branchId, withheld: !hasDocuments, docs_reason: withheldReason, locker: needsLocker, ...(gear ? { gear_only: true } : {}) },
       })
 
       onRefresh()
@@ -148,7 +153,9 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
   // že obsluha doklady ověřila osobně (co chybělo, zapíše RPC do admin_audit_log).
   async function resendCode(code) {
     setError(null); setNotice(null)
-    const gate = await fetchDocsGate({ bookingId: code.booking_id })
+    const rawGate = await fetchDocsGate({ bookingId: code.booking_id })
+    // výpůjčka jen výbavy: chybějící ŘP není důvod k potvrzování (stačí doklad totožnosti + 18+)
+    const gate = isGearBooking(code.bookings) ? gearDocsGate(rawGate) : rawGate
     if (gate?.ok !== true) {
       setReleaseConfirm({ code, missing: gate ? (gate.missing || []) : ['Stav dokladů se nepodařilo ověřit'] })
       return
@@ -224,6 +231,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
                 <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
                   {b.profiles?.full_name || 'Neznámý'}
                 </span>
+                {isGearBooking(b) && <GearOnlyPill fs="text-[9px] max-lg:text-[11px]" />}
                 <span className="text-sm" style={{ color: '#1a2e22' }}>
                   {new Date(b.start_date).toLocaleDateString('cs-CZ')} — {new Date(b.end_date).toLocaleDateString('cs-CZ')}
                 </span>
@@ -283,7 +291,9 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
   // Kód motorky kóji neotevře, dokud není podepsaný předávací protokol (hradlo v jednotce, §1 návrhu) —
   // platí jen na SAMOOBSLUŽNÉ pobočce (na obslužné protokol podepisuje obsluha, hradlo tam není).
   // `handover_protocol_filled_at` přijde jen po migraci 20260925 — bez sloupce se badge neukazuje.
-  const awaitsProtocol = selfService && isMotorcycle && !inactive && booking && 'handover_protocol_filled_at' in booking
+  // Výpůjčka JEN výbavy: hradlo protokolu stojí na kódu ŠATNY (protokol s velikostmi po zavření šatny)
+  const gearLocker = code.code_type === 'accessories' && isGearBooking(booking)
+  const awaitsProtocol = selfService && (isMotorcycle || gearLocker) && !inactive && booking && 'handover_protocol_filled_at' in booking
     && booking.handover_protocol_filled_at == null && ['reserved', 'active'].includes(booking.status)
 
   return (
@@ -308,7 +318,7 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
         {code.door_code}
       </span>
       <span className="text-sm" style={{ color: '#1a2e22' }}>
-        {moto ? `${moto.model} (${moto.spz || '?'})` : ''}
+        {moto ? `${moto.model} (${moto.spz || '?'})` : gearLocker ? 'Jen výbava' : ''}
       </span>
       <span className="text-sm" style={{ color: '#1a2e22' }}>
         {booking?.profiles?.full_name || ''}
@@ -333,7 +343,7 @@ function DoorCodeRow({ code, onDeactivate, onActivate, onResend, inactive, canAc
       )}
       {awaitsProtocol && (
         <span className="inline-block rounded-btn text-[8px] max-lg:text-[11px] font-bold"
-          title="Zákazník ještě nepodepsal předávací protokol. Kód motorky se ověří, ale kóje se otevře až po podpisu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky)."
+          title={gearLocker ? 'Zákazník ještě nepodepsal předávací protokol výbavy — po zavření šatny potvrdí na displeji velikosti a podepíše (identita = kód šatny).' : 'Zákazník ještě nepodepsal předávací protokol. Kód motorky se ověří, ale kóje se otevře až po podpisu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky).'}
           style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9' }}>
           📝 Čeká na protokol
         </span>

@@ -5,6 +5,8 @@ import { MOTO_LICENSE_GROUPS, identityMissing, licenseMissing, fmtYmd, parseLice
 import { bookingDocsVerdict } from '../../lib/docsGate'
 import AdminDocUploadModal from '../customer/AdminDocUploadModal'
 import ElectronicProtocolModal from './ElectronicProtocolModal'
+import GearPickupReadiness from './GearPickupReadiness'
+import { isGearBooking } from '../../lib/bookingKind'
 
 // Kompletní odbavení odjezdu na OBSLUŽNÉ pobočce:
 //   1) Údaje — doplnit chybějící/expirované údaje ŘP (platnost + skupiny).
@@ -30,7 +32,12 @@ function StepHead({ n, label, done }) {
 
 // `verifiedCode` — kód motorky, kterým byla rezervace nalezena a identita ověřena
 // (rychlé odbavení z Velína); v protokolu je pak předvyplněný jako ověřený.
-export default function PickupReadiness({ booking, onClose, onProtocolDone, verifiedCode = '' }) {
+// Výpůjčka JEN výbavy (booking_kind 'gear') má vlastní flow — jen doklad totožnosti + 18+ (GearPickupReadiness).
+export default function PickupReadiness(props) {
+  return isGearBooking(props.booking) ? <GearPickupReadiness {...props} /> : <MotoPickupReadiness {...props} />
+}
+
+function MotoPickupReadiness({ booking, onClose, onProtocolDone, verifiedCode = '' }) {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(null)
   const [vs, setVs] = useState(null)

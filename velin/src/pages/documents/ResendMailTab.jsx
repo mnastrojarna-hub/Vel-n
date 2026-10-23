@@ -5,6 +5,9 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { generateBookingDoc, bookingDocLang } from '../../lib/docLanguage'
+import { isGearSlug, emailTypeForSlug } from './gearEmailTemplates'
+import { withBookingKind, kindCol } from './bookingKindQuery'
+import { isGearBooking } from '../../lib/bookingKind'
 
 // Mapování jazyka na vlaječku/label pro náhled (informativní).
 const LANG_LABEL = { cs: '🇨🇿 Čeština', en: '🇬🇧 English', de: '🇩🇪 Deutsch', es: '🇪🇸 Español', fr: '🇫🇷 Français', nl: '🇳🇱 Nederlands', pl: '🇵🇱 Polski', uk: '🇺🇦 Українська' }
@@ -28,7 +31,12 @@ const STATUS_LABEL = {
  * Volitelný přepínač „Přegenerovat přílohy" před odesláním přepíše stávající
  * doklady aktuálními daty (generate-invoice regenerate:true + generate-document
  * v jazyce rezervace, který staré verze přemaže) — případ aktualizace smlouvy / úpravy rezervace.
+ *
+ * Výpůjčka výbavy (bookings.booking_kind='gear'): nabízí JEN gear šablony (gear_*, web_gear_*),
+ * u motorek a objednávek naopak gear šablony skryje. type = slug bez web_/gear_ prefixu —
+ * send-booking-email podle booking_id sám pozná výbavu a vyrenderuje gear_<type>.
  */
+const PROTOCOL_SLUGS = ['handover_protocol_sent', 'damage_protocol_sent', 'handover_protocol_gear_sent', 'web_handover_protocol_gear_sent']
 export default function ResendMailTab() {
   const [query, setQuery] = useState('')
   const [searching, setSearching] = useState(false)
@@ -55,7 +63,7 @@ export default function ResendMailTab() {
       const { data } = await supabase.from('email_templates').select('slug, name, active, attachments').eq('active', true).order('name')
       // Protokolové maily nejdou smysluplně přeposlat — přílohu protokolu předává
       // odesílací flow ve Velíně přes attachment_paths, tady by odešly bez ní.
-      setTemplates((data || []).filter(t => !['handover_protocol_sent', 'damage_protocol_sent'].includes(t.slug)))
+      setTemplates((data || []).filter(t => !PROTOCOL_SLUGS.includes(t.slug)))
     } catch (e) { debugError('ResendMailTab', 'loadTemplates', e) }
   }
 
@@ -79,7 +87,8 @@ export default function ResendMailTab() {
     setSelectedCustomer(c); setSelected(null); setResult(null); setError(null); setLoadingItems(true)
     try {
       const [bRes, oRes] = await Promise.all([
-        supabase.from('bookings').select('id, start_date, end_date, total_price, status, booking_source, language, motorcycles!moto_id(model)').eq('user_id', c.id).order('start_date', { ascending: false }).limit(50),
+        // booking_kind = výpůjčka výbavy (migrace 20261023a) — bez sloupce se dotaz zopakuje bez něj (bookingKindQuery)
+        withBookingKind((withKind) => supabase.from('bookings').select(`id, start_date, end_date, total_price, status, booking_source, language${kindCol(withKind)}, motorcycles!moto_id(model), branch:branches!bookings_branch_id_fkey(name)`).eq('user_id', c.id).order('start_date', { ascending: false }).limit(50)),
         supabase.from('shop_orders').select('id, order_number, total, status, language, created_at').eq('customer_id', c.id).order('created_at', { ascending: false }).limit(50),
       ])
       setBookings(bRes.data || [])
@@ -137,7 +146,8 @@ export default function ResendMailTab() {
         try { warnings = await regenerateAttachments() } catch (e) { warnings.push(`regenerace: ${e.message}`) }
       }
       // type = logický typ; source rozhodne web_/app variantu (edge fn fallbackuje na base slug).
-      const type = slug.replace(/^web_/, '')
+      // Gear šablona → bez gear_ prefixu (edge gear variantu vybere podle rezervace sama).
+      const type = emailTypeForSlug(slug)
       // Platební QR šablony umí naplnit JEN edge `qr-payment` (částka, účet, IBAN, VS,
       // QR kód, ZF v příloze) — přes send-booking-email by odešly s prázdnými placeholdery.
       if (type === 'booking_qr_payment' || type === 'booking_qr_payment_surcharge') {
@@ -165,7 +175,7 @@ export default function ResendMailTab() {
         body = {
           type, booking_id: b.id, source,
           customer_email: email, customer_name: selectedCustomer.full_name,
-          motorcycle: b.motorcycles?.model || '', start_date: b.start_date, end_date: b.end_date, total_price: b.total_price,
+          motorcycle: isGearBooking(b) ? '' : (b.motorcycles?.model || ''), start_date: b.start_date, end_date: b.end_date, total_price: b.total_price,
         }
       } else {
         const o = selected.data
@@ -187,6 +197,13 @@ export default function ResendMailTab() {
     }
     setSending(false)
   }
+
+  // Šablony podle vybrané položky: výpůjčka výbavy jen gear_*, ostatní bez gear_*.
+  const gearSel = selected?.kind === 'booking' && isGearBooking(selected.data)
+  const shownTemplates = templates.filter(t => (gearSel ? isGearSlug(t.slug) : !isGearSlug(t.slug)))
+  useEffect(() => {
+    if (slug && !shownTemplates.some(t => t.slug === slug)) setSlug('')
+  }, [selected, templates]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const inputStyle = { padding: '9px 12px', background: '#f1faf7', border: '1px solid #b6dccb', borderRadius: 10, color: '#0f1a14' }
   const rowSel = (isSel) => ({ background: isSel ? '#dcfce7' : '#f1faf7', border: isSel ? '2px solid #74FB71' : '1px solid transparent', cursor: 'pointer' })
@@ -241,9 +258,9 @@ export default function ResendMailTab() {
                 const isSel = selected?.kind === 'booking' && selected.data.id === b.id
                 return (
                   <div key={b.id} onClick={() => setSelected({ kind: 'booking', data: b })} className="flex items-center gap-3 p-3 rounded-lg mb-2 transition-shadow max-lg:flex-wrap max-lg:gap-y-1.5" style={rowSel(isSel)}>
-                    <span style={{ fontSize: 16 }}>🏍️</span>
+                    <span style={{ fontSize: 16 }}>{isGearBooking(b) ? '🧥' : '🏍️'}</span>
                     <span className="text-sm font-bold font-mono">{b.id.slice(-8).toUpperCase()}</span>
-                    <span className="text-sm">{b.motorcycles?.model || '—'}</span>
+                    <span className="text-sm">{isGearBooking(b) ? `Výpůjčka výbavy${b.branch?.name ? ` · ${b.branch.name}` : ''}` : (b.motorcycles?.model || '—')}</span>
                     <span className="text-sm" style={{ color: '#1a2e22' }}>{(b.start_date || '').slice(0, 10)} → {(b.end_date || '').slice(0, 10)}</span>
                     <Badge label={STATUS_LABEL[b.status] || b.status} color="#1a2e22" bg="#e2f5ec" />
                     <span className="text-sm font-bold ml-auto">{Number(b.total_price || 0).toLocaleString('cs-CZ')} Kč</span>
@@ -277,8 +294,15 @@ export default function ResendMailTab() {
               <label className="text-xs font-bold uppercase tracking-wide block mb-1" style={{ color: '#6b7280' }}>E-mailová šablona</label>
               <select value={slug} onChange={e => setSlug(e.target.value)} className="w-full text-sm outline-none" style={inputStyle}>
                 <option value="">— vyber šablonu —</option>
-                {templates.map(t => <option key={t.slug} value={t.slug}>{t.name} ({t.slug})</option>)}
+                {shownTemplates.map(t => <option key={t.slug} value={t.slug}>{t.name} ({t.slug})</option>)}
               </select>
+              {gearSel && (
+                <div className="text-xs mt-1" style={{ color: '#6b7280' }}>
+                  {shownTemplates.length > 0
+                    ? 'Výpůjčka výbavy — nabízím jen šablony „Půjčení výbavy“ (gear_…).'
+                    : 'Výpůjčka výbavy — žádná aktivní šablona „Půjčení výbavy“ (gear_…) není. Zkontroluj Dokumenty → E-mailové šablony.'}
+                </div>
+              )}
             </div>
 
             <label className="flex items-center gap-2 cursor-pointer" style={{ fontSize: 13, color: '#1a2e22' }}>

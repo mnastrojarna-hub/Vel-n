@@ -1,6 +1,8 @@
 // MotoGo24 — Velín → Flotila → Půjčení oblečení: sdílené konstanty a výpočty.
-// Ceník = `gear_rental_prices` (Kč/den), výpůjčky = `gear_rentals` + `shop_orders`,
-// nastavení = `app_settings.gear_rental` (migrace 20261022_gear_rental.sql).
+// Ceník = `gear_rental_prices` (Kč/den), nastavení = `app_settings.gear_rental` (migrace
+// 20261022_gear_rental.sql) + `gear_stock_check` (20261023a, viz gearSettingsApi.js).
+// Výpůjčky jsou od 20261023a rezervace (bookings.booking_kind='gear'); `gear_rentals` +
+// `shop_orders` (RENTAL_STATUS/PAYMENT níže) už jen pro starší e-shopové objednávky.
 import { supabase } from '../../lib/supabase'
 
 export const KEY_RE = /^[a-z][a-z0-9_]{1,39}$/

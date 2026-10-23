@@ -1,0 +1,43 @@
+/* ===== Upravit rezervaci — opravy z auditu 2026-10-22 + výpůjčka výbavy =====
+   Jádro (js/pages-upravit-rezervaci.js) si styly vkládá samo (<style> v head, načtené PO tomto
+   souboru) — pravidla tady proto mají vyšší specifičnost (.erez-cal-wrap / #edit-rez-app). */
+
+/* Kalendář: měsíc byl dvakrát (navigace + hlavička mřížky) */
+.erez-cal-wrap .erez-cal-mhead{display:none}
+/* Legenda „Obsazené“ stejnou barvou jako obsazený den (.occ #444) — jen Prodloužit/Posun;
+   ve Zkrátit tatáž tečka znamená „Mimo rezervaci“ (.free-out #2e2e2e, legenda s .dot-keep) */
+.erez-cal-wrap .erez-cal-legend:not(:has(.dot-keep)) .dot-occ{background:#444}
+/* Posun: aktuální termín čárkovaně („Tato rezervace“), klikací */
+.erez-cal-wrap .erez-cal-day.erez-move-cur{background:#bce6c9;color:#0b3a18;border:1.5px dashed #0d6e0d;cursor:pointer}
+.erez-cal-wrap .erez-cal-day.erez-move-cur.extension{background:#0f5e0f;color:#fff}
+
+/* Vratka: pravidlo, strop po posunu */
+#edit-rez-app .erez-refund-note{font-size:.88rem;color:#3a4a40;background:#f4faf6;border-left:3px solid #0d6e0d;border-radius:8px;padding:.5rem .7rem;margin:.4rem 0 .8rem;line-height:1.45}
+#edit-rez-app .erez-refund-cap{border-left-color:#c98a00;background:#fff8e6;color:#5c4300}
+#edit-rez-app .edit-rez-storno-box .erez-refund-boxnote{color:#3a4a40}
+
+/* ---- Výpůjčka výbavy ---- */
+#edit-rez-app .erez-row-sub{margin-top:-.3rem;color:#6a7a70;font-size:.8rem;overflow-wrap:anywhere}
+#edit-rez-app .erez-gear-detail .edit-rez-detail-gallery{background:#fafdfb;border:1px solid #e5efe9;border-radius:18px;padding:1rem 1.1rem}
+#edit-rez-app .erez-gear-hero{font-size:3rem;line-height:1;margin-bottom:.5rem}
+#edit-rez-app .erez-gear-detail .edit-rez-detail-headline h3{margin:0 0 .4rem}
+#edit-rez-app .erez-gear-items{margin-top:.8rem}
+#edit-rez-app .erez-gear-items li{gap:.6rem}
+#edit-rez-app .erez-gear-lines .edit-rez-price-row span:first-child{min-width:0;overflow-wrap:anywhere}
+#edit-rez-app .erez-gear-note{font-size:.85rem;color:#6a7a70;margin:.8rem 0 0;line-height:1.45}
+#edit-rez-app .erez-gear-note a{color:#0d6e0d;font-weight:700}
+#edit-rez-app .erez-gear-docs-cta{display:inline-block;margin-top:.45rem;text-decoration:none}
+#edit-rez-app .erez-gear-how .val{font-size:.88rem;line-height:1.45}
+
+#edit-rez-app .erez-gsz-row{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:.6rem;align-items:start;padding:.6rem 0;border-bottom:1px dashed #e5efe9}
+#edit-rez-app .erez-gsz-label{font-weight:800;color:#1a2e22;padding-top:.55rem;overflow-wrap:anywhere}
+#edit-rez-app .erez-gsz-chips{display:flex;flex-wrap:wrap;gap:.35rem}
+#edit-rez-app .size-chip:disabled{opacity:.4;cursor:not-allowed;text-decoration:line-through;transform:none}
+#edit-rez-app .erez-gear-ss{font-size:.85rem}
+@media(max-width:520px){#edit-rez-app .erez-gsz-row{grid-template-columns:1fr}#edit-rez-app .erez-gsz-label{padding-top:0}}
+
+#edit-rez-app .erez-gear-remove-list{display:flex;flex-wrap:wrap;gap:.5rem;margin:.6rem 0 .9rem}
+#edit-rez-app .erez-gear-remove-item{font-family:inherit;font-size:.92rem;font-weight:700;padding:.65rem .95rem;border-radius:14px;border:1.5px solid #d4e8e0;background:#fff;color:#1a2e22;cursor:pointer;min-height:44px}
+#edit-rez-app .erez-gear-remove-item.active{border-color:#c92a2a;background:#fff0f0;color:#8a1c1c;text-decoration:line-through}
+#edit-rez-app .erez-gear-remove-item .muted{font-weight:500}
+#edit-rez-app .edit-rez-price-summary .erez-loc-calc-row{display:flex;justify-content:space-between;gap:.6rem}
