@@ -84,10 +84,10 @@ return ['pages' => ['landing' => [
         ],
         'guar_note' => '* Provided the rental conditions are met (General Terms, Art. 7); does not apply to theft. ** Date changes and booking edits any time before the rental starts. After a partial refund (shortening), our staff will handle any date change. Cancellation and shortening: we refund 100% more than 7 days before the pick-up day (for shortening, of the price of the removed days) and 50% more than 2 days before the pick-up day; later, no refund is guaranteed. Shortening to 1 day cancels the “1st day half price” discount. After an earlier move of the start date, cancellation and shortening refunds are capped at 50%, and there is no refund if the move was made less than 7 days ahead.',
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
-        'anchor_big' => 'CZK 30,000 deposit?',
-        'anchor_ours' => 'Ours is {zero}.',
-        'anchor_sub' => 'For a big bike, Czech rentals typically ask a CZK 20,000–30,000{approx} deposit, up to CZK 50,000 for powerful bikes. With us you leave nothing, and your accident excess is {zero}.*',
-        'anchor_src' => 'MotoGo24 survey of 17 Czech rentals, price lists checked on 22 Oct 2026: deposits for big bikes CZK 10,000–50,000, most often CZK 20,000–30,000.',
+        'anchor_big' => 'Almost CZK 40,000 up front for a weekend?',
+        'anchor_ours' => 'Our deposit: {zero}.',
+        'anchor_sub' => 'Elsewhere, a big bike usually means a refundable deposit of CZK 20,000–30,000{approx} plus CZK 6,000–10,000 weekend rent.***',
+        'anchor_src' => '*** Together that can come to almost CZK 40,000 up front; with us you leave no deposit and only pay the rent. MotoGo24 survey of 17 Czech rentals, price lists checked on 22 Oct 2026: refundable deposits for big bikes CZK 10,000–50,000 (most often CZK 20,000–30,000), weekend rent usually CZK 6,000–10,000; deposit plus rent CZK 27,000–68,000, median about CZK 37,000.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Gear rental',

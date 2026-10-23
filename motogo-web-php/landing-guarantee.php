@@ -7,9 +7,11 @@
 // 2026-10-23: 3 velké garance nahoře (položky 'big'), menší pod nimi, cenová kotva (kauce) v hlavě
 // karty, kompaktní varianta pro detail motorky. CSS: landing-guar.css (garance), landing-promo.css (kotva).
 // lpAssure (uklidňující řádek s fajfkami) přesunut sem z landing-sections.php (limit velikosti souboru).
+// 2026-10-23 (majitel): poznámky k hvězdičkám (guar_note, reasons_note) NE pod garancemi — drobným písmem
+// těsně nad patičkou (lpFootnoteAdd → lpFootnotesHtml, volá renderPage v layout.php).
 
 /**
- * Pruh garancí: [kotva] nadpis, lead, velké dlaždice ('big'), malé dlaždice a poznámka s hvězdičkou.
+ * Pruh garancí: [kotva] nadpis, lead, velké dlaždice ('big') a malé dlaždice; poznámka k hvězdičkám jde nad patičku.
  * Položky [{icon,title,text,big?,pos?}] — pořadí ve skupině dle 'pos', jinak dle indexu (CMS klíč = index);
  * {zero} v titulku/textu = 0 v měně návštěvníka (jako kotva). Hvězdičky: * spoluúčast, ** posun/vratky (guar_note).
  * $o: 'only' => [...] jen vybrané položky (index int nebo název ikony, např. ['edit','swap','storno','shield']),
@@ -42,9 +44,30 @@ function renderLpGuarantees($T, $o = []) {
     $anchor = (!$compact && ($o['anchor'] ?? true)) ? renderLpAnchor($T) : '';
     return '<section class="lp-guar' . ($compact ? ' lp-guar--compact' : '') . '"' . $aria . '><div class="container"><div class="lp-guar-card">' . $anchor . $h2 .
         (!$compact && lpPlain($T['guar_lead'] ?? '') !== '' ? '<p class="lp-guar-lead" data-cms-key="web.landing.common.guar_lead">' . he(lpPlain($T['guar_lead'])) . '</p>' : '') .
-        $lists .
-        (lpPlain($T['guar_note'] ?? '') !== '' ? '<p class="lp-guar-note" data-cms-key="web.landing.common.guar_note">' . he(lpNbspTxt($T['guar_note'])) . '</p>' : '') .
+        $lists . lpFootnoteAdd('guar', 'web.landing.common.guar_note', $T['guar_note'] ?? '') .
         '</div></div></section>';
+}
+
+/**
+ * Poznámky k hvězdičkám (* spoluúčast, ** posun/vratky) — sběr během skládání stránky, výpis
+ * lpFootnotesHtml() těsně nad patičkou (renderPage). Vrací '' (volá se uvnitř skládání HTML).
+ * guar_note (garance) pokrývá i reasons_note (důvody) → mimo CMS admin se vypíše jen jedna.
+ */
+function lpFootnoteAdd($id, $key, $text) {
+    if (lpPlain($text) !== '' && !isset($GLOBALS['mgLpFootnotes'][$id])) $GLOBALS['mgLpFootnotes'][$id] = [$key, $text];
+    return '';
+}
+
+function lpFootnotesHtml() {
+    $n = (array)($GLOBALS['mgLpFootnotes'] ?? []);
+    if (isset($n['guar'], $n['reasons']) && !lpAdmin()) unset($n['reasons']);
+    $out = '';
+    // pořadí jako hvězdičky: * / ** (garance, důvody), pak *** zdroj cenové kotvy
+    uksort($n, function ($a, $b) { $o = ['guar' => 0, 'reasons' => 1, 'anchor' => 2]; return ($o[$a] ?? 9) <=> ($o[$b] ?? 9); });
+    foreach ($n as [$key, $text]) {
+        $out .= '<p data-cms-key="' . he($key) . '">' . he(lpNbspTxt($text)) . '</p>';
+    }
+    return $out === '' ? '' : '<aside class="lp-footnotes"><div class="container">' . $out . '</div></aside>';
 }
 
 /**
@@ -122,7 +145,7 @@ function lpAnchorFill($tpl, $zeroCls = '', $iso = false) {
     return implode($zero, array_map(function ($p) { return he(lpNbsp($p)); }, explode('{zero}', $tpl)));
 }
 
-/** Cenová kotva „30 000 Kč kauce? U nás 0 Kč.“ + vysvětlení + datovaný zdroj (prázdný anchor_big = nic). */
+/** Cenová kotva „Na víkend skoro 40 000 Kč předem? U nás kauce 0 Kč.“ + vysvětlení; zdroj → poznámky nad patičkou. */
 function renderLpAnchor($T) {
     if (lpPlain($T['anchor_big'] ?? '') === '') return '';
     $k = 'web.landing.common.';
@@ -134,5 +157,6 @@ function renderLpAnchor($T) {
         $el('span', 'anchor_big', 'lp-anchor-was', $txt('anchor_big')) . ' ' .
         $el('span', 'anchor_ours', 'lp-anchor-now', lpAnchorFill($T['anchor_ours'] ?? '', 'lp-anchor-zero', true)) . '</p>' .
         $el('p', 'anchor_sub', 'lp-anchor-sub', lpAnchorFill($T['anchor_sub'] ?? '', '', true)) .
-        $el('p', 'anchor_src', 'lp-anchor-src', $txt('anchor_src')) . '</div>';
+        // datovaný zdroj (***) drobně nad patičkou s ostatními poznámkami (majitel 2026-10-23)
+        lpFootnoteAdd('anchor', 'web.landing.common.anchor_src', $T['anchor_src'] ?? '') . '</div>';
 }

@@ -9,12 +9,10 @@
 .lp-anchor-now{font-size:clamp(1.7rem,8.4vw,2.7rem);font-weight:900;color:#0f2418;letter-spacing:-.01em}
 .lp-anchor-zero{color:#16a34a;white-space:nowrap}
 .lp-anchor-sub{margin:0 auto;max-width:44rem;font-size:.95rem;line-height:1.45;color:#2f4a39;text-wrap:balance}
-.lp-anchor-src{margin:.6rem auto 0;max-width:44rem;font-size:.7rem;line-height:1.4;color:#6b8577}
 @media(min-width:769px){
-  .lp-anchor{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"h sub" "h src";column-gap:1.75rem;align-items:center;padding:1.25rem 1.6rem;text-align:left}
-  .lp-anchor-h{grid-area:h;align-items:flex-start;margin:0}
-  .lp-anchor-sub{grid-area:sub;margin:0;max-width:none;font-size:1rem}
-  .lp-anchor-src{grid-area:src;margin:.45rem 0 0;max-width:none}
+  .lp-anchor{display:grid;grid-template-columns:minmax(0,24rem) minmax(0,1fr);column-gap:1.75rem;align-items:center;padding:1.25rem 1.6rem;text-align:left}
+  .lp-anchor-h{align-items:flex-start;margin:0}
+  .lp-anchor-sub{margin:0;max-width:none;font-size:1rem}
 }
 
 /* --- Velké hodnocení v akčním panelu (lpPanelRating(..., ['big' => true]), landing-trust.php) --- */

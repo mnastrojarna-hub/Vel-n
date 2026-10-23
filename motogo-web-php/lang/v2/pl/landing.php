@@ -85,10 +85,10 @@ return ['pages' => ['landing' => [
         ],
         'guar_note' => '* Pod warunkiem przestrzegania zasad wynajmu (OWU, art. 7); nie dotyczy kradzieży. ** Zmiana terminu i rezerwacji w każdej chwili przed rozpoczęciem wynajmu. Po częściowym zwrocie płatności (skrócenie) zmianę terminu załatwi obsługa. Anulacja i skrócenie: ponad 7 dni przed dniem odbioru zwracamy 100% (przy skróceniu z ceny usuniętych dni), ponad 2 dni przed dniem odbioru 50%, później zwrotu nie gwarantujemy. Skrócenie do 1 dnia anuluje zniżkę „1. dzień za pół ceny”. Jeśli początek wynajmu był już przesunięty, przy anulacji i skróceniu zwracamy najwyżej 50%, a jeśli przesunięcie nastąpiło mniej niż 7 dni wcześniej — nic.',
         // Cenová kotva (důkaz průzkumu: data/landing-trust.php) — {zero} = 0 v měně návštěvníka, {approx} = přepočet 20–30 tis. Kč
-        'anchor_big' => '30 000 CZK kaucji?',
-        'anchor_ours' => 'U nas {zero}.',
-        'anchor_sub' => 'Za duży motocykl czeskie wypożyczalnie zwykle chcą 20 000–30 000 CZK{approx} kaucji, a za mocne maszyny nawet 50 000 CZK. U nas nic nie zostawiasz, a twój udział własny przy wypadku wynosi {zero}.*',
-        'anchor_src' => 'Badanie MotoGo24: cenniki 17 czeskich wypożyczalni sprawdzone 22.10.2026 — kaucja za duże motocykle 10 000–50 000 CZK, najczęściej 20 000–30 000 CZK.',
+        'anchor_big' => 'Prawie 40 000 CZK z góry na weekend?',
+        'anchor_ours' => 'U nas kaucja: {zero}.',
+        'anchor_sub' => 'Gdzie indziej za duży motocykl zostawiasz zwykle zwrotną kaucję 20 000–30 000 CZK{approx} i płacisz 6 000–10 000 CZK za weekendowy wynajem.***',
+        'anchor_src' => '*** Razem może to być prawie 40 000 CZK z góry; u nas nie zostawiasz kaucji i płacisz tylko za wynajem. Badanie MotoGo24: cenniki 17 czeskich wypożyczalni sprawdzone 22.10.2026 — zwrotna kaucja za duże motocykle 10 000–50 000 CZK (najczęściej 20 000–30 000 CZK), wynajem na weekend zwykle 6 000–10 000 CZK; kaucja z wynajmem razem 27 000–68 000 CZK, mediana około 37 000 CZK.',
         // Promo „jen výbava“ dole na stránce (landing-gear-promo.php)
         'gear_promo' => [
             'eyebrow' => 'Wypożyczenie wyposażenia',
