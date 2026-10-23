@@ -37,7 +37,7 @@ function renderLpPanel($o) {
         '<div class="lp-cta-row' . (lpPlain($s['label'] ?? '') === '' ? ' lp-cta-row--one' : '') . '" data-lp-sentinel>' .
             '<a class="lp-btn lp-btn-primary" href="' . he(lpS($p['href'] ?? '') ?: '/katalog') . '"><span data-cms-key="' . $kb . '.cta_primary.label">' . he(lpPlain($p['label'] ?? '')) . '</span>' . lpIcon('arrow') . '</a>' .
             (lpPlain($s['label'] ?? '') !== '' ? '<a class="lp-btn lp-btn-ghost" href="' . he(lpS($s['href'] ?? '') ?: '/katalog') . '">' . lpIcon('moto') . '<span data-cms-key="' . $kb . '.cta_secondary.label">' . he(lpPlain($s['label'])) . '</span></a>' : '') .
-            (lpPlain($o['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($o['assurance'])) . '</p>' : '') .
+            lpAssure($o['assurance'] ?? '') .
             ($o['rating'] ?? '') .
             // Kolik lidí právě vybírá (js/live-viewers.js) — jen skutečný nenulový počet, jinak skryté
             '<p class="lp-live" data-live-site hidden></p>' .

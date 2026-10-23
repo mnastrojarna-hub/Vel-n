@@ -470,7 +470,7 @@ return [
             'outro' => [
                 'title' => 'Condiciones justas, sin sorpresas',
                 'body1' => 'En MotoGo24 diseñamos desde el principio una tarifa <strong>lo más transparente posible</strong>. Lo que incluye el precio del alquiler, lo incluye de verdad: sin cargos adicionales por el equipamiento del piloto, por recoger la moto fuera del horario habitual, por el papeleo ni por el seguro. Si necesitas algo extra (equipamiento adicional, alargar la reserva, que te llevemos la moto…), siempre sabes el precio de antemano.',
-                'body2' => 'Desde el primer día dejamos atrás la típica «fianza de 5000 CZK antes de la recogida»: <strong>con nosotros no pagas ninguna fianza</strong>, ni te bloqueamos dinero en la tarjeta. En su lugar apostamos por la confianza, por un contrato claro y por motos totalmente aseguradas. Y si aun así pasa algo, nuestra línea SOS funciona 24/7 y en 24 horas te conseguimos una moto de sustitución, para que no se te estropeen las vacaciones ni la excursión.',
+                'body2' => 'Desde el primer día dejamos atrás la típica fianza antes de la recogida: <strong>con nosotros no pagas ninguna fianza</strong>, ni te bloqueamos dinero en la tarjeta. En su lugar apostamos por la confianza, por un contrato claro y por motos totalmente aseguradas. Y si aun así pasa algo, nuestra línea SOS funciona 24/7 y en 24 horas te conseguimos una moto de sustitución, para que no se te estropeen las vacaciones ni la excursión.',
             ],
         ],
         'jak_pujcit_dokumenty' => [

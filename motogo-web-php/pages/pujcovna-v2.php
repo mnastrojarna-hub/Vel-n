@@ -3,7 +3,7 @@
 // Vkládá se z pages/pujcovna.php (require … vrací $content). Používá $sb, $C,
 // $bc, $faqHtml z pujcovna.php. Pořadí pro mobil: drobečková navigace →
 // akční panel s fotkou (H1 + 2 CTA) → nabídka → motorky → důvody (10 + rozbalení
-// na 20; bez nich USP dlaždice) → recenze → postup → pobočky → FAQ → CTA → SEO text.
+// na 20; bez nich USP dlaždice) → recenze → postup → pobočky → FAQ → CTA → půjčení jen výbavy → SEO text.
 
 $T = lpTexts($sb);
 $TC = $T['common'];
@@ -26,7 +26,7 @@ $lpPanel = renderLpPanel([
     'assurance' => $TC['assurance'] ?? '',
     'season' => $TC['season_note'] ?? '',
     'keyBase' => 'web.landing.pujcovna',
-    'rating' => lpPanelRating($TC),
+    'rating' => lpPanelRating($TC, ['big' => true]),
     'bg' => BASE_URL . '/gfx/hero-banner-768.webp',
 ]);
 
@@ -62,6 +62,7 @@ return '<main id="content" class="lp-main lp-main--page"><div class="container">
     renderLpBranches($TC['branches_title'] ?? '', 'web.landing.common.branches_title', $TC['branches'] ?? [], 'web.landing.common.branches', $TC) .
     '<div class="container lp-flow">' . $faqHtml . '</div>' .
     renderLpCta($lpCtaData, $lpCtaKey) .
+    renderLpGearPromo($TC, $sb) .
     $lpAbout .
     '</main>' .
     renderLpSticky($TC);

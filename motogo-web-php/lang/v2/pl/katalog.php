@@ -9,6 +9,9 @@ return ['pages' => ['landing_katalog' => [
     'title' => 'Oblicz swoją cenę',
     'lead' => 'Wybierz oddział, motocykl i termin: pokażemy wolne dni i dokładną cenę. Jednym dotknięciem przejdziesz do rezerwacji z wypełnionymi danymi.',
     'lead_detail' => 'Wybierz termin: pokażemy wolne dni i dokładną cenę tego motocykla. Jednym dotknięciem przejdziesz do rezerwacji z wypełnionymi danymi.',
+    // Detail motorky: nadpis kalendáře (CS title_detail / eyebrow_detail)
+    'eyebrow_detail' => 'Wolne dni i cena',
+    'title_detail' => 'Wybierz termin',
     'step_branch' => 'Oddział',
     'step_moto' => 'Motocykl',
     'step_dates' => 'Termin',
@@ -66,6 +69,7 @@ return ['pages' => ['landing_katalog' => [
     'cta_any' => 'Pokaż wolne motocykle',
     'assure' => 'Termin przesuniesz za darmo · Bezpłatna anulacja ponad 7 dni wcześniej',
     'reset' => 'Wyczyść termin',
+    'cal_clear' => 'Wyczyść wybór',
     'free_title' => 'Wolne w twoim terminie: {n}',
     'free_none' => 'W tym terminie w tym oddziale nie ma wolnego motocykla. Spróbuj innego terminu lub oddziału.',
     'free_more' => 'i jeszcze {n} w rezerwacji',

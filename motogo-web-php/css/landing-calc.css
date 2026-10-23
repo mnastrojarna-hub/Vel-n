@@ -91,6 +91,11 @@
 .kc-cal-wait{position:absolute;left:50%;top:55%;z-index:2;display:flex;align-items:center;gap:.5rem;max-width:90%;padding:.55rem .9rem;border-radius:999px;background:rgba(10,31,20,.92);box-shadow:0 8px 24px rgba(0,0,0,.35);color:#e8f5ee;font-size:.8rem;font-weight:700;transform:translate(-50%,-50%)}
 .kc-spin{width:16px;height:16px;border:2px solid rgba(116,251,113,.3);border-top-color:#74fb71;border-radius:50%;animation:kcSpin .8s linear infinite}
 .kc-retry{min-height:34px;padding:.2rem .7rem;border:1px solid #74fb71;border-radius:999px;background:none;color:#74fb71;font:inherit;font-weight:800;cursor:pointer}
+/* „Zrušit výběr“ pod kalendářem (K.calHtml, opt-in X.clear) — kalkulačka i půjčení výbavy (tmavé pozadí) */
+.kc-cal-foot{display:flex;justify-content:center;margin:.55rem 0 0}
+.kc-clear{display:inline-flex;align-items:center;gap:.35rem;min-height:44px;max-width:100%;padding:.35rem 1rem;border:1.5px solid rgba(116,251,113,.5);border-radius:999px;background:rgba(255,255,255,.04);color:#e8f5ee;font:inherit;font-size:.9rem;font-weight:700;line-height:1.2;cursor:pointer;transition:border-color .2s,background .2s}
+.kc-clear .lp-ico{flex:0 0 auto;width:16px;height:16px;color:#74fb71}
+.kc-clear:hover,.kc-clear:focus-visible{border-color:#74fb71;background:rgba(116,251,113,.1)}
 .kc-legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:.6rem 0 0;padding:0;list-style:none;color:#b8d4c6;font-size:.7rem}
 .kc-lg{display:inline-flex;align-items:center;gap:.3rem}
 .kc-lg i{width:12px;height:12px;border-radius:4px;background:rgba(255,255,255,.14)}

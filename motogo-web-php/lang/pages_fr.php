@@ -470,7 +470,7 @@ return [
             'outro' => [
                 'title' => 'Des conditions équitables, sans mauvaises surprises',
                 'body1' => 'Chez MotoGo24, nous avons conçu nos tarifs dès le départ pour qu\'ils soient <strong>aussi transparents que possible</strong>. Ce qui est inclus dans le prix de la location l\'est vraiment – pas de frais supplémentaires pour l\'équipement du pilote, pour une prise en charge en dehors des horaires habituels, pour les documents ou pour l\'assurance de base. Si tu as besoin de quelque chose en plus (livraison de la moto, équipement supplémentaire, prolongation de la réservation), nous t\'indiquons toujours le prix à l\'avance.',
-                'body2' => 'Le modèle habituel « 5 000 CZK de caution à payer avant la prise en charge », nous l\'avons abandonné dès le départ – <strong>chez nous, tu ne paies aucune caution</strong>. À la place, nous misons sur la confiance, des contrats solides et des motos entièrement assurées. Et si malgré tout il se passe quelque chose, notre ligne SOS est joignable 24h/24 et nous organisons une moto de remplacement sous 24 heures, pour que tes vacances ou ton excursion ne tombent pas à l\'eau.',
+                'body2' => 'La caution habituelle à payer avant la prise en charge, nous l\'avons abandonnée dès le départ – <strong>chez nous, tu ne paies aucune caution</strong>. À la place, nous misons sur la confiance, des contrats solides et des motos entièrement assurées. Et si malgré tout il se passe quelque chose, notre ligne SOS est joignable 24h/24 et nous organisons une moto de remplacement sous 24 heures, pour que tes vacances ou ton excursion ne tombent pas à l\'eau.',
             ],
         ],
         'jak_pujcit_dokumenty' => [

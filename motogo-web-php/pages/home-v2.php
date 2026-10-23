@@ -4,7 +4,8 @@
 // z home.php: $sb, $motos, $posts, $C, $bannerHtml, $faqHtml, $reviewsHtml.
 // Pořadí pro mobil: hero (bez tlačítek) → akční panel (1 CTA) → garance → nabídka → motorky →
 // důvody (10 + rozbalení na 20) → recenze → trasy (appka) → „víc než půjčovna“ → postup → pobočky →
-// FAQ → CTA → blog → rozcestník → SEO text (sbalený). Recenze z data/reviews.php
+// FAQ → CTA → půjčení jen výbavy (landing-gear-promo.php) → blog → rozcestník → SEO text (sbalený).
+// Garance nesou v hlavě cenovou kotvu (kauce), hodnocení v panelu je velké (2026-10-23). Recenze z data/reviews.php
 // nahrazují starou sekci $reviewsHtml (DB tabulka recenzí).
 // Bez textů důvodů (prázdný seznam) zůstávají původní USP dlaždice.
 
@@ -28,7 +29,7 @@ $lpPanel = renderLpPanel([
     'assurance' => $TC['assurance'] ?? '',
     'season' => $TC['season_note'] ?? '',
     'keyBase' => 'web.landing.home',
-    'rating' => lpPanelRating($TC),
+    'rating' => lpPanelRating($TC, ['big' => true]),
 ]);
 
 [$lpStepList, $lpStepKey] = lpSteps($T, 'home', $C['process']['steps'] ?? [], 'web.home.process.steps');
@@ -60,6 +61,7 @@ return $bannerHtml .
     renderLpBranches($TC['branches_title'] ?? '', 'web.landing.common.branches_title', $TC['branches'] ?? [], 'web.landing.common.branches', $TC) .
     '<div class="container lp-flow">' . ($lpReviews !== '' ? '' : $reviewsHtml) . $faqHtml . '</div>' .
     renderLpCta($lpCtaData, $lpCtaKey) .
+    renderLpGearPromo($TC, $sb) .
     renderLpBlog($posts, $C['blog'] ?? [], $TC) .
     renderLpExplore($TC['explore_title'], 'web.landing.common.explore_title', $C['signposts'] ?? [], 'web.home.signposts') .
     $lpAbout .

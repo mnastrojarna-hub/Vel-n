@@ -253,7 +253,8 @@ function lpiHero($doc, $x, $h1, $page, $L, $TC, $motos, $opt) {
         $set = strpos($src, 'hero-banner') !== false ? ' srcset="/gfx/hero-banner-480.webp 480w, /gfx/hero-banner-768.webp 768w, /gfx/hero-banner-1500.webp 1500w" sizes="(min-width:900px) 60vw, 100vw"' : '';
         $bg = '<img class="lp-panel-bg" src="/' . he($src) . '"' . $set . ' alt="' . he($h1Plain) . '" aria-hidden="true" decoding="async" fetchpriority="low">';
     }
-    $assure = lpPlain($TC['assurance'] ?? '') !== '' ? '<p class="lp-assure">' . lpIcon('check') . he(lpPlain($TC['assurance'])) . '</p>' : '';
+    // Stejně jako akční panel úvodní stránky: části „A · B · C“ pod sebou s fajfkou (lpAssure, landing-guarantee.php)
+    $assure = lpAssure($TC['assurance'] ?? '');
     $rating = function_exists('lpPanelRating') ? lpPanelRating($TC) : '';
     // Bez sekce recenzí na stránce vede hodnocení na recenze na úvodní stránce (kotva by jinak nikam nevedla)
     if (empty($opt['reviews'])) $rating = str_replace('href="#lp-reviews-h"', 'href="/#lp-reviews-h"', $rating);

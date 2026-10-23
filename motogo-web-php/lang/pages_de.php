@@ -469,7 +469,7 @@ return [
             'outro' => [
                 'title' => 'Faire Bedingungen ohne versteckte Überraschungen',
                 'body1' => 'Bei MotoGo24 haben wir unsere Preisliste von Anfang an so <strong>transparent wie möglich</strong> aufgebaut. Was im Mietpreis enthalten ist, ist auch wirklich enthalten – keine Zusatzgebühren für die Fahrerausrüstung, für die Abholung außerhalb üblicher Öffnungszeiten, für Dokumente oder für die Grundversicherung. Brauchst du etwas zusätzlich (Lieferung des Motorrads, weitere Ausrüstung, eine längere Buchung), nennen wir dir den Preis immer vorab.',
-                'body2' => 'Vom üblichen Modell „5.000 CZK Kaution vor der Abholung“ haben wir uns gleich zu Beginn verabschiedet – <strong>bei uns zahlst du keine Kaution</strong>. Stattdessen setzen wir auf Vertrauen, solide Verträge und darauf, dass unsere Motorräder voll versichert sind. Und falls doch etwas passiert, ist unsere SOS-Linie rund um die Uhr erreichbar, und innerhalb von 24 Stunden organisieren wir ein Ersatzmotorrad, damit dein Urlaub oder dein Ausflug nicht ins Wasser fällt.',
+                'body2' => 'Von der üblichen Kaution vor der Abholung haben wir uns gleich zu Beginn verabschiedet – <strong>bei uns zahlst du keine Kaution</strong>. Stattdessen setzen wir auf Vertrauen, solide Verträge und darauf, dass unsere Motorräder voll versichert sind. Und falls doch etwas passiert, ist unsere SOS-Linie rund um die Uhr erreichbar, und innerhalb von 24 Stunden organisieren wir ein Ersatzmotorrad, damit dein Urlaub oder dein Ausflug nicht ins Wasser fällt.',
             ],
         ],
         'jak_pujcit_dokumenty' => [

@@ -9,6 +9,14 @@
 // umytá JEN na samoobslužné Velké Němčice, Mezná (i přistavení/vrácení jinde) bez mytí — POZOR:
 // VOP čl. 5 l) zatím říká „bez mytí“ pro obě pobočky. Obě pobočky nonstop; telefon Po–Pá 8–17, AI 24/7.
 // Vzdálenosti: OSRM 2026-10-10 (Praha→Mezná 92 min, Brno→VN 28 min, letiště Brno→VN 36 min, Vídeň→VN 100 min).
+// Cenová kotva (anchor_*, landing-guarantee.php) — DŮKAZ pro § 5c ZOS (tvrzení musíme umět doložit):
+// průzkum 22. 10. 2026, 17 českých půjčoven s veřejným ceníkem (nejvyšší kauce za velkou motorku):
+// Renocar 20k, BASE NEXT 20k, Legendy U Vás 25k, NajmiMoto 25k, Půjčovna Motorek Praha 25k, Motolety 30/50k,
+// Moravamotors 45k, Yamaha PEMM Brno 30k, Race Tool KTM 30/50k, Motoverse 40/30/50k, Profi-moto 30k,
+// AMG Moto Ostrava 40k, Motoráj Zásadka 40k, HD Praha 10k, MTT Brno 15k, Westmoto 15k, motopujcovna-praha 20k
+// → rozpětí 10–50 tis., medián 25 tis., 30 tis. přesně u 6 půjčoven; spoluúčast obvykle 10 %, min. 10 000 Kč.
+// Zdroje: veřejné ceníky na webech uvedených půjčoven (screenshoty uchovat u majitele). Nejmenovat konkurenty
+// (OZ § 2980), neškrtat cizí částky (dojem slevy), kauci nesčítat se spoluúčastí. Ověřit 1× za sezónu.
 
 function lpTrustDefaults() {
     return [
@@ -18,8 +26,8 @@ function lpTrustDefaults() {
         'reasons_less' => 'Zobrazit méně',
         // 2026-10-22: flexibilita rezervace do popředí (majitel: „nic není závazné, zvlášť při nepřízni počasí“)
         'reasons' => [
-            ['icon' => 'swap', 'title' => 'Termín posuneš kdykoliv zdarma', 'text' => 'Pokazí se počasí nebo plány? Přesuň rezervaci na jiné dny — bez poplatku, kdykoliv do začátku pronájmu.'],
-            ['icon' => 'resize', 'title' => 'Prodloužíš i zkrátíš', 'text' => 'Prodloužení kdykoliv bez poplatku za změnu (doplatíš jen dny navíc), zkrácení zdarma 7 a víc dní předem.'],
+            ['icon' => 'swap', 'title' => 'Termín posuneš kdykoliv zdarma', 'text' => 'Pokazí se počasí nebo plány? Přesuň rezervaci na jiné dny — bez poplatku, kdykoliv do začátku pronájmu.**'],
+            ['icon' => 'resize', 'title' => 'Prodloužíš i zkrátíš', 'text' => 'Prodloužení kdykoliv bez poplatku za změnu (doplatíš jen dny navíc). Zkrácení víc než 7 dní před dnem převzetí zdarma, víc než 2 dny před ním ti vrátíme 50 % ceny odebraných dní.**'],
             ['icon' => 'edit', 'title' => 'Rezervaci upravíš kdykoliv', 'text' => 'Až do začátku pronájmu přidáš výbavu nebo boty, změníš čas či místo převzetí — online i v aplikaci.'],
             ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'Nic ti neblokujeme na kartě.'],
             ['icon' => 'shield', 'title' => '100% smluvní krytí škod', 'text' => 'Při nehodě je tvoje spoluúčast 0 Kč.*'],
@@ -40,21 +48,46 @@ function lpTrustDefaults() {
             ['icon' => 'truck', 'title' => 'Přistavení na adresu', 'text' => 'Z Mezné ti motorku přivezeme kamkoli v ČR (za příplatek).'],
             ['icon' => 'pin', 'title' => 'Snadno k nám', 'text' => 'Mezná 90 min z Prahy, Velké Němčice 30 min z Brna a 35 min z brněnského letiště.'],
             ['icon' => 'helmet', 'title' => 'Velikosti až 6XL', 'text' => 'Bundy a kalhoty do 6XL v Mezné, do 4XL na samoobslužné pobočce.'],
-            ['icon' => 'check', 'title' => 'Storno zdarma', 'text' => 'Zrušení víc než 7 dní předem bez poplatku.'],
+            ['icon' => 'check', 'title' => 'Storno zdarma', 'text' => 'Zrušení víc než 7 dní předem bez poplatku.**'],
         ],
-        'reasons_note' => '* Při dodržení podmínek nájmu (VOP čl. 7).',
-        // Pruh garancí hned pod hero (landing-guarantee.php)
+        'reasons_note' => '* Při dodržení podmínek nájmu (VOP čl. 7); nevztahuje se na odcizení. ** Storno a zkrácení: víc než 7 dní před dnem převzetí vracíme 100 % (u zkrácení z ceny odebraných dní), víc než 2 dny před dnem převzetí 50 %, později vratku negarantujeme. Zkrácením na 1 den zaniká sleva „1. den za polovinu“. Po vrácení části platby (zkrácení) změnu termínu vyřídí obsluha. Po předchozím posunu začátku vracíme při stornu i zkrácení nejvýš 50 %, a pokud byl posun méně než 7 dní předem, nic.',
+        // Pruh garancí hned pod hero (landing-guarantee.php). 'big' = velká dlaždice nahoře, 'pos' = pořadí
+        // v rámci skupiny. Indexy 0–5 zůstávají (CMS klíče web.landing.common.guarantees.N.*), nové jen na konec.
+        // Vratky ≥ 168 h 100 %, ≥ 48 h 50 %, jinak 0. ŽIVĚ: storno (cancel_booking_tracked) k start_date = 00:00 UTC dne začátku,
+        // zkrácení (shorten_booking_with_refund) k novému konci/začátku (vždy ≥ start_date); po 20261023e vše k času převzetí
+        // v den začátku (Praha). Proto „před DNEM převzetí“ — platí v obou (výjimka: týden přechodu na letní čas + převzetí
+        // 00:00–01:00); NE „před převzetím“. Strop po posunu: _storno_cap_after_move; partial_refund → posun jen obsluha
+        // (reschedule_booking_free → not_paid); zkrácení na 1 den ruší late_pickup_discount. Proto „**“ + guar_note/reasons_note.
+        // {zero} = 0 v měně návštěvníka.
         'guar_title' => 'Garance MotoGo24',
         'guar_lead' => 'Plány se mění — až do začátku pronájmu rezervaci kdykoliv upravíš, i když se pokazí počasí.',
         'guarantees' => [
-            ['icon' => 'shield', 'title' => '0 Kč spoluúčast', 'text' => 'při dodržení smlouvy*'],
-            ['icon' => 'swap', 'title' => 'Posun termínu zdarma', 'text' => 'kdykoliv do začátku pronájmu'],
-            ['icon' => 'resize', 'title' => 'Prodloužení kdykoliv', 'text' => 'bez poplatku za změnu'],
-            ['icon' => 'calendar', 'title' => 'Zkrácení zdarma', 'text' => '7 a víc dní předem'],
-            ['icon' => 'edit', 'title' => 'Úpravy kdykoliv', 'text' => 'výbava, čas i místo převzetí'],
-            ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'nic ti neblokujeme'],
+            ['icon' => 'shield', 'title' => '{zero} spoluúčast', 'text' => 'při dodržení smlouvy*', 'pos' => 1],
+            ['icon' => 'swap', 'title' => 'Termín posuneš zdarma', 'text' => 'kdykoliv do začátku pronájmu**', 'big' => true, 'pos' => 2],
+            ['icon' => 'resize', 'title' => 'Prodloužení kdykoliv', 'text' => 'bez poplatku za změnu', 'pos' => 3],
+            ['icon' => 'calendar', 'title' => 'Zkrácení s vrácením peněz', 'text' => 'víc než 7 dní 100 %, víc než 2 dny 50 %**', 'pos' => 4],
+            ['icon' => 'edit', 'title' => 'Rezervaci upravíš zdarma', 'text' => 'do začátku pronájmu, bez poplatku za změnu', 'big' => true, 'pos' => 1],
+            ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'nic ti neblokujeme', 'pos' => 2],
+            ['icon' => 'storno', 'title' => 'Storno zdarma', 'text' => 'víc než 7 dní předem**', 'big' => true, 'pos' => 3],
         ],
-        'guar_note' => '* Při dodržení podmínek nájmu (VOP čl. 7). Posun termínu a úpravy rezervace kdykoliv do začátku pronájmu.',
+        'guar_note' => '* Při dodržení podmínek nájmu (VOP čl. 7); nevztahuje se na odcizení. ** Posun termínu a úpravy rezervace kdykoliv do začátku pronájmu. Po vrácení části platby (zkrácení) změnu termínu vyřídí obsluha. Storno a zkrácení: víc než 7 dní před dnem převzetí vracíme 100 % (u zkrácení z ceny odebraných dní), víc než 2 dny před dnem převzetí 50 %, později vratku negarantujeme. Zkrácením na 1 den zaniká sleva „1. den za polovinu“. Po předchozím posunu začátku vracíme při stornu i zkrácení nejvýš 50 %, a pokud byl posun méně než 7 dní předem, nic.',
+        // Cenová kotva nad garancemi (důkaz v hlavičce souboru). {zero} = „0 Kč“ v měně návštěvníka,
+        // {approx} = přepočet 20–30 tis. Kč do cizí měny „ (≈ …)“, u CZK prázdné. Částky v Kč NEpřepočítávat.
+        'anchor_big' => '30 000 Kč kauce?',
+        'anchor_ours' => 'U nás {zero}.',
+        'anchor_sub' => 'Za velkou motorku chtějí půjčovny běžně 20–30 tisíc Kč{approx} kauci, u silných strojů i 50 tisíc. U nás neskládáš nic a spoluúčast při nehodě máš {zero}.*',
+        'anchor_src' => 'Průzkum MotoGo24: ceníky 17 českých půjčoven ověřené 22. 10. 2026 — kauce u velkých motorek 10 000–50 000 Kč, nejčastěji 20 000–30 000 Kč.',
+        // Promo „jen výbava“ dole na úvodní stránce a na /pujcovna-motorek (landing-gear-promo.php);
+        // {set} {price} = název a cena nejlevnějšího aktivního kompletu z gear_rental_prices (Velín; dnes „Komplet bez bot“),
+        // sekce jen při zapnutém půjčení.
+        'gear_promo' => [
+            'eyebrow' => 'Půjčení výbavy',
+            'title' => 'Máš vlastní motorku? Půjč si jen výbavu',
+            'lead' => 'Helma, bunda, kalhoty, rukavice i boty — na den nebo na celou dovolenou, bez kauce.',
+            'from' => '{set} od {price} / den',
+            'cta' => 'Půjčit výbavu',
+            'moto' => 'Půjčuješ motorku? Výbava pro řidiče je u ní v ceně',
+        ],
         'panel_rating' => '{r} · {n} hodnocení na Google',
         'reviews_title' => 'Co o nás říkají motorkáři',
         'reviews_count' => '{n} hodnocení',

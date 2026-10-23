@@ -1,0 +1,56 @@
+/* ===== MotoGo24 — landing v2: pruh garancí pod hero + hlavní odznak recenzí (2026-10-23) =====
+   Vyčleněno z landing-trust.css (limit velikosti souboru). Načítá se všude hned ZA landing-trust.css:
+   lpPageMeta() (landing.php) a detail motorky (pages/katalog-detail.php) — pořadí kaskády beze změny.
+   Garance: renderLpGuarantees (landing-guarantee.php), odznaky: renderLpReviews (landing-trust.php). */
+
+/* Hlavní odznak recenzí (Google) přes celou šířku, ostatní vedle sebe */
+.lp-rbadges{grid-template-columns:repeat(2,minmax(0,1fr))}
+.lp-rbadge--main{grid-column:1/-1;display:grid;grid-template-columns:auto auto;grid-template-areas:"r src" "r st" "r c";justify-content:center;align-items:center;gap:.15rem .8rem;padding:.75rem .9rem;text-align:left;font-size:.84rem}
+.lp-rbadge--main .lp-rbadge-src{grid-area:src;font-size:1rem}
+.lp-rbadge--main .lp-rbadge-r{grid-area:r;font-size:2.4rem;line-height:1}
+.lp-rbadge--main .lp-stars{grid-area:st}
+.lp-rbadge--main .lp-rbadge-c{grid-area:c}
+.lp-rbadge--main .lp-stars i{width:18px;height:18px}
+@media(min-width:769px){.lp-rbadge.lp-rbadge--main{flex:0 0 auto;padding:.75rem 1.2rem}}
+
+/* --- Pruh garancí pod hero (landing-guarantee.php): 3 velké garance + menší, --compact = detail motorky.
+   Titulky bez dělení slov (žádné „Prodloužen|í“) — úzké sloupce dostanou dlaždice pod sebou. --- */
+.lp-guar{margin:1rem 0 1.4rem}
+.lp-guar-card{border:1.5px solid #c9f2c9;border-radius:20px;background:linear-gradient(160deg,#f3fdf3,#e6f9ea);padding:1rem .9rem 1.05rem}
+.lp-main .lp-guar h2{display:flex;align-items:center;gap:.45rem;font-size:clamp(1.25rem,5.2vw,1.6rem);margin:0 0 .25rem;color:#0f3d1f}
+.lp-main .lp-guar h2::before{content:"";width:22px;height:22px;flex:0 0 auto;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316a34a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6L12 3z'/%3E%3Cpath d='m8.5 12 2.5 2.5 4.5-5'/%3E%3C/svg%3E")}
+.lp-guar-lead{margin:0 0 .8rem;font-size:1rem;line-height:1.45;color:#2f4a39;font-weight:600}
+.lp-guar-top,.lp-guar-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem}
+.lp-guar-top{margin-bottom:.6rem}
+.lp-guar-i{min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"ico t" "ico s";column-gap:.65rem;align-items:center;align-content:center;padding:.55rem .75rem;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgba(20,80,40,.06)}
+.lp-guar-ico{grid-area:ico;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:11px;background:#1a2e22;color:#74fb71}
+.lp-guar-ico .lp-ico2{width:22px;height:22px}
+.lp-guar-t,.lp-guar-s{min-width:0;overflow-wrap:break-word}
+.lp-guar-t{grid-area:t;font-weight:800;font-size:1rem;line-height:1.22;color:#0f2418}
+.lp-nobr{white-space:nowrap}
+.lp-guar-s{grid-area:s;font-size:.85rem;line-height:1.3;color:#4b6355;-webkit-hyphens:auto;hyphens:auto}
+.lp-guar-i--big{column-gap:.8rem;padding:.8rem .9rem;border-radius:16px;background:#0e2a1c;box-shadow:inset 0 0 0 1px rgba(116,251,113,.35),0 10px 22px -16px rgba(10,31,20,.7)}
+.lp-guar-i--big .lp-guar-ico{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f}
+.lp-guar-i--big .lp-guar-ico .lp-ico2{width:28px;height:28px}
+.lp-guar-i--big .lp-guar-t{font-size:clamp(1.12rem,4.9vw,1.35rem);line-height:1.15;color:#fff}
+.lp-guar-i--big .lp-guar-s{font-size:.9rem;color:#cfe7da}
+.lp-guar-note{margin:.7rem 0 0;font-size:.74rem;line-height:1.45;color:#5b7366}
+.lp-guar--compact .lp-guar-card{padding:.9rem .85rem}
+.lp-main .lp-guar--compact h2{font-size:1.2rem;margin-bottom:.6rem}
+.lp-guar--compact .lp-guar-i--big{padding:.65rem .8rem}
+.lp-guar--compact .lp-guar-i--big .lp-guar-ico{width:42px;height:42px}
+.lp-guar--compact .lp-guar-i--big .lp-guar-t{font-size:1.1rem}
+@media(min-width:600px){.lp-guar-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:769px){
+  .lp-guar-card{padding:1.3rem 1.4rem}
+  .lp-guar-top{grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}
+  .lp-guar-i--big{grid-template-columns:minmax(0,1fr);grid-template-areas:"ico" "t" "s";row-gap:.45rem;align-items:start;align-content:start;padding:1rem 1.05rem}
+  .lp-guar-t{font-size:1.06rem}
+  .lp-guar-s{font-size:.9rem}
+}
+@media(min-width:1100px){
+  .lp-guar-list{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .lp-guar-i--big{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"ico t" "ico s";align-items:center;align-content:center;row-gap:.2rem}
+  .lp-guar-i--big .lp-guar-t{font-size:1.4rem}
+  .lp-guar--compact .lp-guar-i--big .lp-guar-t{font-size:1.15rem}
+}
