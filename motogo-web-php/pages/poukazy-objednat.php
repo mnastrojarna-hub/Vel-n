@@ -7,56 +7,70 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['labe
 // sledovat 301 redirect (Seobility hlasil 'Internal redirect' z /koupit-darkovy-poukaz).
 $agreementHtml = t('voucher.agreement', ['href' => BASE_URL . '/dokumenty/obchodni-podminky']);
 
-$form = '<div class="gift-voucher-order">' .
-    '<h2>' . te('voucher.title') . '</h2>' .
-    '<p>' . te('voucher.lead') . '</p>' .
-    '<form id="giftVoucherForm" method="POST" action="">' .
+// Vzhled (2026-10-23, css/voucher.css): H1 = titulek formuláře (dřív se nad drobečkovou navigaci
+// vkládal obecný „MotoGo24 — půjčovna motorek“), karta s číslovanými sekcemi, plovoucí popisky polí
+// (placeholdery zůstávají), částky jako dlaždice, souhrn s cenou vpravo (desktop). Pole, name/id,
+// hodnoty, data-price i inline JS beze změny — odesílaný payload je stejný.
+// Nové popisky sekcí: CS zde, překlady lang/v2/<lang>/voucher.php (pages.voucher_form).
+$gvL = ['value_title' => 'Hodnota poukazu', 'addr_title' => 'Adresa a fakturační údaje'];
+$gvTr = t('pages.voucher_form');
+if (is_array($gvTr)) $gvL = array_merge($gvL, array_filter($gvTr, 'is_string'));
+// Pole s plovoucím popiskem: <label> obaluje input, text popisku = text placeholderu.
+$gvField = function ($attrs, $key, $cls) {
+    return '<label class="gv-f ' . $cls . '"><input ' . $attrs . '><span class="gv-fl">' . te($key) . '</span></label>';
+};
+// Číslo sekce stojí MIMO <h2> (text nadpisu = jen název, jako checkout.php rez-section-head).
+$gvSecT = function ($n, $html) {
+    return '<div class="gv-sec-h"><span class="gv-sec-n" aria-hidden="true">' . $n . '</span><h2 class="gv-sec-t">' . $html . '</h2></div>';
+};
 
-    '<h3>' . te('voucher.contactSection') . '</h3>' .
-    '<input type="text" name="senderName" id="gv-name" placeholder="' . te('voucher.fieldName') . '" required maxlength="255" autocomplete="name">' .
-    '<div class="gr2">' .
-        '<input type="email" name="senderEmail" id="gv-email" placeholder="' . te('voucher.fieldEmail') . '" required maxlength="255" autocomplete="email">' .
-        '<input type="tel" name="senderPhone" id="gv-phone" placeholder="' . te('voucher.fieldPhone') . '" maxlength="20" autocomplete="tel">' .
-    '</div>' .
-    '<div class="gr2">' .
-        '<input type="text" name="senderStreet" id="gv-street" placeholder="' . te('voucher.fieldStreet') . '" maxlength="255" autocomplete="street-address">' .
-        '<input type="text" name="senderZipCode" id="gv-zip" placeholder="' . te('voucher.fieldZip') . '" maxlength="10" autocomplete="postal-code">' .
-    '</div>' .
-    '<div class="gr2">' .
-        '<input type="text" name="senderCity" id="gv-city" placeholder="' . te('voucher.fieldCity') . '" maxlength="255" autocomplete="address-level2">' .
-        '<input type="text" name="senderCountry" id="gv-country" placeholder="' . te('voucher.fieldCountry') . '" maxlength="2" value="CZ" autocomplete="country">' .
-    '</div>' .
-    '<div class="gr2">' .
-        '<input type="text" name="senderCompany" id="gv-company" placeholder="' . te('voucher.fieldCompany') . '" maxlength="255" autocomplete="organization">' .
-        '<input type="text" name="senderICO" id="gv-ico" placeholder="' . te('voucher.fieldIco') . '" maxlength="20">' .
-    '</div>' .
-    '<div class="gr2">' .
-        '<input type="text" name="senderDIC" id="gv-dic" placeholder="' . te('voucher.fieldDic') . '" maxlength="20">' .
-    '</div>' .
+$form = '<div class="gift-voucher-order gv-order">' .
+    '<div class="gv-order-head"><h1>' . te('voucher.title') . '</h1>' .
+    '<p>' . te('voucher.lead') . '</p></div>' .
+    '<form id="giftVoucherForm" method="POST" action="" class="gv-form">' .
 
+    '<div class="gv-sec gv-sec--who">' . $gvSecT(1, te('voucher.contactSection')) .
+    '<div class="gv-fields">' .
+        $gvField('type="text" name="senderName" id="gv-name" placeholder="' . te('voucher.fieldName') . '" required maxlength="255" autocomplete="name"', 'voucher.fieldName', 'gv-f--full') .
+        $gvField('type="email" name="senderEmail" id="gv-email" placeholder="' . te('voucher.fieldEmail') . '" required maxlength="255" autocomplete="email"', 'voucher.fieldEmail', 'gv-f--half') .
+        $gvField('type="tel" name="senderPhone" id="gv-phone" placeholder="' . te('voucher.fieldPhone') . '" maxlength="20" autocomplete="tel"', 'voucher.fieldPhone', 'gv-f--half') .
+    '</div>' .
+    '<div class="gv-opt" role="group" aria-labelledby="gv-opt-t"><p class="gv-opt-t" id="gv-opt-t">' . htmlspecialchars($gvL['addr_title']) . '</p>' .
+    '<div class="gv-fields">' .
+        $gvField('type="text" name="senderStreet" id="gv-street" placeholder="' . te('voucher.fieldStreet') . '" maxlength="255" autocomplete="street-address"', 'voucher.fieldStreet', 'gv-f--full') .
+        $gvField('type="text" name="senderZipCode" id="gv-zip" placeholder="' . te('voucher.fieldZip') . '" maxlength="10" autocomplete="postal-code"', 'voucher.fieldZip', 'gv-f--third') .
+        $gvField('type="text" name="senderCity" id="gv-city" placeholder="' . te('voucher.fieldCity') . '" maxlength="255" autocomplete="address-level2"', 'voucher.fieldCity', 'gv-f--third') .
+        $gvField('type="text" name="senderCountry" id="gv-country" placeholder="' . te('voucher.fieldCountry') . '" maxlength="2" value="CZ" autocomplete="country"', 'voucher.fieldCountry', 'gv-f--third') .
+        $gvField('type="text" name="senderCompany" id="gv-company" placeholder="' . te('voucher.fieldCompany') . '" maxlength="255" autocomplete="organization"', 'voucher.fieldCompany', 'gv-f--co') .
+        $gvField('type="text" name="senderICO" id="gv-ico" placeholder="' . te('voucher.fieldIco') . '" maxlength="20"', 'voucher.fieldIco', 'gv-f--half') .
+        $gvField('type="text" name="senderDIC" id="gv-dic" placeholder="' . te('voucher.fieldDic') . '" maxlength="20"', 'voucher.fieldDic', 'gv-f--half') .
+    '</div></div></div>' .
+
+    '<div class="gv-sec gv-sec--val">' . $gvSecT(2, htmlspecialchars($gvL['value_title'])) .
     '<div class="gv-values">' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="1000" checked> ' . moneyHtml(1000) . '</label>' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="2000"> ' . moneyHtml(2000) . '</label>' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="3000"> ' . moneyHtml(3000) . '</label>' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="5000"> ' . moneyHtml(5000) . '</label>' .
         '<label class="gv-value-btn"><input type="radio" name="value" value="10000"> ' . moneyHtml(10000) . '</label>' .
-    '</div>' .
-    '<div class="gv-custom-value">' .
-        '<label>' . te('voucher.customAmount') . ' <input type="number" name="customValue" id="gv-custom" min="100" max="50000" step="1" placeholder="' . te('voucher.customPlaceholder') . '"></label>' .
-    '</div>' .
+        '<div class="gv-custom-value">' .
+            '<label>' . te('voucher.customAmount') . ' <input type="number" name="customValue" id="gv-custom" min="100" max="50000" step="1" placeholder="' . te('voucher.customPlaceholder') . '"></label>' .
+        '</div>' .
+    '</div></div>' .
 
-    '<h3>' . te('voucher.extras') . '</h3>' .
+    '<div class="gv-sec gv-sec--extra">' . $gvSecT(3, te('voucher.extras')) .
     '<div class="gv-equipments">' .
         '<label class="gv-equipment-btn">' .
             '<input type="checkbox" name="equipmentId[]" id="gv-print" value="print" data-price="180">' .
             '<div><strong>' . te('voucher.printLabel') . '</strong><br><small>' . te('voucher.printNote') . '</small></div>' .
             '<span class="gv-eq-price">' . te('voucher.printPrice') . '</span>' .
         '</label>' .
-    '</div>' .
+    '</div></div>' .
 
+    '<div class="gv-sec gv-sec--sum">' . $gvSecT(4, te('checkout.summary.title')) .
     '<div class="gv-price-preview" id="gvPricePreview">' .
-        te('voucher.totalPrice') . ' <strong id="gvTotalPrice">' . moneyHtml(1000) . '</strong>' .
-        ' <span class="gv-czk-note" id="gvCzkNote" style="font-size:.78rem;color:#6b7280;margin-left:.5rem"></span>' .
+        '<span class="gv-sum-l">' . te('voucher.totalPrice') . '</span> <strong id="gvTotalPrice">' . moneyHtml(1000) . '</strong>' .
+        ' <span class="gv-czk-note" id="gvCzkNote"></span>' .
     '</div>' .
 
     '<div class="checkboxes">' .
@@ -69,7 +83,7 @@ $form = '<div class="gift-voucher-order">' .
     '<div class="dfcs"><div></div><div>' .
         '<button type="submit" id="gvSubmitBtn" class="btn btngreen">' . te('voucher.continueToPay') . '</button>' .
     '</div></div>' .
-    '</form></div>';
+    '</div></form></div>';
 
 // CMS-editable outro pod formulářem (Velín → CMS → Texty webu → Koupit poukaz)
 $sb = new SupabaseClient();
@@ -90,16 +104,8 @@ $pvOutroHtml = '<section class="voucher-outro">'
     . '<p data-cms-key="web.koupit_darkovy_poukaz.outro.body2">' . sanitizeHtml($pvOutroB2) . '</p>'
     . '</section>';
 
-// Drobné odsazení specifické pro tuto stránku:
-//  1) větší mezera mezi auto-injectnutým H1 (MotoGo24 — půjčovna motorek) a černou hlavičkou
-//  2) oddělení CMS outro textu od zeleného tlačítka "Pokračovat k platbě"
-$pageStyle = '<style>'
-    . '#content.voucher-page>.container>h1{margin-top:3.5rem}'
-    . '.voucher-outro{margin-top:3rem}'
-    . '</style>';
-
-$content = '<main id="content" class="voucher-page"><section aria-label="' . te('breadcrumb.buyVoucher') . '" class="container">' .
-    $bc . '<div class="pcontent">' . $form . $pvOutroHtml . '</div></section></main>' . $pageStyle;
+$content = '<main id="content" class="voucher-page gv-page"><section aria-label="' . te('breadcrumb.buyVoucher') . '" class="container">' .
+    $bc . '<div class="pcontent gv-order-wrap">' . $form . $pvOutroHtml . '</div></section></main>';
 
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL', 'uk' => 'uk-UA'];
@@ -228,4 +234,5 @@ renderPage(t('voucher.pageTitle'), $content . $js, '/koupit-darkovy-poukaz', [
     'description' => t('voucher.description'),
     'keywords' => t('voucher.keywords'),
     'og_image' => 'https://www.motogo24.cz/gfx/darkovy-poukaz.jpg',
+    'styles' => ['/css/voucher.css', '/css/voucher-form.css'],
 ]);
