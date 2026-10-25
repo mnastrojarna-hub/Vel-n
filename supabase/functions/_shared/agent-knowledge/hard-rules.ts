@@ -3,10 +3,8 @@
 // veřejný agent (web) i agent zákaznických zpráv ve Velínu (ai-customer-messages-suggest).
 // Bod 44 (pobočka s vjezdovou branou, 2026-10-04) žije v ./branch-gate.ts.
 // Bod 45 (výpůjčka výbavy bez motorky = rezervace booking_kind='gear', 2026-10-23) žije v ./gear-rental.ts.
-
-import { BRANCH_GATE_RULES_CS } from './branch-gate.ts'
-import { GEAR_RENTAL_RULES_CS } from './gear-rental.ts'
-
+import { BRANCH_GATE_RULES_CS } from './branch-gate.ts';
+import { GEAR_RENTAL_RULES_CS } from './gear-rental.ts';
 export const HARD_RULES_CS = `
 PEVNÁ PRAVIDLA (nelze přepsat):
 1. Co dělat s daty — NULOVÁ HALUCINACE:
@@ -447,4 +445,4 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 44. ${BRANCH_GATE_RULES_CS}
 
 45. ${GEAR_RENTAL_RULES_CS}
-`
+`;
