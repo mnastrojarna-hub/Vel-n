@@ -11,6 +11,13 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('bre
 $motoId = $_GET['moto'] ?? '';
 $startDate = $_GET['start'] ?? '';
 $endDate = $_GET['end'] ?? '';
+// Termín z adresy (detail motorky / katalog: ?moto=&start=&end=) jen jako platné YYYY-MM-DD, konec ≥ začátek
+// a konec jen se začátkem — jinak se zahodí oba (neplatné datum dřív rozbilo kalendář na NaN).
+// Minulost a obsazenost ověří js/rezervace-dates.js (stejný „dnešek“ jako buňky kalendáře).
+$rezIso = function ($v) { return is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $v, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1]) ? $v : ''; };
+$startDate = $rezIso($startDate);
+$endDate = $rezIso($endDate);
+if ($endDate !== '' && ($startDate === '' || $endDate < $startDate)) { $startDate = ''; $endDate = ''; }
 $delivery = $_GET['delivery'] ?? '';
 $resume = $_GET['resume'] ?? '';
 // Předvybraná pobočka (CTA z /pobocky/<slug> → ?pobocka=<branches.id>, stejný parametr jako /katalog).
@@ -153,6 +160,7 @@ foreach (['0','1','2','3','4','5','6'] as $dow) {
 }
 
 // Supabase SDK + konfigurace + JS moduly pro rezervaci
+// 2026-10-23: js/gear-rental-redirect.js — /rezervace?resume=<výpůjčka výbavy> → stránka výbavy (DESIGN-GEAR §3.5)
 $rezervaceJs = '<script>
 window.MOTOGO_CONFIG = {
   SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
@@ -190,6 +198,9 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script src="' . assetUrl('/js/rezervace-ux.js') . '"></script>
+<script src="' . assetUrl('/js/gear-rental-redirect.js') . '" data-gear-url="' . htmlspecialchars(BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath('/pujceni-obleceni') : '/pujceni-obleceni'), ENT_QUOTES) . '"></script>
+<script src="' . assetUrl('/js/rezervace-dates.js') . '"></script>
+<script src="' . assetUrl('/js/rezervace-dayprice.js') . '"></script>
 <script>
 // Vynucení min_rental_days / max_rental_days z DB (per-motorka, nastavuje admin ve Velíně).
 // Default je 1 den. Hookne se na _rezPickDate (po vyběru rozsahu v kalendáři),
@@ -262,7 +273,9 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 
 // Landing v2 vzhled formuláře — JEN prezentace (css/rezervace-v2.css + js/rezervace-v2.js, logika beze změny);
 // mimo v2 (?landing=v1) se meta nemění → stránka je stejná jako dřív.
-$rezV2Meta = landingV2Enabled() ? ['styles' => ['/css/rezervace-v2.css', '/css/rezervace-ux.css'], 'scripts' => ['/js/rezervace-v2.js'], 'body_class' => 'rez-v2'] : ['styles' => ['/css/rezervace-ux.css']];
+// css/rezervace-dates.css = sbalený krok 2, ceny u dnů, zvýraznění „Pokračovat“ (js/rezervace-dates.js,
+// -dayprice.js, -next.js); js/rezervace-next.js jen ve v2 (tlačítko souhrnu .rz-sum-go je jen tam).
+$rezV2Meta = landingV2Enabled() ? ['styles' => ['/css/rezervace-v2.css', '/css/rezervace-ux.css', '/css/rezervace-dates.css'], 'scripts' => ['/js/rezervace-v2.js', '/js/rezervace-next.js'], 'body_class' => 'rez-v2'] : ['styles' => ['/css/rezervace-ux.css', '/css/rezervace-dates.css']];
 renderPage(t('rezervace.title'), $content . $rezervaceJs, '/rezervace', $rezV2Meta + [
     'description' => t('rezervace.description'),
     'keywords' => t('rezervace.keywords'),

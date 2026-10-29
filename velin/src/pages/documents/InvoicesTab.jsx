@@ -11,6 +11,8 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { summarizeInvoices } from '../../lib/revenueUtils'
 import { invoiceSearchOrFilter } from '../../lib/invoiceSearch'
+import { withBookingKind, kindCol } from './bookingKindQuery'
+import { isGearBooking } from '../../lib/bookingKind'
 import InvoiceCreateModal from '../accounting/InvoiceCreateModal'
 import InvoicePreviewModal from './InvoicePreviewModal'
 
@@ -79,22 +81,25 @@ export default function InvoicesTab() {
     setLoading(true); setError(null)
     try {
       debugLog('DocInvoicesTab', 'loadInvoices', { page, filters })
-      let query = supabase
-        .from('invoices')
-        .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, modification_history, sos_incident_id, motorcycles:moto_id(model))', { count: 'exact' })
-        .order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false })
-
-      if (filters.types?.length > 0) {
-        const expandedTypes = filters.types.includes('advance') ? [...filters.types, 'proforma'] : filters.types
-        query = query.in('type', expandedTypes)
-      }
-      if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
       // Sdílené hledání: číslo dokladu, VS, jméno/e-mail/telefon (snapshot i profiles) — viz lib/invoiceSearch
       const orFilter = await invoiceSearchOrFilter(filters.search)
-      if (orFilter) query = query.or(orFilter)
-      query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      // booking_kind (štítek „Jen výbava“) — bez migrace 20261023a se dotaz zopakuje bez něj (bookingKindQuery)
+      const build = (withKind) => {
+        let query = supabase
+          .from('invoices')
+          .select(`*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, modification_history, sos_incident_id${kindCol(withKind)}, motorcycles:moto_id(model))`, { count: 'exact' })
+          .order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false })
 
-      const { data, count, error: err } = await debugAction('invoices.list', 'DocInvoicesTab', () => query)
+        if (filters.types?.length > 0) {
+          const expandedTypes = filters.types.includes('advance') ? [...filters.types, 'proforma'] : filters.types
+          query = query.in('type', expandedTypes)
+        }
+        if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
+        if (orFilter) query = query.or(orFilter)
+        return query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      }
+
+      const { data, count, error: err } = await debugAction('invoices.list', 'DocInvoicesTab', () => withBookingKind(build))
       if (err) throw err
       setInvoices(data || [])
       setTotal(count || 0)
@@ -238,7 +243,7 @@ export default function InvoicesTab() {
                     </TD>
                     <TD><Badge label={tp.label} color={tp.color} bg={tp.bg} /></TD>
                     <TD>{inv.customer_snapshot?.name || inv.profiles?.full_name || '—'}</TD>
-                    <TD>{inv.bookings?.motorcycles?.model || '—'}</TD>
+                    <TD>{inv.bookings?.motorcycles?.model || (isGearBooking(inv.bookings) ? 'Jen výbava' : '—')}</TD>
                     <TD>
                       <span className="font-bold" style={{ color: inv.status === 'paid' ? '#1a8a18' : '#0f1a14' }}>
                         {fmt(inv.total)}

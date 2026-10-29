@@ -8,6 +8,9 @@ return ['pages' => ['landing_katalog' => [
     'title' => 'Calcule ton prix',
     'lead' => 'Choisis l\'agence, la moto et les dates : on te montre les jours libres et le prix exact. En un clic, tu passes à la réservation, déjà préremplie.',
     'lead_detail' => 'Choisis tes dates : on te montre les jours libres et le prix exact de cette moto. En un clic, tu passes à la réservation, déjà préremplie.',
+    // Detail motorky: nadpis kalendáře (CS title_detail / eyebrow_detail)
+    'eyebrow_detail' => 'Jours libres et prix',
+    'title_detail' => 'Choisis tes dates',
     'step_branch' => 'Agence',
     'step_moto' => 'Moto',
     'step_dates' => 'Dates',
@@ -65,6 +68,7 @@ return ['pages' => ['landing_katalog' => [
     'cta_any' => 'Voir les motos libres',
     'assure' => 'Décale tes dates gratuitement · Annulation gratuite plus de 7 jours avant',
     'reset' => 'Effacer les dates',
+    'cal_clear' => 'Effacer la sélection',
     'free_title' => 'Libres à tes dates : {n}',
     'free_none' => 'Aucune moto libre dans cette agence à ces dates. Essaie d\'autres dates ou une autre agence.',
     'free_more' => 'et {n} autres dans la réservation',

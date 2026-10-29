@@ -44,13 +44,22 @@ body.lp-v2{overflow-x:clip}
 .lp-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .6rem;border-radius:999px;background:rgba(116,251,113,.12);border:1px solid rgba(116,251,113,.35);font-size:.74rem;font-weight:700;color:#e8f5ee}
 .lp-chip .lp-ico{width:14px;height:14px;color:#74fb71}
 .lp-chip--hot{background:#74fb71;border-color:#74fb71;color:#08230f;font-weight:800}
-.lp-assure{grid-column:1/-1;display:flex;align-items:flex-start;gap:.35rem;margin:.05rem 0 0;font-size:.74rem;line-height:1.35;color:#cfe7da}
-.lp-assure .lp-ico,.lp-season .lp-ico{flex:0 0 auto;width:14px;height:14px;color:#74fb71}
+/* Uklidňující řádek pod CTA (2026-10-23 větší, 15/17 px tučně); .is-split = části pod sebou s fajfkou (lpAssure) */
+.lp-assure{grid-column:1/-1;display:flex;align-items:flex-start;gap:.5rem;margin:.2rem 0 0;padding:0;list-style:none;font-size:.9375rem;font-weight:700;line-height:1.38;color:#eafbea;overflow-wrap:break-word}
+.lp-assure .lp-ico{flex:0 0 auto;width:20px;height:20px;color:#74fb71}
+.lp-assure.is-split{flex-direction:column;gap:.35rem}
+.lp-assure-i{display:flex;align-items:flex-start;gap:.5rem;min-width:0}
+.lp-assure.is-split .lp-ico{padding:3px;border-radius:50%;background:#74fb71;color:#08230f;stroke-width:3}
+.lp-season .lp-ico{flex:0 0 auto;width:14px;height:14px;color:#74fb71}
+@media(min-width:900px){.lp-assure{font-size:1.0625rem}.lp-assure .lp-ico{width:22px;height:22px}}
 .lp-season{position:relative;z-index:1;display:flex;align-items:center;gap:.4rem;margin:0;font-size:.76rem;line-height:1.35;color:#a8ff9f}
 /* Pruh s nabídkou pod panelem */
-.lp-offer{margin:1rem 0 0}
-.lp-offer-in{display:flex;align-items:center;gap:.7rem;margin:0;padding:.7rem .9rem;border-radius:14px;background:linear-gradient(90deg,#e6fae2,#f6fff4);border:1px dashed #37cf63;font-size:.86rem;font-weight:600;line-height:1.35;color:#1a2e22}
-.lp-offer-pct{flex:0 0 auto;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#74fb71;color:#08230f;font-size:1.1rem;font-weight:900}
+.lp-offer{margin:1.1rem 0 0}
+.lp-offer-in{display:flex;align-items:center;gap:.9rem;margin:0;padding:1rem 1.05rem;border-radius:16px;background:linear-gradient(120deg,#0e2a1c,#185232);box-shadow:inset 0 0 0 2px #74fb71,0 14px 30px -18px rgba(10,31,20,.85);font-size:1.02rem;font-weight:800;line-height:1.3;color:#fff}
+.lp-offer-pct{flex:0 0 auto;display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;font-size:1.5rem;font-weight:900;box-shadow:0 0 0 5px rgba(116,251,113,.18)}
+.lp-offer-t{min-width:0;color:#fff}.lp-offer .lp-offer-main{display:block;font-weight:800;color:#fff}
+.lp-offer-note{display:block;margin-top:.25rem;font-size:.8rem;font-weight:600;color:#bfe3cc}
+@media(min-width:769px){.lp-offer-in{justify-content:center;padding:1.15rem 1.5rem;font-size:1.22rem}.lp-offer-pct{width:60px;height:60px;font-size:1.7rem}.lp-offer-note{font-size:.88rem}}
 /* nízké telefony: podnadpis pryč, ať jsou CTA na první obrazovce */
 @media(max-width:480px) and (max-height:760px){.lp-lead{display:none}}
 @media(max-width:340px){.lp-btn{font-size:.8rem;letter-spacing:0;padding:.6rem .5rem}.lp-btn .lp-ico{display:none}}

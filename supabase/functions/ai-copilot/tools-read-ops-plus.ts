@@ -22,7 +22,7 @@ const QUERYABLE_TABLES = [
   'acc_vat_returns', 'acc_tax_returns', 'acc_short_term_assets', 'acc_long_term_assets', 'acc_depreciation_entries', 'acc_liabilities',
   'flexi_reports', 'accounting_exceptions', 'approval_queue', 'flexi_sync_log', 'delivery_notes', 'contracts',
   'purchase_orders', 'purchase_order_items', 'auto_order_rules', 'suppliers', 'inventory', 'inventory_movements',
-  'gear_shortages', 'stock_receipts', 'accessory_types',
+  'gear_shortages', 'stock_receipts', 'accessory_types', 'gear_rental_prices', 'gear_rentals',
   'ai_conversations', 'ai_customer_conversations', 'ai_actions', 'ai_logs', 'automation_rules', 'predictions',
   'api_keys', 'ai_traffic_log', 'ai_citations', 'ai_public_conversations', 'payment_methods',
   'app_settings', 'cms_pages', 'cms_variables', 'faq_items', 'feature_flags', 'reviews',
@@ -62,6 +62,10 @@ export async function execReadOpsPlus(name: string, input: R, sb: SB): Promise<u
       if (!id) return { error: 'booking_id je povinný' }
       const { data: b, error } = await sb.from('bookings').select('*').eq('id', id).single()
       if (error || !b) return { error: 'Rezervace nenalezena' }
+      // Výpůjčka JEN VÝBAVY (booking_kind='gear'): bez motorky, pobočka = bookings.branch_id, kusy v gear_lines
+      const gb = b as R
+      const gearBranchR = gb.booking_kind === 'gear' && gb.branch_id
+        ? await sb.from('branches').select('id, name, city, type').eq('id', gb.branch_id).maybeSingle() : { data: null }
       const [custR, motoR, discR, extrasR, invR, cancR, complR, codesR, sosR] = await Promise.all([
         b.user_id ? sb.from('profiles').select('id, full_name, email, phone, city, is_blocked, license_group, id_verified_at, license_verified_at, passport_verified_at').eq('id', b.user_id).single() : Promise.resolve({ data: null }),
         b.moto_id ? sb.from('motorcycles').select('id, model, brand, spz, category, branch_id, status, box_number').eq('id', b.moto_id).single() : Promise.resolve({ data: null }),
@@ -75,6 +79,7 @@ export async function execReadOpsPlus(name: string, input: R, sb: SB): Promise<u
       ])
       return {
         booking: b, customer: custR.data, motorcycle: motoR.data,
+        ...(gb.booking_kind === 'gear' ? { gear_only: true, gear_branch: gearBranchR.data, gear_lines: gb.gear_lines, gear_per_day: gb.gear_per_day } : {}),
         discounts: discR.data || [], extras: extrasR.data || [], invoices: invR.data || [],
         cancellation: (cancR.data || [])[0] || null, complaints: complR.data || [], door_codes: codesR.data || [], sos_incident: sosR.data,
         protocol: { started_at: b.handover_protocol_started_at, filled_at: b.handover_protocol_filled_at, autofilled: b.handover_protocol_autofilled },

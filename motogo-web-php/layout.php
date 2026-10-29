@@ -728,6 +728,8 @@ body{font-family:Montserrat,"Segoe UI",sans-serif;margin:0;color:#1a2e22;backgro
     }
     echo i18nLocalizeHrefs($content);
     echo '</div>';
+    // Poznámky k hvězdičkám garancí/důvodů (landing, detail motorky) drobně těsně nad patičkou.
+    if (function_exists('lpFootnotesHtml')) echo i18nLocalizeHrefs(lpFootnotesHtml());
     echo i18nLocalizeHrefs(renderFooter());
 
     // Lightbox container (sdílený pro všechny galerie přes [data-gallery]).

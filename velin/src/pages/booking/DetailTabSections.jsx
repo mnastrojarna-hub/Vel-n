@@ -6,6 +6,7 @@ import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 import { fmtTimeHM, DEFAULT_PICKUP_TIME, DEFAULT_RETURN_TIME } from './bookingModifyHelpers'
 import { kioskReleaseGate, LATE_PICKUP_KIOSK_CHIP, fmtPragueDateTime, isLegacyNoPickupTime } from '../../lib/latePickup'
 import { pickDoorCode } from '../../lib/branchGate'
+import { isGearBooking, bookingBranchType } from '../../lib/bookingKind'
 
 export function SOSSection({ booking, sosIncidents, navigate }) {
   if (!booking.sos_replacement && !booking.ended_by_sos && sosIncidents.length === 0) return null
@@ -189,15 +190,18 @@ const OWN_GEAR_REASON = 'Vlastní výbava'
 // s bránou; pak pořadí jako u zákazníka: brána → šatna → motorka. Bez brány beze změny (motorka, šatna).
 // `extra` = obsah na konec karty (krátkodobé kódy TempCodesList, 2026-10-06).
 // `docsGate` = backendová brána dokladů (get_docs_gate_checklist, načítá DetailTab jen při odeslaném kódu).
+// Výpůjčka JEN výbavy (booking_kind 'gear'): jen brána → šatna (kód motorky neexistuje), pobočka = bookings.branch_id,
+// „Čeká na protokol“ = aktivní kód šatny bez podpisu (protokol s velikostmi po zavření šatny, kód šatny = identita).
 export function DoorCodesSection({ doorCodes, booking, gateCode = null, docsGate = null, extra = null }) {
   const b = booking || {}
+  const gear = isGearBooking(b)
   // Přednost aktivní a nejnovější řádek — po změně motorky zůstávají v DB staré neaktivní kódy
   const motoCode = pickDoorCode(doorCodes, 'motorcycle')
   const gearCode = pickDoorCode(doorCodes, 'accessories')
   // Kód šatny dostane jen ten, kdo má v šatně co vyzvednout (§0 návrhu). Bez aktivního kódu šatny:
   // vlastní výbava (příznak own_gear nebo zadržený řádek) nebo žádný řádek šatny (bez nároku) → text místo pomlčky
   const gearActive = !!gearCode?.is_active
-  const ownGearNoLocker = !gearActive && (b.own_gear === true || gearCode?.withheld_reason === OWN_GEAR_REASON || !gearCode)
+  const ownGearNoLocker = !gear && !gearActive && (b.own_gear === true || gearCode?.withheld_reason === OWN_GEAR_REASON || !gearCode)
   const liveCodes = doorCodes.filter(c => c.is_active)
   const forState = liveCodes.length ? liveCodes : doorCodes
   const allSent = forState.every(c => c.sent_to_customer)
@@ -207,11 +211,13 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, docsGate
   // Stav předávacího protokolu (hradlo kódu motorky na displeji pobočky) — sloupce z migrace 20260925.
   // Hradlo má jen SAMOOBSLUŽNÁ pobočka (motorcycles.branches.type); na obslužné kódy vznikají také,
   // ale protokol podepisuje obsluha → „Čeká na protokol“ tam nesvítí.
-  const selfService = b.motorcycles?.branches?.type === 'samoobslužná'
+  const branchType = bookingBranchType(b)   // motorka beze změny (pobočka motorky), výbava = pobočka rezervace
+  const selfService = branchType === 'samoobslužná'
   const signed = b.handover_protocol_filled_at
-  const awaitsProtocol = selfService && !signed && ['reserved', 'active'].includes(b.status) && !!motoCode?.is_active
+  const anchorCode = gear ? gearCode : motoCode   // kód, na který čeká hradlo protokolu na displeji
+  const awaitsProtocol = selfService && !signed && ['reserved', 'active'].includes(b.status) && !!anchorCode?.is_active
   // Sleva za vyzvednutí od 12:00 → kiosk vydá šatnu i motorku až od 12:00 v den začátku (SQL _kiosk_release_at)
-  const releaseAt = kioskReleaseGate(b, b.motorcycles?.branches?.type)
+  const releaseAt = kioskReleaseGate(b, branchType)
   const dt = v => v ? new Date(v).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
   const motoCell = <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k motorce</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{motoCode?.door_code || '—'}</div></div>
 
@@ -219,9 +225,9 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, docsGate
     <Card className="md:col-span-2">
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pristupove kody k pobocce</h3>
       <div className="p-4 rounded-lg" style={{ background: allSent ? '#dcfce7' : withheld ? '#fef3c7' : '#f1faf7', border: `1px solid ${allSent ? '#86efac' : withheld ? '#fcd34d' : '#d4e8e0'}` }}>
-        <div className={`grid ${gateCode ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mb-3`}>
-          {gateCode && <div title="Trvalý kód HORNÍ schránky s klíčem od visacího zámku vjezdové brány (pravý sloupek vrat). Zákazník ho dostává jako 1. kód (brána → šatna → motorka) spolu s vydaným kódem motorky. Mění se v Pobočky → Samoobsluha."><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kód brány (horní schránka)</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{gateCode}</div></div>}
-          {!gateCode && motoCell}
+        <div className={`grid ${gear ? (gateCode ? 'grid-cols-2' : 'grid-cols-1') : gateCode ? 'grid-cols-3' : 'grid-cols-2'} gap-4 mb-3`}>
+          {gateCode && <div title={gear ? 'Trvalý kód HORNÍ schránky s klíčem od visacího zámku vjezdové brány (pravý sloupek vrat). U výpůjčky výbavy ho zákazník dostává jako 1. kód (brána → šatna) spolu s vydaným kódem šatny. Mění se v Pobočky → Samoobsluha.' : 'Trvalý kód HORNÍ schránky s klíčem od visacího zámku vjezdové brány (pravý sloupek vrat). Zákazník ho dostává jako 1. kód (brána → šatna → motorka) spolu s vydaným kódem motorky. Mění se v Pobočky → Samoobsluha.'}><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kód brány (horní schránka)</div><div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{gateCode}</div></div>}
+          {!gateCode && !gear && motoCell}
           <div>
             <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kód šatny</div>
             {gearActive
@@ -230,19 +236,19 @@ export function DoorCodesSection({ doorCodes, booking, gateCode = null, docsGate
                 ? <div className="text-sm font-extrabold" style={{ color: '#b45309' }} title="Zákazník nemá zapůjčenou výbavu (vlastní výbava nebo nic nevybral — žádná velikost výbavy řidiče, boty ani výbava spolujezdce) — kód šatny se nevydává a šatna mu nejde otevřít. Kód šatny vznikne sám, až zákazník zadá velikost výbavy (appka / web → Upravit rezervaci → Výbava); přepínač „Vlastní výbava: Ano“ kód šatny stáhne.">Bez zapůjčené výbavy — bez kódu šatny</div>
                 : <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>—</div>}
           </div>
-          {gateCode && motoCell}
+          {gateCode && !gear && motoCell}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {liveCodes.length === 0
             ? <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }} title="Žádný aktivní kód (rezervace zrušena / dokončena nebo kódy zneplatněny) — kiosk je nepřijme.">Kódy zneplatněny — kiosk neprijme</span>
             : <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: allSent ? '#dcfce7' : '#fee2e2', color: allSent ? '#1a8a18' : '#dc2626' }} title={allSent ? 'Kódy byly zákazníkovi odeslány a kiosk je přijme (v termínu rezervace).' : 'Kód NEBYL zákazníkovi odeslán (zadržen) — kiosk ho NEPŘIJME, dokud se neodešle (doklady / „Odeslat“).'}>{allSent ? 'Odeslano zakaznikovi' : 'Neodeslano — kiosk zatim neprijme'}</span>}
-          {motoCode?.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dbeafe', color: '#2563eb' }}>Aktivní</span>}
-          {motoCode && !motoCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivní</span>}
+          {anchorCode?.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dbeafe', color: '#2563eb' }}>Aktivní</span>}
+          {anchorCode && !anchorCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivní</span>}
           {withheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {withheld}</span>}
           {docsIncomplete && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626' }} title="Kódy už zákazník dostal a zůstávají platné, ale doklady podle aktuální kontroly nejsou kompletní — doplňte je (Dokumenty / detail zákazníka → Nahrát doklady).">Doklady neúplné: {docsGate.reason || 'doklady chybí'}</span>}
-          {signed && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dcfce7', color: '#1a8a18' }} title={selfService ? 'Předávací protokol je podepsaný — kód motorky kóji otevře. PDF je v Dokumentech.' : 'Předávací protokol je podepsaný (odbavení obsluhou). PDF je v Dokumentech.'}>📝 Protokol podepsán {dt(signed)}</span>}
+          {signed && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dcfce7', color: '#1a8a18' }} title={selfService ? (gear ? 'Předávací protokol výbavy je podepsaný (velikosti potvrzené kódem šatny). PDF je v Dokumentech.' : 'Předávací protokol je podepsaný — kód motorky kóji otevře. PDF je v Dokumentech.') : 'Předávací protokol je podepsaný (odbavení obsluhou). PDF je v Dokumentech.'}>📝 Protokol podepsán {dt(signed)}</span>}
           {releaseAt && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#92400e' }} title={`Rezervace má slevu za vyzvednutí od 12:00 — kód šatny i motorky kiosk přijme až ${fmtPragueDateTime(releaseAt)} (dřív ukáže hlášku a výzvu k úpravě času vyzvednutí). Dřívější čas vyzvednutí = sleva zanikne, rozdíl se doplatí a kód platí hned.`}>{LATE_PICKUP_KIOSK_CHIP}</span>}
-          {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title="Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky).">📝 Čeká na protokol</span>}
+          {awaitsProtocol && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#ede9fe', color: '#6d28d9' }} title={gear ? 'Po zavření šatny zákazník na displeji pobočky potvrdí velikosti výbavy a podepíše předávací protokol (identita = kód šatny).' : 'Kód motorky se na displeji ověří, ale kóje se otevře až po podpisu předávacího protokolu na displeji pobočky (po zavření šatny nebo hned po zadání kódu motorky).'}>📝 Čeká na protokol</span>}
         </div>
         {(b.gear_collected_at || (b.handover_protocol_prompted_at && !signed)) && (
           <div className="text-xs mt-2" style={{ color: '#4a5a52' }}>

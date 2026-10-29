@@ -11,6 +11,7 @@ import { shortBranchName } from './BranchChips'
 import { effBranchId, effBranch, BOOKING_BRANCH_EMBED } from '../../lib/bookingBranch'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { revealBelowOnMobile } from './bookingsMobileScroll'
+import { isGearBooking, bookingNeedsLicense, gearSizeSummary } from '../../lib/bookingKind'
 
 // Odjezdy (vyzvednutí) a návraty (vrácení) — události seřazené podle data a času,
 // kdy se zákazník má dostavit na pobočku. Plus kalendář (heatmapa) zvýrazňující
@@ -67,6 +68,8 @@ function detectSwapPairs(bookings) {
       const nextIso = localIso(nextDay)
       for (const b of list) {
         if (a.id === b.id || a.moto_id === b.moto_id) continue
+        // výpůjčka jen výbavy (bez motorky) není výměna motorky — ani jako předchozí, ani jako navazující
+        if (isGearBooking(a) || isGearBooking(b)) continue
         if (dateOnly(b.start_date) !== nextIso) continue
         if (effBranch(a)?.type !== 'obslužná') continue
         if (effBranch(b)?.type !== 'obslužná') continue
@@ -138,8 +141,8 @@ function buildEvents(bookings, protocolIds, swapPairs) {
     const base = {
       booking: b,
       customer: b.profiles?.full_name || 'Zákazník',
-      moto: b.motorcycles?.model || '—',
-      spz: b.motorcycles?.spz || null,
+      moto: isGearBooking(b) ? `Jen výbava${gearSizeSummary(b) ? ` · ${gearSizeSummary(b)}` : ''}` : (b.motorcycles?.model || '—'),
+      spz: isGearBooking(b) ? null : (b.motorcycles?.spz || null),
       branch,
       branchType: effBranch(b)?.type || null,
       // Odjezd vyřízen (i protokolem/aktivací) + nejlepší známý čas vyzvednutí pro
@@ -209,7 +212,7 @@ function DocsPills({ ev, scans }) {
   if (!ev.booking.user_id) return null
   const Pills = touch ? DocsPillsTouch : DocsStatusPills
   return <Pills profile={ev.booking.profiles} scan={scans?.[ev.booking.user_id]}
-    requireLicense={String(ev.booking.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
+    requireLicense={bookingNeedsLicense(ev.booking)} />
 }
 
 function EventRow({ ev, onClick, showStatus, dense, onCheckIn, onSwap, scans, showBranch }) {
@@ -314,7 +317,8 @@ export default function PickupsReturns({ compact = false, onExpand, branchId }) 
   async function loadData() {
     setLoading(true)
     const { data } = await supabase.from('bookings')
-      .select(`id, start_date, end_date, pickup_time, return_time, status, payment_status, picked_up_at, returned_at, handover_protocol_filled_at, pickup_method, return_method, pickup_address, return_address, user_id, moto_id, branch_id, ended_by_sos, ${BOOKING_BRANCH_EMBED}, profiles(full_name, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at), motorcycles!moto_id(model, spz, branch_id, license_required, branches(name, type))`)
+      // `*` (ne výčet): booking_kind + velikosti výpůjčky výbavy bez závislosti na pořadí nasazení migrace
+      .select(`*, ${BOOKING_BRANCH_EMBED}, profiles(full_name, id_number, license_number, id_verified_at, license_verified_at, passport_verified_at), motorcycles!moto_id(model, spz, branch_id, license_required, branches(name, type))`)
       .in('status', ['reserved', 'active', 'pending'])
       // Nezaplacené rezervace (unpaid) se v odjezdech a návratech nezobrazují —
       // dokud zákazník nezaplatí, není co odbavovat.

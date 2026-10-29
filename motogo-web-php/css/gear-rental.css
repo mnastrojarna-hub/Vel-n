@@ -119,5 +119,65 @@
 .gr-ok-sum .lp-ico{width:16px;height:16px;color:#74fb71}
 .gr-ok-btns{display:flex;flex-wrap:wrap;gap:.8rem;justify-content:center;align-items:center;margin-top:1rem}
 .gr-link{font-weight:700;color:#15803d}
+.gr-ok-hint{max-width:34rem;margin:.6rem auto 0;color:#4b5f54;font-size:.84rem;line-height:1.45;text-align:center;overflow-wrap:anywhere}
 .gr-ok .kc-spin{display:inline-block;width:28px;height:28px;border:3px solid #cfe5d7;border-top-color:#16a34a;border-radius:50%;animation:grSpin 1s linear infinite}
 @keyframes grSpin{to{transform:rotate(360deg)}}
+
+/* ===== 2026-10-23: rezervace výbavy — sklad, poukaz, přihlášení, doklady, odkaz na motorky ===== */
+.gr-sz.is-out{background:#f3f5f4;border-style:dashed;color:#9aa8a0;text-decoration:line-through;cursor:not-allowed}
+.gr-drop{margin:0 0 .5rem}
+.gr-authline{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .8rem;margin:0 0 .7rem;padding:.55rem .8rem;border-radius:12px;background:#f2fdf2;border:1px solid #c9f2c9;font-size:.86rem;font-weight:700;overflow-wrap:anywhere}
+.gr-linkbtn{background:none;border:0;padding:0;font:inherit;font-size:.86rem;font-weight:700;color:#15803d;text-decoration:underline;cursor:pointer}
+.gr-voucher{display:grid;gap:.4rem}
+.gr-voucher-row{display:flex;gap:.5rem}
+.gr-voucher-row input{flex:1 1 auto;min-width:0;text-transform:uppercase}
+.gr-voucher-btn{flex:0 0 auto;min-height:46px;padding:0 1rem;border-radius:12px;border:0;background:#1a2e22;color:#74fb71;font:inherit;font-weight:800;cursor:pointer}
+.gr-voucher-msg{margin:0;font-size:.84rem;font-weight:700;color:#4b6355}
+.gr-voucher-msg.is-ok{color:#15803d}
+.gr-voucher-msg.is-bad{color:#b45309}
+.gr-total-sub{border-top:0;margin-top:.5rem;padding-top:0;font-size:.9rem}
+.gr-vline{display:flex;justify-content:space-between;gap:.8rem;margin:.2rem 0 0;font-size:.9rem;font-weight:700;color:#a7f3a5}
+.gr-sum-warn{margin:.7rem 0 0;padding:.55rem .7rem;border-radius:10px;background:#fff4e5;color:#8a4b00;font-size:.84rem;font-weight:700}
+.gr-login{background:#fff;border:2px solid #37cf63;border-radius:18px;padding:1rem}
+.gr-login-card h3{margin:0 0 .35rem;font-size:1.05rem}
+.gr-login-card p{margin:.2rem 0 .6rem;font-size:.88rem;color:#33493b}
+.gr-login-form{display:grid;gap:.55rem}
+.gr-login-form input{width:100%;box-sizing:border-box;min-height:46px;border:1px solid #cfe5d7;border-radius:12px;padding:.6rem .8rem;font:inherit;background:#fff}
+.gr-login-form .lp-btn{width:100%;min-height:50px}
+.gr-otp{letter-spacing:.3em;text-align:center;font-family:monospace;font-size:1.25rem;font-weight:700;text-transform:uppercase}
+.gr-login-msg{margin:.5rem 0 0!important;padding:.5rem .7rem;border-radius:10px;background:#fff4e5;color:#8a4b00!important;font-weight:700}
+.gr-login-msg.is-ok{background:#effcef;color:#14532d!important}
+.gr-moto{background:#1a2e22;color:#fff;border-radius:18px;padding:1rem;margin-bottom:1rem}
+.gr-moto h2{font-size:1.1rem;margin:0 0 .4rem;color:#74fb71}
+.gr-moto p{margin:0 0 .8rem;font-size:.9rem;color:#d7e6dd}
+.gr-moto-cta{width:100%;justify-content:center}
+.gr-ok-next{margin:.9rem 0 0;font-size:.92rem;color:#33493b}
+.gr-docs{text-align:left;margin:1rem 0;padding:1rem;border-radius:16px;border:2px solid #37cf63;background:#f6fef6}
+.gr-docs h3{margin:0 0 .35rem;font-size:1.05rem}
+.gr-docs>p{margin:0 0 .7rem;font-size:.88rem;color:#33493b}
+.gr-docs-mode{display:flex;flex-wrap:wrap;gap:.5rem 1rem;margin:0 0 .6rem;font-weight:700;font-size:.9rem}
+.gr-docs-mode label{display:flex;align-items:center;gap:.4rem;cursor:pointer;min-height:36px}
+.gr-docs-mode input{width:20px;height:20px;accent-color:#16a34a;margin:0}
+.gr-slots{display:grid;gap:.5rem;margin-bottom:.6rem}
+@media(min-width:560px){.gr-slots{grid-template-columns:1fr 1fr}}
+.gr-slot{display:grid;gap:.35rem;padding:.7rem .8rem;border-radius:12px;border:1.5px dashed #b8e6b8;background:#fff}
+.gr-slot.is-done{border-style:solid;border-color:#37cf63}
+.gr-slot.is-bad{border-color:#f0b268}
+.gr-slot-t{font-weight:800;font-size:.9rem}
+.gr-slot-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 .9rem;border-radius:10px;background:#1a2e22;color:#74fb71;font-weight:800;font-size:.88rem;cursor:pointer}
+.gr-slot-btn:focus-within{outline:3px solid #74fb71;outline-offset:2px}
+.gr-file{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.gr-slot-s{font-size:.8rem;font-weight:700;color:#15803d;min-height:1em}
+.gr-slot.is-bad .gr-slot-s{color:#b45309}
+.gr-dob{display:grid;gap:.3rem;margin:0 0 .7rem;font-weight:700;font-size:.9rem}
+.gr-dob input{min-height:46px;border:1px solid #cfe5d7;border-radius:12px;padding:.5rem .8rem;font:inherit;background:#fff;max-width:100%;box-sizing:border-box}
+.gr-docs-msg{margin:0 0 .6rem;padding:.55rem .7rem;border-radius:10px;background:#fff4e5;color:#8a4b00;font-weight:700;font-size:.86rem}
+.gr-docs-msg.is-ok{background:#effcef;color:#14532d}
+.gr-docs-send{width:100%;min-height:52px}
+.gr-docs-send[disabled]{opacity:.7;cursor:progress}
+.gr-docs-later{margin:.5rem 0 0;font-size:.8rem;color:#5b7366;text-align:center}
+.gr-ok .gr-go{margin-top:.6rem}
+.gr-ok-sum .gr-vline{color:#a7f3a5}
+.gr-otp::placeholder{letter-spacing:normal;text-transform:none;font-family:inherit;font-size:.95rem;font-weight:400}
+.gr-ok-sum p{flex-wrap:wrap}
+.gr-ok-sum p b{white-space:nowrap}

@@ -26,6 +26,10 @@ import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
 import { duplicateRow } from '../_shared/duplicate-payment.ts'
 import { failureRow } from '../_shared/paid-change-guard.ts'
 import { verifyShopSession, type StripeSessionsLike } from './verify-shop-session.ts'
+// Výpůjčka výbavy (2026-10-23): gear rezervace (booking_kind = 'gear') — název platby, mail po 0 Kč
+// ověření, odmítnutí nepovolených doplatků (gear-checkout.ts, ../webhook-receiver/gear-docs.ts).
+import { bookingKindForEdit, loadIsGear, gearBookingLabel, gearChangeBlock, GEAR_DRY_TXT } from './gear-checkout.ts'
+import { paidMailType } from '../webhook-receiver/gear-docs.ts'
 
 /** Dokončená web session doplatku už zpracovaná (zapsaná / vyhodnocená / vrácená) → další úpravu neblokuje. */
 // deno-lint-ignore no-explicit-any
@@ -155,13 +159,19 @@ Deno.serve(async (req: Request) => {
             const profile = (booking?.profiles ?? null) as { full_name?: string; email?: string } | null
             if (profile?.email) {
               const moto = (booking?.motorcycles ?? null) as { model?: string; manual_url?: string } | null
+              // Výpůjčka výbavy (2026-10-23): web + chybějící doklad totožnosti → potvrzení platby
+              // s výzvou k dokladu (jako webhook, gear-docs.ts). Motorka beze změny: booking_reserved.
+              // Řádek s motorkou = vždy motorka (CHECK bookings_gear_shape) → bez dotazu na booking_kind.
+              const gearMail = !moto && await loadIsGear(supabaseAdmin, bookingId)
+                ? await paidMailType(supabaseAdmin, { id: bookingId }, booking?.booking_source || 'web', 'gear')
+                : 'booking_reserved'
               const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
               const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
               await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
                 body: JSON.stringify({
-                  type: 'booking_reserved',
+                  type: gearMail,
                   booking_id: bookingId,
                   customer_email: profile.email,
                   customer_name: profile.full_name || '',
@@ -471,7 +481,8 @@ Deno.serve(async (req: Request) => {
     const customerId = await getOrCreateStripeCustomer(supabase, req)
 
     const referenceId = paymentType === 'shop' ? order_id! : booking_id!
-    const productName = PRODUCT_NAMES[paymentType]
+    // Výpůjčka výbavy (2026-10-23): popis platby appky „Půjčení výbavy“ místo „Pronájem motorky“ (gear-checkout.ts).
+    const productName = paymentType === 'booking' && await loadIsGear(supabase, booking_id) ? gearBookingLabel('cs') : PRODUCT_NAMES[paymentType]
 
     const metadata: Record<string, string> = {
       type: paymentType,
@@ -575,6 +586,13 @@ Deno.serve(async (req: Request) => {
       // confirm_payment by ji jinak „oživil“). RPC větve to hlídají samy
       // (wrong_status), app formát dosud ne.
       if (!dryErr && cur && ['cancelled', 'completed'].includes(String(cur.status || ''))) dryErr = 'wrong_status'
+      // Výpůjčka výbavy (2026-10-23): doplatek jen za termín naceněný serverem (`p_new_*` →
+      // apply_booking_changes); motorka / výbava motorkové rezervace / app formát → odmítnout (gear-checkout.ts).
+      // Rezervace s motorkou je vždy motorková (bookings_gear_shape) → bez druhého dotazu (bookingKindForEdit).
+      const bkKind = await bookingKindForEdit(supabase, cur, booking_id)
+      if (!dryErr && bkKind === null) dryErr = 'validation_unavailable'
+      const gearBk = bkKind === 'gear'
+      if (!dryErr && gearBk) dryErr = gearChangeBlock(c)
 
       // D1/D6: opakované odeslání TÉHOŽ odpuštěného doplatku (ztracená odpověď) — změna už
       // je zapsaná (značka waive:attempt_id v historii) → stejná úspěšná odpověď, ne chyba.
@@ -789,6 +807,8 @@ Deno.serve(async (req: Request) => {
           const again = await waiverRetryDone()
           if (again) return again
         }
+        // Výpůjčka výbavy (2026-10-23): vlastní text (tykání) pod stabilním kódem change_not_applicable (+ reason).
+        if (gearBk && GEAR_DRY_TXT[dryErr]) return refuse(409, 'change_not_applicable', { reason: dryErr }, GEAR_DRY_TXT[dryErr])
         // D5 (2026-10-16): žádný surový kód v textu — kódy výměny mají vlastní větu,
         // ostatní neznámé → change_not_applicable (+ reason = původní kód).
         if (dryMsgs[dryErr]) return refuse(409, dryErr, {}, dryMsgs[dryErr])

@@ -42,6 +42,9 @@
         ' aria-label="' + esc(lbl) + '"><span class="kc-dn">' + dd + '</span>' + (pr ? '<span class="kc-dp">' + K.short(X.C.cur, pr) + '</span>' : '') + '</button>';
     }
     h += '</div>';
+    // „Zrušit výběr“ pod mřížkou dnů — jen když ho volající zapne (X.clear = text; kalkulačka, půjčení výbavy)
+    // a termín je vybraný; klik řeší volající přes [data-clear] (2026-10-22)
+    if (X.clear && S.start) h += '<div class="kc-cal-foot"><button type="button" class="kc-clear" data-clear>' + K.ico('x') + '<span>' + esc(X.clear) + '</span></button></div>';
     if (S.fail) h += '<div class="kc-cal-wait">' + esc(T.cal_error) + ' <button type="button" class="kc-retry" data-retry>' + esc(T.retry) + '</button></div>';
     else if (wait) h += '<div class="kc-cal-wait"><span class="kc-spin" aria-hidden="true"></span>' + esc(T.cal_loading) + '</div>';
     return h;
@@ -69,9 +72,16 @@
   function cta(X, label, ghost) {
     return '<a class="lp-btn ' + (ghost ? 'lp-btn-ghost' : 'lp-btn-primary') + ' kc-go" href="' + esc(X.href()) + '">' + K.ico('cal') + '<span>' + esc(label) + '</span></a>';
   }
+  // Uklidňující věta: „A · B“ → každá část na vlastním řádku s fajfkou (2026-10-22, w3 §B)
+  function assure(t) {
+    var p = String(t || '').split(/\s+[·•]\s+/).filter(function (x) { return x.trim(); });
+    return p.length ? '<p class="kc-assure' + (p.length > 1 ? ' is-split' : '') + '">' + p.map(function (x) {
+      return '<span class="kc-assure-i">' + K.ico('check') + '<span>' + esc(x.trim()) + '</span></span>';
+    }).join('') + '</p>' : '';
+  }
   function foot(X) {
     var T = X.T;
-    return '<p class="kc-assure">' + K.ico('check') + esc(T.assure) + '</p>' +
+    return assure(T.assure) +
       '<button type="button" class="kc-reset" data-reset>' + K.ico('x') + esc(T.reset) + '</button>' +
       (X.C.cur.code !== 'CZK' ? '<p class="kc-fx">' + esc(tpl(T.fx, { cur: X.C.cur.sym })) + '</p>' : '');
   }

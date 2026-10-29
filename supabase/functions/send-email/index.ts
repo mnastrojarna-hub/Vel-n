@@ -3,6 +3,7 @@ import { encode as base64Encode } from 'https://deno.land/std@0.177.0/encoding/b
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
+import { EMAIL_SLUG_FALLBACKS, logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -235,12 +236,25 @@ serve(async (req) => {
       isMarketing = true
     } else if (template_slug) {
       // Load from email_templates table (vč. překladových cache sloupců)
-      const { data: tpl, error: tplErr } = await supabase
+      const loadTpl = (s: string) => supabase
         .from('email_templates')
         .select('slug, name, subject, body_html, active, subject_translations, body_translations')
-        .eq('slug', template_slug)
+        .eq('slug', s)
         .eq('active', true)
         .maybeSingle()
+      let { data: tpl, error: tplErr } = await loadTpl(template_slug)
+      let usedFallbackTpl = false
+      // Náhradní šablona (2026-10-23): protokol výpůjčky výbavy (handover_protocol_gear_sent)
+      // bez vlastní šablony ve Velínu → obecný handover_protocol_sent, ať mail vždy odejde
+      // (submit-handover-protocol i Velín). Použití náhrady → debug_log email_template_fallback.
+      const fbSlug = Object.hasOwn(EMAIL_SLUG_FALLBACKS, template_slug) ? EMAIL_SLUG_FALLBACKS[template_slug] : ''
+      if ((tplErr || !tpl) && fbSlug) {
+        ({ data: tpl, error: tplErr } = await loadTpl(fbSlug))
+        if (tpl) {
+          usedFallbackTpl = true
+          await logGearTemplateFallback(supabase, 'send-email', { slug: template_slug, used: fbSlug, booking_id: booking_id || null })
+        }
+      }
 
       if (tplErr || !tpl) {
         return jsonResponse({
@@ -254,7 +268,9 @@ serve(async (req) => {
       const renderedBody = renderTemplate(resolved.body || '', template_vars)
       subject = subjectOverride || renderTemplate(resolved.subject || '', template_vars) || `${tpl.name} — MOTO GO 24`
       html = wrapInBrandedLayout(renderedBody, custLang)
-      resolvedSlug = tpl.slug
+      // Náhradní šablona: log (message_log / sent_emails) dál pod VYŽÁDANÝM slugem — protokol výbavy
+      // musí jít ve Velínu odlišit od motorkového (náhrada je vidět v debug_log).
+      resolvedSlug = usedFallbackTpl ? template_slug : tpl.slug
     } else {
       return jsonResponse({ success: false, error: 'Must provide raw_html, raw_body, or template_slug' }, 400)
     }

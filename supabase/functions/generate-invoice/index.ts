@@ -2,6 +2,8 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateInvoiceHtml } from './template.ts'
 import { authClassify, forbidden } from '../_shared/auth.ts'
+// Výpůjčka výbavy (2026-10-23): položky dokladu gear rezervace z bookings.gear_lines (gear-lines.ts).
+import { isGearBooking, gearInvoiceItems, gearDaySource, GEAR_DAY_LABEL, GEAR_SUBJECT } from './gear-lines.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -356,6 +358,7 @@ serve(async (req) => {
     let editLabel = '' // e.g. "ÚPRAVA — +2 dny"
     let paymentMethodLabel = '' // "Bankovní převod" / "Platba kartou Visa **** 4242"
     let stripePaymentId = '' // Stripe payment intent / session id (na doklad místo bank. účtu)
+    let gearOnly = false // Výpůjčka výbavy (2026-10-23): JEN výbava (gear-lines.ts) — text zadržených kódů bez ŘP
 
     if (isShop && order_id) {
       const { data: order, error: oErr } = await supabase
@@ -423,6 +426,9 @@ serve(async (req) => {
       customer = booking.profiles || {}
       customerId = customer.id || booking.user_id
       await loadCustomerCompany(supabase, customer)
+      // Výpůjčka výbavy (2026-10-23): položky z gear_lines, bez motorky a přistavení (gear-lines.ts).
+      const gear = isGearBooking(booking)
+      gearOnly = gear
 
       // Load per-booking extras with proper names (sizes derived from booking columns)
       const { data: bookExtras } = await supabase.from('booking_extras')
@@ -487,8 +493,12 @@ serve(async (req) => {
           }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
 
-        const motoLabel = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
+        // Výpůjčka výbavy (2026-10-23): předmět „výpůjčka výbavy“, denní cena = gear_per_day (rozpis
+        // přidaných / odebraných dnů), popisek dne bez „Pronájem“ (gear-lines.ts).
+        const motoLabel = gear ? GEAR_SUBJECT : `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
         const fmtD = (s: string) => s ? new Date(s).toLocaleDateString('cs-CZ') : '—'
+        const dayPrices = gear ? gearDaySource(booking) : booking.motorcycles
+        const dayLabel = gear ? GEAR_DAY_LABEL : `Pronájem ${motoLabel}`
 
         // Denní rozpis dává smysl jen pro ČERSTVÝ history záznam se změnou termínu
         // (zapsala ho tatáž úprava). Starý/žádný záznam = úprava přišla jinou cestou
@@ -542,13 +552,14 @@ serve(async (req) => {
           let itemized = 0
           let itemsSum = 0
           if (datesChanged) {
-            const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end)
-            const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end)
+            // Výpůjčka výbavy (2026-10-23): dayPrices / dayLabel výše (gear = gear_per_day, motorka beze změny).
+            const ext = calcPriceBreakdown(dayPrices, last.to_start, last.to_end)
+            const orig = calcPriceBreakdown(dayPrices, last.from_start, last.from_end)
             const origIso = new Set((orig.days || []).map((d) => d.iso))
             const newIso = new Set((ext.days || []).map((d) => d.iso))
             for (const ad of (ext.days || []).filter((d) => !origIso.has(d.iso))) {
               if (!(ad.price > 0)) continue
-              items.push({ description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`, qty: 1, unit_price: ad.price })
+              items.push({ description: `${dayLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`, qty: 1, unit_price: ad.price })
               itemized++; itemsSum += ad.price
             }
             for (const rd of (orig.days || []).filter((d) => !newIso.has(d.iso))) {
@@ -582,7 +593,8 @@ serve(async (req) => {
           // Generický doplatek — změna motorky / placená výbava / doplatek z webhooku.
           editLabel = `ÚPRAVA — doplatek`
           items.push({
-            description: `Doplatek za úpravu rezervace ${motoLabel} — ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}`,
+            // Výpůjčka výbavy (2026-10-23): „Doplatek za úpravu výpůjčky výbavy“.
+            description: `${gear ? 'Doplatek za úpravu výpůjčky výbavy' : `Doplatek za úpravu rezervace ${motoLabel}`} — ${fmtD(booking.start_date)} – ${fmtD(booking.end_date)}`,
             qty: 1,
             unit_price: itemDiff,
           })
@@ -608,7 +620,10 @@ serve(async (req) => {
         const motoLabelStd = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
         const bd = calcPriceBreakdown(booking.motorcycles, booking.start_date, booking.end_date)
 
-        if (!bd.uniform && bd.days.length > 1 && bd.total > 0) {
+        if (gear) {
+          // Výpůjčka výbavy (2026-10-23): řádky gear_lines × dny (+ korekce na cenu rezervace), žádná motorka.
+          items.push(...gearInvoiceItems(booking, { startDate, endDate, expectedRental: baseRental }))
+        } else if (!bd.uniform && bd.days.length > 1 && bd.total > 0) {
           // Hlavička + per-day rozpis (každý den ≠ stejná cena → vlastní řádek).
           // `── ... ──` značí section header — template ho vyrenderuje přes colspan.
           items.push({
@@ -652,7 +667,8 @@ serve(async (req) => {
         if (extra_items && Array.isArray(extra_items)) {
           extra_items.forEach((ei: any) => items.push({ description: ei.description || 'Položka', qty: ei.qty || 1, unit_price: ei.unit_price || 0 }))
         }
-        if (booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
+        // Výpůjčka výbavy (2026-10-23): bez přistavení (`!gear`).
+        if (!gear && booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
         // SOS náhrada: bez kauce (rozhodnutí majitele 2026-10-10) — řádek „Záloha na poškození motorky 30 000 Kč“ zrušen.
         // Slevy — KAŽDÝ promo kód i voucher samostatný řádek (z booking_discounts).
         // Fallback: legacy rezervace bez booking_discounts → jeden souhrnný řádek.
@@ -1015,6 +1031,7 @@ serve(async (req) => {
       isPaid: invoice.status === 'paid' || !!invoice.paid_date,
       voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
       paymentMethodLabel, cardInfo, isEdit, lang: invLang, stripePaymentIntentId: stripePaymentId,
+      gearOnly, // Výpůjčka výbavy (2026-10-23): text zadržených kódů bez ŘP (template.ts)
       variableSymbol: String(invoice.variable_symbol || numericVs).replace(/\D/g, '') || numericVs,
       dueNote: (reqDueNote && String(reqDueNote).trim()) ? String(reqDueNote).trim() : null,
     })

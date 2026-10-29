@@ -6,8 +6,11 @@ import Button from '../../components/ui/Button'
 import BookingStep3 from './BookingStep3'
 import { latePickupDiscount } from '../../lib/latePickup'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import GearNewBookingFlow from './GearNewBookingFlow'
 
 const STEP_LABELS = ['Termín', 'Motorka', 'Zákazník & shrnutí']
+// „Jen výbava“ = výpůjčka výbavy bez motorky (booking_kind 'gear', GearNewBookingFlow → admin_create_gear_booking)
+const GEAR_STEP_LABELS = ['Termín', 'Výbava', 'Zákazník & shrnutí']
 const DAY_NAMES = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTH_NAMES = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -29,6 +32,9 @@ function inRange(d, from, to) { return d >= from && d <= to }
 
 export default function NewBookingModal({ onClose, onSaved }) {
   const [step, setStep] = useState(1)
+  const [mode, setMode] = useState('moto')   // 'moto' | 'gear' (Jen výbava)
+  const gearMode = mode === 'gear'
+  const stepLabels = gearMode ? GEAR_STEP_LABELS : STEP_LABELS
   const [err, setErr] = useState(null)
   const [saving, setSaving] = useState(false)
   const isMobile = useIsMobile() // < 1024 px: chyba vytvoření u tlačítka (BookingStep3), seznam motorek bez vnitřního scrollu
@@ -59,7 +65,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
 
   // Load motorcycles, prices, branches, customers on mount
   useEffect(() => {
-    supabase.from('profiles').select('id, full_name, email, phone').order('full_name').then(({ data }) => setCustomers(data || []))
+    supabase.from('profiles').select('id, full_name, email, phone, language').order('full_name').then(({ data }) => setCustomers(data || []))
     supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
 
     async function loadMotos() {
@@ -188,8 +194,9 @@ export default function NewBookingModal({ onClose, onSaved }) {
     setSaving(true)
     try {
       if (selectedMoto.license_required !== 'N') {
-        const { data: overlapping } = await supabase.from('bookings').select('id, start_date, end_date, motorcycles!moto_id(model, license_required)').eq('user_id', selectedCustomer.id).in('status', ['pending', 'reserved', 'active']).lte('start_date', isoDate(endDate)).gte('end_date', isoDate(startDate))
-        const nonKids = (overlapping || []).filter(b => b.motorcycles?.license_required !== 'N')
+        // `*` kvůli booking_kind: výpůjčka jen výbavy se s motorkou téhož zákazníka smí překrývat (DESIGN §1.9)
+        const { data: overlapping } = await supabase.from('bookings').select('*, motorcycles!moto_id(model, license_required)').eq('user_id', selectedCustomer.id).in('status', ['pending', 'reserved', 'active']).lte('start_date', isoDate(endDate)).gte('end_date', isoDate(startDate))
+        const nonKids = (overlapping || []).filter(b => b.booking_kind !== 'gear' && b.motorcycles?.license_required !== 'N')
         if (nonKids.length > 0) throw new Error(`Zákazník má překrývající se rezervaci: ${nonKids[0].motorcycles?.model || ''} (${nonKids[0].start_date} – ${nonKids[0].end_date})`)
       }
       // Sleva 50 % na 1. den (vyzvednutí >= 12:00, 2+ dní) — parita s webem/appkou;
@@ -208,13 +215,13 @@ export default function NewBookingModal({ onClose, onSaved }) {
     <Modal open title="Nová rezervace" onClose={onClose} wide>
       {/* kroky — na úzkém displeji se zalomí (jinak přetékaly mimo modal) */}
       <div ref={stepsRef} className="flex items-center gap-2 mb-5 max-lg:flex-wrap max-lg:gap-y-2">
-        {STEP_LABELS.map((label, i) => (
+        {stepLabels.map((label, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="flex items-center gap-1 cursor-pointer" onClick={() => { if (i + 1 < step) setStep(i + 1) }}>
               <div className="text-sm font-extrabold rounded-full flex items-center justify-center" style={{ width: 22, height: 22, background: step > i + 1 ? '#74FB71' : step === i + 1 ? '#0f1a14' : '#e5e7eb', color: step === i + 1 ? '#fff' : step > i + 1 ? '#0f1a14' : '#9ca3af' }}>{step > i + 1 ? '✓' : i + 1}</div>
               <span className="text-sm font-bold uppercase tracking-wide whitespace-nowrap" style={{ color: step === i + 1 ? '#0f1a14' : '#1a2e22' }}>{label}</span>
             </div>
-            {i < STEP_LABELS.length - 1 && <div className="max-sm:!w-3" style={{ width: 24, height: 1, background: '#d4e8e0' }} />}
+            {i < stepLabels.length - 1 && <div className="max-sm:!w-3" style={{ width: 24, height: 1, background: '#d4e8e0' }} />}
           </div>
         ))}
       </div>
@@ -239,6 +246,21 @@ export default function NewBookingModal({ onClose, onSaved }) {
       )}
 
       {step === 2 && (
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {[['moto', 'Motorka'], ['gear', 'Jen výbava']].map(([m, l]) => (
+            <button key={m} onClick={() => { setMode(m); setErr(null) }}
+              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer max-lg:min-h-[40px]"
+              style={{ padding: '6px 14px', border: '1px solid #d4e8e0', background: mode === m ? '#74FB71' : '#f1faf7', color: '#1a2e22' }}>{l}</button>
+          ))}
+          {gearMode && <span className="text-sm" style={{ color: '#4a6357' }}>Výpůjčka výbavy bez motorky — doklady jen OP/pas + 18 let.</span>}
+        </div>
+      )}
+
+      {gearMode && step >= 2 && (
+        <GearNewBookingFlow step={step} setStep={setStep} startDate={startDate} endDate={endDate} isoDate={isoDate} customers={customers} onSaved={onSaved} />
+      )}
+
+      {!gearMode && step === 2 && (
         <div>
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <p className="text-sm font-bold" style={{ color: '#1a2e22' }}>Volné motorky pro {fmtDate(startDate)} – {fmtDate(endDate)} ({days} dní)</p>
@@ -308,7 +330,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
         </div>
       )}
 
-      {step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} firstDayPrice={selectedMoto ? firstDayPrice(selectedMoto.id) : 0} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} err={isMobile ? err : null} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
+      {!gearMode && step === 3 && <BookingStep3 selectedMoto={selectedMoto} startDate={startDate} endDate={endDate} days={days} totalPrice={totalPrice} firstDayPrice={selectedMoto ? firstDayPrice(selectedMoto.id) : 0} customers={customers} onBack={() => setStep(2)} onCreate={handleCreate} err={isMobile ? err : null} saving={saving} noPayment={noPayment} setNoPayment={setNoPayment} />}
     </Modal>
   )
 }

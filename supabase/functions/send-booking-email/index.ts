@@ -6,6 +6,9 @@ import { GATE_MAIL_TYPES, loadBranchGate, loadNeedsLocker, renderGateProcedureBl
 import { isTrustedCaller } from '../_shared/auth.ts'
 import { googleOnlyReviewLinks, googleReviewBlock, loadGoogleReviewUrl } from '../_shared/review-links.ts'
 import { loadGearRentalVars, renderGearRentalEmail } from './gear-rental.ts'
+import { gearFallbackRender, prepareGearMail, type GearMail } from './gear-booking.ts'
+import { GEAR_DEFAULT_ATTACHMENTS } from '../_shared/email-gear.ts'
+import { logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
@@ -323,7 +326,7 @@ type SentAttachment = { content: string; filename: string; storage_path?: string
 /** Smlouva / VOP k rezervaci přes generate-document v jazyce zákazníka. generate-document použije
  *  jen ČERSTVÝ překlad, jinak závazný český text s upozorněním (audit EDGE-DOC-01/08). 2 pokusy;
  *  selhání → debug_log `doc_attachment_failed` (dřív tiché catch {} — mail odešel bez smlouvy/VOP). */
-async function generateDocAttachment(supabase: any, slug: 'rental_contract' | 'vop', booking_id: string, lang: string, fileBase: string): Promise<SentAttachment | null> {
+async function generateDocAttachment(supabase: any, slug: 'rental_contract' | 'gear_rental_contract' | 'vop', booking_id: string, lang: string, fileBase: string): Promise<SentAttachment | null> {
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
   let lastErr = ''
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -354,10 +357,14 @@ async function autoGenerateAttachments(
   type: string,
   booking_id: string,
   supabase: any,
-  opts: { priceDifference?: number; orderId?: string; lang?: string } = {}
+  opts: { priceDifference?: number; orderId?: string; lang?: string; gear?: boolean } = {}
 ): Promise<SentAttachment[]> {
   // i18n — jazyk zákazníka pro přeložené dokumenty (smlouva, VOP). Default cs.
   const docLang = opts.lang || 'cs'
+  // Výpůjčka JEN výbavy: „Smlouva“ = smlouva o nájmu výbavy (document_templates gear_rental_contract).
+  const contract = opts.gear
+    ? { slug: 'gear_rental_contract' as const, file: 'Smlouva-najem-vybavy' }
+    : { slug: 'rental_contract' as const, file: 'Najemni-smlouva' }
   const atts: SentAttachment[] = []
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
 
@@ -435,7 +442,7 @@ async function autoGenerateAttachments(
   // rental_contract / vop / credit_note se generují přes generate-document
   // (smlouva, VOP) nebo fetchují z invoices (dobropis).
   if (type === 'rental_contract' && booking_id) {
-    const att = await generateDocAttachment(supabase, 'rental_contract', booking_id, docLang, 'Najemni-smlouva')
+    const att = await generateDocAttachment(supabase, contract.slug, booking_id, docLang, contract.file)
     if (att) atts.push(att)
     return atts
   }
@@ -729,7 +736,7 @@ async function autoGenerateAttachments(
     // priceDifference === 0 → žádná nová faktura, jen aktualizovaná smlouva/VOP níže
 
     // 3. Updated rental contract + 4. VOP (jazyk zákazníka; čerstvý překlad, jinak závazná čeština)
-    const cAtt = await generateDocAttachment(supabase, 'rental_contract', booking_id, docLang, 'Najemni-smlouva')
+    const cAtt = await generateDocAttachment(supabase, contract.slug, booking_id, docLang, contract.file)
     if (cAtt) atts.push(cAtt)
     const vAtt = await generateDocAttachment(supabase, 'vop', booking_id, docLang, 'VOP')
     if (vAtt) atts.push(vAtt)
@@ -989,6 +996,14 @@ serve(async (req) => {
       } catch { /* ignore — e-shop text */ }
     }
 
+    // Výpůjčka JEN výbavy jako rezervace (bookings.booking_kind='gear', 2026-10-23, gear-booking.ts):
+    // šablona gear_<typ>, proměnné výbavy v jazyce zákazníka, kódy jen šatna (+ brána). Slug logu
+    // zůstává dle `type`. Motorková rezervace → null → vše níže beze změny.
+    const gearMail: GearMail | null = booking_id
+      ? await prepareGearMail(supabase, { bookingId: booking_id, renderType, site: siteForLang(custLang), customerName: customer_name, payload: body, doorCodeRows })
+      : null
+    if (gearMail) { renderType = gearMail.renderType; Object.assign(vars, gearMail.varsFor(custLang)) }
+
     // \u2500\u2500 door_codes_block: released codes \u27c2 "chyb\u00ed doklady" CTA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
     // \u0160ablony booking_reserved/door_codes/booking_completed maj\u00ed placeholder
     // `${v.door_codes_block || ''}`. Kdy\u017e rezervace m\u00e1 uvoln\u011bn\u00e9 k\u00f3dy, vykresl\u00ed
@@ -1004,13 +1019,14 @@ serve(async (req) => {
     let gateBlockFor: ((l: Lang) => string) | null = null
     // Jen potvrzení / kódy / úprava (vč. prodloužení renderovaného jako booking_modified) —
     // u ostatních typů (doklad o platbě, dokončení, storno…) se na bránu neptáme.
-    if (booking_id && (GATE_MAIL_TYPES.has(type) || GATE_MAIL_TYPES.has(renderType))) {
+    if (booking_id && !gearMail && (GATE_MAIL_TYPES.has(type) || GATE_MAIL_TYPES.has(renderType))) {
       gate = await loadBranchGate(supabase, booking_id)
     }
     const gateProc = (g: BranchGate, released: boolean, hasGear: boolean) =>
       (l: Lang) => renderGateProcedureBlock(l, { gate: g, released, hasGear, site: siteForLang(l) })
 
-    if (doorCodeRows.length) {
+    // Výpůjčka výbavy: blok kódů složil gear-booking.ts (jen šatna + brána, bez výzvy k ŘP).
+    if (doorCodeRows.length && !gearMail) {
       const released = doorCodeRows.filter(c => c.sent_to_customer === true && !c.withheld_reason)
       const moto = released.find(c => c.code_type === 'motorcycle')?.door_code || ''
       const gear = released.find(c => c.code_type === 'accessories')?.door_code || ''
@@ -1035,7 +1051,7 @@ serve(async (req) => {
         }
       }
     }
-    if (!vars.door_codes_block && booking_id && (type === 'booking_reserved' || type === 'door_codes')) {
+    if (!vars.door_codes_block && booking_id && !gearMail && (type === 'booking_reserved' || type === 'door_codes')) {
       // K\u00f3dy nejsou uvoln\u011bn\u00e9 \u2192 ov\u011b\u0159, \u017ee rezervace skute\u010dn\u011b pot\u0159ebuje doklady.
       // 1) Kdy\u017e jsou k bookingu \u0159\u00e1dky v branch_door_codes s withheld_reason \u2192 doklady chyb\u00ed.
       // 2) Jinak ov\u011b\u0159 p\u0159es RPC check_booking_docs_status (NULL = doklady OK, jinak d\u016fvod).
@@ -1086,7 +1102,7 @@ serve(async (req) => {
     if (gate && vars.door_codes_block) vars.gate_codes_block = vars.door_codes_block
     // Předmět se renderuje BEZ bloků s kódem brány (pojistka pro DB šablony).
     const subjectVars = (v: Record<string, string>) =>
-      gate ? { ...v, door_codes_block: '', gate_codes_block: '' } : v
+      gearMail ? gearMail.subjectVars(v) : gate ? { ...v, door_codes_block: '', gate_codes_block: '' } : v
 
     // i18n: {{site_url}} placeholder → doména zákazníka (.cz pro cs, .com jinak).
     // Vars se sestavily před detekcí jazyka, takže přepíšeme až teď.
@@ -1155,7 +1171,8 @@ serve(async (req) => {
     // původní (web_)booking_reserved konfigurací z Velína — chování příloh
     // potvrzovacího mailu se nesmí změnit (Smlouva/VOP/ZF/DP dle adminem
     // nastavené reserved šablony, žádné rozdílové doklady navíc).
-    if (renderType !== type) {
+    // Výpůjčka výbavy: přílohy z VLASTNÍ gear šablony (DESIGN-GEAR §3.3), ne z motorkové.
+    if (renderType !== type && !gearMail) {
       dbAttachmentsList = []
       for (const trySlug of (source === 'web' ? [slug, type] : [type])) {
         const { data: tplAtt } = await supabase
@@ -1169,6 +1186,17 @@ serve(async (req) => {
           break
         }
       }
+    }
+
+    // Výpůjčka výbavy bez gear šablony ve Velínu: minimální CZ/EN gear text (NIKDY motorkový
+    // text/šablona) + výchozí přílohy seedu + debug_log email_template_fallback.
+    if (!templateHtml && gearMail) {
+      const fb = gearFallbackRender(gearMail, custLang, vars)
+      Object.assign(vars, fb.vars) // text proměnných = jazyk fallback textu (cs/en)
+      subject = fb.subject
+      templateHtml = fb.body
+      dbAttachmentsList = [...(GEAR_DEFAULT_ATTACHMENTS[renderType] || [])]
+      await logGearTemplateFallback(supabase, 'send-booking-email', { slug: renderType, type, source, booking_id, language: custLang })
     }
 
     // i18n hardcoded p\u0159eklady (priorita 2 \u2014 kdy\u017e DB \u0161ablona chyb\u00ed)
@@ -1385,8 +1413,11 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
     // Pobočka s bránou: totéž pro booking_reserved / door_codes / booking_modified,
     // když (i Velínem upravená DB) šablona blok nemá — kódy brána → šatna →
     // motorka + postup musí dojít (např. změna motorky Mezná → Velké Němčice).
-    const gateAppend = !!gate && GATE_MAIL_TYPES.has(type)
-    if ((renderType !== type || gateAppend) && vars.door_codes_block && !templateHtml.includes(vars.door_codes_block)) {
+    // Výpůjčka výbavy: totéž pro kódy šatny (+ brány) — jen potvrzení / kódy / úprava, ne u
+    // ostatních typů (renderType ≠ type je u gear vždy, ne jen u prodloužení).
+    const gateAppend = (!!gate || !!gearMail) && GATE_MAIL_TYPES.has(type)
+    const appendCodes = gearMail ? gateAppend : (renderType !== type || gateAppend)
+    if (appendCodes && vars.door_codes_block && !templateHtml.includes(vars.door_codes_block)) {
       templateHtml += vars.door_codes_block
     }
 
@@ -1405,7 +1436,10 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       let csSubject = ''
       // Pobočka s bránou: blok kódů + postup i v admin kopii česky (jinak vars beze změny).
       const csGateBlock = gateBlockFor ? gateBlockFor('cs') : ''
-      const varsCs: Record<string, string> = csGateBlock
+      // Výpůjčka výbavy: VŠECHNY gear proměnné (výbava, termín, kódy, změny) znovu česky.
+      const varsCs: Record<string, string> = gearMail
+        ? { ...vars, ...gearMail.varsFor('cs') }
+        : csGateBlock
         ? { ...vars, door_codes_block: csGateBlock, gate_codes_block: csGateBlock }
         : vars
       // Zkusit DB CZ
@@ -1424,7 +1458,8 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         }
       }
       if (!csTemplateHtml) {
-        const i18nCs = renderType === 'gear_rental_confirmed' ? renderGearRentalEmail('cs', varsCs) : renderEmail(renderType, 'cs', varsCs)
+        const i18nCs = gearMail ? gearFallbackRender(gearMail, 'cs', varsCs)
+          : renderType === 'gear_rental_confirmed' ? renderGearRentalEmail('cs', varsCs) : renderEmail(renderType, 'cs', varsCs)
         if (i18nCs) { csSubject = i18nCs.subject; csTemplateHtml = i18nCs.body }
       }
       if (!csSubject) {
@@ -1488,6 +1523,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           priceDifference: Number(price_difference || 0),
           orderId: order_id || undefined,
           lang: custLang,
+          gear: !!gearMail,
         })
         for (const a of autoAtts) addAttachmentUnique(a)
       } catch { /* ignore */ }
@@ -1532,6 +1568,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
             priceDifference: Number(price_difference || 0),
             orderId: order_id || undefined,
             lang: custLang,
+            gear: !!gearMail,
           })
           for (const a of synth) addAttachmentUnique(a)
         } catch { /* ignore */ }

@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/static/style-overlays.css">
   <link rel="stylesheet" href="/static/style-handover.css">
   <link rel="stylesheet" href="/static/style-odometer.css">
+  <link rel="stylesheet" href="/static/style-gear.css">
 </head>
 <body>
 <div id="app">
@@ -42,7 +43,7 @@
         <div class="hint"><span class="hint-ico" aria-hidden="true">📱</span>
           <span data-i18n="hint1">Kód najdete v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.</span></div>
         <div class="hint"><span class="hint-ico" aria-hidden="true">🔑</span>
-          <span data-i18n="hint2">Berete si oblečení? Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód motorky.</span></div>
+          <span data-i18n="hint2">Berete si oblečení? Nejdřív kód šatny, pak kód motorky (bez motorky stačí kód šatny). Vlastní výbava? Rovnou kód motorky.</span></div>
       </div>
       <!-- Pruh zámku přejímky (NEmodální, 2026-09-28): jiná rezervace právě zavřela šatnu a ještě nezadala kód motorky —
            ze snapshotu st.handover.lock (app.js renderWardrobe); klávesnice zůstává aktivní (servisní hesla, vlastní kódy) -->
@@ -131,6 +132,26 @@
         <button id="ho-confirm" class="ho-btn ho-btn-primary" type="button" data-i18n="ho.confirm" disabled>Potvrdit a podepsat</button>
       </div>
       <div id="ho-saving" class="ho-saving" hidden><div class="spinner"></div><span data-i18n="ho.saving">Ukládám protokol…</span></div>
+    </div>
+  </div>
+
+  <!-- Vrácení výbavy bez motorky (1.3.0, CONTRACT §33): po zavření šatny PODEPSANÉ výpůjčky výbavy — „Vracíš všechnu
+       výbavu?“ Ano / Ne (bez odpovědi zmizí = Ne); řídí snapshot st.handover.gear.return (handover-gear.js), z-index 44
+       (nad #wardrobe 42, pod #handover 45). Nejde zavřít dotykem mimo tlačítka; lišta jazyků uvnitř. -->
+  <div id="gear-return" class="overlay" hidden>
+    <div class="gr-card">
+      <nav id="gr-lang" class="lang-bar wd-lang" aria-label="Jazyk / Language"></nav>
+      <div class="gr-head"><span class="wd-ico gr-ico" aria-hidden="true">🧥</span>
+        <div class="gr-head-txt"><div class="gr-title" data-i18n="gr.title">Vracíš všechnu výbavu?</div><div id="gr-who" class="gr-who"></div></div></div>
+      <div class="gr-actions">
+        <button id="gr-yes" class="gr-btn gr-yes" type="button"><span class="gr-btn-t" data-i18n="gr.yes">Ano, vracím všechno</span>
+          <span id="gr-yes-sub" class="gr-btn-s"></span></button>
+        <button id="gr-no" class="gr-btn gr-no" type="button"><span class="gr-btn-t" data-i18n="gr.no">Ne, ještě ne</span>
+          <span class="gr-btn-s" data-i18n="gr.noSub">Výbavu si zatím nechávám — výpůjčka pokračuje.</span></button>
+      </div>
+      <div id="gr-msg" class="ho-msg gr-msg" aria-live="polite" hidden></div>
+      <div id="gr-timer" class="ho-timer gr-timer"></div>
+      <div id="gr-saving" class="ho-saving" hidden><div class="spinner"></div></div>
     </div>
   </div>
 
@@ -280,11 +301,14 @@
 <script src="/static/i18n-odometer.js"></script>
 <script src="/static/i18n-pickup.js"></script>
 <script src="/static/i18n-codes.js"></script>
+<script src="/static/i18n-gear.js"></script>
+<script src="/static/i18n-gear-return.js"></script>
 <script src="/static/keyboard.js"></script>
 <script src="/static/signature.js"></script>
 <script src="/static/panel.js"></script>
 <script src="/static/diag.js"></script>
 <script src="/static/shell.js"></script>
+<script src="/static/handover-gear.js"></script>
 <script src="/static/handover.js"></script>
 <script src="/static/odometer.js"></script>
 <script src="/static/app.js"></script>

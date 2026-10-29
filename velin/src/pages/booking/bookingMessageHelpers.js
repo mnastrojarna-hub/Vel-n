@@ -1,9 +1,18 @@
 import { supabase } from '../../lib/supabase'
+import { isGearBooking } from '../../lib/bookingKind'
+import { gearStatusMessage } from './gearMessages'
 
 export const MSG_TEMPLATES = {
   reserved: (b) => `Vaše rezervace motorky ${b.motorcycles?.model || ''} (${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}) byla potvrzena. Smlouvu a fakturu najdete v sekci Dokumenty.`,
   active: (b) => `Motorka ${b.motorcycles?.model || ''} byla vydána. Přejeme příjemnou jízdu! V případě problému nás kontaktujte nebo použijte SOS tlačítko.`,
   completed: (b) => `Vaše jízda na ${b.motorcycles?.model || ''} byla dokončena. Děkujeme a těšíme se na příště! Konečnou fakturu najdete v sekci Dokumenty.`,
+}
+
+// Výpůjčka JEN výbavy (booking_kind 'gear') — texty v jazyce zákazníka (8 jazyků) v gearMessages.js
+export const GEAR_MSG_TEMPLATES = {
+  reserved: (b) => gearStatusMessage('reserved', b),
+  active: (b) => gearStatusMessage('active', b),
+  completed: (b) => gearStatusMessage('completed', b),
 }
 
 // Rozbalí skutečnou chybu z edge funkce — supabase.functions.invoke vrací jen
@@ -24,7 +33,7 @@ export async function logAudit(action, details) {
 }
 
 export async function sendBookingMessage(status, bk) {
-  const template = MSG_TEMPLATES[status]
+  const template = (isGearBooking(bk) ? GEAR_MSG_TEMPLATES : MSG_TEMPLATES)[status]
   if (!template || !bk.user_id) return
   try {
     let { data: thread } = await supabase.from('message_threads').select('id').eq('customer_id', bk.user_id).limit(1).single()

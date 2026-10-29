@@ -468,7 +468,7 @@ return [
             'outro' => [
                 'title' => 'Fair terms, no hidden surprises',
                 'body1' => 'At MotoGo24 we\'ve built our price list from day one to be <strong>as transparent as possible</strong>. What\'s included in the rental price really is included – no extra charges for rider gear, for pick-up outside normal opening hours, for paperwork or for basic insurance. If you need anything extra (delivery of the bike, additional gear, a longer booking), we always tell you the price up front.',
-                'body2' => 'We dropped the usual "CZK 5,000 deposit payable before pick-up" model right from the start – <strong>you don\'t pay any deposit with us</strong>. Instead, we rely on trust, solid contracts and the fact that our bikes are fully insured. And if something does happen, our SOS line is available 24/7 and we\'ll arrange a replacement bike within 24 hours, so your holiday or trip doesn\'t fall through.',
+                'body2' => 'We dropped the usual deposit payable before pick-up right from the start – <strong>you don\'t pay any deposit with us</strong>. Instead, we rely on trust, solid contracts and the fact that our bikes are fully insured. And if something does happen, our SOS line is available 24/7 and we\'ll arrange a replacement bike within 24 hours, so your holiday or trip doesn\'t fall through.',
             ],
         ],
         'jak_pujcit_dokumenty' => [

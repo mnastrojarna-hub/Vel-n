@@ -4,6 +4,8 @@
 import DocsPillsTouch from './DocsPillsTouch'
 import { bookingBranchId } from './BranchChips'
 import { bookingDaysInfo, DaysDelta, SourceTags, PaymentPill, StatusTags } from './bookingsListParts'
+import { GearItemCell } from './GearBookingParts'
+import { isGearBooking, bookingNeedsLicense } from '../../lib/bookingKind'
 
 const FS = 'text-[11px]'
 const lbl = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.03em', color: '#4a6357' }
@@ -59,7 +61,7 @@ export default function BookingsListMobile({ bookings, navigate, fmtDateRange, d
                     {b.customer_name || b.profiles?.full_name || '—'}<SourceTags b={b} install={appInstalls[b.user_id]} fs={FS} />
                   </div>
                   <div className="text-sm" style={{ color: '#1a2e22' }}>
-                    {b.motorcycles?.model || '—'} <span className="font-mono">{b.motorcycles?.spz}</span>
+                    {isGearBooking(b) ? <GearItemCell b={b} fs={FS} /> : <>{b.motorcycles?.model || '—'} <span className="font-mono">{b.motorcycles?.spz}</span></>}
                   </div>
                 </div>
                 <div className="shrink-0 text-right font-extrabold" style={{ fontSize: 15, color: '#0f1a14' }}>{amount}</div>
@@ -80,7 +82,7 @@ export default function BookingsListMobile({ bookings, navigate, fmtDateRange, d
                 {/* doklady: 11 px a co chybí přímo v pilulce (title na dotyku nejde přečíst) */}
                 <span className="inline-flex items-center gap-1.5 min-w-0"><span style={lbl}>Doklady</span>
                   <DocsPillsTouch profile={b.profiles} scan={scanStatus[b.user_id]}
-                    requireLicense={String(b.motorcycles?.license_required || '').toUpperCase() !== 'N'} />
+                    requireLicense={bookingNeedsLicense(b)} />
                 </span>
               </div>
 

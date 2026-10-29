@@ -143,8 +143,8 @@ limitem pokusů), stav health `/var/lib/motogo/health.json`.
 dotykové displeje (žádné pevné 1920×1080; ověřeno 1920×1080, 2560×1080, 1920×720, 3840×1080, 1280×400) a **světlý
 design MotoGo24** (barvy webu/appky, logo `ui/logo-light.svg`). Hlavička: logo, lišta 8 jazyků (vždy viditelná, návrat
 do češtiny po nečinnosti), **název pobočky** a tečka online. Tělo ve třech sloupcích: výzva + vysvětlivky („Kód najdete
-v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / od 2026-09-25 „Berete si oblečení?
-Zadejte nejdřív kód šatny, potom kód motorky. Máte vlastní výbavu? Zadejte rovnou kód motorky.“) + pole kódu (**zadávané znaky
+v aplikaci MotoGo24 — v detailu rezervace a ve zprávách — nebo v potvrzovacím e‑mailu.“ / od 2026-10-23 (1.3.0, výpůjčka výbavy) „Berete si oblečení?
+Nejdřív kód šatny, pak kód motorky (bez motorky stačí kód šatny). Vlastní výbava? Rovnou kód motorky.“) + pole kódu (**zadávané znaky
 jsou viditelné** — žádné maskování tečkami, rozhodnutí 2026-09-11; platí pro kód rezervace, servisní heslo i diagnostický kód)
 | klávesnice (numerická / „ABC“ pro servisní hesla, velikost kláves podle místa, vždy ≥ 48 px, nic se nepřekrývá). Dlaždice zón
 na zákaznické obrazovce NEJSOU (odstraněny 2026-09-26 — zákazníka rušily; stav zón = servisní panel a Velín). **Vedený tok (2026-09-25):** dokud jsou dveře šatny otevřené, svítí přes celý displej modální hláška
@@ -186,6 +186,13 @@ je jen zaparkování. Kód motorky pak platí ještě 15 min po zavření kóje,
 `return_gate.py` (záznam zavření v kv `return_gate`, 3 dny): doběhlý kód = hláška „Tento kód už neplatí…“ bez lockoutu,
 ACCESS_DENIED `reason: returned`. Zapomenutá věc po doběhu: obsluha ve Velíně vydá **krátkodobý kód** (6 číslic, 15–120 min,
 online i offline) — otevře jen zvolené dveře, bez km, protokolu, výzvy šatny a zámku přejímky.
+**Výpůjčka výbavy bez motorky (1.3.0, CONTRACT §33):** rezervace jen výbavy má na pobočce jen kód šatny (+ kód brány). Po zavření
+šatny protokol bez motorky (objednané položky, velikosti z ceníku výpůjčky, podpis, pole „Kód šatny“ — identita = kód šatny téže
+rezervace), kóje se neotvírá a zámek přejímky končí podpisem. Při další návštěvě (nový kód šatny) podepsané výpůjčky, jejíž šatna
+už byla zavřena (záznam jednotky / server), se displej po zavření zeptá „Vracíš všechnu výbavu?“ (Ano / Ne, 60 s; podpis ve Velíně
+před převzetím = převzetí, ne vrácení): Ano → událost `GEAR_RETURN_CONFIRMED`, server rezervaci dokončí a kód šatny doběhne
+15 min po zavření (offline hlídá `return_gate`); modální hláška šatny při vrácení říká „vrať výbavu a zavři dveře“. Soubory
+`handover_gear.py`, `ui/handover-gear.js`, `ui/i18n-gear.js`, `ui/i18n-gear-return.js`, `ui/style-gear.css`.
 
 ## Co se nastavuje kde (Velín vs. Raspberry)
 

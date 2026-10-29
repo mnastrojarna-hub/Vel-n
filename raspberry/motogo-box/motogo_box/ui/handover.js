@@ -2,7 +2,8 @@
    Zdroj pravdy = snapshot `st.handover.active` (jednotka: HandoverManager) — UI ho jen zobrazuje a posílá
    /api/protocol/submit | dismiss | touch. Odpočet výhradně z `active.expires_at`. Výsledek, který snapshot nenese
    (kóje otevřená po vzdáleném podpisu s then_open, timeout vlastního submitu), se odvozuje ze stavu zón (S.wait).
-   Vanilla JS, bez závislostí; závisí na MG.i18n (+ i18n-handover.js), MG.Keyboard (mode 'pin') a MG.Signature. */
+   Vanilla JS, bez závislostí; závisí na MG.i18n (+ i18n-handover.js), MG.Keyboard (mode 'pin') a MG.Signature.
+   Výpůjčka výbavy bez motorky (1.3.0, §33, `active.gear_only`) + dotaz na vrácení výbavy → MG.HandoverGear (handover-gear.js). */
 'use strict';
 window.MG = window.MG || {};
 
@@ -40,6 +41,9 @@ MG.Handover = (function () {
   const GEAR_KEYS = ['helmet', 'jacket', 'pants', 'boots', 'gloves'];
   const gearOf = (a) => (Array.isArray(a && a.data && a.data.gear) ? a.data.gear : []);
   const gid = (g) => g.field || ((g.who || 'rider') + ':' + g.key);
+  const HG = () => MG.HandoverGear;      // výbava bez motorky (§33) — handover-gear.js
+  const PICK_KEYS = ['ho.pickTaken', 'hg.pickOne'];
+  const pickKey = (a) => HG().key(a, 'ho.pickTaken', 'hg.pickOne');
   /** Výbava NAVÍC (2026-10-05, zadání majitele: „co si vezme navíc, musí být v protokolu“): zákazník s přístupem do šatny
       (protokol po zavření šatny = `kind`/`kind_origin` accessories, nárok na šatnu `needs_locker` — i když šatnu přeskočil
       kódem motorky —, nebo rezervace s objednanou výbavou) vidí VŠECHNY druhy výbavy —
@@ -49,6 +53,7 @@ MG.Handover = (function () {
   const lockerUsed = (a) => !!(a && (a.kind === 'accessories' || a.kind_origin === 'accessories'));
   const showAll = (a) => gearOf(a).length > 0 || lockerUsed(a) || !!(a && a.needs_locker === true);
   function rowsOf(a) {
+    if (HG().isGear(a)) return HG().rows(a);     // výbava bez motorky: jen objednané položky, bez výbavy navíc
     if (!showAll(a) && !S.allSeen) return [];   // jednou nabídnutá výbava navíc nezmizí (Velín mezitím změnil nárok)
     const gear = gearOf(a), out = [];
     (a.is_child ? ['rider'] : ['rider', 'passenger']).forEach((who) => GEAR_KEYS.forEach((key) => {
@@ -100,7 +105,7 @@ MG.Handover = (function () {
   function renderMeta(a) {
     const d = a.data || {};
     setText($('ho-customer'), d.customer_name || '—');
-    setText($('ho-moto'), [d.moto_model, d.moto_spz].filter(Boolean).join(' · ') || '—');
+    setText($('ho-moto'), HG().isGear(a) ? MG.i18n.t('hg.subjectVal') : ([d.moto_model, d.moto_spz].filter(Boolean).join(' · ') || '—'));
     const from = fmtDate(d.start_date), to = fmtDate(d.end_date);
     setText($('ho-period'), from && to && from !== to ? from + ' – ' + to : (from || to || '—'));
   }
@@ -128,7 +133,7 @@ MG.Handover = (function () {
     ['rider', 'passenger'].forEach((who) => {
       const rows = all.filter((g) => (g.who || 'rider') === who);
       if (!rows.length) return;
-      const h = document.createElement('div'); h.className = 'ho-group'; h.textContent = MG.i18n.t('ho.' + who); box.appendChild(h);
+      if (!HG().isGear(a)) { const h = document.createElement('div'); h.className = 'ho-group'; h.textContent = MG.i18n.t('ho.' + who); box.appendChild(h); }
       rows.forEach((g) => {
         const id = gid(g), taken = isTaken(g);
         const row = document.createElement('div');
@@ -143,7 +148,7 @@ MG.Handover = (function () {
         if (!sizes.length) { const s = document.createElement('span'); s.className = 'ho-size-na'; s.textContent = '—'; chips.appendChild(s); }
         sizes.forEach((sz) => chips.appendChild(chip(sz, taken && sz === cur, () => {
           S.picks[id] = sz; S.taken[id] = true; touch(); renderGear(a);
-          if (S.msg && S.msg.key === 'ho.pickTaken') setMsg(null);
+          if (S.msg && PICK_KEYS.indexOf(S.msg.key) !== -1) setMsg(null);
         })));
         if (g.booked || taken) {      // položka navíc: ✕ jen pro vrácení volby (nevybraná = nepřevzato)
           const skip = chip('✕ ' + MG.i18n.t('ho.notTaking'), g.booked && !taken, () => { S.taken[id] = g.booked ? !taken : false; touch(); renderGear(a); });
@@ -200,12 +205,13 @@ MG.Handover = (function () {
   /** Rezervace BEZ objednané výbavy, která otevřela šatnu (zadání majitele 2026-10-05: „nesmí ho to pustit, aniž by vyškrtal
       nějaké velikosti“), musí vybrat aspoň jednu velikost — platí i po „Zpět“/nečinnosti a návratu kódem motorky
       (`kind_origin`). Kdo šatnu neotevřel (rovnou kód motorky), má výbavu navíc jen nabídnutou. */
-  const needsPick = (a) => lockerUsed(a) && !gearOf(a).length && !rowsOf(a).some(isTaken);
+  const needsPick = (a) => (HG().isGear(a) ? !rowsOf(a).some(isTaken)      // výbava bez motorky: aspoň jedna položka
+    : lockerUsed(a) && !gearOf(a).length && !rowsOf(a).some(isTaken));
   function next() {
     if (!S.item || S.step !== 1) return;
     touch();
-    if (needsPick(S.item)) { setMsg('ho.pickTaken'); return; }
-    if (S.msg && S.msg.key === 'ho.pickTaken') setMsg(null);
+    if (needsPick(S.item)) { setMsg(pickKey(S.item)); return; }
+    if (S.msg && PICK_KEYS.indexOf(S.msg.key) !== -1) setMsg(null);
     setStep(2);
   }
   function onEnter() { if (S.step === 1) next(); else confirm(); }
@@ -268,6 +274,7 @@ MG.Handover = (function () {
     $('handover').classList.toggle('no-code', !a.needs_code);
     $('ho-code-sec').hidden = !a.needs_code;
     renderMeta(a);
+    HG().apply(a);
     renderGear(a);
     renderMotoGear();
     paintCode();
@@ -314,7 +321,7 @@ MG.Handover = (function () {
     if (k === S.doneKey) return;
     S.doneKey = k;
     if (a.booking_id === S.ownDone.id && Date.now() - S.ownDone.at < DONE_GUARD_MS) return;
-    deps.showStatus('success', MG.i18n.t('ho.doneTitle'), MG.i18n.t('ho.done'), true);
+    deps.showStatus('success', MG.i18n.t(HG().key(a, 'ho.doneTitle', 'hg.signedTitle')), MG.i18n.t(HG().key(a, 'ho.done', 'hg.signed')), true);
   }
 
   /* ── Výsledek, který snapshot nenese (§1: vzdálený podpis s then_open = plnohodnotné otevření) ── */
@@ -326,8 +333,8 @@ MG.Handover = (function () {
   }
   /** Čekání na stav zón: kóje rezervace otevřená → „Otevřeno — Kóje N“; po WAIT_MS bez otevření → DONE
       (then_open: „kóji se nepodařilo otevřít — zadejte kód znovu“; jinak „teď zadejte kód motorky“). */
-  function armWait(id, thenOpen) {
-    S.wait = { id, thenOpen, at: Date.now() };
+  function armWait(id, thenOpen, gear) {
+    S.wait = { id, thenOpen, gear: !!gear, at: Date.now() };
     setTimeout(() => resolveWait(deps.getState()), WAIT_MS + 300);
     resolveWait(deps.getState());
   }
@@ -338,6 +345,7 @@ MG.Handover = (function () {
     if (!z && Date.now() - w.at < WAIT_MS) return;
     S.wait = null;
     if (z) { announceOpened(z); return; }
+    if (w.gear) { deps.showStatus('success', MG.i18n.t('hg.doneTitle'), MG.i18n.t('hg.done'), true); return; }
     deps.showStatus('success', MG.i18n.t('ho.doneTitle'), MG.i18n.t(w.thenOpen ? 'ho.doneNoOpen' : 'ho.done'), true);
   }
   /** Položka zmizela bez naší odpovědi: vlastní submit řeší confirm(); vypršelý odpočet = zákazník odešel (nic);
@@ -356,6 +364,7 @@ MG.Handover = (function () {
     else if (itemKey(a) !== S.key) open(a);
     else sync(a);
     resolveWait(st);
+    HG().onState(st);          // dotaz „Vracíš všechnu výbavu?“ (§33)
   }
 
   /* ── Kód motorky (identita podepisujícího) ────────────────────────────── */
@@ -371,7 +380,7 @@ MG.Handover = (function () {
     const a = S.item;
     if (!a || S.step !== 2 || $('ho-confirm').disabled) return;
     touch();
-    if (needsPick(a)) { setStep(1); setMsg('ho.pickTaken'); return; }   // pojistka (krok 2 dosažen dřív, než se šatna projevila)
+    if (needsPick(a)) { setStep(1); setMsg(pickKey(a)); return; }   // pojistka (krok 2 dosažen dřív, než se šatna projevila)
     const signature = S.sig.toPng();
     if (!signature) { setMsg('ho.sigTooLarge'); return; }
     const form = {
@@ -387,6 +396,7 @@ MG.Handover = (function () {
       gear_add: true,
       moto_equipment: motoEquipment(),
     };
+    if (HG().isGear(a)) HG().form(form);   // výbava bez motorky: bez výbavy motorky, km a výbavy navíc
     // lang = jazyk obrazovky → protokol „jazyk zákazníka / česky“ (cs = jazyk rezervace; jednotka ověří, §28)
     const body = { booking_id: a.booking_id, form, signature, lang: MG.i18n.lang };
     if (a.needs_code) body.code = S.code;
@@ -401,24 +411,28 @@ MG.Handover = (function () {
       if (e === 'network' && !res.status) {
         // timeout / spojení: jednotka může dál ukládat a otevírat (resolve + edge až ~52 s) → výsledek řekne snapshot
         if (same && !S.item.saving) { setMsg('ho.failed'); return; }   // jednotka neukládá → požadavek nedorazil
-        armWait(a.booking_id, !a.needs_code);
+        armWait(a.booking_id, !a.needs_code, HG().isGear(a));
         return;
       }
       if (e === 'storage_failed') {   // podpis se neuložil ani neodeslal; jednotka položku zrušila → pokyn do #status (overlay zmizí)
-        hide(); deps.showStatus('error', MG.i18n.errorTitle('protocol_failed'), MG.i18n.t('ho.retryCode'), true); return;
+        hide(); deps.showStatus('error', MG.i18n.errorTitle('protocol_failed'), MG.i18n.t(HG().key(a, 'ho.retryCode', 'hg.retryCode')), true); return;
       }
       if (!same) return;
       if (e === 'locked') { S.code = ''; paintCode(); setMsg({ locked: res.locked_until || null }); updateButtons(); return; }
       // kód téže rezervace před 12:00 (sleva za pozdní vyzvednutí, §31) — kóje se ještě nevydá; podpis se neuložil
       if (e === 'pickup_too_early') { setMsg({ pickup: res.release_at || null }); return; }
       if (e === 'body_too_large' || res.status === 413) { setMsg('ho.sigTooLarge'); return; }
-      setMsg(e === 'code_mismatch' ? 'ho.codeMismatch' : e === 'signature_too_large' ? 'ho.sigTooLarge'
+      setMsg(e === 'code_mismatch' ? HG().key(a, 'ho.codeMismatch', 'hg.codeMismatch') : e === 'signature_too_large' ? 'ho.sigTooLarge'
         : e === 'in_progress' ? 'ho.inProgress' : 'ho.failed');
       if (e === 'code_mismatch') { S.code = ''; paintCode(); updateButtons(); }
       return;
     }
     S.ownDone = { id: a.booking_id, at: Date.now() };
     hide();
+    if (res.gear_only || HG().isGear(a)) {   // výbava bez motorky: kóje se neotvírá — výbava je zákazníkova
+      deps.showStatus('success', MG.i18n.t('hg.doneTitle'), MG.i18n.t('hg.done'), true);
+      return;
+    }
     const st = deps.getState() || {};
     if (res.opened) {
       const z = (st.zones || []).find((x) => x.zone === res.opened.zone);
@@ -441,6 +455,7 @@ MG.Handover = (function () {
   /** Změna jazyka: statické popisky řeší MG.i18n.applyStatic (data-i18n), tady dynamické části;
       delší/kratší texty mění výšku rámečku podpisu → přepočet bitmapy canvasu. */
   function rerender() {
+    HG().rerender();
     const a = S.item;
     if (!a) return;
     renderMeta(a); renderGear(a); renderMotoGear(); setStep(S.step); paintMsg(); tickTimer();
@@ -449,6 +464,7 @@ MG.Handover = (function () {
 
   function init(d) {
     deps = d;
+    HG().init(d);
     $('ho-confirm').addEventListener('click', (e) => { e.preventDefault(); confirm(); });
     $('ho-back').addEventListener('click', (e) => { e.preventDefault(); back(); });
     $('ho-next').addEventListener('click', (e) => { e.preventDefault(); next(); });

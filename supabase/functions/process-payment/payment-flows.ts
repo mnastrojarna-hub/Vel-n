@@ -23,6 +23,8 @@ const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100
 const belowMin = (amountCzk: number, text: string) =>
   refuse(400, 'below_minimum', { due: r2(amountCzk), min: CARD_MIN, charge: CARD_MIN, update_required: false }, text)
 // Položka dorovnání na Stripe stránce v jazyce webu (checkout-labels.ts).
+// Výpůjčka výbavy (2026-10-23): název položky + návratové adresy gear rezervace (gear-checkout.ts).
+import { isGearRow, gearBookingLabel, gearCheckoutUrls } from './gear-checkout.ts'
 
 /** Handle web anonymous booking checkout (no auth required) */
 export async function handleWebBookingCheckout(
@@ -42,6 +44,9 @@ export async function handleWebBookingCheckout(
     // f1 (2026-10-22): proč — s kódem (web-booking-guards.ts; zaplaceno = potvrzení).
     return await webBookingMiss(supabaseAdmin, body.booking_id!)
   }
+  // Výpůjčka výbavy (2026-10-23): položka „MotoGo24 — Půjčení výbavy“ + návrat na /pujceni-obleceni
+  // (booking_kind = 'gear'; motorka beze změny).
+  const gearBk = isGearRow(booking)
 
   // Pojistka jazyka (audit 2026-10-10): web volá set_booking_language hned po vytvoření
   // rezervace; kdyby to selhalo, zůstala by 'cs' a smlouva, VOP i e-maily po zaplacení
@@ -202,6 +207,8 @@ export async function handleWebBookingCheckout(
       booking_id: body.booking_id!, type: 'booking', source: 'web', action: 'verify_free_booking'
     }
     const returnOriginFree = resolveReturnOrigin(body.origin, body.locale)
+    // Výpůjčka výbavy (2026-10-23): úspěch/zrušení → /pujceni-obleceni.
+    const gearUrlsFree = gearBk ? gearCheckoutUrls(returnOriginFree, body.booking_id!, body.locale) : null
     const freeSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'setup',
@@ -209,8 +216,9 @@ export async function handleWebBookingCheckout(
       metadata: setupMetadata,
       setup_intent_data: { metadata: setupMetadata },
       client_reference_id: body.booking_id!,
-      success_url: withLangParam(`${returnOriginFree}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
-      cancel_url: withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
+      // Výpůjčka výbavy (2026-10-23): gear → /pujceni-obleceni (gearUrlsFree), motorka beze změny.
+      success_url: gearUrlsFree ? gearUrlsFree.success : withLangParam(`${returnOriginFree}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
+      cancel_url: gearUrlsFree ? gearUrlsFree.cancel : withLangParam(`${returnOriginFree}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
       locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
     })
 
@@ -244,7 +252,8 @@ export async function handleWebBookingCheckout(
     price_data: {
       currency,
       unit_amount: amount,
-      product_data: { name: L.booking, description: fillLabel(L.bookingDesc, { num: body.booking_id!.slice(-8).toUpperCase() }) }
+      // Výpůjčka výbavy (2026-10-23): název položky v jazyce webu (gear-checkout.ts).
+      product_data: { name: gearBk ? gearBookingLabel(body.locale) : L.booking, description: fillLabel(L.bookingDesc, { num: body.booking_id!.slice(-8).toUpperCase() }) }
     },
     quantity: 1
   }] : []
@@ -304,6 +313,8 @@ export async function handleWebBookingCheckout(
   // metoda na hosted stránce nenabízí a rovnou naskočí zadání karty / peněženky. Shodné
   // s voucher/shop/SOS Session níže. (App native Payment Sheet v index.ts Link ZÁMĚRNĚ drží.)
   const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
+  // Výpůjčka výbavy (2026-10-23): úspěch/zrušení → /pujceni-obleceni.
+  const gearUrls = gearBk ? gearCheckoutUrls(returnOrigin, body.booking_id!, body.locale) : null
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
@@ -312,8 +323,9 @@ export async function handleWebBookingCheckout(
     metadata: sessionMetadata,
     payment_intent_data: { metadata: sessionMetadata },
     client_reference_id: body.booking_id!,
-    success_url: withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
-    cancel_url: withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
+    // Výpůjčka výbavy (2026-10-23): gear → /pujceni-obleceni (gearUrls), motorka beze změny.
+    success_url: gearUrls ? gearUrls.success : withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
+    cancel_url: gearUrls ? gearUrls.cancel : withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}&payfail=1`, body.locale),
     locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
   })
 

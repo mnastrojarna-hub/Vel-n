@@ -2,7 +2,8 @@
    (dlaždice zón od 2026-09-26 jen v servisním panelu).
    Vanilla JS (offline, bez CDN). Layout je plně responzivní (CSS), žádné škálování plátna. Texty a flow převzaté z Flutter kiosku (kiosk_screen.dart).
    Předávací protokol (overlay #handover) → handover.js; sem patří jen napojení na snapshot a na odpověď `protocol_required`.
-   Stav tachometru při vrácení (overlay #odometer, 2026-09-29) → odometer.js; sem jen odpověď `odometer_required`. */
+   Stav tachometru při vrácení (overlay #odometer, 2026-09-29) → odometer.js; sem jen odpověď `odometer_required`.
+   Výpůjčka výbavy bez motorky (1.3.0, §33: dotaz na vrácení, texty šatny a zámku) → handover-gear.js (MG.HandoverGear). */
 'use strict';
 window.MG = window.MG || {};
 
@@ -146,8 +147,9 @@ window.MG = window.MG || {};
     const wz = (st.zones || []).find((z) => z.kind === 'accessories' && z.state === 'DOOR_OPEN' && !!z.booking_id);
     const open = !!wz;
     $('wardrobe').hidden = !open;
-    if (wz) setText($('wd-title'), MG.i18n.wardrobeTitle(wz));   // „Šatna — dveře č. 8: …“ (2026-10-04)
+    if (wz) setText($('wd-title'), MG.HandoverGear.wardrobe(st, wz) || MG.i18n.wardrobeTitle(wz));   // „Šatna — dveře č. 8: …“ (2026-10-04; vrácení výbavy §33)
     const ho = st.handover || {};
+    MG.HandoverGear.lockBar(ho.lock);          // zámek výbavy bez motorky: „zákazník podepisuje protokol“
     const protocol = !!(ho.active && ho.active.stage === 'protocol');
     $('handover-lock').hidden = !ho.lock || open || protocol;
   }
@@ -253,7 +255,8 @@ window.MG = window.MG || {};
         showStatus('error', p.title, p.body, true, PICKUP_HIDE_MS);
         return;
       }
-      showStatus('error', MG.i18n.errorTitle(res.error), (cz && res.message) || MG.i18n.errorSubtitle(res.error, res.locked_until), true);
+      showStatus('error', MG.i18n.errorTitle(res.error), (cz && res.message) || MG.HandoverGear.errorSubtitle(res)
+        || MG.i18n.errorSubtitle(res.error, res.locked_until), true);
       return;
     }
     if (res.kind === 'service') { hideStatus(); MG.Panel.show(res.service_token); return; }
@@ -308,7 +311,8 @@ window.MG = window.MG || {};
     const target = () => (MG.Shell.wantsKeys() ? MG.Shell.keys : MG.Shell.isVisible() ? SWALLOW
       : MG.Diag.wantsKeys() ? MG.Diag.keys : MG.Diag.isVisible() ? SWALLOW
       : MG.Setup.isVisible() ? MG.Setup.keys : MG.Odometer.isVisible() ? MG.Odometer.keys
-      : MG.Handover.isVisible() ? MG.Handover.keys : wardrobeUp() ? SWALLOW : null);
+      : MG.Handover.isVisible() ? MG.Handover.keys : MG.HandoverGear.isVisible() ? MG.HandoverGear.keys
+      : wardrobeUp() ? SWALLOW : null);
     MG.Keyboard.bindPhysical({
       isActive: () => !MG.Panel.isOpen() || MG.Setup.isVisible() || MG.Diag.isVisible() || MG.Shell.isVisible(),
       onChar: (c) => { const t = target(); if (t) t.onChar(c); else if (/[0-9a-z]/.test(c)) onChar(c); },
@@ -321,6 +325,7 @@ window.MG = window.MG || {};
         else if (MG.Setup.isVisible()) MG.Setup.keys.onEscape();
         else if (MG.Odometer.isVisible()) MG.Odometer.keys.onEscape();
         else if (MG.Handover.isVisible()) MG.Handover.keys.onEscape();
+        else if (MG.HandoverGear.isVisible()) { /* dotaz na vrácení výbavy — odpověď jen tlačítkem */ }
         else if (wardrobeUp()) { /* modální do zavření dveří šatny — Esc nic */ }
         else if (!$('status').hidden && !S.busy) hideStatus();
         else onClear();
@@ -336,7 +341,7 @@ window.MG = window.MG || {};
   MG.app = { post, showStatus, hideStatus, getState: () => S.state };
   // Jen pro náhledy/screenshoty (harness): přepnutí klávesnice, jazyka, podstrčení stavu. Appka to nepoužívá.
   MG.__debug = { toggleKeyboard: toggleMode, setLang: (l) => MG.i18n.setLang(l), applyState, showStatus, hideStatus, handover: MG.Handover,
-    odometer: MG.Odometer };
+    odometer: MG.Odometer, gear: MG.HandoverGear };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();

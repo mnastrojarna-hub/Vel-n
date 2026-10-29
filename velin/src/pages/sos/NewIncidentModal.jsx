@@ -111,6 +111,8 @@ export default function NewIncidentModal({ onClose, onCreated }) {
       .eq('user_id', c.id)
       .in('status', ['active', 'reserved'])
       .eq('payment_status', 'paid')
+      // SOS se týká motorky — výpůjčka jen výbavy (bez motorky) není cíl incidentu ani náhrady
+      .not('moto_id', 'is', null)
       .order('start_date', { ascending: false })
       .limit(1)
     setActiveBooking(data?.[0] || null)

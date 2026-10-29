@@ -5,6 +5,7 @@ import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import { docSide, isMarkerPath, isRealDocFile } from '../../lib/docVerification'
 import { bookingDocsVerdict } from '../../lib/docsGate'
+import { isGearBooking, gearDocsVerdict } from '../../lib/bookingKind'
 
 const VERIFICATION_TYPES = ['drivers_license', 'license_photo', 'id_card', 'id_photo', 'passport']
 
@@ -59,12 +60,15 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
         supabase.from('profiles').select('id, license_expiry, license_verified_until, license_group, date_of_birth, license_number, id_number, id_verified_at, license_verified_at, passport_verified_at').eq('id', userId).single(),
       ]
       if (bookingId) {
-        promises.push(supabase.from('bookings').select('id, start_date, end_date, motorcycles!moto_id(license_required, license_groups)').eq('id', bookingId).single())
+        // `*` kvůli booking_kind (výpůjčka jen výbavy) bez závislosti na pořadí nasazení migrace
+        promises.push(supabase.from('bookings').select('*, motorcycles!moto_id(license_required, license_groups)').eq('id', bookingId).single())
       }
       const [docsRes, profRes, bkRes] = await Promise.all(promises)
       setVerificationDocs(docsRes.data || [])
       setProfile(profRes.data || null)
-      setVs(await bookingDocsVerdict(docsRes.data || [], profRes.data || { id: userId }, bkRes?.data || (bookingId ? { id: bookingId } : null)))
+      const verdict = await bookingDocsVerdict(docsRes.data || [], profRes.data || { id: userId }, bkRes?.data || (bookingId ? { id: bookingId } : null))
+      // výpůjčka jen výbavy: jen doklad totožnosti + 18+, ŘP se nevyžaduje
+      setVs(isGearBooking(bkRes?.data) ? gearDocsVerdict(verdict) : verdict)
     } catch {}
     setLoading(false)
   }
@@ -138,13 +142,16 @@ export default function BookingCustomerDocsStatus({ userId, bookingId }) {
           <span className="text-sm font-bold" style={{ color: allOk ? '#1a8a18' : '#b45309' }}>
             {allOk ? 'Doklady ověřeny — kódy k boxu mohou být uvolněny' : 'Doklady neúplné — kódy k boxu NELZE uvolnit'}
           </span>
-          <Badge
+          {!vs.gearOnly && <Badge
             label={hasLicense ? 'ŘP líc + rub nahrán' : licPart ? `ŘP: líc ${licFront ? '✓' : '✗'} · rub ${licBack ? '✓' : '✗'}` : licenseOcrVerified ? 'ŘP jen OCR — chybí fotky' : licenseTypedOnly ? 'ŘP zadán ručně — neověřen' : 'ŘP chybí'}
-            color={hasLicense ? '#1a8a18' : (licPart || licenseTypedOnly) ? '#b45309' : '#dc2626'} bg={hasLicense ? '#dcfce7' : (licPart || licenseTypedOnly) ? '#fef3c7' : '#fee2e2'} />
+            color={hasLicense ? '#1a8a18' : (licPart || licenseTypedOnly) ? '#b45309' : '#dc2626'} bg={hasLicense ? '#dcfce7' : (licPart || licenseTypedOnly) ? '#fef3c7' : '#fee2e2'} />}
           <Badge
             label={hasIdentity ? (passportOk ? 'Pas nahrán' : 'OP líc + rub nahrán') : idPart ? `OP: líc ${idFront ? '✓' : '✗'} · rub ${idBack ? '✓' : '✗'}` : idOcrVerified ? 'Doklad totožnosti jen OCR — chybí fotky' : identityTypedOnly ? 'Doklad zadán ručně — neověřen' : 'OP/Pas chybí'}
             color={hasIdentity ? '#1a8a18' : (idPart || identityTypedOnly) ? '#b45309' : '#dc2626'} bg={hasIdentity ? '#dcfce7' : (idPart || identityTypedOnly) ? '#fef3c7' : '#fee2e2'} />
         </div>
+        {vs.gearOnly && (
+          <div className="text-xs mt-2" style={{ color: '#164e63' }}>Výpůjčka jen výbavy — stačí doklad totožnosti (OP líc + rub nebo pas) a věk 18+, řidičský průkaz se nevyžaduje.</div>
+        )}
         {!allOk && missing.length > 0 && (
           <ul className="text-xs mt-2 space-y-0.5" style={{ color: '#92400e' }}>
             {missing.map(m => <li key={m}>• {m}</li>)}

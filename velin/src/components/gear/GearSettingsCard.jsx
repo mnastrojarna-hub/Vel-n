@@ -4,10 +4,14 @@ import { debugAction } from '../../lib/debugLog'
 import { purgeWebCache } from '../../lib/webCache'
 import Button from '../ui/Button'
 import { SETTINGS_KEY, DEFAULT_SETTINGS, INPUT, audit } from './gearShared'
+import GearSettingToggle from './GearSettingToggle'
+import { STOCK_TOGGLE, SELF_SERVICE_TOGGLE, APP_VISIBLE_TOGGLE } from './gearToggleConfigs'
 
-// app_settings.gear_rental = {enabled, max_days, max_ahead_days}. Ukládá se merge
+// app_settings.gear_rental = {enabled, max_days, max_ahead_days, app_visible}. Ukládá se merge
 // s aktuální hodnotou v DB (jiné klíče zůstanou). Server meze stejně ořízne
-// (max_days 1–366, max_ahead_days 1–800 — create_gear_rental_order).
+// (max_days 1–366, max_ahead_days 1–800 — create_web_gear_booking).
+// Pod formulářem přepínače „Kontrolovat sklad“ (gear_stock_check.gear_rental, stejný jako
+// v Logistice) a „Zobrazit v aplikaci“ (gear_rental.app_visible) — ukládají se samostatně.
 
 async function readSettings() {
   const { data, error } = await supabase.from('app_settings').select('value').eq('key', SETTINGS_KEY).maybeSingle()
@@ -63,7 +67,7 @@ export default function GearSettingsCard() {
 
   return (
     <div className="bg-white rounded-card shadow-card" style={{ padding: 16 }}>
-      <div className="font-extrabold uppercase tracking-wide text-sm mb-3" style={{ color: '#1a2e22' }}>Nastavení objednávek na webu</div>
+      <div className="font-extrabold uppercase tracking-wide text-sm mb-3" style={{ color: '#1a2e22' }}>Nastavení výpůjček výbavy</div>
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <div className="text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Objednávání</div>
@@ -87,9 +91,14 @@ export default function GearSettingsCard() {
         {msg && <span className="text-sm font-bold" style={{ color: '#1a8a18' }}>✓ {msg}</span>}
       </div>
       <p className="text-xs mt-2" style={{ color: '#6b7a72' }}>
-        Vypnuto = web stránku „Půjčení oblečení“ nenabízí a nové objednávky odmítne i databáze. Už zaplacené výpůjčky platí dál.
+        Vypnuto = web stránku „Půjčení oblečení“ nenabízí a nové výpůjčky odmítne i databáze. Už zaplacené výpůjčky platí dál.
       </p>
       {err && <p className="text-sm mt-2" style={{ color: '#dc2626' }}>{err}</p>}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 pt-3" style={{ borderTop: '1px solid #e2ece7' }}>
+        <GearSettingToggle {...STOCK_TOGGLE} component="GearSettingsCard" />
+        <GearSettingToggle {...SELF_SERVICE_TOGGLE} component="GearSettingsCard" />
+        <GearSettingToggle {...APP_VISIBLE_TOGGLE} component="GearSettingsCard" />
+      </div>
     </div>
   )
 }

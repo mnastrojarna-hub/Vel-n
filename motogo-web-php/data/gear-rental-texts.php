@@ -3,9 +3,12 @@
 // Stránka pages/pujceni-obleceni.php. Pořadí: CS default ← lang/v2/<lang>/gear.php
 // ('pages.gear_rental') ← Velín CMS klíče web.gear_rental.*. Ceny NEJSOU v textech —
 // čtou se z DB (gear_rental_prices, Velín → Flotila → Půjčení oblečení).
+// 2026-10-23: texty rezervačního toku (přihlášení, poukaz, doklady, návrat) jsou
+// v data/gear-rental-flow-texts.php (+ lang/v2/<lang>/gear-flow.php) a připojují se níže.
+require_once __DIR__ . '/gear-rental-flow-texts.php';
 
 function gearRentalDefaults() {
-    return [
+    return gearRentalFlowDefaults() + [
         'seo_title' => 'Půjčení motooblečení bez motorky | MotoGo24',
         'seo_description' => 'Půjč si motorkářskou výbavu i bez motorky: helmu, bundu, kalhoty, rukavice a boty. Na den i na celou dovolenou, vyzvednutí v Mezné nebo ve Velkých Němčicích u Brna.',
         'h1' => 'Půjčení motooblečení bez motorky',
@@ -18,7 +21,7 @@ function gearRentalDefaults() {
         'step_branch' => 'Kde si výbavu vyzvedneš',
         'branch_staffed' => 'S obsluhou · předání osobně',
         'branch_self' => 'Samoobsluha · 24/7',
-        'self_note' => 'Na samoobslužné pobočce ti před vyzvednutím pošleme kód k šatně s výbavou.',
+        'self_note' => 'Na samoobslužné pobočce ti po zaplacení a nahrání dokladu totožnosti pošleme kódy k vyzvednutí výbavy ze šatny.',
         'step_dates' => 'Termín',
         'hint_start' => 'Klepni na první den',
         'hint_end' => 'Vybraný 1 den — nebo klepni na poslední den',
@@ -45,7 +48,6 @@ function gearRentalDefaults() {
         'ico' => 'IČO',
         'dic' => 'DIČ',
         'note' => 'Poznámka (nepovinné)',
-        'agree' => 'Souhlasím s <a href="/dokumenty/obchodni-podminky" target="_blank" rel="noopener">obchodními podmínkami</a> a <a href="/dokumenty/zasady-ochrany-osobnich-udaju" target="_blank" rel="noopener">zpracováním osobních údajů</a>.',
         'sum_title' => 'Souhrn',
         'sum_empty' => 'Vyber pobočku, termín a výbavu — cenu spočítáme hned.',
         'days_one' => '{n} den', 'days_few' => '{n} dny', 'days_many' => '{n} dní',
@@ -53,7 +55,7 @@ function gearRentalDefaults() {
         'save' => 'Komplet ti oproti jednotlivým kusům ušetří {amount}.',
         'cta' => 'Pokračovat k platbě',
         'processing' => 'Připravuji platbu…',
-        'assure' => 'Termín i velikosti můžeš změnit — stačí napsat nebo zavolat.',
+        'assure' => 'Termín i velikosti můžeš později změnit v Upravit rezervaci.',
         'err_branch' => 'Vyber prosím pobočku.',
         'err_dates' => 'Vyber prosím termín v kalendáři.',
         'err_items' => 'Vyber prosím aspoň jeden kus výbavy.',
@@ -62,17 +64,17 @@ function gearRentalDefaults() {
         'err_agree' => 'Pro pokračování potvrď souhlas s podmínkami.',
         'err_closed' => 'Pobočka je ve vybraném termínu zavřená — vyber prosím jiný termín.',
         'err_long' => 'Výbavu půjčujeme nejdéle na {n} dní.',
-        'err_generic' => 'Objednávku se nepodařilo vytvořit. Zkus to prosím znovu nebo nám zavolej.',
+        'err_generic' => 'Rezervaci se nepodařilo vytvořit. Zkus to prosím znovu nebo nám zavolej.',
         'err_disabled' => 'Půjčení samotné výbavy je teď pozastavené. Ozvi se nám prosím telefonicky.',
-        'payfail' => 'Platba neproběhla. Objednávku můžeš odeslat znovu — nic se ti nestrhlo.',
+        'payfail' => 'Platba neproběhla — nic se ti nestrhlo. Rezervaci můžeš zaplatit znovu.',
         'unavailable' => 'Ceník se právě připravuje. Ozvi se nám a domluvíme se: +420 774 256 271.',
         'ok_title' => 'Hotovo, výbava je tvoje!',
         'ok_lead' => 'Platbu jsme přijali. Potvrzení a doklad o platbě jsme poslali na tvůj e-mail.',
         'ok_wait' => 'Ověřujeme platbu…',
         'ok_pending' => 'Platba se ještě zpracovává. Potvrzení ti přijde e-mailem, jakmile ji banka potvrdí.',
-        'ok_order' => 'Číslo objednávky',
-        'ok_next_staffed' => 'Výbavu si vyzvedneš osobně na pobočce v první den výpůjčky.',
-        'ok_next_self' => 'Před vyzvednutím ti pošleme kód k šatně s výbavou.',
+        'ok_order' => 'Číslo rezervace',
+        'ok_next_staffed' => 'Výbavu si vyzvedneš osobně na pobočce v první den výpůjčky — vezmi s sebou doklad totožnosti.',
+        'ok_next_self' => 'Kódy k vyzvednutí výbavy ze šatny ti pošleme, jakmile máme tvůj doklad totožnosti. Po zavření šatny na displeji potvrdíš velikosti a podepíšeš předávací protokol.',
         'ok_return' => 'Vrať ji nejpozději poslední den výpůjčky na stejnou pobočku.',
         'ok_home' => 'Zpět na úvod',
         'ok_motos' => 'Prohlédnout motorky',
@@ -80,7 +82,8 @@ function gearRentalDefaults() {
         'faq' => [
             ['q' => 'Musím si půjčit i motorku?', 'a' => 'Ne. Výbavu si můžeš půjčit samostatně — třeba na vlastní motorku nebo pro spolujezdce.'],
             ['q' => 'Co když nevím přesnou velikost?', 'a' => 'Vyber tu, kterou běžně nosíš. S výběrem ti rádi poradíme po telefonu nebo e-mailem.'],
-            ['q' => 'Můžu termín změnit?', 'a' => 'Ano. Napiš nebo zavolej a termín i velikosti upravíme.'],
+            ['q' => 'Můžu termín změnit?', 'a' => 'Ano. Termín i velikosti změníš v Upravit rezervaci, nebo nám napiš či zavolej.'],
+            ['q' => 'Jaké doklady potřebuju?', 'a' => 'Jen doklad totožnosti (občanku nebo pas) a musí ti být 18 let. Řidičský průkaz nepotřebuješ.'],
             ['q' => 'Je potřeba kauce?', 'a' => 'Ne, výbavu půjčujeme bez kauce.'],
         ],
     ];

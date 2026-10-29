@@ -3,6 +3,8 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveBookingLanguage, resolveOrderLanguage } from './customer-lang.ts'
+// Výpůjčka výbavy (2026-10-23): stav dokladů gear rezervace per rezervace (gear-docs.ts).
+import { bookingDocsOk, bookingKindOf } from './gear-docs.ts'
 
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
@@ -216,7 +218,12 @@ export async function confirmBookingPayment(
         let mailType = 'booking_reserved'
         if (source === 'web') {
           let docsOk = false
-          try {
+          // Výpůjčka výbavy (2026-10-23): doklady PER REZERVACE — jen totožnost + 18+
+          // (check_booking_docs_status_for, gear-docs.ts); motorka beze změny (níže).
+          // Řádek s motorkou = vždy motorka (CHECK bookings_gear_shape) → bez dotazu na booking_kind.
+          const gearDocs = !(booking as { moto_id?: string | null } | null)?.moto_id && await bookingKindOf(supabase, bookingId) === 'gear'
+          if (gearDocs) docsOk = await bookingDocsOk(supabase, { id: bookingId }, 'gear')
+          else try {
             const { data: ds } = await supabase.rpc('check_booking_docs_status', {
               p_user_id: booking.user_id,
               p_end_date: String(booking.end_date || '').slice(0, 10),

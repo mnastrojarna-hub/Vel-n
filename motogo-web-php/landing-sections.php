@@ -37,7 +37,7 @@ function renderLpPanel($o) {
         '<div class="lp-cta-row' . (lpPlain($s['label'] ?? '') === '' ? ' lp-cta-row--one' : '') . '" data-lp-sentinel>' .
             '<a class="lp-btn lp-btn-primary" href="' . he(lpS($p['href'] ?? '') ?: '/katalog') . '"><span data-cms-key="' . $kb . '.cta_primary.label">' . he(lpPlain($p['label'] ?? '')) . '</span>' . lpIcon('arrow') . '</a>' .
             (lpPlain($s['label'] ?? '') !== '' ? '<a class="lp-btn lp-btn-ghost" href="' . he(lpS($s['href'] ?? '') ?: '/katalog') . '">' . lpIcon('moto') . '<span data-cms-key="' . $kb . '.cta_secondary.label">' . he(lpPlain($s['label'])) . '</span></a>' : '') .
-            (lpPlain($o['assurance'] ?? '') !== '' ? '<p class="lp-assure" data-cms-key="web.landing.common.assurance">' . lpIcon('check') . he(lpPlain($o['assurance'])) . '</p>' : '') .
+            lpAssure($o['assurance'] ?? '') .
             ($o['rating'] ?? '') .
             // Kolik lidí právě vybírá (js/live-viewers.js) — jen skutečný nenulový počet, jinak skryté
             '<p class="lp-live" data-live-site hidden></p>' .
@@ -271,6 +271,14 @@ function lpHeroLazy($slidesHtml, $heroJs) {
 
 /** Pruh s nabídkou (např. sleva za vyzvednutí od 12:00) — jen když je text vyplněný. */
 function renderLpOffer($T) {
-    if (lpPlain($T['offer'] ?? '') === '') return '';
-    return '<aside class="lp-offer"><div class="container"><p class="lp-offer-in" data-cms-key="web.landing.common.offer"><span class="lp-offer-pct" aria-hidden="true">%</span><span>' . he(lpPlain($T['offer'])) . '</span></p></div></aside>';
+    $txt = lpPlain($T['offer'] ?? '');
+    if ($txt === '') return '';
+    // 2026-10-23 (majitel): výrazněji — hlavní věta velkým písmem, závorka („výpůjčka na 2 a více dní“) menším pod ní.
+    // CMS admin: syrový text v jednom spanu (inline editor ukládá innerHTML prvku s data-cms-key).
+    $body = he($txt);
+    if (!lpAdmin() && preg_match('/^(.+?)\s*\(([^()]+)\)\s*\.?$/u', $txt, $m)) {
+        $body = '<strong class="lp-offer-main">' . he(rtrim($m[1], ' .')) . '</strong><small class="lp-offer-note">' . he($m[2]) . '</small>';
+    }
+    return '<aside class="lp-offer"><div class="container"><p class="lp-offer-in"><span class="lp-offer-pct" aria-hidden="true">%</span>' .
+        '<span class="lp-offer-t" data-cms-key="web.landing.common.offer">' . $body . '</span></p></div></aside>';
 }

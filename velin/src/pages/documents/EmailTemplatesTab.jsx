@@ -8,12 +8,14 @@ import Badge from '../../components/ui/Badge'
 import RichTextEditor from '../../components/ui/RichTextEditor'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { GOOGLE_REVIEW_URL_DEFAULT, googleOnlyReviewLinks } from '../../lib/reviewLinks'
+// Výpůjčka výbavy (rezervace bez motorky): metadata + ukázkové proměnné gear šablon
+import { GEAR_CATEGORY, gearTemplateMeta, sampleVarsFor } from './gearEmailTemplates'
 
 const SAMPLE_VARS = {
   // Booking email vars
   booking_number: 'A1B2C3D4', customer_name: ' Jan Novák', moto_model: 'BMW R 1200 GS Adventure',
   motorcycle: 'BMW R 1200 GS Adventure', start_date: '15. 6. 2026', end_date: '18. 6. 2026',
-  total_price: '7 800', pickup_location: 'Mezná 9, 393 01 Pelhřimov',
+  total_price: '7 800',
   resume_link: 'https://www.motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
@@ -177,8 +179,10 @@ const CATEGORIES = [
   { value: 'storno', label: 'Storno', color: '#dc2626', bg: '#fee2e2' },
   { value: 'invoice', label: 'Faktura', color: '#b45309', bg: '#fef3c7' },
   { value: 'shop', label: 'E-shop', color: '#7c3aed', bg: '#ede9fe' },
+  GEAR_CATEGORY,
   { value: 'other', label: 'Ostatní', color: '#1a2e22', bg: '#f3f4f6' },
 ]
+const OTHER_CATEGORY = CATEGORIES.find(c => c.value === 'other')
 
 const CHANNELS = [
   { value: 'app', label: 'App', color: '#0369a1', bg: '#e0f2fe' },
@@ -216,7 +220,7 @@ function getChannel(slug) {
 }
 
 function getTemplateMeta(slug) {
-  return TEMPLATE_META[slug] || { category: 'other', categoryLabel: 'Ostatní', trigger: '—', attachments: '—', info: '' }
+  return TEMPLATE_META[slug] || gearTemplateMeta(slug) || { category: 'other', categoryLabel: 'Ostatní', trigger: '—', attachments: '—', info: '' }
 }
 
 /** Zabalí body šablony do zjednodušeného (přesto autentického) MotoGo24 brand layoutu
@@ -416,7 +420,7 @@ export default function EmailTemplatesTab() {
 function TemplateCard({ template, onEdit }) {
   const vars = [...new Set(template.variables || extractVars(template.body_html))]
   const meta = getTemplateMeta(template.slug)
-  const catDef = CATEGORIES.find(c => c.value === meta.category) || CATEGORIES[4]
+  const catDef = CATEGORIES.find(c => c.value === meta.category) || OTHER_CATEGORY
   const chanDef = CHANNELS.find(c => c.value === getChannel(template.slug)) || CHANNELS[2]
   const attachmentsList = Array.isArray(template.attachments) ? template.attachments : []
   const isEmptyBody = !template.body_html || template.body_html.trim() === ''
@@ -539,12 +543,15 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
     } else { setErr('Podporované formáty: .html, .htm') }
   }, [])
 
+  // Gear šablony (výpůjčka výbavy) dostanou v náhledu gear ukázkové hodnoty (odkazy /pujceni-obleceni, kódy jen brána + šatna…)
+  const sampleVars = sampleVarsFor(template.slug || slug, SAMPLE_VARS)
+
   function getPreviewHtml() {
     let html = bodyHtml
-    if (template.slug === 'booking_completed' || template.slug === 'web_booking_completed') {
-      html = googleOnlyReviewLinks(html, SAMPLE_VARS.google_review_url)
+    if (/^(web_)?(gear_)?booking_completed$/.test(template.slug || '')) {
+      html = googleOnlyReviewLinks(html, sampleVars.google_review_url)
     }
-    for (const [k, v] of Object.entries(SAMPLE_VARS)) html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
+    for (const [k, v] of Object.entries(sampleVars)) html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
     return html
   }
 
@@ -602,7 +609,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
 
       // Renderuj subject + body s ukázkovými proměnnými (jako náhled, aby test
       // vypadal stejně, jako co reálně dorazí zákazníkovi).
-      const renderedSubject = (subject || '').replace(/\{\{(\w+)\}\}/g, (_, k) => SAMPLE_VARS[k] || `{{${k}}}`)
+      const renderedSubject = (subject || '').replace(/\{\{(\w+)\}\}/g, (_, k) => sampleVars[k] || `{{${k}}}`)
       const renderedBody = getPreviewHtml()
 
       const result = await debugAction('emailTemplate.testSend', 'EditEmailTemplateModal', () =>
@@ -724,7 +731,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
 
       {showPreview && (
         <FullEmailPreviewModal
-          subject={subject.replace(/\{\{(\w+)\}\}/g, (_, k) => SAMPLE_VARS[k] || `{{${k}}}`)}
+          subject={subject.replace(/\{\{(\w+)\}\}/g, (_, k) => sampleVars[k] || `{{${k}}}`)}
           bodyHtml={getPreviewHtml()}
           attachments={attachmentsSel}
           fromEmail="noreply@motogo24.cz"

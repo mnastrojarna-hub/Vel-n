@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { SumRow } from './BookingUIHelpers'
 import { fmtDT, hasPassengerGearOrdered } from './bookingConstants'
+import { isGearBooking } from '../../lib/bookingKind'
 
 // Doba vyplnění formuláře v sekundách → čitelný formát (např. „2 min 15 s")
 function fmtDuration(s) {
@@ -48,7 +49,7 @@ export default function BookingSummary({ booking, bookingExtras }) {
     <div className="space-y-1">
       {(riderSizes || ownGearLabel) && (
         <>
-          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Výbava — řidič</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{isGearBooking(b) ? 'Výbava — výpůjčka (bez motorky)' : 'Výbava — řidič'}</div>
           <SumRow label="Vlastní výbava" value={ownGearLabel} color={b.own_gear === true ? '#b45309' : undefined} />
           <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
           <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />

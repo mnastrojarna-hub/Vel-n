@@ -20,12 +20,13 @@ import { getFallbackTemplate } from './fallback.ts'
 import { htmlToPdf, wrapDocument } from './render.ts'
 import { applyNotice, enqueueRetranslation, type Mode, pickContent, setHtmlLang } from './translation.ts'
 import { buildVars } from './vars.ts'
+import { buildGearVars, GEAR_CONTRACT_SLUG, isGearDoc, loadGearPriceRows, resolveDocSlug } from './gear-vars.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const ALL_ADMIN_ROLES = ['superadmin', 'manager', 'operator', 'viewer', 'admin']
 // Právní dokumenty: bez platné DB šablony se NEgenerují (EDGE-DOC-15).
-const LEGAL_SLUGS = new Set(['vop', 'rental_contract', 'gdpr'])
+const LEGAL_SLUGS = new Set(['vop', 'rental_contract', 'gdpr', GEAR_CONTRACT_SLUG])
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -48,13 +49,15 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { template_slug, booking_id, language } = await req.json()
-    if (!template_slug || !booking_id) return json({ error: 'Missing template_slug or booking_id' }, 400)
+    const { template_slug: reqSlug, booking_id, language } = await req.json()
+    if (!reqSlug || !booking_id) return json({ error: 'Missing template_slug or booking_id' }, 400)
 
     const who = await authClassify(req, { adminRoles: ALL_ADMIN_ROLES })
     if (who.kind === 'none') return json({ error: 'unauthorized' }, 401)
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    // Výpůjčka JEN výbavy (2026-10-23): smlouva = gear_rental_contract, nikdy motorková (gear-vars.ts).
+    const template_slug: string = await resolveDocSlug(supabase, String(reqSlug), booking_id)
     const logDebug = async (action: string, status: string, data: Record<string, unknown>, err?: string) => {
       try {
         await supabase.from('debug_log').insert({ source: 'generate-document', action, component: 'edge-function', status, request_data: data, error_message: err || null })
@@ -157,6 +160,8 @@ serve(async (req) => {
       pickupTime: branchSelfService && pickupAtBranch ? (storedPickup || '00:01') : storedPickup,
       startTime, endTime, company: companyInfo, webLabel: webLabelForLang(lang), docLang,
     })
+    // gear: {{gear_items_table}}, {{gear_period}}, {{gear_days}}… + výbava bez „(řidič)“ (gear-vars.ts)
+    if (isGearDoc(booking)) Object.assign(vars, buildGearVars(booking, docLang, await loadGearPriceRows(supabase)))
 
     let htmlContent = baseContent
     for (const [key, val] of Object.entries(vars)) htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)

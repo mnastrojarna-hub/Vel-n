@@ -32,6 +32,7 @@ function lpIco2($name) {
         'swap' => '<path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/>',
         'edit' => '<path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/>',
         'resize' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M9 15.5h6M7 15.5l1.5-1.5M7 15.5 8.5 17M17 15.5 15.5 14M17 15.5 15.5 17"/>',
+        'storno' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18M9.5 13l5 5M14.5 13l-5 5"/>',
     ];
     return '<svg class="lp-ico2" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$name] ?? $p['check']) . '</svg>';
 }
@@ -59,7 +60,8 @@ function renderLpReasons($title, $titleKey, $lead, $items, $keyBase, $T, $visibl
     return '<section class="lp-reasons" id="' . $id . '"' . $aria . '><div class="container">' . $h2 .
         (lpPlain($lead) !== '' ? '<p class="lp-reasons-lead">' . sanitizeHtml(lpS($lead)) . '</p>' : '') .
         '<ol class="lp-reasons-list">' . $html . '</ol>' . $more .
-        (lpPlain($T['reasons_note'] ?? '') !== '' ? '<p class="lp-reasons-note" data-cms-key="web.landing.common.reasons_note">' . he(lpPlain($T['reasons_note'])) . '</p>' : '') . '</div></section>';
+        // poznámka k hvězdičkám → nad patičku (lpFootnotesHtml, landing-guarantee.php)
+        (function_exists('lpFootnoteAdd') ? lpFootnoteAdd('reasons', 'web.landing.common.reasons_note', $T['reasons_note'] ?? '') : '') . '</div></section>';
 }
 
 /** Číslo s 1 desetinným místem dle jazyka (en: 5.0, ostatní: 5,0). */
@@ -97,8 +99,10 @@ function renderLpReviews($R, $T) {
             (isset($a['count']) ? '<span class="lp-rbadge-c">' . he(str_replace('{n}', (string)(int)$a['count'], lpS($T['reviews_count'] ?? '{n}'))) . '</span>' : '');
         // Odkaz na recenze = vždy jen Google (majitel 2026-10-15); ostatní zdroje jen skóre bez odkazu.
         $url = lpS($a['url'] ?? '');
+        // Google = hlavní (větší) odznak (2026-10-23: zvýraznit hodnocení)
+        $cls = 'lp-rbadge' . (lpS($a['source'] ?? '') === 'google' ? ' lp-rbadge--main' : '');
         $badges .= ($url !== '' && preg_match('~^https://(?:[a-z0-9-]+\.)*(?:google\.[a-z.]+|g\.page|goo\.gl)(?:[/?#]|$)~i', $url))
-            ? '<a class="lp-rbadge" href="' . he($url) . '" target="_blank" rel="noopener">' . $inner . '</a>' : '<span class="lp-rbadge">' . $inner . '</span>';
+            ? '<a class="' . $cls . '" href="' . he($url) . '" target="_blank" rel="noopener">' . $inner . '</a>' : '<span class="' . $cls . '">' . $inner . '</span>';
     }
     $cards = '';
     foreach ($items as $x) {
@@ -169,12 +173,23 @@ function renderLpBranches($title, $titleKey, $items, $keyBase, $T) {
     return '<section class="lp-brs"' . $aria . '><div class="container">' . $h2 . '<ul class="lp-brs-grid">' . $html . '</ul></div></section>';
 }
 
-/** Řádek hodnocení do akčního panelu („★★★★★ 5,0 · 53 hodnocení na Google“) → odkaz na sekci recenzí. */
-function lpPanelRating($T) {
+/**
+ * Řádek hodnocení do akčního panelu („★★★★★ 5,0 · 53 hodnocení na Google“) → odkaz na sekci recenzí.
+ * $o['big'] (úvodní stránka, /pujcovna-motorek): velké „5,0“ + hvězdy + „53 hodnocení na Google“ — jen když
+ * šablona začíná „{r} · “. V CMS adminu (lpAdmin) vždy malá varianta se SYROVOU šablonou („{r} · {n} …“)
+ * v data-cms-key spanu — inline editor ukládá innerHTML, nesmí do CMS zapsat dosazená čísla (jako lpAnchorFill).
+ */
+function lpPanelRating($T, $o = []) {
     $R = function_exists('lpReviewsData') ? lpReviewsData() : [];
     foreach ((array)($R['aggregates'] ?? []) as $a) {
         if (!is_array($a) || !isset($a['rating'], $a['count']) || lpS($T['panel_rating'] ?? '') === '') continue;
-        $txt = str_replace(['{r}', '{n}'], [lpDec1($a['rating']), (string)(int)$a['count']], lpS($T['panel_rating']));
+        $tpl = lpS($T['panel_rating']);
+        $rest = preg_replace('/^\s*\{r\}\s*·\s*/u', '', $tpl);
+        if (!empty($o['big']) && !lpAdmin() && $rest !== $tpl && strpos($rest, '{r}') === false) {
+            return '<a class="lp-rating lp-rating--big" href="#lp-reviews-h"><b class="lp-rating-r" aria-hidden="true">' . he(lpDec1($a['rating'])) . '</b>' .
+                '<span class="lp-rating-b">' . lpStars($a['rating']) . '<span class="lp-rating-t">' . he(str_replace('{n}', (string)(int)$a['count'], $rest)) . '</span></span></a>';
+        }
+        $txt = lpAdmin() ? lpPlain($tpl) : str_replace(['{r}', '{n}'], [lpDec1($a['rating']), (string)(int)$a['count']], $tpl);
         return '<a class="lp-rating" href="#lp-reviews-h">' . lpStars($a['rating']) . '<span data-cms-key="web.landing.common.panel_rating">' . he($txt) . '</span></a>';
     }
     return '';
