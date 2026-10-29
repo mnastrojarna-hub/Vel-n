@@ -9,6 +9,8 @@ import Stripe from 'https://esm.sh/stripe@14'
 import { authClassify, forbidden } from '../_shared/auth.ts'
 // Výpůjčka výbavy (2026-10-23): text dobropisu „výpůjčka výbavy“ + spodní mez ceny výbavy (gear.ts).
 import { gearPriceFloorCzk, loadGearRefundRow, noMotoRefundSubject } from './gear.ts'
+// HOTFIX storno 2026-10-29: storno vratka nejvýš jednou za storno (cancel-once.ts).
+import { acquireCancelLock, cancelToken, priorCancellationRefunds, releaseCancelLock, respondExistingCancelRefund, type StripeRefundLike } from './cancel-once.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -896,6 +898,7 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   )
+  let cancelLockBooking: string | null = null // HOTFIX storno 2026-10-29: uvolní se ve finally
 
   try {
     const body: RefundRequest = await req.json()
@@ -943,10 +946,14 @@ Deno.serve(async (req: Request) => {
     let entityType = 'booking'
     let entityId = booking_id || order_id || ''
     let alreadyRefunded = false
+    // HOTFIX storno 2026-10-29: identita storna (bookings.cancelled_at) + řádek pro dorovnání stavu
+    const cancelOnce = !!booking_id && reason === 'cancellation' && !isCustomer
+    let cancelTok = ''
+    let cancelBk: Record<string, any> | null = null
 
     if (booking_id) {
       const { data } = await supabase.from('bookings')
-        .select('user_id, status, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, payment_method, pay_channel, stripe_refund_id, card_brand, card_last4')
+        .select('user_id, status, stripe_payment_intent_id, stripe_session_id, total_price, payment_status, payment_method, pay_channel, stripe_refund_id, card_brand, card_last4, cancelled_at')
         .eq('id', booking_id)
         .single()
 
@@ -971,6 +978,8 @@ Deno.serve(async (req: Request) => {
         )
       }
       bookingTotalPrice = Number(data.total_price) || 0
+      cancelTok = cancelToken((data as any).cancelled_at)
+      cancelBk = data
       // Zákazník si total_price zapisuje sám (appka při úpravě) — nesmí být
       // nesmyslně nízká vůči ceníku (jinak by strop „zaplaceno − cena“ vrátil
       // skoro vše). Spodní mez: 80 % denních cen termínu (věrnostní sleva ≤ 20 %)
@@ -1211,9 +1220,17 @@ Deno.serve(async (req: Request) => {
     // refund larger than the captured charge — Stripe then errors with
     // "Refund amount ... is greater than charge amount ..." and the user
     // sees "Něco se pokazilo. Zkus to prosím znovu."
+    // HOTFIX storno 2026-10-29: souběžná storno volání téže rezervace po sobě (zámek PŘED čtením
+    // vratek ze Stripe, ať druhé volání vidí vratku prvního). Bez zámku dál — rozhoduje kontrola níže.
+    if (cancelOnce) {
+      if (await acquireCancelLock(supabase, booking_id!)) cancelLockBooking = booking_id!
+      else await dlog('cancellation_lock_busy', 'info')
+    }
+
     let refundableHaleru: number | null = null
     let refundableCZK: number | null = null
     let chargedHaleru: number | null = null
+    let piRefunds: StripeRefundLike[] | null = null
     try {
       const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId)
       // POZOR (fix 2026-08-21): dřívější fallback `|| pi.amount` počítal i
@@ -1226,6 +1243,7 @@ Deno.serve(async (req: Request) => {
       let alreadyRefunded = 0
       try {
         const refundsList = await stripe.refunds.list({ payment_intent: stripePaymentIntentId, limit: 100 })
+        piRefunds = refundsList.data as unknown as StripeRefundLike[]
         for (const r of refundsList.data) {
           if (r.status === 'succeeded' || r.status === 'pending') alreadyRefunded += r.amount
         }
@@ -1244,6 +1262,19 @@ Deno.serve(async (req: Request) => {
     if (booking_id && chargedHaleru === 0) {
       await dlog('pi_never_charged_manual_fallback', 'info', { payment_intent_id: stripePaymentIntentId })
       return await manualBookingRefund(supabase, booking_id, amount, reason, dlog, isCustomer)
+    }
+
+    // HOTFIX storno 2026-10-29: volání ze serveru (send-cancellation-email) na storno, ke kterému
+    // už naše storno vratka existuje (i pending / bez zapsaného stavu) → žádná druhá vratka.
+    if (cancelOnce && caller.kind === 'service' && cancelBk && piRefunds) {
+      const prior = priorCancellationRefunds(piRefunds, booking_id!, cancelTok)
+      if (prior.length) {
+        return await respondExistingCancelRefund({
+          supabase, bookingId: booking_id!, token: cancelTok, prior: prior[0], refundableHaleru, booking: cancelBk,
+          createCn: createCreditNoteForExistingRefund, ensureCn: ensureCreditNotePdf, dlog,
+          headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     // Decide effective amount (in haléře). Null = full refund.
@@ -1308,6 +1339,8 @@ Deno.serve(async (req: Request) => {
         mg_reason: reason || '',
         mg_booking_id: booking_id || '',
         mg_order_id: order_id || '',
+        // HOTFIX storno 2026-10-29: identita storna (cancel-once.ts)
+        ...(booking_id && reason === 'cancellation' ? { mg_cancel_at: cancelTok } : {}),
       },
     }
     if (effectiveAmountHaleru != null && (refundableHaleru == null || effectiveAmountHaleru < refundableHaleru)) {
@@ -1569,5 +1602,7 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({ success: false, error: 'Refund failed: ' + (err as Error).message }),
       { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
+  } finally {
+    if (cancelLockBooking) await releaseCancelLock(supabase, cancelLockBooking)
   }
 })
