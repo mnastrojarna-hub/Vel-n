@@ -174,8 +174,13 @@ serve(async (req) => {
     let triggerMailOnly = false
     if (booking_id && isTriggerDispatch(reqBody)) {
       const td = await resolveTriggerDispatch(supabase, booking_id)
+      // Zaplacené storno bez vratky i mailu (hromadné storno / AI copilot) → 'warning': obsluha ho uvidí
+      // ve Velínu → Debug log a vratku/mail vyřídí ručně (dřív je trigger poslal sám — i chybně).
+      const warn = td.action === 'skip' && td.staff === true
       await supabase.from('debug_log').insert({
-        source: 'send-cancellation-email', action: 'trigger_dispatch', status: 'info', request_data: { booking_id, decision: td },
+        source: 'send-cancellation-email', action: warn ? 'trigger_paid_cancel_needs_staff' : 'trigger_dispatch',
+        status: warn ? 'warning' : 'info', request_data: { booking_id, decision: td },
+        ...(warn ? { error_message: 'Zaplacená rezervace zrušena bez vratky a bez storno mailu (hromadné storno / AI copilot) — vyřiď ručně ve Velínu.' } : {}),
       }).then(() => {}, () => {})
       if (td.action === 'skip') {
         return new Response(JSON.stringify({ success: true, skipped: 'trigger_dispatch', why: td.why }), {

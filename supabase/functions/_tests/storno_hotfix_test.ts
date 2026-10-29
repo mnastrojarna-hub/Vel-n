@@ -4,7 +4,7 @@
 // v PODPROCESU s import mapou storno-flow-map.json — pokryje je i běžné
 //   deno test --allow-all --no-check supabase/functions/_tests/
 import { hasSubMs, isTriggerDispatch, resolveTriggerDispatch, sameInstant } from '../send-cancellation-email/trigger-dispatch.ts'
-import { acquireCancelLock, cancelToken, priorCancellationRefunds, releaseCancelLock, type StripeRefundLike } from '../process-refund/cancel-once.ts'
+import { acquireCancelLock, cancelToken, duplicateAdminRefunds, instantKey, priorCancellationRefunds, releaseCancelLock, type StripeRefundLike } from '../process-refund/cancel-once.ts'
 import { Db } from './storno-fake-db.ts'
 
 function eq(a: unknown, b: unknown, msg = '') {
@@ -39,15 +39,23 @@ function dbWith(bk: Record<string, unknown>, rows: Array<Record<string, unknown>
 Deno.test('trigger-dispatch: převezme jen rozhodnutí cancel_booking_tracked z téže transakce, jinak bez peněz', async () => {
   eq(await resolveTriggerDispatch(dbWith({ payment_status: 'paid', cancelled_at: RPC_TS }, [{ refund_amount: 1500, refund_percent: 50, created_at: RPC_TS }]), BID),
     { action: 'adopt', refund_amount: 1500, refund_percent: 50 }, 'RPC')
-  const velinTs = '2026-10-29T09:55:12.120Z'
-  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'refund_pending', cancelled_at: velinTs }, [{ refund_amount: 1500, refund_percent: 50, created_at: '2026-10-29T09:55:12.20431+00:00' }]), BID),
-    { action: 'skip', why: 'paid_without_tracked_decision' }, 'Velín')
-  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'paid', cancelled_at: velinTs }, [{ refund_amount: 0, refund_percent: 0, created_at: velinTs }]), BID),
-    { action: 'skip', why: 'paid_without_tracked_decision' }, 'Velín 0 %, shoda na ms se nepřevezme')
-  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'refunded', cancelled_at: velinTs }), BID), { action: 'skip', why: 'paid_without_tracked_decision' }, 'Stripe portál')
+  const velinTs = '2026-10-29T09:55:12.120Z', ADM = 'adm-1', velin = { cancelled_by: ADM, cancelled_by_source: 'velin' }
+  const skip = (staff: boolean, src: string | null) => ({ action: 'skip', why: 'paid_without_tracked_decision', staff, cancelled_by_source: src })
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'refund_pending', cancelled_at: velinTs, ...velin }, [{ refund_amount: 1500, refund_percent: 50, created_at: '2026-10-29T09:55:12.20431+00:00', cancelled_by: ADM }]), BID),
+    skip(false, 'velin'), 'Velín (záznam zapsaný až po UPDATE)')
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'paid', cancelled_at: velinTs, ...velin }, [{ refund_amount: 0, refund_percent: 0, created_at: velinTs, cancelled_by: 'jiny' }]), BID),
+    skip(false, 'velin'), 'shoda jen na ms a jiný cancelled_by se nepřevezme')
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'paid', cancelled_at: '2026-10-29T09:55:12.12+00:00', cancelled_by: 'u1' }, [{ refund_amount: 1500, refund_percent: 50, created_at: '2026-10-29T09:55:12.12+00:00', cancelled_by: 'u1' }]), BID),
+    { action: 'adopt', refund_amount: 1500, refund_percent: 50 }, 'RPC s now() končícím …000 µs (týž cancelled_by)')
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'refunded', cancelled_at: velinTs, cancelled_by_source: 'stripe_portal' }), BID), skip(false, 'stripe_portal'), 'Stripe portál')
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'paid', cancelled_at: velinTs, cancelled_by_source: 'admin' }), BID), skip(true, 'admin'), 'hromadné „Zrušit“ → varování obsluze')
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'paid', cancelled_at: velinTs }), BID), skip(true, null), 'AI copilot → varování obsluze')
   eq(await resolveTriggerDispatch(dbWith({ payment_status: 'paid', cancelled_at: RPC_TS }, [{ refund_amount: 3000, refund_percent: 100, created_at: '2026-10-28T09:00:00.5551+00:00' }]), BID),
-    { action: 'skip', why: 'paid_without_tracked_decision' }, 'starý záznam z dřívějšího storna')
+    skip(true, null), 'starý záznam z dřívějšího storna')
   eq(await resolveTriggerDispatch(dbWith({ payment_status: 'unpaid', cancelled_at: velinTs }), BID), { action: 'mail_only' }, 'nezaplacená')
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: 'unpaid', cancelled_at: RPC_TS }, [{ refund_amount: 3000, refund_percent: 100, created_at: RPC_TS }]), BID),
+    { action: 'mail_only' }, 'nezaplacená přes cancel_booking_tracked → mail BEZ vratky (RPC zapisuje částku i bez platby)')
+  eq(await resolveTriggerDispatch(dbWith({ payment_status: null, cancelled_at: RPC_TS }, [{ refund_amount: 3000, refund_percent: 100, created_at: RPC_TS }]), BID), { action: 'mail_only' }, 'NULL')
   eq(await resolveTriggerDispatch(new Db({ bookings: [] }), BID), { action: 'skip', why: 'booking_unreadable' })
 })
 
@@ -64,7 +72,31 @@ Deno.test('cancel-once: vratka TOHOTO storna = naše storno vratka se značkou c
   eq(ids([ref({ id: 'd', md: { mg_source: '' } })]), [], 'ruční vratka v dashboardu')
   eq(ids([ref({ id: 'l1', created: Date.parse('2026-10-29T09:30:00Z') / 1000 }), ref({ id: 'l2', created: Date.parse('2026-10-29T08:00:00Z') / 1000 })]), ['l1'], 'bez značky: ±1 h')
   eq(priorCancellationRefunds([ref({ id: 'n' })], BID, '').map((r) => r.id), ['n'], 'bez cancelled_at: každá naše storno vratka')
+  eq(priorCancellationRefunds([ref({ id: 'e', md: { mg_cancel_at: '' } }), ref({ id: 'x', md: { mg_cancel_at: tok } })], BID, '').map((r) => r.id), ['e'], 'bez cancelled_at: vratka bez cancelled_at')
   eq(cancelToken(null), '')
+  // okamžik, ne text: 'Z' / '+00:00' / ořezané nuly / posun zóny (jiná verze PostgRESTu)
+  const t6 = '2026-10-29T10:00:00.1234+00:00'
+  for (const same of ['2026-10-29T10:00:00.123400+00:00', '2026-10-29T10:00:00.1234Z', '2026-10-29T11:00:00.1234+01:00']) {
+    eq(priorCancellationRefunds([ref({ id: 's', md: { mg_cancel_at: same } })], BID, t6).map((r) => r.id), ['s'], same)
+  }
+  eq(priorCancellationRefunds([ref({ id: 'd', md: { mg_cancel_at: '2026-10-29T10:00:00.1235+00:00' } })], BID, t6).length, 0, 'jiná mikrosekunda')
+  eq([instantKey('2026-10-29T10:00:00Z'), instantKey('2026-10-29T10:00:00.000000+00:00'), instantKey(''), instantKey('x')],
+    [`${Date.parse('2026-10-29T10:00:00Z')}.000`, `${Date.parse('2026-10-29T10:00:00Z')}.000`, null, null])
+})
+
+Deno.test('cancel-once: obsluha — duplicita téhož požadavku (stejná částka ≤ 3 min / vratka vzniklá při čekání na zámek)', () => {
+  const now = Date.parse('2026-10-29T10:00:00Z') / 1000
+  const ids = (rs: StripeRefundLike[], amountHaleru: number | null, lock: { held: boolean; waited: boolean; sinceS: number | null } | null) =>
+    duplicateAdminRefunds(rs, BID, { amountHaleru, nowS: now, lock }).map((r) => r.id)
+  const r1 = ref({ id: 'r1', amount: 150000, created: now - 30 })
+  eq(ids([r1], 150000, null), ['r1'], 'dvojité odeslání (i čekající „pending“)')
+  eq(ids([r1], 200000, null), [], '„Potvrdit vrácení“ jiné částky = vědomá další vratka')
+  eq(ids([ref({ id: 'old', amount: 150000, created: now - 600 })], 150000, null), [], 'stejná částka po 10 min = vědomá')
+  eq(ids([ref({ id: 'mine', amount: 150000, created: now - 400 })], 150000, { held: true, waited: true, sinceS: now - 500 }), ['mine'], 'čekal na zámek od dřívějška')
+  eq(ids([r1], null, null), [], 'plná vratka bez čekání: dorovná zbytek jako dřív')
+  eq(ids([r1], null, { held: true, waited: true, sinceS: now - 60 }), ['r1'], 'plná vratka, souběžné volání vratku mezitím provedlo')
+  eq(ids([ref({ id: 'b4', amount: 150000, created: now - 90 })], null, { held: true, waited: true, sinceS: now - 60 }), [], 'vratka před začátkem čekání')
+  eq(ids([ref({ id: 'sh', amount: 150000, created: now - 5, md: { mg_reason: 'edit_shortening' } })], 150000, null), [], 'jen storno vratky')
 })
 
 Deno.test('cancel-once: zámek storno vratky přes claim_email_send(refund_cancellation) se po doběhnutí uvolní', async () => {
@@ -74,17 +106,22 @@ Deno.test('cancel-once: zámek storno vratky přes claim_email_send(refund_cance
     if (rows.some((x) => x.booking_id === a.p_booking_id && x.template_slug === a.p_slug)) return { data: false, error: null }
     rows.push({ booking_id: a.p_booking_id, template_slug: a.p_slug }); return { data: true, error: null }
   }
-  eq(await acquireCancelLock(db, BID), true)
+  eq(await acquireCancelLock(db, BID), { held: true, waited: false, sinceS: null })
   eq(db.rows('email_send_locks').map((x) => x.template_slug), ['refund_cancellation'])
   await releaseCancelLock(db, BID)
   eq(db.rows('email_send_locks').length, 0)
-  eq(await acquireCancelLock(new Db({}), BID), false, 'RPC chybí → bez zámku (rozhodne kontrola Stripe vratek)')
+  eq(await acquireCancelLock(new Db({}), BID), { held: false, waited: false, sinceS: null }, 'RPC chybí → bez zámku (rozhodne kontrola Stripe vratek)')
+  // drženo jiným voláním → čeká (polling), pak dostane zámek; sinceS = od kdy ho drží ono
+  const lockedAt = '2026-10-29T10:00:00.5+00:00'
+  db.rows('email_send_locks').push({ booking_id: BID, template_slug: 'refund_cancellation', locked_at: lockedAt })
+  setTimeout(() => void releaseCancelLock(db, BID), 300)
+  eq(await acquireCancelLock(db, BID), { held: true, waited: true, sinceS: Date.parse(lockedAt) / 1000 - 2 - 0.5 })
 })
 
 const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/stripe@14').startsWith('file:') } catch { return false } })()
 const CAN_RUN = (() => { try { return Deno.permissions.querySync({ name: 'run' }).state === 'granted' } catch { return false } })()
-const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_once_flow_test.ts']
-const FLOW_MIN = 7 + 10 // počet flow testů (ubyl-li by některý, spouštěč selže)
+const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_once_flow_test.ts', './storno_hotfix_r1_flow_test.ts']
+const FLOW_MIN = 7 + 10 + 7 // počet flow testů (ubyl-li by některý, spouštěč selže)
 
 Deno.test({ name: 'storno hotfix: flow testy celých handlerů (podproces s import mapou storno-flow-map.json)', ignore: MAPPED || !CAN_RUN, fn: async () => {
   const p = (f: string) => new URL(f, import.meta.url).pathname

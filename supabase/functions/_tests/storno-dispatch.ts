@@ -1,7 +1,7 @@
 // ===== _tests/storno-dispatch.ts =====
 // Volající storna pro flow testy (HOTFIX 2026-10-29) — přesná těla a pořadí jako v živém kódu.
 // deno-lint-ignore-file no-explicit-any
-import { BID, EMAIL, bk, call, creditNotes, deliver, insert, pgNow, rows, tier, world } from './storno-harness.ts'
+import { ADMIN_ID, BID, EMAIL, bk, call, creditNotes, dbNow, deliver, insert, pgNow, rows, tier, world } from './storno-harness.ts'
 
 /** DB trigger trg_notify_booking_cancelled_email → notify_booking_cancelled_email() → pg_net (service klíč). */
 export const trigger = () => call('send-cancellation-email', { booking_id: BID, cancellation_reason: bk().cancellation_reason || '',
@@ -21,12 +21,12 @@ export async function velinCancel(choice: number | 'full', mode: TriggerMode = '
   const isFull = wasPaid && refundAmount >= total
   const noRefund = wasPaid && refundAmount === 0
   // UPDATE (commit → trigger); cancelled_at z hodin prohlížeče
-  Object.assign(b, { status: 'cancelled', cancelled_by_source: 'velin', cancellation_reason: 'Storno (Velín)', cancelled_at: new Date().toISOString(),
+  Object.assign(b, { status: 'cancelled', cancelled_by: ADMIN_ID, cancelled_by_source: 'velin', cancellation_reason: 'Storno (Velín)', cancelled_at: new Date().toISOString(),
     ...(wasPaid && !noRefund ? { payment_status: 'refund_pending' } : {}) })
   if (mode === 'before') await trigger()
   const t = mode === 'concurrent' ? trigger() : null
   if (wasPaid && b.total_price) {
-    await insert('booking_cancellations', { booking_id: BID, reason: 'Storno (Velín)', refund_amount: refundAmount, refund_percent: refundPercent })
+    await insert('booking_cancellations', { booking_id: BID, cancelled_by: b.cancelled_by, reason: 'Storno (Velín)', refund_amount: refundAmount, refund_percent: refundPercent, created_at: dbNow() })
     if (!noRefund) {
       let hooked = false
       if (mode === 'mid') world().onRefundCreated = async () => { if (!hooked) { hooked = true; await trigger() } }

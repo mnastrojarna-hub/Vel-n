@@ -42,6 +42,8 @@ export class World {
   refundedTotal(): number {
     return this.refunds.filter((r) => r.status === 'succeeded' || r.status === 'pending').reduce((s, r) => s + r.amount, 0)
   }
+  /** hodiny Stripe = reálný čas (neklesající); advance() v harnessu posouvá starší vratky do minulosti */
+  now(): number { return (this.clock = Math.max(this.clock, Math.floor(Date.now() / 1000))) }
   takeEvents(): any[] { const e = this.events; this.events = []; return e }
   /** ruční vratka v Stripe dashboardu (bez našich mg_* metadat) */
   dashboardRefund(piId: string, haleru?: number) { return this.api().refunds.create({ payment_intent: piId, amount: haleru, reason: 'requested_by_customer' }) }
@@ -82,7 +84,7 @@ export class World {
           const amt = p.amount != null ? Number(p.amount) : w.left(pi.id)
           if (!(amt > 0) || amt > w.left(pi.id)) { w.creates.push({ params: p, key, result: 'too_much' }); throw new Error('Refund amount is greater than unrefunded amount on charge') }
           const r: Refund = { id: `re_${++w.seq}`, object: 'refund', amount: amt, status: w.refundStatus(), metadata: { ...(p.metadata || {}) },
-            payment_intent: pi.id, charge: pi.latest_charge, created: ++w.clock, reason: p.reason || null, currency: 'czk', seq: w.seq }
+            payment_intent: pi.id, charge: pi.latest_charge, created: w.now(), reason: p.reason || null, currency: 'czk', seq: w.seq }
           w.refunds.push(r)
           const ch = w.charges.get(pi.latest_charge)!
           ch.amount_refunded += amt

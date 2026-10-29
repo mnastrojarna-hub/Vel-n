@@ -6,7 +6,7 @@
 //   deno test -A --no-check --import-map=supabase/functions/_tests/storno-flow-map.json supabase/functions/_tests/storno_hotfix_trigger_flow_test.ts
 // STORNO_FN_DIR=<strom>/supabase/functions = tytéž testy proti jinému stromu (důkaz pádu na main).
 // deno-lint-ignore-file no-explicit-any
-import { boot, cnKc, customerMails, deliver, fresh, later, refundedKc, tier, bk } from './storno-harness.ts'
+import { boot, cnKc, customerMails, deliver, fresh, later, refundedKc, rows, tier, bk } from './storno-harness.ts'
 import { bulkCancel, customerCancel, portalFullRefund, rpcCancel, trigger, velinCancel, type CustMode, type TriggerMode } from './storno-dispatch.ts'
 
 const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/stripe@14').startsWith('file:') } catch { return false } })()
@@ -73,7 +73,15 @@ Deno.test({ name: 'storno zákazník + trigger na hranici 168 h: platí pásmo R
 
 Deno.test({ name: 'hromadné storno / AI copilot + trigger: zaplacená rezervace → žádná vratka, žádný mail', ignore: !MAPPED, fn: async () => {
   const bad: string[] = []
-  for (const days of [10, 4]) { fresh(days); await bulkCancel(true); await deliver(); check(`hromadně +${days} d`, { refunded: 0, mails: 0 }, bad) }
+  for (const days of [10, 4]) {
+    fresh(days); await bulkCancel(true); await deliver(); check(`hromadně +${days} d`, { refunded: 0, mails: 0 }, bad)
+    // obsluha se to dozví: varování ve Velínu → Debug log (zákazník nic nevidí)
+    if (!rows('debug_log').some((d) => d.action === 'trigger_paid_cancel_needs_staff' && d.status === 'warning')) bad.push(`hromadně +${days} d: chybí varování obsluze`)
+  }
+  // Velín storno (má cancelled_by) a Stripe portál varování nedostanou — vratku i mail vyřídí samy
+  const noWarn = (label: string) => { if (rows('debug_log').some((d) => d.action === 'trigger_paid_cancel_needs_staff')) bad.push(`varování i u: ${label}`) }
+  fresh(10); await velinCancel(1500, 'before'); await deliver(); noWarn('Velín storno')
+  fresh(4); await portalFullRefund(true); await deliver(); noWarn('Stripe portál')
   done(bad)
 } })
 

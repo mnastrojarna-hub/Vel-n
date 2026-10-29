@@ -10,7 +10,7 @@ import { authClassify, forbidden } from '../_shared/auth.ts'
 // Výpůjčka výbavy (2026-10-23): text dobropisu „výpůjčka výbavy“ + spodní mez ceny výbavy (gear.ts).
 import { gearPriceFloorCzk, loadGearRefundRow, noMotoRefundSubject } from './gear.ts'
 // HOTFIX storno 2026-10-29: storno vratka nejvýš jednou za storno (cancel-once.ts).
-import { acquireCancelLock, cancelToken, priorCancellationRefunds, releaseCancelLock, respondExistingCancelRefund, type StripeRefundLike } from './cancel-once.ts'
+import { acquireCancelLock, cancelToken, duplicateAdminRefunds, priorCancellationRefunds, releaseCancelLock, respondExistingCancelRefund, type CancelLock, type StripeRefundLike } from './cancel-once.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -882,6 +882,41 @@ async function manualBookingRefund(
   )
 }
 
+// Ručně potvrzená platba (QR / převod / hotově / krypto / voucher) — žádné peníze na Stripe.
+const MANUAL_PAY_METHODS = ['bank_transfer', 'qr', 'cash', 'crypto', 'voucher', 'wire']
+function isManualPayment(d: any): boolean {
+  const m = String(d?.payment_method || '').toLowerCase().trim()
+  return MANUAL_PAY_METHODS.includes(m) || (!m && d?.pay_channel === 'qr')
+}
+
+// Idempotentní odpověď „už vráceno“: dohraje PDF / chybějící dobropis k uložené vratce, Stripe nevolá.
+async function respondAlreadyRefunded(
+  supabase: any, booking_id: string, data: any,
+  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
+): Promise<Response> {
+  let result = await ensureCreditNotePdf(supabase, booking_id, data)
+  // Recovery: pokud credit_note row vůbec neexistuje (process-refund spadl
+  // dřív než stihl INSERT), vytvoř ho ze Stripe refund dat. Tohle je hlavní
+  // safety-net cesta, kterou volá webhook-receiver charge.refunded.
+  if (!result.creditNoteId && data.stripe_refund_id) {
+    await dlog('credit_note_recovery_create', 'info', { stripe_refund_id: data.stripe_refund_id })
+    result = await createCreditNoteForExistingRefund(supabase, booking_id, data)
+    await dlog('credit_note_recovery_create_done', result.creditNoteId ? 'ok' : 'error', { credit_note_id: result.creditNoteId, pdf_path: result.pdfPath })
+  }
+  return new Response(
+    JSON.stringify({
+      success: true,
+      already_refunded: true,
+      refund_id: data.stripe_refund_id || result.refundId,
+      credit_note_id: result.creditNoteId,
+      credit_note_pdf_path: result.pdfPath,
+      card_brand: data.card_brand,
+      card_last4: data.card_last4,
+    }),
+    { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+  )
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -950,6 +985,7 @@ Deno.serve(async (req: Request) => {
     const cancelOnce = !!booking_id && reason === 'cancellation' && !isCustomer
     let cancelTok = ''
     let cancelBk: Record<string, any> | null = null
+    let wantsRest = false
 
     if (booking_id) {
       const { data } = await supabase.from('bookings')
@@ -1032,29 +1068,15 @@ Deno.serve(async (req: Request) => {
       // dobropis. Proto se 'partial_refund' chová idempotentně jen BEZ explicitní
       // částky; s `amount > 0` pokračuje na nový refund (po fresh-CN dedup checku níže).
       const wantsNewPartial = data.payment_status === 'partial_refund' && Number.isFinite(Number(amount)) && Number(amount) > 0
-      if (data.payment_status === 'refunded' || (data.payment_status === 'partial_refund' && !wantsNewPartial)) {
+      // HOTFIX storno 2026-10-29: Velín „Potvrdit (částečné) vrácení“ 100 % (bez amount) u stornované,
+      // částečně vrácené KARTOVÉ rezervace = vrátit ZBYTEK (modal: „omezí se na dosud nevrácenou část“).
+      // Dřív větev „už vráceno“ nevrátila nic a mail zákazníkovi tvrdil 100 %. Ruční platby beze změny.
+      wantsRest = caller.kind === 'admin' && reason === 'cancellation' && data.status === 'cancelled'
+        && data.payment_status === 'partial_refund' && !(Number(amount) > 0)
+        && !!data.stripe_payment_intent_id && !isManualPayment(data)
+      if (data.payment_status === 'refunded' || (data.payment_status === 'partial_refund' && !wantsNewPartial && !wantsRest)) {
         alreadyRefunded = true
-        let result = await ensureCreditNotePdf(supabase, booking_id, data)
-        // Recovery: pokud credit_note row vůbec neexistuje (process-refund spadl
-        // dřív než stihl INSERT), vytvoř ho ze Stripe refund dat. Tohle je hlavní
-        // safety-net cesta, kterou volá webhook-receiver charge.refunded.
-        if (!result.creditNoteId && data.stripe_refund_id) {
-          await dlog('credit_note_recovery_create', 'info', { stripe_refund_id: data.stripe_refund_id })
-          result = await createCreditNoteForExistingRefund(supabase, booking_id, data)
-          await dlog('credit_note_recovery_create_done', result.creditNoteId ? 'ok' : 'error', { credit_note_id: result.creditNoteId, pdf_path: result.pdfPath })
-        }
-        return new Response(
-          JSON.stringify({
-            success: true,
-            already_refunded: true,
-            refund_id: data.stripe_refund_id || result.refundId,
-            credit_note_id: result.creditNoteId,
-            credit_note_pdf_path: result.pdfPath,
-            card_brand: data.card_brand,
-            card_last4: data.card_last4,
-          }),
-          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
+        return await respondAlreadyRefunded(supabase, booking_id, data, dlog)
       }
 
       // Duplicitní dispatch téže rozdílové úpravy (RPC pg_net + retry v
@@ -1095,7 +1117,7 @@ Deno.serve(async (req: Request) => {
       // proběhlo, peníze jsou stále u nás a čeká se na vrácení), plus 'partial_refund'
       // s explicitní částkou (další rozdílová úprava). 'refunded' (a 'partial_refund'
       // bez částky) řeší idempotentní větev výše. Cokoli jiného (unpaid) refundovat nelze.
-      if (data.payment_status !== 'paid' && data.payment_status !== 'refund_pending' && !wantsNewPartial) {
+      if (data.payment_status !== 'paid' && data.payment_status !== 'refund_pending' && !wantsNewPartial && !wantsRest) {
         return new Response(
           JSON.stringify({
             success: false,
@@ -1115,9 +1137,8 @@ Deno.serve(async (req: Request) => {
       // „This PaymentIntent ... does not have a successful charge to refund".
       // pay_channel='qr' je pojistka pro řádky bez payment_method; kartové
       // metody (card/stripe/google_pay/apple_pay/klarna/paypal) jdou dál na Stripe.
-      const MANUAL_PAY_METHODS = ['bank_transfer', 'qr', 'cash', 'crypto', 'voucher', 'wire']
       const payMethod = String((data as any).payment_method || '').toLowerCase().trim()
-      if (MANUAL_PAY_METHODS.includes(payMethod) || (!payMethod && (data as any).pay_channel === 'qr')) {
+      if (isManualPayment(data)) {
         await dlog('manual_method_direct', 'info', { payment_method: payMethod, pay_channel: (data as any).pay_channel })
         return await manualBookingRefund(supabase, booking_id, amount, reason, dlog, isCustomer)
       }
@@ -1222,9 +1243,11 @@ Deno.serve(async (req: Request) => {
     // sees "Něco se pokazilo. Zkus to prosím znovu."
     // HOTFIX storno 2026-10-29: souběžná storno volání téže rezervace po sobě (zámek PŘED čtením
     // vratek ze Stripe, ať druhé volání vidí vratku prvního). Bez zámku dál — rozhoduje kontrola níže.
+    let cancelLock: CancelLock | null = null
     if (cancelOnce) {
-      if (await acquireCancelLock(supabase, booking_id!)) cancelLockBooking = booking_id!
-      else await dlog('cancellation_lock_busy', 'info')
+      cancelLock = await acquireCancelLock(supabase, booking_id!)
+      if (cancelLock.held) cancelLockBooking = booking_id!
+      else await dlog('cancellation_lock_busy', 'info', { waited: cancelLock.waited })
     }
 
     let refundableHaleru: number | null = null
@@ -1260,18 +1283,33 @@ Deno.serve(async (req: Request) => {
     // Bez tohoto fallbacku by no_op větev níže chybně označila 'refunded'
     // (peníze by se nikdy nevrátily a nevznikl by ani dobropis).
     if (booking_id && chargedHaleru === 0) {
+      // „Vrátit zbytek“ jde jen ze Stripe platby — bez ní jako dřív „už vráceno“ (žádný ruční dobropis na celou cenu).
+      if (wantsRest && cancelBk) return await respondAlreadyRefunded(supabase, booking_id, cancelBk, dlog)
       await dlog('pi_never_charged_manual_fallback', 'info', { payment_intent_id: stripePaymentIntentId })
       return await manualBookingRefund(supabase, booking_id, amount, reason, dlog, isCustomer)
     }
 
     // HOTFIX storno 2026-10-29: volání ze serveru (send-cancellation-email) na storno, ke kterému
     // už naše storno vratka existuje (i pending / bez zapsaného stavu) → žádná druhá vratka.
-    if (cancelOnce && caller.kind === 'service' && cancelBk && piRefunds) {
-      const prior = priorCancellationRefunds(piRefunds, booking_id!, cancelTok)
+    // Obsluha (Velín): jen duplicita TÉHOŽ požadavku (dvojité odeslání / souběh při čekání na zámek);
+    // vědomá další vratka („Potvrdit vrácení“ jiné částky) projde jako dřív.
+    if (cancelOnce && cancelBk && piRefunds) {
+      const prior = caller.kind === 'service'
+        ? priorCancellationRefunds(piRefunds, booking_id!, cancelTok)
+        : duplicateAdminRefunds(piRefunds, booking_id!, {
+          amountHaleru: Number(amount) > 0 ? Math.round(Number(amount) * 100) : null,
+          nowS: Math.floor(Date.now() / 1000), lock: cancelLock,
+        })
       if (prior.length) {
         return await respondExistingCancelRefund({
-          supabase, bookingId: booking_id!, token: cancelTok, prior: prior[0], refundableHaleru, booking: cancelBk,
-          createCn: createCreditNoteForExistingRefund, ensureCn: ensureCreditNotePdf, dlog,
+          supabase, bookingId: booking_id!, token: cancelTok, prior: prior[0], refunds: piRefunds, refundableHaleru,
+          lockHeld: !!cancelLock?.held, createCn: createCreditNoteForExistingRefund, ensureCn: ensureCreditNotePdf, dlog,
+          cardOf: async (r) => {
+            const chargeId = typeof r.charge === 'string' ? r.charge : (r.charge as any)?.id
+            if (!chargeId) return null
+            const ch = await stripe.charges.retrieve(chargeId)
+            return { brand: ch?.payment_method_details?.card?.brand || null, last4: ch?.payment_method_details?.card?.last4 || null }
+          },
           headers: { ...CORS, 'Content-Type': 'application/json' },
         })
       }

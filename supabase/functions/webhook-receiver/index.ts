@@ -837,7 +837,26 @@ Deno.serve(async (req: Request) => {
           //    send-cancellation-email má idempotency (sent_emails 30 min).
           //    Interní refund na ŽIVÉ rezervaci mail NEposílá — potvrzení úpravy
           //    řeší trg_booking_modified_email / příslušné flow.
-          if ((shouldCancel || alreadyCancelled) && linkedBooking.profiles?.email) {
+          // HOTFIX storno 2026-10-29: storno mail, který odešel AŽ PO vzniku nejnovější vratky, o ní
+          //    už zákazníkovi řekl → znovu doručený charge.refunded (Stripe retry po >30 min, kdy
+          //    vypršel claim mailu) druhý storno mail neposílá.
+          let stornoMailCoversRefund = false
+          if (!shouldCancel && alreadyCancelled && (latestRefund as any)?.created) {
+            try {
+              const { data: ml } = await supabase.from('message_log').select('id')
+                .eq('booking_id', linkedBooking.id).eq('template_slug', 'booking_cancelled').eq('channel', 'email')
+                .in('status', ['sent', 'delivered'])
+                .gte('created_at', new Date(Number((latestRefund as any).created) * 1000).toISOString()).limit(1)
+              stornoMailCoversRefund = !!ml?.length
+            } catch { /* bez údaje → mail jako dřív */ }
+            if (stornoMailCoversRefund) {
+              await supabase.from('debug_log').insert({
+                source: 'webhook-receiver', action: 'charge_refunded_mail_already_sent', component: 'stripe', status: 'info',
+                request_data: { booking_id: linkedBooking.id, refund_id: latestRefund?.id || null },
+              }).then(() => {}, () => {})
+            }
+          }
+          if ((shouldCancel || alreadyCancelled) && linkedBooking.profiles?.email && !stornoMailCoversRefund) {
             // Jazyk zákazníka explicitně; undefined → send-cancellation-email dohledá sám.
             const language = await resolveBookingLanguage(supabase, linkedBooking.id)
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-cancellation-email`, {
@@ -859,6 +878,10 @@ Deno.serve(async (req: Request) => {
                 cancelled_by_source: shouldCancel ? 'stripe_portal' : (linkedBooking.cancelled_by_source || 'customer'),
                 refund_amount: refundCzk,
                 refund_percent: refundPct,
+                // HOTFIX storno 2026-10-29: peníze z této události už se vrátily (Stripe) — mail nesmí
+                // spustit další vratku (dřív: ruční vratka v dashboardu po stornu 0 % / nové cancelled_at
+                // → druhá reálná vratka). Dobropis dohledá/dohraje attach smyčka (jen recovery).
+                skip_refund: true,
                 source: linkedBooking.booking_source || 'app',
                 language,
               }),

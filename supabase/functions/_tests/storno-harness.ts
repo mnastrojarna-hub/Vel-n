@@ -24,7 +24,7 @@ for (const k of ['PDFSHIFT_API_KEY', 'FIO_PAYMENT_TOKEN', 'FIO_API_TOKEN']) Deno
 
 export const BID = '11111111-2222-4333-8444-555555555555'
 const UID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
-const ADMIN_ID = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff'
+export const ADMIN_ID = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff'
 const ADMIN = 'adm.jwt.token'
 export const EMAIL = 'zakaznik@example.com'
 export const TOTAL = 3000
@@ -64,6 +64,8 @@ const db = (): Db => g.__STORNO_DB
 const pragueDay = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague' }).format(new Date(ms))
 /** timestamptz jak ho vrací PostgREST (mikrosekundy, +00:00) */
 export const pgNow = () => new Date(Date.now()).toISOString().replace('Z', `${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}+00:00`)
+/** DB now() při INSERTu z PostgRESTu (Velín): vždy jiný okamžik než milisekundový čas z prohlížeče */
+export const dbNow = () => new Date(Date.now()).toISOString().replace('Z', `${String(1 + Math.floor(Math.random() * 999)).padStart(3, '0')}+00:00`)
 
 export function fresh(days: number, o: { gear?: boolean; booking?: Record<string, any> } = {}) {
   const w = new World(); setWorld(w); w.addPi('pi_orig', TOTAL, { booking_id: BID, type: 'booking' })
@@ -105,6 +107,8 @@ export const bk = () => db().rows('bookings')[0]
 export function advance(min: number) {
   skew += min * 60_000
   for (const t of ['invoices', 'debug_log', 'sent_emails', 'message_log']) for (const r of db().rows(t)) r.created_at = new Date(Date.parse(r.created_at) - min * 60_000).toISOString()
+  for (const r of world().refunds) r.created -= min * 60 // Stripe: dřívější vratky jsou o `min` starší
+  for (const e of world().events) e.created -= min * 60
 }
 export async function later<T>(ms: number, fn: () => Promise<T>): Promise<T> {
   const orig = Date.now; Date.now = () => orig() + ms

@@ -5,7 +5,7 @@
 // tyto scénáře PADAJÍ (vrátí se 3000 místo 1500). + regrese, které musí projít na main i po opravě.
 // Spouští storno_hotfix_test.ts v podprocesu s import mapou storno-flow-map.json (viz trigger test).
 // deno-lint-ignore-file no-explicit-any
-import { BID, EMAIL, advance, bk, boot, call, cnKc, creditNotes, customerMails, deliver, fresh, insert, refundedKc, rows, world } from './storno-harness.ts'
+import { BID, EMAIL, advance, bk, boot, call, cnKc, creditNotes, customerMails, dbNow, deliver, fresh, insert, refundedKc, rows, world } from './storno-harness.ts'
 import { customerCancel, trigger, velinCancel, velinConfirm } from './storno-dispatch.ts'
 
 const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/stripe@14').startsWith('file:') } catch { return false } })()
@@ -30,7 +30,7 @@ Deno.test({ name: 'storno + charge.refunded doručený znovu po 40 min: Velín 5
   const bad: string[] = []
   const replay = async (label: string, exp: number) => {
     const ev = world().takeEvents(); await deliver(ev); advance(40); await deliver(ev)
-    try { money(label, exp); mailsSay(label, exp) } catch (e) { bad.push((e as Error).message) }
+    try { money(label, exp); mailsSay(label, exp, 1) } catch (e) { bad.push((e as Error).message) }
   }
   fresh(10); await velinCancel(1500); await replay('replay Velín 50 %', 1500)
   for (const gear of [false, true]) {
@@ -59,7 +59,7 @@ Deno.test({ name: 'storno Velín 50 %, process-refund spadne po refunds.create (
 Deno.test({ name: 'souběh: process-refund z Velínu a send-cancellation-email (vypršel invoke v prohlížeči) → jedna vratka 1500', ignore: !MAPPED, fn: async () => {
   fresh(10)
   Object.assign(bk(), { status: 'cancelled', cancelled_at: new Date().toISOString(), payment_status: 'refund_pending', cancelled_by_source: 'velin', cancellation_reason: 'Storno (Velín)' })
-  await insert('booking_cancellations', { booking_id: BID, refund_amount: 1500, refund_percent: 50 })
+  await insert('booking_cancellations', { booking_id: BID, refund_amount: 1500, refund_percent: 50, created_at: dbNow() })
   await Promise.all([
     call('process-refund', { booking_id: BID, reason: 'cancellation', amount: 1500 }, 'admin'),
     call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, cancellation_reason: 'Storno (Velín)', cancelled_by_source: 'velin', source: 'app', refund_amount: 1500, refund_percent: 50 }, 'admin'),
@@ -99,7 +99,7 @@ Deno.test({ name: 'regrese: charge.refunded zpracovaný uvnitř process-refund (
 Deno.test({ name: 'regrese: nezaplacená rezervace + trigger → jeden storno mail, žádné peníze (Velín, zákazník, hromadně)', ignore: !MAPPED, fn: async () => {
   fresh(10, { booking: { payment_status: 'unpaid' } }); await velinCancel('full', 'concurrent'); money('Velín nezaplaceno', 0); mailsSay('Velín nezaplaceno', null, 1)
   fresh(10, { booking: { payment_status: 'unpaid' } }); await customerCancel('triggerFirst'); money('zákazník nezaplaceno', 0)
-  if (customerMails().length !== 1) throw new Error('zákazník nezaplaceno: maily ' + customerMails().length)
+  mailsSay('zákazník nezaplaceno (trigger první = jako dřív bez vratky)', null, 1)
   fresh(10, { booking: { payment_status: 'unpaid' } })
   Object.assign(bk(), { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by_source: 'admin', cancellation_reason: 'Hromadné storno' })
   await trigger(); money('hromadně nezaplaceno', 0); mailsSay('hromadně nezaplaceno', null, 1)
@@ -112,3 +112,4 @@ Deno.test({ name: 'regrese: „Potvrdit vrácení“ obsluhy po stornu 50 % (dal
   money('potvrzení obsluhy', 3000)
   if (rows('debug_log').slice(before).some((d) => d.action === 'cancellation_refund_exists')) throw new Error('kontrola zablokovala obsluhu')
 } })
+
