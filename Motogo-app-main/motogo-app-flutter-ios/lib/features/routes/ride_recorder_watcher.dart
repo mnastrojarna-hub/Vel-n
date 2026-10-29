@@ -8,6 +8,43 @@ import '../reservations/reservation_provider.dart';
 import 'ride_location.dart' show rideTrOpt;
 import 'ride_recorder.dart';
 
+/// Rezervace, u které se má PRÁVĚ TEĎ nahrávat, jinak null.
+///
+/// Dřív stačil kalendářní den v rozsahu termínu — jenže to je od PŮLNOCI
+/// dne vyzvednutí do půlnoci po vrácení. Do stopy tak šla i cesta autem na
+/// pobočku a domů (v hustých fixech, tedy jako ujeté kilometry motorkou).
+/// Nahrává se proto až od skutečného PŘEVZETÍ (`picked_up_at` — předávací
+/// protokol na obsluhované pobočce, kód do boxu na samoobslužné) do VRÁCENÍ
+/// (`returned_at`). Pojistka pro rezervaci aktivovanou jen nočním cronem bez
+/// odbavení: od naplánovaného času vyzvednutí. Výpůjčka JEN výbavy
+/// (`booking_kind = 'gear'`) se nikdy nenahrává — není to jízda na motorce
+/// a nesmí ani ukončit pozastavenou vlastní cestu. [now] jen pro testy.
+String? rideActiveBookingId(List<Reservation> list, {DateTime? now}) {
+  final at = now ?? DateTime.now();
+  for (final r in list) {
+    if (r.isGearOnly) continue; // výbava ≠ motorka
+    if (!r.inRentalTerm) continue; // kalendářně; vydání řeší issuedAt níže
+    if (r.returnedAt != null) continue; // vráceno → dál se nenahrává
+    // převzato → nahrávat; `issuedAt` = kód + podepsaný protokol na pobočce
+    // (same-day platba dřív nastavila picked_up_at už při potvrzení, 2026-09-28)
+    if (r.issuedAt != null) return r.id;
+    if (r.status == 'active' && !at.isBefore(_ridePickupAt(r))) return r.id;
+  }
+  return null;
+}
+
+/// Naplánované vyzvednutí = den začátku + `pickup_time` (HH:MM); bez času
+/// se bere konec dne, aby se bez odbavení nenahrávalo předčasně.
+DateTime _ridePickupAt(Reservation r) {
+  final d = r.startDate;
+  final m = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(r.pickupTime ?? '');
+  // Stará značka 00:01 (= „kdykoliv během prvního dne“, ne plán) → jako bez
+  // času; zvolený čas vyzvednutí (i na samoobsluze) se používá.
+  final noPlan = isLegacyAllDayPickupTime(r.pickupTime);
+  if (m == null || noPlan) return DateTime(d.year, d.month, d.day, 23, 59);
+  return DateTime(d.year, d.month, d.day, int.parse(m.group(1)!), int.parse(m.group(2)!));
+}
+
 /// Neviditelný hlídač (sedí v app shellu vedle `LoyaltyLevelUpWatcher`):
 /// jakmile má zákazník běžící výpůjčku a povolenou polohu, rozjede se záznam
 /// jízdy; po skončení výpůjčky se jízda uzavře. Nic nevykresluje — jen
@@ -46,40 +83,6 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     }
   }
 
-  /// Rezervace, u které se má PRÁVĚ TEĎ nahrávat, jinak null.
-  ///
-  /// Dřív stačil kalendářní den v rozsahu termínu — jenže to je od PŮLNOCI
-  /// dne vyzvednutí do půlnoci po vrácení. Do stopy tak šla i cesta autem na
-  /// pobočku a domů (v hustých fixech, tedy jako ujeté kilometry motorkou).
-  /// Nahrává se proto až od skutečného PŘEVZETÍ (`picked_up_at` — předávací
-  /// protokol na obsluhované pobočce, kód do boxu na samoobslužné) do VRÁCENÍ
-  /// (`returned_at`). Pojistka pro rezervaci aktivovanou jen nočním cronem bez
-  /// odbavení: od naplánovaného času vyzvednutí.
-  String? _activeBookingId(List<Reservation> list) {
-    final now = DateTime.now();
-    for (final r in list) {
-      if (!r.inRentalTerm) continue; // kalendářně; vydání řeší issuedAt níže
-      if (r.returnedAt != null) continue; // vráceno → dál se nenahrává
-      // převzato → nahrávat; `issuedAt` = kód + podepsaný protokol na pobočce
-      // (same-day platba dřív nastavila picked_up_at už při potvrzení, 2026-09-28)
-      if (r.issuedAt != null) return r.id;
-      if (r.status == 'active' && !now.isBefore(_pickupAt(r))) return r.id;
-    }
-    return null;
-  }
-
-  /// Naplánované vyzvednutí = den začátku + `pickup_time` (HH:MM); bez času
-  /// se bere konec dne, aby se bez odbavení nenahrávalo předčasně.
-  static DateTime _pickupAt(Reservation r) {
-    final d = r.startDate;
-    final m = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(r.pickupTime ?? '');
-    // Stará značka 00:01 (= „kdykoliv během prvního dne“, ne plán) → jako bez
-    // času; zvolený čas vyzvednutí (i na samoobsluze) se používá.
-    final noPlan = isLegacyAllDayPickupTime(r.pickupTime);
-    if (m == null || noPlan) return DateTime(d.year, d.month, d.day, 23, 59);
-    return DateTime(d.year, d.month, d.day, int.parse(m.group(1)!), int.parse(m.group(2)!));
-  }
-
   /// Jednorázová hláška záznamníku (navázání cesty, uložená vlastní cesta…).
   void _showNotice(String key, Map<String, String>? args) {
     if (ref.read(rideRecorderProvider).notice != key) return; // už ukázaná
@@ -101,7 +104,7 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     // načítání by jinak vypadal jako „výpůjčka skončila" a rozjetou jízdu
     // by zbytečně uzavřel (a po dojetí seznamu by vznikla druhá).
     if (!res.hasValue) return const SizedBox.shrink();
-    final bookingId = _activeBookingId(res.value ?? const <Reservation>[]);
+    final bookingId = rideActiveBookingId(res.value ?? const <Reservation>[]);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;

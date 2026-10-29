@@ -84,6 +84,28 @@ void main() {
     expect(g.motoName, 'BMW');
   });
 
+  test('sloučené jízdy 14 dní od sebe: mezera NENÍ pauza (čas ani počet), dny = dny jízd', () {
+    final trk = [
+      [49.2, 16.6],
+      [49.3, 16.6],
+    ];
+    final a = ride('a', trip: 'T', start: d0, end: d0.add(const Duration(hours: 4)), pause: 1800, track: trk);
+    final b = ride('b', trip: 'T', start: d0.add(const Duration(days: 14)),
+        end: d0.add(const Duration(days: 14, hours: 4)), pause: 600, track: trk);
+    final t = RideTrip('t:T', [a, b]);
+    final g = t.aggregate;
+    expect(g.pauseSec, 1800 + 600);
+    expect(g.pauseCount, 0);
+    expect(g.segments.where((s) => s.gapBefore != null), isEmpty);
+    expect(t.days, 2);
+    // noc mezi dvěma částmi cesty (≤ 36 h) pauzou zůstává
+    final c = ride('c', trip: 'T', start: d0.add(const Duration(hours: 20)),
+        end: d0.add(const Duration(hours: 24)), track: trk);
+    final n = RideTrip('t:T', [a, c]).aggregate;
+    expect(n.pauseSec, 1800 + 16 * 3600);
+    expect(n.pauseCount, 1);
+  });
+
   test('výchozí názvy a rozsah dat', () {
     final rent = RideTrip('b:B', [
       ride('a', booking: 'B', moto: 'Tiger', start: d0),

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'ride_motion.dart';
 import 'ride_session.dart';
 
+part 'ride_pause_guards.dart';
+
 /// Stavový automat pauz záznamu jízdy (SPEC §6) — čistý Dart, bez I/O.
 /// Dostává fixy (`onFix`), tiky časovače (`onTick`) a ruční povely; vrací
 /// [RideEngineStep]: body k odeslání, změnu fáze, odpojení GPS, logy.
@@ -26,11 +28,14 @@ class RideEngineStep {
   final List<List<double>> emit = [];
   final List<RideEngineLog> logs = [];
   bool phaseChanged = false;
-  /// Odpojit GPS stream (ruční pauza, pojistka doma / dlouhá pauza).
+  /// Odpojit GPS stream (ruční pauza, pojistka „dlouhá pauza").
   bool detach = false;
+  /// Vlastní cesta stojí u svého startu (doma?) — jen upozornit jezdce;
+  /// GPS běží dál a po rozjezdu se nahrává samo.
+  bool homeNotice = false;
   /// Nejvyšší SKUTEČNÁ Dopplerova rychlost vyslaných bodů (před značkou).
   double maxKmh = 0;
-  bool get isEmpty => emit.isEmpty && logs.isEmpty && !phaseChanged && !detach;
+  bool get isEmpty => emit.isEmpty && logs.isEmpty && !phaseChanged && !detach && !homeNotice;
 }
 
 enum _Mode { riding, pending, paused }
@@ -44,7 +49,8 @@ class RidePauseEngine {
 
   RideMotionConfig _cfg;
   RideMotionDetector _det;
-  /// Vlastní cesta (bez výpůjčky) — jen ta má pojistky „doma" a „dlouhá pauza".
+  /// Vlastní cesta (bez výpůjčky) — jen ta má upozornění „doma" a pojistku
+  /// „dlouhá pauza".
   bool own;
   /// Flag `ride_autopause` (kill-switch): false = nahrává se vše jako dřív.
   bool autoPauseOn;
@@ -71,6 +77,13 @@ class RidePauseEngine {
   double? _attachedAt;
   bool _freshAttach = false;
   double? _flagFrom;
+  /// Poslední „kontakt s jezdcem" (připojení streamu, otevření appky,
+  /// Pokračovat) — pojistka „dlouhá pauza" počítá od pozdějšího z tohohle
+  /// a začátku pauzy, ať po Pokračovat / otevření appky hned nevypne GPS.
+  double? _guardFrom;
+  bool _homeNoticed = false;
+  /// Fixy s Dopplerem ≥ 12 km/h v relaci (telefon rychlost měří).
+  int _dopMoving = 0;
 
   RidePhase get phase => _mode != _Mode.paused
       ? RidePhase.riding
@@ -92,6 +105,7 @@ class RidePauseEngine {
     _clearBuffers();
     _manual = false;
     _restored = false;
+    _homeNoticed = false;
     _lastEmitted = null;
     _tripStart = null;
     _anchor = null;
@@ -144,9 +158,29 @@ class RidePauseEngine {
   }
 
   /// Stream se (znovu) připojil — první fix starší než tohle je z cache.
+  /// Připojuje se jen z popředí (start, obnova, návrat do appky,
+  /// Pokračovat), takže je to i kontakt s jezdcem pro pojistku.
   void onAttach(double now) {
     _attachedAt = now;
     _freshAttach = true;
+    noteForeground(now);
+  }
+
+  /// Posun hodin se dozvěděl až po připojení streamu (odpověď serveru) →
+  /// čas připojení přepočítat na stejnou osu jako časy fixů.
+  void rebaseAttach(double at) {
+    final a = _attachedAt;
+    if (a == null) return;
+    _attachedAt = at;
+    final g = _guardFrom;
+    if (g != null) _guardFrom = g + (at - a);
+  }
+
+  /// Jezdec má appku v popředí (otevřel ji / klepl) → záznam není
+  /// zapomenutý, pojistka „dlouhá pauza" počítá znovu od teď.
+  void noteForeground(double now) {
+    final g = _guardFrom;
+    if (g == null || now > g) _guardFrom = now;
   }
 
   /// Nové prahy / zapnutí-vypnutí auto-pauzy (flag) za běhu.
@@ -175,6 +209,7 @@ class RidePauseEngine {
     if (_freshAttach && _attachedAt != null && f.ts < _attachedAt! - _C.cachedFixSlackS) return s;
     if (_lastFix != null && f.ts <= _lastFix!.ts) return s;
     _freshAttach = false;
+    if (f.kmh != null && f.kmh! >= _C.slowKmh && _dopMoving < 1000) _dopMoving++;
     if (f.acc != null && f.usable) {
       _accHist.add(f.acc!);
       if (_accHist.length > 5) _accHist.removeAt(0);
@@ -222,15 +257,16 @@ class RidePauseEngine {
           _ring.removeAt(0);
         }
         _addPausePath(f);
-        final t = _det.resumeTrigger(_ring, _anchor);
+        final t = _det.resumeTrigger(_ring, _anchor, dopplerSeen: _dopMoving >= _C.dopplerSeenFixes);
         if (t != null) _resume(s, t);
     }
     _advance(f);
     return s;
   }
 
-  /// Časovač (90 s; 30 s v pomalém úseku). [liveKm] = ujeto v cestě.
-  RideEngineStep onTick(double now, {double liveKm = 0}) {
+  /// Časovač (90 s; 30 s v pomalém úseku). [liveKm] = ujeto v cestě,
+  /// [stages] = počet etap (dnů) cesty.
+  RideEngineStep onTick(double now, {double liveKm = 0, int stages = 1}) {
     final s = RideEngineStep();
     if (!autoPauseOn || _manual) return s;
     final lf = _lastFix;
@@ -241,7 +277,7 @@ class RidePauseEngine {
       _enterPending(lf.ts, fromEmitted: true);
     }
     if (_mode == _Mode.pending) _evalPending(s, now);
-    if (_mode == _Mode.paused) _guards(s, now, liveKm);
+    if (_mode == _Mode.paused) _guards(s, now, liveKm, stages);
     return s;
   }
 
@@ -276,13 +312,17 @@ class RidePauseEngine {
   }
 
   /// Pokračovat po ruční pauze → „připraveno" (pauza trvá do rozjezdu;
-  /// první bod po rozjezdu dostane značku pauzy).
-  RideEngineStep resumeManual() {
+  /// první bod po rozjezdu dostane značku pauzy). [now] = čas klepnutí:
+  /// pojistka „dlouhá pauza" od něj počítá znovu (jinak by ji další tik
+  /// hned spustil a GPS zase vypnul).
+  RideEngineStep resumeManual([double? now]) {
     final s = RideEngineStep();
     if (!_manual) return s;
     final was = _reason;
+    if (now != null) noteForeground(now);
     _manual = false;
     _restored = false;
+    _homeNoticed = false;
     _ring.clear();
     _pausePath.clear();
     if (autoPauseOn) {
@@ -415,6 +455,7 @@ class RidePauseEngine {
     _pausePath.addAll(walkPath);
     _mode = _Mode.paused;
     _manual = false;
+    _homeNoticed = false;
     _reason = r;
     _anchor = a;
     _pausedSince = a?[2] ?? lf?.ts;
@@ -464,7 +505,7 @@ class RidePauseEngine {
       if (iStar >= 0) {
         final seg = _pausePath.sublist(0, iStar + 1);
         final len = ridePathLenM([if (base != null) base, ...seg]);
-        if (len >= _C.restoreMinPathM) {
+        if (len >= _C.restoreMinPathM && _restoreOk(seg, base, len)) {
           for (final p in seg) {
             _emit(s, p);
           }
@@ -504,32 +545,5 @@ class RidePauseEngine {
       'flagged': flagged,
       if (killGap) 'kill_gap': true,
     }));
-  }
-
-  void _guards(RideEngineStep s, double now, double liveKm) {
-    final since = _pausedSince;
-    if (!own || since == null) return;
-    final r = _reason;
-    final ts = _tripStart, a = _anchor;
-    final away = r == RidePauseReason.stop || r == RidePauseReason.walk || r == RidePauseReason.silence;
-    if (away && ts != null && a != null &&
-        ridePtDistM(a, ts) <= _C.homeRadiusM &&
-        now - since >= _cfg.homeAfterS &&
-        liveKm >= _C.homeMinKm) {
-      _guard(s, RidePauseReason.home, now - since);
-    } else if (_cfg.longPauseOwnS > 0 && now - since >= _cfg.longPauseOwnS) {
-      _guard(s, RidePauseReason.long, now - since);
-    }
-  }
-
-  void _guard(RideEngineStep s, RidePauseReason r, double dur) {
-    _ring.clear();
-    _pausePath.clear();
-    _manual = true;
-    _reason = r;
-    s.detach = true;
-    s.phaseChanged = true;
-    s.logs.add(RideEngineLog(r == RidePauseReason.home ? 'home_pause' : 'long_pause',
-        data: {'since': _pausedSince, 'h': (dur / 360).round() / 10}));
   }
 }

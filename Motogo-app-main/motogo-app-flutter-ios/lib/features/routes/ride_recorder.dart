@@ -56,7 +56,16 @@ const String kRideRecBufKey = 'mg_ride_rec_buf'; // neodeslané GPS body
 const String kRideRecManualKey = 'mg_ride_rec_manual';
 
 const int _kFlushPoints = 20; // dávka bodů
+/// Nejvýš tolik bodů v jednom `append_ride_track` (týden offline = desítky
+/// tisíc bodů → posílá se po částech, chyba zopakuje jen jednu část).
+const int _kAppendChunk = 2000;
 const Duration _kFlushEvery = Duration(seconds: 90);
+/// Neodeslané body se ukládají do zařízení nejvýš jednou za 30 s / 20 bodů
+/// (a vždy při odeslání, pauze, přechodu do pozadí a ukončení).
+const Duration _kPersistEvery = Duration(seconds: 30);
+/// Nový start: fixy se chvíli drží, než server řekne posun hodin telefonu
+/// (jinak by se první body zapsaly s časem telefonu a další „o hodiny zpět").
+const Duration _kClockWait = Duration(seconds: 20);
 /// Jak dlouho počkat, než se po neúspěchu zkusí jízdu ukončit znovu.
 const Duration _kStopRetryAfter = Duration(minutes: 2);
 /// Body v dávce starší než tohle patří k předchozí jízdě (stejné okno má
@@ -137,6 +146,12 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   String? _notifText;
   DateTime? _notifAt;
   DateTime? _notifTry;
+  /// Fixy přijaté před první odpovědí serveru (posun hodin) + čas příjmu.
+  List<(Position, DateTime)>? _clockQueue;
+  DateTime? _clockWaitUntil;
+  int _bufDirty = 0; // body přidané od posledního uložení dávky
+  DateTime? _persistAt;
+  bool _homeNotified = false; // ukázané upozornění „jsi u startu cesty"
 
   Future<void> _restore() async {
     try {
@@ -320,6 +335,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// jízdu, kterou hlídač rozjede vzápětí (staré odfiltruje start podle času).
   Future<void> _forgetRide({bool keepBuffer = false}) async {
     await _detachStream();
+    _clockWaitUntil = null;
+    _clockQueue = null;
     if (!keepBuffer) _buffer.clear();
     _maxSpeedKmh = 0;
     _needsServerRide = false;
@@ -339,6 +356,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   }
 
   Future<void> _persistBuffer() async {
+    _bufDirty = 0;
+    _persistAt = rideRecorderClock();
     try {
       final p = await SharedPreferences.getInstance();
       await p.setString(kRideRecBufKey, jsonEncode(_buffer));
@@ -362,6 +381,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       // Nikdy nepropadne ven — flush se volá bez `await` (časovač, lifecycle).
       debugPrint('[rides] flush selhal: $e');
     } finally {
+      // I offline (dávka zůstala) — appku může systém v pozadí zabít.
+      if (_bufDirty > 0) await _persistBuffer();
       _flushing = null;
       done.complete();
     }

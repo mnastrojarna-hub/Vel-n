@@ -111,6 +111,8 @@ function describePauseRow(r, d, app) {
       return { icon: '↩️', text: `Obnovený pomalý úsek (kolona, hledání parkování): ${d.n || '?'} bodů, ${fmtMeters(d.m)}`, tone: 'info' }
     case 'home_pause':
       return { icon: '🏠', text: `Pauza doma (GPS vypnuto) — motorka stojí u startu${d.h ? ` ${d.h} h` : ''}; appka se jezdce zeptá, jestli pokračovat`, tone: 'info' }
+    case 'home_notice':
+      return { icon: '🏠', text: `Motorka stojí u startu cesty${d.h ? ` ${d.h} h` : ''} — appka jezdci připomněla, ať cestu ukončí, pokud dojel (GPS běží dál, další jízda se nahraje sama)`, tone: 'info' }
     case 'long_pause':
       return { icon: '🛌', text: `Dlouhá pauza (GPS vypnuto kvůli baterii)${d.h ? ` po ${d.h} h` : ''} — pokračuje po otevření appky`, tone: 'info' }
     case 'trip_continue':

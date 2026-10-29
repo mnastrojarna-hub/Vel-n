@@ -84,6 +84,8 @@ extension _RideRecStream on RideRecorderNotifier {
   /// (stojí) → znovu připojit až po chybě / 30 min ticha.
   void _onAppResumedImpl() {
     if (!_st.recording || _stopping) return;
+    // Jezdec appku otevřel → záznam není zapomenutý (pojistka počítá znovu).
+    _engine?.noteForeground(_nowEpoch());
     if (!_st.isManualPaused) {
       final last = _lastFixAt ?? _attachedAt;
       final limit = _st.phase == RidePhase.autoPaused ? _kNoFixReattachPaused : _kNoFixReattach;
@@ -138,6 +140,21 @@ extension _RideRecStream on RideRecorderNotifier {
     }
     _lastFixAt = now;
     _streamError = null;
+    final wait = _clockWaitUntil;
+    if (wait != null) {
+      // Nový start: posun hodin ještě nevíme → fix podržet (nejvýš 20 s).
+      if (now.isBefore(wait) && (_clockQueue?.length ?? 0) < 300) {
+        (_clockQueue ??= []).add((pos, now));
+        return;
+      }
+      _releaseClockQueue();
+    }
+    _feedFix(pos, now);
+  }
+
+  /// Fix → detektor pauz ([now] = čas příjmu, i u podrženého fixu).
+  void _feedFix(Position pos, DateTime now) {
+    if (!_st.recording || _st.isManualPaused) return;
     final f = rideFixFromPosition(pos, now: now, clockOffset: _clockOff);
     if (f == null) return;
     var e = _engine;
@@ -146,5 +163,16 @@ extension _RideRecStream on RideRecorderNotifier {
       _engine = e;
     }
     _applyStep(e.onFix(f));
+  }
+
+  /// Posun hodin je známý (nebo se čekalo dost) → podržené fixy zpracovat.
+  void _releaseClockQueue() {
+    _clockWaitUntil = null;
+    final q = _clockQueue;
+    _clockQueue = null;
+    if (q == null) return;
+    for (final e in q) {
+      _feedFix(e.$1, e.$2);
+    }
   }
 }

@@ -20,6 +20,9 @@ extension _RideRecPause on RideRecorderNotifier {
       e.startArmed();
       _resetLive();
       _clockOff = 0;
+      // Posun hodin řekne až server → první fixy chvíli podržet.
+      _clockQueue = null;
+      _clockWaitUntil = rideRecorderClock().add(_kClockWait);
       _proto = 'legacy';
       _st = _st.copyWith(liveKm: 0, liveMovingSec: 0, liveStages: 1, tripStartedAt: rideRecorderClock());
     }
@@ -57,6 +60,9 @@ extension _RideRecPause on RideRecorderNotifier {
             anchor: s.anchor, last: s.last, start: s.start);
       _st = _st.copyWith(recording: true);
       _syncPhase(log: false);
+      // Body neodeslané před pauzou (offline) doposlat hned po startu
+      // appky — jinak by čekaly na Pokračovat / přechod do pozadí.
+      unawaited(flush());
       return;
     }
     // RUČNÍ jízdu po restartu nikdo jiný neobnoví (hlídač řeší jen výpůjčky).
@@ -91,7 +97,7 @@ extension _RideRecPause on RideRecorderNotifier {
       _buffer.addAll(st.emit);
       if (st.maxKmh > _maxSpeedKmh) _maxSpeedKmh = st.maxKmh;
       _st = _st.copyWith(points: _st.points + st.emit.length);
-      _persistBuffer();
+      _persistSoon(st.emit.length);
       _updateLive();
       final first = !_sentFirst && !_needsServerRide && _st.rideId != null;
       if (first) _sentFirst = true;
@@ -100,6 +106,7 @@ extension _RideRecPause on RideRecorderNotifier {
     for (final l in st.logs) {
       rideLog(l.action, detail: l.detail, data: {...l.data, 'app': RideRecorderNotifier._appState()});
     }
+    if (st.homeNotice) _notifyHome();
     if (st.phaseChanged) _syncPhase();
     _syncPendTimer();
     if (_notifText == null) _updateNotification(force: true);
@@ -120,8 +127,34 @@ extension _RideRecPause on RideRecorderNotifier {
           pausedSince: since == null ? null : rideEpochToLocal(since - _clockOff),
         );
     if (log && (from != e.phase || fromR != e.reason)) unawaited(_logPhase(from));
+    if (_homeNotified && e.phase == RidePhase.riding) {
+      _homeNotified = false; // rozjel se → upozornění „u startu" pryč
+      unawaited(RideKeepAlive.cancelIdle());
+    }
     _saveSession();
     _updateNotification(force: true);
+  }
+
+  /// Vlastní cesta stojí u startu (doma?) — upozornit (Android notifikace),
+  /// GPS ale běží dál a po rozjezdu se nahrává samo.
+  void _notifyHome() {
+    final tr = AppTranslations.of(_lang());
+    final title = rideTrOpt(tr, 'rpNotifHomeTitle');
+    final text = rideTrOpt(tr, 'rpNotifHomeText');
+    if (title == null || text == null) return;
+    _homeNotified = true;
+    unawaited(RideKeepAlive.notifyIdle(title, text));
+  }
+
+  /// Dávku uložit do zařízení nejvýš jednou za 30 s / 20 bodů (týden
+  /// offline = MB JSONu; přepis při každém fixu by žral baterii).
+  void _persistSoon(int added) {
+    _bufDirty += added;
+    final at = _persistAt;
+    if (_bufDirty >= _kFlushPoints || at == null ||
+        rideRecorderClock().difference(at) >= _kPersistEvery) {
+      unawaited(_persistBuffer());
+    }
   }
 
   Future<void> _logPhase(RidePhase from) async {
@@ -140,10 +173,13 @@ extension _RideRecPause on RideRecorderNotifier {
   Future<void> _detachForPause() async {
     final r = _engine?.reason;
     _cancelPendTimer();
-    await flush();
+    // GPS vypnout HNED (ani viselé spojení ho nesmí držet zapnuté),
+    // dávku doposlat potom.
     await _detachStream();
     if (_st.gpsLost) _st = _st.copyWith(gpsLost: false);
     _saveSession();
+    unawaited(_persistBuffer());
+    unawaited(flush());
     if (r == RidePauseReason.home || r == RidePauseReason.long) {
       final tr = AppTranslations.of(_lang());
       final title = rideTrOpt(tr, 'rpNotifIdleTitle');
@@ -177,7 +213,8 @@ extension _RideRecPause on RideRecorderNotifier {
     _noFixRetries = 0;
     _attachStream('resume_manual');
     unawaited(RideKeepAlive.cancelIdle());
-    await _applyStep(e.resumeManual());
+    _homeNotified = false;
+    await _applyStep(e.resumeManual(_nowEpoch()));
     if (_needsServerRide) _ensureServerRide();
     unawaited(_refreshFlag());
     return RideStartResult.ok;
@@ -263,7 +300,7 @@ extension _RideRecPause on RideRecorderNotifier {
   void _engineTick() {
     final e = _engine;
     if (e == null || !_st.recording) return;
-    final st = e.onTick(_nowEpoch(), liveKm: _st.liveKm);
+    final st = e.onTick(_nowEpoch(), liveKm: _st.liveKm, stages: _st.liveStages);
     if (!st.isEmpty) _applyStep(st);
   }
 

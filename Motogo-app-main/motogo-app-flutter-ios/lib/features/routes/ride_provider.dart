@@ -80,9 +80,14 @@ Future<RideStart?> startUserRide({String? bookingId, double? lat, double? lng}) 
   return null;
 }
 
+/// Nejdéle se čeká na odpověď dávky / ukončení jízdy. Viselé mobilní
+/// spojení jinak drželo GPS i ukončení (pauza, stop) do pádu socketu.
+/// Opakování je bezpečné — server opakovanou dávku pozná (duplicity).
+const Duration kRideRpcTimeout = Duration(seconds: 30);
+
 /// Pošle dávku GPS bodů `[[lat,lng,ts,kmh,alt],…]` do rozjeté jízdy.
 /// `kmh = −1` = značka pauzy (viz `ride_motion.dart`). Výsledek a živé
-/// součty serveru viz [RideAppendOutcome]; síťová chyba = `retry`.
+/// součty serveru viz [RideAppendOutcome]; síťová chyba / timeout = `retry`.
 Future<RideAppendOutcome> appendRideTrack(String rideId, List<List<double>> points,
     {double? maxSpeedKmh}) async {
   if (points.isEmpty) return const RideAppendOutcome(RideAppendResult.ok);
@@ -91,7 +96,7 @@ Future<RideAppendOutcome> appendRideTrack(String rideId, List<List<double>> poin
       'p_ride_id': rideId,
       'p_points': points,
       'p_max_speed_kmh': maxSpeedKmh,
-    });
+    }).timeout(kRideRpcTimeout);
     final out = RideAppendOutcome.fromResponse(res);
     if (out.result == RideAppendResult.closed || out.result == RideAppendResult.gone) {
       debugPrint('[rides] append_ride_track: jízda už není rozjetá (${out.result.name})');
@@ -117,7 +122,7 @@ Future<RideFinish?> finishUserRide(String rideId,
       'p_ride_id': rideId,
       'p_points': points,
       'p_name': name,
-    });
+    }).timeout(kRideRpcTimeout);
     if (res is Map && res['success'] == true) {
       return RideFinish(
         discarded: res['discarded'] == true,
