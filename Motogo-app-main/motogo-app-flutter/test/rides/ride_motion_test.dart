@@ -34,7 +34,13 @@ void main() {
     expect(d.resumeTrigger([fx(100, 90, kmh: 25), fx(105, 130, kmh: 25)], anchor), 0);
     expect(d.resumeTrigger([fx(100, 30, kmh: 25), fx(105, 60, kmh: 25)], anchor), isNull); // u kotvy
     expect(d.resumeTrigger([fx(100, 0, acc: 40), fx(140, 350, acc: 15)], anchor), isNull); // nepřesný fix
-    expect(d.resumeTrigger([fx(100, 10, acc: 15), fx(140, 360, acc: 15)], anchor), 0);
+    // (b) bez Doppleru jen přes 3 fixy A→B→C (každý krok ≥ 15 km/h, dál od kotvy)
+    expect(d.resumeTrigger([fx(100, 10, acc: 15), fx(140, 360, acc: 15)], anchor), isNull);
+    final abc = [fx(100, 10, acc: 15), fx(120, 190, acc: 15), fx(140, 360, acc: 15)];
+    expect(d.resumeTrigger(abc, anchor), 0);
+    expect(d.resumeTrigger(abc, anchor, dopplerSeen: true), isNull); // telefon měří rychlost
+    // přeskok Wi-Fi: 400 m a pak skoro na místě → nic
+    expect(d.resumeTrigger([fx(100, 0, acc: 15), fx(140, 400, acc: 15), fx(170, 420, acc: 15)], anchor), isNull);
     final slow = [for (var i = 0; i < 6; i++) fx(100 + i * 10.0, 260 + i * 10.0, kmh: 13)];
     expect(d.resumeTrigger(slow, anchor), 0);
     expect(d.resumeTrigger([fx(100, 600, kmh: 0, acc: 10)], anchor), isNull); // skok GPS

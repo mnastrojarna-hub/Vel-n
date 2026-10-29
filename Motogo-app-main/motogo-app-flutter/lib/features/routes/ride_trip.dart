@@ -11,6 +11,11 @@ import 'ride_provider.dart';
 ///   výpůjčka: jízdy se stejnou rezervací (i starší, rozdělené nocí)
 /// Jedna vícedenní jízda NENÍ cesta — je to jízda s více etapami.
 
+/// Mezera mezi jízdami cesty se počítá jako pauza (noc mezi dvěma částmi
+/// jedné cesty) jen do 36 h. Delší (dva víkendy sloučené do jedné cesty)
+/// není pauza — ani čas, ani počet; na mapě je jen přerušení stopy.
+const int kRideTripJoinPauseMaxSec = 36 * 3600;
+
 /// Klíč skupiny: explicitní cesta > výpůjčka > samostatná jízda.
 String rideTripKey(UserRide r) => r.tripId != null
     ? 't:${r.tripId}'
@@ -142,10 +147,11 @@ class RideTrip {
       if (prev != null) {
         final end = prev.endedAt ?? prev.lastFixAt ?? prev.startedAt;
         final dt = r.startedAt.difference(end).inSeconds;
-        if (dt > 0) pause += dt; // mezi jízdami cesty = pauza (noc…)
+        final night = dt <= kRideTripJoinPauseMaxSec;
+        if (dt > 0 && night) pause += dt; // mezi jízdami cesty = pauza (noc…)
         final a = prev.mapPoints.isNotEmpty ? prev.mapPoints.last : null;
         final b = r.mapPoints.isNotEmpty ? r.mapPoints.first : null;
-        if (a != null && b != null) {
+        if (a != null && b != null && night) {
           const d = Distance(roundResult: false, calculator: Haversine());
           final jkm = d.as(LengthUnit.Kilometer, a, b);
           final through = dt > 0 && dt <= kRideBadDtSec && jkm / dt * 3600 >= 15 && jkm > kRideStillKm;

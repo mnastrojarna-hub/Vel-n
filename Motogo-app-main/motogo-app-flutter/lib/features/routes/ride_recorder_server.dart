@@ -15,6 +15,9 @@ extension _RideRecServer on RideRecorderNotifier {
     } catch (e) {
       debugPrint('[rides] založení jízdy selhalo: $e');
       return false;
+    } finally {
+      // Odpověď (nebo chyba) je tu → posun hodin platí, fixy zpracovat.
+      _releaseClockQueue();
     }
   }
 
@@ -149,20 +152,29 @@ extension _RideRecServer on RideRecorderNotifier {
     return true;
   }
 
-  /// Odeslání dávky a reakce na odpověď serveru (SPEC §7.4).
+  /// Odeslání dávky a reakce na odpověď serveru (SPEC §7.4). Velká dávka
+  /// (dlouho offline) jde po částech [_kAppendChunk].
   Future<void> _flushOnce() async {
+    for (var round = 0; round < 100; round++) {
+      if (!await _flushChunk()) return;
+    }
+  }
+
+  /// Jedna část dávky; true = odesláno a ve dávce ještě něco zbývá.
+  Future<bool> _flushChunk() async {
     final id = _st.rideId;
-    if (id == null || _needsServerRide || _buffer.isEmpty) return;
-    final batch = List<List<double>>.from(_buffer);
+    if (id == null || _needsServerRide || _buffer.isEmpty) return false;
+    final n = _buffer.length < _kAppendChunk ? _buffer.length : _kAppendChunk;
+    final batch = List<List<double>>.from(_buffer.take(n));
     final t0 = rideRecorderClock();
     final res = await _api.append(id, batch, maxSpeedKmh: _maxSpeedKmh > 0 ? _maxSpeedKmh : null);
     final t1 = rideRecorderClock();
     switch (res.result) {
       case RideAppendResult.retry:
-        return; // body zůstanou na příště
+        return false; // body zůstanou na příště
       case RideAppendResult.closed:
       case RideAppendResult.gone:
-        if (_st.rideId != id || !_st.recording) return;
+        if (_st.rideId != id || !_st.recording) return false;
         rideLog('ride_closed_by_server', data: {
           'ride': id,
           'result': res.result.name,
@@ -172,7 +184,7 @@ extension _RideRecServer on RideRecorderNotifier {
         // Smazaná vlastní jízda (jezdec ji smazal) → konec záznamu.
         if (res.result == RideAppendResult.gone && _st.bookingId == null) {
           await _forgetRide();
-          return;
+          return false;
         }
         // Jinak navázat: výpůjčka novou jízdou k výpůjčce (konec výpůjčky →
         // `booking_inactive` → konec), vlastní cesta novou jízdou + hláška.
@@ -182,12 +194,12 @@ extension _RideRecServer on RideRecorderNotifier {
         _needsServerRide = true;
         _resetLive();
         unawaited(_ensureServerRide());
-        return;
+        return false;
       case RideAppendResult.ok:
         break;
     }
     // Mezitím mohla jízda skončit a v dávce už být body jízdy JINÉ.
-    if (_st.rideId != id) return;
+    if (_st.rideId != id) return false;
     _sentFirst = true;
     final sent = batch.length < _buffer.length ? batch.length : _buffer.length;
     if (sent > 0) _buffer.removeRange(0, sent);
@@ -203,12 +215,17 @@ extension _RideRecServer on RideRecorderNotifier {
     await _persistBuffer();
     _updateLive();
     _saveSession();
+    return _buffer.isNotEmpty && _st.rideId == id;
   }
 
   /// Posun hodin telefonu vůči serveru (SPEC §5.5).
   void _applyClock(double off) {
     if (off == _clockOff) return;
     _clockOff = off;
+    // Stream se připojil s dřívějším posunem → čas připojení na novou osu,
+    // jinak by detektor skutečné fixy zahodil jako „z cache".
+    final at = _attachedAt;
+    if (at != null) _engine?.rebaseAttach(at.millisecondsSinceEpoch / 1000 + off);
     if (off != 0) rideLog('clock_offset', data: {'sec': off.round()});
   }
 
@@ -298,6 +315,7 @@ extension _RideRecServer on RideRecorderNotifier {
         return null;
       }
       await _detachStream();
+      _releaseClockQueue();
       // Z pomalého úseku jen kotva (kde motorka zastavila); během pauzy nic.
       final tail = _engine?.stopFlush();
       if (tail != null && tail.emit.isNotEmpty) {

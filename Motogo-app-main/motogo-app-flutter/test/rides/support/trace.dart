@@ -17,11 +17,13 @@ class Trace {
   final List<RideEngineLog> logs = [];
   final List<({double t, RidePhase phase, RidePauseReason? reason})> phases = [];
   bool detached = false;
+  int homeNotices = 0;
 
   void _take(RideEngineStep s, double at) {
     emitted.addAll(s.emit);
     logs.addAll(s.logs);
     if (s.detach) detached = true;
+    if (s.homeNotice) homeNotices++;
     if (s.phaseChanged) phases.add((t: at, phase: e.phase, reason: e.reason));
   }
 
@@ -46,7 +48,7 @@ class Trace {
   }
 
   /// Ticho [sec] s tiky časovače každých [every] s (0 = bez tiků).
-  void wait(double sec, {double every = 90, double liveKm = 0}) {
+  void wait(double sec, {double every = 90, double liveKm = 0, int stages = 1}) {
     if (every <= 0) {
       t += sec;
       return;
@@ -54,15 +56,15 @@ class Trace {
     final end = t + sec;
     while (t + every <= end) {
       t += every;
-      tick(liveKm: liveKm);
+      tick(liveKm: liveKm, stages: stages);
     }
     t = end;
   }
 
-  void tick({double liveKm = 0}) => _take(e.onTick(t, liveKm: liveKm), t);
+  void tick({double liveKm = 0, int stages = 1}) => _take(e.onTick(t, liveKm: liveKm, stages: stages), t);
 
   void pauseManual() => _take(e.pauseManual(t), t);
-  void resumeManual() => _take(e.resumeManual(), t);
+  void resumeManual() => _take(e.resumeManual(t), t);
   void stop() => _take(e.stopFlush(), t);
 
   List<RideEngineLog> logsOf(String a) => logs.where((l) => l.action == a).toList();

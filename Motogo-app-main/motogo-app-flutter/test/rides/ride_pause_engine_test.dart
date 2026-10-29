@@ -171,7 +171,7 @@ void main() {
     expect(tr.emitted.length, n);
   });
 
-  test('D8 pauza: bez rychlosti, přesnost 15 m, 350 m za 40 s → obnova (pravidlo b)', () {
+  test('D8 pauza bez rychlosti: telefon s Dopplerem → 2 fixy z Wi-Fi nic; bez Doppleru obnova přes A→B→C', () {
     final tr = riding();
     tr.go(8, 10, dt: 10);
     tr.wait(400);
@@ -181,7 +181,16 @@ void main() {
     tr.move(350);
     tr.t += 40;
     tr.fix(acc: 15);
-    expect(tr.e.phase, RidePhase.riding);
+    expect(tr.e.phase, RidePhase.autoPaused); // poloha z Wi-Fi rychlost nemá
+    // Telefon, který rychlost neměří vůbec: rozjezd 60 km/h, fix po 10 s.
+    final nd = Trace(eng());
+    nd.fix(acc: 8);
+    nd.go(60, 300, noDop: true);
+    expect(nd.e.phase, RidePhase.riding);
+    nd.wait(400);
+    expect(nd.e.phase, RidePhase.autoPaused);
+    nd.go(60, 30, dt: 10, noDop: true, acc: 15);
+    expect(nd.e.phase, RidePhase.riding);
   });
 
   test('D9 ruční pauza v pomalém úseku → kotva ven, odpojit GPS; po „Pokračovat" značka', () {
@@ -222,25 +231,41 @@ void main() {
     expect(tr.emitted[1][3], -1);
   });
 
-  test('D12 vlastní cesta: okruh 40 km zpět ke startu, stání 3 h → pojistka „doma"', () {
+  test('D12 vlastní cesta: okruh 40 km zpět ke startu, stání 3 h → jen upozornění „doma", rozjezd se nahraje sám', () {
     final tr = Trace(eng());
     tr.fix(kmh: 0);
     tr.go(80, 900);
     tr.go(80, 900, dir: -1);
     tr.go(8, 10, dt: 10);
     tr.wait(3 * 3600 + 400, liveKm: 40);
-    expect(tr.detached, isTrue);
-    expect(tr.e.phase, RidePhase.manualPaused);
-    expect(tr.e.reason, RidePauseReason.home);
-    expect(tr.logsOf('home_pause').length, 1);
+    expect(tr.detached, isFalse); // GPS běží dál
+    expect(tr.homeNotices, 1);
+    expect(tr.e.phase, RidePhase.autoPaused);
+    expect(tr.logsOf('home_notice').length, 1);
+    tr.wait(10 * 3600, liveKm: 40);
+    expect(tr.homeNotices, 1); // jen jednou za pauzu
+    final n = tr.emitted.length;
+    tr.go(50, 60); // ráno vyrazí znovu (základní tábor) → nahrává se bez klepnutí
+    expect(tr.e.phase, RidePhase.riding);
+    expect(tr.emitted.length, greaterThan(n));
+    // vícedenní cesta (≥ 2 etapy) „doma" nehlásí
+    final md = Trace(eng());
+    md.fix(kmh: 0);
+    md.go(80, 900);
+    md.go(80, 900, dir: -1);
+    md.go(8, 10, dt: 10);
+    md.wait(5 * 3600, liveKm: 40, stages: 2);
+    expect(md.homeNotices, 0);
   });
 
-  test('D13 dlouhá pauza 20 h: vlastní → GPS vypnout, výpůjčka → nic', () {
+  test('D13 dlouhá pauza: noc (20 h) nic; 48 h bez kontaktu → vlastní GPS vypnout, výpůjčka nic', () {
     for (final own in [true, false]) {
       final tr = riding(own: own);
       tr.go(60, 1800);
       tr.go(8, 10, dt: 10);
-      tr.wait(20 * 3600 + 400, liveKm: 30);
+      tr.wait(21 * 3600, liveKm: 30);
+      expect(tr.detached, isFalse);
+      tr.wait(27 * 3600 + 400, liveKm: 30);
       expect(tr.detached, own);
       expect(tr.e.reason, own ? RidePauseReason.long : RidePauseReason.stop);
     }

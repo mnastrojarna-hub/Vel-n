@@ -110,49 +110,78 @@ RideTripPlan rideTripUndoPlan(RideTripUndo undo) => (
       undo: const {},
     );
 
-/// Provede plán na serveru (`set_user_rides_trip`) a obnoví seznamy.
-Future<RideTripOp> rideTripApply(WidgetRef ref, RideTripPlan plan, {Iterable<String?> bookingIds = const []}) async {
-  final res = await setUserRidesTrip(plan.items);
-  final r = switch (res.kind) {
-    RideTripSetKind.ok =>
-      res.updated >= plan.items.length ? RideTripOpResult.ok : RideTripOpResult.partial,
-    RideTripSetKind.missing => RideTripOpResult.unavailable,
-    RideTripSetKind.offline || RideTripSetKind.error => RideTripOpResult.failed,
-  };
-  if (res.kind == RideTripSetKind.ok) _invalidate(ref, bookingIds);
-  return RideTripOp(r, plan.undo, items: plan.items);
-}
+/// Volání `set_user_rides_trip` (v2 testy ho přepisují vlastním).
+typedef RideTripSetFn = Future<RideTripSetResult> Function(List<RideTripItem> items);
 
-void _invalidate(WidgetRef ref, Iterable<String?> bookingIds) {
-  ref.invalidate(myRidesProvider);
+/// Výsledek `set_user_rides_trip` → výsledek operace (jediné mapování pro
+/// starý vzhled, v2 i „Zpět"): vše uloženo = ok, méně = partial, starý
+/// server = unavailable, offline / chyba = failed.
+RideTripOpResult rideTripResultOf(RideTripSetResult res, int sent) => switch (res.kind) {
+      RideTripSetKind.ok => res.updated >= sent ? RideTripOpResult.ok : RideTripOpResult.partial,
+      RideTripSetKind.missing => RideTripOpResult.unavailable,
+      RideTripSetKind.offline || RideTripSetKind.error => RideTripOpResult.failed,
+    };
+
+/// Obnoví seznamy jízd: „Moje jízdy" + jízdy u výpůjček ([bookingIds],
+/// null = u všech).
+void rideTripRefresh(ProviderContainer c, [Iterable<String?>? bookingIds]) {
+  c.invalidate(myRidesProvider);
+  if (bookingIds == null) {
+    c.invalidate(bookingRidesProvider);
+    return;
+  }
   for (final b in bookingIds.toSet()) {
-    if (b != null) ref.invalidate(bookingRidesProvider(b));
+    if (b != null) c.invalidate(bookingRidesProvider(b));
   }
 }
 
+/// Kontejner aplikace z `ref` obrazovky — vzít HNED, před prvním `await`
+/// (obrazovka se mezitím může zavřít a její `ref` by už neplatil).
+ProviderContainer rideTripContainer(WidgetRef ref) =>
+    ProviderScope.containerOf(ref.context, listen: false);
+
+/// Provede plán na serveru přes kontejner aplikace a obnoví seznamy —
+/// funguje i po zavření obrazovky (např. „Zpět" ze snackbaru).
+Future<RideTripOp> rideTripApplyIn(ProviderContainer c, RideTripPlan plan,
+    {Iterable<String?>? bookingIds, RideTripSetFn set = setUserRidesTrip}) async {
+  final res = await set(plan.items);
+  if (res.kind == RideTripSetKind.ok) rideTripRefresh(c, bookingIds);
+  return RideTripOp(rideTripResultOf(res, plan.items.length), plan.undo, items: plan.items);
+}
+
+/// Provede plán na serveru (`set_user_rides_trip`) a obnoví seznamy.
+Future<RideTripOp> rideTripApply(WidgetRef ref, RideTripPlan plan, {Iterable<String?> bookingIds = const []}) =>
+    rideTripApplyIn(rideTripContainer(ref), plan, bookingIds: bookingIds);
+
 /// Sdílení celé cesty (přepínač platí pro všechny její jízdy).
-Future<RideTripOpResult> rideTripSetVisibility(WidgetRef ref, RideTrip t, bool public) async {
+Future<RideTripOpResult> rideTripSetVisibility(WidgetRef ref, RideTrip t, bool public) =>
+    rideTripSetVisibilityIn(rideTripContainer(ref), t, public);
+
+Future<RideTripOpResult> rideTripSetVisibilityIn(ProviderContainer c, RideTrip t, bool public) async {
   var ok = 0;
   for (final r in t.rides) {
     if (await updateUserRide(r.id, visibility: public ? 'public' : 'private')) ok++;
   }
-  _invalidate(ref, t.rides.map((r) => r.bookingId));
+  rideTripRefresh(c, t.rides.map((r) => r.bookingId));
   if (ok == t.rides.length) return RideTripOpResult.ok;
   return ok == 0 ? RideTripOpResult.failed : RideTripOpResult.partial;
 }
 
 /// Smazat cestu i se všemi jízdami (po potvrzení `rpTripDeleteQ`). Právě
 /// nahrávanou jízdu nejdřív odpojí záznamník (bez ukončení na serveru).
-Future<RideTripOpResult> rideTripDeleteAll(WidgetRef ref, RideTrip t) async {
-  final rec = ref.read(rideRecorderProvider);
+Future<RideTripOpResult> rideTripDeleteAll(WidgetRef ref, RideTrip t) =>
+    rideTripDeleteAllIn(rideTripContainer(ref), t);
+
+Future<RideTripOpResult> rideTripDeleteAllIn(ProviderContainer c, RideTrip t) async {
+  final rec = c.read(rideRecorderProvider);
   if (t.rides.any((r) => r.id == rec.rideId)) {
-    await ref.read(rideRecorderProvider.notifier).discardCurrent();
+    await c.read(rideRecorderProvider.notifier).discardCurrent();
   }
   var ok = 0;
   for (final r in t.rides) {
     if (await deleteUserRide(r.id)) ok++;
   }
-  _invalidate(ref, t.rides.map((r) => r.bookingId));
+  rideTripRefresh(c, t.rides.map((r) => r.bookingId));
   if (ok == t.rides.length) return RideTripOpResult.ok;
   return ok == 0 ? RideTripOpResult.failed : RideTripOpResult.partial;
 }

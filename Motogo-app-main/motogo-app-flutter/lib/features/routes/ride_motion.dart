@@ -45,7 +45,7 @@ class RideMotionConfig {
     this.walkPauseS = 180,
     this.resumeKmh = 20,
     this.homeAfterS = 3 * 3600,
-    this.longPauseOwnS = 20 * 3600,
+    this.longPauseOwnS = 48 * 3600,
   });
 
   static const double goodAccM = 25;
@@ -79,11 +79,26 @@ class RideMotionConfig {
   static const double flagMinPauseS = 60;
   static const double restoreNearM = 100;
   static const double restoreMinPathM = 150;
+  /// Pomalý úsek se vrací, když vede pryč od kotvy (posun ≥ 60 % dráhy).
+  static const double restoreOneWay = 0.6;
   static const int pausePathMax = 1200;
   static const double killGapM = 1000;
   static const double homeRadiusM = 500;
   static const double homeMinKm = 10;
-  static const double cachedFixSlackS = 30;
+  /// Fix z cache = starší než připojení streamu o víc než tohle. 30 s
+  /// + 120 s pásmo, ve kterém se posun hodin telefonu neopravuje (fix
+  /// s časem GPS u telefonu, který jde o ≤ 2 min napřed, není z cache).
+  static const double cachedFixSlackS = 150;
+  /// Pojistka GPS mlčí 2 min po připojení streamu / otevření appky /
+  /// Pokračovat a když poslední fixy ukazují pohyb (rozhodne obnova jízdy).
+  static const double guardQuietS = 120;
+  static const double guardMoveM = 100;
+  /// Bez Doppleru obnova jen přes 3 fixy A→B→C (každý krok ≥ tohle, C dál
+  /// od kotvy než B) — přeskok polohy z Wi-Fi tam a zpět jízdu nespustí.
+  static const double resumeNoDopStepKmh = 15;
+  /// Kolik fixů s Dopplerem ≥ 12 km/h musí relace mít, aby se obnova
+  /// bez Doppleru (pravidlo b) úplně vypnula — telefon rychlost měří.
+  static const int dopplerSeenFixes = 3;
   /// Úsek s odvozenou rychlostí nad tohle je skok GPS (do dráhy se nepočítá).
   static const double jumpKmh = 150;
 
@@ -93,9 +108,11 @@ class RideMotionConfig {
   final double walkPauseS;
   /// ★ obnova: 2× Doppler ≥ tohle (km/h)
   final double resumeKmh;
-  /// ★ „doma": pauza u startu vlastní cesty déle než tohle → GPS vypnout
+  /// ★ „doma": pauza u startu vlastní cesty déle než tohle → upozornění
+  /// (GPS zůstává zapnuté, po rozjezdu se nahrává samo)
   final double homeAfterS;
-  /// ★ dlouhá pauza vlastní cesty → GPS vypnout (0 = vypnuto)
+  /// ★ dlouhá pauza vlastní cesty bez otevření appky → GPS vypnout
+  /// (0 = vypnuto). Výchozí 48 h: noc ani den volna cestu neutne.
   final double longPauseOwnS;
 
   /// Výchozí prahy upravené flagem (neplatné hodnoty se ignorují).
@@ -283,17 +300,19 @@ class RideMotionDetector {
     final path = ridePathLenM(pathPts);
     final avg = path / dur * 3.6;
     final med = rideMedian(dops);
+    // Doppler rozhoduje až od 3 vzorků — jediný vzorek z brzdění (8,6 km/h)
+    // před chůzí bez rychlosti by jinak z procházky udělal „pomalou jízdu".
+    final byDop = dops.length >= _K.walkMinFixes;
     if (dur >= cfg.walkPauseS &&
         dops.every((k) => k <= _K.slowKmh) &&
         path >= _K.walkMinPathM &&
-        ((dops.length >= _K.walkMinFixes && med! >= _K.walkMinKmh && med <= _K.walkMaxKmh) ||
-            (dops.isEmpty && avg <= _K.walkMaxKmh))) {
+        (byDop ? med! >= _K.walkMinKmh && med <= _K.walkMaxKmh : avg <= _K.walkMaxKmh)) {
       return RidePendingVerdict.walk;
     }
     if (dur >= _K.slowRideAfterS &&
         path >= _K.slowRidePathM &&
         // Doppler má přednost (skok GPS by průměr z dráhy nafoukl).
-        (med != null ? med > _K.slowRideMedianKmh : avg > _K.slowRideAvgKmh)) {
+        (byDop ? med! > _K.slowRideMedianKmh : avg > _K.slowRideAvgKmh)) {
       return RidePendingVerdict.release;
     }
     if (dur >= _K.pendingMaxS) {
@@ -310,9 +329,12 @@ class RideMotionDetector {
   /// Pravidla obnovy jízdy během auto-pauzy. Vrací index PRVNÍHO fixu
   /// spouštěče v [ring], jinak null.
   ///  (a) 2 po sobě jdoucí Doppler ≥ resumeKmh, ≤ 15 s od sebe, ≥ 100 m od kotvy
-  ///  (b) bez Doppleru: 2 přesné fixy ≥ 300 m od sebe do 60 s, ≥ 300 m od kotvy
+  ///  (b) bez Doppleru: přesné fixy A→B→C do 60 s, A–C ≥ 300 m, každý krok
+  ///      ≥ 15 km/h, C dál od kotvy než B, C ≥ 300 m od kotvy. Jen když
+  ///      telefon v relaci rychlost neměří ([dopplerSeen] = false) — polohy
+  ///      z Wi-Fi rychlost nemají a v noci „skáčou" stovky metrů.
   ///  (c) pomalý rozjezd: za 60 s ≥ 4 Doppler s mediánem ≥ 12, ≥ 300 m od kotvy
-  int? resumeTrigger(List<RideFix> ring, List<double>? anchor) {
+  int? resumeTrigger(List<RideFix> ring, List<double>? anchor, {bool dopplerSeen = false}) {
     final n = ring.length;
     if (n == 0) return null;
     final y = ring.last;
@@ -326,13 +348,23 @@ class RideMotionDetector {
       }
     }
     bool still(RideFix f) => f.kmh != null && f.kmh! < _K.slowKmh;
-    if (y.good && !still(y) && _far(y, anchor, _K.resumeNoDopM)) {
-      for (var i = 0; i < n - 1; i++) {
+    if (!dopplerSeen && y.good && !still(y) && _far(y, anchor, _K.resumeNoDopM)) {
+      bool step(RideFix a, RideFix b) {
+        final v = _v(a, b);
+        return v != null && v >= _K.resumeNoDopStepKmh && v < 250;
+      }
+      for (var i = 0; i < n - 2; i++) {
         final x = ring[i];
         final dt = y.ts - x.ts;
         if (!x.good || still(x) || dt <= 0 || dt > _K.resumeNoDopWindowS) continue;
-        final d = rideDistM(x.lat, x.lng, y.lat, y.lng);
-        if (d >= _K.resumeNoDopM && d / dt * 3.6 < 250) return i;
+        if (rideDistM(x.lat, x.lng, y.lat, y.lng) < _K.resumeNoDopM || !step(x, y)) continue;
+        double from(RideFix f) => anchor != null
+            ? rideFixPtDistM(f, anchor)
+            : rideDistM(x.lat, x.lng, f.lat, f.lng);
+        for (var j = i + 1; j < n - 1; j++) {
+          final b = ring[j];
+          if (b.good && !still(b) && step(x, b) && step(b, y) && from(y) > from(b)) return i;
+        }
       }
     }
     var first = -1;

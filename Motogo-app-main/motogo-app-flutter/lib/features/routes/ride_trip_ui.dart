@@ -4,32 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/mg_nav_controls.dart';
-import 'ride_provider.dart';
-import 'ride_server_api.dart';
 import 'ride_trip_api.dart';
 
 /// Společné kousky UI cest (starý vzhled; v2 je smí volat taky): hlášky
 /// s „Zpět", dialog názvu, potvrzení, volba mazání.
-
-/// Provede plán přes kontejner aplikace — pro „Zpět" ze snackbaru, kdy
-/// obrazovka, která operaci spustila, už může být zavřená (její `ref` by
-/// neplatil). Stejné mapování výsledku jako `rideTripApply`.
-Future<RideTripOpResult> rideTripApplyIn(ProviderContainer c, RideTripPlan plan,
-    {Iterable<String?> bookingIds = const []}) async {
-  final res = await setUserRidesTrip(plan.items);
-  if (res.kind == RideTripSetKind.ok) {
-    c.invalidate(myRidesProvider);
-    for (final b in bookingIds.toSet()) {
-      if (b != null) c.invalidate(bookingRidesProvider(b));
-    }
-  }
-  return switch (res.kind) {
-    RideTripSetKind.ok =>
-      res.updated >= plan.items.length ? RideTripOpResult.ok : RideTripOpResult.partial,
-    RideTripSetKind.missing => RideTripOpResult.unavailable,
-    RideTripSetKind.offline || RideTripSetKind.error => RideTripOpResult.failed,
-  };
-}
 
 /// Výsledek operace s cestou: OK → [doneKey] + „Zpět" (vrátí přesně
 /// předchozí stav), jinak co se nepovedlo a co s tím.
@@ -52,7 +30,7 @@ void rideTripSnack(BuildContext context, RideTripOp op, String doneKey,
             label: tr.tr('rpUndo'),
             textColor: MotoGoColors.green,
             onPressed: () async {
-              final r = await rideTripApplyIn(c, rideTripUndoPlan(op.undo), bookingIds: bookingIds);
+              final r = (await rideTripApplyIn(c, rideTripUndoPlan(op.undo), bookingIds: bookingIds)).result;
               if (r != RideTripOpResult.ok) rideTripShowResult(msg, tr, r);
             },
           ),

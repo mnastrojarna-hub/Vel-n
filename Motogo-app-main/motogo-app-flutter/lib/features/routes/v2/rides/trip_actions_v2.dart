@@ -7,7 +7,6 @@ import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_dialog.dart';
 import '../../../../core/v2/widgets/mg_inputs.dart';
 import '../../../../core/v2/widgets/mg_toast.dart';
-import '../../ride_provider.dart' show bookingRidesProvider, myRidesProvider;
 import '../../ride_server_api.dart';
 import '../../ride_trip.dart';
 import '../../ride_trip_api.dart';
@@ -17,7 +16,7 @@ import '../../ride_trip_api.dart';
 /// offers "Zpět" — the undo runs through the app-wide provider container,
 /// so it still works after the screen that started it was closed.
 
-typedef TripSetFn = Future<RideTripSetResult> Function(List<RideTripItem> items);
+typedef TripSetFn = RideTripSetFn;
 typedef TripVisibilityFn = Future<RideTripOpResult> Function(WidgetRef ref, RideTrip trip, bool public);
 typedef TripDeleteFn = Future<RideTripOpResult> Function(WidgetRef ref, RideTrip trip);
 
@@ -27,25 +26,11 @@ final tripSetSeamV2 = Provider<TripSetFn>((ref) => setUserRidesTrip);
 final tripVisibilitySeamV2 = Provider<TripVisibilityFn>((ref) => rideTripSetVisibility);
 final tripDeleteSeamV2 = Provider<TripDeleteFn>((ref) => rideTripDeleteAll);
 
-/// Same result rules as `rideTripApply`: all updated = ok, fewer = partial,
-/// old server = unavailable, offline / error = failed.
-RideTripOpResult tripResultV2(RideTripSetResult res, int sent) => switch (res.kind) {
-      RideTripSetKind.ok => res.updated >= sent ? RideTripOpResult.ok : RideTripOpResult.partial,
-      RideTripSetKind.missing => RideTripOpResult.unavailable,
-      RideTripSetKind.offline || RideTripSetKind.error => RideTripOpResult.failed,
-    };
-
-void _refresh(ProviderContainer c) {
-  c.invalidate(myRidesProvider);
-  c.invalidate(bookingRidesProvider);
-}
-
-/// Runs [plan] on the server and refreshes the ride lists.
-Future<RideTripOp> tripApplyV2(WidgetRef ref, RideTripPlan plan) async {
-  final c = ProviderScope.containerOf(ref.context, listen: false);
-  final res = await c.read(tripSetSeamV2)(plan.items);
-  if (res.kind == RideTripSetKind.ok) _refresh(c);
-  return RideTripOp(tripResultV2(res, plan.items.length), plan.undo, items: plan.items);
+/// Runs [plan] on the server and refreshes the ride lists — the shared
+/// `rideTripApplyIn` (same result rules as the old look), with the v2 seam.
+Future<RideTripOp> tripApplyV2(WidgetRef ref, RideTripPlan plan) {
+  final c = rideTripContainer(ref);
+  return rideTripApplyIn(c, plan, set: c.read(tripSetSeamV2));
 }
 
 /// What went wrong + how to fix it (v2 texts).
@@ -71,10 +56,7 @@ void showTripDoneV2(BuildContext context, String message, {RideTripUndo? undo}) 
     onAction: !canUndo
         ? null
         : () async {
-            final plan = rideTripUndoPlan(undo);
-            final res = await c.read(tripSetSeamV2)(plan.items);
-            final r = tripResultV2(res, plan.items.length);
-            if (res.kind == RideTripSetKind.ok) _refresh(c);
+            final r = (await rideTripApplyIn(c, rideTripUndoPlan(undo), set: c.read(tripSetSeamV2))).result;
             messenger?.showSnackBar(SnackBar(
               content: Text(tr.tr(r == RideTripOpResult.ok ? 'v2RpUndone' : tripErrorKeyV2(r))),
             ));
