@@ -15,6 +15,7 @@ import '../../../../core/v2/widgets/mg_toast.dart';
 import '../../../../core/widgets/state_views.dart' show MgErrorView;
 import '../../ride_card.dart' show rideDuration, rideKm;
 import '../../ride_provider.dart' show myRidesProvider;
+import '../../ride_recorder.dart' show rideRecorderProvider;
 import '../../ride_share.dart' show rideShareWaypoints;
 import '../../ride_trip.dart';
 import '../../ride_trip_api.dart';
@@ -120,10 +121,17 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
     );
     if (!mounted || choice == null) return;
     if (choice == 'group') return _split(trip, ask: false);
+    // Cesta s právě nahrávanou jízdou: říct, co smazání udělá se záznamem
+    // (jako starý vzhled) — výpůjčka se nahrává znovu od teď, vlastní stojí.
+    final rec = ref.read(rideRecorderProvider);
+    final live = rec.recording && trip.rides.any((r) => r.id == rec.rideId);
+    final warn = !live
+        ? ''
+        : '\n\n${tr.tr(rec.bookingId != null && rec.enabled ? 'v2RpTripDeleteRecRental' : 'v2RpTripDeleteRecOwn')}';
     final ok = await showMgConfirm(
       context,
       title: tr.tr('v2RpTripDeleteQ'),
-      body: tr.trArgs('v2RpTripDeleteBody', {'rides': recRidesV2(tr, trip.rides.length)}),
+      body: '${tr.trArgs('v2RpTripDeleteBody', {'n': trip.rides.length})}$warn',
       safeLabel: tr.cancel,
       actionLabel: tr.tr('v2RpTripDeleteAll'),
       destructive: true,

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/features/routes/ride_recorder.dart';
 import 'package:motogo_app/features/routes/ride_server_api.dart';
 import 'package:motogo_app/features/routes/v2/rides/moje_lists_v2.dart';
 import 'package:motogo_app/features/routes/v2/rides/ride_card_v2.dart';
@@ -135,6 +136,9 @@ void main() {
       expect(find.text('Alpy 2026 — Grossglockner a Dolomity'), findsOneWidget);
       expect(find.text('Jízdy v cestě'), findsOneWidget);
       expect(find.byType(RideCardV2), findsNWidgets(3));
+      expect(find.text('v této cestě'), findsOneWidget);
+      expect(find.text('3 jízdy'), findsWidgets);
+      expect(find.text('jízd v cestě'), findsNothing);
       expect(find.text('941 km'), findsWidgets);
       await t.tap(find.byType(Switch));
       await _settle(t);
@@ -160,9 +164,32 @@ void main() {
       await t.tap(find.text('Smazat i všechny jízdy'));
       await _settle(t);
       expect(find.text('Smazat celou cestu?'), findsOneWidget);
+      // r1: jen číslo v závorce, ne „jízdy (2 jízdy)"; bez nahrávání bez varování.
+      expect(find.textContaining('všechny její jízdy (2)'), findsOneWidget);
+      expect(find.textContaining('právě nahrává'), findsNothing);
       await t.tap(find.text('Smazat i všechny jízdy').last);
       await _settle(t);
       expect(log.other, ['delete:2']);
+    });
+
+    testWidgets('r1: delete of a trip holding the recording ride says what happens to the recording', (t) async {
+      for (final (rec, says) in [
+        (const RideRecorderState(recording: true, rideId: 'b91', bookingId: 'b9'), 'výpůjčka se začne nahrávat znovu od teď'),
+        (const RideRecorderState(recording: true, manual: true, rideId: 't2'), 'Smazáním se záznam zastaví'),
+      ]) {
+        final leader = rec.manual ? 't1' : 'b91';
+        await pumpV2(t, TripDetailScreenV2(leaderId: leader),
+            size: const Size(412, 3000), overrides: tripOverrides(recorder: rec), scaffold: false);
+        await _settle(t);
+        await t.tap(find.bySemanticsLabel('Smazat cestu'));
+        await _settle(t);
+        await t.tap(find.text('Smazat i všechny jízdy'));
+        await _settle(t);
+        expect(find.text('Smazat celou cestu?'), findsOneWidget, reason: leader);
+        expect(find.textContaining('Jedna z jízd cesty se právě nahrává'), findsOneWidget, reason: leader);
+        expect(find.textContaining(says), findsOneWidget, reason: leader);
+        await t.pumpWidget(const SizedBox());
+      }
     });
 
     testWidgets('gone trip: what happened + way back', (t) async {
@@ -193,7 +220,10 @@ void main() {
       expect(find.text('2× · 37 h'), findsOneWidget);
       expect(find.text('na cestě (bez pauz)'), findsOneWidget);
       expect(find.text('krátké zastávky'), findsOneWidget);
-      expect(find.text('dny na cestě'), findsOneWidget);
+      // r1: číslo se slovem ve správném tvaru, neutrální popisek.
+      expect(find.text('trvání cesty'), findsOneWidget);
+      expect(find.text('dny na cestě'), findsNothing);
+      expect(find.text('3 dny'), findsWidgets);
       expect(find.textContaining('přesun během pauzy'), findsOneWidget);
     });
 

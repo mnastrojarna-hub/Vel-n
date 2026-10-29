@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/widgets/state_views.dart';
 import 'ride_card.dart' show rideKm;
+import 'ride_fit_text.dart';
 import 'ride_live_stats.dart';
 import 'ride_model.dart';
 import 'ride_provider.dart';
@@ -107,16 +108,20 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
 
   Widget _body(BuildContext context, List<UserRide> rides, List<RideListItem> items) {
     final tr = t(context);
-    final n = _sel.length;
     final ok = items.length >= 2;
+    // Server cesty ještě nezná → výběr ani tlačítko nejdou použít (dřív šlo
+    // vybírat a chyba přišla až po klepnutí na Sloučit); hláška zůstává.
+    final server = rides.any((r) => r.serverV2);
+    final n = server ? _sel.length : 0;
+    final can = server && !_busy;
     return Column(children: [
       Expanded(
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
           Text(tr.tr('rpMergeHint'), style: _hint),
-          if (!rides.any((r) => r.serverV2)) ...[const SizedBox(height: 10), _note(tr.tr('rpTripUnavailable'))],
+          if (!server) ...[const SizedBox(height: 10), _note(tr.tr('rpTripUnavailable'))],
           if (!ok) ...[const SizedBox(height: 10), _note(tr.tr('rpMergeNothing'))],
           const SizedBox(height: 12),
-          for (final i in items) _row(context, i),
+          for (final i in items) _row(context, i, enabled: server),
         ]),
       ),
       if (ok)
@@ -127,7 +132,7 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
             color: Colors.white,
             child: Semantics(
               button: true,
-              enabled: n >= 2 && !_busy,
+              enabled: n >= 2 && can,
               label: tr.trArgs('rpMergeBtn', {'n': n}),
               excludeSemantics: true,
               child: SizedBox(
@@ -137,15 +142,18 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: n >= 2 ? MotoGoColors.green : MotoGoColors.g200,
                     foregroundColor: MotoGoColors.black,
+                    disabledBackgroundColor: MotoGoColors.g200,
+                    disabledForegroundColor: MotoGoColors.g400,
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(MotoGoRadius.pill)),
                   ),
                   // Pod 2 jízdy tlačítko vypadá vypnutě, ale klepnutí řekne proč.
-                  onPressed: _busy ? null : () => _merge(items),
+                  onPressed: can ? () => _merge(items) : null,
                   child: _busy
                       ? const SizedBox(
                           width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.4))
-                      : Text(tr.trArgs('rpMergeBtn', {'n': n}),
+                      // Jeden řádek — na úzkém telefonu se zmenší, nezalomí.
+                      : rideFitLabel(tr.trArgs('rpMergeBtn', {'n': n}),
                           style: const TextStyle(fontSize: MotoGoTypo.sizeXl, fontWeight: MotoGoTypo.w900)),
                 ),
               ),
@@ -173,10 +181,10 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
         child: Text(text, style: _hint.copyWith(color: const Color(0xFF78350F))),
       );
 
-  Widget _row(BuildContext context, RideListItem i) {
+  Widget _row(BuildContext context, RideListItem i, {bool enabled = true}) {
     final tr = t(context);
     final key = _itemKey(i);
-    final sel = _sel.contains(key);
+    final sel = enabled && _sel.contains(key);
     final (title, sub) = switch (i) {
       RideListItemRide(:final ride) => (
           ride.name.isNotEmpty ? ride.name : tr.tr('rideUntitled'),
@@ -200,6 +208,7 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
       child: Semantics(
         checked: sel,
         button: true,
+        enabled: enabled,
         label: '$title, $sub',
         excludeSemantics: true,
         child: Material(
@@ -207,7 +216,7 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
           borderRadius: BorderRadius.circular(MotoGoRadius.xl),
           child: InkWell(
             borderRadius: BorderRadius.circular(MotoGoRadius.xl),
-            onTap: _busy ? null : () => setState(() => sel ? _sel.remove(key) : _sel.add(key)),
+            onTap: _busy || !enabled ? null : () => setState(() => sel ? _sel.remove(key) : _sel.add(key)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
               child: Row(children: [
@@ -215,7 +224,7 @@ class _RideMergeScreenState extends ConsumerState<RideMergeScreen> {
                   width: 44,
                   height: 44,
                   child: Icon(sel ? Icons.check_box : Icons.check_box_outline_blank,
-                      color: sel ? MotoGoColors.greenDarker : MotoGoColors.g400),
+                      color: !enabled ? MotoGoColors.g200 : (sel ? MotoGoColors.greenDarker : MotoGoColors.g400)),
                 ),
                 const SizedBox(width: 4),
                 Expanded(

@@ -13,8 +13,9 @@ import 'ride_recorder.dart';
 /// Nic se tu neanimuje — pozastavený stav je statický ❚❚ (reduced motion).
 
 /// Barvy a znak podle stavu: nahrává (červená) / čeká na rozjezd (jantar) /
-/// pozastaveno (šedá).
+/// bez polohy (jantar ⚠ — nic se nenahrává) / pozastaveno (šedá).
 ({Color bg, Color fg, String glyph}) rideRecTone(RideRecorderState s) {
+  if (s.gpsLost) return (bg: MotoGoColors.amberBg, fg: MotoGoColors.amber, glyph: '⚠');
   if (s.isArmed) return (bg: MotoGoColors.amberBg, fg: MotoGoColors.amber, glyph: '⏳');
   if (s.isPaused) return (bg: MotoGoColors.g100, fg: MotoGoColors.g600, glyph: '❚❚');
   return (bg: MotoGoColors.redBg, fg: MotoGoColors.red, glyph: '⏺');
@@ -64,11 +65,14 @@ class RideRecButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final paused = rec.isManualPaused;
+    // V auto-pauze už záznam stojí — tlačítko říká, co doopravdy udělá
+    // (vypne i GPS, po rozjezdu se pak samo nerozběhne).
+    final auto = rideIsAutoPaused(rec);
     return Wrap(spacing: 8, runSpacing: 8, children: [
       RideRecButton(
-        icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-        label: tr.tr(rec.needsDecision ? 'rpResumeTrip' : (paused ? 'rpResume' : 'rpPause')),
-        semantics: tr.tr(paused ? 'rpA11yResume' : 'rpA11yPause'),
+        icon: paused ? Icons.play_arrow_rounded : (auto ? Icons.gps_off : Icons.pause_rounded),
+        label: tr.tr(rec.needsDecision ? 'rpResumeTrip' : (paused ? 'rpResume' : (auto ? 'rpPauseGps' : 'rpPause'))),
+        semantics: tr.tr(paused ? 'rpA11yResume' : (auto ? 'rpA11yPauseGps' : 'rpA11yPause')),
         primary: paused,
         onTap: busy ? null : onToggle,
       ),
@@ -152,6 +156,7 @@ class RideRecStatus extends StatelessWidget {
     final tr = t(context);
     final tone = rideRecTone(rec);
     final sub = [rideSinceText(rec, tr), rideLiveText(rec, tr)].whereType<String>().join(' · ');
+    final auto = rideIsAutoPaused(rec);
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(
         width: 40,
@@ -178,6 +183,17 @@ class RideRecStatus extends StatelessWidget {
                       fontSize: MotoGoTypo.sizeMd,
                       fontWeight: MotoGoTypo.w700,
                       color: MotoGoColors.g500,
+                      height: 1.35,
+                      decoration: TextDecoration.none)),
+            ],
+            // Auto-pauza: jasně říct, že se nic mačkat nemusí.
+            if (auto) ...[
+              const SizedBox(height: 4),
+              Text(tr.tr('rpAutoNoAction'),
+                  style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeMd,
+                      fontWeight: MotoGoTypo.w800,
+                      color: MotoGoColors.greenDarker,
                       height: 1.35,
                       decoration: TextDecoration.none)),
             ],

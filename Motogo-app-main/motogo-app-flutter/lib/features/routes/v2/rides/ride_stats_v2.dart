@@ -8,6 +8,7 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../ride_card.dart' show rideDateTime, rideDuration, rideKm, rideSpeed;
 import '../../ride_model.dart';
+import 'ride_phase_v2.dart' show recDaysV2, recRidesV2;
 import 'ride_track_sketch_v2.dart' show kRidePauseLink;
 
 typedef _Stat = (String icon, String value, String label);
@@ -47,8 +48,10 @@ class RideStatsCardV2 extends StatelessWidget {
           pauses > 0 ? tr.trArgs('v2RpStatPausesVal', {'n': pauses, 'time': rideDuration(r.pauseMin)}) : rideDuration(r.pauseMin),
           tr.tr('v2RpStatPauses'),
         ),
-      if (nDays >= 2) (MgIcons.moon, '$nDays', tr.tr('v2RpStatDays')),
-      if (rides != null) (MgIcons.list, '$rides', tr.tr('v2RpStatRides')),
+      // Číslo se slovem ve správném tvaru („3 dny", „5 jízd"), popisek pod ním
+      // neutrální — nikdy „3 jízd" / „5 dny".
+      if (nDays >= 2) (MgIcons.moon, recDaysV2(tr, nDays), tr.tr('v2RpStatDays')),
+      if (rides != null) (MgIcons.list, recRidesV2(tr, rides!), tr.tr('v2RpStatRides')),
       (MgIcons.pin, '${r.stops.length}', tr.tr('rideStatStops')),
       (MgIcons.camera, '${r.photoCount}', tr.tr('rideStatPhotos')),
     ];

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import 'ride_card.dart' show rideDateTime, rideDuration, rideKm, rideSpeed;
+import 'ride_fit_text.dart';
 import 'ride_live_stats.dart';
 import 'ride_map.dart' show rideHasMovedPause;
 import 'ride_model.dart';
@@ -51,7 +52,8 @@ class RideStatsGrid extends StatelessWidget {
           tr.tr('rpStatPauses')
         ),
       if (r.gapSec > 0) ('📵', rideDuration(r.gapMin), tr.tr('rideStatGap')),
-      if (days >= 2) ('📅', '$days', tr.tr('rpStatDays')),
+      // „5 dní" (tvar podle čísla) + neutrální popisek „trvání cesty".
+      if (days >= 2) ('📅', rideDaysLabel(days, tr), tr.tr('rpStatDaysCap')),
       ('📍', '${r.stops.length}', tr.tr('rideStatStops')),
       ('📷', '${r.photoCount}', tr.tr('rideStatPhotos')),
     ];
@@ -64,7 +66,13 @@ class RideStatsGrid extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         LayoutBuilder(builder: (context, c) {
-          final w = (c.maxWidth - 16) / 3;
+          // 3 sloupce jen tehdy, když se do nich všechny popisky vejdou celými
+          // slovy bez velkého zmenšení — jinak 2 (úzký telefon, velké písmo,
+          // dlouhá slova). Popisek se nikdy nezalomí uprostřed slova.
+          final w3 = (c.maxWidth - 16) / 3;
+          final cols =
+              cells.every((s) => (rideFitScale(context, s.$3, _label, w3, lines: 3) ?? 0) >= 0.85) ? 3 : 2;
+          final w = (c.maxWidth - 8 * (cols - 1)) / cols;
           return Wrap(spacing: 8, runSpacing: 12, children: [
             for (final s in cells) SizedBox(width: w, child: _stat(s.$1, s.$2, s.$3)),
           ]);
@@ -139,16 +147,14 @@ class RideStatsGrid extends StatelessWidget {
                     color: MotoGoColors.black,
                     decoration: TextDecoration.none)),
           ),
-          Text(label,
-              maxLines: 2,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontSize: MotoGoTypo.sizeSm,
-                  fontWeight: MotoGoTypo.w700,
-                  color: MotoGoColors.g400,
-                  height: 1.2,
-                  decoration: TextDecoration.none)),
+          RideFitText(label, style: _label, lines: 3, textAlign: TextAlign.center),
         ]),
       );
+
+  static const _label = TextStyle(
+      fontSize: MotoGoTypo.sizeSm,
+      fontWeight: MotoGoTypo.w700,
+      color: MotoGoColors.g400,
+      height: 1.2,
+      decoration: TextDecoration.none);
 }

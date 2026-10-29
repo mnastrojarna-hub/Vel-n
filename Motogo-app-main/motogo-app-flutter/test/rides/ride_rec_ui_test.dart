@@ -108,7 +108,11 @@ void main() {
   testWidgets('výpůjčka: pauza ano, Ukončit ne, vysvětlení konce vrácením', (tester) async {
     await pumpRides(tester, _all((_) async {}), overrides: ridesUiOverrides(rec: _s('rent_auto')));
     await tester.pump(const Duration(milliseconds: 60));
-    expect(find.text('Pozastavit'), findsOneWidget);
+    // Auto-pauza: tlačítko říká, co udělá (vypne GPS), a že se nic mačkat nemusí.
+    expect(find.text('Vypnout GPS'), findsOneWidget);
+    expect(find.text('Pozastavit'), findsNothing);
+    expect(find.text('Nic nemačkej — jakmile se rozjedeš, nahrávám dál sám.'), findsOneWidget);
+    expect(find.text('❚❚ Auto-pauza'), findsOneWidget);
     expect(find.text('Ukončit záznam jízdy'), findsNothing);
     expect(find.text('Záznam výpůjčky skončí sám, až motorku vrátíš.'), findsOneWidget);
     expect(find.text('Stojíš — záznam je pozastavený'), findsOneWidget);
@@ -201,18 +205,32 @@ void main() {
     expect(ridePhaseText(st['own_manual']!, tr), 'Záznam je pozastavený');
     expect(ridePhaseText(st['own_long']!, tr), startsWith('Cesta stojí od '));
     expect(rideChipKey(st['own_armed']!), 'rpChipArmed');
-    expect(rideChipKey(st['rent_auto']!), 'rpChipPaused');
-    expect(rideChipKey(st['own_gpslost']!), 'rpChipRec');
+    // Auto-pauza má vlastní štítek (ne „Pozastaveno" jako ruční pauza).
+    expect(rideChipKey(st['rent_auto']!), 'rpChipAuto');
+    expect(rideChipKey(st['own_manual']!), 'rpChipPaused');
+    // Bez polohy se nenahrává — štítek ani věta nesmí tvrdit „Nahrávám".
+    expect(rideChipKey(st['own_gpslost']!), 'rpChipNoGps');
+    expect(ridePhaseText(st['own_gpslost']!, tr), 'Záznam stojí — poloha není dostupná');
+    expect(rideNavChipText(st['own_gpslost']!, tr), 'Bez GPS');
+    expect(rideIsAutoPaused(st['own_auto_stop']!), isTrue);
+    expect(rideIsAutoPaused(st['own_armed']!), isFalse);
+    expect(rideIsAutoPaused(st['own_manual']!), isFalse);
+    expect(rideIsAutoPaused(st['own_gpslost']!), isFalse);
     expect(rideSinceText(st['own_armed']!, tr), isNull);
     expect(rideSinceText(st['own_auto_stop']!, tr), startsWith('od '));
     expect(rideSinceText(st['own_long']!, tr), isNull);
-    expect(rideLiveText(st['own_riding']!, tr), '1235 km · 26 h 21 min v sedle · 7. den · Ø 47 km/h');
+    // Číslo + jednotka se nezalomí (pevná mezera, „km⁠/⁠h" se spojovníky slov).
+    expect(rideLiveText(st['own_riding']!, tr),
+        '1235\u00A0km · 26\u00A0h 21\u00A0min v sedle · 7.\u00A0den · Ø\u00A047\u00A0km\u2060/\u2060h');
     expect(rideLiveText(st['rent_armed']!, tr), isNull);
     // Ø až po 5 min v sedle.
     expect(rideLiveText(const RideRecorderState(recording: true, liveKm: 3, liveMovingSec: 200), tr),
-        '3,0 km · 3 min v sedle');
+        '3,0\u00A0km · 3\u00A0min v sedle');
     expect(rideNavChipText(st['own_manual']!, tr), 'Pauza');
-    expect(rideNavChipText(st['own_armed']!, tr), 'REC 1235');
+    // „REC" jen při skutečném nahrávání.
+    expect(rideNavChipText(st['own_armed']!, tr), 'Připraveno');
+    expect(rideNavChipText(st['own_auto_stop']!, tr), 'Auto-pauza');
+    expect(rideNavChipText(st['own_riding']!, tr), 'REC 1235');
   });
 
   testWidgets('obnovení stavu po restartu předka nepřepíše pevný stav', (tester) async {

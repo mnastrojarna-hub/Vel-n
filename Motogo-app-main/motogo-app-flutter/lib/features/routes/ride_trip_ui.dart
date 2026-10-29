@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import 'ride_fit_text.dart';
 import 'ride_trip_api.dart';
 
 /// Společné kousky UI cest (starý vzhled; v2 je smí volat taky): hlášky
@@ -59,15 +60,17 @@ Future<String?> rideTripNameDialog(BuildContext context, {String? initial, requi
         autofocus: true,
         maxLength: 120,
         textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(hintText: t(c).tr('rpMergeNameHint'), hintMaxLines: 2),
+        decoration: InputDecoration(hintText: t(c).tr('rpMergeNameHint'), hintMaxLines: 4),
         onSubmitted: (v) => Navigator.pop(c, v.trim()),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(c), child: Text(t(c).cancel)),
+        // Popisky tlačítek na jeden řádek (širší písmo / velké písmo by je
+        // zalomilo uprostřed slova) — radši se zmenší.
+        TextButton(onPressed: () => Navigator.pop(c), child: rideFitLabel(t(c).cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: MotoGoColors.green, foregroundColor: MotoGoColors.black),
           onPressed: () => Navigator.pop(c, ctrl.text.trim()),
-          child: Text(t(c).tr('ridePointSave')),
+          child: rideFitLabel(t(c).tr('ridePointSave')),
         ),
       ],
     ),
@@ -86,13 +89,13 @@ Future<bool> rideConfirm(BuildContext context,
       title: Text(title, style: const TextStyle(fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900)),
       content: Text(body, style: const TextStyle(fontSize: MotoGoTypo.sizeLg, height: 1.4)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c).cancel)),
+        TextButton(onPressed: () => Navigator.pop(c, false), child: rideFitLabel(t(c).cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: danger ? const Color(0xFFD93636) : MotoGoColors.green,
               foregroundColor: danger ? Colors.white : MotoGoColors.black),
           onPressed: () => Navigator.pop(c, true),
-          child: Text(confirm),
+          child: rideFitLabel(confirm),
         ),
       ],
     ),

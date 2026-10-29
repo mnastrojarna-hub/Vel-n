@@ -85,7 +85,8 @@ void main() {
     await expectCleanRides(tester);
     expect(find.text('28.–30. 9. 2026'), findsOneWidget);
     expect(find.text('3 dny'), findsOneWidget);
-    expect(find.text('❚❚ Pozastaveno'), findsOneWidget);
+    // Auto-pauza má vlastní štítek (ruční pauza = „Pozastaveno").
+    expect(find.text('❚❚ Auto-pauza'), findsOneWidget);
     expect(find.text('17 h'), findsOneWidget); // 61 200 s v sedle
     expect(find.text('21 h 30 min'), findsNothing); // celkový čas se už neukazuje
   });
@@ -98,7 +99,9 @@ void main() {
     expect(find.text(tr.tr('rpStatOnRoad')), findsOneWidget);
     expect(find.text(tr.tr('rpStatPauses')), findsOneWidget);
     expect(find.textContaining('× · '), findsOneWidget);
-    expect(find.text(tr.tr('rpStatDays')), findsOneWidget);
+    // Dny: hodnota ve správném tvaru („3 dny") + neutrální popisek.
+    expect(find.text(tr.tr('rpStatDaysCap')), findsOneWidget);
+    expect(find.text('3 dny'), findsOneWidget);
     expect(find.text(tr.tr('rideStatGap')), findsOneWidget);
     expect(find.textContaining(tr.tr('rpPauseLegend')), findsOneWidget);
     expect(find.textContaining(tr.tr('rpGapNotice')), findsOneWidget);
@@ -109,7 +112,7 @@ void main() {
     await expectCleanRides(tester);
     expect(find.text(tr.tr('rideStatDuration')), findsOneWidget);
     expect(find.text(tr.tr('rpStatPauses')), findsNothing);
-    expect(find.text(tr.tr('rpStatDays')), findsNothing);
+    expect(find.text(tr.tr('rpStatDaysCap')), findsNothing);
   });
 
   testWidgets('etapy: den, den v týdnu, km, v sedle, max, nastoupáno', (tester) async {

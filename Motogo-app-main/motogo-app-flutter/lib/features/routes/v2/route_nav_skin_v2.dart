@@ -66,7 +66,8 @@ class NavStopsChipV2 extends StatelessWidget {
       );
 }
 
-/// "● REC" / "❚❚ PAUZA" while a ride recording runs (SPEC §9.2): no
+/// "● REC" / "● PŘIPRAVENO" / "❚❚ AUTO-PAUZA" / "❚❚ PAUZA" / "● BEZ GPS"
+/// while a ride recording runs (SPEC §9.2, fix:ui-v2:r1): no
 /// decorative motion on the navigation screen (static dot); tap (44 px) =
 /// the v2 recording sheet (phase, numbers, pause / resume, stop).
 class NavRecChipV2 extends ConsumerWidget {
@@ -78,12 +79,14 @@ class NavRecChipV2 extends ConsumerWidget {
     if (!rec.recording) return const SizedBox.shrink();
     final tr = t(context);
     final ph = RecPhaseV2.of(tr, rec);
-    final paused = ph.tone == RecToneV2.paused || ph.tone == RecToneV2.armed;
-    final label = tr.tr(paused ? 'v2RpNavPause' : 'v2RpNavRec');
+    // REC jen když se opravdu nahrává; PŘIPRAVENO / AUTO-PAUZA / PAUZA /
+    // BEZ GPS — jezdec pozná, jestli má něco udělat.
+    final label = recNavLabelV2(tr, ph);
     final dot = switch (ph.tone) {
       RecToneV2.warn => MgColors.warnDark,
       RecToneV2.rec => MgColors.sosDot,
-      _ => null,
+      RecToneV2.armed => MgColors.neon,
+      RecToneV2.paused => null,
     };
     return Padding(
       padding: const EdgeInsets.only(left: 8),

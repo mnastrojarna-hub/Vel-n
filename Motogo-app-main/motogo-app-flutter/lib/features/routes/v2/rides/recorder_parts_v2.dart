@@ -15,8 +15,9 @@ import '../../ride_recorder.dart' show RideRecorderState;
 import 'ride_phase_v2.dart';
 
 /// The recorder's live card (DESIGN_V22 §4.2 D, dark) by phase (SPEC §9.2):
-/// NAHRÁVÁM (red ping) / ČEKÁM NA ROZJEZD (neon ring) / POZASTAVENO (static
-/// ❚❚, "od HH:MM") / ZPĚT NA STARTU · GPS VYPNUTÉ (guards); one sentence of
+/// NAHRÁVÁM (red ping) / ČEKÁM NA ROZJEZD (neon ring) / STOJÍŠ · AUTO-PAUZA
+/// or POZASTAVENO (static ❚❚, "od HH:MM") / ZPĚT NA STARTU · GPS VYPNUTÉ
+/// (guards) / POLOHA NEDOSTUPNÁ (warn); one sentence of
 /// what is happening; chips km · v sedle · Ø (≥ 5 min) · N. den (≥ 2) ·
 /// mode · GPS. Idle: "Připraveno" + the manual-start hint.
 class RecorderLiveCardV2 extends StatelessWidget {
@@ -87,7 +88,7 @@ class RecorderLiveCardV2 extends StatelessWidget {
               _Chip(icon: rec.manual ? MgIcons.bike : MgIcons.key, label: tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto')),
               _Chip(
                 icon: rec.gpsLost ? MgIcons.signalOff : MgIcons.gps,
-                label: tr.tr(rec.gpsLost ? 'v2RtRecGps' : (rec.isManualPaused ? 'v2RpGpsOff' : 'v2RideRecGpsOk')),
+                label: tr.tr(recGpsChipKeyV2(rec)),
                 warn: rec.gpsLost,
               ),
             ]),
@@ -158,21 +159,25 @@ class _Chip extends StatelessWidget {
 }
 
 /// White 56 button of the recorder's dock: "❚❚ POZASTAVIT" (every recording
-/// — own AND rental) or "▶ POKRAČOVAT" when manually paused.
+/// — own AND rental), "▶ POKRAČOVAT" when manually paused, "❚❚ VYPNOUT
+/// GPS" while auto-paused ([auto]: it already stands by itself, the same
+/// pause only turns GPS off — nothing the rider has to do).
 class RecorderPauseButtonV2 extends StatelessWidget {
   final bool paused;
+  final bool auto;
   final VoidCallback? onTap;
   final bool busy;
-  const RecorderPauseButtonV2({super.key, required this.paused, required this.onTap, this.busy = false});
+  const RecorderPauseButtonV2({super.key, required this.paused, required this.onTap, this.busy = false, this.auto = false});
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final label = tr.tr(paused ? 'v2RpResumeCta' : 'v2RpPauseCta');
+    final gpsOff = auto && !paused;
+    final label = gpsOff ? tr.tr('v2RpGpsOffBtn').toUpperCase() : tr.tr(paused ? 'v2RpResumeCta' : 'v2RpPauseCta');
     return Semantics(
       button: true,
       enabled: onTap != null && !busy,
-      label: tr.tr(paused ? 'v2RpA11yResume' : 'v2RpA11yPause'),
+      label: tr.tr(gpsOff ? 'v2RpA11yGpsOff' : (paused ? 'v2RpA11yResume' : 'v2RpA11yPause')),
       excludeSemantics: true,
       child: MgPress(
         onTap: busy ? null : onTap,

@@ -1,5 +1,6 @@
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../ride_live_stats.dart';
+import '../../ride_rec_phase.dart' show rideIsAutoPaused;
 import '../../ride_recorder.dart';
 
 /// Tone of a live recording surface: riding (red ping), paused (neutral,
@@ -9,9 +10,11 @@ enum RecToneV2 { rec, paused, armed, warn }
 /// What every v2 recording surface (dock bar, recorder card, Domů row,
 /// Moje row, nav chip, pause sheet) says about the recorder — one mapping
 /// of SPEC §5.2 so the looks never disagree:
-///   riding → NAHRÁVÁM · armed → ČEKÁM NA ROZJEZD · auto / manual pause →
-///   POZASTAVENO (+ od HH:MM) · guard home / long → ZPĚT NA STARTU / GPS
-///   VYPNUTÉ · GPS lost → the existing "Poloha je vypnutá" state.
+///   riding → NAHRÁVÁM · armed → ČEKÁM NA ROZJEZD · auto-pause → STOJÍŠ ·
+///   AUTO-PAUZA (nothing to press) · manual pause → POZASTAVENO (+ od
+///   HH:MM) · guard home / long → ZPĚT NA STARTU / GPS VYPNUTÉ · GPS lost →
+///   POLOHA NEDOSTUPNÁ / "Bez GPS" (warn; never "Nahrávám" — nothing is
+///   recorded then).
 class RecPhaseV2 {
   const RecPhaseV2({
     required this.status,
@@ -19,6 +22,7 @@ class RecPhaseV2 {
     required this.title,
     required this.tone,
     this.since,
+    this.auto = false,
   });
 
   /// Upper-case status of the big card (NAHRÁVÁM / POZASTAVENO …).
@@ -34,6 +38,10 @@ class RecPhaseV2 {
   /// "od 20:14" (or "od 6. 10. 20:14" when not today) while paused.
   final String? since;
 
+  /// Auto-pause (rider stands / walks, GPS on, resumes by itself) — tone
+  /// [RecToneV2.paused] like a manual pause, but its own words and CTA.
+  final bool auto;
+
   /// Ping / pulse allowed (riding, GPS fine). Everything else is static.
   bool get riding => tone == RecToneV2.rec;
   bool get paused => tone == RecToneV2.paused;
@@ -43,7 +51,7 @@ class RecPhaseV2 {
     final since = s == null ? null : tr.trArgs('v2RpSince', {'time': recSinceV2(s, now: now)});
     if (rec.gpsLost) {
       return RecPhaseV2(
-          status: tr.tr('rideRecording').toUpperCase(), chip: tr.tr('rideRecording'), title: tr.tr('v2RtRecGps'), tone: RecToneV2.warn);
+          status: tr.tr('v2RpStatusNoGps'), chip: tr.tr('v2RpChipNoGps'), title: tr.tr('v2RpPhaseNoGps'), tone: RecToneV2.warn);
     }
     if (rec.isArmed) {
       return RecPhaseV2(
@@ -65,11 +73,34 @@ class RecPhaseV2 {
     }
     if (rec.isPaused) {
       return RecPhaseV2(
-          status: tr.tr('v2RpStatusPaused'), chip: tr.tr('v2RpChipPaused'), title: tr.tr('v2RpPhaseAuto'), tone: RecToneV2.paused, since: since);
+        status: tr.tr('v2RpStatusAuto'),
+        chip: tr.tr('v2RpChipAuto'),
+        title: tr.tr('v2RpPhaseAuto'),
+        tone: RecToneV2.paused,
+        since: since,
+        auto: true,
+      );
     }
     return RecPhaseV2(
         status: tr.tr('v2RpStatusRec'), chip: tr.tr('rideRecording'), title: tr.tr('v2RpPhaseRiding'), tone: RecToneV2.rec);
   }
+}
+
+/// Navigation chip word: REC · PŘIPRAVENO · AUTO-PAUZA · PAUZA · BEZ GPS.
+String recNavLabelV2(AppTranslations tr, RecPhaseV2 ph) => switch (ph.tone) {
+      RecToneV2.rec => tr.tr('v2RpNavRec'),
+      RecToneV2.armed => tr.tr('v2RpNavArmed'),
+      RecToneV2.warn => ph.chip.toUpperCase(),
+      RecToneV2.paused => ph.auto ? ph.chip.toUpperCase() : tr.tr('v2RpNavPause'),
+    };
+
+/// GPS chip of the recorder card: recorded only while riding; GPS on but
+/// waiting (armed / auto-pause); off (manual pause, guards); unavailable.
+String recGpsChipKeyV2(RideRecorderState rec) {
+  if (rec.gpsLost) return 'v2RpChipNoGps';
+  if (rec.isManualPaused) return 'v2RpGpsOff';
+  if (rec.isPaused) return 'v2RpGpsWaiting';
+  return 'v2RideRecGpsOk';
 }
 
 /// "20:14" today, "6. 10. 20:14" on another day (local time).
@@ -113,6 +144,8 @@ String recHintV2(AppTranslations tr, RideRecorderState rec, {DateTime? now}) {
   }
   if (rec.isManualPaused) return tr.tr('v2RpHintManual');
   if (rec.isArmed) return tr.tr('v2RpHintArmed');
+  // Stojí sám: nic mačkat nemusí, „Vypnout GPS" jen šetří baterii.
+  if (rideIsAutoPaused(rec)) return tr.tr('v2RpHintAutoNow');
   return tr.tr('v2RpHintAuto');
 }
 

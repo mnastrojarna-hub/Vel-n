@@ -6,10 +6,12 @@ import '../../core/theme.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/widgets/state_views.dart';
 import 'ride_card.dart';
+import 'ride_fit_text.dart';
 import 'ride_live_stats.dart';
 import 'ride_map.dart';
 import 'ride_model.dart';
 import 'ride_provider.dart';
+import 'ride_recorder.dart';
 import 'ride_share.dart';
 import 'ride_stage_list.dart';
 import 'ride_stats_grid.dart';
@@ -90,9 +92,17 @@ class _RideTripDetailScreenState extends ConsumerState<RideTripDetailScreen> {
     final choice = await rideTripDeleteSheet(context);
     if (choice == null || !mounted) return;
     if (choice == RideTripDeleteChoice.split) return _split(trip, confirm: false);
+    // Cesta s právě nahrávanou jízdou: říct, co smazání udělá se záznamem
+    // (stejně jako u jedné jízdy) — výpůjčka se nahrává znovu od teď,
+    // vlastní cesta se zastaví.
+    final rec = ref.read(rideRecorderProvider);
+    final live = rec.recording && trip.rides.any((r) => r.id == rec.rideId);
+    final warn = !live
+        ? ''
+        : '\n\n${tr.tr(rec.bookingId != null && rec.enabled ? 'rpDeleteRecordingRentalQ' : 'rpDeleteRecordingOwnQ')}';
     final ok = await rideConfirm(context,
         title: tr.tr('rpTripDelete'),
-        body: tr.trArgs('rpTripDeleteQ', {'n': trip.rides.length}),
+        body: '${tr.trArgs('rpTripDeleteQ', {'n': trip.rides.length})}$warn',
         confirm: tr.tr('myExpDelete'),
         danger: true);
     if (!ok || !mounted) return;
@@ -278,13 +288,17 @@ class _RideTripDetailScreenState extends ConsumerState<RideTripDetailScreen> {
               behavior: HitTestBehavior.opaque,
               onTap: _busy ? null : () => _rename(trip),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${trip.isRental ? '🏍️' : '🧳'} ${rideTripDefaultName(trip, tr)}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                // Až 3 řádky celými slovy (model motorky v názvu výpůjčky se
+                // nesmí useknout); „…" jen u extrémně dlouhého vlastního názvu.
+                RideFitText('${trip.isRental ? '🏍️' : '🧳'} ${rideTripDefaultName(trip, tr)}',
+                    lines: 3,
+                    minScale: 0.6,
+                    ellipsis: true,
                     style: const TextStyle(
                         fontSize: MotoGoTypo.sizeH2,
                         fontWeight: MotoGoTypo.w900,
                         color: Colors.white,
+                        height: 1.15,
                         decoration: TextDecoration.none)),
                 const SizedBox(height: 2),
                 Text(sub,

@@ -6,10 +6,19 @@ import 'ride_recorder.dart';
 /// Čisté funkce nad [RideRecorderState]: jaká věta, odkdy, kolik ujeto,
 /// jaký štítek. Žádná logika záznamu tady není.
 
-/// Štítek stavu (`rpChipRec` / `rpChipArmed` / `rpChipPaused`); null = nenahrává se.
+/// Auto-pauza: jezdec stojí / jde pěšky, GPS běží a po rozjezdu se nahrává
+/// samo — nic se nemačká (ne „připraveno", ne ruční pauza, ne bez polohy).
+bool rideIsAutoPaused(RideRecorderState s) => s.isPaused && !s.isArmed && !s.isManualPaused && !s.gpsLost;
+
+/// Štítek stavu (`rpChipRec` / `rpChipArmed` / `rpChipAuto` / `rpChipPaused`
+/// / `rpChipNoGps`); null = nenahrává se.
 String? rideChipKey(RideRecorderState s) {
   if (!s.recording) return null;
+  // Bez polohy se nenahrává nic — nesmí tvrdit „Nahrávám" (banner nad tím
+  // říká, že záznam stojí).
+  if (s.gpsLost) return 'rpChipNoGps';
   if (s.isArmed) return 'rpChipArmed';
+  if (rideIsAutoPaused(s)) return 'rpChipAuto';
   if (s.isPaused) return 'rpChipPaused';
   return 'rpChipRec';
 }
@@ -20,6 +29,7 @@ String rideShortDateTime(DateTime d) => '${rideShortDate(d)} ${rideClock(d)}';
 /// Hlavní věta o stavu záznamu; null = nenahrává se.
 String? ridePhaseText(RideRecorderState s, AppTranslations tr) {
   if (!s.recording) return null;
+  if (s.gpsLost) return tr.tr('rpPhaseGpsLost');
   if (s.needsDecision) {
     if (s.pauseReason == RidePauseReason.home) return tr.tr('rpPhaseHome');
     final since = s.pausedSince;
@@ -61,9 +71,14 @@ String? rideLiveText(RideRecorderState s, AppTranslations tr) {
     if (s.liveStages >= 2) tr.trArgs('rpDayN', {'n': s.liveStages}),
   ];
   final avg = rideLiveAvgKmh(s);
-  if (avg != null) parts.add('Ø ${avg.toStringAsFixed(0)} km/h');
-  return parts.join(' · ');
+  if (avg != null) parts.add('Ø ${avg.toStringAsFixed(0)} km\u2060/\u2060h');
+  return parts.map(rideNoBreakUnits).join(' · ');
 }
+
+/// Číslo a jednotka zůstanou na jednom řádku („1235 km", „26 h", „Ø 47",
+/// „7. den") — pevná mezera místo obyčejné; mezi částmi se zalomit smí.
+String rideNoBreakUnits(String s) =>
+    s.replaceAllMapped(RegExp(r'(\d\.?|Ø) (?=\S)'), (m) => '${m[1]}\u00A0');
 
 /// Vysvětlení pod stavem: pojistka (doma / dlouhá pauza) → otázka
 /// Pokračovat / Ukončit; ruční pauza → jak pokračovat; jinak jak funguje
@@ -80,8 +95,12 @@ String rideHintText(RideRecorderState s, AppTranslations tr, {DateTime? now}) {
   return tr.tr(s.isManualPaused ? 'rpHintManual' : 'rpHintAuto');
 }
 
-/// Krátký štítek do navigace: „REC 12,3" / „Pauza".
+/// Krátký štítek do navigace: „REC 12,3" / „Připraveno" / „Auto-pauza" /
+/// „Pauza" / „Bez GPS". „REC" jen tehdy, když se opravdu nahrává.
 String rideNavChipText(RideRecorderState s, AppTranslations tr) {
-  if (s.isPaused && !s.isArmed) return tr.tr('rpNavPaused');
+  if (s.gpsLost) return tr.tr('rpChipNoGps');
+  if (s.isArmed) return tr.tr('rpNavArmed');
+  if (rideIsAutoPaused(s)) return tr.tr('rpChipAuto');
+  if (s.isPaused) return tr.tr('rpNavPaused');
   return s.liveKm >= 0.1 ? 'REC ${rideLiveKm(s.liveKm, tr.lang)}' : 'REC';
 }

@@ -10,8 +10,9 @@ import 'ride_rec_phase.dart';
 import 'ride_recorder.dart';
 
 /// Záznam jízdy v navigaci (starý vzhled): štítek v hlavičce „● REC 12,3" /
-/// „❚❚ Pauza" → klepnutí otevře sheet se stavem a tlačítky. Navigaci nic
-/// nepřekrývá; bez záznamu se štítek nevykreslí vůbec.
+/// „⏳ Připraveno" / „❚❚ Auto-pauza" / „❚❚ Pauza" / „⚠ Bez GPS" → klepnutí
+/// otevře sheet se stavem a tlačítky. Navigaci nic nepřekrývá; bez záznamu
+/// se štítek nevykreslí vůbec.
 class RideNavRecChip extends ConsumerWidget {
   const RideNavRecChip({super.key});
 
@@ -21,7 +22,8 @@ class RideNavRecChip extends ConsumerWidget {
     if (!rec.recording) return const SizedBox.shrink();
     final tr = t(context);
     final tone = rideRecTone(rec);
-    final paused = rec.isPaused && !rec.isArmed;
+    // Červená tečka jen při skutečném nahrávání; jinak znak stavu (⏳ ❚❚ ⚠).
+    final live = !rec.gpsLost && !rec.isPaused;
     return Semantics(
       button: true,
       label: ridePhaseText(rec, tr),
@@ -43,15 +45,14 @@ class RideNavRecChip extends ConsumerWidget {
                   boxShadow: MotoGoShadows.cardSmall,
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (paused)
-                    Text('❚❚', style: TextStyle(fontSize: 11, fontWeight: MotoGoTypo.w900, color: tone.fg))
-                  else
+                  if (live)
                     Container(
                       width: 9,
                       height: 9,
-                      decoration: BoxDecoration(
-                          color: rec.gpsLost ? MotoGoColors.amber : tone.fg, shape: BoxShape.circle),
-                    ),
+                      decoration: BoxDecoration(color: tone.fg, shape: BoxShape.circle),
+                    )
+                  else
+                    Text(tone.glyph, style: TextStyle(fontSize: 11, fontWeight: MotoGoTypo.w900, color: tone.fg)),
                   const SizedBox(width: 5),
                   Text(rideNavChipText(rec, tr),
                       style: const TextStyle(

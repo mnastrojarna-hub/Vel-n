@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart' show MotoGoBackNav;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'ride_fit_text.dart';
 import 'ride_card.dart' show rideDateRange;
 import 'ride_map.dart';
 import 'ride_model.dart';
@@ -362,17 +363,22 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
                   children: [
                     Row(
                       children: [
+                        // 2 řádky, celá slova (zmenší se, místo aby se
+                        // „Aufgezeichnete Fahrt" usekla); „…" jen u dlouhého
+                        // vlastního názvu.
                         Flexible(
-                          child: Text(
+                          child: RideFitText(
                             ride.name.isNotEmpty
                                 ? ride.name
                                 : t(context).tr('rideUntitled'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            lines: 2,
+                            minScale: 0.6,
+                            ellipsis: true,
                             style: const TextStyle(
                                 fontSize: MotoGoTypo.sizeH2,
                                 fontWeight: MotoGoTypo.w900,
                                 color: Colors.white,
+                                height: 1.15,
                                 decoration: TextDecoration.none),
                           ),
                         ),

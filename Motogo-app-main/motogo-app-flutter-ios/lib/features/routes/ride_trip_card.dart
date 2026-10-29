@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
@@ -8,6 +9,9 @@ import 'ride_live_stats.dart';
 import 'ride_map.dart';
 import 'ride_merge_screen.dart';
 import 'ride_model.dart';
+import 'ride_rec_controls.dart' show rideRecTone;
+import 'ride_rec_phase.dart' show rideChipKey;
+import 'ride_recorder.dart';
 import 'ride_trip.dart';
 import 'ride_trip_detail_screen.dart';
 
@@ -34,14 +38,19 @@ Future<void> openRideMerge(BuildContext context, {String? preselectRideId}) => N
     .push(MaterialPageRoute<void>(builder: (_) => RideMergeScreen(preselectRideId: preselectRideId)));
 
 /// Karta cesty: náhled celé trasy, název, rozsah dat a součty.
-class RideTripCard extends StatelessWidget {
+class RideTripCard extends ConsumerWidget {
   const RideTripCard({super.key, required this.trip});
 
   final RideTrip trip;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
+    // Cesta s právě nahrávanou jízdou: štítek podle fáze záznamu (stejně
+    // jako karta jízdy) — „Auto-pauza" / „Pozastaveno", ne pořád „Nahrávám".
+    final rec = ref.watch(rideRecorderProvider);
+    final mine = rec.recording && trip.rides.any((r) => r.id == rec.rideId);
+    final tone = mine ? rideRecTone(rec) : null;
     final a = trip.aggregate;
     final name = rideTripDefaultName(trip, tr);
     final days = trip.days;
@@ -81,7 +90,10 @@ class RideTripCard extends StatelessWidget {
                   Wrap(spacing: 6, runSpacing: 4, children: [
                     _chip('${trip.isRental ? '🏍️' : '🧳'} ${tr.tr('rpTripChip')}', MotoGoColors.greenPale,
                         MotoGoColors.greenDarker),
-                    if (trip.isRecording) _chip('⏺ ${tr.tr('rideRecording')}', MotoGoColors.red, Colors.white),
+                    if (tone != null)
+                      _chip('${tone.glyph} ${tr.tr(rideChipKey(rec)!)}', tone.fg, Colors.white)
+                    else if (trip.isRecording)
+                      _chip('⏺ ${tr.tr('rideRecording')}', MotoGoColors.red, Colors.white),
                     if (trip.isPublic) _chip('🌍 ${tr.tr('rideShared')}', MotoGoColors.green, MotoGoColors.black),
                   ]),
                   const SizedBox(height: 6),

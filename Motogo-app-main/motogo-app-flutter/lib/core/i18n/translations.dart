@@ -110,6 +110,7 @@ import 'translations_ext_57_v2_rides_c.dart';
 import 'translations_ext_57_v2_rides_d.dart';
 import 'translations_ext_57_v2_rides_e.dart';
 import 'translations_ext_57_v2_rides_f.dart';
+import 'translations_ext_57_v2_rides_g.dart';
 import 'translations_ext_58_v2_fix_a.dart';
 import 'translations_ext_58_v2_fix_b.dart';
 import 'translations_ext_59_v2_late_info.dart';
@@ -225,6 +226,7 @@ final translations = _mergeAll([
   translationsExt57V2RidesD,
   translationsExt57V2RidesE,
   translationsExt57V2RidesF,
+  translationsExt57V2RidesG,
   translationsExt58V2FixA,
   translationsExt58V2FixB,
   translationsExt59V2LateInfo,

@@ -50,16 +50,25 @@ void showCommunityAddMenu(BuildContext context) {
               const MgSheetHandle(margin: EdgeInsets.symmetric(horizontal: 12)),
               const SizedBox(height: 12),
               // Pozastavit / pokračovat — vlastní jízda i výpůjčka (SPEC §9.1).
+              // V auto-pauze záznam už stojí — řádek říká, co doopravdy udělá
+              // (vypne i GPS) a že večer není potřeba nic mačkat.
               if (rec.recording)
                 _menuItem(
                   c,
-                  rec.isManualPaused ? Icons.play_circle_outline : Icons.pause_circle_outline,
-                  t(c).tr(rec.isManualPaused ? 'rpResumeRow' : 'rpPauseRow'),
+                  rec.isManualPaused
+                      ? Icons.play_circle_outline
+                      : (rideIsAutoPaused(rec) ? Icons.gps_off : Icons.pause_circle_outline),
+                  t(c).tr(rec.isManualPaused
+                      ? 'rpResumeRow'
+                      : (rideIsAutoPaused(rec) ? 'rpPauseGpsRow' : 'rpPauseRow')),
                   () {
                     Navigator.pop(c);
                     rideTogglePause(context, ref);
                   },
-                  subtitle: ridePhaseText(rec, t(c)),
+                  subtitle: [
+                    ridePhaseText(rec, t(c)),
+                    if (rideIsAutoPaused(rec)) t(c).tr('rpAutoNoAction'),
+                  ].whereType<String>().join('\n'),
                 ),
               if (!auto)
                 _menuItem(
@@ -70,7 +79,9 @@ void showCommunityAddMenu(BuildContext context) {
                     Navigator.pop(c);
                     _toggleManualRide(context, ref, manual);
                   },
-                  subtitle: t(c).tr(manual ? 'rideManualRunning' : 'rideManualHint'),
+                  subtitle: t(c).tr(!manual
+                      ? 'rideManualHint'
+                      : (rec.isPaused && !rec.isArmed ? 'rpStopRowPaused' : 'rideManualRunning')),
                   danger: manual,
                 ),
               // v2: prázdný plánovač (stejná akce jako „Vytvořit novou trasu"
@@ -100,9 +111,9 @@ void showCommunityAddMenu(BuildContext context) {
               const SizedBox(height: 12),
             ],
           );
-          // v2 (o položku víc — plánovač): na nízkém telefonu se menu posouvá
-          // místo přetečení spodního okraje.
-          return MgV2.on(c) ? SingleChildScrollView(child: menu) : menu;
+          // Na nízkém telefonu / s velkým písmem (i ve starém vzhledu) se menu
+          // posouvá místo přetečení spodního okraje.
+          return SingleChildScrollView(child: menu);
         },
       ),
     ),

@@ -33,6 +33,8 @@ Future<void> openRideRecorderV2(BuildContext context) =>
 /// "Ukončit záznam" for a manual ride (confirm FIRST, busy only while the
 /// stop runs — r1); a guard pause (home / long) → POKRAČOVAT V CESTĚ +
 /// "Ukončit a uložit". A rental ends with the return (note under the card).
+/// The dock is the Scaffold's bottom bar, so a toast (Pozastaveno /
+/// Pokračuju) floats ABOVE it and never covers POKRAČOVAT / UKONČIT.
 class RecorderScreenV2 extends ConsumerStatefulWidget {
   const RecorderScreenV2({super.key});
 
@@ -86,6 +88,7 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
     } else {
       primary = RecorderPauseButtonV2(
         paused: rec.isManualPaused,
+        auto: RecPhaseV2.of(tr, rec).auto,
         busy: _busy,
         onTap: () => _run(() => rideTogglePauseV2(context, ref)),
       );
@@ -225,10 +228,10 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                 ],
               ),
             ),
-            MgDock(child: _action(tr, rec)),
           ]),
         ),
       ),
+      bottomNavigationBar: MgDock(child: _action(tr, rec)),
     );
   }
 }

@@ -54,7 +54,8 @@ class RidePauseSheetBodyV2 extends ConsumerWidget {
         MgBtnGhostLight(label: tr.tr('v2RpEndSave'), icon: MgIcons.stopFilled, onTap: stop),
       ] else ...[
         MgBtnInk(
-          label: tr.tr(rec.isManualPaused ? 'v2RpResume' : 'v2RpPause'),
+          // Auto-pauza už stojí sama — tlačítko jen vypne GPS (baterie).
+          label: tr.tr(rec.isManualPaused ? 'v2RpResume' : (ph.auto ? 'v2RpGpsOffBtn' : 'v2RpPause')),
           icon: rec.isManualPaused ? MgIcons.playFilled : MgIcons.pause,
           neonLabel: true,
           onTap: () => rideTogglePauseV2(context, ref),
