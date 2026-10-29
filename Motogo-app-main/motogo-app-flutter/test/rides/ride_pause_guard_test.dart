@@ -82,6 +82,7 @@ void main() {
       for (final own in [true, false]) {
         final tr = parked(own: own);
         final n = tr.emitted.length;
+        final r0 = tr.logsOf('resume').length; // rozjezd z „připraveno"
         final base = tr.lat;
         for (var m = 0; m < 600; m++) {
           tr.t += 40;
@@ -100,7 +101,7 @@ void main() {
           }
           tr.tick(liveKm: 30);
         }
-        expect(tr.logsOf('resume'), isEmpty, reason: 'acc $acc own $own');
+        expect(tr.logsOf('resume').length, r0, reason: 'acc $acc own $own');
         expect(tr.emitted.length, n);
       }
     }
