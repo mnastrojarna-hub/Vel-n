@@ -1,27 +1,28 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { SmallBtn } from './BranchHelpers'
 import TrasyJizdaMapa from './TrasyJizdaMapa'
 import TrasyJizdaDiag from './TrasyJizdaDiag'
+import TrasyJizdaBody from './TrasyJizdaBody'
+import TrasyJizdaEtapy from './TrasyJizdaEtapy'
+import TrasyJizdaCesta from './TrasyJizdaCesta'
+import TrasyJizdaStav, { RideStatTiles } from './TrasyJizdaStav'
 import { trackQuality, fmtGap } from '../lib/rideTrack'
+import { rideCoreStats, rideRecState, rideDays, fmtSince, cz } from '../lib/rideStats'
 
-// Detail projeté jízdy zákazníka — mapa se stopou, statistiky a EDITACE:
+// Detail projeté jízdy zákazníka — mapa se stopou, statistiky (pauzy, etapy
+// po dnech, příslušnost k cestě — stejně jako appka) a EDITACE:
 // název, popis, sdílení (soukromá/veřejná), moderace (zobrazit/skrýt),
-// zastávky (název, popisek, mazání fotek i celé zastávky).
+// zastávky (název, popisek, mazání fotek i celé zastávky — TrasyJizdaBody).
 // Zápis jde přímo do tabulek (Velín má admin RLS politiku).
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
-const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
-const fmtSec = (sec) => !sec ? '—' : fmtDur(Math.round(sec / 60))
-const fmtSpeed = (v) => v == null || Number(v) <= 0 ? '—' : `${Math.round(Number(v))} km/h`
-const kindLabel = (k) => k === 'start' ? 'Start' : k === 'end' ? 'Cíl' : 'Zastávka'
 // < 1024 px: na nízkém displeji (telefon na šířku) nižší mapa — jinak vyplní celou
 // plochu mezi lepivou hlavičkou a patičkou a tah prstem jen posouvá mapu, ne detail.
 const MAP_H = 'max-lg:!h-[min(320px,45dvh)]'
 // Telefon na šířku (nízký displej): tenčí lepivá hlavička a patička → víc místa pro obsah.
 const LOW_PAD = 'max-lg:[@media(max-height:500px)]:!py-2'
 
-export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }) {
+export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged, trip, onOpenRide }) {
   const [name, setName] = useState(ride.name || '')
   const [description, setDescription] = useState(ride.description || '')
   const [visibility, setVisibility] = useState(ride.visibility || 'private')
@@ -29,29 +30,38 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
   const [points, setPoints] = useState(ride.points || [])
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
-  const [confirmDel, setConfirmDel] = useState(null)
   // Stopa se dotahuje až tady — seznam jízd ji záměrně nenačítá (jsonb
   // s tisíci body × stovky jízd = zbytečné megabajty na každé otevření).
   const [track, setTrack] = useState(Array.isArray(ride.track) ? ride.track : null)
+  // Etapy (dny) se načítají spolu se stopou — DB bez sloupce `stages` (SQL
+  // „pauzy jízd" ještě nenasazené) prostě etapy nemá.
+  const [stages, setStages] = useState(Array.isArray(ride.stages) ? ride.stages : [])
   const [closing, setClosing] = useState(false)
 
   useEffect(() => {
     if (track !== null) return
     let alive = true
-    supabase.from('user_rides').select('track').eq('id', ride.id).maybeSingle()
-      .then(({ data, error }) => {
-        if (!alive) return
-        if (error) { setErr(error.message); setTrack([]); return }
-        setTrack(Array.isArray(data?.track) ? data.track : [])
-      })
+    const one = (cols) => supabase.from('user_rides').select(cols).eq('id', ride.id).maybeSingle()
+    ;(async () => {
+      let { data, error } = await one('track, stages')
+      if (error && (error.code === '42703' || /column .* does not exist/.test(error.message || ''))) {
+        ;({ data, error } = await one('track'))
+      }
+      if (!alive) return
+      if (error) { setErr(error.message); setTrack([]); return }
+      setTrack(Array.isArray(data?.track) ? data.track : [])
+      if (Array.isArray(data?.stages)) setStages(data.stages)
+    })()
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ride.id])
 
   const q = trackQuality(ride, track || [])
-  // „Visí" = pořád se tváří jako nahrávané, ale hodiny nepřišel žádný bod.
-  const stuck = !!ride.is_recording && Date.now() -
-    new Date(ride.last_fix_at || ride.started_at).getTime() > 3 * 3600 * 1000
+  // live (bod < 15 min) / standing (stojí — nová appka při stání nic
+  // neposílá) / stuck („visí": bez bodu déle, než dává smysl).
+  const recState = rideRecState(ride)
+  const stuck = recState === 'stuck'
+  const days = rideDays(ride, stages)
 
   async function saveRide() {
     setSaving(true); setErr(null)
@@ -95,26 +105,6 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
     } finally {
       setClosing(false)
     }
-  }
-
-  async function savePoint(p, patch) {
-    const { error } = await supabase.from('user_ride_points')
-      .update({ ...patch, updated_at: new Date().toISOString() }).eq('id', p.id)
-    if (error) { setErr(error.message); return }
-    setPoints(ps => ps.map(x => x.id === p.id ? { ...x, ...patch } : x))
-    onChanged?.()
-  }
-
-  async function deletePoint(p) {
-    const { error } = await supabase.from('user_ride_points').delete().eq('id', p.id)
-    setConfirmDel(null)
-    if (error) { setErr(error.message); return }
-    setPoints(ps => ps.filter(x => x.id !== p.id))
-    onChanged?.()
-  }
-
-  function removePhoto(p, url) {
-    savePoint(p, { photos: (p.photos || []).filter(u => u !== url) })
   }
 
   const label = (txt) => (
@@ -163,10 +153,13 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
               fitKey={ride.id}
               live={ride.is_recording && ride.end_lat != null ? {
                 lat: ride.end_lat, lng: ride.end_lng,
-                isLive: !stuck,
+                isLive: recState === 'live',
+                paused: recState === 'standing',
                 label: stuck
                   ? `Naposledy viděn ${fmtDate(ride.last_fix_at)}`
-                  : 'Poslední známá poloha',
+                  : recState === 'standing'
+                    ? `Stojí od ${fmtSince(ride.last_fix_at || ride.updated_at)}`
+                    : 'Poslední známá poloha',
               } : null}
             />
           )}
@@ -187,49 +180,28 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
             </p>
           )}
 
-          {stuck && (
-            <div className="rounded-card max-lg:[&>button]:min-h-[36px]" style={{
-              background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 12px',
-            }}>
-              <p className="text-xs mb-2" style={{ color: '#991b1b' }}>
-                <b>Záznam visí.</b> Tváří se jako běžící, ale poslední GPS bod
-                dorazil {fmtDate(ride.last_fix_at)}. Dokud je otevřený,
-                nevznikne zákazníkovi žádná další jízda. Server ho uklidí sám
-                do tří hodin — tímhle to uzavřete hned.
-              </p>
-              <SmallBtn color="#dc2626" onClick={closeStuck}>
-                {closing ? 'Ukončuji…' : 'Ukončit záznam'}
-              </SmallBtn>
-            </div>
+          {q.segments.some(sg => sg.gapBefore?.kind === 'pause' && sg.gapBefore.moved) && (
+            <p className="text-xs" style={{ color: '#4a5d75' }}>
+              〰️ Modrošedá čárkovaná čára = přesun během pauzy (trajekt, přívěs…) — do kilometrů se nepočítá.
+            </p>
           )}
 
-          {/* statistiky jízdy — kompletní přehled */}
-          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-            {[
-              ['📏', 'Celkem ujeto', `${Number(ride.distance_km || 0).toFixed(1)} km`],
-              ['⏱️', 'Celkový čas', fmtDur(ride.duration_min)],
-              ['🏍️', 'Čas jízdy', fmtSec(ride.moving_sec)],
-              ['⏸️', 'Čas stání', fmtSec(ride.idle_sec)],
-              ['📊', 'Ø rychlost', fmtSpeed(ride.avg_speed_kmh)],
-              ['🚀', 'Max. rychlost', fmtSpeed(ride.max_speed_kmh)],
-              ['📵', 'Bez signálu', ride.gap_sec ? fmtGap(ride.gap_sec) : '—'],
-              ['⛰️', 'Nastoupáno', ride.elevation_gain_m ? `${ride.elevation_gain_m} m` : '—'],
-              ['📍', 'Zastávek', String(points.filter(p => p.kind === 'stop').length)],
-              ['📷', 'Fotek', String(points.reduce((n, p) => n + (Array.isArray(p.photos) ? p.photos.length : 0), 0))],
-              ['🛰️', 'Bodů stopy', track === null ? '…' : String(q.points)],
-              ['🚦', 'Start', fmtDate(ride.started_at)],
-              ['🏁', 'Konec', ride.ended_at ? fmtDate(ride.ended_at)
-                : (stuck ? 'záznam visí' : 'nahrává se')],
-            ].map(([emoji, label, value]) => (
-              <div key={label} className="rounded-card"
-                style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '8px 10px' }}>
-                <div className="text-[10px] font-extrabold uppercase max-lg:text-[11px]" style={{ color: '#6b8f7b' }}>
-                  {emoji} {label}
-                </div>
-                <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{value}</div>
-              </div>
-            ))}
-          </div>
+          <TrasyJizdaStav ride={ride} state={recState} closing={closing} onEnd={closeStuck} />
+
+          {/* statistiky jízdy — kompletní přehled (stejné hodnoty jako appka) */}
+          <RideStatTiles cells={[
+            ...rideCoreStats(ride, { pauseCount: q.pauses }),
+            ['⛰️', 'Nastoupáno', ride.elevation_gain_m ? `${ride.elevation_gain_m} m` : '—'],
+            ['📅', 'Dny', cz(days, 'den', 'dny', 'dní'), 'Dny, kdy se opravdu jelo (z etap; jinak kalendářní dny jízdy)'],
+            ['📍', 'Zastávek', String(points.filter(p => p.kind === 'stop').length), 'Místa, která si zákazník uložil (fotky, popisky)'],
+            ['📷', 'Fotek', String(points.reduce((n, p) => n + (Array.isArray(p.photos) ? p.photos.length : 0), 0))],
+            ['🛰️', 'Bodů stopy', track === null ? '…' : String(q.points)],
+            ['🚦', 'Start', fmtDate(ride.started_at)],
+            ['🏁', 'Konec', ride.ended_at ? fmtDate(ride.ended_at)
+              : (stuck ? 'záznam visí' : (recState === 'standing' ? 'stojí (pauza)' : 'nahrává se'))],
+          ]} />
+          <TrasyJizdaEtapy stages={stages} />
+          <TrasyJizdaCesta trip={trip} currentId={ride.id} onOpen={onOpenRide} />
           {/* Proč ve stopě chybí úsek: verze appky, popředí/pozadí, GPS. */}
           {ride.source !== 'manual' && ride.user_id && <TrasyJizdaDiag ride={ride} track={track} />}
           {ride.booking_id && (
@@ -265,74 +237,8 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged }
           </div>
 
           {/* body jízdy */}
-          <div>
-            <h4 className="font-extrabold text-sm mb-2" style={{ color: '#0f1a14' }}>
-              Body jízdy ({points.length})
-            </h4>
-            {points.length === 0 ? (
-              <p className="text-xs" style={{ color: '#8aab99' }}>Jízda zatím nemá žádné body.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {points.map(p => (
-                  <div key={p.id} className="rounded-card"
-                    style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '10px 12px' }}>
-                    <div className="flex items-center gap-2 mb-2 flex-wrap max-lg:[&>button]:min-h-[36px]">
-                      <span className="text-[9px] font-extrabold uppercase rounded-btn"
-                        style={{ padding: '2px 6px', background: '#e8ffe8', color: '#1a8a18' }}>
-                        {kindLabel(p.kind)}
-                      </span>
-                      <input
-                        defaultValue={p.name || ''}
-                        placeholder="Název bodu"
-                        onBlur={e => {
-                          const v = e.target.value.trim().slice(0, 120)
-                          if (v !== (p.name || '')) savePoint(p, { name: v })
-                        }}
-                        style={{ ...inputStyle, flex: 1, minWidth: 180, padding: '5px 10px' }} />
-                      <span className="text-[10px] max-lg:text-xs" style={{ color: '#8aab99' }}>
-                        {Number(p.lat).toFixed(4)}, {Number(p.lng).toFixed(4)}
-                      </span>
-                      {confirmDel === p.id ? (
-                        <>
-                          <SmallBtn color="#dc2626" onClick={() => deletePoint(p)}>Ano, smazat</SmallBtn>
-                          <SmallBtn color="#6b7280" onClick={() => setConfirmDel(null)}>Zrušit</SmallBtn>
-                        </>
-                      ) : (
-                        <SmallBtn color="#dc2626" onClick={() => setConfirmDel(p.id)}>Smazat bod</SmallBtn>
-                      )}
-                    </div>
-                    <textarea
-                      defaultValue={p.note || ''}
-                      placeholder="Popisek zastávky"
-                      onBlur={e => {
-                        const v = e.target.value.trim()
-                        if (v !== (p.note || '')) savePoint(p, { note: v || null })
-                      }}
-                      style={{ ...inputStyle, background: '#fff', minHeight: 50, resize: 'vertical' }} />
-                    {Array.isArray(p.photos) && p.photos.length > 0 && (
-                      <div className="flex gap-2 flex-wrap mt-2">
-                        {p.photos.map((url, i) => (
-                          <div key={i} style={{ position: 'relative' }}>
-                            <a href={url} target="_blank" rel="noreferrer">
-                              <img src={url} alt="" onError={e => { e.target.style.opacity = 0.3 }}
-                                style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid #d4e8e0' }} />
-                            </a>
-                            <button onClick={() => removePhoto(p, url)} title="Odebrat fotku"
-                              className="cursor-pointer max-lg:!w-[30px] max-lg:!h-[30px] max-lg:!leading-[26px] max-lg:!top-[-9px] max-lg:!right-[-9px]"
-                              style={{
-                                position: 'absolute', top: -6, right: -6, width: 20, height: 20,
-                                borderRadius: '50%', background: '#dc2626', color: '#fff',
-                                border: '2px solid #fff', fontSize: 11, lineHeight: '16px', padding: 0,
-                              }}>✕</button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <TrasyJizdaBody points={points} setPoints={setPoints} setErr={setErr}
+            onChanged={onChanged} inputStyle={inputStyle} />
         </div>
 
         {/* patička */}

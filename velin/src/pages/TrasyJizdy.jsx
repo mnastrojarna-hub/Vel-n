@@ -3,13 +3,19 @@ import { supabase } from '../lib/supabase'
 import SearchInput from '../components/ui/SearchInput'
 import { SmallBtn } from './BranchHelpers'
 import TrasyJizdaModal from './TrasyJizdaModal'
+import { RideBadges, RideStatsLine } from './TrasyJizdaInfo'
 import { useMediaQuery } from '../hooks/useIsMobile'
+import { rideRecState } from '../lib/rideStats'
+import { groupRideTrips, tripOfRide } from '../lib/rideTrip'
 
 // Projeté jízdy zákazníků („Moje jízdy" v appce): stopa GPS z výpůjčky
 // (vzniká automaticky, když má zákazník povolenou polohu) + zastávky s
 // fotkami a popisky. Velín je čte, edituje, moderuje (skrýt) i maže.
 // Jízda je SOUKROMÁ, dokud ji zákazník sám nezveřejní — Velín to respektuje
 // a stav sdílení jen zobrazuje (změnit ho lze v detailu).
+// Nová appka nahrává jen při jízdě (pauzy, noci) — běžící záznam bez bodu
+// je proto „Stojí", ne hned „Záznam visí". Víc jízd téže výpůjčky nebo
+// sloučených zákazníkem appka ukazuje jako jednu CESTU (štítek 🧳).
 
 const FILTERS = [
   { id: 'all', label: 'Vše' },
@@ -17,6 +23,7 @@ const FILTERS = [
   { id: 'private', label: '🔒 Soukromé' },
   { id: 'hidden', label: '🙈 Skryté' },
   { id: 'recording', label: '⏺ Nahrávané' },
+  { id: 'standing', label: '⏸ Stojí' },
   { id: 'photos', label: '📷 S fotkami' },
 ]
 
@@ -31,21 +38,24 @@ const RIDE_LIST_COLS = [
   'created_at', 'updated_at',
 ].join(',')
 
-/** Tytéž sloupce bez těch z migrace 20260921g — záložní dotaz, když DB ještě
- *  (nebo už) nové sloupce nemá. Seznam pak jen neukáže „bez signálu". */
-const RIDE_LIST_COLS_LEGACY = RIDE_LIST_COLS.split(',')
-  .filter(c => c !== 'gap_sec' && c !== 'last_fix_at').join(',')
+/** Sloupce z SQL „pauzy jízd" (pauzy, etapy, cesty). `stats_state` jen jako
+ *  značka, jestli čísla spočítal nový výpočet (null = stará uzavřená jízda). */
+const RIDE_PAUSE_COLS = ['pause_sec', 'pause_aware', 'trip_id', 'trip_name', 'stages', 'stats_state']
 
-/** Nahrávka, do které hodiny nic nepřiteklo — „visí". */
-// `updated_at` se mění s každou dávkou bodů, takže je dobrý náhradník i tam,
-// kde `last_fix_at` chybí (stará data, záložní dotaz bez nových sloupců).
-const isStuck = (r) => r.is_recording && Date.now() -
-  new Date(r.last_fix_at || r.updated_at || r.started_at).getTime() > 3 * 3600 * 1000
+/** Záložní dotazy, když DB nové sloupce ještě (nebo už) nemá: nejdřív bez
+ *  sloupců pauz, pak i bez těch z migrace 20260921g (bez „bez signálu"). */
+const RIDE_COL_SETS = [
+  [RIDE_LIST_COLS, ...RIDE_PAUSE_COLS].join(','),
+  RIDE_LIST_COLS,
+  RIDE_LIST_COLS.split(',').filter(c => c !== 'gap_sec' && c !== 'last_fix_at').join(','),
+]
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
-const fmtDur = (min) => min == null ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
-const fmtSec = (sec) => !sec ? '—' : fmtDur(Math.round(sec / 60))
-const fmtSpeed = (v) => v == null || Number(v) <= 0 ? '—' : `${Math.round(Number(v))} km/h`
+/** Souhrn v sedle za všechny jízdy — v hodinách (dny by u součtu mátly). */
+const fmtHours = (sec) => {
+  const min = Math.round((Number(sec) || 0) / 60)
+  return !sec ? '—' : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
+}
 
 export default function TrasyJizdy({ onChanged }) {
   const [rides, setRides] = useState([])
@@ -66,17 +76,20 @@ export default function TrasyJizdy({ onChanged }) {
     try {
       // Jízdy — stránkovaně (PostgREST vrací max 1000 řádků na dotaz).
       const all = []
+      let level = 0 // index do RIDE_COL_SETS — platí pro všechny stránky
       for (let from = 0; ; from += 1000) {
         // `id` jako druhé řazení: bez jednoznačného klíče může stránkování
         // přes hranici 1000 řádků některé jízdy zdvojit a jiné vynechat.
         const page = (cols) => supabase.from('user_rides').select(cols)
           .order('started_at', { ascending: false }).order('id').range(from, from + 999)
-        let { data, error } = await page(RIDE_LIST_COLS)
+        let { data, error } = await page(RIDE_COL_SETS[level])
         // Velín se nasazuje přes Vercel a SQL přes GitHub Actions nezávisle:
         // v okně mezi nimi (nebo po rollbacku) nové sloupce ještě nemusí
         // existovat. Seznam se pak načte bez nich místo prázdné stránky s chybou.
-        if (error && (error.code === '42703' || /column .* does not exist/.test(error.message || ''))) {
-          ;({ data, error } = await page(RIDE_LIST_COLS_LEGACY))
+        while (error && level < RIDE_COL_SETS.length - 1 &&
+          (error.code === '42703' || /column .* does not exist/.test(error.message || ''))) {
+          level++
+          ;({ data, error } = await page(RIDE_COL_SETS[level]))
         }
         if (error) {
           throw new Error(
@@ -143,16 +156,21 @@ export default function TrasyJizdy({ onChanged }) {
   const photoCount = (id) => (pointsByRide[id] || [])
     .reduce((s, p) => s + (Array.isArray(p.photos) ? p.photos.length : 0), 0)
 
+  // Cesty (≥ 2 jízdy, které appka ukazuje jako jednu) — stejné seskupení jako appka.
+  const trips = useMemo(() => groupRideTrips(rides), [rides])
+
   const filtered = useMemo(() => rides.filter(r => {
     if (filter === 'public' && !(r.visibility === 'public')) return false
     if (filter === 'private' && r.visibility !== 'private') return false
     if (filter === 'hidden' && r.status !== 'hidden') return false
     if (filter === 'recording' && !r.is_recording) return false
+    if (filter === 'standing' && rideRecState(r) !== 'standing') return false
     if (filter === 'photos' && photoCount(r.id) === 0) return false
     if (!search) return true
     const s = search.toLowerCase()
     return (r.name || '').toLowerCase().includes(s) ||
       (r.moto_name || '').toLowerCase().includes(s) ||
+      (r.trip_name || '').toLowerCase().includes(s) ||
       (names[r.user_id] || '').toLowerCase().includes(s)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [rides, filter, search, names, pointsByRide])
@@ -180,7 +198,7 @@ export default function TrasyJizdy({ onChanged }) {
           ))}
         </div>
         <span className="ml-auto text-xs font-bold" style={{ color: '#6b8f7b' }}>
-          {rides.length} jízd · {publicCount} veřejných · {hiddenCount} skrytých · {totalKm} km · {fmtSec(totalMovingSec)} v sedle
+          {rides.length} jízd · {publicCount} veřejných · {hiddenCount} skrytých · {totalKm} km · {fmtHours(totalMovingSec)} v sedle
         </span>
       </div>
 
@@ -202,6 +220,7 @@ export default function TrasyJizdy({ onChanged }) {
             const pts = pointsByRide[ride.id] || []
             const stops = pts.filter(p => p.kind === 'stop').length
             const isHidden = ride.status === 'hidden'
+            const recState = rideRecState(ride)
             return (
               <div key={ride.id} className="rounded-card"
                 style={{
@@ -219,45 +238,13 @@ export default function TrasyJizdy({ onChanged }) {
                     <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
                       {names[ride.user_id] || 'Motorkář'}
                     </span>
-                    {ride.visibility === 'public' && (
-                      <span className="text-[9px] font-extrabold uppercase rounded-btn"
-                        style={{ padding: '2px 6px', background: '#e8ffe8', color: '#1a8a18' }}>Veřejná</span>
-                    )}
-                    {ride.is_recording && !isStuck(ride) && (
-                      <span className="text-[9px] font-extrabold uppercase rounded-btn"
-                        style={{ padding: '2px 6px', background: '#dcfce7', color: '#15803d' }}>● Nahrává se</span>
-                    )}
-                    {isStuck(ride) && (
-                      <span className="text-[9px] font-extrabold uppercase rounded-btn"
-                        title={`Poslední GPS bod: ${fmtDate(ride.last_fix_at)}. Dokud záznam visí, nevznikne zákazníkovi další jízda.`}
-                        style={{ padding: '2px 6px', background: '#fee2e2', color: '#dc2626' }}>Záznam visí</span>
-                    )}
-                    {isHidden && (
-                      <span className="text-[9px] font-extrabold uppercase rounded-btn"
-                        style={{ padding: '2px 6px', background: '#fee2e2', color: '#dc2626' }}>Skryto</span>
-                    )}
+                    <RideBadges ride={ride} state={recState} trip={tripOfRide(trips, ride)} />
                   </div>
                   <span className="text-xs" style={{ color: '#6b8f7b' }}>{fmtDate(ride.started_at)}</span>
                 </div>
 
                 <div className="flex gap-3 flex-wrap text-xs font-bold mb-2 max-lg:items-center" style={{ color: '#4a6357' }}>
-                  <span title="Celkem ujeto">📏 {Number(ride.distance_km || 0).toFixed(1)} km</span>
-                  <span title="Celkový čas (start → konec)">⏱️ {fmtDur(ride.duration_min)}</span>
-                  <span title="Čas jízdy (v pohybu)">🏍️ {fmtSec(ride.moving_sec)}</span>
-                  <span title="Čas stání (pauzy, zastávky)">⏸️ {fmtSec(ride.idle_sec)}</span>
-                  <span title="Průměrná rychlost z času jízdy">📊 {fmtSpeed(ride.avg_speed_kmh)}</span>
-                  <span title="Maximální rychlost">🚀 {fmtSpeed(ride.max_speed_kmh)}</span>
-                  {ride.gap_sec > 0 && (
-                    <span title="Čas bez GPS signálu — tyhle úseky trasy neznáme a nepočítají se do kilometrů"
-                      style={{ color: '#b45309' }}>📵 {fmtSec(ride.gap_sec)} bez signálu</span>
-                  )}
-                  {ride.elevation_gain_m > 0 && <span title="Nastoupáno">⛰️ {ride.elevation_gain_m} m</span>}
-                  <span>📍 {stops} zastávek</span>
-                  <span>📷 {photoCount(ride.id)} fotek</span>
-                  {ride.moto_name && <span>🛵 {ride.moto_name}</span>}
-                  {ride.booking_id && (
-                    <a href={`/rezervace/${ride.booking_id}`} className="max-lg:inline-flex max-lg:items-center max-lg:min-h-[32px]" style={{ color: '#1a8a18' }}>🔗 rezervace</a>
-                  )}
+                  <RideStatsLine ride={ride} stops={stops} photos={photoCount(ride.id)} />
                 </div>
 
                 {ride.description?.trim() && (
@@ -291,8 +278,11 @@ export default function TrasyJizdy({ onChanged }) {
 
       {detail && (
         <TrasyJizdaModal
+          key={detail.id}
           ride={detail}
           authorName={names[detail.user_id]}
+          trip={tripOfRide(trips, detail)}
+          onOpenRide={(r) => setDetail({ ...r, points: pointsByRide[r.id] || [] })}
           onClose={() => setDetail(null)}
           onChanged={() => { load(); onChanged?.() }}
         />

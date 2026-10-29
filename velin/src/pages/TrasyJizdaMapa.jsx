@@ -2,6 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MAPY_CZ_API_KEY } from '../lib/mapyCz'
 import { splitTrackOnGaps } from '../lib/rideTrack'
 
+const fmtClock = (ts) => new Date(ts * 1000).toLocaleString('cs-CZ',
+  { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+/** Popisek přesunu během pauzy: „pauza 12. 10. 21:14 – 13. 10. 7:02 (9 h 48 min)". */
+function pauseLabel(g) {
+  const span = g.fromTs != null && g.toTs != null ? ` ${fmtClock(g.fromTs)} – ${fmtClock(g.toTs)}` : ''
+  return `Pauza${span} (${g.label}) — přesun ${g.km} km bez záznamu (trajekt, přívěs…), do km se nepočítá`
+}
+
 // Náhled projeté jízdy zákazníka ve Velíně — stopa GPS + značky start / cíl
 // / zastávky (+ volitelně ŽIVÁ poloha u právě nahrávané jízdy). Read-only
 // (moderace, ne editace bodů v mapě). Leaflet běží v iframe (bez npm
@@ -11,12 +20,15 @@ import { splitTrackOnGaps } from '../lib/rideTrack'
 // PROČ SE STOPA TRHÁ NA ÚSEKY: když appka běžela na pozadí, GPS fixy
 // nechodily a mezi dvěma body je klidně hodina a 40 km. Spojit je plnou
 // čarou = tvrdit, že tudy zákazník jel. Takový úsek proto kreslíme
-// přerušovaně a šedě — „tady trasu neznáme".
+// přerušovaně a šedě — „tady trasu neznáme". PAUZA (noc, oběd; značka od
+// appky nebo dlouhé ticho bez jízdy) spojnici nemá; jen když se motorka
+// během pauzy přesunula o víc než 300 m (trajekt, přívěs), je modrošedá
+// čárkovaná — do km se nepočítá (stejně jako v appce).
 //
 // Props:
-//   track  [[lat,lng,ts,kmh,alt],…]         – stopa jízdy
+//   track  [[lat,lng,ts,kmh,alt],…]         – stopa jízdy (kmh −1 = po pauze)
 //   points [{kind,name,lat,lng}]            – start / cíl / zastávky
-//   live   {lat,lng,ageSec,isLive} | null   – aktuální poloha (nahrávaná jízda)
+//   live   {lat,lng,isLive,paused,label} | null – aktuální poloha (nahrávaná jízda; paused = motorka stojí)
 //   height number                           – výška mapy (px)
 //   fitKey any                              – změna hodnoty = přerámovat mapu
 //   heightClass string                      – volitelné třídy výšky (např. nižší mapa na mobilu)
@@ -40,15 +52,15 @@ export default function TrasyJizdaMapa({
   // Rozložíme `live` na primitivy — rodič ho typicky skládá jako nový objekt
   // při každém renderu a efekt níž by se pak pouštěl pořád dokola.
   const liveLat = live?.lat, liveLng = live?.lng
-  const liveOn = !!live?.isLive, liveLabel = live?.label
+  const liveOn = !!live?.isLive, liveLabel = live?.label, livePaused = !!live?.paused
   const livePoint = useMemo(() => (
     liveLat != null && liveLng != null
       ? {
-        lat: Number(liveLat), lng: Number(liveLng), isLive: liveOn,
+        lat: Number(liveLat), lng: Number(liveLng), isLive: liveOn, paused: livePaused,
         label: liveLabel || 'Aktuální poloha zákazníka',
       }
       : null
-  ), [liveLat, liveLng, liveOn, liveLabel])
+  ), [liveLat, liveLng, liveOn, liveLabel, livePaused])
 
   // Body `start` / `end` zakládá až ukončení jízdy. U PRÁVĚ NAHRÁVANÉ jízdy
   // by tedy mapa neměla ani jednu značku — jen holou čáru, u které operátor
@@ -102,6 +114,7 @@ export default function TrasyJizdaMapa({
 .end{background:#1a2e22;width:28px;height:28px}
 .live{background:#dc2626;width:22px;height:22px;font-size:11px}
 .live-stale{background:#b45309;width:22px;height:22px;font-size:11px}
+.live-pause{background:#6E86A0;width:22px;height:22px;font-size:9px;letter-spacing:-1px}
 @keyframes mgpulse{0%{transform:scale(.6);opacity:.85}100%{transform:scale(2.6);opacity:0}}
 .halo{border-radius:50%;background:#dc2626;width:22px;height:22px;animation:mgpulse 1.8s ease-out infinite}
 .lg-credit{position:absolute;left:8px;bottom:4px;z-index:500}.lg-credit img{width:80px}</style></head>
@@ -131,6 +144,10 @@ window.addEventListener('message',function(e){
     L.polyline([g.from,g.to],{color:'#94a3b8',weight:3,opacity:.85,dashArray:'6,8'})
       .addTo(layer).bindTooltip('Bez signálu '+g.label+' — trasa není známá');
   });
+  (d.pauses||[]).forEach(function(g){
+    L.polyline([g.from,g.to],{color:'#6E86A0',weight:3,opacity:.9,dashArray:'10,7'})
+      .addTo(layer).bindTooltip(g.label);
+  });
   var n=0;
   (d.points||[]).forEach(function(p){
     pts.push([p.lat,p.lng]);
@@ -145,7 +162,7 @@ window.addEventListener('message',function(e){
       L.marker([d.live.lat,d.live.lng],{icon:L.divIcon({html:'<div class="halo"></div>',
         className:'',iconSize:[22,22],iconAnchor:[11,11]}),interactive:false}).addTo(layer);
     }
-    L.marker([d.live.lat,d.live.lng],{icon:icon(d.live.isLive?'live':'live-stale','')
+    L.marker([d.live.lat,d.live.lng],{icon:icon(d.live.isLive?'live':(d.live.paused?'live-pause':'live-stale'),d.live.isLive||!d.live.paused?'':'❚❚')
       ,zIndexOffset:1000}).addTo(layer).bindTooltip(d.live.label||'Aktuální poloha');
   }
   // Přerámujeme jen když o to parent vysloveně požádá (nová jízda / první
@@ -168,10 +185,12 @@ send({type:'ready'});
         __mg: 'jizda-map',
         type: 'render',
         segments: segments.map(s => ({ pts: s.pts })),
-        gaps: segments.flatMap(s => s.gapBefore ? [s.gapBefore] : []),
+        gaps: segments.flatMap(s => s.gapBefore?.kind === 'gap' ? [s.gapBefore] : []),
+        pauses: segments.flatMap(s => s.gapBefore?.kind === 'pause' && s.gapBefore.moved
+          ? [{ from: s.gapBefore.from, to: s.gapBefore.to, label: pauseLabel(s.gapBefore) }] : []),
         points: markers,
         live: livePoint ? {
-          lat: livePoint.lat, lng: livePoint.lng, isLive: livePoint.isLive,
+          lat: livePoint.lat, lng: livePoint.lng, isLive: livePoint.isLive, paused: livePoint.paused,
           label: live?.label || 'Aktuální poloha zákazníka',
         } : null,
         fit: fitKey == null ? 'init' : String(fitKey),

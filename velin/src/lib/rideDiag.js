@@ -2,7 +2,8 @@
 // detail jízdy). Zdroj: `app_debug_logs` z appky — kategorie `lifecycle`
 // (popředí / pozadí / zavření okna appky; posílá každá verze) a `ride`
 // (GPS stream, pauzy bez fixu, start/konec záznamu; od verze s opravou
-// záznamu 2026-10-15). Časy jsou z hodin telefonu, stejně jako body stopy.
+// záznamu 2026-10-15; stavy záznamu, auto-pauza a pokračování od verze
+// s pauzami 2026-10). Časy jsou z hodin telefonu, stejně jako body stopy.
 
 import { fmtGap } from './rideTrack'
 
@@ -14,6 +15,20 @@ const ATTACH_REASON = {
   resume_no_stream: 'po návratu do appky — GPS stream neběžel',
   no_fix: 'po připojení nepřišel žádný fix',
   foreign_closed: 'po zavření navigace',
+  resume_manual: 'pokračování po ruční pauze',
+  service_on: 'poloha v telefonu znovu zapnutá',
+}
+
+// Stav záznamu nové appky (RidePhase) a důvod pauzy (RidePauseReason).
+const PHASE = { riding: 'jízda', autoPaused: 'auto-pauza', manualPaused: 'pauza (GPS vypnuto)' }
+const REASON = {
+  start: 'připraveno — čeká na rozjezd', stop: 'stání', walk: 'chůze', silence: 'ticho bez GPS',
+  manual: 'ručně', home: 'doma', long: 'dlouhá pauza',
+}
+const reasonLabel = (x) => REASON[x] || x || '?'
+const CONT_REASON = {
+  closed: 'server jízdu uzavřel', gone: 'jízda na serveru chybí', booking_ended: 'výpůjčka skončila',
+  upgrade: 'přechod na cesty s pauzami',
 }
 
 /** Jeden řádek logu → {icon, text, tone} pro časovou osu, nebo null (šum). */
@@ -38,18 +53,90 @@ export function describeDiagRow(r) {
     case 'fix_gap': {
       const moved = Number.isFinite(Number(d.m)) ? `, posun ${fmtMeters(d.m)}` : ''
       // Posun do 300 m = stál (filtr 20 m fixy při stání neposílá) — v pořádku.
-      const still = Number(d.m) <= 300
-      return { icon: still ? '⏸️' : '📵', text: `${fmtGap(d.sec)} bez fixu${moved}${still ? ' (stál)' : ''}${app}`, tone: still ? 'info' : 'bad' }
+      // Během pauzy (nová appka) je ticho normální — nahrává se jen při jízdě.
+      const still = Number(d.m) <= 300 || (d.phase && d.phase !== 'riding')
+      const ph = d.phase && d.phase !== 'riding' ? `, ${PHASE[d.phase] || d.phase}` : ''
+      return { icon: still ? '⏸️' : '📵', text: `${fmtGap(d.sec)} bez fixu${moved}${Number(d.m) <= 300 ? ' (stál)' : ''}${ph}${app}`, tone: still ? 'info' : 'bad' }
     }
-    case 'ride_start': return { icon: '▶️', text: d.resumed ? 'Navázáno na rozjetou jízdu (server)' : 'Jízda založena na serveru', tone: 'ok' }
+    case 'ride_start': return {
+      icon: '▶️',
+      text: (d.resumed ? 'Navázáno na rozjetou jízdu (server)' : 'Jízda založena na serveru')
+        + (d.proto === 'trip' ? ' — cesta s pauzami' : (d.proto === 'legacy' ? ' — starý způsob (server bez pauz)' : '')),
+      tone: 'ok',
+    }
     case 'server_start_failed': return { icon: '⚠️', text: 'Server nedostupný při startu (offline) — body se drží v telefonu', tone: 'bad' }
-    case 'ride_closed_by_server': return { icon: '⏹️', text: 'Server jízdu uzavřel (úklid) — navazuje se novou', tone: 'info' }
+    case 'ride_closed_by_server': return {
+      icon: '⏹️',
+      text: d.booking_ended ? 'Výpůjčka skončila (vrácení) — server jízdu uzavřel k času vrácení'
+        : (d.result === 'gone' ? 'Jízda na serveru už není (smazaná) — záznam se nenavazuje do ní'
+          : 'Server jízdu uzavřel (úklid) — navazuje se novou'),
+      tone: 'info',
+    }
     case 'ride_continue_no_booking': return { icon: '⏹️', text: 'Výpůjčka už neběží — záznam ukončen', tone: 'info' }
     case 'ride_stop': return { icon: '⏹️', text: d.kept === false ? 'Záznam ukončen (jízda pod 1 km zahozena)' : 'Záznam ukončen', tone: 'info' }
     case 'engine_reattached': return { icon: '🔁', text: 'Appka znovu otevřena — navázáno na běžící záznam', tone: 'ok' }
     case 'keep_alive_failed': return { icon: '⚠️', text: `Udržení appky naživu selhalo: ${r.detail || '?'}`, tone: 'bad' }
+    case 'ride_discard': return { icon: '🗑️', text: 'Záznam zahozen jezdcem (nic se neuložilo)', tone: 'info' }
+    default: return describePauseRow(r, d, app)
+  }
+}
+
+/** Řádky nové appky s pauzami (stav, pauza, pokračování, pojistky). */
+function describePauseRow(r, d, app) {
+  switch (r.action) {
+    case 'phase': {
+      const b = d.battery && Number.isFinite(Number(d.battery.pct))
+        ? ` · baterie ${Math.round(Number(d.battery.pct))} %${d.battery.charging ? ' (nabíjí se)' : ''}` : ''
+      return {
+        icon: d.to === 'riding' ? '▶️' : '⏸️',
+        text: `Stav záznamu: ${PHASE[d.from] || d.from || '?'} → ${PHASE[d.to] || d.to || '?'}${d.reason ? ` (${reasonLabel(d.reason)})` : ''}${b}${app}`,
+        tone: 'info',
+      }
+    }
+    case 'pause': {
+      const m = Number.isFinite(Number(d.m)) ? `, posun ${fmtMeters(d.m)}` : ''
+      const held = Number(d.held) > 0 ? `, ${d.held} bodů pomalého úseku zadrženo` : ''
+      return { icon: '⏸️', text: `Pozastaveno (${reasonLabel(d.reason || r.detail)})${m}${held}${app}`, tone: 'info' }
+    }
+    case 'resume': {
+      const manual = (d.mode || r.detail) === 'manual'
+      const p = Number(d.pause_sec) > 0 ? `, pauza ${fmtGap(d.pause_sec)}` : ''
+      const m = Number.isFinite(Number(d.m)) ? `, ${fmtMeters(d.m)} od místa zastavení` : ''
+      const pre = Number(d.preroll) > 0 ? `, ${d.preroll} bodů rozjezdu` : ''
+      const from = d.from ? ` (předtím: ${reasonLabel(d.from)})` : ''
+      const far = d.kill_gap ? ' — po restartu appky daleko od místa zastavení' : ''
+      return { icon: '▶️', text: `Pokračuje ${manual ? 'ručně' : 'automaticky (rozjezd)'}${from}${p}${m}${pre}${far}${app}`, tone: 'ok' }
+    }
+    case 'tail_restore':
+      return { icon: '↩️', text: `Obnovený pomalý úsek (kolona, hledání parkování): ${d.n || '?'} bodů, ${fmtMeters(d.m)}`, tone: 'info' }
+    case 'home_pause':
+      return { icon: '🏠', text: `Pauza doma (GPS vypnuto) — motorka stojí u startu${d.h ? ` ${d.h} h` : ''}; appka se jezdce zeptá, jestli pokračovat`, tone: 'info' }
+    case 'long_pause':
+      return { icon: '🛌', text: `Dlouhá pauza (GPS vypnuto kvůli baterii)${d.h ? ` po ${d.h} h` : ''} — pokračuje po otevření appky`, tone: 'info' }
+    case 'trip_continue':
+      return { icon: '🔗', text: `Nová jízda po uzavření serverem (${CONT_REASON[d.reason] || d.reason || '?'})`, tone: 'info' }
+    case 'caps':
+      return { icon: '🧩', text: `Server: podpora cest s pauzami ${d.trips ? 'ano' : 'ne (starý server — nahrává se postaru)'}`, tone: d.trips ? 'ok' : 'info' }
+    case 'clock_offset':
+      return { icon: '🕒', text: `Posun hodin telefonu: ${Math.abs(Number(d.sec)) || '?'} s proti serveru — časy bodů appka opravuje`, tone: Math.abs(Number(d.sec)) >= 120 ? 'bad' : 'info' }
+    case 'notif_failed': return { icon: '⚠️', text: `Notifikace selhala${r.detail ? `: ${r.detail}` : ''}`, tone: 'bad' }
+    case 'own_saved_for_rental':
+      return { icon: '💾', text: `Vlastní cesta uložena kvůli výpůjčce${d.kept === false ? ' (pod 1 km — zahozena)' : ''}`, tone: 'info' }
+    case 'flag':
+      return { icon: '🚩', text: `Auto-pauza ${d.on === false ? 'VYPNUTÁ (flag ride_autopause)' : 'zapnutá'}${flagCond(d.cond)}`, tone: d.on === false ? 'bad' : 'info' }
     default: return { icon: '•', text: `${r.action}${r.detail ? `: ${r.detail}` : ''}`, tone: 'info' }
   }
+}
+
+function flagCond(c) {
+  if (!c || typeof c !== 'object') return ''
+  const parts = []
+  // Appka loguje zkrácené klíče (RideAutoPauseFlag.toJson), flag v DB plné.
+  const v = (a, b) => c[a] ?? c[b]
+  if (v('stop', 'stop_min') != null) parts.push(`stání ${v('stop', 'stop_min')} min`)
+  if (v('walk', 'walk_min') != null) parts.push(`chůze ${v('walk', 'walk_min')} min`)
+  if (v('resume', 'resume_kmh') != null) parts.push(`rozjezd ${v('resume', 'resume_kmh')} km/h`)
+  return parts.length ? ` (${parts.join(', ')})` : ''
 }
 
 function fmtMeters(m) {
@@ -98,6 +185,21 @@ export function diagVerdict(ride, rows, fromMs, toMs) {
   }
   if (!list.some(r => r.category === 'ride')) {
     out.push('Tahle verze appky ještě neposílá podrobnou diagnostiku GPS (jen popředí/pozadí).')
+  }
+  const rideRows = list.filter(r => r.category === 'ride' && inRide(r))
+  const autoPauses = rideRows.filter(r => r.action === 'pause' && (r.data?.reason || r.detail) !== 'manual').length
+  if (autoPauses > 0) {
+    out.push(`Záznam se ${autoPauses}× sám pozastavil (stání, chůze, noc) — v pořádku: nová appka nahrává jen při jízdě `
+      + 'a pauzy se nepočítají do kilometrů ani do času na cestě.')
+  }
+  if (rideRows.some(r => r.action === 'home_pause' || r.action === 'long_pause')) {
+    out.push('Během dlouhé pauzy appka vypnula GPS kvůli baterii — záznam pokračuje, až jezdec appku otevře.')
+  }
+  if (rideRows.some(r => r.action === 'flag' && r.data?.on === false)) {
+    out.push('Auto-pauza byla vypnutá (příznak ride_autopause) — záznam běžel bez automatických pauz.')
+  }
+  if (rideRows.some(r => r.action === 'caps' && r.data?.trips === false)) {
+    out.push('Server v době jízdy ještě neuměl cesty s pauzami — jízda se nahrávala postaru (přes noc se mohla rozdělit).')
   }
   return out
 }
