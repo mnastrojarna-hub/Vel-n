@@ -1,15 +1,19 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty (3/7)
--- Příjem bodů. Podpis append_ride_track i klíče odpovědi beze změny
--- (appka 4.1.3 funguje dál), žádný nový chybový kód.
+-- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty (3/8)
+-- Příjem bodů — interní jádro (append_ride_track / finish_user_ride ho
+-- volají až od souboru 5/8, do té doby běží živé verze beze změny).
 --   _ride_append_core (interní) — filtr dávky (stará jízda, duplicita po
 --       opakovaném odeslání, body po vrácení výpůjčky: nová appka +30 s,
---       stará +2 min rezerva na hodiny), „připravený" start (start jízdy =
---       skutečný rozjezd), statistiky v2, etapy, stopa (strop 4000 + 2000
---       za každou další etapu, max 12 000 bodů).
---   append_ride_track — p_max_speed_kmh se ignoruje (max z bodů); body po
---       vrácení výpůjčky jízdu uzavřou k času vrácení (ride_finished).
--- Idempotentní (create or replace se stejnými podpisy → práva zůstávají).
+--       stará +2 min rezerva na hodiny; čas po roce 2100 = vadný bod; bod
+--       z budoucnosti (> teď + 10 min, rozhozené hodiny) se uloží, ale
+--       neblokuje další body jako „duplicitní"), „připravený" start (start
+--       jízdy = skutečný rozjezd; jen u ještě prázdné jízdy — ≤ 3 body, bez
+--       mezery), statistiky v2, etapy, stopa (strop 4000 + 2000 za každou
+--       další etapu, max 12 000 bodů). Výpůjčka JEN výbavy (booking_kind
+--       = 'gear') není vrácení motorky → body po ní se neořezávají.
+--   Dávka jen z bodů po vrácení jízdu NEUZAVÍRÁ — vrátí {booking_ended,
+--       end_at} a uzavře volající (_ride_close, closed_by = return).
+-- Idempotentní (create or replace se stejným podpisem → práva zůstávají).
 -- ════════════════════════════════════════════════════════════════════
 
 create or replace function public._ride_append_core(p_ride_id uuid, p_points jsonb)
@@ -17,24 +21,31 @@ returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_r user_rides; v_ret timestamptz; v_now timestamptz := now(); v_track jsonb; v_last jsonb;
   v_lts float8; v_lla float8; v_llo float8; v_start float8; v_maxts float8;
+  v_now_e float8 := extract(epoch from now());
   v_pt jsonb; v_ts float8; v_kept jsonb[] := '{}'; v_stale int := 0; v_dup int := 0; v_after int := 0; v_bad int := 0;
   v_i0 int; v_pre jsonb; v_state jsonb; v_stages jsonb; v_st jsonb; v_seg jsonb; v_kj jsonb; v_grace float8;
   v_cap int; v_lp jsonb; v_fix timestamptz; v_km numeric; v_move int; v_gap int; v_pause int;
-  v_active float8; v_idle int; v_avg numeric; v_max numeric; v_fin jsonb; v_reset boolean := false;
+  v_active float8; v_idle int; v_avg numeric; v_max numeric; v_reset boolean := false;
 begin
   select * into v_r from user_rides where id = p_ride_id;          -- volající drží FOR UPDATE
   if v_r.id is null then return jsonb_build_object('success', false, 'error', 'ride_not_found'); end if;
-  if v_r.booking_id is not null then select returned_at into v_ret from bookings where id = v_r.booking_id; end if;
+  if v_r.booking_id is not null then
+    select returned_at into v_ret from bookings where id = v_r.booking_id and booking_kind <> 'gear';
+  end if;
   v_track := case when jsonb_typeof(v_r.track) = 'array' then v_r.track else '[]'::jsonb end;
   if jsonb_array_length(v_track) > 0 then
     v_last := v_track -> (jsonb_array_length(v_track) - 1);
     if jsonb_typeof(v_last) = 'array' and jsonb_array_length(v_last) > 2 and (v_last->>2) ~ '^[0-9]+(\.[0-9]+)?$' then
-      v_lts := (v_last->>2)::float8; v_lla := (v_last->>0)::float8; v_llo := (v_last->>1)::float8;
+      v_lts := (v_last->>2)::float8;
+      v_lla := case when jsonb_typeof(v_last->0) = 'number' then (v_last->>0)::float8 end;
+      v_llo := case when jsonb_typeof(v_last->1) = 'number' then (v_last->>1)::float8 end;
     end if;
     if jsonb_typeof(v_last) <> 'array' then v_last := null; end if;
   end if;
   v_start := extract(epoch from v_r.started_at);
-  v_maxts := v_lts;
+  -- Hranice duplicit jen z věrohodného času: jediný bod z budoucnosti
+  -- (rozhozené hodiny 4.1.3) by jinak zahodil celý zbytek jízdy.
+  v_maxts := case when v_lts <= v_now_e + 600 then v_lts end;
   -- Rezerva na hodiny telefonu: nová appka má čas srovnaný se serverem (30 s),
   -- stará appka razítkuje časem příjmu z nesrovnaných hodin (2 min).
   v_grace := case when v_r.pause_aware then 30 else 120 end;
@@ -46,6 +57,7 @@ begin
       v_bad := v_bad + 1; continue;
     end if;
     v_ts := case when jsonb_array_length(v_pt) > 2 and (v_pt->>2) ~ '^[0-9]+(\.[0-9]+)?$' then (v_pt->>2)::float8 end;
+    if v_ts > 4102444800 then v_bad := v_bad + 1; continue; end if;            -- po roce 2100 = nesmysl
     if v_ts is not null then
       if v_ts < v_start - 3600 then v_stale := v_stale + 1; continue; end if;   -- bod z předchozí jízdy
       if v_ts < v_maxts or (v_ts = v_lts and (v_pt->>0)::float8 = v_lla and (v_pt->>1)::float8 = v_llo) then
@@ -54,15 +66,16 @@ begin
       if v_ret is not null and v_ts > extract(epoch from v_ret) + v_grace then
         v_after := v_after + 1; continue;                                       -- po vrácení výpůjčky
       end if;
-      v_maxts := v_ts;
+      if v_ts <= v_now_e + 600 then v_maxts := v_ts; end if;
     end if;
     v_kept := array_append(v_kept, v_pt);
   end loop;
 
   if coalesce(array_length(v_kept, 1), 0) = 0 then
     if v_after > 0 and v_now > v_ret + interval '120 seconds' then
-      v_fin := _ride_finalize(v_r.id, least(greatest(coalesce(v_r.last_fix_at, v_r.started_at), v_r.started_at), v_ret));
-      return jsonb_build_object('booking_ended', true, 'finalize', v_fin);
+      -- Uzavře volající (_ride_close … 'return'); u už uzavřené jízdy nic.
+      return jsonb_build_object('booking_ended', true,
+        'end_at', least(greatest(coalesce(v_r.last_fix_at, v_r.started_at), v_r.started_at), v_ret));
     end if;
     return jsonb_build_object('success', true, 'points', jsonb_array_length(v_track),
       'distance_km', round(coalesce(v_r.distance_km, 0), 1), 'moving_sec', v_r.moving_sec,
@@ -76,7 +89,10 @@ begin
   v_stages := case when jsonb_typeof(v_r.stages) = 'array' then v_r.stages else '[]'::jsonb end;
 
   -- 2) „Připraveno": první značka pauzy v ještě prázdné jízdě = skutečný rozjezd.
-  if v_r.pause_aware and coalesce(v_r.moving_sec, 0) < 60 and coalesce(v_r.distance_km, 0) < 0.2 then
+  --    Prázdná = nejvýš P0 (≤ 3 body), bez jízdy i bez mezery: řídké body
+  --    ze škrceného GPS (jen mezery, 0 km) jsou už jízda a nesmí zmizet.
+  if v_r.pause_aware and coalesce(v_r.moving_sec, 0) < 60 and coalesce(v_r.distance_km, 0) < 0.2
+     and coalesce(v_r.gap_sec, 0) < 300 and jsonb_array_length(v_track) <= 3 then
     select o.i into v_i0 from unnest(v_kept) with ordinality o(pt, i)
      where jsonb_array_length(o.pt) > 3 and jsonb_typeof(o.pt->3) = 'number' and (o.pt->>3)::float8 < 0
        and jsonb_array_length(o.pt) > 2 and (o.pt->>2) ~ '^[0-9]+(\.[0-9]+)?$'
@@ -85,7 +101,8 @@ begin
       v_pre := _ride_stats_v2(case when v_last is not null then jsonb_build_array(v_last) else '[]'::jsonb end
                               || coalesce(to_jsonb(v_kept[1:v_i0 - 1]), '[]'::jsonb), v_state, v_stages);
       if coalesce(v_r.moving_sec, 0) + (v_pre->>'moving_sec')::int < 60
-         and coalesce(v_r.distance_km, 0) + (v_pre->>'dist_km')::numeric < 0.2 then
+         and coalesce(v_r.distance_km, 0) + (v_pre->>'dist_km')::numeric < 0.2
+         and coalesce(v_r.gap_sec, 0) + (v_pre->>'gap_sec')::int < 300 then
         v_reset := true;
         v_r.started_at := least(v_now, to_timestamp((v_kept[v_i0]->>2)::float8));
         v_r.distance_km := 0; v_r.moving_sec := 0; v_r.gap_sec := 0; v_r.pause_sec := 0;
@@ -150,8 +167,8 @@ begin
     last_fix_at = v_fix, avg_speed_kmh = v_avg, max_speed_kmh = v_max,
     duration_min = round(v_active / 60)::int,
     end_lat = coalesce((v_lp->>0)::float8, end_lat), end_lng = coalesce((v_lp->>1)::float8, end_lng),
-    start_lat = coalesce(v_r.start_lat, (v_track->0->>0)::float8),
-    start_lng = coalesce(v_r.start_lng, (v_track->0->>1)::float8),
+    start_lat = coalesce(v_r.start_lat, case when jsonb_typeof(v_track->0->0) = 'number' then (v_track->0->>0)::float8 end),
+    start_lng = coalesce(v_r.start_lng, case when jsonb_typeof(v_track->0->1) = 'number' then (v_track->0->>1)::float8 end),
     stats_state = v_st->'state', stages = v_st->'stages'
   where id = p_ride_id;
 
@@ -159,29 +176,6 @@ begin
     'distance_km', round(v_km, 1), 'moving_sec', v_move, 'idle_sec', v_idle, 'gap_sec', v_gap,
     'pause_sec', v_pause, 'stages_n', jsonb_array_length(v_st->'stages'),
     'dropped', v_stale + v_dup + v_after + v_bad, 'now', round(extract(epoch from v_now)::numeric, 3));
-end;
-$$;
-
-create or replace function public.append_ride_track(p_ride_id uuid, p_points jsonb, p_max_speed_kmh numeric default null::numeric)
-returns jsonb language plpgsql security definer set search_path = public as $$
-declare v_r user_rides; v_res jsonb;
-begin
-  if auth.uid() is null then return jsonb_build_object('success', false, 'error', 'not_authenticated'); end if;
-  if jsonb_typeof(p_points) is distinct from 'array' then
-    return jsonb_build_object('success', false, 'error', 'points_required');
-  end if;
-  select * into v_r from user_rides where id = p_ride_id and user_id = auth.uid() for update;
-  if v_r.id is null then return jsonb_build_object('success', false, 'error', 'ride_not_found'); end if;
-  -- Do UZAVŘENÉ jízdy se nepřidává (klient to bere jako „doručeno").
-  if not v_r.is_recording then
-    return jsonb_build_object('success', false, 'error', 'ride_finished', 'finished', true);
-  end if;
-  -- p_max_speed_kmh se ignoruje: každý bod nese vlastní rychlost (ověřenou).
-  v_res := _ride_append_core(p_ride_id, p_points);
-  if v_res ? 'booking_ended' then
-    return jsonb_build_object('success', false, 'error', 'ride_finished', 'finished', true, 'reason', 'booking_ended');
-  end if;
-  return v_res;
 end;
 $$;
 

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'ride_model.dart';
@@ -45,8 +47,19 @@ List<UserRide> _members(RideListItem i) => switch (i) {
       RideListItemTrip(:final trip) => trip.rides,
     };
 
-String _leaderId(Iterable<UserRide> rides) =>
-    (rides.toList()..sort((a, b) => a.startedAt.compareTo(b.startedAt))).first.id;
+final Random _keyRnd = Random.secure();
+
+/// Klíč NOVÉ cesty: náhodné UUID v4 (bez balíčku). Nikdy se nerovná id
+/// jízdy — „samostatná" je `trip_id` = vlastní id, takže klíč = id nejstarší
+/// jízdy (dřív) dělal z „Vyjmout z cesty" u téhle jízdy tichý no-op.
+String rideTripNewKey() {
+  final b = List<int>.generate(16, (_) => _keyRnd.nextInt(256));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
+      '${h.substring(16, 20)}-${h.substring(20)}';
+}
 
 String? _clean(String? name) {
   final n = name?.trim();
@@ -55,15 +68,15 @@ String? _clean(String? name) {
 }
 
 /// Sloučit vybrané položky (jízdy i celé cesty) do jedné cesty. Klíč =
-/// explicitní cesta nejstarší vybrané explicitní cesty, jinak id nejstarší
-/// jízdy. [name] prázdné = výchozí název (dopočítá appka).
+/// explicitní cesta nejstarší vybrané explicitní cesty, jinak nový
+/// ([rideTripNewKey]). [name] prázdné = výchozí název (dopočítá appka).
 RideTripPlan rideTripMergePlan(List<RideListItem> selected, String? name) {
   final rides = [for (final i in selected) ..._members(i)];
   final trips = [
     for (final i in selected)
       if (i is RideListItemTrip && i.trip.explicitTripId != null) i.trip,
   ]..sort((a, b) => a.from.compareTo(b.from));
-  final key = trips.isNotEmpty ? trips.first.explicitTripId! : _leaderId(rides);
+  final key = trips.isNotEmpty ? trips.first.explicitTripId! : rideTripNewKey();
   final n = _clean(name);
   return (
     items: [for (final r in rides) RideTripItem(r.id, key, n)],
@@ -79,7 +92,7 @@ RideTripPlan rideTripSplitPlan(RideTrip t) => (
 
 /// Přejmenovat cestu (implicitní skupina se tím stane explicitní).
 RideTripPlan rideTripRenamePlan(RideTrip t, String name) {
-  final key = t.explicitTripId ?? t.leader.id;
+  final key = t.explicitTripId ?? rideTripNewKey();
   final n = _clean(name);
   return (
     items: [for (final r in t.rides) RideTripItem(r.id, key, n)],
@@ -90,7 +103,7 @@ RideTripPlan rideTripRenamePlan(RideTrip t, String name) {
 /// Přidat jízdu do cesty (u implicitní skupiny dostanou explicitní klíč
 /// i ostatní členové).
 RideTripPlan rideTripAddPlan(RideTrip t, UserRide ride) {
-  final key = t.explicitTripId ?? t.leader.id;
+  final key = t.explicitTripId ?? rideTripNewKey();
   final touched = [if (t.explicitTripId == null) ...t.rides, ride];
   return (
     items: [for (final r in touched) RideTripItem(r.id, key, t.name)],
@@ -98,9 +111,11 @@ RideTripPlan rideTripAddPlan(RideTrip t, UserRide ride) {
   );
 }
 
-/// Vyjmout jízdu z cesty (zůstane samostatná).
+/// Vyjmout jízdu z cesty (zůstane samostatná: `trip_id` = vlastní id). Je-li
+/// její id zároveň klíčem cesty (cesty z vývojových buildů s klíčem = id
+/// nejstarší jízdy), vlastní id by ji v cestě nechalo → vlastní nový klíč.
 RideTripPlan rideTripRemovePlan(UserRide ride) => (
-      items: [RideTripItem(ride.id, ride.id, null)],
+      items: [RideTripItem(ride.id, ride.tripId == ride.id ? rideTripNewKey() : ride.id, null)],
       undo: rideTripUndoOf([ride]),
     );
 

@@ -17,6 +17,20 @@ import 'sos_here_address.dart';
 import 'sos_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 
+/// Adresa přistavení náhrady = text, který zákazník v poli vidí (i ručně
+/// doplněné číslo domu nebo opravená GPS ulice); null = pole je prázdné.
+/// Souřadnice se připojí jen k nezměněnému výběru ([pickedText] = text pole
+/// hned po výběru návrhu / „Kde právě jsi“).
+String? sosDeliveryAddress(String fieldText, AddressSuggestion? picked, String pickedText) {
+  final typed = fieldText.trim();
+  if (typed.isEmpty) return null;
+  final same = picked != null && typed == pickedText;
+  final gps = same && picked.lat != null && picked.lng != null
+      ? ' (GPS ${picked.lat!.toStringAsFixed(5)}, ${picked.lng!.toStringAsFixed(5)})'
+      : '';
+  return '$typed$gps';
+}
+
 /// SOS replacement motorcycle selection.
 ///
 /// Náhradní motorka je v APLIKACI VŽDY ZDARMA — placené flow (spoluúčast
@@ -33,13 +47,17 @@ class SosReplacementScreen extends ConsumerStatefulWidget {
 class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
   Motorcycle? _selectedMoto;
   final _addrKey = GlobalKey<AddressAutocompleteFieldState>();
-  String _addrStreet = '';
-  String _addrCity = '';
+  final _hereKey = GlobalKey<SosHereAddressState>();
+
+  /// Vybraný návrh / „Kde právě jsi“ a text pole hned po výběru — platí,
+  /// jen dokud zákazník text nepřepíše (pak se posílá to, co v poli vidí).
+  AddressSuggestion? _picked;
+  String _pickedText = '';
   bool _loading = false;
 
   void _onAddressSelected(AddressSuggestion s) {
-    _addrStreet = s.street;
-    _addrCity = s.city;
+    _picked = s;
+    _pickedText = (_addrKey.currentState?.text ?? '').trim();
   }
 
   /// „Kde právě jsi“ → adresa do pole (zůstává upravitelné).
@@ -48,17 +66,23 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
     _onAddressSelected(s);
   }
 
+  void _onAddressEdited(String _) => _hereKey.currentState?.markEdited();
+
   void _onAddressCleared() {
-    _addrStreet = '';
-    _addrCity = '';
+    _picked = null;
+    _pickedText = '';
   }
+
+  String? _deliveryAddress() =>
+      sosDeliveryAddress(_addrKey.currentState?.text ?? '', _picked, _pickedText);
 
   Future<void> _confirm() async {
     if (_selectedMoto == null) {
       showMotoGoToast(context, icon: '⚠️', title: t(context).motorcycle, message: t(context).tr('selectReplacementMoto'));
       return;
     }
-    if (_addrStreet.isEmpty && _addrCity.isEmpty) {
+    final address = _deliveryAddress();
+    if (address == null) {
       showMotoGoToast(context, icon: '⚠️', title: t(context).tr('addressLabel'), message: t(context).tr('enterDeliveryAddress'));
       return;
     }
@@ -108,7 +132,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
       await MotoGoSupabase.client.from('sos_timeline').insert({
         'incident_id': active.id,
         'action': 'Zákazník objednal náhradní motorku: ${_selectedMoto!.model} (zdarma)',
-        'description': 'Adresa: $_addrStreet, $_addrCity',
+        'description': 'Adresa: $address',
       });
     } catch (e) {
       FriendlyError.log('sos_replacement_timeline', e);
@@ -209,11 +233,12 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                     // Address
                     Text(t(context).tr('deliveryAddress'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
                     const SizedBox(height: 8),
-                    SosHereAddress(onPick: _onHerePicked),
+                    SosHereAddress(key: _hereKey, onPick: _onHerePicked),
                     const SizedBox(height: 8),
                     AddressAutocompleteField(
                       key: _addrKey,
                       onSelected: _onAddressSelected,
+                      onChanged: _onAddressEdited,
                       onCleared: _onAddressCleared,
                       hint: t(context).tr('enterCity'),
                     ),
@@ -250,6 +275,14 @@ class _MotoOption extends StatelessWidget {
   final Motorcycle moto; final bool selected; final VoidCallback onTap;
   const _MotoOption({required this.moto, required this.selected, required this.onTap});
 
+  /// Lokalizovaný název kategorie (dřív syrový slug „cestovni“).
+  String _category(BuildContext context) {
+    final cat = moto.category;
+    if (cat == null || cat.isEmpty) return '';
+    final key = MotoCategory.labelKey(cat);
+    return key == 'all' ? cat : t(context).tr(key);
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -267,7 +300,7 @@ class _MotoOption extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(moto.model, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
-            Text(moto.category ?? '', style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+            Text(_category(context), style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
           ])),
           Text(t(context).free,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.greenDarker)),

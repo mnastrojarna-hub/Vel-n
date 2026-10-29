@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty, slučování (1/7)
+-- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty, slučování (1/8)
 -- Sloupce user_rides + příznak ride_autopause. Jen přidává (IF NOT EXISTS),
 -- nic nemaže ani nepřepisuje. Starší appky (4.1.3) nové sloupce nečtou.
 --   pause_sec   — čas pauz (noc, delší stání, chůze); NEpatří do idle/gap/moving
@@ -35,7 +35,7 @@ comment on column public.user_rides.pause_sec is
 comment on column public.user_rides.pause_aware is
   'true = jízdu vede appka, která se sama pozastavuje (založeno přes start_user_trip). Řídí pravidla uzavírání (72 h / 30 dní místo 3 h / 36 h) a vypíná odvozování pauz z „bloudění" polohy.';
 comment on column public.user_rides.stats_state is
-  'Interní mezistav přírůstkového výpočtu statistik mezi dávkami (vyhlazená výška, rozběhnuté stání, příznak Doppler). Nezobrazuje se.';
+  'Interní mezistav přírůstkového výpočtu statistik mezi dávkami (vyhlazená výška, rozběhnuté stání, příznak Doppler) + closed_by (kdo jízdu uzavřel: user/return/cron/start) a u přepočtu historie backfill/old. Nezobrazuje se.';
 comment on column public.user_rides.stages is
   'Etapy (dny) jedné jízdy: [{f,t (epoch s), km, mv (s v pohybu), gap, ps (pauzy), gain (m), max (km/h), a,b ([lat,lng] začátek/konec)}]. Hranice etapy = pauza ≥ 6 h nebo ≥ 30 min přes 00:00–05:00 (Praha).';
 comment on column public.user_rides.trip_id is
@@ -48,7 +48,7 @@ comment on column public.user_rides.duration_min is
 insert into public.feature_flags (key, enabled, description, conditions)
 values ('ride_autopause', true,
         'Automatická pauza záznamu jízdy (appka). Vypnutí = nahrává se bez auto-pauzy; ruční pauza zůstává.',
-        '{"stop_min":5,"walk_min":3,"resume_kmh":20,"home_h":3,"long_h":20}'::jsonb)
+        '{"stop_min":5,"walk_min":3,"resume_kmh":20,"home_h":3,"long_h":48}'::jsonb)
 on conflict (key) do nothing;
 
 notify pgrst, 'reload schema';

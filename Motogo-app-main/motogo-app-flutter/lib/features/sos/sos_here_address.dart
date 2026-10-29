@@ -89,10 +89,10 @@ class SosHereAddress extends StatefulWidget {
   const SosHereAddress({super.key, required this.onPick, this.locate});
 
   @override
-  State<SosHereAddress> createState() => _SosHereAddressState();
+  State<SosHereAddress> createState() => SosHereAddressState();
 }
 
-class _SosHereAddressState extends State<SosHereAddress> {
+class SosHereAddressState extends State<SosHereAddress> {
   AddressSuggestion? _found;
   bool _busy = false;
   bool _useWhenFound = false;
@@ -137,6 +137,12 @@ class _SosHereAddressState extends State<SosHereAddress> {
   void _use(AddressSuggestion s) {
     widget.onPick(s);
     setState(() => _used = true);
+  }
+
+  /// Zákazník adresu v poli přepsal / smazal → už neplatí „Doplněno podle
+  /// polohy“; klepnutím ji lze znovu doplnit.
+  void markEdited() {
+    if (_used && mounted) setState(() => _used = false);
   }
 
   void _tap() {

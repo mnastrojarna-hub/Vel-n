@@ -12,9 +12,10 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PGT="$HERE/../pg"
 BIN=/usr/lib/postgresql/16/bin
-PGD=/var/tmp/pg-rides
+PGD=${PGD:-/var/tmp/pg-rides}
+PORT=${PGPORT_RIDES:-5499}
 OUT="$HERE/out"; mkdir -p "$OUT"
-PSQL() { runuser -u postgres -- $BIN/psql -X -q -h $PGD/sock -p 5499 -U postgres -d rides -v ON_ERROR_STOP=1 "$@"; }
+PSQL() { runuser -u postgres -- $BIN/psql -X -q -h $PGD/sock -p $PORT -U postgres -d rides -v ON_ERROR_STOP=1 "$@"; }
 SIGQ="select p.proname || '(' || pg_get_function_arguments(p.oid) || ') -> ' || pg_get_function_result(p.oid)
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and (p.proname like '%ride%' or p.proname like '%user_trip%') order by 1"
@@ -22,8 +23,15 @@ SIGQ="select p.proname || '(' || pg_get_function_arguments(p.oid) || ') -> ' || 
 if [ "${FRESH:-1}" = 1 ]; then
   runuser -u postgres -- $BIN/pg_ctl -D $PGD/data -m fast stop >/dev/null 2>&1 || true
   rm -rf "$PGD"
-  bash "$PGT/setup.sh"
+  PGD="$PGD" PGPORT_RIDES="$PORT" bash "$PGT/setup.sh"
   PSQL -At -c "$SIGQ" > "$OUT/sig_before.txt"
+  # Data fix (04): a ride linked to a GEAR-only booking before deployment must be detached.
+  PSQL -c "set session_replication_role = replica;
+    insert into auth.users (id, email, aud, role, created_at) values ('ab000000-0000-0000-0000-0000000000ab','gearfix@test.cz','authenticated','authenticated', now());
+    insert into public.bookings (id, user_id, booking_kind, moto_id, start_date, end_date, status, gear_lines, gear_per_day)
+      values ('ab000000-0000-0000-0000-0000000000b1','ab000000-0000-0000-0000-0000000000ab','gear',null,'2026-10-23','2026-10-25','active','[]',100);
+    insert into public.user_rides (id, user_id, booking_id, track, is_recording, distance_km)
+      values ('ab000000-0000-0000-0000-0000000000c1','ab000000-0000-0000-0000-0000000000ab','ab000000-0000-0000-0000-0000000000b1','[]',false,5);"
 fi
 
 t0=$(date +%s.%N)
@@ -32,11 +40,17 @@ for round in 1 2; do
     PSQL -1 -f - < "$f" > "$OUT/apply_${round}_$(basename "$f" .sql).log" 2>&1 \
       || { echo "APPLY FAILED round $round: $f"; cat "$OUT/apply_${round}_$(basename "$f" .sql).log"; exit 1; }
   done
-  echo "applied all drafts (01, 02, 03a, 03b, 04, 05, 06) round $round OK"
+  echo "applied all drafts ($(cd "$HERE" && ls 0[1-6]*.sql | tr "\n" " ")) round $round OK"
 done
 echo "apply time (2 rounds): $(echo "$(date +%s.%N) - $t0" | bc) s"
 PSQL -At -c "$SIGQ" > "$OUT/sig_after.txt"
 PSQL -At -c "select 'shimmed: ' || public.t_shim()"
+GFIX=$(PSQL -At -c "select count(*) from public.user_rides where id = 'ab000000-0000-0000-0000-0000000000c1' and booking_id is null")
+GLEFT=$(PSQL -At -c "select count(*) from public.user_rides r join public.bookings b on b.id = r.booking_id where b.booking_kind = 'gear'")
+if [ "${FRESH:-1}" = 1 ]; then
+  [ "$GFIX" = 1 ] && [ "$GLEFT" = 0 ] && echo "GEAR DATA FIX OK (pre-existing gear-linked ride detached, 0 left)" \
+    || { echo "GEAR DATA FIX FAILED ($GFIX / $GLEFT)"; exit 1; }
+fi
 
 inject() {
   sed -n '1,/^-- @@BACKFILL@@/p' "$HERE/test_rides.sql"
@@ -63,6 +77,33 @@ wait
 echo "race result: $RACE"
 NOPEN=$(PSQL -At -c "select count(*) from public.user_rides where user_id = '$UR' and is_recording")
 echo "$RACE" | grep -q '"resumed": true' && [ "$NOPEN" = 1 ] && echo "RACE OK (resumed, 1 open ride)" || { echo "RACE FAILED"; exit 1; }
+
+# Re-open race (SPEC §23): an own trip closed by the cron; session A inserts
+# another open ride inside an open transaction, B sends newer points to the
+# closed trip → B waits on the unique index, then must NOT re-open it (no
+# error, ride_finished) and A's ride stays the only open one.
+UO='aa000000-0000-0000-0000-000000000098'
+PTS="(select jsonb_agg(jsonb_build_array(49.3 + i * 0.0005, 16.6, extract(epoch from timestamptz '2026-10-01 08:00+00') + 10 + i * 5, 40) order by i) from generate_series(0, 39) i)"
+NEW="(select jsonb_agg(jsonb_build_array(49.4 + i * 0.0005, 16.6, extract(epoch from timestamptz '2026-10-01 09:00+00') + i * 5, 40) order by i) from generate_series(0, 19) i)"
+PSQL -c "set session_replication_role = replica;
+  insert into auth.users (id, email, aud, role, created_at) values ('$UO','reopen@test.cz','authenticated','authenticated', now()) on conflict do nothing;
+  delete from public.user_rides where user_id = '$UO';"
+OLD=$(PSQL -At -c "select public.t_set('2026-10-01 08:00+00', '$UO'); select public.start_user_trip(null)->>'id';" | tail -1)
+PSQL -At -c "select public.t_set('2026-10-01 08:04+00', '$UO'); select public.append_ride_track('$OLD', $PTS, null)->>'success';
+  select public.t_set('2026-10-04 09:00+00'); select public.close_stale_user_rides();" >/dev/null
+( printf "begin;\ninsert into public.user_rides (user_id, source, is_recording, pause_aware) values ('%s','auto',true,true);\nselect pg_sleep(2);\ncommit;\n" "$UO" | PSQL -f - >/dev/null ) &
+sleep 0.7
+REO=$(PSQL -At -c "select public.t_set('2026-10-04 10:00+00', '$UO'); select public.append_ride_track('$OLD', $NEW, null);" | tail -1)
+wait
+echo "reopen race result: $REO"
+OPEN_OLD=$(PSQL -At -c "select is_recording from public.user_rides where id = '$OLD'")
+NOPEN=$(PSQL -At -c "select count(*) from public.user_rides where user_id = '$UO' and is_recording")
+echo "$REO" | grep -q '"ride_finished"' && [ "$OPEN_OLD" = f ] && [ "$NOPEN" = 1 ] \
+  && echo "REOPEN RACE OK (closed trip stays closed, 1 open ride, no error)" || { echo "REOPEN RACE FAILED ($OPEN_OLD / $NOPEN)"; exit 1; }
+# without the competing ride the same batch re-opens it
+REO2=$(PSQL -At -c "select public.t_set('2026-10-04 10:00+00', '$UO'); delete from public.user_rides where user_id = '$UO' and id <> '$OLD';
+  select public.append_ride_track('$OLD', $NEW, null);" | tail -1)
+echo "$REO2" | grep -q '"reopened": true' && echo "REOPEN OK after the competing ride is gone" || { echo "REOPEN FAILED: $REO2"; exit 1; }
 
 if [ -s "$OUT/sig_before.txt" ]; then
   echo "--- signature diff (existing ride functions; '>' = new names only) ---"

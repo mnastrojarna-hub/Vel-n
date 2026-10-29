@@ -6,6 +6,7 @@
 #   setup.sh stop       -> stop it
 #   setup.sh psql [...] -> psql into DB rides (as postgres superuser)
 # Cluster: /var/tmp/pg-rides (owner postgres), port 5499, socket /var/tmp/pg-rides/sock
+#   (override: PGD=/var/tmp/pg-xyz PGPORT_RIDES=5498 — separate cluster for parallel work)
 # Schema source: git show origin/supabase-live-snapshot:supabase/_snapshot/*.sql
 #   (copied to $HERE/snap/, refresh with SNAP_REFRESH=1).
 # Load a draft (postgres cannot read the scratchpad, so feed via stdin):
@@ -18,8 +19,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO=/home/user/Vel-n
 BIN=/usr/lib/postgresql/16/bin
-PGD=/var/tmp/pg-rides
-PORT=5499
+PGD=${PGD:-/var/tmp/pg-rides}
+PORT=${PGPORT_RIDES:-5499}
 SOCK=$PGD/sock
 DB=rides
 as_pg() { runuser -u postgres -- "$@"; }

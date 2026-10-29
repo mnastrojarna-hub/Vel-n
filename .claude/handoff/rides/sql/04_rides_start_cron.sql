@@ -1,20 +1,37 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty (5/7)
+-- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty (6/8)
 -- Start, obnova a úklid nahrávek — cesta se už nedělí přes noc.
+-- Výpůjčka JEN výbavy (bookings.booking_kind = 'gear', od 2026-10-23) NENÍ
+-- jízda na motorce: nikde se s ní nepáruje, nedrží jízdu otevřenou ani ji
+-- neořezává vrácením; jízdy k ní dřív spárované se odpojí (= vlastní jízda).
 --   start_user_trip(p_booking_id) — NOVÉ RPC pro novou appku (bez DEFAULT,
 --       žádné přetížení): založí/převezme jízdu s pause_aware = true;
---       výpůjčka jen převzatá a nevrácená (jinak booking_inactive, nic
---       nevznikne); bez párování podle data (ruční jízda ≠ výpůjčka);
---       vrací i serverový čas `now` (oprava hodin telefonu).
+--       výpůjčka jen vlastní, reserved/active a nevrácená (převzetí hlídá
+--       appka), ne výbava (jinak booking_inactive, nic nevznikne); bez
+--       párování podle data (ruční jízda ≠ výpůjčka); vrací i `now`.
 --   start_user_ride — stejný podpis/klíče; rozjetá jízda s AKTIVNÍ
 --       výpůjčkou se obnoví v jakémkoli stáří (4.1.3 už výpůjčku nedělí),
---       vlastní jízda nové appky do 72 h, jinak dál 3 h (4.1.3 beze změny).
+--       vlastní jízda nové appky do 72 h, jinak dál 3 h (4.1.3 beze změny);
+--       párování podle data jen s výpůjčkou motorky; id výbavy →
+--       booking_inactive (4.1.3 pak nenahrává, jako bez výpůjčky).
 --   close_stale_user_rides — výpůjčka se uzavře až jejím koncem (vrácení,
 --       zrušení, 2 dny po konci, 60 dní), k času vrácení; vlastní cesta
 --       nové appky po 72 h bez jízdy / 30 dnech; stará appka 3 h / 36 h.
+--       Uzavřené značí stats_state.closed_by = cron (start → start).
+--       Jízda pod 1 km by se uzavřením SMAZALA — a s ní i body, které telefon
+--       bez dat teprve pošle. Proto zůstane otevřená: vrácená výpůjčka
+--       motorky do 7 dní po vrácení (okno pozdních bodů), vlastní cesta nové
+--       appky do 30 dní od startu (místo 72 h). Pak se smaže jako dřív.
 --   admin_booking_live_ride — + pause_aware, pause_sec, is_standing.
--- Idempotentní (create or replace; nové funkce bez přetížení).
+-- Idempotentní (create or replace; nové funkce bez přetížení; oprava dat
+-- jen odpojí booking_id od výbavy — podruhé nic nenajde).
 -- ════════════════════════════════════════════════════════════════════
+
+-- Jízdy omylem spárované s výpůjčkou JEN výbavy (4.1.3 páruje podle data
+-- od 2026-10-23) se odpojí → dál se chovají jako vlastní jízda.
+update public.user_rides r set booking_id = null
+  from public.bookings b
+ where b.id = r.booking_id and b.booking_kind = 'gear';
 
 create or replace function public.start_user_trip(p_booking_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -25,12 +42,16 @@ begin
   if v_uid is null then return jsonb_build_object('success', false, 'error', 'not_authenticated'); end if;
   if p_booking_id is not null then
     select * into v_b from bookings where id = p_booking_id and user_id = v_uid;
-    if v_b.id is null or v_b.status not in ('reserved', 'active') or v_b.returned_at is not null then
+    if v_b.id is null or v_b.booking_kind = 'gear'
+       or v_b.status not in ('reserved', 'active') or v_b.returned_at is not null then
       return jsonb_build_object('success', false, 'error', 'booking_inactive',
                                 'now', round(extract(epoch from v_now)::numeric, 3));
     end if;
   end if;
 
+  -- Rozjetá jízda spárovaná s výbavou = vlastní jízda (samoléčení, obvykle nic).
+  update user_rides r set booking_id = null from bookings b
+   where r.user_id = v_uid and r.is_recording and b.id = r.booking_id and b.booking_kind = 'gear';
   select * into v_o from user_rides where user_id = v_uid and is_recording limit 1 for update;
   if v_o.id is not null then
     v_last := greatest(coalesce(v_o.last_fix_at, v_o.started_at), v_o.updated_at);
@@ -52,7 +73,7 @@ begin
         'now', round(extract(epoch from v_now)::numeric, 3));
     end if;
     if v_o.booking_id is not null then select returned_at into v_ret from bookings where id = v_o.booking_id; end if;
-    perform _ride_finalize(v_o.id, case when v_ret is not null then least(v_last, v_ret) else v_last end);
+    perform _ride_close(v_o.id, case when v_ret is not null then least(v_last, v_ret) else v_last end, 'start', false);
   end if;
 
   if v_b.moto_id is not null then
@@ -92,6 +113,14 @@ declare
   v_stale timestamptz; v_obk uuid; v_paw boolean; v_bst text; v_bret timestamptz; v_resume boolean;
 begin
   if auth.uid() is null then return jsonb_build_object('success', false, 'error', 'not_authenticated'); end if;
+  -- Výpůjčka JEN výbavy není jízda na motorce → nic nezaložit (4.1.3: success
+  -- false = nenahrává, stejně jako bez výpůjčky).
+  if p_booking_id is not null and exists (select 1 from bookings
+       where id = p_booking_id and user_id = auth.uid() and booking_kind = 'gear') then
+    return jsonb_build_object('success', false, 'error', 'booking_inactive');
+  end if;
+  update user_rides r set booking_id = null from bookings b
+   where r.user_id = auth.uid() and r.is_recording and b.id = r.booking_id and b.booking_kind = 'gear';
 
   -- Rozjetá nahrávka: výpůjčka s aktivní rezervací se obnoví v jakémkoli stáří
   -- (přes noc se nedělí), vlastní cesta nové appky do 72 h, jinak 3 h jako dřív.
@@ -108,15 +137,17 @@ begin
     if v_resume then
       return jsonb_build_object('success', true, 'id', v_id, 'resumed', true);
     end if;
-    perform _ride_finalize(v_id, case when v_bret is not null then least(v_stale, v_bret) else v_stale end);
+    perform _ride_close(v_id, case when v_bret is not null then least(v_stale, v_bret) else v_stale end, 'start', false);
     v_id := null;
   end if;
 
-  -- Beze změny: s id rezervace párování podle id, bez id podle dnešního dne.
+  -- Beze změny: s id rezervace párování podle id, bez id podle dnešního dne
+  -- (jen výpůjčka motorky — výbava se nepáruje).
   select b.id, b.moto_id into v_booking, v_moto
   from bookings b
   where b.user_id = auth.uid()
     and b.status in ('reserved','active')
+    and b.booking_kind <> 'gear'
     and (b.id = p_booking_id
          or (p_booking_id is null
              and b.start_date::date <= current_date and b.end_date::date >= current_date))
@@ -151,20 +182,30 @@ begin
   for v_id, v_at in
     select r.id,
            least(greatest(coalesce(r.last_fix_at, r.started_at), r.updated_at),
-                 coalesce(case when r.booking_id is not null then b.returned_at end, 'infinity'::timestamptz))
+                 coalesce(case when b.booking_kind is distinct from 'gear' then b.returned_at end, 'infinity'::timestamptz))
       from user_rides r
       left join bookings b on b.id = r.booking_id
      where r.is_recording
        and case
-         -- Výpůjčka (jakákoli appka): jen konec výpůjčky, ne ticho přes noc.
-         when r.booking_id is not null then
-              b.id is null or b.status in ('completed', 'cancelled')
-           or b.returned_at < now() - interval '10 minutes'
-           or b.end_date::date < (now() at time zone 'Europe/Prague')::date - 1
-           or r.started_at < now() - interval '60 days'
-         -- Vlastní cesta nové appky (pauzuje sama): 72 h bez jízdy, max 30 dní.
+         -- Výpůjčka motorky (jakákoli appka): jen konec výpůjčky, ne ticho přes noc.
+         -- (Spárovaná výbava se uklízí jako vlastní jízda.)
+         when r.booking_id is not null and b.booking_kind is distinct from 'gear' then
+           case
+             -- Vrácená, na serveru < 1 km (telefon bez dat od převzetí): smazání
+             -- by zahodilo i den, který telefon teprve pošle → čekat 7 dní.
+             when b.returned_at is not null and coalesce(r.distance_km, 0) < 1
+                  and b.returned_at > now() - interval '7 days'
+                  and r.started_at >= now() - interval '60 days' then false
+             else b.id is null or b.status in ('completed', 'cancelled')
+               or b.returned_at < now() - interval '10 minutes'
+               or b.end_date::date < (now() at time zone 'Europe/Prague')::date - 1
+               or r.started_at < now() - interval '60 days'
+           end
+         -- Vlastní cesta nové appky (pauzuje sama): 72 h bez jízdy, max 30 dní;
+         -- pod 1 km (offline hned po startu) až po 30 dnech — jinak smazání.
          when r.pause_aware then
-              greatest(coalesce(r.last_fix_at, r.started_at), r.updated_at) < now() - interval '72 hours'
+              (greatest(coalesce(r.last_fix_at, r.started_at), r.updated_at) < now() - interval '72 hours'
+               and coalesce(r.distance_km, 0) >= 1)
            or r.started_at < now() - interval '30 days'
          -- Stará appka (4.1.3): beze změny 3 h bez bodu / 36 h celkem.
          else greatest(coalesce(r.last_fix_at, r.started_at), r.updated_at) < now() - interval '3 hours'
@@ -174,7 +215,7 @@ begin
      limit 500
   loop
     begin
-      v_res := _ride_finalize(v_id, v_at);
+      v_res := _ride_close(v_id, v_at, 'cron', false);
       if v_res->>'discarded' = 'true' then v_dropped := v_dropped + 1;
       else v_closed := v_closed + 1; end if;
     exception when others then
@@ -186,7 +227,7 @@ end;
 $$;
 
 comment on function public.close_stale_user_rides() is
-  'Uzavře nahrávky jízd: výpůjčka až koncem výpůjčky (vrácení/zrušení/2 dny po konci/60 dní, k času vrácení), vlastní cesta nové appky po 72 h bez jízdy nebo 30 dnech, stará appka po 3 h bez bodu nebo 36 h. Bez toho by uq_user_rides_recording zablokoval další jízdu.';
+  'Uzavře nahrávky jízd: výpůjčka motorky až koncem výpůjčky (vrácení/zrušení/2 dny po konci/60 dní, k času vrácení; vrácená pod 1 km až 7 dní po vrácení — pozdní body z telefonu bez dat), vlastní cesta nové appky po 72 h bez jízdy (pod 1 km až po 30 dnech) nebo 30 dnech, stará appka po 3 h bez bodu nebo 36 h (jízda spárovaná s výpůjčkou jen výbavy = vlastní). Značí stats_state.closed_by = cron (vlastní cestu pak nové body znovu otevřou — _ride_reopen). Bez toho by uq_user_rides_recording zablokoval další jízdu.';
 
 create or replace function public.admin_booking_live_ride(p_booking_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
@@ -229,9 +270,11 @@ begin
                    and v_b.returned_at is null,
     'pause_aware', v_r.pause_aware, 'pause_sec', v_r.pause_sec,
     'lat', coalesce(v_r.end_lat, v_r.start_lat,
-                    (v_track->(jsonb_array_length(v_track)-1)->>0)::double precision),
+                    case when jsonb_typeof(v_track->(jsonb_array_length(v_track)-1)->0) = 'number'
+                         then (v_track->(jsonb_array_length(v_track)-1)->>0)::double precision end),
     'lng', coalesce(v_r.end_lng, v_r.start_lng,
-                    (v_track->(jsonb_array_length(v_track)-1)->>1)::double precision),
+                    case when jsonb_typeof(v_track->(jsonb_array_length(v_track)-1)->1) = 'number'
+                         then (v_track->(jsonb_array_length(v_track)-1)->>1)::double precision end),
     'last_fix_at', v_r.last_fix_at,
     'age_sec', v_age,
     'started_at', v_r.started_at, 'ended_at', v_r.ended_at,

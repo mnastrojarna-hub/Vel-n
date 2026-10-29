@@ -11,12 +11,17 @@ import '../theme.dart';
 class AddressAutocompleteField extends StatefulWidget {
   final ValueChanged<AddressSuggestion> onSelected;
   final VoidCallback? onCleared;
+
+  /// Every edit typed by the customer (not [AddressAutocompleteFieldState.setAddress]
+  /// nor a picked suggestion) — the picked suggestion no longer matches the text.
+  final ValueChanged<String>? onChanged;
   final String hint;
 
   const AddressAutocompleteField({
     super.key,
     required this.onSelected,
     this.onCleared,
+    this.onChanged,
     this.hint = 'Zadejte adresu, obec nebo ulici…',
   });
 
@@ -83,6 +88,7 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   }
 
   void _onChange(String v) {
+    widget.onChanged?.call(v);
     if (v.isEmpty) {
       setState(() {
         _items = [];

@@ -8,6 +8,7 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/date_dropdown_field.dart';
 import 'auth_error_mapper.dart';
 import 'auth_provider.dart';
+import 'widgets/register_name_row.dart';
 import 'widgets/toast_helper.dart';
 import '../../core/widgets/mg_back.dart';
 import '../../core/widgets/mg_nav_controls.dart';
@@ -441,11 +442,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    t(context).tr('registerTitle'),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        t(context).tr('registerTitle'),
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                      ),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   // „Krok X/3" — jasná orientace v průvodci.
                   Text('${_step}/3',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: MotoGoColors.greenDark)),
@@ -570,12 +578,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 2),
       Text(t(context).tr('regStep1Subtitle'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
       const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(child: TextField(controller: _fnameCtrl, decoration: InputDecoration(labelText: t(context).tr('firstName')), autofillHints: const [AutofillHints.givenName])),
-          const SizedBox(width: 9),
-          Expanded(child: TextField(controller: _lnameCtrl, decoration: InputDecoration(labelText: t(context).tr('lastName')), autofillHints: const [AutofillHints.familyName])),
-        ],
+      RegisterNameRow(
+        labels: [t(context).tr('firstName'), t(context).tr('lastName')],
+        first: TextField(controller: _fnameCtrl, decoration: InputDecoration(labelText: t(context).tr('firstName')), autofillHints: const [AutofillHints.givenName]),
+        last: TextField(controller: _lnameCtrl, decoration: InputDecoration(labelText: t(context).tr('lastName')), autofillHints: const [AutofillHints.familyName]),
       ),
       const SizedBox(height: 9),
       TextField(controller: _emailCtrl, decoration: InputDecoration(labelText: t(context).email), keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email]),

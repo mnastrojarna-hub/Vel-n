@@ -42,6 +42,8 @@ UserRide ride(String id,
   return UserRide.fromJson(j)!;
 }
 
+final uuidV4 = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
+
 void main() {
   final d0 = DateTime(2026, 10, 6, 9);
   const tr = AppTranslations('cs');
@@ -143,11 +145,13 @@ void main() {
       undoRestores(p, [r1, r2, own, own2]);
     });
 
-    test('sloučit samostatné jízdy → klíč = nejstarší jízda, prázdný název = null', () {
+    test('sloučit samostatné jízdy → nový klíč (UUID ≠ id jízdy), prázdný název = null', () {
       final a = ride('a', start: d0.add(const Duration(days: 2)));
       final b = ride('b', start: d0);
       final p = rideTripMergePlan([RideListItemRide(a), RideListItemRide(b)], '');
-      expect(p.items.map((i) => i.tripId).toSet(), {'b'});
+      final keys = p.items.map((i) => i.tripId).toSet();
+      expect(keys, hasLength(1));
+      expect(keys.single, matches(uuidV4));
       expect(p.items.every((i) => i.tripName == null), isTrue);
       undoRestores(p, [a, b]);
     });
@@ -157,11 +161,12 @@ void main() {
       expect(s.items.map((i) => (i.id, i.tripId)), [('r1', 'r1'), ('r2', 'r2')]);
       undoRestores(s, [r1, r2]);
       final rn = rideTripRenamePlan(rent, 'Víkend');
-      expect(rn.items.map((i) => i.tripId).toSet(), {'r1'});
+      expect(rn.items.map((i) => i.tripId).toSet().single, matches(uuidV4));
       undoRestores(rn, [r1, r2]);
       final extra = ride('z', start: d0.add(const Duration(days: 9)));
       final ad = rideTripAddPlan(rent, extra);
       expect(ad.items.length, 3); // implicitní skupina → klíč dostanou všichni
+      expect(ad.items.map((i) => i.tripId).toSet().single, matches(uuidV4));
       undoRestores(ad, [r1, r2, extra]);
       final ad2 = rideTripAddPlan(ex, extra);
       expect(ad2.items.single.tripId, 'X');
@@ -169,6 +174,52 @@ void main() {
       final rm = rideTripRemovePlan(own);
       expect((rm.items.single.tripId, rm.items.single.tripName), ('own', null));
       undoRestores(rm, [own]);
+    });
+
+    /// Plán „provedený" na serveru: nové trip_id / trip_name u dotčených jízd.
+    List<UserRide> applied(List<UserRide> rides, RideTripPlan p) => [
+          for (final r in rides)
+            if (p.items.where((i) => i.id == r.id).lastOrNull case final i?)
+              ride(r.id, start: r.startedAt, trip: i.tripId, tripName: i.tripName)
+            else
+              r,
+        ];
+    String shape(List<UserRide> rides) => [
+          for (final i in groupRides(rides).reversed)
+            switch (i) {
+              RideListItemTrip(:final trip) => 'trip(${trip.rides.map((r) => r.id).join(',')})',
+              RideListItemRide(:final ride) => 'ride(${ride.id})',
+            },
+        ].join(' ');
+
+    test('vyjmout NEJSTARŠÍ jízdu ze sloučené cesty ji opravdu vyjme (dřív klíč = její id → no-op)', () {
+      var rides = [
+        ride('a', start: d0),
+        ride('b', start: d0.add(const Duration(days: 1))),
+        ride('c', start: d0.add(const Duration(days: 2))),
+      ];
+      rides = applied(rides, rideTripMergePlan([for (final r in rides) RideListItemRide(r)], 'Alpy'));
+      expect(shape(rides), 'trip(a,b,c)');
+      rides = applied(rides, rideTripRemovePlan(rides.first));
+      expect(shape(rides), 'ride(a) trip(b,c)');
+      rides = applied(rides, rideTripRemovePlan(rides[1]));
+      expect(shape(rides), 'ride(a) ride(b) ride(c)');
+    });
+
+    test('vyjmout nejstarší z přejmenované výpůjčky i z cesty s klíčem = id (vývojové buildy)', () {
+      var rides = [r1, r2, ride('r3', booking: 'B', start: d0.add(const Duration(days: 2)))];
+      rides = applied(rides, rideTripRenamePlan(RideTrip('b:B', rides), 'Víkend'));
+      rides = applied(rides, rideTripRemovePlan(rides.first));
+      expect(shape(rides), 'ride(r1) trip(r2,r3)');
+      final legacy = [
+        ride('x', trip: 'x', start: d0),
+        ride('y', trip: 'x', start: d0.add(const Duration(days: 1))),
+        ride('z', trip: 'x', start: d0.add(const Duration(days: 2))),
+      ];
+      final rm = rideTripRemovePlan(legacy.first);
+      expect(rm.items.single.tripId, allOf(isNot('x'), matches(uuidV4)));
+      expect(shape(applied(legacy, rm)), 'ride(x) trip(y,z)');
+      undoRestores(rm, [legacy.first]);
     });
   });
 

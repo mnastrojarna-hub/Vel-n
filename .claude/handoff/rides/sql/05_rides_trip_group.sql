@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — „Moje jízdy": slučování jízd do cest (6/7)
+-- MotoGo24 — „Moje jízdy": slučování jízd do cest (7/8)
 --   set_user_rides_trip(p_items) — NOVÉ RPC (bez DEFAULT, žádné přetížení):
 --   hloupý zapisovač trip_id / trip_name pro VLASTNÍ jízdy volajícího.
 --   p_items = [{id, trip_id|null, trip_name|null}, …] (1–300 položek).

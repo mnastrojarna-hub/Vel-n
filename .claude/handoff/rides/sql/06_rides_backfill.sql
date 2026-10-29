@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — „Moje jízdy": přepočet starých jízd (7/7) — VOLITELNÉ (majitel)
+-- MotoGo24 — „Moje jízdy": přepočet starých jízd (8/8) — VOLITELNÉ (majitel)
 -- Uzavřené jízdy ze starých appek (pause_aware = false, stats_state IS NULL):
 -- noci a dlouhá stání v uložené stopě (ticho ≥ 5 min bez projetí ≥ 15 km/h)
 -- se z „Celkového času" a „Stání" přesunou do pause_sec. duration_min pak
@@ -11,7 +11,11 @@
 --     pauza jen u stopy, která nikdy nebyla prořídnutá (< 2000 bodů) —
 --     u prořídnuté stopy nejde odlišit od mezery vzniklé prořídnutím;
 --   • pauza nikdy nepřesáhne čas, který nepokrývá jízda a mezery.
--- Idempotentní: zpracovaná jízda dostane stats_state = {"backfill":1}.
+-- Idempotentní: zpracovaná jízda dostane stats_state = {"backfill":1,
+-- "old":{duration_min, idle_sec, gap_sec}} — původní hodnoty pro návrat:
+--   update public.user_rides set duration_min = (stats_state->'old'->>'duration_min')::int,
+--     idle_sec = (stats_state->'old'->>'idle_sec')::int, gap_sec = (stats_state->'old'->>'gap_sec')::int,
+--     pause_sec = 0, stats_state = null where stats_state ? 'backfill';
 -- ════════════════════════════════════════════════════════════════════
 
 with cand as (
@@ -66,7 +70,8 @@ update public.user_rides r set
                   else r.idle_sec end,
   duration_min = case when f.pause > 0 then greatest(1, round(greatest(60, f.elapsed - f.pause) / 60))::int
                       else r.duration_min end,
-  stats_state = '{"backfill": 1}'::jsonb
+  stats_state = jsonb_build_object('backfill', 1, 'old', jsonb_build_object(
+    'duration_min', r.duration_min, 'idle_sec', r.idle_sec, 'gap_sec', r.gap_sec))
 from fin f
 where r.id = f.id;
 

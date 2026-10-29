@@ -1,8 +1,12 @@
 _kiosk_return_rideout(p_booking_id uuid, p_branch_id uuid, p_ts timestamp with time zone, p_session text, p_event text, p_event_id uuid, p_need_pending boolean) -> void
 _ride_append_core(p_ride_id uuid, p_points jsonb) -> jsonb
+_ride_append_late(p_ride_id uuid, p_points jsonb) -> integer
+_ride_auto_name(p_from date, p_to date) -> text
+_ride_close(p_ride_id uuid, p_ended_at timestamp with time zone, p_by text, p_reclose boolean) -> jsonb
 _ride_finalize(p_ride_id uuid, p_ended_at timestamp with time zone DEFAULT NULL::timestamp with time zone) -> jsonb
 _ride_json(p_ride user_rides) -> jsonb
 _ride_prague_night(p_from double precision, p_to double precision) -> boolean
+_ride_reopen(p_ride_id uuid, p_points jsonb) -> boolean
 _ride_stage_days(p_stages jsonb) -> integer
 _ride_stats(p_track jsonb) -> jsonb
 _ride_stats_v2(p_seg jsonb, p_state jsonb, p_stages jsonb) -> jsonb

@@ -499,7 +499,7 @@ Adds keys:
 insert into public.feature_flags (key, enabled, description, conditions)
 values ('ride_autopause', true,
         'Automatická pauza záznamu jízdy (appka). Vypnutí = nahrává se bez auto-pauzy; ruční pauza zůstává.',
-        '{"stop_min":5,"walk_min":3,"resume_kmh":20,"home_h":3,"long_h":20}')
+        '{"stop_min":5,"walk_min":3,"resume_kmh":20,"home_h":3,"long_h":48}')
 on conflict (key) do nothing;
 ```
 
@@ -636,7 +636,7 @@ UI phase mapping (both looks):
 1. caps `trips != false` (or older than 30 min) → `startUserTrip(bookingId)`.
 2. `missing` → caps `trips = false` → `startUserRide(bookingId: bookingId)` (legacy, as PR #2208, no lat/lng). Session `proto = legacy`.
 3. `offline` → today's retry (`_needsServerRide`). **Never fall back on offline.**
-4. `booking_inactive` → no ride. During a continuation: `_forgetRide()` + log `ride_continue_no_booking`. During a watcher start: nothing (the watcher stops).
+4. `booking_inactive` → no ride. During a continuation: deliver the remaining buffer to the old ride id first (`_drainEndedRental`, §21.4), then `_forgetRide()` + log `ride_continue_no_booking` (`late` = points delivered). During a watcher start: nothing (the watcher stops; its Stop sends the buffer with `finish_user_ride`). Retry of an offline start (not the watcher's): same drain when `rideId` is known, then `_forgetRide()`.
 
 **Upgrade:** when a probe flips caps to `trips = true` while the session is `proto = legacy` → call `startUserTrip(state.bookingId)`.
 - Same id and resumed → `proto = trip`.
@@ -692,9 +692,9 @@ On the old server `off = 0`, i.e. today's behaviour.
 | `flagMinPauseS` | 60 s |
 | `restoreNearM` / `restoreMinPathM` / `pausePathMax` | 100 m / 150 m / 1200 (keep the start) |
 | `killGapM` | 1000 m |
-| `homeRadiusM` / `homeAfter` ★ `home_h` / `homeMinKm` | 500 m / 3 h / 10 km (own only) |
-| `longPauseOwn` ★ `long_h` | 20 h (own only; 0 = off) |
-| `cachedFixSlackS` | 30 s |
+| `homeRadiusM` / `homeAfter` ★ `home_h` / `homeMinKm` | 500 m / 3 h / 10 km (own only; **notice only, GPS stays on**, single-stage trips, once per pause — §20) |
+| `longPauseOwn` ★ `long_h` | **48 h** without contact (own only; 0 = off) — §20 |
+| `cachedFixSlackS` | **150 s** (30 s + the 120 s band where the clock offset is not applied) — §20 |
 
 `RideFix`: `ts` (corrected), `lat`, `lng`, `acc` (null if `!hasAccuracy`), `kmh` (valid Doppler or null), `alt` (filtered or null).
 - good = `acc != null && acc ≤ 25`;
@@ -929,11 +929,13 @@ Every operation captures an **undo map** `{id → (tripId, tripName)}` BEFORE th
 
 | Op | Items sent |
 |---|---|
-| merge(selected items, name) | T = explicit `tripId` of the oldest selected explicit trip, else the leader id of all member rides; all members → `(T, name-or-null)` |
+| merge(selected items, name) | T = explicit `tripId` of the oldest selected explicit trip, else a NEW random key (`rideTripNewKey()`, UUID v4 from `Random.secure()`, never a ride id — fix:logic:r2); all members → `(T, name-or-null)` |
 | split(trip) | every member → `(own id, null)` (also dissolves an implicit rental group) |
-| rename(trip, name) | every member → `(explicitTripId ?? leaderId, name)` |
-| addTo(trip, ride) | ride → `(trip.explicitTripId ?? leaderId, trip.name)`; for an implicit trip all members also get the explicit id |
-| remove(ride) | ride → `(own id, null)` |
+| rename(trip, name) | every member → `(explicitTripId ?? newKey, name)` |
+| addTo(trip, ride) | ride → `(trip.explicitTripId ?? newKey, trip.name)`; for an implicit trip all members also get the explicit id |
+| remove(ride) | ride → `(own id, null)`; when the ride's own id IS its trip key (trips made by dev builds before fix:logic:r2, key = leader id) → `(newKey, null)`, otherwise the ride would stay in the trip |
+
+A trip key must never equal a member's id: `trip_id = own id` means "explicitly standalone", so with key = leader id "Vyjmout z cesty" on the oldest ride was a silent no-op (fix:logic:r2).
 
 **Result:**
 - `updated == count` → ok + `invalidate(myRidesProvider)` (+ `bookingRidesProvider`);
@@ -967,20 +969,20 @@ General rules for every new control:
 | new `ride_rec_controls.dart` | `RideRecChip`, `RideRecControlsCard`, `RideNavRecChip` |
 | `RideRecControlsCard`: idle | Today's "Zaznamenat vlastní jízdu" card unchanged (hidden during a rental recording, as today) |
 | `RideRecControlsCard`: recording | Phase line + `rpSince`; live line `rpLiveLine` (+ `· rpDayN` when stages ≥ 2; Ø after ≥ 5 min moving) |
-| `RideRecControlsCard`: buttons | [❚❚ `rpPause`] or [▶ `rpResume`] for own AND rental; [■ `rideManualStop`] only when `canStop`. Rental: `rpRentalEndsHint` under the buttons. |
+| `RideRecControlsCard`: buttons | [❚❚ `rpPause`] or [▶ `rpResume`] for own AND rental; in auto-pause (`rideIsAutoPaused`) the same button reads [`rpPauseGps`] (it also turns GPS off) and the status shows `rpAutoNoAction` (nothing to press); [■ `rideManualStop`] only when `canStop`. Rental: `rpRentalEndsHint` under the buttons. (fix:ui-old r1) |
 | `RideRecControlsCard`: `needsDecision` | [▶ `rpResumeTrip`] [■ `rpEndSave`] |
 | `RideRecControlsCard`: explainer | Collapsible "ⓘ `rpHowTitle`" → `rpHintAuto` (`rpHintManual` while manually paused) |
 | new `ride_pause_actions.dart` | `Future<void> rideTogglePause(BuildContext, WidgetRef)`: pause → snackbar `rpToastPaused`; resume → `showRideStartResult` on failure, `rpToastResumed` on ok. Used by every place below and by v2. |
-| `community_submit.dart` "Přidat" sheet (both looks in Android, old in iOS) | When recording: row "❚❚ `rpPauseRow`" / "▶ `rpResumeRow`" above today's rows (also for a rental); Stop row unchanged (manual only) |
-| Old navigation | `RideNavRecChip` (shrink when not recording): "● REC {km}" / "❚❚ PAUZA" → tap → `showRidePauseSheet` (new `ride_pause_sheet.dart`: phase text, [Pozastavit/Pokračovat], [Ukončit] when `canStop`) |
+| `community_submit.dart` "Přidat" sheet (both looks in Android, old in iOS) | When recording: row "❚❚ `rpPauseRow`" / "▶ `rpResumeRow`" (auto-pause: `rpPauseGpsRow`, subtitle phase + `rpAutoNoAction`) above today's rows (also for a rental); Stop row (manual only) subtitle `rpStopRowPaused` while paused. The sheet scrolls in both looks (no overflow at 320×690 ×1.3). (fix:ui-old r1) |
+| Old navigation | `RideNavRecChip` (shrink when not recording): "● REC {km}" only while really recording; "⏳ `rpNavArmed`" / "❚❚ `rpChipAuto`" / "❚❚ `rpNavPaused`" / "⚠ `rpChipNoGps`" otherwise (fix:ui-old r1) → tap → `showRidePauseSheet` (new `ride_pause_sheet.dart`: phase text, [Pozastavit/Pokračovat], [Ukončit] when `canStop`) |
 | ⚠ `route_navigation_screen.dart` (outside the owned set, 1 line) | Android line ~1626: `if (MgV2.on(context)) const NavRecChipV2() else const RideNavRecChip(),`. iOS line ~1624: insert `const RideNavRecChip(),` before `if (_stops.isNotEmpty)`. |
-| `ride_card.dart` | Date or range (`rideDateRange`); km · **v sedle** (`movingMin`, replaces total) · Ø · stops/photos · moto; chip `rpDaysLabel(days)` when days ≥ 2; recording badge "● `rpChipRec`" / "❚❚ `rpChipPaused`" by phase for the recording ride |
+| `ride_card.dart` | Date or range (`rideDateRange`); km · **v sedle** (`movingMin`, replaces total) · Ø · stops/photos · moto; chip `rpDaysLabel(days)` when days ≥ 2; recording badge by phase for the recording ride (`rideChipKey` + `rideRecTone`: "⏺ `rpChipRec`" / "⏳ `rpChipArmed`" / "❚❚ `rpChipAuto`" / "❚❚ `rpChipPaused`" / "⚠ `rpChipNoGps`"); `RideTripCard` uses the same badge when the trip contains the recording ride (fix:ui-old r1) |
 | new `ride_trip_card.dart` (`RideTripCard`) | "🧳 {name}" (rental "🏍️"); line `{rpRides(n)} · {rpDaysLabel} · {km} · {v sedle}`; tap → trip detail |
 | `ride_detail_screen.dart` | `_statsCard` → new `ride_stats_grid.dart` (§9.3); new `ride_stage_list.dart` (Etapy, stages ≥ 2); `rideGapNotice` → `rpGapNotice`; new "Cesta" row: member → "🧳 `rpTripPartOf`{name} ›" + text button `rpTripRemove` (undo snackbar); non-member and server supports trips → text button `rpTripAddTo` → merge screen with this ride preselected; deleting the recording ride → confirm `rpDeleteRecordingOwnQ`/`rpDeleteRecordingRentalQ` → `discardCurrent()` → delete |
 | `ride_map.dart` | Pause connector: none when `km ≤ 0.3`, dashed blue-grey when moved; gaps stay dotted grey; legend `rpPauseLegend` only when a moved pause exists |
 | `ride_share.dart` | Text: name · range · days (≥ 2) · km · v sedle (not total). Trip variant: "🧳 {name}\n{range} · {days} · {km} · {time} v sedle\n" + today's footer. |
 | `ride_booking_section.dart` | ≥ 2 rides → header line `rpBookingTotal`; with a group → one RideTripCard + members |
-| new `ride_merge_screen.dart` | Header `rpMerge` + `rpMergeHint`; list of items (trip = one item) with 44×44 checkbox, `Semantics(checked)`; bottom bar [`rpMergeBtn`{n}] disabled below 2 (tap → `rpMergeMinTwo`); name dialog `rpMergeNameTitle` (hint `rpMergeNameHint`, empty = default); success snackbar `rpMergeDone` + `rpUndo` |
+| new `ride_merge_screen.dart` | Header `rpMerge` + `rpMergeHint`; list of items (trip = one item) with 44×44 checkbox, `Semantics(checked)`; bottom bar [`rpMergeBtn`{n}] disabled below 2 (tap → `rpMergeMinTwo`); name dialog `rpMergeNameTitle` (hint `rpMergeNameHint`, empty = default); success snackbar `rpMergeDone` + `rpUndo`. Server without trips (no ride has `pause_aware`): note `rpTripUnavailable`, checkboxes and the button disabled, no preselection (fix:ui-old r1). Button / dialog action labels stay on one line (scale down, `rideFitLabel`). |
 | new `ride_trip_detail_screen.dart` | Header name + range + days chip; map of the aggregate; stats grid (aggregate); Etapy (concatenated); `rpTripMembers` → RideCards; actions: `rpTripRename`, share, visibility switch (`rpTripVisibilityOn/Off`), `rpTripSplit` (confirm `rpTripSplitQ`, then `rpTripSplitDone` + Zpět), `rpTripDelete` (choice sheet). Android: `MgV2.on` seam → `TripDetailViewV2` (T4). |
 | `ride_start_feedback.dart` | Add `showRidePauseFeedback(msg, tr, {paused})` used by `rideTogglePause` |
 
@@ -1010,7 +1012,7 @@ Keep any r1 fix already present in the tree. Do not touch catalog, booking, home
 | Surface | Shows |
 |---|---|
 | Ride card | range · km · v sedle · Ø · days chip · stops/photos · moto |
-| Detail grid (old + v2) | `rideStatDistance` · `rideStatMoving` (v sedle) · `rideStatAvg` · `rideStatMax` · `rideStatClimb` · `rpStatOnRoad` (duration_min) · `rideStatIdle` (zastávky) · `rpStatPauses` (`{n}× · {time}`, only when > 0) · `rideStatGap` (only when > 0) · `rpStatDays` (≥ 2) · photos · stops · start → end. `rideStatPoints` is removed from the app (it stays in Velín). |
+| Detail grid (old + v2) | `rideStatDistance` · `rideStatMoving` (v sedle) · `rideStatAvg` · `rideStatMax` · `rideStatClimb` · `rpStatOnRoad` (duration_min) · `rideStatIdle` (zastávky) · `rpStatPauses` (`{n}× · {time}`, only when > 0) · `rideStatGap` (only when > 0) · days (≥ 2; value `rpDaysOne/Few/Many` „5 dní", caption `rpStatDaysCap`) · photos · stops · start → end. `rideStatPoints` is removed from the app (it stays in Velín). Old look (fix:ui-old r1): labels never break inside a word nor get „…" (`RideFitText`, `ride_fit_text.dart`: whole label scales down to fit its longest word / 3 lines); the grid uses 3 columns only when every label fits its tile at ≥ 85 % size, otherwise 2 columns (narrow phone, large text, de/nl/pl). Ride / trip detail titles: 2 / 3 lines, word-fit (min 60 %), „…" only for very long rider-given names. Live line keeps number + unit together (NBSP, „km⁠/⁠h" with word joiners). |
 | Etapy row | `rpStageDay`{n} · weekday date · km · {time} v sedle · Ø · max · ⛰ gain (v2 without emoji) |
 | Live (card, dock, home row, nav chip, notification) | phase · km · v sedle · Ø (≥ 5 min moving) · `rpDayN` (≥ 2) · `rpSince` while paused · GPS state |
 | Trip card / detail | aggregate (§8.2), days, range, members, Etapy |
@@ -1052,11 +1054,11 @@ iOS: none (the blue pill stays during auto-pause; disappears in manual pause).
 
 | File | Change |
 |---|---|
-| `lib/rideTrack.js` | `splitTrackOnGaps` mirrors §3.2: `kmh < 0` → pause; silence `dt > 180`: `v ≥ 15` & `d > 0.3` → gap, else `dt ≥ 300` → pause; bad time 30 d. Segments carry `kind`. New `trackPauses(track)` → `{count, sec}`. New `rideRecState(ride, now)` → `live` (fix < 15 min) / `standing` / `stuck`. `stuck` when the last fix is older than 3 h (legacy own), 24 h (legacy rental), 72 h (pause-aware); otherwise `standing`. |
+| `lib/rideTrack.js` | `splitTrackOnGaps` mirrors §3.2: `kmh < 0` → pause; silence `dt > 180`: `v ≥ 15` & `d > 0.3` → gap, else `dt ≥ 300` → pause; bad time 30 d. Segments carry `kind`. New `trackPauses(track)` → `{count, sec}`. New `rideRecState(ride, now)` → `live` (fix < 15 min) / `standing` / `stuck`. `stuck` when the last fix is older than 3 h (legacy own / server without pause columns), 24 h (legacy rental), 72 h (pause-aware own); a pause-aware **rental** is never `stuck` from age alone while its booking runs (server closes it only when the booking ends): `rideRecState(ride, now, rentalHoldsRide(booking))` — booking known (Mapa a poloha) → `standing` until the booking is returned (+30 min cron grace) / completed / cancelled / 2 days past `end_date`, then `stuck`; booking unknown (list, modal) → `stuck` only after 7 days (`RENTAL_STUCK_SEC`). Any rental whose booking is over but still recording → `stuck` (hint "při dalším úklidu"). Otherwise `standing`. |
 | `pages/TrasyJizdy.jsx` | `RIDE_LIST_COLS` + `pause_sec, pause_aware, trip_id, trip_name` (the legacy fallback list strips them). Badges: `● Nahrává se` (live), `⏸ Stojí od {čas}` (standing), `Záznam visí` (stuck). Labels: "⏱️ Na cestě (bez pauz)" for `duration_min`, "⏸️ Zastávky" for `idle_sec`, new "🛌 Pauzy" `pause_sec`. Badge `🧳 {trip_name}` when set. Filter "Nahrávané" includes standing; sub-filter "Stojí". |
 | `pages/TrasyJizdaModal.jsx` + new `TrasyJizdaEtapy.jsx` | Grid: Ujeto · Čas jízdy (v sedle) · Na cestě (bez pauz) · Zastávky · Pauzy (n×, from `trackPauses`) · Bez signálu · Ø · Max · Nastoupáno · Dny · Body stopy · Start → Konec. Load `stages` with the track; Etapy table (Den, datum, km, v sedle, Ø, max, ⛰, pauzy). Standing box: "Záznam je pozastavený — motorka stojí od {čas} (appka nahrává jen při jízdě)." The "Ukončit záznam" button stays for standing and stuck. |
 | `pages/TrasyJizdaMapa.jsx` | Pause connector: none (≤ 300 m) or dashed blue-grey with tooltip "pauza {od}–{do}"; gaps unchanged |
-| `pages/booking/BookingLiveMap.jsx` | When `is_standing` (or pause-aware with fix ≥ 15 min): "Motorka stojí od {čas} — appka nahrává jen při jízdě; poloha je místo, kde zastavila." No "Záznam visí" while the booking runs, unless stuck per `rideRecState`. Labels as in the list. |
+| `pages/booking/BookingLiveMap.jsx` | When `is_standing` (or pause-aware with fix ≥ 15 min): "Motorka stojí od {čas} — appka nahrává jen při jízdě; poloha je místo, kde zastavila." No "Záznam visí" while the booking runs (pause-aware ride; booking state from RPC `booking_status` + booking `returned_at`/`end_date` via `rentalHoldsRide`); after the booking ended a still-recording ride is "visí". Labels as in the list. |
 | `lib/rideDiag.js` | Labels for actions in §13 |
 
 Velín must tolerate missing columns (42703 fallback) and deploy **together with the SQL** (otherwise paused rentals read as "visí" after 3 h).
@@ -1091,6 +1093,11 @@ All 8 languages are required: natural wording, Czech *tykání*, informal in de/
 | rpChipRec | Nahrávám | Recording |
 | rpChipPaused | Pozastaveno | Paused |
 | rpChipArmed | Čeká na rozjezd | Waiting to ride |
+| rpChipAuto / rpChipNoGps / rpNavArmed (fix:ui-old r1, `translations_ext_47_rides_uifix.dart`) | Auto-pauza / Bez GPS / Připraveno | Auto-pause / No GPS / Ready |
+| rpPhaseGpsLost | Záznam stojí — poloha není dostupná | Recording on hold — location unavailable |
+| rpPauseGps / rpPauseGpsRow / rpA11yPauseGps | Vypnout GPS / Vypnout GPS (ruční pauza) / Vypnout GPS a pozastavit záznam ručně | Turn off GPS / … (manual pause) / … |
+| rpAutoNoAction | Nic nemačkej — jakmile se rozjedeš, nahrávám dál sám. | No need to tap anything — I’ll carry on as soon as you ride off. |
+| rpStopRowPaused | Záznam je pozastavený — klepnutím cestu ukončíš a uložíš. | Recording is paused — tap to end and save the trip. |
 | rpPhaseRiding | Nahrávám jízdu | Recording your ride |
 | rpPhaseArmed | Připraveno — nahrávat začnu, jakmile se rozjedeš | Ready — recording starts as soon as you ride off |
 | rpPhaseAuto | Stojíš — záznam je pozastavený | You've stopped — recording is paused |
@@ -1144,7 +1151,7 @@ All 8 languages are required: natural wording, Czech *tykání*, informal in de/
 | rpStatOnRoad | na cestě (bez pauz) | on the road (excl. breaks) |
 | rpStatPauses | pauzy | breaks |
 | rpStatPausesVal | {n}× · {time} | {n}× · {time} |
-| rpStatDays | dny na cestě | days on the road |
+| rpStatDays | dny na cestě | days on the road | (no longer shown — the days tile shows `rpDaysOne/Few/Many` as the value + caption `rpStatDaysCap` „trvání cesty" / "trip length", fix:ui-old r1) |
 | rpDaysOne / rpDaysFew / rpDaysMany | {n} den / {n} dny / {n} dní | {n} day / {n} days / {n} days |
 | rpRidesOne / rpRidesFew / rpRidesMany | {n} jízda / {n} jízdy / {n} jízd | {n} ride / {n} rides / {n} rides |
 | rpStages | Etapy | Stages |
@@ -1177,7 +1184,7 @@ All 8 languages are required: natural wording, Czech *tykání*, informal in de/
 | rpTripDelete | Smazat cestu | Delete trip |
 | rpTripDeleteOnlyGroup | Jen zrušit sloučení | Only undo the merge |
 | rpTripDeleteAll | Smazat i všechny jízdy | Delete all its rides too |
-| rpTripDeleteQ | Smazat celou cestu? Smažou se všechny její jízdy ({n}) včetně fotek a zastávek a nejde to vrátit. Jestli chceš jen zrušit sloučení, zvol Rozdělit cestu. | Delete the whole trip? All its rides ({n}) incl. photos and stops are deleted for good. To just undo the merge, choose Split trip. |
+| rpTripDeleteQ | Smazat celou cestu? Smažou se všechny její jízdy ({n}) včetně fotek a zastávek a nejde to vrátit. | Delete the whole trip? All its rides ({n}) incl. photos and stops are deleted for good. | (shown only after the sheet that already offers „Jen zrušit sloučení"; when the trip holds the recording ride, `rpDeleteRecordingRentalQ`/`rpDeleteRecordingOwnQ` is appended — fix:ui-old r1) |
 | rpTripMembers | Jízdy v cestě | Rides in this trip |
 | rpTripPartOf | Součást cesty {name} | Part of the trip {name} |
 | rpTripVisibilityOn | Cestu vidí i ostatní jezdci | Other riders can see this trip |
@@ -1418,8 +1425,8 @@ No git writes by agents. Disk: work dirs under `scratchpad/rides/<key>`; delete 
 | # | Decision | Default |
 |---|---|---|
 | D1 | Thresholds: pause after 5 min standing / 3 min walking; resume 2× ≥ 20 km/h | yes (flag-tunable) |
-| D2 | GPS stays on during auto-pause (est. 5–15 % battery per night) | yes; the own-trip guard switches GPS off after 20 h (`long_h`) |
-| D3 | "Home" guard: own trip paused ≥ 3 h within 500 m of its start after ≥ 10 km → GPS off + ask "Pokračovat / Ukončit a uložit" | yes |
+| D2 | GPS stays on during auto-pause (est. 5–15 % battery per night), for rentals AND own trips; stated in the „Jak funguje automatická pauza?“ text | yes; the own-trip guard switches GPS off only after **48 h without contact** (`long_h`, counted from the later of the pause start and the last app open / Pokračovat / stream attach) — §20 |
+| D3 | "Home": own single-stage trip paused ≥ 3 h within 500 m of its start after ≥ 10 km → **notification only** (Android), GPS stays on, departure is recorded hands-free | yes — §20 |
 | D4 | Own trip auto-saved after 72 h without riding; 30-day cap | yes |
 | D5 | 4.1.3 own rides keep 3 h / 36 h; rentals never split for any app | yes |
 | D6 | `duration_min` = time without pauses ("Na cestě") in app and Velín | yes |
@@ -1456,3 +1463,78 @@ No git writes by agents. Disk: work dirs under `scratchpad/rides/<key>`; delete 
 | N "N bodů" / 4000 points | live km/time instead of points; cap §4.3 |
 | N solid line over > 24 h | 30-day bad-time threshold in app, server, Velín |
 | N battery | auto-pause keeps GPS (platform limit); manual pause and home/long guards cancel it |
+
+---
+
+## 20. Amendments 2026-10-29 (fix:logic:r1 — scenario verification)
+
+These override the sections above where they differ. App code: both trees (shared), v2 texts Android only.
+
+1. **Battery guards never lose a riding day** (§6.3 `onTick`, §7.3).
+   - Re-attaching a low-power stream after a guard is NOT possible within the platform: on Android the guard runs in the background, cancelling the stream stops geolocator's location FGS, and Android 12+/14 forbid (re)starting a location FGS from the background (the parked engine is also destroyed 15 s after `keepAlive(false)`); on iOS „při používání“ cannot start location updates from the background. So the guards changed instead:
+   - `home` = **notice only** (`RideEngineStep.homeNotice` → Android `notifyIdle(rpNotifHomeTitle, rpNotifHomeText)`, cancelled by `cancelIdle` once riding resumes / Pokračovat / stop). GPS stays on, the phase stays `autoPaused`, departure resumes hands-free. Only for single-stage trips (`liveStages < 2`), once per pause, log `home_notice`. The engine no longer produces `manualPaused + home` (UI keeps handling it for compatibility).
+   - `long` = detach as before, but default **48 h** (`long_h`; draft 01 flag default must become `"long_h":48` — SQL owner) and counted from `max(pausedSince, guardFrom)`; `guardFrom` = last `onAttach` (stream attach only happens in the foreground), `noteForeground` (every `onAppResumed`) and `resumeManual(now)`.
+   - No guard within 120 s of `guardFrom` (`guardQuietS`), and none while the ring has a fix from the last 120 s with Doppler ≥ 12 km/h or ≥ 100 m from the anchor (`guardMoveM`) — the resume rule decides.
+   - `resumeManual(now)` therefore cannot be undone by the next tick (S5: 941 km lost before).
+2. **Resume rule (b) without Doppler** (§6.3): needs 3 good fixes A→B→C within 60 s, A–C ≥ 300 m, each step 15–250 km/h, C farther from the anchor than B, C ≥ 300 m from the anchor; and it is **disabled** once the session has seen ≥ 3 fixes with Doppler ≥ 12 km/h (`dopplerSeen`, the phone measures speed — Wi-Fi/network fixes never carry speed). Fixes the hotel-night Wi-Fi flips (E3: 45 false resumes). The server-side out-and-back spike rule for 4.1.3 points (A→B→A′ ≤ 120 s, |AB| ≥ 300 m, |AA′| < 50 m → jump) is an SQL follow-up (`_ride_stats_v2` + Dart mirror together, parity vectors).
+3. **Pending decisions use Doppler only with ≥ 3 samples** (`walkMinFixes`): walk = `byDop ? median∈[2,8] : avg ≤ 8`, release = `byDop ? median > 8 : avg > 9`. A single braking sample no longer turns a walk into „slow riding“ (S2-nodop).
+4. **Tail restore** (§6.3 `resume`): only when the segment is ride-like (mean speed or Doppler median > 8 km/h) or leads one way away from the anchor (net displacement ≥ 60 % of its path, `restoreOneWay`). An out-and-back walk is never restored; a 6 km/h jam crawl that moves away still is (D4).
+5. **Clock offset at start** (§5.5): a new start holds fixes (≤ 20 s, ≤ 300) until the first `start_user_trip`/`start_user_ride` attempt finishes (`_clockQueue`, released in `_createServerRide`'s `finally`, also at stop), then processes them with the measured offset; `_applyClock` re-bases the engine attach time (`rebaseAttach`). `cachedFixSlackS` = 150 s. Fixes C3 +7 h (whole ride discarded) and +40 s GPS time (P0 dropped).
+6. **Uploads**: `append_ride_track` in chunks of ≤ 2000 points (loop while ok and points remain, ≤ 100 chunks); the buffer is persisted at most every 30 s / 20 points and always after a flush (also offline), pause/detach, stop. `append_ride_track` and `finish_user_ride` time out after 30 s (`kRideRpcTimeout` → retry / not closed; the server de-duplicates a repeated batch).
+7. **Detach order** (§7.3): `_detachStream()` first, then `unawaited(flush())` — a hanging connection never keeps GPS on; a manual-paused cold start (§7.2) calls `flush()` at once.
+8. **Watcher** (§7.6): `rideActiveBookingId()` skips `Reservation.isGearOnly` (`booking_kind = 'gear'`, new field `bookingKind` parsed from `select *`) — a clothing rental never starts a recording, never ends a paused own trip (`finishOwnForRental`) and never gets manual starts attributed. 4.1.3 cannot be fixed → keep `gear_rental.app_visible = false` until this app ships and the server backstop (`start_user_trip`/`start_user_ride` → `booking_inactive` for gear) is deployed.
+9. **Trips** (§8.2): the time between member rides counts as pause (and as a pause join on the map) only when ≤ 36 h (`kRideTripJoinPauseMaxSec`); a longer gap adds neither time nor count and is drawn as a plain break. `trip.days` (used by every surface) stays the distinct stage/ride days.
+10. **Trip I/O** (§8.3): one result mapping `rideTripResultOf`; container-based `rideTripApplyIn(c, plan, {bookingIds, set})`, `rideTripSetVisibilityIn`, `rideTripDeleteAllIn`; the `WidgetRef` wrappers capture `ProviderScope.containerOf(ref.context)` before the first await. v2 `tripApplyV2`/undo use the same function with their seam (`set: tripSetSeamV2`).
+11. **Texts**: new `rpNotifHomeTitle`/`rpNotifHomeText` (`translations_ext_60_rides_logic.dart`, registered via `translations_ext_47_rides.dart`, both trees); `rpHintAuto` (both trees) and `v2RpHintAuto` (Android) now say that GPS stays on during auto-pause (battery) and that a bus/car/train above 20 km/h can be recorded — tap Pause before such a transfer (D11; the „not near the bike“ heuristic was rejected: it would cut jam crawls and cold-start departures).
+12. **Not changed here (SQL owner)**: own trip offline > 72 h (C5) — preferred fix: `append_ride_track` re-opens an own `pause_aware` trip that the 72 h rule closed (`closed_by = 'stale'`) when the same user sends points newer than its last fix and no other ride is open; the app needs no change for it.
+
+
+## 21. Amendments 2026-10-29 (fix:sql:r1 — SQL drafts)
+
+These override §1–§4, §14 and §16.1 where they differ. SQL only (drafts in `scratchpad/rides/sql/`).
+
+1. **Files / names.** 8 drafts, each depending only on earlier ones: `01` a, `02` b, `03a` c (`_ride_append_core` only), `03b` d (`_ride_auto_name`, `_ride_close`, `_ride_finalize` wrapper, `_ride_json`, `get_public_rides`), **`03c` e (new: `_ride_append_late`, `append_ride_track`, `finish_user_ride`)**, `04` f (+ gear data fix), `05` g, `06` h (optional). Commit names `20261029_user_rides_pause_a…h.sql` — must sort (LC_ALL=C) after `20261023f_faq_gear_rental.sql`; `20261023_…` would sort before `20261023a_…`.
+2. **Close core** (§4.6): `_ride_close(p_ride_id, p_ended_at, p_by text, p_reclose boolean)` holds the old `_ride_finalize` body; `_ride_finalize(id, end)` = `_ride_close(id, end, null, false)` (live `admin_finish_user_ride` keeps calling it). `p_by` → `stats_state.closed_by` (only when `stats_state` is not null — a pre-deploy ride keeps NULL = old stats for Velín and `06`): `user` (finish), `return` (append/finish batch only after the return), `cron` (close_stale), `start` (start_user_trip/start_user_ride closing a stale ride). `p_reclose` = recompute an already closed ride (never deletes; an auto name `DD.MM.YYYY` / range and the `end` point follow the new end).
+3. **`_ride_append_core` no longer closes** (§4.2 step 3): all-after-return → `{booking_ended:true, end_at}`; the caller closes with `'return'`.
+4. **Late points into a closed rental** (§4.4 step 4, §4.5 step 3): `append_ride_track` / `finish_user_ride` on a closed ride call `_ride_append_late`: only a MOTORCYCLE rental (`booking_kind <> 'gear'`) with `returned_at` set, `closed_by in (return, cron, start)`, `now() ≤ returned_at + 7 d`; points go through `_ride_append_core` (dup ≤ last stored ts, after-return grace 30 s / 120 s, bad) and the ride is re-closed with `_ride_close(id, returned_at, closed_by, true)` (end = min(return, last fix + 2 min)). `append_ride_track` still answers `ride_finished` (+ `reason:'booking_ended'` when ≥ 1 point was stored); `finish_user_ride` answers `already_finished` with the new values. Own rides and rides stopped by the rider never take late points. **App side (fix:logic:r2):** the app uploads in chunks of ≤ 2000 points (§20 item 6), so a long offline day arrives as several appends. `_flushChunk`: a chunk answered `ride_finished` + `booking_ended` was stored into that ride (or was all after the return) → it is dropped from the buffer and the NEXT chunk goes to the SAME ride id; only when the buffer is empty, or a chunk comes back `ride_finished` without `reason` (nothing stored), the recorder runs the continuation (→ `start_user_trip` → `booking_inactive`). In the `booking_inactive` branch (continuation, or an offline start after an app restart with a known `rideId`) the recorder first delivers the whole remaining buffer to `_st.rideId` (`_drainEndedRental`: chunks ≤ 2000, response not evaluated — a chunk of duplicates after a lost answer comes back without `reason`, the next one can still be stored; offline → buffer kept, retried by the timer) and only then `_forgetRide()`. Replays: C6 331.2 / 331.6 km; X16 (last day 4×70 min offline, ~3 100 buffered fixes > 2000) 447.3 / 447.5 km (before: 314.1 — the rest of the buffer was dropped after chunk 1).
+5. **Dedup high-water mark** (§4.2 step 2): taken from the last stored ts only when ≤ `now() + 600 s`, advanced only by kept points with ts ≤ `now() + 600 s`; ts > 4 102 444 800 (year 2100) = bad point.
+6. **Armed reset** (§4.2 step 4): additionally `gap_sec < 300` and stored track ≤ 3 points (outer), pre-marker part `gap_sec < 300` (inner).
+7. **Gear-only bookings** (`booking_kind = 'gear'`) are not motorcycle rentals anywhere: `start_user_trip(gear)` → `booking_inactive`; `start_user_ride` pairs (date and id) only `booking_kind <> 'gear'`, an own gear id → `{success:false, error:'booking_inactive'}`; both start RPCs detach an open ride linked to a gear booking (`booking_id = null`); `close_stale_user_rides`, `_ride_append_core`, `finish_user_ride`, `_ride_append_late` ignore a gear booking (own-ride rules, no return cut-off); `04` detaches every ride linked to a gear booking (idempotent `update … set booking_id = null`).
+8. **`get_public_rides`** (same signature): only `not is_recording`, and without `trip_id`, `last_fix_at`, `pause_aware`, `is_recording` (plus `booking_id`, `moto_id` as before).
+9. **Text coordinates**: `_ride_track_cap`, `_ride_close`, `_ride_append_core` and `admin_booking_live_ride` read stored lat/lng only when `jsonb_typeof = 'number'`.
+10. **Backfill (`06`)**: `stats_state = {"backfill":1, "old":{duration_min, idle_sec, gap_sec}}`; revert snippet in the file header (tested, L6).
+11. **Flag default** `ride_autopause.conditions.long_h = 48` (per §20.1).
+12. **Not changed (documented)**: track cap 12 000 / list payload (STATE_PATCH 3b/3d); own trip offline > 72 h re-open (§20.12) is still open.
+13. **Tests** (§16.1): `test_rides.sql` 215 checks (new P, R, S, GK, Q, H3, L6 + closed_by checks), run 2× on a fresh cluster; `run_tests.sh` also checks the gear data fix on a pre-existing ride; `PGD` / `PGPORT_RIDES` select another cluster.
+
+
+## 22. Amendments 2026-10-29 (fix:ui-v2:r1 — v2 look, Android only)
+
+These override §9.2 and §12.2 where they differ.
+
+1. **Toast never covers the dock.** `RecorderScreenV2` keeps `MgDock` in `Scaffold.bottomNavigationBar` (the floating toast sits above it). Toasts of `rideTogglePauseV2` get `lift = MgShellChrome.dockHeight` (`rideToastLiftV2`), so on Trasy / Moje the toast floats above the record dock in the page body. `showMgToast` has an optional `lift` (default 0, backwards compatible).
+2. **Phase words** (`RecPhaseV2`, one mapping for every v2 surface): auto-pause (`rideIsAutoPaused`) = status `v2RpStatusAuto` „STOJÍŠ · AUTO-PAUZA“, chip `v2RpChipAuto` „Auto-pauza“, `auto = true`, tone stays `paused`; manual pause keeps POZASTAVENO / Pozastaveno. GPS lost = status `v2RpStatusNoGps` „POLOHA NEDOSTUPNÁ“, chip `v2RpChipNoGps` „Bez GPS“, title `v2RpPhaseNoGps` (never „Nahrávám“ — nothing is recorded then; Domů row, dock bar, Moje row and the live badge follow the chip).
+3. **Nav chip** (`recNavLabelV2`): REC (riding) · PŘIPRAVENO `v2RpNavArmed` (armed, neon dot) · AUTO-PAUZA (chip upper-case) · PAUZA (manual pause, guards) · BEZ GPS (warn dot).
+4. **CTA while auto-paused**: the recorder's white button reads „VYPNOUT GPS“ (`v2RpGpsOffBtn`, a11y `v2RpA11yGpsOff`) and the pause sheet „Vypnout GPS“ — same action as Pozastavit (manual pause, GPS off); armed / riding keep POZASTAVIT. `recHintV2` for auto-pause = `v2RpHintAutoNow` (nothing to press, GPS on for the move-off, Vypnout GPS saves battery overnight, then Pokračovat).
+5. **GPS chip of the recorder card** (`recGpsChipKeyV2`): riding „Poloha se zaznamenává“ · armed / auto-pause „GPS zapnuté — čeká na rozjezd“ (`v2RpGpsWaiting`) · manual / guards „GPS vypnuté“ · lost „Bez GPS“.
+6. **Trip delete** (v2): when the trip holds the recording ride, the confirm body appends `v2RpTripDeleteRecRental` (rental + auto-record on: recording restarts from now) or `v2RpTripDeleteRecOwn` (recording stops) — same rule as the old look.
+7. **Copy**: `v2RpTripDeleteBody` takes `{n}` (number only: „jízdy (3)“); stat tiles show `recDaysV2` / `recRidesV2` as the value („3 dny“, „5 jízd“) with neutral captions `v2RpStatDays` „trvání cesty“ / `v2RpStatRides` „v této cestě“; de merge wording = „zusammenführen / Zusammenführung“ (as the old-look `rp*` keys), never „Zusammenfassung“.
+8. New keys: `translations_ext_57_v2_rides_g.dart` (8 languages, registered in `translations.dart`).
+
+## 23. Amendments 2026-10-29 (fix:sql:r2 — long offline, nothing lost)
+
+These override §4.4, §4.5, §4.9, §20.12 and §21.4 / §21.12 where they differ. SQL only (drafts in `scratchpad/rides/sql/`); the app needs no change.
+
+1. **Re-open of an own trip closed by the cron** (C5; §20.12 resolved — the marker is `closed_by = 'cron'`, not `'stale'`). New internal `_ride_reopen(p_ride_id uuid, p_points jsonb) returns boolean` (`03c` → `_e`, REVOKE public/anon/authenticated, GRANT service_role; the caller holds `FOR UPDATE`). It re-opens only when ALL hold: `not is_recording`, `pause_aware`, `stats_state->>'closed_by' = 'cron'`, no motorcycle booking (`booking_id` null or a gear booking), `started_at ≥ now() − 30 days`, the user has no other open ride, and the batch has ≥ 1 valid point (numeric lat/lng/ts) with `ts >` last stored ts (last track point when ≤ now + 600 s, else `last_fix_at`) and `ts ≤ now() + 600 s`. Re-open = `is_recording = true`, `ended_at = null`, `stats_state − 'closed_by'`, automatic name (`_ride_auto_name(start, end)`) → `''` (column is NOT NULL DEFAULT ''); a concurrent start (`unique_violation` on `uq_user_rides_recording`) → `false`, nothing changes.
+   - `append_ride_track` on a closed ride: `_ride_reopen` true → `_ride_append_core(...) || {reopened: true}` (normal success keys); else the old path (`_ride_append_late`, `ride_finished`).
+   - `finish_user_ride` with points on a closed ride: `_ride_reopen` true → `_ride_append_core`, then the normal Stop close (`closed_by = user`, normal finish JSON); else `_ride_append_late` / `already_finished` as before.
+   - `_ride_close` moves an existing `end` point to the new end on every close (before: only on re-close), so a re-opened trip keeps exactly one `end` point at its real end.
+   - Never re-opened: Stop (`user`), return / start / admin closes, 4.1.3 rides (not `pause_aware`), rentals (they use `_ride_append_late`), trips started > 30 days ago, batches of only stored / repeated / future points, another user's ride (`ride_not_found` as before).
+2. **No deletion while late points can arrive** (`close_stale_user_rides`, `04` → `_f`): closing a ride < 1 km deletes it, which made the buffered offline points land on `ride_not_found`. Now:
+   - motorcycle rental with `returned_at` set and `distance_km < 1` → not closed while `returned_at > now() − 7 days` (the `_ride_append_late` window; the 60-day cap still applies); afterwards deleted as before;
+   - own `pause_aware` ride with `distance_km < 1` → the 72 h rule does not apply, only the 30-day rule; afterwards deleted as before.
+   - With a ride kept open, the late batch is stored by the normal path (before-return points kept, after-return dropped) and the next cron pass / `booking_ended` batch / Stop closes it with the real km (end ≤ `returned_at`).
+3. **App** (both trees): no change. On the new server a re-openable trip never answers `closed`, so the continuation and the 1 h buffer cut-off (`_kStaleBufferAge`) are not reached; they remain only where the server would reject those points anyway (`ts < started_at − 3600` in `_ride_append_core`). Against the current live server (before the SQL deploy) nothing changes (§14).
+4. **Velín follow-up** (not SQL): `rideAutoCloseHint` says „při dalším úklidu (výpůjčka už skončila…)“ for a returned rental; a returned rental ride < 1 km now stays open up to 7 days (shown as „Záznam visí“ after 30 min) → the hint should say „do 7 dní po vrácení (čeká na body z telefonu bez dat)“ for `distance_km < 1`.
+5. **Tests**: `test_rides.sql` 246 checks run 2× on a fresh cluster (new O1–O10b; S5 now expects the re-open; I2/I3 include `_ride_reopen`); `run_tests.sh` adds the re-open race (competing open ride inserted in an open transaction → no re-open, `ride_finished`, 1 open ride; without it the same batch re-opens). Real-recorder scenarios (`sqlr2/and`, current repo `lib`): C5 own 4 days without data 532.3 / 533.1 km in 1 ride (r1 drafts: 79.8 km, 2 rides); C6b rental offline from the pickup 180.7 / 180.9 km, 1 ride ending at the return (r1: ride deleted, 0 km); X19b app killed at night + riding on after 4 days = 1 trip 210.3 km / 2 days (r1: 2 rides); C6 331.2 / 331.6 km, X6, X7, X16 and scen_b S4–S8 unchanged; Python replays (incl. 4.1.3) 56/57 targets as before.
+6. **Handoff / commit**: migrations are built ONLY from `scratchpad/rides/sql` (mapping §21.1: 01→`20261029_user_rides_pause_a` … 03c→`_e`, 04→`_f`, 05→`_g`, 06→`_h` only with consent); the repo copy `.claude/handoff/rides/sql/`, `STATE_PATCH.md`, `SPEC.md` and `setup.sh` were re-synced from the scratchpad. Check right before the commit: `git ls-tree --name-only origin/main supabase/migrations/ | LC_ALL=C sort | tail -1` must sort before `20261029_` (2026-10-29: `20261023f_faq_gear_rental.sql`).

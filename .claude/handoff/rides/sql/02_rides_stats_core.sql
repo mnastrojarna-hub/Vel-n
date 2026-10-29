@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty (2/7)
+-- MotoGo24 — „Moje jízdy": pauza, auto-pauza, vícedenní cesty (2/8)
 -- Jádro statistik v2 (interní, klient je nevolá):
 --   _ride_prague_night(od, do) — pauza zasahuje do 00:00–05:00 Praha?
 --   _ride_stage_days(stages)   — počet dní cesty z etap
@@ -13,7 +13,8 @@
 --       a body uvnitř se ze stopy vyjmou (trims).
 --   _ride_stats(stopa) — stejný podpis i klíče jako dřív, počítá přes v2.
 --   _ride_track_cap(stopa, max) — stejný podpis; nové prořídnutí podle
---       vzdálenosti (rozestup 20 m · 2^k), drží okraje mezer a značky pauz.
+--       vzdálenosti (rozestup 20 m · 2^k), drží okraje mezer a značky pauz;
+--       souřadnice jen z čísel (staré body s textem místo čísla nespadnou).
 -- Idempotentní (create or replace se stejnými podpisy).
 -- ════════════════════════════════════════════════════════════════════
 
@@ -261,7 +262,7 @@ $$;
 create or replace function public._ride_track_cap(p_track jsonb, p_max integer default 4000)
 returns jsonb language plpgsql immutable set search_path = public as $$
 declare
-  n int; v_len float8; v_d float8; v_acc float8 := 0; i int; v_k int;
+  n int; v_len float8; v_d float8; v_acc float8 := 0; i int; v_k int; v_safe int;
   v_ord int[]; v_step float8[]; v_edge boolean[]; v_keep int[] := '{}'; v_kedge boolean[] := '{}';
 begin
   if jsonb_typeof(p_track) is distinct from 'array' then return '[]'::jsonb; end if;
@@ -269,8 +270,14 @@ begin
   if p_max is null or p_max < 2 or n <= p_max then return p_track; end if;
   -- Jeden průchod: krok (rovinná aproximace stačí na rozestup), okraje
   -- časových skoků > 180 s a značky pauzy (kmh < 0) i s předchůdcem.
+  -- Souřadnice s textem místo čísla (staré / ručně zapsané body) by shodily
+  -- převod → druhý pokus čte jen čísla (běžná stopa tak nic nezpomalí).
+  for v_safe in 0..1 loop
+  begin
   with x as materialized (
-    select e.ord::int ord, (e.pt->>0)::float8 la, (e.pt->>1)::float8 lo,
+    select e.ord::int ord,
+           case when v_safe = 1 and jsonb_typeof(e.pt->0) <> 'number' then null else (e.pt->>0)::float8 end la,
+           case when v_safe = 1 and jsonb_typeof(e.pt->1) <> 'number' then null else (e.pt->>1)::float8 end lo,
            case when jsonb_typeof(e.pt->2) = 'number' then (e.pt->>2)::float8 end ts,
            coalesce((e.pt->>3) like '-%', false) neg
       from jsonb_array_elements(p_track) with ordinality e(pt, ord)
@@ -284,6 +291,11 @@ begin
   z as (select y.ord, y.edge, coalesce(111.195 * sqrt(y.dla * y.dla + y.dlo * y.dlo), 0) step from y)
   select array_agg(z.ord order by z.ord), array_agg(z.step order by z.ord), array_agg(z.edge order by z.ord), sum(z.step)
     into v_ord, v_step, v_edge, v_len from z;
+  exit;
+  exception when invalid_text_representation or numeric_value_out_of_range then
+    if v_safe = 1 then raise; end if;
+  end;
+  end loop;
   n := coalesce(array_length(v_ord, 1), 0);
   if n = 0 then return '[]'::jsonb; end if;
   -- Rozestup 20 m · 2^k: opakované prořídnutí pak bere rovnoměrně každý 2. bod.

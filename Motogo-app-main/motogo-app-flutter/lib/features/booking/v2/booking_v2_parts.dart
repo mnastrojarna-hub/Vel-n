@@ -14,6 +14,7 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 
 /// "3 dny" in the app language.
@@ -35,28 +36,12 @@ String bkNbAmounts(String text) => text
     .replaceAllMapped(RegExp(r'(\d) (?=\d|Kč|CZK|€|EUR|zł|PLN|грн)'), (m) => '${m[1]}\u00A0')
     .replaceAll(RegExp(r'/(?=km|км)'), '/\u2060');
 
-TextPainter _bkPainter(BuildContext context, String text, TextStyle style) => TextPainter(
-      text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
-      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-
 /// Width of the longest unbreakable run of [text] as this context draws
 /// it (font, text scale): a column narrower than this splits a word.
-double bkWordWidth(BuildContext context, String text, TextStyle style) {
-  final tp = _bkPainter(context, text, style);
-  final w = tp.minIntrinsicWidth;
-  tp.dispose();
-  return w;
-}
+double bkWordWidth(BuildContext context, String text, TextStyle style) => mgRunWidths(context, text, style).$1;
 
 /// One-line width of [text] as this context draws it.
-double bkLineWidth(BuildContext context, String text, TextStyle style) {
-  final tp = _bkPainter(context, text, style);
-  final w = tp.maxIntrinsicWidth;
-  tp.dispose();
-  return w;
-}
+double bkLineWidth(BuildContext context, String text, TextStyle style) => mgRunWidths(context, text, style).$2;
 
 /// Large text (system scale over 1.15): rows stack their side columns.
 bool bkLargeText(BuildContext context) => MediaQuery.textScalerOf(context).scale(100) > 115;

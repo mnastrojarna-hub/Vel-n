@@ -1,0 +1,134 @@
+==============================================================================================================
+S1 [NewClient2 @ rides] Den vlastní jízdy se zastávkami (ruční záznam, nová appka)
+   truth: bike 331.7 km, moving 283 min, walk 0.0 km, nights 0, climb 2794 m, car 0.0 km | created 1, appends 210
+   ride Mon 05.10 08:30 → Mon 05.10 15:19 | finish_user_ride | km 331.03 | v sedle 294 min | stání 19 | pauzy 96 | bez sig. 0 | na cestě 313 min | Ø 67.7 | max 99.2 | ⛰ 2299 | etapy 1
+S2 [NewClient2 @ rides] Přes noc v hotelu, telefon leží bez jediného fixu 10 h (ruční záznam vlastní motorky, nová appka)
+   truth: bike 588.3 km, moving 480 min, walk 0.3 km, nights 1, climb 5050 m, car 0.0 km | created 1, appends 350
+   ride Mon 05.10 13:02 → Tue 06.10 10:35 | finish_user_ride | km 587.475 | v sedle 498 min | stání 20 | pauzy 775 | bez sig. 0 | na cestě 518 min | Ø 70.8 | max 98.0 | ⛰ 4290 | etapy 2
+S2d [NewClient2 @ rides] Přes noc v hotelu, telefon leží a Wi-Fi poloha se v pokoji vlní (ruční záznam vlastní motorky, nová appka)
+   truth: bike 587.2 km, moving 479 min, walk 0.3 km, nights 1, climb 5039 m, car 0.0 km | created 1, appends 351
+   ride Mon 05.10 13:02 → Tue 06.10 10:35 | finish_user_ride | km 586.335 | v sedle 497 min | stání 25 | pauzy 771 | bez sig. 0 | na cestě 522 min | Ø 70.8 | max 99.3 | ⛰ 4297 | etapy 2
+S2r [NewClient2 @ rides] Přes noc v hotelu, telefon leží bez jediného fixu 10 h (výpůjčka 2 dny, nová appka)
+   truth: bike 588.3 km, moving 480 min, walk 0.3 km, nights 1, climb 5050 m, car 0.0 km | created 1, appends 350
+   ride Mon 05.10 13:02 → Tue 06.10 10:34 | finish_user_ride | km 587.475 | v sedle 498 min | stání 19 | pauzy 775 | bez sig. 0 | na cestě 517 min | Ø 70.8 | max 98.0 | ⛰ 4290 | etapy 2
+S2rd [NewClient2 @ rides] Přes noc v hotelu, telefon leží a Wi-Fi poloha se v pokoji vlní (výpůjčka 2 dny, nová appka)
+   truth: bike 587.2 km, moving 479 min, walk 0.3 km, nights 1, climb 5039 m, car 0.0 km | created 1, appends 351
+   ride Mon 05.10 13:02 → Tue 06.10 10:34 | finish_user_ride | km 586.335 | v sedle 497 min | stání 24 | pauzy 771 | bez sig. 0 | na cestě 521 min | Ø 70.8 | max 99.3 | ⛰ 4297 | etapy 2
+S3 [NewClient2 @ rides] Výpůjčka 2 dny, appka večer zabitá (iOS force-quit / OEM), ráno otevřená
+   truth: bike 667.0 km, moving 569 min, walk 0.3 km, nights 1, climb 5664 m, car 0.0 km | created 1, appends 426
+   ride Mon 05.10 10:02 → Tue 06.10 13:57 | cron close_stale_user_rides | km 666.011 | v sedle 591 min | stání 32 | pauzy 1052 | bez sig. 0 | na cestě 622 min | Ø 67.6 | max 97.7 | ⛰ 4862 | etapy 2
+S4a [NewClient2 @ rides] 7denní trip vlastní motorkou, Start jen 1. den, noci bez fixu
+   truth: bike 2537.3 km, moving 2164 min, walk 2.3 km, nights 6, climb 21689 m, car 0.0 km | created 1, appends 1594
+   ride Mon 05.10 09:05 → Sun 11.10 15:23 | finish_user_ride | km 2532.516 | v sedle 2235 min | stání 130 | pauzy 6654 | bez sig. 0 | na cestě 2364 min | Ø 68.0 | max 99.9 | ⛰ 18533 | etapy 7
+S4c [NewClient2 @ rides] 7denní trip, Start jen 1. den, v pokoji se poloha vlní (drift)
+   truth: bike 2528.0 km, moving 2156 min, walk 2.3 km, nights 6, climb 21638 m, car 0.0 km | created 1, appends 1595
+   ride Mon 05.10 09:05 → Sun 11.10 15:23 | finish_user_ride | km 2523.057 | v sedle 2230 min | stání 131 | pauzy 6658 | bez sig. 0 | na cestě 2361 min | Ø 67.9 | max 100.0 | ⛰ 18336 | etapy 7
+S5 [NewClient2 @ rides] Výpůjčka 3 dny s vrácením, pak 45 min autem domů s appkou na pozadí
+   truth: bike 836.5 km, moving 713 min, walk 0.9 km, nights 2, climb 7100 m, car 61.4 km | created 1, appends 532
+   ride Mon 12.10 10:03 → Wed 14.10 13:55 | cron close_stale_user_rides | km 834.736 | v sedle 739 min | stání 40 | pauzy 2333 | bez sig. 0 | na cestě 779 min | Ø 67.8 | max 99.5 | ⛰ 6047 | etapy 3
+S5b [NewClient2 @ rides] Vrácení výpůjčky a HNED odjezd autem (appka na pozadí, neotevřená)
+   truth: bike 201.7 km, moving 171 min, walk 0.0 km, nights 0, climb 1697 m, car 61.2 km | created 1, appends 133
+   ride Mon 19.10 09:02 → Mon 19.10 13:47 | ? | km 201.328 | v sedle 178 min | stání 11 | pauzy 96 | bez sig. 0 | na cestě 189 min | Ø 67.9 | max 97.3 | ⛰ 1414 | etapy 1
+S6 [NewClient2 @ rides] Zaparkuje a 40 min chodí pěšky 4 km/h s telefonem (ruční záznam)
+   truth: bike 151.0 km, moving 116 min, walk 2.7 km, nights 0, climb 1211 m, car 0.0 km | created 1, appends 83
+   ride Thu 08.10 10:01 → Thu 08.10 12:43 | finish_user_ride | km 150.737 | v sedle 118 min | stání 3 | pauzy 40 | bez sig. 0 | na cestě 122 min | Ø 76.4 | max 93.4 | ⛰ 1014 | etapy 1
+S8 [NewClient2 @ rides] Odpoledne 3,5 h u jezera (telefon venku v kapse, bez fixu), pak jízda dál (ruční)
+   truth: bike 235.3 km, moving 181 min, walk 0.4 km, nights 1, climb 2059 m, car 0.0 km | created 1, appends 130
+   ride Sat 10.10 09:01 → Sat 10.10 15:49 | finish_user_ride | km 234.964 | v sedle 187 min | stání 5 | pauzy 216 | bez sig. 0 | na cestě 192 min | Ø 75.4 | max 94.5 | ⛰ 1722 | etapy 1
+S9 [NewClient2 @ rides] Výpůjčka 3 dny, v pokoji se poloha vlní (drift), appka žije
+   truth: bike 837.8 km, moving 713 min, walk 0.9 km, nights 2, climb 7140 m, car 0.0 km | created 1, appends 531
+   ride Mon 19.10 10:03 → Wed 21.10 13:55 | cron close_stale_user_rides | km 836.153 | v sedle 739 min | stání 48 | pauzy 2326 | bez sig. 0 | na cestě 787 min | Ø 67.9 | max 99.0 | ⛰ 6072 | etapy 3
+S10 [NewClient2 @ rides] Dojede domů v 17:00 a Stop zmáčkne až v 19:30 (telefon doma bez fixu)
+   truth: bike 124.5 km, moving 95 min, walk 0.1 km, nights 1, climb 1076 m, car 0.0 km | created 1, appends 69
+   ride Tue 20.10 13:01 → Tue 20.10 14:42 | finish_user_ride | km 124.294 | v sedle 98 min | stání 4 | pauzy 0 | bez sig. 0 | na cestě 102 min | Ø 76.3 | max 92.3 | ⛰ 871 | etapy 1
+S7a [OldClient @ rides] Klient 4.1.3: den se zastávkami + 40 min pěšky (ruční záznam)
+   truth: bike 370.1 km, moving 316 min, walk 2.7 km, nights 0, climb 3130 m, car 0.0 km | created 1, appends 278
+   ride Fri 09.10 08:29 → Fri 09.10 16:29 | finish_user_ride | km 369.501 | v sedle 325 min | stání 19 | pauzy 136 | bez sig. 0 | na cestě 344 min | Ø 68.1 | max 98.8 | ⛰ 2637 | etapy 1
+S7b [OldClient @ rides] Klient 4.1.3: výpůjčka 2 dny, noc bez fixu, ráno appku neotevře do 12:00
+   truth: bike 636.6 km, moving 541 min, walk 0.3 km, nights 1, climb 5525 m, car 0.0 km | created 1, appends 445
+   ride Thu 15.10 10:00 → Fri 16.10 13:51 | cron close_stale_user_rides | km 635.691 | v sedle 562 min | stání 31 | pauzy 1078 | bez sig. 0 | na cestě 593 min | Ø 67.9 | max 99.2 | ⛰ 4757 | etapy 2
+S11 [OldClient @ rides] Přes noc v hotelu, telefon leží bez jediného fixu 10 h (ruční záznam vlastní motorky, nová appka)
+   truth: bike 588.3 km, moving 480 min, walk 0.3 km, nights 1, climb 5050 m, car 0.0 km | created 1, appends 267
+   ride Mon 05.10 13:00 → Mon 05.10 20:39 | cron close_stale_user_rides | km 384.398 | v sedle 341 min | stání 21 | pauzy 96 | bez sig. 0 | na cestě 363 min | Ø 67.6 | max 97.9 | ⛰ 2740 | etapy 1
+S11-old [OldClient @ rides_old] Přes noc v hotelu, telefon leží bez jediného fixu 10 h (ruční záznam vlastní motorky, nová appka)
+   truth: bike 588.3 km, moving 480 min, walk 0.3 km, nights 1, climb 5050 m, car 0.0 km | created 1, appends 267
+   ride Mon 05.10 13:00 → Mon 05.10 20:39 | cron close_stale_user_rides | km 385.819 | v sedle 345 min | stání 114 | pauzy 0 | bez sig. 0 | na cestě 459 min | Ø 67.2 | max 97.9 | ⛰ 1002 | etapy None
+S13 [NewClient2 @ rides_old] Přes noc v hotelu, telefon leží bez jediného fixu 10 h (ruční záznam vlastní motorky, nová appka)
+   truth: bike 588.3 km, moving 480 min, walk 0.3 km, nights 1, climb 5050 m, car 0.0 km | created 2, appends 351
+   ride Mon 05.10 13:00 → Mon 05.10 20:36 | cron close_stale_user_rides | km 384.867 | v sedle 341 min | stání 115 | pauzy 0 | bez sig. 0 | na cestě 456 min | Ø 67.7 | max 97.9 | ⛰ 823 | etapy None
+   ride Tue 06.10 07:46 → Tue 06.10 10:38 | finish_user_ride | km 203.314 | v sedle 157 min | stání 15 | pauzy 0 | bez sig. 0 | na cestě 172 min | Ø 77.7 | max 98.0 | ⛰ 552 | etapy None
+S14m [NewClient2 @ rides] Den vlastní jízdy se zastávkami (ruční záznam, nová appka)
+   truth: bike 331.7 km, moving 283 min, walk 0.0 km, nights 0, climb 2794 m, car 0.0 km | created 1, appends 210
+   ride Mon 05.10 08:30 → Mon 05.10 15:19 | finish_user_ride | km 331.03 | v sedle 294 min | stání 19 | pauzy 96 | bez sig. 0 | na cestě 313 min | Ø 67.7 | max 99.2 | ⛰ 2299 | etapy 1
+S14p [NewClient2 @ rides] Den vlastní jízdy se zastávkami (ruční záznam, nová appka)
+   truth: bike 331.7 km, moving 283 min, walk 0.0 km, nights 0, climb 2794 m, car 0.0 km | created 1, appends 210
+   ride Mon 05.10 08:30 → Mon 05.10 15:19 | finish_user_ride | km 331.03 | v sedle 294 min | stání 19 | pauzy 96 | bez sig. 0 | na cestě 313 min | Ø 67.7 | max 99.2 | ⛰ 2299 | etapy 1
+S9-413 [OldClient @ rides] Výpůjčka 3 dny, v pokoji se poloha vlní (drift), appka žije
+   truth: bike 837.8 km, moving 713 min, walk 0.9 km, nights 2, climb 7140 m, car 0.0 km | created 1, appends 1153
+   ride Mon 19.10 10:00 → Wed 21.10 13:55 | ? | km 836.458 | v sedle 739 min | stání 43 | pauzy 2333 | bez sig. 0 | na cestě 783 min | Ø 67.9 | max 99.0 | ⛰ 6060 | etapy 3
+S2d-413 [OldClient @ rides] Přes noc v hotelu, telefon leží a Wi-Fi poloha se v pokoji vlní (ruční záznam vlastní motorky, nová appka)
+   truth: bike 587.2 km, moving 479 min, walk 0.3 km, nights 1, climb 5039 m, car 0.0 km | created 1, appends 552
+   ride Mon 05.10 13:00 → Tue 06.10 10:35 | finish_user_ride | km 586.423 | v sedle 497 min | stání 23 | pauzy 775 | bez sig. 0 | na cestě 520 min | Ø 70.8 | max 99.3 | ⛰ 4303 | etapy 2
+S2r-dev [Client @ rides] Přes noc v hotelu, telefon leží bez jediného fixu 10 h (výpůjčka 2 dny, nová appka)
+   truth: bike 588.3 km, moving 480 min, walk 0.3 km, nights 1, climb 5050 m, car 0.0 km | created 1, appends 373
+   ride Mon 05.10 13:00 → Tue 06.10 10:34 | finish_user_ride | km 587.56 | v sedle 498 min | stání 21 | pauzy 775 | bez sig. 0 | na cestě 519 min | Ø 70.7 | max 98.0 | ⛰ 4296 | etapy 2
+==============================================================================================================
+S1       ok   1 ride                                                  1
+S1       ok   km ±1 % of truth                                        331.03 / 331.7
+S1       FAIL climb 85–105 % of truth                                 2299 / 2794
+S1       ok   idle ≤ short stops + 2 min                              1150 ≤ 1787
+S2       ok   1 ride                                                  1 rides, 1 created
+S2       ok   km ±2 % of truth                                        587.475 / 588.3
+S2       ok   2 stages, days 2                                        2/2
+S2       ok   pause ≥ 9 h                                             46487
+S2d      ok   1 ride                                                  1 rides, 1 created
+S2d      ok   km ±2 % of truth                                        586.335 / 587.2
+S2d      ok   2 stages, days 2                                        2/2
+S2d      ok   phantom km < 0.5                                        586.335 - 587.2
+S2d      ok   idle < 30 min                                           1504
+S2r      ok   1 ride                                                  1 rides, 1 created
+S2rd     ok   1 ride                                                  1 rides, 1 created
+S3       ok   1 ride, no new ride                                     1/1
+S3       ok   night = pause (≥ 9 h)                                   63145
+S4a      ok   1 ride                                                  1/1
+S4a      ok   km ±2 % of truth                                        2532.516 / 2537.3
+S4a      ok   7 stages, days 7                                        7/7
+S4a      ok   no cron close                                           finish_user_ride
+S4c      ok   1 ride                                                  1/1
+S4c      ok   km ±2 % of truth                                        2523.057 / 2528.0
+S4c      ok   7 stages, days 7                                        7/7
+S4c      ok   no cron close                                           finish_user_ride
+S5       ok   rows created = 1                                        1/1
+S5       ok   no car km (km ≤ bike + 0.5)                             834.7 / 836.5 (car 61.4)
+S5       ok   max ≤ bike max                                          99.5 / 99.5
+S5b      ok   rows created = 1                                        1/1
+S5b      ok   no car km (km ≤ bike + 0.5)                             201.3 / 201.7 (car 61.2)
+S5b      ok   max ≤ bike max                                          97.3 / 97.3
+S6       ok   km = bike ±0.5                                          150.737 / 151.0
+S6       ok   Ø = bike ±3                                             76.4 / 78.1
+S8       ok   1 ride                                                  1
+S8       ok   km ±1 %                                                 234.964 / 235.3
+S8       ok   one pause 3.5 h ±10 min (+ walks)                       12970
+S9       ok   1 ride                                                  1/1
+S9       ok   phantom < 1 km                                          836.2 / 837.8
+S9       ok   no 36 h close                                           ['cron close_stale_user_rides']
+S10      ok   ended_at ≤ arrival + 2 min                              115 vs 120
+S10      ok   idle ≈ short stops (≤ +2 min)                           245 / 255
+S7a      ok   1 ride                                                  1
+S7a      ok   walking excluded (km ≤ bike + 0.5)                      369.501 / 370.1 (walk 2.7)
+S7a      ok   only legacy error codes                                 []
+S7b      ok   1 ride (was 2)                                          1
+S7b      ok   only legacy error codes                                 []
+S11      ok   4.1.3 own 2 days: same rides/closures as today          new 1 rides ['cron close_stale_user_rides'] | old 1 rides ['cron close_stale_user_rides']
+S13      ok   old schema: 2 rides (night split), no silent stop       2
+S13      ok   km sum ±2 % of truth                                    588.2 / 588.3
+S14m     ok   clock -2 h: saved, km ±2 %                              1 rides, 331.0 / 331.7
+S14p     ok   clock +7 h: saved, km ±2 %                              1 rides, 331.0 / 331.7
+S9-413   ok   4.1.3 rental 3 drift nights: 1 ride                     1/1
+S9-413   ok   phantom < 1 km (drift = pause, trimmed)                 836.5 / 837.8
+S9-413   ok   nights → pauses, idle < 1 h                             [(139975, 2590)]
+S2d-413  ok   4.1.3 own drift night: phantom < 0.5 km                 586.4 / 587.2
+S2d-413  ok   night → pause ≥ 9 h, idle < 30 min                      46477 / 1385
+S2r-dev  ok   PR #2208 dev build rental 2 days: 1 ride (was 2)        1/1
+REPLAY SUMMARY 56/57 targets met
+exit 0
