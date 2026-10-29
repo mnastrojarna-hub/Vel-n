@@ -10,6 +10,7 @@ import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'profile_fit.dart';
 
 /// Section label of the light Profil page (V22 §7.7 #2): dark eyebrow pill
 /// with the 16 px gutter (the board rendered MŮJ ÚČET flush at x = 0).
@@ -107,23 +108,25 @@ class PfRow extends StatelessWidget {
     };
     final titleColor = tone == PfRowTone.normal ? MgColors.ink : MgColors.err;
     final valueColor = valueWarn ? MgColors.warn : MgColors.lead;
+    final titleStyle = MgType.title.copyWith(
+        fontWeight: tone == PfRowTone.normal ? FontWeight.w700 : FontWeight.w800, color: titleColor);
     final row = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 56),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(children: [
+        child: LayoutBuilder(builder: (context, c) {
+        // A long single word ("Geschäftsbedingungen", 320 dp, large text)
+        // shrinks at most to 80 %; if even that does not fit, the decorative
+        // chevron gives its room to the title (r2: was a 70 % shrink).
+        final room = c.maxWidth - 48 - (trailing != null ? 144 : 0);
+        final showTrail = trail != PfTrail.none &&
+            (!c.maxWidth.isFinite || pfWordsFit(context, title, titleStyle, room - 28 + 0.5, minScale: _minScale));
+        return Row(children: [
           lead,
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              // A long single word ("Geschäftsbedingungen", 320 dp, large
-              // text) scales down instead of breaking in half (verify:render).
-              MgWordFit(
-                minScale: 0.7,
-                child: Text(title,
-                    style: MgType.title.copyWith(
-                        fontWeight: tone == PfRowTone.normal ? FontWeight.w700 : FontWeight.w800, color: titleColor)),
-              ),
+              MgWordFit(minScale: _minScale, child: Text(title, style: titleStyle)),
               if (value != null && value!.isNotEmpty) ...[
                 const SizedBox(height: 2),
                 Row(children: [
@@ -146,12 +149,13 @@ class PfRow extends StatelessWidget {
             const SizedBox(width: 8),
             ConstrainedBox(constraints: const BoxConstraints(maxWidth: 136), child: trailing!),
           ],
-          if (trail != PfTrail.none) ...[
+          if (showTrail) ...[
             const SizedBox(width: 8),
             MgIcon(trail == PfTrail.external ? MgIcons.external : MgIcons.chevronRight,
                 size: 20, color: MgColors.meta),
           ],
-        ]),
+        ]);
+        }),
       ),
     );
     final tappable = Semantics(
@@ -160,6 +164,8 @@ class PfRow extends StatelessWidget {
     );
     return MgFabAvoid(kind: tone == PfRowTone.sos ? MgAvoidKind.sos : MgAvoidKind.tap, child: tappable);
   }
+
+  static const _minScale = 0.8;
 
   Widget _tile(Color bg, Color border, Color fg) => Container(
         width: 36,
