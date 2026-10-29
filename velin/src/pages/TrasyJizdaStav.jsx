@@ -5,7 +5,9 @@ import { fmtSince, rideAutoCloseHint } from '../lib/rideStats'
 //   standing = nahrává se, ale 15+ min bez bodu: nová appka při stání
 //              (oběd, noc) nic neposílá — to je v pořádku, ne závada;
 //   stuck    = bez bodu déle, než by to dávalo smysl (3 h stará appka,
-//              24 h stará appka na výpůjčce, 72 h nová appka) — „visí".
+//              24 h stará appka na výpůjčce, 72 h vlastní cesta nové appky;
+//              výpůjčka nové appky jen po skončení rezervace, bez jejího
+//              stavu — v seznamu — až po 7 dnech) — „visí".
 // „Ukončit záznam" zůstává u obou (stejná cesta jako appka i cron).
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'

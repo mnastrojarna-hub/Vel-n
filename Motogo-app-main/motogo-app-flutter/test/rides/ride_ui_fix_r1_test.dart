@@ -142,6 +142,9 @@ void main() {
       for (final b in [find.byType(TextButton), find.descendant(of: find.byType(AlertDialog), matching: find.byType(ElevatedButton))]) {
         expect(lines(para(b)), 1, reason: lang);
       }
+      // Prázdné pole: celá nápověda („nech prázdné…") bez useknutí.
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
       expect(_badText(tester), isEmpty);
     });
   }

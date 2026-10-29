@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import TrasyJizdaMapa from '../TrasyJizdaMapa'
 import { trackQuality, fmtGap } from '../../lib/rideTrack'
-import { rideRecState, rideCoreStats, rideAutoCloseHint, fmtSince } from '../../lib/rideStats'
+import { rideRecState, rideCoreStats, rideAutoCloseHint, rentalHoldsRide, fmtSince } from '../../lib/rideStats'
 import { RideStatTiles } from '../TrasyJizdaStav'
 import { useMediaQuery } from '../../hooks/useIsMobile'
 
@@ -17,6 +17,8 @@ import { useMediaQuery } from '../../hooks/useIsMobile'
 // nikdy netvrdíme, že zákazník je tam, kde byl před hodinou. Nová appka
 // při stání (oběd, noc) nic neposílá — to je „Stojí od …" (poloha = kde
 // motorka zastavila), ne „Záznam visí"; ten až podle pravidel rideRecState.
+// Výpůjčku nové appky server tichem neuzavírá (jen jejím koncem), takže
+// dokud rezervace běží, stojící motorka nikdy „nevisí" (ani po týdnu).
 //
 // user_rides NENÍ v supabase_realtime publikaci (a tahat celý `track`
 // realtimem by ani nedávalo smysl), takže se dotazujeme pollingem.
@@ -171,7 +173,12 @@ export default function BookingLiveMap({ bookingId, booking }) {
   const recording = !!data.is_recording
   // Jízda k rezervaci = výpůjčka (RPC booking_id nevrací, pravidla „visí" ho potřebují).
   const ride = { ...data, booking_id: bookingId }
-  const recState = rideRecState(ride)
+  // Stav rezervace: RPC (čerstvý při každém dotazu) + vrácení/konec z detailu rezervace.
+  const rental = rentalHoldsRide({
+    status: data.booking_status || booking?.status,
+    returned_at: booking?.returned_at, end_date: booking?.end_date,
+  })
+  const recState = rideRecState(ride, Date.now(), rental)
   // „Visí" = pořád se tváří jako nahrávané, ale bez bodu déle, než dává smysl.
   const stuck = recState === 'stuck'
   // „Stojí" = nahrává se, ale motorka stojí (server `is_standing`, jinak 15+ min bez bodu).
@@ -256,7 +263,7 @@ export default function BookingLiveMap({ bookingId, booking }) {
             <p className="text-xs mb-2" style={{ color: '#991b1b' }}>
               Záznam se pořád tváří jako běžící, ale {fmtGap(ageSec)} nepřišel
               žádný GPS bod. Dokud visí, nemůže zákazníkovi vzniknout další
-              jízda. (Server ho uklidí sám {rideAutoCloseHint(ride)} — tímhle to jde hned.)
+              jízda. (Server ho uklidí sám {rideAutoCloseHint(ride, rental)} — tímhle to jde hned.)
             </p>
             <button onClick={closeStuck} disabled={closing}
               className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[40px]"

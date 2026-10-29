@@ -55,13 +55,18 @@ Future<String?> rideTripNameDialog(BuildContext context, {String? initial, requi
     builder: (c) => AlertDialog(
       backgroundColor: Colors.white,
       title: Text(title, style: const TextStyle(fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900)),
-      content: TextField(
-        controller: ctrl,
-        autofocus: true,
-        maxLength: 120,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(hintText: t(c).tr('rpMergeNameHint'), hintMaxLines: 4),
-        onSubmitted: (v) => Navigator.pop(c, v.trim()),
+      // Prázdné pole ukáže celou nápovědu (i „nech prázdné…" na úzkém
+      // telefonu s velkým písmem); s textem je pole zase jednořádkové.
+      content: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: ctrl,
+        builder: (c, v, _) => TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLength: 120,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(hintText: t(c).tr('rpMergeNameHint'), hintMaxLines: v.text.isEmpty ? 4 : 1),
+          onSubmitted: (v) => Navigator.pop(c, v.trim()),
+        ),
       ),
       actions: [
         // Popisky tlačítek na jeden řádek (širší písmo / velké písmo by je

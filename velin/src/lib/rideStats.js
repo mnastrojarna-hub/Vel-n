@@ -22,18 +22,48 @@ export function rideStatsV2(ride) {
   return !(ride.stats_state === null && !ride.is_recording)
 }
 
-/** Po jak dlouhé době bez bodu už nahrávka „visí" (s). */
-export function rideStuckSec(ride) {
+/** Výpůjčka nové appky, když stav rezervace neznáme (seznam jízd): „visí" až po týdnu bez bodu. */
+export const RENTAL_STUCK_SEC = 7 * 24 * H
+
+/**
+ * Drží server nahrávku výpůjčky ještě otevřenou? Zrcadlí `close_stale_user_rides`:
+ * výpůjčku uzavře jen její konec (vrácení — cron běží po 15 min, proto rezerva
+ * 30 min —, dokončení/zrušení, 2 dny po konci bez vrácení), nikdy ticho přes noc.
+ * @param b rezervace (`status` nebo `booking_status`, `returned_at`, `end_date`)
+ * @returns true (běží) | false (server ji už měl uzavřít) | null (stav neznáme)
+ */
+export function rentalHoldsRide(b, now = Date.now()) {
+  if (!b) return null
+  const ret = b.returned_at ? new Date(b.returned_at).getTime() : NaN
+  if (Number.isFinite(ret)) return now - ret < 1800e3
+  const st = b.booking_status ?? b.status
+  if (st === 'completed' || st === 'cancelled') return false
+  const end = b.end_date ? String(b.end_date).slice(0, 10) : null
+  if (end && end < pragueDay(new Date(now - 24 * H * 1000))) return false
+  return st ? true : null
+}
+
+/**
+ * Po jak dlouhé době bez bodu už nahrávka „visí" (s).
+ * `rental` = rentalHoldsRide(rezervace) tam, kde ji známe (Mapa a poloha).
+ */
+export function rideStuckSec(ride, rental = null) {
   if (!hasPauseColumns(ride)) return 3 * H // server bez pauz uklízí po 3 h
-  if (ride.pause_aware) return 72 * H // nová appka při stání nic neposílá
+  if (ride.booking_id && rental === false) return 0 // výpůjčka skončila, záznam měl být uzavřen
+  if (ride.pause_aware && ride.booking_id) {
+    // Výpůjčku server tichem neuzavře, jen jejím koncem — stojící motorka nevisí.
+    return rental === true ? Infinity : RENTAL_STUCK_SEC
+  }
+  if (ride.pause_aware) return 72 * H // vlastní cesta nové appky (při stání nic neposílá)
   return ride.booking_id ? 24 * H : 3 * H // stará appka: výpůjčka / vlastní
 }
 
 /**
  * Stav běžící nahrávky: null (neběží) | 'live' | 'standing' | 'stuck'.
  * Stáří bodu bere ze serveru (`age_sec`), jinak z `last_fix_at`.
+ * `rental` = rentalHoldsRide(rezervace), pokud ji volající zná.
  */
-export function rideRecState(ride, now = Date.now()) {
+export function rideRecState(ride, now = Date.now(), rental = null) {
   if (!ride?.is_recording) return null
   let age = Number(ride.age_sec)
   if (ride.age_sec == null || !Number.isFinite(age)) {
@@ -41,12 +71,13 @@ export function rideRecState(ride, now = Date.now()) {
     age = Number.isFinite(t) ? Math.max(0, (now - t) / 1000) : Infinity
   }
   if (age < LIVE_SEC) return 'live'
-  return age >= rideStuckSec(ride) ? 'stuck' : 'standing'
+  return age >= rideStuckSec(ride, rental) ? 'stuck' : 'standing'
 }
 
 /** Kdy zaseknutou / stojící nahrávku uzavře server sám (do věty). */
-export function rideAutoCloseHint(ride) {
+export function rideAutoCloseHint(ride, rental = null) {
   if (!hasPauseColumns(ride)) return 'do tří hodin od posledního bodu'
+  if (ride.booking_id && rental === false) return 'při dalším úklidu (výpůjčka už skončila, úklid běží každých 15 min)'
   if (ride.booking_id) return 'po skončení výpůjčky (vrácení motorky)'
   if (ride.pause_aware) return 'po 72 h bez jízdy (nejpozději 30 dní od startu)'
   return 'do tří hodin od posledního bodu'
