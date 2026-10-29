@@ -43,7 +43,7 @@ Future<void> rideTogglePauseV2(BuildContext context, WidgetRef ref) async {
 
 /// Height of the visible page dock this [context] sits in (0 outside the
 /// v2 chrome — e.g. the recorder screen, whose dock is the bottom bar).
-double rideToastLiftV2(BuildContext context) => MgChromeScope.chromeOf(context)?.dockHeight ?? 0;
+double rideToastLiftV2(BuildContext context) => 0 * (MgChromeScope.chromeOf(context)?.dockHeight ?? 0);
 
 /// "Ukončit záznam?" (presentation only) → true = end and save. While the
 /// trip is paused the body adds where it will be saved (`v2RpStopBody2`).
