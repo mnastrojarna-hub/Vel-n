@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
 
@@ -57,12 +58,11 @@ class ResJourneyV2 extends StatelessWidget {
           Text(res.dateRange, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
       ]),
       const SizedBox(height: 12),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        for (var i = 0; i < nodes.length; i++)
-          Expanded(
-            child: MgReveal(
+      LayoutBuilder(builder: (context, c) {
+        Widget cell(int i, bool vertical) => MgReveal(
               index: i,
               child: _NodeCell(
+                vertical: vertical,
                 label: nodes[i].$1,
                 sub: nodes[i].$2,
                 state: stateOf(i),
@@ -74,9 +74,22 @@ class ResJourneyV2 extends StatelessWidget {
                         ? tr.tr('v2ResJDone')
                         : (i == firstOpen ? tr.tr('v2ResJNow') : tr.tr('v2ResJWaiting')),
               ),
-            ),
-          ),
-      ]),
+            );
+        // Celá slova („Повернення", „Devolución" ve čtvrtině 320 dp s velkým
+        // písmem) zmenšená nejvýš na 80 %; když se ani tak nevejdou, cesta
+        // se vykreslí svisle (r2: dřív zmenšení až na 70 %).
+        final cellW = c.maxWidth / nodes.length;
+        final across = !c.maxWidth.isFinite ||
+            nodes.every((n) => mgWordsFit(context, n.$1, _NodeCell.labelStyle, cellW + 0.5, minScale: _NodeCell.minScale));
+        if (!across) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < nodes.length; i++) cell(i, true),
+          ]);
+        }
+        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (var i = 0; i < nodes.length; i++) Expanded(child: cell(i, false)),
+        ]);
+      }),
     ]);
   }
 }
@@ -90,7 +103,9 @@ class _NodeCell extends StatelessWidget {
   final Color? left;
   final Color? right;
   final String a11yState;
+  final bool vertical;
   const _NodeCell({
+    required this.vertical,
     required this.label,
     required this.sub,
     required this.state,
@@ -151,6 +166,44 @@ class _NodeCell extends StatelessWidget {
         );
     }
     final strong = state == _Node.done || state == _Node.current;
+    final labelText = Text(label,
+        textAlign: vertical ? TextAlign.start : TextAlign.center,
+        maxLines: 2,
+        style: labelStyle.copyWith(color: strong ? MgColors.ink : MgColors.meta));
+    final subText = sub == null
+        ? null
+        : Text(sub!,
+            textAlign: vertical ? TextAlign.start : TextAlign.center,
+            maxLines: 2,
+            style: MgType.tab(MgType.micro.copyWith(color: MgColors.link)));
+    if (vertical) {
+      // Svislá cesta: kolečko + spojnice vlevo, popisek vpravo.
+      return Semantics(
+        label: '$label, $a11yState${sub == null ? '' : ', $sub'}',
+        excludeSemantics: true,
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SizedBox(
+              width: 28,
+              child: Column(children: [
+                disc,
+                Expanded(child: Container(width: 2, constraints: const BoxConstraints(minHeight: 8), color: right ?? Colors.transparent)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 5, bottom: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  MgWordFit(minScale: minScale, child: labelText),
+                  if (subText != null) ...[const SizedBox(height: 2), subText],
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      );
+    }
     return Semantics(
       label: '$label, $a11yState${sub == null ? '' : ', $sub'}',
       excludeSemantics: true,
@@ -166,25 +219,12 @@ class _NodeCell extends StatelessWidget {
           ]),
         ),
         const SizedBox(height: 6),
-        // Celá slova („Повернення", „Devolución" ve čtvrtině 320 dp s velkým
-        // písmem): radši menší než rozdělené.
-        MgWordFit(
-          minScale: 0.7,
-          alignment: Alignment.topCenter,
-          child: Text(label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: MgType.micro.copyWith(
-                  fontWeight: FontWeight.w800, color: strong ? MgColors.ink : MgColors.meta, height: 1.15)),
-        ),
-        if (sub != null) ...[
-          const SizedBox(height: 2),
-          Text(sub!,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: MgType.tab(MgType.micro.copyWith(color: MgColors.link))),
-        ],
+        MgWordFit(minScale: minScale, alignment: Alignment.topCenter, child: labelText),
+        if (subText != null) ...[const SizedBox(height: 2), subText],
       ]),
     );
   }
+
+  static const minScale = 0.8;
+  static final labelStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, height: 1.15);
 }

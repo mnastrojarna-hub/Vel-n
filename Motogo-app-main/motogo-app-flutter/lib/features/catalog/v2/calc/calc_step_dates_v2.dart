@@ -82,6 +82,7 @@ class _CalcStepDatesV2State extends ConsumerState<CalcStepDatesV2> {
             : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 AvailabilityCalendar(
                   key: ValueKey('calc-cal-${moto?.id ?? 'any'}'),
+                  dayPrices: moto?.prices,
                   bookedDates: b?.valueOrNull ?? const [],
                   selectedStart: st.start,
                   selectedEnd: st.end,

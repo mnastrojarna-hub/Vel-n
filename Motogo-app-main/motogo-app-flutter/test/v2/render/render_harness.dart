@@ -168,8 +168,14 @@ Rect? _rectOf(WidgetTester t, Element e) {
 
 List<RFinding> _inspect(WidgetTester t, String lang, Size size, {bool first = false}) {
   final (fab, zones) = _fabZones(t);
-  // Map markers at the map edge are clipped by design.
-  final maps = find.byType(FlutterMap).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
+  // Map markers at the map edge are clipped by design — also of a map
+  // scrolled out of view (offstage sliver: the default finder skips it).
+  final maps = find
+      .byType(FlutterMap, skipOffstage: false)
+      .evaluate()
+      .map((e) => e.renderObject)
+      .whereType<RenderObject>()
+      .toSet();
   final navs = find.byType(V2NavBar).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
   final out = inspectFrame(t.binding.renderViews.first, lang, size, fab: fab, avoid: zones, ignore: maps, nav: navs);
   if (first && _env('MG_VERIFY_BACKCHECK') != null) {
@@ -339,7 +345,10 @@ Future<void> _runCase(WidgetTester tester, RenderCase c, String lang, Size size,
     fs.addAll(_inspect(tester, lang, size, first: true));
     await _shot(tester, key, '${c.id}__${lang}__${w}x$h');
     fs.addAll(await _scrollInspect(tester, lang, size, key, '${c.id}__${lang}__${w}x$h'));
-    await tester.pump(const Duration(seconds: 3));
+    // Scroll shots run image encoding in real async; the image cache
+    // manager then leaves a 10 s cleanup timer → drain it, else the test
+    // fails on a pending timer only in scroll-shot mode.
+    await tester.pump(Duration(seconds: _env('MG_VERIFY_SCROLLSHOTS') != null ? 11 : 3));
     if (c.end != null) await c.end!(tester);
   } finally {
     FlutterError.onError = orig;

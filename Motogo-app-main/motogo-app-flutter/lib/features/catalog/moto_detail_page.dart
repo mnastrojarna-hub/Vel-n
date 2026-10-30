@@ -10,7 +10,6 @@ import '../../core/router.dart';
 import '../booking/booking_entry.dart';
 import '../booking/booking_models.dart' show BookingDraft;
 import '../booking/booking_provider.dart' show bookingDraftProvider;
-import '../booking/v2/booking_carry_v2.dart' show draftDatesFor, followDraftDates;
 import 'catalog_provider.dart';
 import 'moto_model.dart';
 import 'widgets/availability_calendar.dart';
@@ -26,7 +25,7 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
-import 'v2/catalog_date_sheet_v2.dart' show catClearDates, catSetDates;
+import 'v2/detail/detail_dates_carry_v2.dart';
 import 'v2/detail/moto_detail_view_v2.dart';
 
 /// Detail content for a single motorcycle.
@@ -61,11 +60,8 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
     _pageCtrl = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final filter = ref.read(catalogFilterProvider);
       // v2: termín rozpracované rezervace TÉTO motorky má přednost (2026-10-22).
-      final carried = MgV2.peek(context) ? draftDatesFor(ref, widget.motoId) : null;
-      final s = carried?.$1 ?? filter.startDate;
-      final e = carried?.$2 ?? filter.endDate;
+      final (s, e) = detailStartDates(context, ref, widget.motoId);
       if (s != null && e != null) {
         setState(() {
           _selStart = s;
@@ -78,7 +74,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
 
   /// v2: termín změněný ve formuláři („Změnit“) se propíše do detailu pod ním.
   void _followDraftDates(BookingDraft? prev, BookingDraft next) {
-    final r = followDraftDates(prev, next, widget.motoId);
+    final r = detailFollowDraft(prev, next, widget.motoId);
     if (r != null && (r.$1 != _selStart || r.$2 != _selEnd)) _pickRange(r.$1, r.$2);
   }
 
@@ -127,14 +123,12 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
   /// dvakrát“). Jen začátek (jednodenní výběr) zůstává v detailu.
   void _pickRange(DateTime s, DateTime e) {
     _onCalendarRange(s, e);
-    final f = ref.read(catalogFilterProvider);
-    if (f.startDate != s || f.endDate != e) catSetDates(ref, s, e);
+    detailShareRange(ref, s, e);
   }
 
   void _pickReset() {
     _onCalendarReset();
-    final f = ref.read(catalogFilterProvider);
-    if (f.startDate != null || f.endDate != null) catClearDates(ref);
+    detailShareReset(ref);
   }
 
   /// REZERVOVAT — jen začátek = jednodenní rezervace (PM-3).

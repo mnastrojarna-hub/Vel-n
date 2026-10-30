@@ -19,8 +19,13 @@ class AvailabilityCalendar extends StatefulWidget {
   final bool readOnly;
   final bool showLegend;
 
+  /// Ceník motorky po dnech — jen v2 vzhled ukáže cenu pod volným dnem
+  /// (jen zobrazení, výpočet ceny beze změny); starý vzhled ji ignoruje.
+  final DayPrices? dayPrices;
+
   const AvailabilityCalendar({
     super.key,
+    this.dayPrices,
     this.bookedDates = const [],
     this.selectedStart,
     this.selectedEnd,
@@ -184,6 +189,7 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         onDayTap: _onDayTap,
         onPrevMonth: _prevMonth,
         onNextMonth: _nextMonth,
+        dayPrices: widget.dayPrices,
       );
     }
     final daysInMonth = DateTime(_year, _month + 1, 0).day;

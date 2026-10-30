@@ -16,6 +16,8 @@ import 'sos_location.dart';
 import 'sos_provider.dart';
 import 'sos_report_sheet.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// SOS main screen — mirrors s-sos from templates-res-sos.js.
 /// Shows incident type selection, active incident banner, contact info.
@@ -27,7 +29,7 @@ class SosReportScreen extends ConsumerWidget {
     final activeAsync = ref.watch(activeSosProvider);
 
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -37,14 +39,14 @@ class SosReportScreen extends ConsumerWidget {
               // Header
               Row(
                 children: [
-                  MgBackTap(
+                  mgV1Back(context, onTap: () => context.backOr(Routes.home), style: MgBackStyle.light, v1: MgBackTap(
                     onTap: () => context.backOr(Routes.home),
                     child: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
                       child: const Center(child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black))),
                     ),
-                  ),
+                  )),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

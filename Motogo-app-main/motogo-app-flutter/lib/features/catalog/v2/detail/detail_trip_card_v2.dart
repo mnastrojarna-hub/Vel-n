@@ -186,6 +186,7 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
                   Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
                   const SizedBox(height: 8),
                   AvailabilityCalendar(
+                    dayPrices: w.moto.prices,
                     bookedDates: b.valueOrNull ?? [],
                     selectedStart: w.selStart,
                     selectedEnd: w.selEnd,

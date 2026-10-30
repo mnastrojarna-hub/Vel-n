@@ -13,6 +13,8 @@ import 'sos_provider.dart';
 import '../../core/currency.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// SOS detail / done screen — mirrors s-sos-done from templates-res-sos3.js.
 /// Shows contextual done view based on SosDoneType, or full detail with timeline.
@@ -61,7 +63,7 @@ class SosDetailScreen extends ConsumerWidget {
     final config = _doneConfig(context, type, model, paid);
 
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -286,7 +288,7 @@ class SosDetailScreen extends ConsumerWidget {
     };
 
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -295,7 +297,7 @@ class SosDetailScreen extends ConsumerWidget {
             children: [
               // Header
               Row(children: [
-                MgBackTap(
+                mgV1Back(context, onTap: () => context.backOr(Routes.reservations), style: MgBackStyle.light, v1: MgBackTap(
                   onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green,
@@ -303,7 +305,7 @@ class SosDetailScreen extends ConsumerWidget {
                     child: const Center(child: Text('←',
                         style: TextStyle(fontSize: 18,
                             fontWeight: FontWeight.w900, color: Colors.black)))),
-                ),
+                )),
                 const SizedBox(width: 12),
                 Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start, children: [

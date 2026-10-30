@@ -34,8 +34,12 @@ class BookingDateCardV2 extends StatelessWidget {
   final VoidCallback onReset;
   final VoidCallback onRetryBooked;
 
+  /// Bike's list price per weekday shown under free days (display only).
+  final DayPrices? dayPrices;
+
   const BookingDateCardV2({
     super.key,
+    this.dayPrices,
     required this.start,
     required this.end,
     required this.hasDates,
@@ -78,6 +82,7 @@ class BookingDateCardV2 extends StatelessWidget {
               if (b != null && b.isLoading && !b.hasValue)
                 const Padding(padding: EdgeInsets.only(bottom: 8), child: TripAvailabilityBanner(loading: true)),
               AvailabilityCalendar(
+                dayPrices: dayPrices,
                 bookedDates: b?.valueOrNull ?? [],
                 selectedStart: start,
                 selectedEnd: end,

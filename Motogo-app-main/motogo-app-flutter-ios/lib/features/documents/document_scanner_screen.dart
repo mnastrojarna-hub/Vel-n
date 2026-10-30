@@ -696,21 +696,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     }
   }
 
-  /// Režim „doplnit chybějící“: plán podle stavu dokladů. Moje doklady
-  /// (odkud se sem jde) ho mají načtený — sdílí se, nic se nevolá znovu.
+  /// Režim „doplnit chybějící“: plán podle stavu dokladů ([loadDocScanPlan]).
   Future<void> _loadPlan() async {
-    DocsScreenStatus? status;
-    final keep = ref.listenManual(docsScreenStatusProvider, (_, __) {});
-    try {
-      status = await ref.read(docsScreenStatusProvider.future)
-          .timeout(const Duration(seconds: 20));
-    } catch (e) {
-      debugPrint('[DocScan] docs status for scan plan failed: $e');
-    } finally {
-      keep.close();
-    }
+    final plan = await loadDocScanPlan(ref, widget.scanMode);
     if (!mounted) return;
-    final plan = resolveDocScanPlan(widget.scanMode, status);
     setState(() {
       _planLoading = false;
       _only = plan.only;

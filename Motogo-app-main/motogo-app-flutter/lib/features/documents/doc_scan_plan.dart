@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'docs_gate_provider.dart';
 
 /// Režimy skeneru dokladů (`/docs/scan?mode=`):
@@ -80,4 +83,21 @@ bool docsNothingUploaded(DocsScreenStatus v) {
   final g = v.gate;
   if (g == null) return !v.hasIdOrPassport && !v.hasLicense;
   return !g.idFront && !g.idBack && !g.passport && !g.dlFront && !g.dlBack;
+}
+
+/// Plán režimu „doplnit chybějící“ podle stavu dokladů. Moje doklady
+/// (odkud se do skeneru jde) ho mají načtený — sdílí se, nic se nevolá
+/// znovu; stav nejde zjistit (20 s / chyba) → bezpečná záloha z
+/// [resolveDocScanPlan] (celý doklad).
+Future<DocScanPlan> loadDocScanPlan(WidgetRef ref, String? mode) async {
+  DocsScreenStatus? status;
+  final keep = ref.listenManual(docsScreenStatusProvider, (_, __) {});
+  try {
+    status = await ref.read(docsScreenStatusProvider.future).timeout(const Duration(seconds: 20));
+  } catch (e) {
+    debugPrint('[DocScan] docs status for scan plan failed: $e');
+  } finally {
+    keep.close();
+  }
+  return resolveDocScanPlan(mode, status);
 }

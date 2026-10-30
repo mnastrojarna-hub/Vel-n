@@ -160,6 +160,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
         reveal(KeyedSubtree(
           key: _dateKey,
           child: BookingDateCardV2(
+            dayPrices: w.moto.prices,
             start: d.startDate,
             end: d.endDate,
             hasDates: w.hasDates,

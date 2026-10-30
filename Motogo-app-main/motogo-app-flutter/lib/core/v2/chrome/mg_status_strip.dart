@@ -100,7 +100,9 @@ class MgStatusStrip extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 52),
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
       decoration: BoxDecoration(
-        color: MgColors.night.withValues(alpha: 0.95),
+        // Solid like MgDock (r2): a 95 % fill without a backdrop blur let the
+        // page text underneath ghost through the strip.
+        color: MgColors.night,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: MgColors.neonA(0.3)),
         boxShadow: [BoxShadow(color: MgColors.black(0.28), blurRadius: 18, spreadRadius: -6, offset: const Offset(0, 8))],

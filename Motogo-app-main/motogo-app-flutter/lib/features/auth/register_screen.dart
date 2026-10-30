@@ -13,6 +13,8 @@ import 'widgets/toast_helper.dart';
 import '../../core/widgets/mg_back.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/widgets/error_feedback.dart' show confirmDiscard;
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// 3-step registration — mirrors auth-register.js (regStep 1/2/3).
 class RegisterScreen extends StatefulWidget {
@@ -406,7 +408,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildScaffold(BuildContext context) {
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: Column(
           children: [
@@ -415,7 +417,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  MgBackTap(
+                  mgV1Back(context, onTap: _back, style: MgBackStyle.light, v1: MgBackTap(
                     onTap: _back,
                     child: PressableScale(
                       pressedScale: 0.88,
@@ -440,7 +442,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     ),
-                  ),
+                  )),
                   const SizedBox(width: 10),
                   Expanded(
                     child: FittedBox(

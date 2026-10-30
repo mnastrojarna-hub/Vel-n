@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_calendar.dart';
+import '../moto_model.dart' show DayPrices;
 
 /// v2 look of `AvailabilityCalendar` (V-seam): the SAME State owns the
 /// month, the selection step and every tap (`_onDayTap` with its occupied-
@@ -23,7 +24,13 @@ class AvailabilityCalendarV2View extends StatelessWidget {
   final VoidCallback onPrevMonth;
   final VoidCallback onNextMonth;
 
+  /// Bike's list price per weekday (V22 §3.2: 10/700 under every free
+  /// day) — display only, the pricing engine is untouched. Null = no bike
+  /// (date filter of the list) → no prices.
+  final DayPrices? dayPrices;
+
   const AvailabilityCalendarV2View({
+    this.dayPrices,
     super.key,
     required this.year,
     required this.month,
@@ -52,12 +59,28 @@ class AvailabilityCalendarV2View extends StatelessWidget {
     return TripDayState(
       date: d,
       kind: kind,
+      price: _price(d),
       selected: tripSelOf(d, start, end),
       today: isToday(d),
       pendingStart: step == 2 && end == null && start != null && tripSameDay(d, start!),
       enabled: !readOnly && !past && !occupied,
     );
   }
+
+  /// "3 514" (no-break group space; TripDayState hides it on non-free days).
+  String? _price(DateTime d) {
+    final v = dayPrices?.forWeekday(d.weekday) ?? 0;
+    if (v <= 0) return null;
+    final s = v.round().toString();
+    final b = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) b.write('\u00A0');
+      b.write(s[i]);
+    }
+    return b.toString();
+  }
+
+  bool get _hasPrices => dayPrices != null && dayPrices!.cheapest > 0;
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +110,12 @@ class AvailabilityCalendarV2View extends StatelessWidget {
               TripLegendKind.pending,
             ])
           : null,
-      note: helper == null ? null : TripCalendarNote(helper),
+      note: !_hasPrices
+          ? (helper == null ? null : TripCalendarNote(helper))
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+              if (helper != null) ...[TripCalendarNote(helper), const SizedBox(height: 6)],
+              TripCalendarNote(tr.tr('v2CalPriceNote')),
+            ]),
     );
   }
 }
