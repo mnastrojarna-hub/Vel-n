@@ -40,6 +40,12 @@ class FakeServer extends RideServerSeam {
   /// Vrácené výpůjčky (epoch s): body po vrácení (+30 s) server zahodí;
   /// `start_user_trip_from` s prvním bodem před vrácením jízdu založí zpětně.
   final Map<String, double> returns = {};
+  /// Převzetí výpůjček (epoch s): `start_user_trip_from` začne novou jízdu
+  /// výpůjčky nejdřív 10 min před ním (jako server).
+  final Map<String, double> pickups = {};
+  /// Výpůjčky skončené jinak než vrácením (SOS výměna → dokončená).
+  final Set<String> ended = {};
+  int rentalChecks = 0;
   final List<FakeRide> rides = [];
   int tripCalls = 0, legacyCalls = 0, appendCalls = 0;
   double Function() now = () => 0;
@@ -52,6 +58,8 @@ class FakeServer extends RideServerSeam {
   }
 
   FakeRide byId(String id) => rides.firstWhere((r) => r.id == id);
+
+  static DateTime _at(double s) => DateTime.fromMillisecondsSinceEpoch((s * 1000).round(), isUtc: true);
 
   FakeRide _open(String? booking) {
     final o = openRide;
@@ -76,8 +84,9 @@ class FakeServer extends RideServerSeam {
     if (o != null && o.booking == bookingId) {
       return RideTripStart(RideTripStartKind.ok, id: o.id, resumed: true, bookingId: bookingId, distanceKm: o.km);
     }
-    final r = _open(bookingId);
-    return RideTripStart(RideTripStartKind.ok, id: r.id, bookingId: bookingId, serverNow: now());
+    final r = _open(bookingId)..startedAt = now();
+    return RideTripStart(RideTripStartKind.ok,
+        id: r.id, bookingId: bookingId, serverNow: now(), startedAt: _at(r.startedAt!));
   }
 
   @override
@@ -96,8 +105,18 @@ class FakeServer extends RideServerSeam {
     if (o != null && o.booking == bookingId) {
       return RideTripStart(RideTripStartKind.ok, id: o.id, resumed: true, bookingId: bookingId, distanceKm: o.km);
     }
-    final r = _open(bookingId)..startedAt = firstTs;
-    return RideTripStart(RideTripStartKind.ok, id: r.id, bookingId: bookingId, serverNow: now());
+    final pk = bookingId == null ? null : pickups[bookingId];
+    final st = pk != null && firstTs < pk - 600 ? pk - 600 : firstTs;
+    final r = _open(bookingId)..startedAt = st;
+    return RideTripStart(RideTripStartKind.ok,
+        id: r.id, bookingId: bookingId, serverNow: now(), startedAt: _at(st));
+  }
+
+  @override
+  Future<bool?> rentalEnded(String bookingId) async {
+    rentalChecks++;
+    if (offline) return null;
+    return returns.containsKey(bookingId) || ended.contains(bookingId);
   }
 
   /// Úklid (cron 72 h): otevřenou jízdu uzavře; vlastní cestu nová data

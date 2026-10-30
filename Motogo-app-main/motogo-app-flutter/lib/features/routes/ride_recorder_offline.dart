@@ -35,6 +35,7 @@ extension _RideRecOffline on RideRecorderNotifier {
       await p.remove(kRideRecIdKey);
       if (!keepBuffer) await p.remove(kRideRecBufKey);
       await p.remove(kRideRecManualKey);
+      await p.remove(kRideStopReqKey);
     } catch (_) {}
     await RideSessionMeta.clear();
     _ref.invalidate(myRidesProvider);

@@ -8,6 +8,7 @@ import 'translations_ext_47_rides_trips_c.dart';
 import 'translations_ext_47_rides_trips_d.dart';
 import 'translations_ext_47_rides_uifix.dart';
 import 'translations_ext_60_rides_logic.dart';
+import 'translations_ext_62_rides_r4.dart';
 
 /// Záznam jízd (pauza, auto-pauza, cesty) — všechny klíče `rp*` v jedné
 /// mapě, aby `translations.dart` potřeboval jediný řádek (oba stromy appky).
@@ -23,6 +24,7 @@ final Map<String, Map<String, String>> translationsExt47Rides = () {
     translationsExt47RidesTripsC,
     translationsExt47RidesTripsD,
     translationsExt60RidesLogic,
+    translationsExt62RidesR4,
     translationsExt47RidesUiFix,
   ]) {
     part.forEach((lang, map) => out.putIfAbsent(lang, () => {}).addAll(map));

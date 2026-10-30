@@ -70,7 +70,7 @@ extension _RideRecPause on RideRecorderNotifier {
       return;
     }
     // RUČNÍ jízdu po restartu nikdo jiný neobnoví (hlídač řeší jen výpůjčky).
-    if (manual && await RideRecorderNotifier.hasLocationPermission()) {
+    if (manual) {
       final e = _newEngine(s?.booking == null);
       if (s != null) {
         e.restore(phase: s.phase, reason: s.reason, since: s.since, anchor: s.anchor,
@@ -79,9 +79,20 @@ extension _RideRecPause on RideRecorderNotifier {
         e.restore(phase: RidePhase.autoPaused); // starší build bez relace
       }
       _engine = e;
-      // Vlastní cesta stojí od včerejška a víc (zapomenutý Stop?) → GPS jen
-      // na ~1 min (jede-li jezdec právě teď, rozhodne rozjezd), pak vypnout
-      // a zeptat se „Pokračovat v cestě / Ukončit a uložit".
+      if (!await RideRecorderNotifier.hasLocationPermission()) {
+        // Poloha vypnutá / odebraná (třeba přes noc): cesta běží dál, jen bez
+        // GPS — UI ukáže „poloha nedostupná"; po zapnutí polohy a návratu do
+        // appky se stream připojí sám. NIKDY ji tím neukončit (rozdělila by se).
+        _st = _st.copyWith(recording: true, gpsLost: true);
+        _syncPhase(log: false);
+        _watchService();
+        rideLog('restore_no_location', data: {'ride': id, 'phase': e.phase.name});
+        unawaited(flush());
+        return;
+      }
+      // Vlastní cesta stojí od včerejška a víc → po ~1 min GPS (jede-li
+      // jezdec právě teď, rozhodne rozjezd) připomenout; GPS vypne a zeptá
+      // se až pojistka po 48 h (zapomenutý Stop).
       final idle = e.decideIdle(_nowEpoch());
       await _ensurePreciseOnIos();
       _attachStream('restore');
@@ -117,9 +128,10 @@ extension _RideRecPause on RideRecorderNotifier {
     }
     if (st.homeNotice) _notifyHome();
     if (st.phaseChanged) _syncPhase();
-    if (st.idle) {
-      // Jezdec appku právě otevřel → hláška (notifikace jen, když už appku
-      // zase zavřel).
+    if (st.remind) _remindIdle();
+    if (st.detach && _engine?.reason == RidePauseReason.long) {
+      // Pojistka vypnula GPS (při otevření i na pozadí) → po otevření appky
+      // hláška „Pokračovat v cestě / Ukončit" (notifikace jen mimo popředí).
       final since = _st.pausedSince;
       _setNotice('rpTripIdleAsk', {'date': rideShortDate(since ?? rideRecorderClock())});
     }
@@ -158,6 +170,21 @@ extension _RideRecPause on RideRecorderNotifier {
     final text = rideTrOpt(tr, 'rpNotifHomeText');
     if (title == null || text == null) return;
     _homeNotified = true;
+    unawaited(RideKeepAlive.notifyIdle(title, text));
+  }
+
+  /// Vlastní cesta stojí ≥ 20 h a jezdec otevřel appku: jen připomenout —
+  /// GPS běží dál a rozjezd se nahraje sám (vícedenní cesta); hotovou cestu
+  /// ať ukončí. Android notifikace i v popředí (zavře-li appku hned), zmizí
+  /// po rozjezdu.
+  void _remindIdle() {
+    final date = rideShortDate(_st.pausedSince ?? rideRecorderClock());
+    _setNotice('rpTripIdleRemind', {'date': date});
+    final tr = AppTranslations.of(_lang());
+    final title = rideTrOpt(tr, 'rpNotifRemindTitle', {'date': date});
+    final text = rideTrOpt(tr, 'rpNotifRemindText');
+    if (title == null || text == null) return;
+    _homeNotified = true; // zruší ji rozjezd (`_syncPhase`)
     unawaited(RideKeepAlive.notifyIdle(title, text));
   }
 

@@ -36,6 +36,7 @@ extension _RideRecServer on RideRecorderNotifier {
     final api = _api;
     final booking = _st.bookingId;
     RideStart? started;
+    DateTime? srvStart;
     var proto = 'legacy';
     final nowS = rideRecorderClock().millisecondsSinceEpoch / 1000;
     // Start offline (zahraničí bez dat, hotelová Wi-Fi až večer): jízda
@@ -52,6 +53,7 @@ extension _RideRecServer on RideRecorderNotifier {
         case RideTripStartKind.ok:
           _setCaps(true);
           started = (id: r.id!, resumed: r.resumed, bookingId: r.bookingId);
+          srvStart = r.startedAt;
           proto = 'trip';
           _applyClock(r.clockOffset);
           if (r.resumed) {
@@ -67,12 +69,16 @@ extension _RideRecServer on RideRecorderNotifier {
         case RideTripStartKind.bookingInactive:
           if (_continuation) {
             // Výpůjčka skončila (vrácení) → žádná jízda po vrácení motorky.
-            // Body, které ještě nedošly, nejdřív do TÉŽE jízdy.
+            // Body, které ještě nedošly, nejdřív do TÉŽE jízdy. Body po jejím
+            // konci si ale nechat: mohou patřit DALŠÍ výpůjčce (SOS výměna
+            // motorky bez signálu) — vezme si je její start (`_takeCarry`).
+            final snap = List<List<double>>.from(_buffer);
             final late = await _drainEndedRental();
             if (late == null) return false; // offline → znovu časovačem
             rideLog('ride_continue_no_booking', data: {'ride': _contFrom, 'booking': booking, 'late': late});
             _continuation = false;
             await _forgetRide();
+            _keepCarry(snap, booking);
             return false;
           }
           _inactiveBooking = booking;
@@ -90,6 +96,7 @@ extension _RideRecServer on RideRecorderNotifier {
             _abortStart = true; // body uložené jízdy doručí Stop hlídače
           } else {
             // Start offline (restart appky): body uložené jízdy doručit.
+            final snap = List<List<double>>.from(_buffer);
             final late = await _drainEndedRental();
             if (late == null) return false;
             if (late > 0) rideLog('ride_continue_no_booking', data: {'ride': _st.rideId, 'booking': booking, 'late': late});
@@ -103,6 +110,7 @@ extension _RideRecServer on RideRecorderNotifier {
               });
             }
             await _forgetRide();
+            _keepCarry(snap, booking);
           }
           return false;
         case RideTripStartKind.notAuthenticated:
@@ -145,9 +153,12 @@ extension _RideRecServer on RideRecorderNotifier {
       final n0 = _buffer.length;
       _buffer.removeWhere((p) => p.length > 2 && p[2] < cutoff);
       if (_buffer.length < n0) rideLog('buffer_stale_cut', data: {'n': n0 - _buffer.length, 'cont': wasCont});
+      _cutCarried(srvStart);
       _recomputeMax();
       await _persistBuffer();
       _resetLive();
+    } else {
+      _cutCarried(srvStart);
     }
     try {
       final p = await SharedPreferences.getInstance();
@@ -370,6 +381,7 @@ extension _RideRecServer on RideRecorderNotifier {
         await _detachStream();
         _st = _st.copyWith(recording: false);
         _stopFailed = true;
+        await _saveStopReq();
         _armStopRetry();
         return null;
       }
@@ -391,6 +403,7 @@ extension _RideRecServer on RideRecorderNotifier {
         await _detachStream();
         _st = _st.copyWith(recording: false);
         _stopFailed = true;
+        await _saveStopReq(); // přežije zabití appky (jinak by se jízda znovu rozjela)
         _armStopRetry();
         return null;
       }
@@ -410,6 +423,7 @@ extension _RideRecServer on RideRecorderNotifier {
         await p.remove(kRideRecIdKey);
         await p.remove(kRideRecBufKey);
         await p.remove(kRideRecManualKey);
+        await p.remove(kRideStopReqKey);
       } catch (_) {}
       await RideSessionMeta.clear();
       unawaited(RideKeepAlive.cancelIdle());

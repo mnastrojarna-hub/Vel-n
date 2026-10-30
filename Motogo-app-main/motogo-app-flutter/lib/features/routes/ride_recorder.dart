@@ -27,6 +27,7 @@ part 'ride_recorder_stream.dart';
 part 'ride_recorder_server.dart';
 part 'ride_recorder_pause.dart';
 part 'ride_recorder_offline.dart';
+part 'ride_recorder_handoff.dart';
 
 /// Záznam jízdy — automaticky během výpůjčky („Moje jízdy") i ručně
 /// („Zaznamenat vlastní jízdu").
@@ -55,6 +56,9 @@ const String kRideRecBufKey = 'mg_ride_rec_buf'; // neodeslané GPS body
 /// Rozjetá nahrávka je RUČNÍ (vlastní motorka) — hlídač ji pak neukončí jen
 /// proto, že zákazník nemá běžící rezervaci.
 const String kRideRecManualKey = 'mg_ride_rec_manual';
+/// Jezdec dal Ukončit, server to nevzal (offline) — po restartu appky se
+/// jízda NErozjede, jen se dál zkouší uložit.
+const String kRideStopReqKey = 'mg_ride_stop_req';
 
 const int _kFlushPoints = 20; // dávka bodů
 /// Nejvýš tolik bodů v jednom `append_ride_track` (týden offline = desítky
@@ -152,7 +156,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   DateTime? _clockWaitUntil;
   int _bufDirty = 0; // body přidané od posledního uložení dávky
   DateTime? _persistAt;
-  bool _homeNotified = false; // ukázané upozornění „jsi u startu cesty"
+  /// Ukázaná notifikace „jsi u startu cesty" / „cesta stojí od …" (zmizí po rozjezdu).
+  bool _homeNotified = false;
   /// Začátek relace, která ještě nemá jízdu na serveru (nový start; epoch s
   /// na ose bodů). Body od něj patří k téhle jízdě, i když se ji podaří
   /// založit až za hodiny (start offline) — `start_user_trip_from`.
@@ -167,6 +172,8 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// jen zdánlivě — nesmí se ukončit jako neuložená).
   bool _restoreDone = false;
   Future<bool?>? _stopFlight;
+  /// Výměna výpůjčky, body po jejím konci, kontrola vrácení v auto-pauze.
+  final _RideHandoff _hand = _RideHandoff();
 
   Future<void> _restore() async {
     try {
@@ -189,9 +196,11 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
         }
       }
       await _loadCaps();
+      state = state.copyWith(enabled: enabled, rideId: id, manual: manual);
+      // Neuložené Ukončit (offline) se po restartu jen dál ukládá.
+      if (_restoreStopReq(p.getString(kRideStopReqKey), id)) return;
       final s = id == null ? null : await RideSessionMeta.load();
       final session = s != null && s.ride == id ? s : null;
-      state = state.copyWith(enabled: enabled, rideId: id, manual: manual);
       await _restoreSession(id, manual, session);
     } catch (_) {
       /* poškozený cache → začneme načisto */
@@ -296,9 +305,11 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       _needsServerRide = true; // do potvrzení serverem se nic neposílá
       _continuation = false;
       _abortStart = false;
+      _initEngine(bookingId, manual);
+      // Body po konci předchozí výpůjčky, které patří téhle (SOS výměna).
+      if (!manual && _sessFrom != null) _takeCarry(bookingId);
       final bufStart = _buffer.length; // body tohoto pokusu (viz níže)
       final pointsStart = state.points;
-      _initEngine(bookingId, manual);
       _attachStream('start');
       state = state.copyWith(recording: true, bookingId: bookingId, manual: manual);
       _syncPhase(log: false);
@@ -392,17 +403,13 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       !_stopping &&
       (_lastStopFail == null || rideRecorderClock().difference(_lastStopFail!) > _kStopRetryAfter);
 
-  /// Ukončení se nepovedlo (offline) a čeká na opakování: ruční jízda, která
-  /// po ukončení zůstala s id (i po restartu appky), nebo jakákoli jízda,
-  /// jejíž ukončení v tomhle běhu selhalo — i když ji server ještě nezaložil
-  /// (start i konec bez dat). Hlídač, návrat do appky i časovač to zkouší
-  /// znovu; nový start počká, až se uloží. Výpůjčka obnovená po restartu
-  /// (`rideId`, ještě nenahrává) sem NEPATŘÍ — tu hlídač rozjede dál.
-  bool get stopPending =>
-      _restoreDone &&
-      !state.recording &&
-      !_stopping &&
-      (_stopFailed || (state.manual && state.rideId != null));
+  /// Ukončení se nepovedlo (offline) a čeká na opakování — i když jízdu
+  /// server ještě nezaložil (start i konec bez dat) a i po restartu appky
+  /// (`mg_ride_stop_req`). Hlídač, návrat do appky i časovač to zkouší
+  /// znovu; nový start počká, až se uloží. Jízda obnovená po restartu BEZ
+  /// Ukončit (výpůjčka, vlastní cesta bez polohy) sem NEPATŘÍ — tu nic
+  /// neukončuje (cesta se nesmí rozdělit).
+  bool get stopPending => _restoreDone && !state.recording && !_stopping && _stopFailed;
 
   // ── Pauzy a cesty (veřejné API pro UI — viz LOGIC_API.md) ──
 
@@ -422,8 +429,16 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// Hláška ([RideRecorderState.notice]) byla ukázaná.
   void consumeNotice() => _consumeNoticeImpl();
 
-  /// Hlídač: převzatá výpůjčka (null = žádná). Ruční start se k ní přiřadí.
-  void setActiveBooking(String? bookingId) => _activeBooking = bookingId;
+  /// Hlídač: převzatá výpůjčka (null = žádná) a kdy ji zákazník převzal.
+  /// Ruční start se k ní přiřadí; čas převzetí dělí body při výměně motorky.
+  void setActiveBooking(String? bookingId, {DateTime? pickedUpAt}) {
+    _activeBooking = bookingId;
+    _hand.pickup = bookingId == null ? null : pickedUpAt;
+  }
+
+  /// Hlídač vidí jinou převzatou výpůjčku, než do které se nahrává (SOS
+  /// výměna motorky, navazující výpůjčka) → starou uložit, nahrávat novou.
+  Future<void> switchRental(String bookingId) => _switchRentalImpl(bookingId);
 
   /// Převzal výpůjčku, zatímco vlastní cesta stojí → vlastní uložit
   /// a nahrávat výpůjčku (SPEC §7.6).

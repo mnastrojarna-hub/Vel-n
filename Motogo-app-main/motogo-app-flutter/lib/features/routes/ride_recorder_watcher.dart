@@ -33,6 +33,17 @@ String? rideActiveBookingId(List<Reservation> list, {DateTime? now}) {
   return null;
 }
 
+/// Kdy zákazník výpůjčku [id] převzal (`picked_up_at`, jinak vydání /
+/// naplánované vyzvednutí). Záznamník podle toho dělí body při výměně
+/// motorky (SOS) a navazující výpůjčce.
+DateTime? ridePickupOf(List<Reservation> list, String? id) {
+  if (id == null) return null;
+  for (final r in list) {
+    if (r.id == id) return r.pickedUpAt ?? r.issuedAt ?? _ridePickupAt(r);
+  }
+  return null;
+}
+
 /// Naplánované vyzvednutí = den začátku + `pickup_time` (HH:MM); bez času
 /// se bere konec dne, aby se bez odbavení nenahrávalo předčasně.
 DateTime _ridePickupAt(Reservation r) {
@@ -91,7 +102,9 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     final text = rideTrOpt(tr, key, args ?? const {});
     final m = ScaffoldMessenger.maybeOf(context);
     if (text != null && m != null) {
-      m.showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 6)));
+      // Delší hláška (otázka „cesta stojí od …") potřebuje čas na přečtení.
+      final secs = (text.length / 15).round().clamp(6, 12);
+      m.showSnackBar(SnackBar(content: Text(text), duration: Duration(seconds: secs)));
     }
     n.consumeNotice();
   }
@@ -104,13 +117,15 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     // načítání by jinak vypadal jako „výpůjčka skončila" a rozjetou jízdu
     // by zbytečně uzavřel (a po dojetí seznamu by vznikla druhá).
     if (!res.hasValue) return const SizedBox.shrink();
-    final bookingId = rideActiveBookingId(res.value ?? const <Reservation>[]);
+    final list = res.value ?? const <Reservation>[];
+    final bookingId = rideActiveBookingId(list);
+    final pickup = ridePickupOf(list, bookingId);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final n = ref.read(rideRecorderProvider.notifier);
       // Převzatá výpůjčka → ruční start se přiřadí k ní (ne podle data).
-      n.setActiveBooking(bookingId);
+      n.setActiveBooking(bookingId, pickedUpAt: pickup);
       // Hláška záznamníku (i obnovená z relace po restartu) — jednou.
       if (st.notice != null) _showNotice(st.notice!, st.noticeArgs);
       if (bookingId != null) {
@@ -121,6 +136,11 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
           // Vlastní cesta stojí a zákazník převzal výpůjčku → vlastní uložit,
           // nahrávat výpůjčku. Jedoucí vlastní jízdu nepřerušujeme.
           n.finishOwnForRental(bookingId);
+        } else if (!st.manual && st.bookingId != null && st.bookingId != bookingId &&
+            (st.recording || st.rideId != null)) {
+          // Nahrává se do JINÉ výpůjčky (SOS výměna motorky, navazující
+          // výpůjčka) → starou uložit, body nové motorky do nové jízdy.
+          n.switchRental(bookingId);
         } else {
           // Pozastavená cesta má recording = true → ensureRecording nic nedělá.
           n.ensureRecording(bookingId);

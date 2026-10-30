@@ -63,7 +63,8 @@ void main() {
       'rpNotifArmed', 'rpNotifPausedTitle', 'rpNotifPaused', 'rpNotifIdleTitle', 'rpNotifIdleText',
       'rpTripContinuedNew', 'rpTripContinuedNewOld', 'rpOwnSavedForRental', 'rpDaysOne', 'rpDaysFew',
       'rpDaysMany', 'rpRidesOne', 'rpRidesFew', 'rpRidesMany', 'rpTripRental', 'rpTripDefault',
-      'rpTripPartial', 'rpTripUnavailable', 'rpTripFailed',
+      'rpTripPartial', 'rpTripUnavailable', 'rpTripFailed', 'rpTripIdleAsk', 'rpTripIdleRemind',
+      'rpNotifRemindTitle', 'rpNotifRemindText', 'rpNotifHomeTitle', 'rpNotifHomeText',
     ];
     for (final k in logic) {
       expect(keys, contains(k));

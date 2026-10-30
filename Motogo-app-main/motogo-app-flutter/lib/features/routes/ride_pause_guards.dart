@@ -71,10 +71,12 @@ extension _RidePauseGuards on RidePauseEngine {
 
   /// Otevření appky / obnova po restartu: vlastní cesta stojí (auto-pauza
   /// nebo „připraveno") déle než `idleDecisionS` (výchozí 20 h) od zastavení
-  /// nebo od posledního Pokračovat → po ~1 min fixů (`idleProbeS`) GPS
-  /// vypnout a zeptat se (ruční pauza, důvod `long` = „Pokračovat v cestě /
-  /// Ukončit a uložit"). Noc v hotelu (≤ 20 h) se neptá; jede-li motorka
-  /// (otevřel appku za jízdy), rozhodne obnova jízdy a otázka odpadne.
+  /// nebo od posledního Pokračovat → po ~1 min fixů (`idleProbeS`; jede-li
+  /// motorka, rozhodne obnova jízdy a nic se neříká) jen PŘIPOMENOUT
+  /// (`remind`, jednou za pauzu): GPS běží dál, ranní rozjezd vícedenní
+  /// cesty se nahraje sám (majitel: „abych to nemusel pauzovat"). GPS vypne
+  /// a zeptá se („Pokračovat v cestě / Ukončit a uložit") až pojistka
+  /// „dlouhá pauza" (výchozí 48 h) — zapomenutý Stop tak nesvítí dny.
   RideEngineStep _decideIdle(double now) {
     final s = RideEngineStep();
     final since = _pausedSince;
@@ -85,13 +87,14 @@ extension _RidePauseGuards on RidePauseEngine {
     }
     final g = _guardFrom;
     final from = g != null && g > since ? g : since;
-    if (now - from < _cfg.idleDecisionS) {
+    final longDue = _cfg.longPauseOwnS > 0 && now - from >= _cfg.longPauseOwnS;
+    if (now - from < _cfg.idleDecisionS || (_reminded && !longDue)) {
       _askAt = null;
       return s;
     }
     final at = _askAt;
     if (at == null || _recentMotion(now)) {
-      // Nejdřív ~1 min poslouchat GPS (rozjezd má přednost před otázkou).
+      // Nejdřív ~1 min poslouchat GPS (rozjezd má přednost).
       if (at == null) s.logs.add(RideEngineLog('idle_check', data: {'h': ((now - since) / 360).round() / 10}));
       _askAt = now + _C.idleProbeS;
       s.probe = true;
@@ -99,8 +102,14 @@ extension _RidePauseGuards on RidePauseEngine {
     }
     if (now < at) return s;
     _askAt = null;
-    _guard(s, RidePauseReason.long, now - since, by: 'open');
-    s.idle = true;
+    if (longDue) {
+      _guard(s, RidePauseReason.long, now - since, by: 'open');
+      s.idle = true;
+      return s;
+    }
+    _reminded = true;
+    s.remind = true;
+    s.logs.add(RideEngineLog('idle_remind', data: {'since': since, 'h': ((now - since) / 360).round() / 10}));
     return s;
   }
 }

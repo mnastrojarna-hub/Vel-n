@@ -199,6 +199,28 @@ Future<bool?> probeRideServerV2() async {
   }
 }
 
+/// Skončila výpůjčka (vrácená, dokončená — i SOS výměnou —, zrušená)?
+/// Záznam stojící v auto-pauze se tak dozví o vrácení bez otevření appky.
+/// Noc v boxu samoobsluhy (výpůjčka běží dál) = false. null = nevíme
+/// (offline, řádek nevidí) → nic se nerozhoduje. Stejné na starém i novém
+/// serveru (čte se `bookings` jako seznam rezervací).
+Future<bool?> rideRentalEnded(String bookingId) async {
+  try {
+    final row = await MotoGoSupabase.client
+        .from('bookings')
+        .select('status, returned_at')
+        .eq('id', bookingId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
+    if (row == null) return null;
+    final st = '${row['status'] ?? ''}';
+    return row['returned_at'] != null || st == 'completed' || st == 'cancelled';
+  } catch (e) {
+    debugPrint('[rides] stav výpůjčky selhal: $e');
+    return null;
+  }
+}
+
 /// Jedna položka pro `set_user_rides_trip`: `tripId == id` = samostatná
 /// jízda, null = výchozí seskupení (podle výpůjčky), jiné = člen cesty.
 class RideTripItem {
