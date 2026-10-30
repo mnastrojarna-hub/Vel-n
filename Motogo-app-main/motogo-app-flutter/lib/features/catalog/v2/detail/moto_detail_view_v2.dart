@@ -95,7 +95,8 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final c = _tripKey.currentContext;
       if (c == null || !mounted) return;
-      Scrollable.ensureVisible(c, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: 0.05);
+      Scrollable.ensureVisible(c,
+          duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: MgPinnedBack.revealAlignment(c));
     });
   }
 
@@ -115,6 +116,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
     return MgPage(
       background: MgColors.surface,
       pinnedBack: w.onBack,
+      pinnedTitle: moto.model,
       header: DetailHeroV2(
         moto: moto,
         images: w.images,

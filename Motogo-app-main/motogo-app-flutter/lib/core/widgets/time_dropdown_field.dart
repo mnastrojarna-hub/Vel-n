@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../v2/flag/v2_scope.dart';
+import '../v2/icons/mg_icon.dart';
+import '../v2/tokens/mg_colors.dart';
 
 /// Jednotné zadávání času dvěma rozbalovacími nabídkami (hodina : minuta).
 /// Stejné UI jako [DateDropdownField] (etalon — nastavení platnosti ŘP / datum
@@ -52,6 +55,7 @@ class TimeDropdownField extends StatelessWidget {
         Expanded(
           flex: 1,
           child: _dd<int>(
+            context,
             value: _hour,
             items: [
               for (var h = 0; h <= 23; h++)
@@ -75,6 +79,7 @@ class TimeDropdownField extends StatelessWidget {
         Expanded(
           flex: 1,
           child: _dd<int>(
+            context,
             value: _minute,
             items: [
               for (final m in minutes)
@@ -90,7 +95,8 @@ class TimeDropdownField extends StatelessWidget {
     );
   }
 
-  Widget _dd<T>({
+  Widget _dd<T>(
+    BuildContext context, {
     required T? value,
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
@@ -100,6 +106,10 @@ class TimeDropdownField extends StatelessWidget {
       isExpanded: true,
       items: items,
       onChanged: onChanged,
+      // v2: šipka v2 (okraj/pole dává MgThemeV2), jinak beze změny.
+      icon: MgV2.on(context)
+          ? const MgIcon(MgIcons.chevronDown, size: 18, color: MgColors.link)
+          : null,
       decoration: const InputDecoration(
         isDense: true,
         contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),

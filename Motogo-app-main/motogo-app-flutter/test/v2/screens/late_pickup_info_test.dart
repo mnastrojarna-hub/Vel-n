@@ -127,7 +127,8 @@ void main() {
       expect(find.text(_cs('v2LpFormSave', {'amount': Money.czk(half)})), findsNothing);
       expect(find.text(_cs('v2LpSsHint')), findsNothing);
       final set = find.text(_cs('v2CalcLateSet'));
-      await t.ensureVisible(set);
+      // Mid-viewport: at the top edge it would sit under the pinned back bar.
+      await Scrollable.ensureVisible(t.element(set), alignment: 0.4);
       await t.pump();
       await t.tap(set);
       await t.pump(const Duration(milliseconds: 400));

@@ -40,7 +40,8 @@ Future<ProviderContainer> _openSheet(WidgetTester t) async {
   await t.pump(const Duration(milliseconds: 600));
   final c = ProviderScope.containerOf(t.element(find.byType(BookingDebugWrapper)));
   final open = find.text(_tr('v2BkEnterAddress')).first;
-  await t.ensureVisible(open);
+  // Mid-viewport: at the top edge it would sit under the pinned back bar.
+  await Scrollable.ensureVisible(t.element(open), alignment: 0.4);
   await t.pump();
   await t.tap(open);
   await _steps(t, 3);

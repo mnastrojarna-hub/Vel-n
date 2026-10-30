@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../motion/mg_motion.dart';
 import '../shell/shell_nav_map.dart';
 import '../tokens/mg_colors.dart';
-import '../widgets/mg_back_v2.dart';
 import 'mg_chrome_metrics.dart';
+import 'mg_pinned_back.dart';
+
+export 'mg_pinned_back.dart' show MgPinnedBack;
 
 /// Page scaffold of every v2 screen (PLAN §1.9): [header] (MgRankHero /
 /// MgAppBar / MgPhotoHero), [sections] in a scroll view (the first one
@@ -16,7 +18,9 @@ import 'mg_chrome_metrics.dart';
 /// scrolls to the top. [onRefresh] = pull-to-refresh with the caller's
 /// EXISTING refresh action. [pinnedBack] = the screen's back action: once
 /// the header (with its back disc) scrolls away, a 44 px back disc stays
-/// pinned top-left, so a long page always shows a way back (owner rule R6).
+/// pinned top-left, so a long page always shows a way back (owner rule R6);
+/// once the hero is gone too it sits in a compact light bar with
+/// [pinnedTitle] (`MgPinnedBack`).
 class MgPage extends ConsumerStatefulWidget {
   final Widget? header;
   final List<Widget> sections;
@@ -34,6 +38,9 @@ class MgPage extends ConsumerStatefulWidget {
   /// [pinnedBack] as ✕ (result / modal pages).
   final bool pinnedClose;
 
+  /// Title of the collapsed bar around the pinned back (optional).
+  final String? pinnedTitle;
+
   const MgPage({
     super.key,
     this.header,
@@ -49,6 +56,7 @@ class MgPage extends ConsumerStatefulWidget {
     this.sectionPadding = EdgeInsets.zero,
     this.pinnedBack,
     this.pinnedClose = false,
+    this.pinnedTitle,
   });
 
   @override
@@ -59,6 +67,7 @@ class _MgPageState extends ConsumerState<MgPage> {
   ScrollController? _own;
   double _dockH = 0;
   double _headerH = 0;
+  double _heroH = 0;
 
   ScrollController get _ctrl => widget.controller ?? (_own ??= ScrollController());
 
@@ -90,7 +99,20 @@ class _MgPageState extends ConsumerState<MgPage> {
           offset: Offset(0, -overlap),
           child: Padding(
             padding: widget.sectionPadding,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widget.sections),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              // No header → the first section is the hero: its height decides
+              // when the pinned back turns from a photo disc into a bar.
+              if (widget.header == null && widget.pinnedBack != null && widget.sections.isNotEmpty) ...[
+                MgSizeReporter(
+                  onSize: (s) {
+                    if (mounted && (s.height - _heroH).abs() > 0.5) setState(() => _heroH = s.height);
+                  },
+                  child: widget.sections.first,
+                ),
+                ...widget.sections.skip(1),
+              ] else
+                ...widget.sections,
+            ]),
           ),
         );
     Widget? header = widget.header;
@@ -152,48 +174,22 @@ class _MgPageState extends ConsumerState<MgPage> {
           ),
         if (widget.pinnedBack != null)
           Positioned(
-            left: 12,
-            top: MediaQuery.paddingOf(context).top + 8,
-            child: _PinnedBack(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: MgPinnedBack(
               controller: _ctrl,
               // The header's own disc sits in its top ~70 px: show the
               // pinned one just before that part leaves the screen.
               after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
+              heroExtent: widget.header != null ? _headerH : _heroH + widget.sectionPadding.resolve(Directionality.of(context)).top,
               close: widget.pinnedClose,
               onTap: widget.pinnedBack!,
+              background: widget.background,
+              title: widget.pinnedTitle,
             ),
           ),
       ]),
-    );
-  }
-}
-
-/// The pinned back disc of [MgPage] (fades in / out with the scroll; not in
-/// the tree while hidden; reduced motion = instant).
-class _PinnedBack extends StatelessWidget {
-  final ScrollController controller;
-  final double after;
-  final bool close;
-  final VoidCallback onTap;
-  const _PinnedBack({required this.controller, required this.after, required this.close, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final d = MgMotion.of(context, MgMotion.color);
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final px = controller.hasClients && controller.positions.length == 1 ? controller.position.pixels : 0.0;
-        final on = px > after;
-        // Only in the tree while shown (no hidden duplicate for semantics /
-        // finders); fades in and out (instant under reduced motion).
-        return AnimatedSwitcher(
-          duration: d,
-          child: on
-              ? MgV2Back(key: const ValueKey('mg-pinned-back'), onTap: onTap, close: close, style: MgBackStyle.photo)
-              : const SizedBox.shrink(),
-        );
-      },
     );
   }
 }

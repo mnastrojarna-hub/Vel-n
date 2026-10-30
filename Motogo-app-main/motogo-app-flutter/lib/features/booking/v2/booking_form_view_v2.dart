@@ -136,7 +136,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     final c = key.currentContext;
     if (c == null) return;
     Scrollable.ensureVisible(c,
-        duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: 0.08);
+        duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: MgPinnedBack.revealAlignment(c));
   }
 
   /// Date card open (calendar) and in view — "Změnit termín" fixes.
@@ -282,6 +282,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     return MgPage(
       overlapHero: false,
       pinnedBack: w.onBack,
+      pinnedTitle: w.moto.model,
       sections: [
         // Hlavička a pod ní obsah vytažený o 24 px nahoru — kreslený PO
         // hlavičce, takže rekapitulace leží na jejím zaobleném okraji.

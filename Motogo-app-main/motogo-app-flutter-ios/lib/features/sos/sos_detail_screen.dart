@@ -308,6 +308,7 @@ class SosDetailScreen extends ConsumerWidget {
                 Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('🆘 ${t(context).tr('sosIncidentTitle')}',
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 16,
                           fontWeight: FontWeight.w900, color: MotoGoColors.black)),
                   Text(inc.id.substring(inc.id.length - 8).toUpperCase(),
@@ -419,7 +420,7 @@ class SosDetailScreen extends ConsumerWidget {
                       children: [
                     const Icon(Icons.motorcycle, size: 18),
                     const SizedBox(width: 8),
-                    Text(t(context).tr('replacementMoto')),
+                    Flexible(child: Text(t(context).tr('replacementMoto'), textAlign: TextAlign.center)),
                   ]),
                 ),
 
@@ -438,8 +439,8 @@ class SosDetailScreen extends ConsumerWidget {
                       children: [
                     const Text('🏍️', style: TextStyle(fontSize: 16)),
                     const SizedBox(width: 8),
-                    Text(t(context).tr('continueRiding'),
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                    Flexible(child: Text(t(context).tr('continueRiding'), textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900))),
                   ]),
                 ),
               const SizedBox(height: 8),
@@ -450,7 +451,7 @@ class SosDetailScreen extends ConsumerWidget {
                     children: [
                   const Icon(Icons.mail_outline, size: 18),
                   const SizedBox(width: 8),
-                  Text(t(context).tr('messagesFromMotoGo')),
+                  Flexible(child: Text(t(context).tr('messagesFromMotoGo'), textAlign: TextAlign.center)),
                 ]),
               ),
               const SizedBox(height: 40),

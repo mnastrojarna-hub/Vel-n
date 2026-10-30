@@ -48,13 +48,13 @@ class SosReportScreen extends ConsumerWidget {
                     ),
                   )),
                   const SizedBox(width: 12),
-                  Column(
+                  Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('🆘 ${t(context).sosTitle}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-                      Text(t(context).tr('selectProblemType'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+                      Text('🆘 ${t(context).sosTitle}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+                      Text(t(context).tr('selectProblemType'), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                     ],
-                  ),
+                  )),
                 ],
               ),
               const SizedBox(height: 16),

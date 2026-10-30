@@ -132,13 +132,33 @@ class _MotoSuccessHeroState extends State<MotoSuccessHero>
     _burst = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1400));
     _pulse = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200))
-      ..repeat(reverse: true);
+        vsync: this, duration: const Duration(milliseconds: 1200));
+  }
 
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Omezené animace (systémové nastavení) → rovnou koncový stav: check
+    // viditelný, motorka/jiskry pryč, bez trvalého pulzu.
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    if (reduce) {
+      _pulse.stop();
+      _ride.value = 1;
+      _pop.value = 1;
+      _burst.value = 1;
+      if (!_started) HapticFeedback.mediumImpact();
+      _started = true;
+      return;
+    }
+    if (_started) return;
+    _started = true;
+    _pulse.repeat(reverse: true);
     _ride.forward();
     // Check + jiskry odpálí v momentě, kdy motorka „projede" středem.
     Future.delayed(const Duration(milliseconds: 420), () {
-      if (!mounted) return;
+      if (!mounted || _pop.value >= 1) return;
       HapticFeedback.mediumImpact();
       _pop.forward();
       _burst.forward();
@@ -328,9 +348,19 @@ class _StaggeredRevealState extends State<StaggeredReveal>
   late final AnimationController _ctrl = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 420));
 
+  bool _started = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Omezené animace → obsah hned viditelný, bez čekání a naplutí.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _ctrl.value = 1;
+      _started = true;
+      return;
+    }
+    if (_started) return;
+    _started = true;
     Future.delayed(
       widget.baseDelay + Duration(milliseconds: 90 * widget.index),
       () {
