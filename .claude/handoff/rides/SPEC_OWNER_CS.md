@@ -55,9 +55,12 @@ Stav 2026-10-22. Návrh, nic zatím nasazeno. Technické zadání pro implementa
 **Baterie**
 - Při automatické pauze musí GPS zůstat zapnuté. Android ani iOS nedovolí appce GPS znovu zapnout na pozadí, takže jinak by se ráno nepoznal rozjezd.
 - Odhad spotřeby je **5–15 % baterie za noc**. Ověříme měřením na telefonu.
-- Pojistky u vlastní cesty:
-  - když stojíš **3 h na místě, kde cesta začala** (typicky doma), appka vypne GPS a zeptá se „Pokračovat v cestě / Ukončit a uložit“;
-  - totéž po **20 h** stání kdekoli. Na Androidu přijde upozornění, ráno stačí otevřít appku a klepnout Pokračovat.
+- Pojistky u vlastní cesty (zapomenutý Stop — upraveno 30. 10.):
+  - když stojíš **3 h na místě, kde cesta začala** (typicky doma, i po vícedenní cestě), přijde jen upozornění „Jsi zpátky tam, kde cesta začala“ — GPS běží dál a ráno se rozjezd nahraje sám;
+  - když cesta stojí **20 h a víc** a otevřeš appku (nebo ji systém mezitím zavřel), appka ještě minutu poslouchá GPS — když se zrovna rozjíždíš, nic se neptá a nahrává dál; jinak vypne GPS a zeptá se „Pokračovat v cestě / Ukončit a uložit“. Noc v hotelu (do 20 h) se neptá. Bez odpovědi se nic nenahrává — další jízda se tak tiše nepřilepí ke staré cestě;
+  - když appku vůbec neotevřeš, vypne se GPS po **48 h** stání (na Androidu přijde upozornění, pak stačí klepnout Pokračovat).
+- Neuložený Stop (bez signálu) se zkouší znovu sám (otevření appky, každé 2 min). Nová jízda se spustí, až se předchozí uloží — jinak by se obě spojily.
+- Výpůjčka nahraná celá bez dat (cizina bez roamingu) se po návratu signálu uloží celá od převzetí, i když už je motorka vrácená (po nasazení SQL).
 - U výpůjčky GPS zůstává zapnuté, aby Velín pořád viděl, kde motorka je.
 
 ## Co se nemění
@@ -88,7 +91,7 @@ Stav 2026-10-22. Návrh, nic zatím nasazeno. Technické zadání pro implementa
 
 ## Otevřené volby (výchozí stav navržen, stačí potvrdit nebo změnit)
 1. Prahy **5 min stání / 3 min chůze / rozjezd 2× nad 20 km/h**. Jdou měnit z Velína.
-2. GPS zapnuté přes noc při auto-pauze (odhad 5–15 % baterie). Pojistky: „doma“ po **3 h**, jinde po **20 h**.
+2. GPS zapnuté přes noc při auto-pauze (odhad 5–15 % baterie). Pojistky: „doma“ po **3 h** jen upozornění; otázka při otevření appky po **20 h** stání; bez otevření GPS vypnout po **48 h** (vše jde měnit z Velína).
 3. Vlastní cesta se sama uloží po **3 dnech** bez jízdy (strop 30 dní).
 4. Stará appka 4.1.3: vlastní jízdy se dál dělí přes noc (jako dnes), výpůjčky už ne.
 5. „Na cestě“ nově **bez pauz**, v appce i ve Velínu.

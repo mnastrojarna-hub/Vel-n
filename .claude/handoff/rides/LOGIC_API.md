@@ -108,11 +108,12 @@ String rideTripDefaultName(RideTrip, AppTranslations); // name ?? rpTripRental{m
 
 Operations (each captures the undo map BEFORE the call):
 ```dart
-RideTripPlan rideTripMergePlan(List<RideListItem> selected, String? name); // key = oldest selected explicit trip, else oldest ride id; empty name → null (default name)
+RideTripPlan rideTripMergePlan(List<RideListItem> selected, String? name); // key = oldest selected explicit trip, else rideTripNewKey() (random UUID v4, never a ride id); empty name → null (default name)
 RideTripPlan rideTripSplitPlan(RideTrip t);        // every member → (own id, null)  (also dissolves an implicit rental group)
 RideTripPlan rideTripRenamePlan(RideTrip t, String name);
 RideTripPlan rideTripAddPlan(RideTrip t, UserRide ride);  // implicit group: all members get the explicit key
-RideTripPlan rideTripRemovePlan(UserRide ride);    // → (own id, null)
+RideTripPlan rideTripRemovePlan(UserRide ride);    // → (own id, null); own id == its trip key (dev-build trips) → (new key, null)
+String rideTripNewKey();                           // random UUID v4 (Random.secure) for new trips (rename/add of an implicit group too)
 RideTripPlan rideTripUndoPlan(RideTripUndo undo);  // "Zpět"
 Future<RideTripOp> rideTripApply(WidgetRef ref, RideTripPlan plan, {Iterable<String?> bookingIds}); // set_user_rides_trip + invalidate myRidesProvider (+ bookingRidesProvider(ids))
 Future<RideTripOpResult> rideTripSetVisibility(WidgetRef ref, RideTrip t, bool public); // per member update_user_ride
@@ -176,3 +177,22 @@ Results: Android full `flutter test` → 5117 passed, 0 failed (ride tests incl.
 6. Manual start attributed to an active rental that the server already closed (`booking_inactive`) falls back to an own ride instead of failing.
 7. `onAppResumed` in `manualPaused` additionally runs the throttled flag refresh / server probe (no GPS attach).
 8. No-fix re-attach (`_tick`, foreground) is skipped while auto-paused with an anchor (a parked bike sends no fixes — not a dead stream).
+
+---
+
+## Amendments 2026-10-29 (fix:logic:r1, SPEC §20)
+
+- The engine no longer produces `manualPaused + home`: „home“ is a one-shot Android notification (`rpNotifHomeTitle` / `rpNotifHomeText`, `notifyIdle`), GPS stays on, the phase stays `autoPaused`, departure resumes by itself. Log `home_notice {since,h}` replaces `home_pause`. The UI branches for `needsDecision && home` stay (harmless, old sessions).
+- `needsDecision` (long guard) now fires after **48 h** without contact (flag `long_h`), counted from the later of the pause start and the last app open / „Pokračovat“ / stream attach; never within 2 min of those and never while the last fixes show movement.
+- `rideActiveBookingId(List<Reservation>, {now})` (watcher, public for tests) skips `Reservation.isGearOnly` (`bookingKind == 'gear'`).
+- Trip I/O: `rideTripResultOf`, `rideTripRefresh`, `rideTripContainer(ref)`, `rideTripApplyIn(c, plan, {bookingIds, set})` (returns `RideTripOp`, moved from `ride_trip_ui.dart`), `rideTripSetVisibilityIn`, `rideTripDeleteAllIn`; v2 `tripResultV2` removed (use `rideTripResultOf`).
+- `appendRideTrack` / `finishUserRide` time out after 30 s (`kRideRpcTimeout`).
+
+## Amendments 2026-10-30 (fix:logic:r3, SPEC §25)
+
+- **Engine**: `onAttach(now, {bool byTap = false})`; `noteForeground(now)` only opens the 2-min quiet window — neither extends the long guard any more (counted from `max(pausedSince, guardFrom)`, `guardFrom` = `resumeManual(now)` or `byTap`). New `RideEngineStep decideIdle(double now)` (own trip auto-paused/armed ≥ `RideMotionConfig.idleDecisionS`, default 20 h, flag `idle_h` → `RideAutoPauseFlag.idleH`) → first `step.probe` (log `idle_check`, ~60 s `idleProbeS` of GPS: riding off wins), then on a later `onTick` detach + `manualPaused/long` + log `long_pause` detail `open` + `step.idle = true`. Home notice also for multi-stage trips (`onTick`'s `stages` is no longer used by the guards).
+- **Recorder**: `onAppResumed()` and `_restoreSession` (manual `riding`/`autoPaused` session, attaches as before) call `decideIdle`; the question follows from the 90 s tick. On `idle` the recorder sets notice **`rpTripIdleAsk {date}`** (ext_60, 8 languages); the Android idle notification only if the app is not in the foreground. UI needs nothing new: `needsDecision` + `pauseReason == long` already shows „Pokračovat v cestě / Ukončit a uložit“ with `rpHintLong`.
+- **`bool get stopPending`** (new public getter): a Stop that has not reached the server yet (`_stopFailed` in this run, or a manual ride with an id that is not recording). `startManualResult()` / `ensureRecording()` finish it first; still pending → `RideStartResult.failed` / no start. Retried by the watcher, `onAppResumed()` and a periodic timer. The watcher uses `n.stopPending` instead of `manual && rideId != null && !recording`.
+- **Server seam**: `Future<RideTripStart> startTripFrom(String? bookingId, double firstTs)` → RPC `start_user_trip_from(p_booking_id, p_first_ts)` (new name; `missing` / `error` → `startTrip`). Used only for a session that has points but no server ride yet (offline start). New logs: `trip_from_missing {booking}`, `buffer_stale_cut {n, cont}`, `ride_points_lost` detail `booking_inactive {n, booking, from}`, `ride_start.from`.
+- **Model**: `UserRide.statsV2` (`stats_v2 == true`, default false) — use it for stat LABELS („na cestě (bez pauz)“ vs „celkem“); `serverV2` only for capabilities (trips, merge). `RideTrip.aggregate.statsV2` = every member.
+- **Tests** (Android `test/rides/`, iOS copy `scratchpad/rides/ios_copy/flr3`): `ride_pause_decision_test.dart`, `ride_forgotten_stop_test.dart`, `ride_offline_start_test.dart`; FakeServer gained `startTripFrom`, `fromSupported`, `fromCalls`, `returns` (booking → returned epoch), `cronClose()` + own-trip re-open on append.

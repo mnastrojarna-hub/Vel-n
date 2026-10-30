@@ -49,9 +49,11 @@ void main() {
     const a = [49.2, 16.6, 1792000000.0, 0.0];
     RidePauseEngine restored() => RidePauseEngine(own: true)
       ..restore(phase: RidePhase.autoPaused, reason: RidePauseReason.stop, since: a[2], anchor: [...a], last: [...a], start: [...a]);
-    // otevřel appku po 30 h → zeptat se (zapomenutý Stop?)
+    // otevřel appku po 30 h → minuta poslechu GPS, pak se zeptat
     final e = restored();
-    final ask = e.decideIdle(a[2] + 30 * 3600);
+    expect(e.decideIdle(a[2] + 30 * 3600).probe, isTrue);
+    e.onAttach(a[2] + 30 * 3600);
+    final ask = e.onTick(a[2] + 30 * 3600 + 61, liveKm: 50);
     expect(ask.detach, isTrue);
     expect(ask.idle, isTrue);
     expect(e.phase, RidePhase.manualPaused);

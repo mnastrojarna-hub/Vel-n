@@ -136,7 +136,7 @@ class PermissionsViewV2 extends StatelessWidget {
                     child: Text(tr.tr(p.title), style: MgType.title.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
                   ),
                   const SizedBox(height: 2),
-                  MgWordFit(minScale: 0.85, child: Text(tr.tr(p.desc), style: MgType.small.copyWith(color: MgColors.lead))),
+                  MgWordFit(minScale: 0.75, child: Text(tr.tr(p.desc), style: MgType.small.copyWith(color: MgColors.lead))),
                   const SizedBox(height: 8),
                   Wrap(spacing: 6, runSpacing: 6, children: [
                     MgMeaningChip(

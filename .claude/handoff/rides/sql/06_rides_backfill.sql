@@ -66,17 +66,20 @@ runs as (
 still_runs as (
   select id, sum(dt) as dur from runs where still group by id, run having sum(dt) >= 300
 ),
+run_sum as (
+  select id, sum(dur) as dur from still_runs group by id
+),
 agg as (
   select c.id, c.moving_sec, c.gap_sec,
          extract(epoch from (c.ended_at - c.started_at))::float8 as elapsed,
-         coalesce((select sum(s.dur) from still_runs s where s.id = c.id), 0)
+         coalesce(max(rs.dur), 0)
          + coalesce(sum(p.dt) filter (where p.dt >= 300 and p.dt < 86400 and p.d > 0.3 and p.v < 15
                and (p.v < 3 or c.n < 2000)), 0)
          + coalesce(sum(p.dt) filter (where p.dt >= 86400 and p.dt < 2592000
                and not (p.v >= 15 and p.d > 0.3)), 0) as pause_raw,
          coalesce(sum(p.dt) filter (where p.dt >= 300 and p.dt < 86400 and p.d > 0.3 and p.v < 15
                and (p.v < 3 or c.n < 2000)), 0) as gap_moved
-    from cand c left join cls p on p.id = c.id
+    from cand c left join cls p on p.id = c.id left join run_sum rs on rs.id = c.id
    group by c.id, c.moving_sec, c.gap_sec, c.ended_at, c.started_at
 ),
 calc as (

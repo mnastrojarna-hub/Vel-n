@@ -6,7 +6,6 @@ import '../../../core/v2/states/mg_state_banner.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_icon_tile.dart';
 import 'res_edit_sections_v2.dart';
 import 'res_detail_bits_v2.dart';
 

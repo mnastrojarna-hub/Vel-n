@@ -94,8 +94,11 @@ void main() {
     await sim.settle();
     expect(c.read(rideRecorderProvider).needsDecision, isFalse);
     await waitUntil(d0.add(const Duration(days: 2, hours: 19)), n);
-    n.onAppResumed(); // další večer (33 h) → zeptat se, GPS vypnout
+    n.onAppResumed(); // další večer (33 h) → minuta poslechu GPS, pak otázka
     await sim.settle();
+    expect(c.read(rideRecorderProvider).needsDecision, isFalse);
+    expect(sim.count('idle_check'), 1);
+    await sim.wait(const Duration(minutes: 2), n);
     final st = c.read(rideRecorderProvider);
     expect(st.needsDecision, isTrue);
     expect(st.pauseReason, RidePauseReason.long);
@@ -103,12 +106,12 @@ void main() {
     expect(st.notice, 'rpTripIdleAsk');
     expect(st.noticeArgs?['date'], isNotEmpty);
     expect(sim.count('long_pause', 'open'), 1);
-    expect(notifyIdle(), 1, reason: 'jezdec appku vidí → hláška, ne notifikace');
     for (var d = 3; d <= 5; d++) {
       await waitUntil(d0.add(Duration(days: d, hours: 19)), n);
       n.onAppResumed();
       await sim.settle();
       expect(c.read(rideRecorderProvider).needsDecision, isTrue);
+      expect(geo.listening, isFalse);
     }
     // 6. den ráno dojíždění 20 km — GPS je vypnuté, ke staré cestě nic
     await waitUntil(d0.add(const Duration(days: 6, hours: 6, minutes: 30)), n);
@@ -139,15 +142,16 @@ void main() {
     containers.remove(c);
     sim.now = sim.now.add(const Duration(days: 4));
     server.cronClose(server.rides.single); // úklid po 72 h
-    final listens = geo.listens;
     final c2 = boot();
     final n2 = c2.read(rideRecorderProvider.notifier);
     await sim.settle();
+    expect(c2.read(rideRecorderProvider).recording, isTrue);
+    expect(sim.count('idle_check'), 1); // minuta poslechu (jede-li, rozjezd)
+    await sim.wait(const Duration(minutes: 2), n2);
     final st = c2.read(rideRecorderProvider);
-    expect(st.recording, isTrue);
     expect(st.needsDecision, isTrue);
     expect(st.notice, 'rpTripIdleAsk');
-    expect(geo.listens, listens, reason: 'GPS se po restartu nesmí tiše zapnout');
+    expect(geo.listening, isFalse, reason: 'GPS po restartu nesmí zůstat tiše zapnuté');
     expect(sim.count('long_pause', 'open'), 1);
     // jezdec klepne „Pokračovat v cestě" a jede dál
     expect(await n2.resume(), RideStartResult.ok);
@@ -159,6 +163,36 @@ void main() {
     expect(server.rides.length, 1, reason: 'cesta se znovu otevřela, nerozdělila');
     expect(server.rides.single.km, closeTo(km + 70, 3));
     expect(await n2.stop(), isTrue);
+  });
+
+  test('S4 appka zabitá odpoledne, otevřená po 21 h právě při rozjezdu → bez otázky, den se nahraje', () async {
+    final c = boot();
+    final n = c.read(rideRecorderProvider.notifier);
+    await sim.settle();
+    expect(await n.startManualResult(), RideStartResult.ok);
+    await sim.settle();
+    await sim.fix(0);
+    sim.now = sim.now.add(const Duration(minutes: 2));
+    await sim.ride(70, const Duration(hours: 2));
+    await park(n);
+    await n.flush();
+    await sim.settle();
+    final km = server.rides.single.km;
+    c.dispose();
+    containers.remove(c);
+    sim.now = sim.now.add(const Duration(hours: 21));
+    final c2 = boot();
+    final n2 = c2.read(rideRecorderProvider.notifier);
+    await sim.settle();
+    expect(geo.listening, isTrue);
+    await sim.ride(70, const Duration(hours: 1)); // jede, appka se otevřela za jízdy
+    await n2.flush();
+    await sim.settle();
+    final st = c2.read(rideRecorderProvider);
+    expect(st.needsDecision, isFalse);
+    expect(st.phase, RidePhase.riding);
+    expect(sim.count('long_pause'), 0);
+    expect(server.rides.single.km, closeTo(km + 70, 3));
   });
 
   test('výpůjčka: 30 h stání a otevření appky → žádná otázka, GPS čeká na rozjezd', () async {

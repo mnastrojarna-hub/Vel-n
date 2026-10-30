@@ -131,7 +131,9 @@ class _LevelRow extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // 0.7: dlouhé ranky (uk „Діамантовий“, en „Ambassador“) vedle čipů TY + %.
               MgWordFit(
+                minScale: 0.7,
                 child: Text(RankCopy.name(tr, level.level, level.name),
                     style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: locked ? MgColors.onDarkLead : MgColors.onDark)),
               ),

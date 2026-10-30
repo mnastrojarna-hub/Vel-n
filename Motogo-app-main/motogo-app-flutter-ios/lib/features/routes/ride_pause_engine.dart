@@ -37,9 +37,13 @@ class RideEngineStep {
   /// a zeptat se „Pokračovat v cestě / Ukončit a uložit" (jezdec appku
   /// právě vidí → bez notifikace, jen hláška).
   bool idle = false;
+  /// Otázka čeká ~1 min na fixy (GPS musí běžet): jede-li motorka právě
+  /// teď, rozhodne obnova jízdy a nikdo se neptá.
+  bool probe = false;
   /// Nejvyšší SKUTEČNÁ Dopplerova rychlost vyslaných bodů (před značkou).
   double maxKmh = 0;
-  bool get isEmpty => emit.isEmpty && logs.isEmpty && !phaseChanged && !detach && !homeNotice && !idle;
+  bool get isEmpty =>
+      emit.isEmpty && logs.isEmpty && !phaseChanged && !detach && !homeNotice && !idle && !probe;
 }
 
 enum _Mode { riding, pending, paused }
@@ -89,6 +93,9 @@ class RidePauseEngine {
   /// Poslední kontakt (připojení streamu, otevření appky, Pokračovat):
   /// 2 min potom pojistky mlčí.
   double? _quietFrom;
+  /// Otázka „pokračovat?" padne v tuhle chvíli, pokud se motorka mezitím
+  /// nerozjede (viz `_decideIdle`).
+  double? _askAt;
   bool _homeNoticed = false;
   /// Fixy s Dopplerem ≥ 12 km/h v relaci (telefon rychlost měří).
   int _dopMoving = 0;
@@ -298,7 +305,14 @@ class RidePauseEngine {
       _enterPending(lf.ts, fromEmitted: true);
     }
     if (_mode == _Mode.pending) _evalPending(s, now);
-    if (_mode == _Mode.paused) _guards(s, now, liveKm);
+    if (_mode == _Mode.paused) {
+      final ask = _askAt;
+      if (ask != null && !_manual && now >= ask) {
+        final d = _decideIdle(now);
+        if (d.detach) return d;
+      }
+      _guards(s, now, liveKm);
+    }
     return s;
   }
 
@@ -385,6 +399,7 @@ class RidePauseEngine {
 
   void _toRiding() {
     _clearBuffers();
+    _askAt = null;
     _mode = _Mode.riding;
     _reason = null;
     _pausedSince = null;

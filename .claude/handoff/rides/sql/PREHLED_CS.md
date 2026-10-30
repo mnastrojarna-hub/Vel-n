@@ -245,7 +245,7 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
 | Výpůjčka bez dat od převzetí, telefon online večer (výpůjčka běží) | body z doby bez dat zahozené | 187,9 / 188,0 km, 1 jízda |
 | Totéž, vrácení na kiosku, online až druhý den | jízda nevznikla, vše ztraceno | 188,3 / 188,0 km, 1 jízda uzavřená při vrácení |
 
-- Sady B (S4–S8), C (C4–C12), X (X6, X7, X15, X16, X18, X19c) a H: viz výsledek ověření v předávce.
+- Sady B (S4–S8), C (C4, C5, C6, C6b, C8, C9, C12), X (X6, X7, X15, X16, X18, X19c), H a nové R3 (X19c, X20, R3a, R3b) dopadly s novým SQL stejně jako předtím. Všechny kontroly prošly kromě tří, které stejně selhávaly už dřív a týkají se appky, ne SQL: S4 (appka zabitá přes noc), S6 (konec 3 min před vrácením, protože jezdec u kiosku 3 min stál bez bodů) a X18 s hodinami telefonu +7 h. G1/G2 (obsluha ve Velínu ručně smaže jízdu pod 1 km) jsou beze změny, řeší je potvrzovací dotaz ve Velínu.
 
 **Appka 4.1.3 proti novému serveru**
 - Chůze vyloučena: 369,5 km / 370,1 km.

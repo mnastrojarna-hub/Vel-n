@@ -79,18 +79,15 @@ extension _RideRecPause on RideRecorderNotifier {
         e.restore(phase: RidePhase.autoPaused); // starší build bez relace
       }
       _engine = e;
-      // Vlastní cesta stojí od včerejška a víc (zapomenutý Stop?) → GPS
-      // nezapínat, zeptat se „Pokračovat v cestě / Ukončit a uložit".
+      // Vlastní cesta stojí od včerejška a víc (zapomenutý Stop?) → GPS jen
+      // na ~1 min (jede-li jezdec právě teď, rozhodne rozjezd), pak vypnout
+      // a zeptat se „Pokračovat v cestě / Ukončit a uložit".
       final idle = e.decideIdle(_nowEpoch());
-      if (idle.detach) {
-        _st = _st.copyWith(recording: true);
-        await _applyStep(idle);
-        return;
-      }
       await _ensurePreciseOnIos();
       _attachStream('restore');
       _st = _st.copyWith(recording: true);
       _syncPhase(log: false);
+      if (!idle.isEmpty) unawaited(_applyStep(idle));
       return;
     }
     if (!manual && s != null) _restoredSession = s; // výpůjčka: hlídač → _start
@@ -121,13 +118,14 @@ extension _RideRecPause on RideRecorderNotifier {
     if (st.homeNotice) _notifyHome();
     if (st.phaseChanged) _syncPhase();
     if (st.idle) {
-      // Jezdec appku právě otevřel → hláška místo notifikace.
+      // Jezdec appku právě otevřel → hláška (notifikace jen, když už appku
+      // zase zavřel).
       final since = _st.pausedSince;
       _setNotice('rpTripIdleAsk', {'date': rideShortDate(since ?? rideRecorderClock())});
     }
     _syncPendTimer();
     if (_notifText == null) _updateNotification(force: true);
-    if (st.detach) return _detachForPause(notify: !st.idle);
+    if (st.detach) return _detachForPause(notify: !st.idle || !RideRecorderNotifier._isForeground());
     return Future<void>.value();
   }
 

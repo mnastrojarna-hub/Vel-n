@@ -71,17 +71,34 @@ extension _RidePauseGuards on RidePauseEngine {
 
   /// Otevření appky / obnova po restartu: vlastní cesta stojí (auto-pauza
   /// nebo „připraveno") déle než `idleDecisionS` (výchozí 20 h) od zastavení
-  /// nebo od posledního Pokračovat → GPS vypnout a zeptat se (ruční pauza,
-  /// důvod `long` = „Pokračovat v cestě / Ukončit a uložit"). Noc v hotelu
-  /// (≤ 20 h) se neptá; když se motorka právě hýbe, rozhodne obnova jízdy.
+  /// nebo od posledního Pokračovat → po ~1 min fixů (`idleProbeS`) GPS
+  /// vypnout a zeptat se (ruční pauza, důvod `long` = „Pokračovat v cestě /
+  /// Ukončit a uložit"). Noc v hotelu (≤ 20 h) se neptá; jede-li motorka
+  /// (otevřel appku za jízdy), rozhodne obnova jízdy a otázka odpadne.
   RideEngineStep _decideIdle(double now) {
     final s = RideEngineStep();
     final since = _pausedSince;
-    if (!own || !autoPauseOn || _manual || _mode != _Mode.paused || since == null) return s;
-    if (_cfg.idleDecisionS <= 0) return s;
+    if (!own || !autoPauseOn || _manual || _mode != _Mode.paused || since == null ||
+        _cfg.idleDecisionS <= 0) {
+      _askAt = null;
+      return s;
+    }
     final g = _guardFrom;
     final from = g != null && g > since ? g : since;
-    if (now - from < _cfg.idleDecisionS || _recentMotion(now)) return s;
+    if (now - from < _cfg.idleDecisionS) {
+      _askAt = null;
+      return s;
+    }
+    final at = _askAt;
+    if (at == null || _recentMotion(now)) {
+      // Nejdřív ~1 min poslouchat GPS (rozjezd má přednost před otázkou).
+      if (at == null) s.logs.add(RideEngineLog('idle_check', data: {'h': ((now - since) / 360).round() / 10}));
+      _askAt = now + _C.idleProbeS;
+      s.probe = true;
+      return s;
+    }
+    if (now < at) return s;
+    _askAt = null;
     _guard(s, RidePauseReason.long, now - since, by: 'open');
     s.idle = true;
     return s;

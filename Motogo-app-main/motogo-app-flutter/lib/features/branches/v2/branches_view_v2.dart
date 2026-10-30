@@ -124,7 +124,13 @@ class _BranchCard extends StatelessWidget {
                   photos.isEmpty
                       ? band
                       : MgImage(photos.first.thumbUrl, thumbWidth: 640, fit: BoxFit.cover, error: band, placeholder: band),
-                  Positioned(left: 12, top: 12, child: BranchBadgeV2(html: v('badge'))),
+                  // right: šířka omezená fotkou → dlouhý štítek (uk) se zmenší/zalomí, neořízne.
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    right: 12,
+                    child: Align(alignment: AlignmentDirectional.topStart, child: BranchBadgeV2(html: v('badge'))),
+                  ),
                 ]),
               ),
               Padding(

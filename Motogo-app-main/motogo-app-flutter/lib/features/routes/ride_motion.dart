@@ -94,6 +94,9 @@ class RideMotionConfig {
   /// Pokračovat a když poslední fixy ukazují pohyb (rozhodne obnova jízdy).
   static const double guardQuietS = 120;
   static const double guardMoveM = 100;
+  /// Otázka po dlouhém stání padne až po tolika s poslechu GPS (rozjezd
+  /// právě při otevření appky má přednost).
+  static const double idleProbeS = 60;
   /// Bez Doppleru obnova jen přes 3 fixy A→B→C (každý krok ≥ tohle, C dál
   /// od kotvy než B) — přeskok polohy z Wi-Fi tam a zpět jízdu nespustí.
   static const double resumeNoDopStepKmh = 15;
