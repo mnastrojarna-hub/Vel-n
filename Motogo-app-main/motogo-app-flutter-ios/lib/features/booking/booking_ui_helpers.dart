@@ -242,6 +242,10 @@ const _mapyHeaders = <String, String>{
 /// Address bottom sheet — autocomplete + GPS + map + distance.
 /// [quick] = rychlé volby (adresa druhé strany předání, z profilu) — jdou
 /// stejnou cestou jako položka našeptávače (2026-10-22).
+/// [onDistCalc] přijde JEN s potvrzením (POTVRDIT, těsně před [onSave]) —
+/// list zavřený bez potvrzení nemění adresu ani cenu; POTVRDIT během
+/// výpočtu trasy počká na její cenu (dřív uložil novou adresu se starou
+/// cenou, r2).
 void showAddrBottomSheet(BuildContext ctx,
     String title, String? city, String? addr,
     void Function(String city, String addr) onSave,
@@ -290,6 +294,21 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
   String _city = '', _addr = '';
   double? _lat, _lng;
   Timer? _debounce;
+  // Vzdálenost spočtená pro AKTUÁLNÍ adresu listu (null = ještě není).
+  double? _km;
+  // Rozběhnutý výběr (našeptávač, rychlá volba, GPS) — POTVRDIT na něj počká.
+  Future<void>? _busy;
+  // Pořadí výběrů: výsledek staršího (přepsaného psaním / dalším výběrem)
+  // se zahodí.
+  int _gen = 0;
+  bool _saving = false;
+
+  void _track(Future<void> f) {
+    _busy = f;
+    f.whenComplete(() {
+      if (identical(_busy, f)) _busy = null;
+    }).ignore();
+  }
 
   @override
   void initState() {
@@ -312,6 +331,8 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
   void _onChanged(String q) {
     // Psaní ruší předvyplněnou / dřív vybranou adresu i její vzdálenost —
     // POTVRDIT pak uloží napsaný text (dřív vrátilo předvyplněnou adresu).
+    _gen++;
+    _km = null;
     if (_city.isNotEmpty || _addr.isNotEmpty || _distInfo != null) {
       setState(() {
         _city = '';
@@ -448,7 +469,11 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
     final name = s['name'] as String? ?? '';
     final location = s['location'] as String? ?? '';
-    setState(() { _sug = []; _distInfo = t(context).tr('calculatingKm'); });
+    final gen = ++_gen;
+    _km = null;
+    _lat = null;
+    _lng = null;
+    setState(() { _sug = []; _isError = false; _distInfo = t(context).tr('calculatingKm'); });
 
     // Extract city from regionalStructure
     final rs = (s['regionalStructure'] as List?) ?? [];
@@ -494,6 +519,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     final pos = s['position'] as Map<String, dynamic>?;
     final query = [_addr, _city].where((v) => v.isNotEmpty).join(', ');
     final hit = await geocodeNearestToBranch(query);
+    if (!mounted || gen != _gen) return;
     if (hit != null) {
       _lat = hit.lat;
       _lng = hit.lng;
@@ -511,17 +537,21 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       km = estimateKm(_city).toDouble();
       _log('[PICK] ✗ no coords → est ${km.toStringAsFixed(0)}km');
     }
+    if (gen != _gen) return;
     _showDist(km);
   }
 
   // ── GPS ──
   Future<void> _useGps() async {
     _log('[GPS] start...');
-    setState(() => _distInfo = t(context).tr('gettingLocation'));
+    final gen = ++_gen;
+    _km = null;
+    setState(() { _isError = false; _distInfo = t(context).tr('gettingLocation'); });
     try {
       // Bez vytahování do Nastavení: vypnutá poloha / chybějící oprávnění →
       // proč + „Otevřít nastavení" až na klepnutí (dřív jen „GPS nedostupné").
       final loc = await GpsService.locate();
+      if (!mounted || gen != _gen) return;
       _log('[GPS] status=${loc.status.name}');
       final pos = loc.pos;
       if (pos == null) {
@@ -550,6 +580,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
           '&lang=cs&apikey=$_mapyKey');
         final mRes = await http.get(mUri, headers: _mapyHeaders)
             .timeout(const Duration(seconds: 5));
+        if (gen != _gen) return;
         _log('[GPS] rgeocode HTTP ${mRes.statusCode}');
         if (mRes.statusCode == 200 && mounted) {
           final data = jsonDecode(mRes.body);
@@ -586,6 +617,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
           final res = await http.get(uri,
               headers: {'User-Agent': 'MotoGo24/2.0'})
               .timeout(const Duration(seconds: 5));
+          if (gen != _gen) return;
           _log('[GPS] Nominatim HTTP ${res.statusCode}');
           if (res.statusCode == 200 && mounted) {
             final a = (jsonDecode(res.body)['address']
@@ -605,11 +637,12 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
       _log('[GPS] routing...');
       final km = await routeKmFromBranch(pos.latitude, pos.longitude);
+      if (gen != _gen) return;
       _log('[GPS] ✓ ${km.toStringAsFixed(1)}km');
       _showDist(km);
     } catch (e) {
       _log('[GPS] ✗ FATAL: $e');
-      if (mounted) setState(() {
+      if (mounted && gen == _gen) setState(() {
         _distInfo = t(context).tr('gpsErrorManual');
         _isError = true;
       });
@@ -622,6 +655,7 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     final r = await widget.onMapTap!(context);
     // User cancelled the map → keep the sheet open, don't touch the address.
     if (r == null || !mounted) return;
+    _gen++;
     // The map picker already routed a real distance for the picked point.
     // Fill the sheet from the result and show it — the user reviews and taps
     // POTVRDIT to save (same model as the GPS / suggestion flows). Previously
@@ -640,20 +674,34 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
     _showDist(r.km);
   }
 
-  // ── Show distance + update provider ──
+  // ── Show distance (the price goes out only with POTVRDIT) ──
   void _showDist(double km) {
     final fee = PriceCalculator.calcDeliveryFee(km);
     if (mounted) {
+      _km = km;
       setState(() { _sug = [];
         _isError = false;
         _distInfo = '~${km.toStringAsFixed(0)} km · '
             '${Money.czk(fee)}'; });
-      widget.onDistCalc?.call(km, fee);
     }
   }
 
   // ── Confirm: parse address + calc distance if needed ──
   Future<void> _confirm() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await _confirmRun();
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _confirmRun() async {
+    // Vybraná adresa se ještě počítá → počkat na její cenu.
+    final pending = _busy;
+    if (pending != null) await pending;
+    if (!mounted) return;
     debugPrint('─── [CONFIRM] _confirm() ───');
     debugPrint('[CONFIRM] state: city="$_city" addr="$_addr" lat=$_lat lng=$_lng distInfo=$_distInfo');
     debugPrint('[CONFIRM] textField: "${widget.ctrl.text}"');
@@ -667,8 +715,8 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
       debugPrint('[CONFIRM] parsed from text: city="$_city" addr="$_addr"');
     }
 
-    // Calculate distance if not yet done
-    if (_distInfo == null && _city.isNotEmpty) {
+    // Calculate distance if not yet done for this address
+    if (_km == null && _city.isNotEmpty) {
       debugPrint('[CONFIRM] no distance yet → calculating...');
       double km;
       if (_lat != null && _lng != null) {
@@ -692,12 +740,15 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
           debugPrint('[CONFIRM] ✗ no coords → estimateKm = ${km.toStringAsFixed(0)}km');
         }
       }
-      final fee = PriceCalculator.calcDeliveryFee(km);
-      debugPrint('[CONFIRM] result: ${km.toStringAsFixed(1)}km, ${Money.czk(fee)}');
-      widget.onDistCalc?.call(km, fee);
+      debugPrint('[CONFIRM] result: ${km.toStringAsFixed(1)}km');
+      // List zavřený během výpočtu = zrušeno (a pop by zavřel formulář).
+      if (!mounted) return;
+      _km = km;
     } else {
       debugPrint('[CONFIRM] distance already calculated or city empty, skipping');
     }
+    final routed = _km;
+    if (routed != null) widget.onDistCalc?.call(routed, PriceCalculator.calcDeliveryFee(routed));
     debugPrint('[CONFIRM] → onSave(city="$_city", addr="$_addr")');
     widget.onSave(_city, _addr);
   }
@@ -745,16 +796,16 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
                       ? Text(desc, style: const TextStyle(
                           fontSize: 10, color: Color(0xFF8AAB99)))
                       : null,
-                  onTap: () => _pick(s));
+                  onTap: () => _track(_pick(s)));
               })),
         // Rychlá volba — jen než zákazník začne psát / vybere adresu.
         if (_sug.isEmpty && _distInfo == null)
-          AddressQuickOptions(options: widget.quick, onPick: (q) => _pick(q.asSuggestion)),
+          AddressQuickOptions(options: widget.quick, onPick: (q) => _track(_pick(q.asSuggestion))),
         const SizedBox(height: 10),
         // GPS + Map buttons
         Row(children: [
           Expanded(child: OutlinedButton.icon(
-            onPressed: _useGps,
+            onPressed: () => _track(_useGps()),
             icon: const Icon(Icons.my_location, size: 16),
             label: const Text('GPS'))),
           if (widget.onMapTap != null) ...[
@@ -790,14 +841,19 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
         // Confirm
         SizedBox(width: double.infinity, height: 48,
           child: ElevatedButton(
-            onPressed: _confirm,
+            onPressed: _saving ? null : _confirm,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF74FB71),
               foregroundColor: Colors.black,
+              disabledBackgroundColor: const Color(0xFF74FB71),
+              disabledForegroundColor: Colors.black,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(50))),
-            child: Text(t(context).tr('confirmAddressBtn'),
-              style: const TextStyle(fontWeight: FontWeight.w800)))),
+            child: _saving
+                ? const SizedBox(width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                : Text(t(context).tr('confirmAddressBtn'),
+                    style: const TextStyle(fontWeight: FontWeight.w800)))),
       ]));
   }
 }

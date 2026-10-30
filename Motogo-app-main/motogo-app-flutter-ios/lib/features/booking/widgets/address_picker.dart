@@ -297,6 +297,36 @@ class _RadioOption extends StatelessWidget {
       required this.price,
       required this.selected,
       required this.onTap});
+
+  static const _labelStyle = TextStyle(
+      fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black);
+  static const _subStyle = TextStyle(fontSize: 10, color: MotoGoColors.g400);
+
+  /// Šířka [s] stylem [st] (s výchozím písmem a velikostí písma zařízení).
+  static double _w(BuildContext context, String s, TextStyle st) {
+    final tp = TextPainter(
+      text: TextSpan(text: s, style: DefaultTextStyle.of(context).style.merge(st)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    return tp.width;
+  }
+
+  /// Nejdelší slovo popisku / podtitulku — sloupec textu nesmí být užší
+  /// (jinak se slovo láme uprostřed: „Récupératio|n à votre adresse“).
+  double _longestWord(BuildContext context) {
+    var m = 0.0;
+    for (final (t, st) in [(label, _labelStyle), (sublabel, _subStyle)]) {
+      for (final w in t.split(RegExp(r'\s+'))) {
+        if (w.isEmpty) continue;
+        final ww = _w(context, w, st);
+        if (ww > m) m = ww;
+      }
+    }
+    return m;
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
@@ -308,7 +338,17 @@ class _RadioOption extends StatelessWidget {
               border: Border.all(
                   color: selected ? MotoGoColors.green : MotoGoColors.g200,
                   width: selected ? 2 : 1)),
-          child: Row(children: [
+          child: LayoutBuilder(builder: (context, c) {
+            final priceStyle = TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: selected
+                    ? MotoGoColors.greenDarker
+                    : MotoGoColors.g400);
+            // Cena vpravo jen když text vedle ní nezlomí slovo; jinak pod text.
+            final side = !c.hasBoundedWidth ||
+                c.maxWidth - 28 - _w(context, price, priceStyle) >= _longestWord(context);
+            return Row(children: [
             Container(
                 width: 18,
                 height: 18,
@@ -332,23 +372,13 @@ class _RadioOption extends StatelessWidget {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(label,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: MotoGoColors.black)),
-                  Text(sublabel,
-                      style: const TextStyle(
-                          fontSize: 10, color: MotoGoColors.g400)),
+                  Text(label, style: _labelStyle),
+                  Text(sublabel, style: _subStyle),
+                  if (!side) Text(price, style: priceStyle),
                 ])),
-            Text(price,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: selected
-                        ? MotoGoColors.greenDarker
-                        : MotoGoColors.g400)),
-          ])));
+            if (side) Text(price, style: priceStyle),
+          ]);
+          })));
 }
 
 class AddressResult {
