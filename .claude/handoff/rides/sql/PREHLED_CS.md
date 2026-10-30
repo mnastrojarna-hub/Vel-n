@@ -1,6 +1,6 @@
 # Záznam jízd — SQL balíček: přehled pro majitele
 
-Stav 30. 10. 2026 (kolo 3: vrácení na kiosku před posledním dnem, start bez dat, shodné popisky statistik, přepočet historie součástí balíčku; kolo 4: SOS výměna motorky, hodiny telefonu se 4.1.3 pozadu). Soubory jsou připravené ve složce `scratchpad/rides/sql/` (kopie pro předání v `.claude/handoff/rides/sql/`). V `supabase/migrations` ani na živé databázi zatím nic není. Do `main` jdou spolu s Velínem a appkou; zapsání do `supabase/migrations` je zároveň nasazení (autodeploy).
+Stav 30. 10. 2026 (kolo 3: vrácení na kiosku před posledním dnem, start bez dat, shodné popisky statistik, přepočet historie součástí balíčku; kolo 4: SOS výměna motorky, hodiny telefonu se 4.1.3 pozadu; kolo 5: přepočet historie bere i čas po posledním bodu — pozdní Stop). Soubory jsou připravené ve složce `scratchpad/rides/sql/` (kopie pro předání v `.claude/handoff/rides/sql/`). V `supabase/migrations` ani na živé databázi zatím nic není. Do `main` jdou spolu s Velínem a appkou; zapsání do `supabase/migrations` je zároveň nasazení (autodeploy).
 
 ## Co to přinese (jednou větou)
 
@@ -161,6 +161,7 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
 **Co dělá**
 - U uzavřených jízd ze starých appek přesune noci a dlouhá stání z „celkového času“ a „stání“ do pauz. Nově i noc, kdy telefon se 4.1.3 dál posílal body z pokoje (každý „běh stání“ ≥ 5 min, stejné pravidlo jako u 4.1.3 po nasazení), nejen noc bez bodů.
 - Km, čas jízdy, maximum ani stoupání nemění. Nic nemaže.
+- Nově i čas po posledním bodu (pozdní Stop): stará appka končila vlastní jízdu až stiskem Stopu (výpůjčku vrácením), takže když jsi Stop zmáčkl o 3 h později, 3 h se počítaly jako „stání“. Co přesáhne 2 min po posledním bodu (stejné pravidlo jako u nových jízd), je při ≥ 5 min pauza. Konec jízdy (`ended_at`) se nemění. Telefon s hodinami pozadu ocas nezvětší. Příklad: 1 h jízdy + Stop o 3 h později → dřív „na cestě 4 h, zastávky 3 h“, teď „na cestě 62 min, pauza 2 h 58 min, zastávky 2 min“.
 - Ticho, které staré statistiky braly jako „bez signálu“ (posun > 300 m, ale < 15 km/h), převede na pauzu jen u stopy, která nikdy nebyla prořídnutá (< 2 000 bodů). U prořídnuté stopy to bezpečně odlišit nejde.
 - Pauza nikdy nepřesáhne čas, který nepokrývá jízda a mezery.
 
@@ -182,7 +183,7 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
 
 **SQL testy** (`test_rides.sql`, spouští `run_tests.sh`)
 - Všech 8 souborů aplikováno **2×** bez chyby (~0,4 s).
-- Testy proběhly **2× za sebou: 332/332 kontrol OK** (každý běh ~5–8 s). Zahrnují:
+- Testy proběhly **2× za sebou: 337/337 kontrol OK** (každý běh ~5–8 s). Zahrnují:
   - 15 výpočetních vektorů ze zadání + strop 60 etap;
   - vlastní jízdu (připraveno, opakovaná dávka, značka pauzy = 3 600 s, pozdní Stop = konec +120 s, „na cestě“ 6 min);
   - 3denní cestu s nočním úklidem (= 1 jízda, 3 etapy, 3 dny, název `14.10.–16.10.2026`);
@@ -193,7 +194,7 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
   - slučování (sloučit / zpět / rozdělit / cizí jízda / 6 špatných vstupů / bez přihlášení);
   - prořídnutí: 30 000 bodů → ≤ 12 000, všechny značky i okraje mezer zůstaly, starší dny rovnoměrně; 12 000 bodů za 37–40 ms;
   - práva: anon nic, authenticated nevolá interní funkce;
-  - přepočet historie (noc 10 h → pauza, skutečná mezera beze změny, otevřené a nové jízdy nedotčené, návrat na původní hodnoty);
+  - přepočet historie (noc 10 h → pauza, skutečná mezera beze změny, otevřené a nové jízdy nedotčené, návrat na původní hodnoty; **kolo 5:** pozdní Stop o 3 h → pauza 2 h 58 min, „na cestě“ 62 min; Stop o 4 min zůstane zastávkou; telefon s hodinami 2 h pozadu nic nepřesune; stání 10 min + Stop o 1 h → pauza 68 min; návrat vrátí i pozdní Stop);
   - telefon offline v den vrácení (pozdní body přes `append` i přes `finish`, opakování nic nepřidá; vlastní jízda a jízda ukončená Stopem pozdní body nepřijmou);
   - výpůjčka oblečení (4.1.3 ruční jízda se nespáruje, zavře se po 3 h, ráno se neobnoví; `start_user_trip` → `booking_inactive`; motorka + oblečení → motorka; Velín bez jízdy; stará spárovaná jízda se vrácením oblečení neořízne a odpojí se);
   - hodiny z budoucnosti a čas po roce 2100, řídká první část jízdy, veřejný výpis, textové souřadnice;

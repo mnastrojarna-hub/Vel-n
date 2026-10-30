@@ -15,6 +15,11 @@
 --     pauza (a z mezer pryč), když < 3 km/h nebo stopa nikdy nebyla
 --     prořídnutá (< 2000 bodů) — jinak nejde odlišit od prořídnutí;
 --   • ticho ≥ 24 h (staré statistiky ho nepočítaly nikam) bez projetí: pauza;
+--   • čas po posledním bodu (pozdní Stop — stará finish_user_ride končila
+--     vlastní jízdu v now(), výpůjčku vrácením): co přesáhne 2 min po
+--     posledním bodu (pravidlo nových jízd), je při ≥ 5 min pauza; ended_at
+--     se nemění. Hodiny telefonu pozadu ocas nezvětší (nejvýš start → konec
+--     minus rozpětí časů bodů);
 --   • pauza nikdy nepřesáhne čas, který nepokrývá jízda a mezery.
 -- Známá mez: noc, kterou staré statistiky započítaly jako JÍZDU (bloudění
 -- polohy v budově ≥ 3 km/h), zůstane v čase jízdy — bez přepočtu km to nejde.
@@ -43,6 +48,13 @@ pts as (
               when jsonb_array_length(e.pt) < 3 then false
               when jsonb_typeof(e.pt->0) <> 'number' or jsonb_typeof(e.pt->1) <> 'number' then false
               else (e.pt->>2) ~ '^[0-9]+(\.[0-9]+)?$' end
+),
+tl as (
+  -- ocas po posledním bodu nad 2 min (pozdní Stop); least(): hodiny telefonu pozadu ho nezvětší
+  select c.id, least(extract(epoch from c.ended_at)::float8 - max(p.ts),
+                     extract(epoch from (c.ended_at - c.started_at))::float8 - (max(p.ts) - min(p.ts))) - 120 as tail
+    from cand c join pts p on p.id = c.id
+   group by c.id, c.ended_at, c.started_at
 ),
 pairs as (
   select id, ord, ts - lag(ts) over w as dt,
@@ -83,9 +95,10 @@ agg as (
    group by c.id, c.moving_sec, c.gap_sec, c.ended_at, c.started_at
 ),
 calc as (
-  select a.id, a.moving_sec, a.elapsed, a.pause_raw,
+  select a.id, a.moving_sec, a.elapsed,
+         a.pause_raw + coalesce(case when t.tail >= 300 then t.tail end, 0) as pause_raw,
          greatest(0, a.gap_sec - round(a.gap_moved)::int) as gap_new
-    from agg a
+    from agg a left join tl t on t.id = a.id
 ),
 fin as (
   select c.*, least(c.pause_raw, greatest(0, c.elapsed - c.moving_sec - c.gap_new)) as pause

@@ -1698,6 +1698,34 @@ begin
                                  idle_sec, gap_sec, duration_min)
   values (u, 'L8', tr, to_timestamp(e), to_timestamp(e + 460), false, 4.3, 220, 240, 0, 8);
 end $$;
+do $$
+declare u uuid := t_rides.u(19); e float8 := t_rides.ep('2026-09-11 08:00'); tr jsonb;
+begin
+  -- Tail after the last point (old finish_user_ride closed an own ride at now() → a late Stop was „stání").
+  -- L10 (S10): 1 h ride, Stop 3 h after the last point → old duration 240 min, idle 3 h
+  insert into public.user_rides (user_id, name, track, started_at, ended_at, is_recording, distance_km, moving_sec,
+                                 idle_sec, gap_sec, duration_min)
+  values (u, 'L10', t_rides.line(49.4, 721, 0.00075, e, 5, 60), to_timestamp(e), to_timestamp(e + 14400), false,
+          60, 3600, 10800, 0, 240);
+  -- L11: phone clock 2 h BEHIND, 4 min stop mid-ride, Stop 1 min after the last point → nothing to move
+  tr := t_rides.line(49.6, 361, 0.00075, e - 7200, 5, 60)
+     || (select jsonb_agg(jsonb_build_array(49.87, 16.6, e - 7200 + 1800 + 30 * i, 0) order by i) from generate_series(1, 8) i)
+     || t_rides.line(49.87, 361, 0.00075, e - 7200 + 2045, 5, 60);
+  insert into public.user_rides (user_id, name, track, started_at, ended_at, is_recording, distance_km, moving_sec,
+                                 idle_sec, gap_sec, duration_min)
+  values (u, 'L11', tr, to_timestamp(e), to_timestamp(e + 3905), false, 60, 3600, 305, 0, 65);
+  -- L12: Stop 4 min after the last point (tail beyond the 2-min rule < 5 min) → stays a stop
+  insert into public.user_rides (user_id, name, track, started_at, ended_at, is_recording, distance_km, moving_sec,
+                                 idle_sec, gap_sec, duration_min)
+  values (u, 'L12', t_rides.line(49.2, 721, 0.00075, e, 5, 60), to_timestamp(e), to_timestamp(e + 3840), false,
+          60, 3600, 240, 0, 64);
+  -- L13: 30 min ride, 10 min standing with points (still run → pause), Stop 1 h after the last point
+  tr := t_rides.line(49.5, 361, 0.00075, e, 5, 60)
+     || (select jsonb_agg(jsonb_build_array(49.77, 16.6, e + 1800 + 30 * i, 0) order by i) from generate_series(1, 20) i);
+  insert into public.user_rides (user_id, name, track, started_at, ended_at, is_recording, distance_km, moving_sec,
+                                 idle_sec, gap_sec, duration_min)
+  values (u, 'L13', tr, to_timestamp(e), to_timestamp(e + 6000), false, 30, 1800, 4200, 0, 100);
+end $$;
 -- @@BACKFILL@@
 do $$
 declare u uuid := t_rides.u(19); x public.user_rides; j jsonb; n int;
@@ -1743,12 +1771,32 @@ begin
   perform t_rides.chk('L4 open ride untouched', x.stats_state is null and x.pause_sec = 0);
   select * into x from public.user_rides where user_id = u and name = 'L5';
   perform t_rides.chk('L5 pause-aware ride untouched', x.stats_state = '{}'::jsonb and x.pause_sec = 0);
+  select * into x from public.user_rides where user_id = u and name = 'L10';
+  perform t_rides.chk('L10 Stop 3 h late → pause 3 h − 2 min, na cestě 62 min, zastávky 2 min', x.pause_sec = 10680
+        and x.duration_min = 62 and x.idle_sec = 120 and x.gap_sec = 0 and x.moving_sec = 3600 and x.distance_km = 60
+        and x.ended_at = to_timestamp(t_rides.ep('2026-09-11 08:00') + 14400) and x.stats_state->>'backfill' = '1',
+        format('p %s d %s i %s g %s', x.pause_sec, x.duration_min, x.idle_sec, x.gap_sec));
+  select * into x from public.user_rides where user_id = u and name = 'L11';
+  perform t_rides.chk('L11 phone clock 2 h behind: no tail pause, values unchanged', x.pause_sec = 0
+        and x.duration_min = 65 and x.idle_sec = 305 and x.gap_sec = 0 and x.stats_state->>'backfill' = '1',
+        format('p %s d %s i %s g %s', x.pause_sec, x.duration_min, x.idle_sec, x.gap_sec));
+  select * into x from public.user_rides where user_id = u and name = 'L12';
+  perform t_rides.chk('L12 Stop 4 min late stays a stop, values unchanged', x.pause_sec = 0
+        and x.duration_min = 64 and x.idle_sec = 240 and x.stats_state->>'backfill' = '1',
+        format('p %s d %s i %s', x.pause_sec, x.duration_min, x.idle_sec));
+  select * into x from public.user_rides where user_id = u and name = 'L13';
+  perform t_rides.chk('L13 standing 10 min + Stop 1 h late → pause 68 min, na cestě 32 min', x.pause_sec = 4080
+        and x.duration_min = 32 and x.idle_sec = 120 and x.gap_sec = 0,
+        format('p %s d %s i %s g %s', x.pause_sec, x.duration_min, x.idle_sec, x.gap_sec));
   -- návrat přepočtu (snippet z hlavičky 06) vrátí původní hodnoty
   update public.user_rides set duration_min = (stats_state->'old'->>'duration_min')::int,
     idle_sec = (stats_state->'old'->>'idle_sec')::int, gap_sec = (stats_state->'old'->>'gap_sec')::int,
     pause_sec = 0, stats_state = null where user_id = u and stats_state ? 'backfill';
   select * into x from public.user_rides where user_id = u and name = 'L1';
   perform t_rides.chk('L6 backfill revert restores old values', x.duration_min = 603 and x.idle_sec = 36000
+        and x.gap_sec = 0 and x.pause_sec = 0 and x.stats_state is null, format('d %s i %s', x.duration_min, x.idle_sec));
+  select * into x from public.user_rides where user_id = u and name = 'L10';
+  perform t_rides.chk('L6b backfill revert restores the late-Stop ride', x.duration_min = 240 and x.idle_sec = 10800
         and x.gap_sec = 0 and x.pause_sec = 0 and x.stats_state is null, format('d %s i %s', x.duration_min, x.idle_sec));
 end $$;
 
