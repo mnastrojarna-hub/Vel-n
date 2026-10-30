@@ -1,7 +1,7 @@
 # Handoff 2026-10-30 05:35 UTC → pokračování po obnovení limitu (majitel: „Pozastav a pushni co jde, pokračování příště po načtení limitu“)
 
 > Větev `claude/moto-go-mobile-conversion-gqg5qo`, PR #2214 je KONCEPT (draft) — nemergovat. Složku `.claude/handoff/` smazat před mergem do main.
-> **PR #2221 (hotfix storna, větev `claude/hotfix-storno-refund-gqg5qo`) je hotový, ověřený 2 koly, čeká na merge majitele.** Po jeho mergi ověřit běh „Deploy Supabase Edge Functions“ a potvrdit majiteli.
+> **UPDATE 05:50 UTC: PR #2221 majitel mergnul, deploy edge funkcí (run 258) zelený.** `main` sloučen do vývojové větve (commit 20140d72; konflikt jen process-refund/index.ts — ponechány storedPi/storedRefunds i piRefunds; storno flow 24/24, sada 196 ok + 2 známé f1/3). Krok payments integrate tedy už NEslučuje — jen dosladí platby (víc plateb na rezervaci vs. cancel-once; podklad `paydec/integrate_partial/`), opraví f1/3 a jede verify kola.
 
 ## Stav 2026-10-30
 - **Main sloučen do větve** 29. 10. (výpůjčka výbavy jako rezervace, sjednocená vratka; commit 4ee110c1). Platby větve + gear spojené ručně, deno check beze změny.
