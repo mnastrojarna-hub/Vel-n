@@ -1,3 +1,17 @@
+# Handoff 2026-10-30 05:35 UTC → pokračování po obnovení limitu (majitel: „Pozastav a pushni co jde, pokračování příště po načtení limitu“)
+
+> Větev `claude/moto-go-mobile-conversion-gqg5qo`, PR #2214 je KONCEPT (draft) — nemergovat. Složku `.claude/handoff/` smazat před mergem do main.
+> **PR #2221 (hotfix storna, větev `claude/hotfix-storno-refund-gqg5qo`) je hotový, ověřený 2 koly, čeká na merge majitele.** Po jeho mergi ověřit běh „Deploy Supabase Edge Functions“ a potvrdit majiteli.
+
+## Stav 2026-10-30
+- **Main sloučen do větve** 29. 10. (výpůjčka výbavy jako rezervace, sjednocená vratka; commit 4ee110c1). Platby větve + gear spojené ručně, deno check beze změny.
+- **Záznam jízdy — HOTOVO** (5 kol ověření, run wf_ace31e66-1f7). Podklady `rides/` (SPEC.md, SPEC_OWNER_CS.md = shrnutí pro majitele vč. otevřených voleb, LOGIC_API.md, STATE_PATCH.md, sql/01–06 + test_rides.sql + run_tests.sh). Otevřená volba majitele: baterie přes noc (výchozí (a) GPS zapnuté s pojistkami 48 h / 16 h kóje). SQL jde do `supabase/migrations` až do finálního PR (názvy řadit ZA nejnovější soubor v main, nyní 20261023f_*; NE `20261023_…`), s STATE dle `rides/STATE_PATCH.md`; Velín nasadit spolu s SQL.
+- **Appka v2** (run wf_13a7a4b2-0f3, args `scratchpad/v2cont/resume_args.json`): hotovo kolo 1–3 (vč. majitelových „12:00 jen info“ a „nic dvakrát“), kolo 4 verify přerušeno (parity:r4, render:r4 běžely). Pokračovat resume stejným skriptem + args (cache vezme hotové).
+- **Platby** (run wf_2d8d72a7-4b3, skript `workflows/payments-integrate-verify-wf_2d8d72a7-4b3.js`): přerušeno v kroku integrate (sloučení hotfixu #2221 do větve). Rozpracovaný stav v `paydec/integrate_partial/` (README + files.tgz), merge zrušen, strom čistý. Spustit skript znovu (nový běh). Pokud mezitím #2221 v main → stačí merge origin/main.
+- **Zbývá potom:** prodejní texty (`app-v2-sales-copy.js`), UX revize (`app-v2-ux-review.js`), pojistka funkčnosti (`functional-diff-audit.js`), SQL (platby p1–p4, jízdy 01–06, barvy ranků, starší balík) rovnou do migrací + STATE, finální PR, „můžete buildit“ (Codemagic „MotoGo24 Android Build“ nad větví), vydání 4.2.0.
+- Limity hlídat: 2 workflow ≈ 0,25–0,5 %/min pětihodinového okna; týden byl při zastavení ~53 %.
+
+---
 # Handoff 2026-10-22 → pokračování „za týden“ (majitel: „pozastav to dokončíme to za týden“)
 
 > Pracovní podklady Clauda pro větev `claude/moto-go-mobile-conversion-gqg5qo`. **Složku `.claude/handoff/` smazat před dalším mergem do `main`** (už v main je její starší verze z #2212 — v dalším PR ji smazat).
