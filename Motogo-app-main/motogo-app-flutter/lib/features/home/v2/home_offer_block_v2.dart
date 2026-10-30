@@ -28,7 +28,7 @@ class HomeOfferBlockV2 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
-    final range = ref.watch(funnelSelectionProvider).range(DateTime.now());
+    final range = ref.watch(funnelSelectionProvider).range(ref.watch(funnelTodayProvider));
     final list = ref.watch(funnelCandidatesProvider(range)).valueOrNull ?? const [];
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
     final i = ref.watch(funnelCenterProvider);

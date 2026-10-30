@@ -9,16 +9,19 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
-import '../../messages/messages_provider.dart';
 import 'home_state.dart';
 
 /// Concierge note under the motto (compact: one small line, scales first):
-/// birthday → state note (S3 / S6 / S7 / S8 / S9 / S0) → newest unread
-/// message title. Nothing to say → nothing drawn.
+/// birthday → state note (S3 / S6 / S7 / S8 / S9) → S0 / S10 idle line
+/// (only when [idle]: the header has no Velín banner line).
+/// An unread message is NOT repeated here — "MotoGo ti píše" right below
+/// the hero shows it (compact header, V22 §2.4 #1). Nothing to say →
+/// nothing drawn.
 class HomeHeaderNote extends ConsumerWidget {
   final HomeSnapshot snap;
   final String nick;
-  const HomeHeaderNote({super.key, required this.snap, required this.nick});
+  final bool idle;
+  const HomeHeaderNote({super.key, required this.snap, required this.nick, this.idle = true});
 
   static bool _birthday(Map<String, dynamic>? profile, DateTime now) {
     final raw = profile?['date_of_birth'];
@@ -31,16 +34,6 @@ class HomeHeaderNote extends ConsumerWidget {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
     final profile = ref.watch(profileProvider).valueOrNull;
-    final msgs = ref.watch(adminMessagesProvider).valueOrNull ?? const <AdminMessage>[];
-    String? unreadTitle;
-    for (final m in msgs) {
-      if (m.read) continue;
-      final title = m.titleFor(tr.lang)?.trim();
-      if (title != null && title.isNotEmpty) {
-        unreadTitle = title;
-        break;
-      }
-    }
     final now = DateTime.now();
     final bike = snap.res?.motoName ?? '';
     final String? text;
@@ -53,15 +46,13 @@ class HomeHeaderNote extends ConsumerWidget {
         HomeTicket.s7 => tr.trArgs('v2HomeNoteToday', {'bike': bike}),
         HomeTicket.s8 => tr.tr('v2HomeNoteRide'),
         HomeTicket.s9 => tr.tr('v2HomeNoteReturn'),
-        HomeTicket.s0 || HomeTicket.s10 => unreadTitle == null
-            ? tr.tr('v2HomeNoteIdle')
-            : tr.trArgs('v2HomeNoteMsg', {'title': unreadTitle}),
-        _ => unreadTitle == null ? null : tr.trArgs('v2HomeNoteMsg', {'title': unreadTitle}),
+        HomeTicket.s0 || HomeTicket.s10 => idle ? tr.tr('v2HomeNoteIdle') : null,
+        _ => null,
       };
     }
     if (text == null || text.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 6),
       child: MgEnter(
         delay: const Duration(milliseconds: 150),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

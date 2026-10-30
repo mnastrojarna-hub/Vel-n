@@ -13,6 +13,7 @@ import 'package:http/testing.dart';
 import 'package:motogo_app/core/i18n/translations.dart' show translations;
 import 'package:motogo_app/core/supabase_client.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/core/v2/widgets/mg_buttons.dart' show MgBtnInk;
 import 'package:motogo_app/features/routes/my_experiences_provider.dart' show BuilderStopSpec;
 import 'package:motogo_app/features/routes/route_builder_screen.dart';
 import 'package:motogo_app/features/routes/route_builder_sheets.dart';
@@ -74,10 +75,18 @@ Future<void> _openSuggest(WidgetTester tester, bool v2) async {
   await _frames(tester);
 }
 
+/// Odesílací tlačítko listu: starý vzhled ElevatedButton, v2 MgBtnInk.
+Finder _sendBtn(String key) => find
+    .ancestor(
+      of: find.text(_tr('cs', key)),
+      matching: find.byWidgetPredicate((w) => w is ElevatedButton || w is MgBtnInk),
+    )
+    .first;
+
 Future<void> _fillAndSend(WidgetTester tester, String sendKey, String name, String desc) async {
   await tester.enterText(find.byType(TextField).at(0), name);
   await tester.enterText(find.byType(TextField).at(1), desc);
-  await tester.tap(find.widgetWithText(ElevatedButton, _tr('cs', sendKey)));
+  await tester.tap(_sendBtn(sendKey));
   await _frames(tester);
 }
 
@@ -156,7 +165,7 @@ void main() {
       expect(_field(tester, 0).controller!.text, 'Šumava víkend');
       expect(_field(tester, 1).controller!.text, 'Přes Kvildu');
       // Odeslat beze změny → návrh nese uložené hodnoty.
-      await tester.tap(find.widgetWithText(ElevatedButton, _tr('cs', 'poiSubmitSend')));
+      await tester.tap(_sendBtn('poiSubmitSend'));
       await _frames(tester);
       final ins = _writes.last;
       expect(ins.method, 'POST');

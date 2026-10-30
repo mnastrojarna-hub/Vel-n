@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,11 +46,38 @@ class HomeFunnelV2 extends ConsumerStatefulWidget {
 class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
   PageController? _pc;
   FunnelRange? _pcRange;
+  AppLifecycleListener? _life;
+  Timer? _midnight;
+
+  @override
+  void initState() {
+    super.initState();
+    // Nový den (půlnoc / návrat do appky): termín, který už začal, zmizí.
+    _life = AppLifecycleListener(onResume: _syncDay);
+    _armMidnight();
+  }
 
   @override
   void dispose() {
+    _life?.dispose();
+    _midnight?.cancel();
     _pc?.dispose();
     super.dispose();
+  }
+
+  void _armMidnight() {
+    _midnight?.cancel();
+    final now = DateTime.now();
+    final next = DateTime(now.year, now.month, now.day + 1);
+    _midnight = Timer(next.difference(now) + const Duration(seconds: 1), _syncDay);
+  }
+
+  void _syncDay() {
+    if (!mounted) return;
+    final day = funnelDay(DateTime.now());
+    final today = ref.read(funnelTodayProvider.notifier);
+    if (today.state != day) today.state = day;
+    _armMidnight();
   }
 
   /// One pager per date range, opened at the centred bike: back on Domů =
@@ -93,7 +122,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
     final sel = ref.watch(funnelSelectionProvider);
-    final now = DateTime.now();
+    final now = ref.watch(funnelTodayProvider);
+    if (funnelDay(DateTime.now()) != now) WidgetsBinding.instance.addPostFrameCallback((_) => _syncDay());
     final range = sel.range(now);
     final async = ref.watch(funnelCandidatesProvider(range));
     final loyaltyAsync = ref.watch(loyaltyStatusProvider);
@@ -115,7 +145,14 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     }
 
     final emptyOrError = (async.hasError && !async.hasValue) || (async.hasValue && list.isEmpty);
-    final photoH = MediaQuery.sizeOf(context).height < 800 && !emptyOrError ? 150.0 : 200.0;
+    // Nižší telefon (< 800 dp) fotka 150, velmi nízký (< 700 dp: 360×640,
+    // 375×667) těsnější mezery a při běžném písmu fotka 124 (větší písmo
+    // potřebuje 150, jinak by se štítky fotky překryly) — REZERVOVAT nad
+    // spodní lištou.
+    final screenH = MediaQuery.sizeOf(context).height;
+    final short = screenH < 700;
+    final bigText = MediaQuery.textScalerOf(context).scale(10) > 10.5;
+    final photoH = emptyOrError || screenH >= 800 ? 200.0 : (short && !bigText ? 124.0 : 150.0);
     final Widget slot = async.when(
       skipLoadingOnReload: true,
       loading: () => const FunnelSkeleton(),
@@ -192,13 +229,13 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-            // Nižší telefon (< 800 dp): fotka 150, ať je REZERVOVAT nad
-            // spodní lištou (V22 §2.4 #4). Prázdný / chybový stav má min. 200
-            // a roste podle textu (velké písmo) — vysvětlení se neusekne.
+            // Nižší telefon: menší fotka (photoH), ať je REZERVOVAT nad spodní
+            // lištou (V22 §2.4 #4). Prázdný / chybový stav má min. 200 a roste
+            // podle textu (velké písmo) — vysvětlení se neusekne.
             child: slot is FunnelEmptySlot ? slot : SizedBox(height: photoH, child: slot),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding: EdgeInsets.fromLTRB(16, short ? 10 : 14, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FunnelTopRow(
                 count: list.length,
@@ -206,7 +243,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 onPrev: center > 0 ? () => _go(center - 1) : null,
                 onNext: center < list.length - 1 ? () => _go(center + 1) : null,
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: short ? 4 : 6),
               MgEnter(
                 child: Semantics(
                   header: true,
@@ -225,7 +262,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 onRetry: () => ref.invalidate(loyaltyStatusProvider),
               ),
               if (sel.preset(now) == 2) FunnelDateLine(range: range, onClear: () => _select(null)),
-              const SizedBox(height: 10),
+              SizedBox(height: short ? 8 : 10),
               FunnelPresets(
                 selection: sel,
                 onPreset: (i) {
@@ -234,7 +271,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 },
                 onCalendar: () => _pickDates(range),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: short ? 8 : 10),
               action,
             ]),
           ),

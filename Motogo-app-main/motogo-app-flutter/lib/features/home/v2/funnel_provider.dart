@@ -83,8 +83,16 @@ final funnelGivenProvider = StateProvider<FunnelRange?>((ref) {
   return s != null && e != null ? FunnelRange(s, e) : null;
 });
 
+/// Calendar day of [now] (local midnight).
+DateTime funnelDay(DateTime now) => DateTime(now.year, now.month, now.day);
+
+/// "Today" of the funnel. `HomeFunnelV2` moves it on at midnight and when
+/// the app comes back, so a range given for a day that is now in the past
+/// is dropped (and never priced / sent to REZERVOVAT) without a restart.
+final funnelTodayProvider = StateProvider<DateTime>((ref) => funnelDay(DateTime.now()));
+
 final funnelSelectionProvider = Provider<FunnelSelection>(
-    (ref) => FunnelSelection(funnelGivenRange(ref.watch(funnelGivenProvider), DateTime.now())));
+    (ref) => FunnelSelection(funnelGivenRange(ref.watch(funnelGivenProvider), ref.watch(funnelTodayProvider))));
 
 /// Customer licence groups (`profiles.license_group[]`), upper case.
 List<String> homeLicenseGroups(Map<String, dynamic>? profile) =>

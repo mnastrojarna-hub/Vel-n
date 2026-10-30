@@ -11,6 +11,7 @@ import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
 import 'funnel_provider.dart';
@@ -20,7 +21,9 @@ import 'home_fit.dart';
 void homePushMoto(BuildContext context, String id) => mgPushOrGo(context, '/moto/$id');
 
 /// Eyebrow "TVOJE PŘÍŠTÍ JÍZDA" + pager ‹ 1 / n › (single-pointer
-/// alternative to swiping; the eyebrow collapses to its icon then).
+/// alternative to swiping). The full eyebrow stays beside the pager when
+/// its label fits (≥ 85 % size); only on narrow screens / long languages
+/// it collapses to its icon.
 class FunnelTopRow extends ConsumerWidget {
   final int count;
   final int index;
@@ -28,46 +31,54 @@ class FunnelTopRow extends ConsumerWidget {
   final VoidCallback? onNext;
   const FunnelTopRow({super.key, required this.count, required this.index, this.onPrev, this.onNext});
 
+  /// Pager width (‹ 44 + "n / m" 48 + › 44) and the eyebrow's own chrome
+  /// (padding 2 × 10, icon 16, gap 6, border 2).
+  static const double _pagerW = 136, _ebChrome = 44, _gap = 8;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
     final pager = count > 1;
     final label = tr.tr('v2HomeFnEyebrow');
-    Widget eb = Container(
-      height: 28,
-      padding: EdgeInsets.symmetric(horizontal: pager ? 0 : 10),
-      width: pager ? 32 : null,
-      decoration: BoxDecoration(
-        color: MgColors.white(0.07),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: MgColors.white(0.12)),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-        MgIcon(MgIcons.route, size: 16, color: rank.accentOnDark),
-        if (!pager) ...[
-          const SizedBox(width: 6),
-          // „TWÓJ NASTĘPNY PRZEJAZD" celé — raději menší než useknuté.
-          Flexible(
-            child: MgWordFit(
-              minScale: 0.7,
-              child: Text(label.toUpperCase(),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.fade,
-                  style: MgType.eyebrow.copyWith(height: 1, color: rank.accentOnDark)),
+    final labelStyle = MgType.eyebrow.copyWith(height: 1, color: rank.accentOnDark);
+    Widget eyebrow(bool full) => Semantics(
+          label: label,
+          excludeSemantics: true,
+          child: Container(
+            height: 28,
+            padding: EdgeInsets.symmetric(horizontal: full ? 10 : 0),
+            width: full ? null : 32,
+            decoration: BoxDecoration(
+              color: MgColors.white(0.07),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: MgColors.white(0.12)),
             ),
+            child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+              MgIcon(MgIcons.route, size: 16, color: rank.accentOnDark),
+              if (full) ...[
+                const SizedBox(width: 6),
+                // „TWÓJ NASTĘPNY PRZEJAZD" celé — raději menší než useknuté.
+                Flexible(
+                  child: MgWordFit(
+                    minScale: 0.7,
+                    child: Text(label.toUpperCase(),
+                        maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: labelStyle),
+                  ),
+                ),
+              ],
+            ]),
           ),
-        ],
-      ]),
-    );
-    eb = Semantics(label: label, excludeSemantics: true, child: eb);
+        );
     return SizedBox(
       height: 36,
-      child: Row(children: [
-        if (pager) ...[
-          eb,
-          const Spacer(),
+      child: LayoutBuilder(builder: (context, c) {
+        if (!pager) return Row(children: [Flexible(child: eyebrow(true))]);
+        final need = mgLineWidth(context, label.toUpperCase(), labelStyle) * 0.85 + _ebChrome + _gap + _pagerW;
+        final full = need <= c.maxWidth;
+        return Row(children: [
+          if (full) Flexible(child: Align(alignment: AlignmentDirectional.centerStart, child: eyebrow(true))) else eyebrow(false),
+          if (full) const SizedBox(width: _gap) else const Spacer(),
           _PagerBtn(icon: MgIcons.chevronLeft, label: tr.tr('v2HomeFnPrev'), onTap: onPrev),
           SizedBox(
             width: 48,
@@ -76,9 +87,8 @@ class FunnelTopRow extends ConsumerWidget {
                 style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDarkBody))),
           ),
           _PagerBtn(icon: MgIcons.chevronRight, label: tr.tr('v2HomeFnNext'), onTap: onNext),
-        ] else
-          Flexible(child: eb),
-      ]),
+        ]);
+      }),
     );
   }
 }
@@ -281,8 +291,8 @@ class FunnelPresets extends StatelessWidget {
     final calOn = selected == 2;
     final l1 = tr.tr('v2HomeFnPreset1'), l2 = tr.tr('v2HomeFnPreset2');
     Widget cal({required bool wide}) => MgFabAvoid(
-          // Vlastní termín (vpravo dole, pod AI tlačítkem) = tap zóna.
-          kind: MgAvoidKind.tap,
+          // Vlastní termín (vpravo dole, pod AI tlačítkem) = CTA zóna: AI
+          // tlačítko ho nikdy nepřekryje (nakouknutí by zakrylo půlku).
           child: Semantics(
             button: true,
             selected: calOn,
