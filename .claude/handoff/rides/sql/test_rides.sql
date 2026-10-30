@@ -55,16 +55,18 @@ begin
   return t_rides.bk(p_n);
 end $$;
 
--- Test users aa…01–aa…45 (data wiped on every run).
+-- Test users aa…01–aa…60 (data wiped on every run).
 set session_replication_role = replica;
 insert into auth.users (id, email, aud, role, created_at)
-select t_rides.u(n), 'rides' || n || '@test.cz', 'authenticated', 'authenticated', now() from generate_series(1, 45) n
+select t_rides.u(n), 'rides' || n || '@test.cz', 'authenticated', 'authenticated', now() from generate_series(1, 60) n
 on conflict do nothing;
 insert into public.profiles (id, full_name, email)
-select t_rides.u(n), 'Rides Test ' || n, 'rides' || n || '@test.cz' from generate_series(1, 45) n
+select t_rides.u(n), 'Rides Test ' || n, 'rides' || n || '@test.cz' from generate_series(1, 60) n
 on conflict do nothing;
-delete from public.user_rides where user_id in (select t_rides.u(n) from generate_series(1, 45) n);
-delete from public.bookings where id in (select t_rides.bk(n) from generate_series(1, 45) n);
+delete from public.user_rides where user_id in (select t_rides.u(n) from generate_series(1, 60) n);
+-- (replica role: FK cascades do not fire → kiosk rows of the test bookings explicitly)
+delete from public.booking_kiosk_returns where booking_id in (select t_rides.bk(n) from generate_series(1, 60) n);
+delete from public.bookings where id in (select t_rides.bk(n) from generate_series(1, 60) n);
 reset session_replication_role;
 
 -- ───────────────────────── V: stats vectors (SPEC §3.7) ─────────────────────────
@@ -832,6 +834,356 @@ begin
         and r->>'discarded' = 'false' and not exists (select 1 from public.user_ride_points where ride_id = v_id and kind = 'start'), r::text);
 end $$;
 
+-- ───────────── K: kiosk — an early return only „parks" the bike (G3), overnight bay parking (D1) ─────────────
+create function t_rides.kiosk(p_b uuid, p_state text, p_closed float8, p_out float8) returns void language plpgsql as $$
+begin
+  perform set_config('session_replication_role', 'replica', true);
+  insert into public.booking_kiosk_returns (booking_id, state, closed_at, out_at)
+  values (p_b, p_state, to_timestamp(p_closed), to_timestamp(p_out))
+  on conflict (booking_id) do update set state = excluded.state, closed_at = excluded.closed_at, out_at = excluded.out_at;
+  perform set_config('session_replication_role', 'origin', true);
+end $$;
+create function t_rides.bike(p_lat float8, p_lng float8, p_e float8, p_n int) returns jsonb language sql immutable as $$
+  select jsonb_build_array(jsonb_build_array(p_lat, p_lng, p_e + 5, 0), jsonb_build_array(p_lat + 0.0001, p_lng, p_e + 200, -1))
+         || (select coalesce(jsonb_agg(jsonb_build_array(round((p_lat + 0.0006 + i * 0.0005)::numeric, 7), p_lng, p_e + 205 + i * 5, 40)
+                                       order by i), '[]'::jsonb) from generate_series(0, p_n - 1) i) $$;
+
+do $$
+declare u uuid := t_rides.u(46); e float8 := t_rides.ep('2026-11-20 08:00'); b uuid; r jsonb; v_id uuid; x public.user_rides;
+  p float8; bkm numeric; n int;
+begin
+  -- K1 (G3): bike locked in the kiosk bay a day early (kiosk only „parks"), car home at 120 km/h
+  b := t_rides.booking(46, u, '2026-11-20', '2026-11-21');
+  perform t_rides.at(u, e);
+  v_id := (public.start_user_trip(b)->>'id')::uuid;
+  perform t_rides.feed(u, v_id, t_rides.bike(49.3, 16.6, e, 200));
+  bkm := (t_rides.ride(v_id)).distance_km;
+  p := e + 1300;
+  perform t_rides.kiosk(b, 'parked', p, null);
+  perform t_rides.at(u, p + 800);
+  r := public.append_ride_track(v_id, t_rides.line(49.5, 100, 0.0015, p + 300, 5, 120), null);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K1 car after the bay parking → ride_finished/booking_ended', r->>'error' = 'ride_finished'
+        and r->>'reason' = 'booking_ended', r::text);
+  perform t_rides.chk('K1 closed at the bike end: bike km and max only, closed_by return', not x.is_recording
+        and x.distance_km = bkm and x.max_speed_kmh <= 45 and x.ended_at <= to_timestamp(p)
+        and x.stats_state->>'closed_by' = 'return', format('km %s (bike %s) max %s end %s', x.distance_km, bkm, x.max_speed_kmh, x.ended_at));
+  r := public.start_user_trip(b);
+  perform t_rides.chk('K1 start_user_trip while parked → booking_inactive', r->>'error' = 'booking_inactive', r::text);
+  r := public.start_user_trip_from(b, e + 10);
+  perform t_rides.chk('K1 start_user_trip_from while parked (ride exists) → booking_inactive', r->>'error' = 'booking_inactive', r::text);
+  r := public.start_user_ride(b, 49.5, 16.6);
+  select count(*) into n from public.user_rides where user_id = u;
+  perform t_rides.chk('K1 4.1.3 start_user_ride while parked → success false, no new ride', r->>'success' = 'false'
+        and r->>'error' = 'booking_inactive' and n = 1, format('%s n=%s', r, n));
+  r := public.start_user_ride(null, 49.5, 16.6);
+  perform t_rides.chk('K1 4.1.3 manual ride the same day is NOT paired with the parked rental', r->>'success' = 'true'
+        and (t_rides.ride((r->>'id')::uuid)).booking_id is null, r::text);
+  perform public.finish_user_ride((r->>'id')::uuid, '[]'::jsonb, null);
+  -- next day kiosk_process_returns completes the booking (returned_at back-dated to the bay close)
+  perform set_config('session_replication_role', 'replica', true);
+  update public.bookings set returned_at = to_timestamp(p), status = 'completed' where id = b;
+  update public.booking_kiosk_returns set state = 'completed' where booking_id = b;
+  perform set_config('session_replication_role', 'origin', true);
+  perform t_rides.at(null, e + 86400 + 6 * 3600);  perform public.close_stale_user_rides();
+  perform t_rides.chk('K1 completion next day changes nothing', (t_rides.ride(v_id)).distance_km = bkm
+        and (t_rides.ride(v_id)).ended_at = x.ended_at);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(47); e float8 := t_rides.ep('2026-11-20 08:00'); b uuid; r jsonb; v_id uuid; x public.user_rides;
+  p float8; bkm numeric; bmv int; bmax numeric; ep record;
+begin
+  -- K2 (G3, kiosk offline): the bay close arrives AFTER the car points were stored → the cron trims them
+  b := t_rides.booking(47, u, '2026-11-20', '2026-11-21');
+  perform t_rides.at(u, e);
+  v_id := (public.start_user_trip(b)->>'id')::uuid;
+  perform t_rides.feed(u, v_id, t_rides.bike(49.3, 16.7, e, 200));
+  x := t_rides.ride(v_id); bkm := x.distance_km; bmv := x.moving_sec; bmax := x.max_speed_kmh;
+  p := e + 1300;
+  perform t_rides.feed(u, v_id, t_rides.line(49.5, 100, 0.0015, p + 300, 5, 120));
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K2 before the kiosk event the car drive is stored', x.is_recording and x.distance_km > bkm + 10
+        and x.max_speed_kmh > 100, format('km %s max %s', x.distance_km, x.max_speed_kmh));
+  perform t_rides.kiosk(b, 'parked', p, null);
+  perform t_rides.at('d0000000-0000-0000-0000-00000000000d', p + 300 + 495 + 1000);
+  r := public.admin_booking_live_ride(b);
+  perform t_rides.chk('K2 Velín: a rental parked in the bay is not „standing"', r->>'is_standing' = 'false'
+        and r->>'is_recording' = 'true', r::text);
+  perform t_rides.at(null, p + 3000);  perform public.close_stale_user_rides();
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K2 cron closes at the bay close and trims the car drive (km, max, last fix)', not x.is_recording
+        and x.stats_state->>'closed_by' = 'cron' and t_rides.near(x.distance_km, bkm, 0.02) and x.max_speed_kmh = bmax
+        and x.ended_at <= to_timestamp(p) and x.last_fix_at <= to_timestamp(p + 30),
+        format('km %s (bike %s) max %s end %s fix %s', x.distance_km, bkm, x.max_speed_kmh, x.ended_at, x.last_fix_at));
+  perform t_rides.chk('K2 duration ≥ moving + gap, moving = bike only, 1 stage', x.duration_min * 60 + 30 >= x.moving_sec + x.gap_sec
+        and abs(x.moving_sec - bmv) <= 10 and x.idle_sec >= 0 and jsonb_array_length(x.stages) = 1,
+        format('dur %s mv %s (bike %s) gap %s idle %s', x.duration_min, x.moving_sec, bmv, x.gap_sec, x.idle_sec));
+  select lat, happened_at into ep from public.user_ride_points where ride_id = v_id and kind = 'end';
+  perform t_rides.chk('K2 end point = last bike point, track without car points',
+        t_rides.near(ep.lat::numeric, 49.3006 + 199 * 0.0005, 0.00001)
+        and not exists (select 1 from jsonb_array_elements(x.track) t where (t->>0)::float8 >= 49.5), ep::text);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(48); e float8 := t_rides.ep('2026-11-20 08:00'); b uuid; r jsonb; v_id uuid; x public.user_rides;
+  p float8; bkm numeric;
+begin
+  -- K3: returned but not completed (skipped, e.g. unpaid) → Stop with the car points keeps the bike only
+  b := t_rides.booking(48, u, '2026-11-20', '2026-11-21');
+  perform t_rides.at(u, e);  v_id := (public.start_user_trip(b)->>'id')::uuid;
+  perform t_rides.feed(u, v_id, t_rides.bike(49.3, 16.8, e, 200));
+  bkm := (t_rides.ride(v_id)).distance_km;
+  p := e + 1300;  perform t_rides.kiosk(b, 'skipped', p, null);
+  perform t_rides.at(u, p + 1200);
+  r := public.finish_user_ride(v_id, t_rides.line(49.5, 100, 0.0015, p + 300, 5, 120), null);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K3 Stop while the bike is in the bay (skipped): bike km only, ended at the bike end', r->>'success' = 'true'
+        and not x.is_recording and x.distance_km = bkm and x.ended_at <= to_timestamp(p), format('%s km %s', r, x.distance_km));
+  -- K3b: the bike left the bay before (closed_at < out_at) → not ended, recording goes on
+  perform t_rides.kiosk(b, 'skipped', p - 600, p - 300);
+  perform t_rides.chk('K3b closed before the last ride-out = not a return', public._ride_booking_end(b) is null);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(49); d1 float8 := t_rides.ep('2026-11-20 09:00'); d2 float8 := t_rides.ep('2026-11-21 08:00');
+  b uuid; r jsonb; v_id uuid; x public.user_rides; p1 float8; km1 numeric; n int;
+begin
+  -- K4 (D1): 3-day rental, bike in the kiosk bay overnight, out again next morning → ONE ride
+  b := t_rides.booking(49, u, '2026-11-20', '2026-11-22');
+  perform t_rides.at(u, d1);  v_id := (public.start_user_trip(b)->>'id')::uuid;
+  perform t_rides.feed(u, v_id, t_rides.bike(49.2, 16.6, d1, 200));
+  km1 := (t_rides.ride(v_id)).distance_km;
+  p1 := d1 + 1300;  perform t_rides.kiosk(b, 'parked', p1, null);
+  perform t_rides.at(u, p1 + 1500);
+  r := public.append_ride_track(v_id, t_rides.line(49.4, 20, 0.0015, p1 + 600, 5, 110), null);   -- taxi to the hotel
+  perform t_rides.chk('K4 taxi after the bay parking not recorded (ride closed at the parking)', r->>'reason' = 'booking_ended'
+        and not (t_rides.ride(v_id)).is_recording and (t_rides.ride(v_id)).distance_km = km1, r::text);
+  perform t_rides.at(u, d1 + 4 * 3600);
+  perform t_rides.chk('K4 start during the night → booking_inactive', public.start_user_trip(b)->>'error' = 'booking_inactive');
+  perform t_rides.kiosk(b, 'out', p1, d2);
+  perform t_rides.at(u, d2 + 60);
+  r := public.start_user_trip(b);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K4 bike out of the bay → the SAME ride re-opened (resumed + reopened)', r->>'success' = 'true'
+        and (r->>'id')::uuid = v_id and r->>'resumed' = 'true' and r->>'reopened' = 'true' and x.is_recording
+        and x.ended_at is null and not (x.stats_state ? 'closed_by') and x.name = '', r::text);
+  perform t_rides.feed(u, v_id, jsonb_build_array(jsonb_build_array(49.3002, 16.6, d2 + 70, -1))
+          || t_rides.line(49.3007, 200, 0.0005, d2 + 75, 5, 40));
+  perform t_rides.at(u, d2 + 2000);
+  r := public.finish_user_ride(v_id, '[]'::jsonb, null);
+  x := t_rides.ride(v_id);
+  select count(*) into n from public.user_rides where user_id = u;
+  perform t_rides.chk('K4 one ride for the rental: 2 days, 2 stages, the night is a pause', n = 1 and not x.is_recording
+        and jsonb_array_length(x.stages) = 2 and (r->>'days')::int = 2 and x.pause_sec >= 12 * 3600
+        and x.name = '20.11.–21.11.2026' and t_rides.near(x.distance_km, km1 + 200 * 0.0555975, 0.05)
+        and x.stats_state->>'closed_by' = 'user', format('n %s %s', n, r));
+  -- a ride the rider stopped himself is never re-opened by a later ride-out
+  perform t_rides.kiosk(b, 'parked', d2 + 2100, null);
+  perform t_rides.kiosk(b, 'out', d2 + 2100, d2 + 9000);
+  perform t_rides.at(u, d2 + 9100);
+  r := public.start_user_trip(b);
+  perform t_rides.chk('K4 after Stop a ride-out starts a NEW ride (no re-open)', r->>'success' = 'true'
+        and (r->>'id')::uuid <> v_id and not (r ? 'reopened') and not (t_rides.ride(v_id)).is_recording, r::text);
+  perform public.finish_user_ride((r->>'id')::uuid, '[]'::jsonb, null);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(50); d1 float8 := t_rides.ep('2026-11-20 09:00'); d2 float8 := t_rides.ep('2026-11-21 08:00');
+  b uuid; r jsonb; v_id uuid; x public.user_rides; p1 float8; km1 numeric; n int;
+begin
+  -- K4b: the same with the released app 4.1.3 (start_user_ride), closed by the cron
+  b := t_rides.booking(50, u, '2026-11-20', '2026-11-22');
+  perform t_rides.at(u, d1);  v_id := (public.start_user_ride(b, 49.1, 16.6)->>'id')::uuid;
+  perform t_rides.feed(u, v_id, t_rides.line(49.1005, 200, 0.0005, d1 + 5, 5, 40));
+  km1 := (t_rides.ride(v_id)).distance_km;
+  p1 := d1 + 1300;  perform t_rides.kiosk(b, 'parked', p1, null);
+  perform t_rides.at(null, p1 + 900);  perform public.close_stale_user_rides();
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K4b 4.1.3: the cron closes the parked rental (closed_by cron)', not x.is_recording
+        and x.stats_state->>'closed_by' = 'cron', format('%s %s', x.is_recording, x.stats_state));
+  perform t_rides.at(u, d1 + 5 * 3600);
+  r := public.start_user_ride(b, 49.2, 16.9);
+  perform t_rides.chk('K4b 4.1.3 start while parked → success false', r->>'success' = 'false', r::text);
+  perform t_rides.kiosk(b, 'out', p1, d2);
+  perform t_rides.at(u, d2 + 60);
+  r := public.start_user_ride(b, 49.2, 16.9);
+  perform t_rides.chk('K4b 4.1.3 after the ride-out → the same ride resumed', r->>'success' = 'true'
+        and (r->>'id')::uuid = v_id and r->>'resumed' = 'true' and (t_rides.ride(v_id)).is_recording, r::text);
+  perform t_rides.feed(u, v_id, t_rides.line(49.2, 200, 0.0005, d2 + 65, 5, 40));
+  perform t_rides.at(u, d2 + 2000);
+  r := public.finish_user_ride(v_id, '[]'::jsonb, null);
+  x := t_rides.ride(v_id);
+  select count(*) into n from public.user_rides where user_id = u;
+  perform t_rides.chk('K4b 4.1.3: one ride over the night, the night is a pause', n = 1 and x.pause_sec >= 12 * 3600
+        and jsonb_array_length(x.stages) = 2 and x.distance_km > km1 + 10, format('n %s %s pause %s', n, r, x.pause_sec));
+end $$;
+
+do $$
+declare u uuid := t_rides.u(51); e float8 := t_rides.ep('2026-11-20 08:00'); b uuid; r jsonb; v_id uuid; x public.user_rides;
+  p float8; km1 numeric;
+begin
+  -- K5: phone offline before the bay parking; cron closed it; the late bike points still land, the car does not
+  b := t_rides.booking(51, u, '2026-11-20', '2026-11-21');
+  perform t_rides.at(u, e);  v_id := (public.start_user_trip(b)->>'id')::uuid;
+  perform t_rides.feed(u, v_id, t_rides.bike(49.3, 16.6, e, 100));
+  km1 := (t_rides.ride(v_id)).distance_km;
+  p := e + 3600;  perform t_rides.kiosk(b, 'parked', p, null);
+  perform t_rides.at(null, p + 900);  perform public.close_stale_user_rides();
+  perform t_rides.at(u, p + 7200);
+  r := public.append_ride_track(v_id, t_rides.line(49.3506, 100, 0.0005, e + 1500, 5, 40)
+                                     || t_rides.line(49.6, 5, 0.0015, p + 600, 5, 120), null);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K5 late bike points stored after the cron close, car not (re-closed ≤ bay close)',
+        r->>'error' = 'ride_finished' and r->>'reason' = 'booking_ended' and t_rides.near(x.distance_km, km1 + 100 * 0.0555975, 0.1)
+        and x.max_speed_kmh <= 45 and x.ended_at <= to_timestamp(p) and x.stats_state->>'closed_by' = 'cron',
+        format('%s km %s (first %s)', r, x.distance_km, km1));
+end $$;
+
+do $$
+declare u uuid := t_rides.u(52); e float8 := t_rides.ep('2026-11-22 10:00'); r jsonb; v_id uuid; x public.user_rides; km1 numeric;
+begin
+  -- K6: own 4.1.3 ride, phone clock 4 min fast — Stop never trims (no booking end → no cut, as before)
+  perform t_rides.at(u, e);
+  v_id := (public.start_user_ride(null, 49.05, 16.6)->>'id')::uuid;
+  perform t_rides.at(u, e + 600);
+  perform public.append_ride_track(v_id, t_rides.line(49.0505, 120, 0.0005, e + 240, 5, 40), null);
+  km1 := (t_rides.ride(v_id)).distance_km;
+  r := public.finish_user_ride(v_id, '[]'::jsonb, null);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('K6 own ride, clock ahead: Stop keeps all points and km', x.distance_km = km1
+        and jsonb_array_length(x.track) = 121 and x.duration_min * 60 + 30 >= x.moving_sec + x.gap_sec,
+        format('km %s/%s pts %s dur %s mv %s', x.distance_km, km1, jsonb_array_length(x.track), x.duration_min, x.moving_sec));
+end $$;
+
+-- ───────────── T: start_user_trip_from — recording started offline, retro rental ─────────────
+do $$
+declare u uuid := t_rides.u(53); u2 uuid := t_rides.u(54); e float8 := t_rides.ep('2026-11-05 08:00');
+  r jsonb; v1 uuid; v2 uuid; x public.user_rides; pts jsonb;
+begin
+  -- T1: own trip started OFFLINE at 08:00, the server ride is created only at 12:00
+  pts := t_rides.bike(49.0, 16.6, e, 200)
+         || jsonb_build_array(jsonb_build_array(49.1002, 16.6, e + 3 * 3600, -1))
+         || t_rides.line(49.1007, 200, 0.0005, e + 3 * 3600 + 5, 5, 40);
+  perform t_rides.at(u, e + 4 * 3600);
+  r := public.start_user_trip_from(null, e + 5);
+  v1 := (r->>'id')::uuid;
+  perform t_rides.chk('T1 start_user_trip_from: new trip starts at the first offline point', r->>'success' = 'true'
+        and r->>'resumed' = 'false' and (t_rides.ride(v1)).started_at = to_timestamp(e + 5)
+        and (t_rides.ride(v1)).pause_aware and not (r ? 'retro'), r::text);
+  r := public.append_ride_track(v1, pts, null);
+  x := t_rides.ride(v1);
+  perform t_rides.chk('T1 the offline hours are stored (nothing dropped as a stale ride)', r->>'success' = 'true'
+        and (r->>'dropped')::int = 0 and t_rides.near(x.distance_km, 400 * 0.0555975, 0.1)
+        and x.started_at = to_timestamp(e + 200), r::text);
+  -- T1b: the plain start (no first ts) keeps today's rule: > 1 h before the start = previous ride
+  perform t_rides.at(u2, e + 4 * 3600);
+  v2 := (public.start_user_trip(null)->>'id')::uuid;
+  r := public.append_ride_track(v2, pts, null);
+  perform t_rides.chk('T1b start_user_trip without first ts: stale rule unchanged', (r->>'dropped')::int = 202, r::text);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(55); e float8 := t_rides.ep('2026-11-06 12:00'); r jsonb; v uuid; x public.user_rides;
+begin
+  -- T2: implausible first ts → clamped (≤ 7 days back, never in the future, junk ignored)
+  perform t_rides.at(u, e);
+  r := public.start_user_trip_from(null, e - 10 * 86400);
+  perform t_rides.chk('T2 first ts 10 days ago → 7 days', (t_rides.ride((r->>'id')::uuid)).started_at = to_timestamp(e - 7 * 86400), r::text);
+  delete from public.user_rides where user_id = u;
+  r := public.start_user_trip_from(null, 'NaN'::float8);
+  perform t_rides.chk('T2 NaN → now', (t_rides.ride((r->>'id')::uuid)).started_at = to_timestamp(e), r::text);
+  delete from public.user_rides where user_id = u;
+  r := public.start_user_trip_from(null, e + 30 * 86400);
+  perform t_rides.chk('T2 future → now', (t_rides.ride((r->>'id')::uuid)).started_at = to_timestamp(e), r::text);
+  delete from public.user_rides where user_id = u;
+  r := public.start_user_trip_from(null, 0);
+  perform t_rides.chk('T2 0 → now', (t_rides.ride((r->>'id')::uuid)).started_at = to_timestamp(e), r::text);
+  delete from public.user_rides where user_id = u;
+  -- T3: a resumed, still EMPTY ride moves back to the first offline point; a ride with points does not
+  v := (public.start_user_trip(null)->>'id')::uuid;
+  r := public.start_user_trip_from(null, e - 7200);
+  perform t_rides.chk('T3 resumed empty ride starts at the first offline point', r->>'resumed' = 'true' and (r->>'id')::uuid = v
+        and (t_rides.ride(v)).started_at = to_timestamp(e - 7200), r::text);
+  perform t_rides.at(u, e + 20);
+  perform public.append_ride_track(v, jsonb_build_array(jsonb_build_array(49.0, 17.3, e + 10, 0)), null);
+  r := public.start_user_trip_from(null, e - 18000);
+  perform t_rides.chk('T3 resumed ride with points keeps its start', r->>'resumed' = 'true'
+        and (t_rides.ride(v)).started_at = to_timestamp(e - 7200), r::text);
+  delete from public.user_rides where user_id = u;
+end $$;
+
+do $$
+declare u uuid := t_rides.u(56); b uuid; d1 float8 := t_rides.ep('2026-11-03 09:00'); ret float8 := t_rides.ep('2026-11-04 17:00');
+  r jsonb; v_id uuid; x public.user_rides; pts jsonb; n int;
+begin
+  -- T4: rental recorded fully offline, returned BEFORE the first successful start → created retro
+  b := t_rides.booking(56, u, '2026-11-03', '2026-11-04');
+  perform set_config('session_replication_role', 'replica', true);
+  update public.bookings set returned_at = to_timestamp(ret), status = 'completed' where id = b;
+  perform set_config('session_replication_role', 'origin', true);
+  pts := t_rides.bike(49.0, 16.6, d1, 200)
+         || jsonb_build_array(jsonb_build_array(49.1002, 16.6, ret - 3600, -1)) || t_rides.line(49.1007, 100, 0.0005, ret - 3595, 5, 40)
+         || t_rides.line(49.3, 10, 0.0015, ret + 600, 5, 120);
+  perform t_rides.at(u, ret + 7200);
+  r := public.start_user_trip(b);
+  perform t_rides.chk('T4 returned rental, plain start → booking_inactive (unchanged)', r->>'error' = 'booking_inactive', r::text);
+  r := public.start_user_trip_from(b, ret + 60);
+  perform t_rides.chk('T4 first point after the return → booking_inactive', r->>'error' = 'booking_inactive', r::text);
+  r := public.start_user_trip_from(b, d1 + 5);
+  v_id := (r->>'id')::uuid;  x := t_rides.ride(v_id);
+  perform t_rides.chk('T4 offline rental returned before the first start → ride created retro', r->>'success' = 'true'
+        and r->>'retro' = 'true' and r->>'resumed' = 'false' and x.booking_id = b and x.started_at = to_timestamp(d1 + 5)
+        and x.moto_name = 'Honda CB 500 X' and x.is_recording, r::text);
+  r := public.append_ride_track(v_id, pts, null);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('T4 buffer: both rental days stored, the car after the return dropped', r->>'success' = 'true'
+        and (r->>'dropped')::int = 10 and t_rides.near(x.distance_km, 300 * 0.0555975, 0.1), r::text);
+  perform t_rides.at(null, ret + 7200 + 1200);  perform public.close_stale_user_rides();
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('T4 the cron closes it ≤ the return (2 days, closed_by cron)', not x.is_recording and x.ended_at <= to_timestamp(ret)
+        and x.stats_state->>'closed_by' = 'cron' and x.name = '03.11.–04.11.2026', format('%s %s %s', x.ended_at, x.name, x.stats_state));
+  perform t_rides.at(u, ret + 7200 + 1300);
+  r := public.start_user_trip_from(b, d1 + 5);
+  select count(*) into n from public.user_rides where user_id = u;
+  perform t_rides.chk('T4 second retro start (ride exists) → booking_inactive, still 1 ride', r->>'error' = 'booking_inactive' and n = 1, r::text);
+end $$;
+
+do $$
+declare e float8 := t_rides.ep('2026-11-10 12:00'); r jsonb; b uuid; v uuid;
+begin
+  -- T5: retro only within 7 days after the return, never for a cancelled booking
+  b := t_rides.booking(57, t_rides.u(57), '2026-11-01', '2026-11-02');
+  perform set_config('session_replication_role', 'replica', true);
+  update public.bookings set returned_at = to_timestamp(e - 8 * 86400), status = 'completed' where id = b;
+  perform set_config('session_replication_role', 'origin', true);
+  perform t_rides.at(t_rides.u(57), e);
+  r := public.start_user_trip_from(b, e - 9 * 86400);
+  perform t_rides.chk('T5 returned 8 days ago → booking_inactive', r->>'error' = 'booking_inactive', r::text);
+  perform set_config('session_replication_role', 'replica', true);
+  update public.bookings set returned_at = null, status = 'cancelled' where id = b;
+  perform set_config('session_replication_role', 'origin', true);
+  r := public.start_user_trip_from(b, e - 3600);
+  perform t_rides.chk('T5 cancelled booking → booking_inactive', r->>'error' = 'booking_inactive', r::text);
+  -- T6: bike parked in the kiosk bay (not completed yet) → retro works the same
+  b := t_rides.booking(58, t_rides.u(58), '2026-11-10', '2026-11-11');
+  perform t_rides.kiosk(b, 'parked', e - 3600, null);
+  perform t_rides.at(t_rides.u(58), e);
+  r := public.start_user_trip_from(b, e - 4 * 3600);
+  perform t_rides.chk('T6 parked in the bay, first point before → retro ride', r->>'success' = 'true' and r->>'retro' = 'true', r::text);
+  -- T7: a rental never starts before the pickup (− 10 min)
+  b := t_rides.booking(59, t_rides.u(59), '2026-11-10', '2026-11-12');
+  perform set_config('session_replication_role', 'replica', true);
+  update public.bookings set picked_up_at = to_timestamp(e - 3600) where id = b;
+  perform set_config('session_replication_role', 'origin', true);
+  perform t_rides.at(t_rides.u(59), e + 4 * 3600);
+  r := public.start_user_trip_from(b, e - 4 * 3600);
+  v := (r->>'id')::uuid;
+  perform t_rides.chk('T7 first ts before the pickup → pickup − 10 min', r->>'success' = 'true' and not (r ? 'retro')
+        and (t_rides.ride(v)).started_at = to_timestamp(e - 3600 - 600) and (t_rides.ride(v)).booking_id = b, r::text);
+  perform public.finish_user_ride(v, '[]'::jsonb, null);
+end $$;
+
 -- ───────────── I: grants, signatures, overloads ─────────────
 do $$
 declare f text; n int;
@@ -843,16 +1195,23 @@ begin
       'public._ride_stats_v2(jsonb,jsonb,jsonb)', 'public._ride_append_core(uuid,jsonb)',
       'public._ride_prague_night(double precision,double precision)', 'public._ride_stage_days(jsonb)',
       'public._ride_close(uuid,timestamp with time zone,text,boolean)', 'public._ride_append_late(uuid,jsonb)',
-      'public._ride_auto_name(date,date)', 'public._ride_reopen(uuid,jsonb)'] loop
+      'public._ride_auto_name(date,date)', 'public._ride_reopen(uuid,jsonb)',
+      'public.start_user_trip_from(uuid,double precision)', 'public._ride_booking_end(uuid)',
+      'public._ride_start_trip(uuid,uuid,double precision)', 'public._ride_reopen_parked(uuid,uuid,boolean)',
+      'public._ride_trip_json(public.user_rides,boolean,timestamp with time zone)'] loop
     perform t_rides.chk('I2 anon cannot execute ' || f, not has_function_privilege('anon', f, 'execute'));
   end loop;
   foreach f in array array['public._ride_stats_v2(jsonb,jsonb,jsonb)', 'public._ride_append_core(uuid,jsonb)',
       'public._ride_prague_night(double precision,double precision)', 'public._ride_finalize(uuid,timestamp with time zone)',
       'public._ride_stage_days(jsonb)', 'public._ride_close(uuid,timestamp with time zone,text,boolean)',
-      'public._ride_append_late(uuid,jsonb)', 'public._ride_auto_name(date,date)', 'public._ride_reopen(uuid,jsonb)'] loop
+      'public._ride_append_late(uuid,jsonb)', 'public._ride_auto_name(date,date)', 'public._ride_reopen(uuid,jsonb)',
+      'public._ride_booking_end(uuid)', 'public._ride_start_trip(uuid,uuid,double precision)',
+      'public._ride_reopen_parked(uuid,uuid,boolean)',
+      'public._ride_trip_json(public.user_rides,boolean,timestamp with time zone)'] loop
     perform t_rides.chk('I3 authenticated cannot execute ' || f, not has_function_privilege('authenticated', f, 'execute'));
   end loop;
   foreach f in array array['public.start_user_trip(uuid)', 'public.set_user_rides_trip(jsonb)',
+      'public.start_user_trip_from(uuid,double precision)',
       'public.start_user_ride(uuid,double precision,double precision)', 'public.append_ride_track(uuid,jsonb,numeric)',
       'public.finish_user_ride(uuid,jsonb,text)', 'public.get_my_rides(integer)', 'public.get_public_rides(integer,integer)'] loop
     perform t_rides.chk('I4 authenticated can execute ' || f, has_function_privilege('authenticated', f, 'execute'));
@@ -1104,7 +1463,52 @@ begin
   values (u, 'L5', t_rides.line(49.0, 20, 0.001, e, 5, 60) || t_rides.line(49.02, 20, 0.001, e + 95 + 36000, 5, 60),
           to_timestamp(e), to_timestamp(e + 36190), false, 4.3, 190, 36000, 603, true, '{}');
 end $$;
+do $$
+declare u uuid := t_rides.u(19); e float8 := t_rides.ep('2026-09-12 08:00'); tr jsonb;
+begin
+  -- L7: 4.1.3 night with the phone still sending points (drift < 3 km/h every minute, NO silence ≥ 5 min)
+  tr := t_rides.line(49.0, 20, 0.001, e, 5, 60)
+     || (select jsonb_agg(jsonb_build_array(round((49.019 + (i % 3) * 0.00003)::numeric, 7), 16.6, e + 95 + 60 * i, 0) order by i)
+           from generate_series(1, 600) i)
+     || t_rides.line(49.02, 20, 0.001, e + 36155, 5, 60);
+  insert into public.user_rides (user_id, name, track, started_at, ended_at, is_recording, distance_km, moving_sec,
+                                 idle_sec, gap_sec, duration_min)
+  values (u, 'L7', tr, to_timestamp(e), to_timestamp(e + 36250), false, 4.3, 310, 35940, 0, 604);
+  -- L8: short stops only (4 min standing with points) → nothing to convert, values kept
+  tr := t_rides.line(49.1, 20, 0.001, e, 5, 60)
+     || (select jsonb_agg(jsonb_build_array(49.1195, 16.6, e + 95 + 30 * i, 0) order by i) from generate_series(1, 8) i)
+     || t_rides.line(49.12, 20, 0.001, e + 365, 5, 60);
+  insert into public.user_rides (user_id, name, track, started_at, ended_at, is_recording, distance_km, moving_sec,
+                                 idle_sec, gap_sec, duration_min)
+  values (u, 'L8', tr, to_timestamp(e), to_timestamp(e + 460), false, 4.3, 220, 240, 0, 8);
+end $$;
 -- @@BACKFILL@@
+do $$
+declare u uuid := t_rides.u(19); x public.user_rides; j jsonb; n int;
+begin
+  select * into x from public.user_rides where user_id = u and name = 'L7';
+  perform t_rides.chk('L7 4.1.3 night sent as standing points → pause, na cestě 5 min', x.pause_sec = 35940
+        and x.duration_min = 5 and x.idle_sec = 0 and x.gap_sec = 0 and x.distance_km = 4.3 and x.moving_sec = 310
+        and x.stats_state->>'backfill' = '1', format('p %s d %s i %s g %s', x.pause_sec, x.duration_min, x.idle_sec, x.gap_sec));
+  select * into x from public.user_rides where user_id = u and name = 'L8';
+  perform t_rides.chk('L8 short stop (< 5 min) stays a stop, values unchanged', x.pause_sec = 0 and x.idle_sec = 240
+        and x.duration_min = 8 and x.stats_state->>'backfill' = '1', format('p %s d %s i %s', x.pause_sec, x.duration_min, x.idle_sec));
+  -- L9: a legacy ride closed AFTER the backfill without any new batch keeps stats_state NULL
+  insert into public.user_rides (user_id, name, track, started_at, ended_at, is_recording, distance_km, moving_sec,
+                                 idle_sec, gap_sec, duration_min)
+  values (u, 'L9', t_rides.line(49.3, 20, 0.001, t_rides.ep('2026-09-13 08:00'), 5, 60),
+          to_timestamp(t_rides.ep('2026-09-13 08:00')), to_timestamp(t_rides.ep('2026-09-13 08:00') + 95), false, 2.1, 95, 0, 0, 2);
+  -- stats_v2 in every ride read: same rule as Velín rideStatsV2 (recording or stats_state set)
+  perform t_rides.at(u, t_rides.ep('2026-09-14 08:00'));
+  j := public.get_my_rides(100);
+  perform t_rides.chk('M1 stats_v2: backfilled old ride → true', (select (q->>'stats_v2')::boolean from jsonb_array_elements(j) q
+        where q->>'name' = 'L7'), j::text);
+  perform t_rides.chk('M2 stats_v2: old ride without stats_state → false (old labels)', (select (q->>'stats_v2')::boolean
+        from jsonb_array_elements(j) q where q->>'name' = 'L9') = false);
+  perform t_rides.chk('M3 stats_v2: recording ride → true', (select (q->>'stats_v2')::boolean from jsonb_array_elements(j) q
+        where q->>'name' = 'L4'));
+  perform t_rides.chk('M4 stats_v2 present on every ride', (select bool_and(q ? 'stats_v2') from jsonb_array_elements(j) q));
+end $$;
 do $$
 declare u uuid := t_rides.u(19); x public.user_rides;
 begin
@@ -1130,6 +1534,16 @@ begin
   select * into x from public.user_rides where user_id = u and name = 'L1';
   perform t_rides.chk('L6 backfill revert restores old values', x.duration_min = 603 and x.idle_sec = 36000
         and x.gap_sec = 0 and x.pause_sec = 0 and x.stats_state is null, format('d %s i %s', x.duration_min, x.idle_sec));
+end $$;
+
+do $$
+declare n int;
+begin
+  -- Z1: invariant over every closed test ride — na cestě ≥ jízda + mezery (rounding to a minute)
+  select count(*) into n from public.user_rides r
+   where r.user_id in (select t_rides.u(k) from generate_series(1, 60) k) and not r.is_recording
+     and r.duration_min * 60 + 30 < r.moving_sec + r.gap_sec;
+  perform t_rides.chk('Z1 every closed ride: duration ≥ moving + gap', n = 0, n::text);
 end $$;
 
 -- ───────────────────────────── summary ─────────────────────────────

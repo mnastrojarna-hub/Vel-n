@@ -12,8 +12,8 @@ import 'ride_model.dart';
 /// nastoupáno · na cestě (bez pauz) · zastávky · pauzy · bez signálu · dny ·
 /// zastávky · fotky + start → konec. Nesmyslné hodnoty se nevymýšlejí:
 /// prázdné pole „—", nulové pauzy / výpadky / jednodenní jízda se neukážou.
-/// Čas „na cestě" je u nového serveru BEZ pauz (noci, oběd); u jízdy ze
-/// starého serveru je to celkový čas (proto jiný popisek).
+/// Čas „na cestě" je u jízdy s novými statistikami (`statsV2`) BEZ pauz
+/// (noci, oběd); u starší jízdy je to celkový čas (proto jiný popisek).
 class RideStatsGrid extends StatelessWidget {
   const RideStatsGrid({super.key, required this.ride, this.showText = true, this.days});
 
@@ -41,7 +41,7 @@ class RideStatsGrid extends StatelessWidget {
       ('🚀', rideSpeed(r.maxSpeedKmh), tr.tr('rideStatMax')),
       ('⛰️', r.elevationGainM > 0 ? '${r.elevationGainM} m' : '—', tr.tr('rideStatClimb')),
       ('⏱️', r.totalMin > 0 ? _long(r.totalMin) : '—',
-          tr.tr(r.serverV2 ? 'rpStatOnRoad' : 'rideStatDuration')),
+          tr.tr(r.statsV2 ? 'rpStatOnRoad' : 'rideStatDuration')),
       ('⏸️', r.idleSec >= 60 ? rideDuration(r.idleMin) : '—', tr.tr('rideStatIdle')),
       if (r.pauseSec >= 60)
         (

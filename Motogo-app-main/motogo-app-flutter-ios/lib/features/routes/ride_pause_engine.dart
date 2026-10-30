@@ -33,9 +33,13 @@ class RideEngineStep {
   /// Vlastní cesta stojí u svého startu (doma?) — jen upozornit jezdce;
   /// GPS běží dál a po rozjezdu se nahrává samo.
   bool homeNotice = false;
+  /// Rozhodnutí při otevření appky: vlastní cesta stojí ≥ 20 h → GPS vypnout
+  /// a zeptat se „Pokračovat v cestě / Ukončit a uložit" (jezdec appku
+  /// právě vidí → bez notifikace, jen hláška).
+  bool idle = false;
   /// Nejvyšší SKUTEČNÁ Dopplerova rychlost vyslaných bodů (před značkou).
   double maxKmh = 0;
-  bool get isEmpty => emit.isEmpty && logs.isEmpty && !phaseChanged && !detach && !homeNotice;
+  bool get isEmpty => emit.isEmpty && logs.isEmpty && !phaseChanged && !detach && !homeNotice && !idle;
 }
 
 enum _Mode { riding, pending, paused }
@@ -77,10 +81,14 @@ class RidePauseEngine {
   double? _attachedAt;
   bool _freshAttach = false;
   double? _flagFrom;
-  /// Poslední „kontakt s jezdcem" (připojení streamu, otevření appky,
-  /// Pokračovat) — pojistka „dlouhá pauza" počítá od pozdějšího z tohohle
-  /// a začátku pauzy, ať po Pokračovat / otevření appky hned nevypne GPS.
+  /// Jezdec výslovně pokračuje (Pokračovat / připojení streamu klepnutím) —
+  /// pojistka „dlouhá pauza" i rozhodnutí při otevření počítají od
+  /// pozdějšího z tohohle a začátku pauzy. Pouhé otevření appky ani
+  /// automatické připojení streamu je NEPRODLUŽUJE (zapomenutý Stop).
   double? _guardFrom;
+  /// Poslední kontakt (připojení streamu, otevření appky, Pokračovat):
+  /// 2 min potom pojistky mlčí.
+  double? _quietFrom;
   bool _homeNoticed = false;
   /// Fixy s Dopplerem ≥ 12 km/h v relaci (telefon rychlost měří).
   int _dopMoving = 0;
@@ -158,12 +166,13 @@ class RidePauseEngine {
   }
 
   /// Stream se (znovu) připojil — první fix starší než tohle je z cache.
-  /// Připojuje se jen z popředí (start, obnova, návrat do appky,
-  /// Pokračovat), takže je to i kontakt s jezdcem pro pojistku.
-  void onAttach(double now) {
+  /// [byTap] = připojení klepnutím (ruční start / Pokračovat) → pojistka
+  /// počítá znovu; obnova / návrat do appky jen 2 min ticha.
+  void onAttach(double now, {bool byTap = false}) {
     _attachedAt = now;
     _freshAttach = true;
     noteForeground(now);
+    if (byTap) _noteDecision(now);
   }
 
   /// Posun hodin se dozvěděl až po připojení streamu (odpověď serveru) →
@@ -172,16 +181,27 @@ class RidePauseEngine {
     final a = _attachedAt;
     if (a == null) return;
     _attachedAt = at;
-    final g = _guardFrom;
+    final g = _guardFrom, q = _quietFrom;
     if (g != null) _guardFrom = g + (at - a);
+    if (q != null) _quietFrom = q + (at - a);
   }
 
-  /// Jezdec má appku v popředí (otevřel ji / klepl) → záznam není
-  /// zapomenutý, pojistka „dlouhá pauza" počítá znovu od teď.
+  /// Jezdec má appku v popředí → 2 min ticha pojistek. Pojistku „dlouhá
+  /// pauza" NEPRODLUŽUJE: zapomenutý Stop po cestě by jinak držel GPS
+  /// zapnuté dny a další jízdy tiše přidával ke staré cestě.
   void noteForeground(double now) {
+    final q = _quietFrom;
+    if (q == null || now > q) _quietFrom = now;
+  }
+
+  void _noteDecision(double now) {
     final g = _guardFrom;
     if (g == null || now > g) _guardFrom = now;
   }
+
+  /// Otevření appky / obnova po restartu: vlastní cesta stojí ≥ 20 h →
+  /// GPS vypnout a zeptat se (viz `_decideIdle` v `ride_pause_guards.dart`).
+  RideEngineStep decideIdle(double now) => _decideIdle(now);
 
   /// Nové prahy / zapnutí-vypnutí auto-pauzy (flag) za běhu.
   RideEngineStep applyConfig(RideMotionConfig cfg, bool on) {
@@ -265,7 +285,8 @@ class RidePauseEngine {
   }
 
   /// Časovač (90 s; 30 s v pomalém úseku). [liveKm] = ujeto v cestě,
-  /// [stages] = počet etap (dnů) cesty.
+  /// [stages] = počet etap (dnů) cesty (upozornění „doma" ho od 2026-10-30
+  /// nepotřebuje — základní tábor dostane jen připomínku).
   RideEngineStep onTick(double now, {double liveKm = 0, int stages = 1}) {
     final s = RideEngineStep();
     if (!autoPauseOn || _manual) return s;
@@ -277,7 +298,7 @@ class RidePauseEngine {
       _enterPending(lf.ts, fromEmitted: true);
     }
     if (_mode == _Mode.pending) _evalPending(s, now);
-    if (_mode == _Mode.paused) _guards(s, now, liveKm, stages);
+    if (_mode == _Mode.paused) _guards(s, now, liveKm);
     return s;
   }
 
@@ -319,7 +340,10 @@ class RidePauseEngine {
     final s = RideEngineStep();
     if (!_manual) return s;
     final was = _reason;
-    if (now != null) noteForeground(now);
+    if (now != null) {
+      noteForeground(now);
+      _noteDecision(now);
+    }
     _manual = false;
     _restored = false;
     _homeNoticed = false;

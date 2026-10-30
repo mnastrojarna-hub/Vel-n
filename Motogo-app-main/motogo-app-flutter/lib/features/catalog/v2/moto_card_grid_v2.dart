@@ -122,10 +122,15 @@ class MotoCardGridV2 extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: MgType.micro.copyWith(color: MgColors.meta)),
                   const SizedBox(height: 4),
-                  Text(m.model,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: MgType.title.copyWith(color: MgColors.ink, height: 1.2)),
+                  // Large text in the narrow column: scale before a word
+                  // ("Husqvarna") would split in half.
+                  MgWordFit(
+                    minScale: 0.75,
+                    child: Text(m.model,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: MgType.title.copyWith(color: MgColors.ink, height: 1.2)),
+                  ),
                   const Spacer(),
                   Text(price.grid,
                       style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.price, height: 1.2))),

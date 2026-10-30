@@ -68,4 +68,22 @@ extension _RidePauseGuards on RidePauseEngine {
     s.logs.add(RideEngineLog(r == RidePauseReason.home ? 'home_pause' : 'long_pause',
         detail: by, data: {'since': _pausedSince, 'h': (dur / 360).round() / 10, if (by != null) 'by': by}));
   }
+
+  /// Otevření appky / obnova po restartu: vlastní cesta stojí (auto-pauza
+  /// nebo „připraveno") déle než `idleDecisionS` (výchozí 20 h) od zastavení
+  /// nebo od posledního Pokračovat → GPS vypnout a zeptat se (ruční pauza,
+  /// důvod `long` = „Pokračovat v cestě / Ukončit a uložit"). Noc v hotelu
+  /// (≤ 20 h) se neptá; když se motorka právě hýbe, rozhodne obnova jízdy.
+  RideEngineStep _decideIdle(double now) {
+    final s = RideEngineStep();
+    final since = _pausedSince;
+    if (!own || !autoPauseOn || _manual || _mode != _Mode.paused || since == null) return s;
+    if (_cfg.idleDecisionS <= 0) return s;
+    final g = _guardFrom;
+    final from = g != null && g > since ? g : since;
+    if (now - from < _cfg.idleDecisionS || _recentMotion(now)) return s;
+    _guard(s, RidePauseReason.long, now - since, by: 'open');
+    s.idle = true;
+    return s;
+  }
 }

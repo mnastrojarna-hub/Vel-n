@@ -1,10 +1,10 @@
 # Záznam jízd — SQL balíček: přehled pro majitele
 
-Stav 29. 10. 2026. Soubory jsou připravené ve složce `scratchpad/rides/sql/` (kopie pro předání v `.claude/handoff/rides/sql/`). V `supabase/migrations` ani na živé databázi zatím nic není. Do `main` jdou spolu s Velínem a appkou; zapsání do `supabase/migrations` je zároveň nasazení (autodeploy).
+Stav 30. 10. 2026 (kolo 3: vrácení na kiosku před posledním dnem, start bez dat, shodné popisky statistik, přepočet historie součástí balíčku). Soubory jsou připravené ve složce `scratchpad/rides/sql/` (kopie pro předání v `.claude/handoff/rides/sql/`). V `supabase/migrations` ani na živé databázi zatím nic není. Do `main` jdou spolu s Velínem a appkou; zapsání do `supabase/migrations` je zároveň nasazení (autodeploy).
 
 ## Co to přinese (jednou větou)
 
-Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozumné statistiky po dnech (etapách) a umí sloučit víc jízd do jedné cesty. Výpůjčku jen oblečení nebere jako jízdu na motorce a neztratí poslední den výpůjčky, když byl telefon offline. Neztratí ani vícedenní cestu v cizině bez mobilních dat (roaming vypnutý): cesta pokračuje v jednom záznamu, i když telefon dny neposílal nic. Starší appka 4.1.3 přitom funguje beze změny.
+Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozumné statistiky po dnech (etapách) a umí sloučit víc jízd do jedné cesty. Výpůjčku jen oblečení nebere jako jízdu na motorce a neztratí poslední den výpůjčky, když byl telefon offline. Neztratí ani vícedenní cestu v cizině bez mobilních dat (roaming vypnutý): cesta pokračuje v jednom záznamu, i když telefon dny neposílal nic. Když zákazník vrátí motorku na kiosku o den dřív (kiosk ji jen „zaparkuje“), cesta autem domů se do jízdy nezapočte; a když motorku přes noc nechá v kóji a ráno pokračuje, zůstane to jedna jízda. Záznam spuštěný bez dat se uloží celý, i kdyby se telefon připojil až po vrácení. Starší appka 4.1.3 přitom funguje beze změny.
 
 ## Soubory
 
@@ -17,7 +17,7 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
 | 5 | `03c_rides_append_finish.sql` | `…_pause_e.sql` |
 | 6 | `04_rides_start_cron.sql` | `…_pause_f.sql` |
 | 7 | `05_rides_trip_group.sql` | `…_pause_g.sql` |
-| 8 | `06_rides_backfill.sql` | `…_pause_h.sql` — **volitelné, rozhoduješ ty** |
+| 8 | `06_rides_backfill.sql` | `…_pause_h.sql` — **součást balíčku** (rozhodnuto 30. 10., vratné jedním příkazem) |
 
 - Datum v názvu musí řadit za všechno, co už je v `main`. Dnes je poslední `20261023f_faq_gear_rental.sql`. Dřívější návrh `20261023_…` by se řadil PŘED něj (podtržítko je v řazení před písmenem), proto `20261029_…`. Těsně před commitem se to ještě jednou ověří.
 - Každý soubor jde do databáze v jedné transakci. Když selže, nezapíše se nic. Každý soubor potřebuje jen soubory před sebou, takže při chybě v kterémkoli dalším běží všechno dál po staru.
@@ -67,6 +67,7 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
 - **Opakovaná dávka** (telefon nedostal odpověď a pošle ji znovu) se nezapočítá dvakrát. Dřív se km zdvojily.
 - **Rozhozené hodiny:** jediný bod s časem z budoucnosti (třeba telefon se 4.1.3 na chvíli o rok napřed) už nezablokuje zbytek jízdy. V předchozím návrhu by se pak všechno další zahodilo jako „duplicita“. Čas po roce 2100 je vadný bod a nic neshodí.
 - **Body po vrácení výpůjčky** (nová appka +30 s, stará +2 min rezerva na hodiny) se nepřijmou. Pokud dávka obsahuje jen takové body, jízda se uzavře k času vrácení. Tím zmizí km autem po vrácení i prázdné jízdy navíc. Platí jen pro výpůjčku motorky; vrácení oblečení jízdu neořízne.
+- **Vrácení na kiosku před posledním dnem** (nové 30. 10.): kiosk takové vrácení jen „zaparkuje“ a rezervaci dokončí až den po konci (čas vrácení pak zapíše zpětně). Do té doby rezervace běží a appka by nahrávala cestu autem domů. Pro jízdu teď platí zavření kóje jako vrácení: body po něm se nepřijmou a jízda se uzavře. Když motorka z kóje znovu vyjede (zaparkovaná přes noc), vrácení se zruší a jízda pokračuje.
 - **Telefon offline v den vrácení:** úklid jízdu po vrácení uzavře (bez bodů z posledního dne). Když se telefon připojí (i za pár hodin, nejvýš do 7 dní), body jízdy až do vrácení se do ní ještě uloží a jízda se přepočte: km, konec, název s rozsahem dat i bod „cíl“. Platí jen pro výpůjčku uzavřenou vrácením nebo úklidem, ne pro jízdu ukončenou tlačítkem Stop ani pro vlastní jízdu. Appka posílá velkou dávku po částech (nejvýš 2 000 bodů). Když server část do uzavřené výpůjčky uloží, appka pošle do téže jízdy i další části. Teprve potom záznam ukončí. Ověřeno s logikou appky: 331,2 km z 331,6 (dřív 150,6, celý druhý den chyběl). Dlouhý poslední den offline (přes 3 000 bodů): 447,3 km z 447,5. Před opravou appky to bylo 314,1 km, zbytek dávky po první části se zahodil.
 - **Vlastní cesta bez mobilních dat déle než 72 h** (roaming vypnutý, cizina bez dat): úklid ji po 72 h bez kontaktu uzavře. Když se telefon připojí a pošle body novější než poslední uložený, cesta se **znovu otevře** a body z doby offline se do ní uloží. Appka dostane běžnou odpověď a nahrává dál do téže cesty, takže se nic nerozdělí ani neztratí. Platí jen pro vlastní cestu nové appky, kterou uzavřel úklid (ne Stop), do 30 dní od startu a jen tehdy, když jezdec mezitím nezačal jinou jízdu. Na 4.1.3 se to netýká.
 - **„Připraveno“:** výpůjčka i ruční záznam začnou až rozjezdem, ne v okamžiku podpisu nebo klepnutí. Posun startu se týká jen opravdu prázdné jízdy (nejvýš první bod, bez mezer). Řídké body ze „škrceného“ GPS na pozadí se už nikdy nezahodí.
@@ -94,7 +95,9 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
   - Stop po dlouhé době bez dat pošle zbytek bodů i do cesty, kterou mezitím uzavřel úklid. Cesta se znovu otevře, body se uloží a pak se uzavře jako Stop;
   - bod „cíl“ se po znovuotevření posune na skutečný konec.
 - U staré appky se odřízne ocas chůze na konci, pokud trval ≥ 5 min.
-- Výpis jízd (`_ride_json`) má navíc `pause_sec`, `pause_aware`, `trip_id`, `trip_name` a `stages`.
+- **Vrácení zjištěné až po bodech** (nové 30. 10., např. kiosk byl chvíli offline a zavření kóje dorazilo po bodech cesty autem): při uzavření jízdy se body po vrácení ze stopy odstraní a km, čas jízdy, maximum, etapy i cíl se spočítají znovu. Dřív v takovém případě zůstalo 230,7 km (z toho 60 km autem) a maximum 91,5 km/h z auta.
+- **„Na cestě“ nikdy kratší než čas v sedle** (pojistka; dřív šlo vidět 146 min na cestě a 182 min jízdy).
+- Výpis jízd (`_ride_json`) má navíc `pause_sec`, `pause_aware`, `trip_id`, `trip_name`, `stages` a **`stats_v2`**: jestli čísla jízdy počítal nový výpočet (nahrávaná jízda, nebo jízda s novými statistikami / přepočtená). Appka i Velín podle toho shodně zvolí popisky. Stará jízda, kterou nový výpočet nikdy neviděl, má dál staré popisky („celkový čas“, „stání“), protože její čísla obsahují noci.
 - **Veřejné jízdy** (`get_public_rides`) ukazují jen dokončené jízdy. Rozjetá jízda přepnutá na „veřejná“ by jinak prozradila, kde jezdec právě je a kde spí. Navíc se nevrací klíče, podle kterých by šlo spojit jízdy jednoho člověka. Zatím to nic nevolá, takže se nic viditelně nemění.
 
 **Riziko:** nízké až střední.
@@ -112,6 +115,8 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
   - ruční jízda se už nepáruje s výpůjčkou podle data;
   - vrací serverový čas, aby appka srovnala hodiny telefonu;
   - když se dva starty potkají naráz, oba skončí u stejné jízdy (otestováno).
+- **Nové RPC `start_user_trip_from`** (nové 30. 10.), jen pro novou appku: totéž, ale pro záznam, který začal **bez dat** (zahraničí, vypnutý roaming). Appka pošle čas prvního bodu a jízda začne jím (nejvýš 7 dní zpět, u výpůjčky ne dřív než převzetí), takže body z hodin bez signálu se nezahodí jako „stará jízda“. Když se telefon poprvé připojí až po vrácení výpůjčky a jízda k ní ještě neexistuje, založí se zpětně: body do vrácení se uloží, po vrácení zahodí. Starý server funkci nezná a appka pak použije `start_user_trip`.
+- **Kiosk:** výpůjčka zaparkovaná v kóji (vrácení před posledním dnem) se pro záznam bere jako vrácená: `start_user_trip` i `start_user_ride` (4.1.3) vrátí `booking_inactive` a nic nenahrávají. Když motorka ráno z kóje vyjede, **pokračuje stejná jízda** (znovu se otevře, noc je pauza). To platí jen pro jízdu, kterou uzavřel server, ne Stop jezdce.
 - **`start_user_ride`** (4.1.3) má stejný podpis. Mění se obnova rozjeté jízdy:
   - výpůjčka se obnoví v jakémkoli stáří;
   - vlastní cesta nové appky do 72 h;
@@ -120,12 +125,12 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
   - 4.1.3 s id výpůjčky oblečení dostane `booking_inactive` a nenahrává, stejně jako bez výpůjčky.
 - **Oprava dat:** jízdy, které 4.1.3 od 23. 10. spárovala s výpůjčkou oblečení, se odpojí a dál se chovají jako vlastní jízdy. Nic se nemaže.
 - **Úklid `close_stale_user_rides`** (každých 15 min), kdy uzavře jízdu:
-  - **výpůjčka motorky:** jen koncem výpůjčky (vrácení +10 min, storno nebo dokončení, 2 dny po konci, 60 dní), a to k času vrácení. Pozdní body z telefonu se do ní pak ještě přijmou (viz bod 3);
+  - **výpůjčka motorky:** jen koncem výpůjčky (vrácení nebo zaparkování v kóji kiosku +10 min, storno nebo dokončení, 2 dny po konci, 60 dní), a to k času vrácení. Pozdní body z telefonu se do ní pak ještě přijmou (viz bod 3);
   - **jízda spárovaná s výpůjčkou oblečení:** jako vlastní jízda;
   - **vlastní cesta nové appky:** po 72 h bez jízdy nebo po 30 dnech. Když pak přijdou novější body, cesta se znovu otevře (viz bod 3);
   - **jízda pod 1 km** by se uzavřením smazala, a s ní i body, které telefon bez dat teprve pošle. Úklid ji proto zatím nechá otevřenou. Vrácenou výpůjčku motorky smaže až 7 dní po vrácení, vlastní cestu nové appky až po 30 dnech od startu. Typický případ: výpůjčka na den s vypnutými daty hned od převzetí. Dřív se smazala 10 minut po vrácení a telefon pak celý den neměl kam poslat;
   - **vlastní jízda 4.1.3:** beze změny po 3 h nebo 36 h.
-- **Velín „Mapa a poloha“** dostane `is_standing`: motorka stojí 15+ min a výpůjčka běží. Velín pak napíše „stojí od …“ místo „Záznam visí“.
+- **Velín „Mapa a poloha“** dostane `is_standing`: motorka stojí 15+ min a výpůjčka běží (ne zaparkovaná v kóji). Velín pak napíše „stojí od …“ místo „Záznam visí“.
 
 **Riziko:** střední, je to změna pravidel uzavírání.
 - Výpůjčka zůstane otevřená přes noc. To je cíl. Uzavře se nejpozději 2 dny po konci výpůjčky.
@@ -147,9 +152,11 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
 
 **Staré appky:** RPC nevolají. Sloučení nevidí, jízdy dál ukazují samostatně.
 
-### 7) `06_rides_backfill.sql` — přepočet starých jízd (VOLITELNÉ)
+### 7) `06_rides_backfill.sql` — přepočet starých jízd (SOUČÁST BALÍČKU)
+**Rozhodnutí 30. 10.:** jde do commitu. Chceš rozumné statistiky i u starých jízd a schvalovací kolo nebude („udělej to a pak to vypřipomínkujeme“). Kdyby se ti výsledek nelíbil, vrátí se jedním příkazem (je v hlavičce souboru, v testu ověřený).
+
 **Co dělá**
-- U uzavřených jízd ze starých appek přesune noci a dlouhá stání (ticho ≥ 5 min bez projetí) z „celkového času“ a „stání“ do pauz.
+- U uzavřených jízd ze starých appek přesune noci a dlouhá stání z „celkového času“ a „stání“ do pauz. Nově i noc, kdy telefon se 4.1.3 dál posílal body z pokoje (každý „běh stání“ ≥ 5 min, stejné pravidlo jako u 4.1.3 po nasazení), nejen noc bez bodů.
 - Km, čas jízdy, maximum ani stoupání nemění. Nic nemaže.
 - Ticho, které staré statistiky braly jako „bez signálu“ (posun > 300 m, ale < 15 km/h), převede na pauzu jen u stopy, která nikdy nebyla prořídnutá (< 2 000 bodů). U prořídnuté stopy to bezpečně odlišit nejde.
 - Pauza nikdy nepřesáhne čas, který nepokrývá jízda a mezery.
@@ -162,6 +169,8 @@ Server přestane dělit cestu přes noc, pozná pauzu a chůzi, spočítá rozum
 
 **Staré appky:** uvidí u starých jízd menší „celkový čas“, protože bez nocí.
 
+**Známá mez:** noc, kterou staré statistiky započítaly jako jízdu (poloha v budově „bloudila“ rychleji než 3 km/h), zůstane v čase jízdy. Opravit by to šlo jen přepočtem km, a ten jsem u historie nechtěl.
+
 ---
 
 ## Jak jsem to ověřil (čísla)
@@ -170,7 +179,7 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
 
 **SQL testy** (`test_rides.sql`, spouští `run_tests.sh`)
 - Všech 8 souborů aplikováno **2×** bez chyby (~0,4 s).
-- Testy proběhly **2× za sebou: 246/246 kontrol OK** (každý běh ~4 s). Zahrnují:
+- Testy proběhly **2× za sebou: 307/307 kontrol OK** (každý běh ~5–8 s). Zahrnují:
   - 15 výpočetních vektorů ze zadání + strop 60 etap;
   - vlastní jízdu (připraveno, opakovaná dávka, značka pauzy = 3 600 s, pozdní Stop = konec +120 s, „na cestě“ 6 min);
   - 3denní cestu s nočním úklidem (= 1 jízda, 3 etapy, 3 dny, název `14.10.–16.10.2026`);
@@ -188,13 +197,16 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
   - vlastní cestu 5 dní, z toho 4 bez dat. Úklid ji po 72 h uzavře. První dávka po připojení ji znovu otevře, druhá se uloží normálně a opakovaná se nezapočítá. Další úklid ji nezavře. Stop dá 1 jízdu se všemi km, název `23.10.–27.10.2026`, 5 dní a jeden bod „cíl“ na skutečném konci;
   - kdy se cesta znovu NEotevře: jezdec mezitím začal jinou jízdu, cestu ukončil Stopem, jde o jízdu ze 4.1.3, start je starší než 30 dní, dávka nese jen staré, opakované nebo budoucí body, nebo jízdu posílá cizí uživatel;
   - Stop s body z doby offline do cesty uzavřené úklidem;
+  - **kiosk (kolo 3):** vrácení o den dřív a domů autem 120 km/h → auto se nepřijme, km a max jen z motorky; kiosk offline (auto už uložené) → úklid jízdu uzavře k zavření kóje, auto ořízne, „na cestě“ ≥ čas jízdy, cíl na posledním bodu motorky, Velín ji neukáže jako „stojí“; vrácení bez dokončení (nezaplaceno) + Stop doma → jen motorka; motorka přes noc v kóji a ráno ven → 1 jízda, 2 dny, noc = pauza (nová appka i 4.1.3); po Stopu jezdce se jízda neotevře; telefon offline před zaparkováním → pozdní body motorky se uloží, auto ne; ruční jízda 4.1.3 téhož dne se s zaparkovanou výpůjčkou nespáruje; vlastní jízda s hodinami telefonu napřed se při Stopu neořezává;
+  - **start bez dat (kolo 3):** jízda začne prvním bodem (nic se nezahodí; bez nové funkce by se zahodilo 202 bodů), nesmyslné časy (10 dní zpět, NaN, budoucnost, 0) ořízne / ignoruje, ještě prázdnou převzatou jízdu posune, výpůjčka vrácená před prvním spojením se založí zpětně (body do vrácení ano, auto ne, úklid ji uzavře k vrácení, druhá stejná žádost nic nezaloží), ne pro výpůjčku vrácenou před víc než 7 dny ani stornovanou, zaparkovaná v kóji funguje stejně, start nikdy před převzetím;
+  - **popisky (kolo 3):** `stats_v2` ve výpisu (přepočtená stará jízda ano, stará bez přepočtu ne, nahrávaná ano); přepočet noci se 600 body z pokoje → pauza 9 h 59 min, „na cestě“ 5 min; krátká zastávka 4 min zůstane zastávkou; kontrola přes všechny testovací jízdy: „na cestě“ ≥ čas jízdy + bez signálu;
   - jízdu pod 1 km. Vlastní cesta po 72 h nezmizí a body dorazí po 10 dnech. Prázdná se smaže po 30 dnech. Výpůjčka s vypnutými daty od převzetí po vrácení nezmizí; když telefon za 3 dny pošle oba dny, úklid ji uzavře se skutečnými km do vrácení. Prázdná výpůjčka se smaže 7 dní po vrácení.
 - Oprava dat (odpojení jízd od výpůjček oblečení) ověřena na jízdě založené před aplikací.
 - Volání RPC pod rolí `authenticated` (jako z appky) proběhlo bez chyby. Interní funkce jsou pro ni zakázané.
 - Souběžné dva starty: druhý dostal tutéž jízdu (`resumed`), otevřená je 1.
 - Souběh znovuotevření s jiným startem: dávka do uzavřené cesty počká na zámek a cestu neotevře. Odpověď je `ride_finished`, ne chyba. Otevřená zůstane jen ta nová jízda. Bez souběžné jízdy se stejná dávka cestu znovu otevře.
 - Znovuotevření pod rolí `authenticated` (jako z appky) funguje. Interní `_ride_reopen` je pro ni zakázaná.
-- Podpisy všech existujících funkcí jízd **beze změny**. Přibylo jen 10 nových názvů (z toho 8 interních) a **0 přetížení**.
+- Podpisy všech existujících funkcí jízd **beze změny**. Přibylo 15 nových názvů (z toho 12 interních; veřejné jen `start_user_trip`, `start_user_trip_from`, `set_user_rides_trip`) a **0 přetížení**.
 
 **Přehrávky reálných scénářů:** simulovaný jezdec s GPS šumem, nocemi v hotelu, chůzí a autem přes skutečné RPC. Výsledek **56 ze 57 cílů**.
 
@@ -225,6 +237,16 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
 | 3,5 h u jezera | odpoledne ztraceno | 235,0 / 235,3 km · 1 pauza 216 min |
 | Stop o 2,5 h později | +154 min stání | konec = příjezd + 2 min |
 
+**Kolo 3 (30. 10.), skutečná logika appky proti SQL:**
+
+| Scénář | Před opravou | Nově |
+|---|---|---|
+| Vrácení na kiosku o den dřív, domů autem (motorka 170,7 km, auto 60 km) | 230,7 km, max 91,5 (auto), na cestě 146 min < jízda 182 min, Velín ukazuje motorku doma | 170,6 km, max 76,5 (motorka), na cestě ≥ jízda, poloha = kóje |
+| Výpůjčka bez dat od převzetí, telefon online večer (výpůjčka běží) | body z doby bez dat zahozené | 187,9 / 188,0 km, 1 jízda |
+| Totéž, vrácení na kiosku, online až druhý den | jízda nevznikla, vše ztraceno | 188,3 / 188,0 km, 1 jízda uzavřená při vrácení |
+
+- Sady B (S4–S8), C (C4–C12), X (X6, X7, X15, X16, X18, X19c) a H: viz výsledek ověření v předávce.
+
 **Appka 4.1.3 proti novému serveru**
 - Chůze vyloučena: 369,5 km / 370,1 km.
 - Výpůjčka 2 dny = **1 jízda** (dřív 2). Ráno se nahrálo i to, co dřív chybělo, protože jízdu už nezavírá noční úklid.
@@ -242,7 +264,7 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
 - Citlivější nastavení (vyhlazení 0,3) dá ~87 %, ale na rovině by šum přičetl až ~300 m na 100 km místo dnešních ~190 m. Nechal jsem hodnoty ze zadání (0,25 / 6 m). Změnit to je tvoje volba.
 
 ## Co můžeš po nasazení připomínkovat
-1. **Přepočet historie (`06`, název `_h`)**: jestli půjde do commitu, se rozhodne těsně před ním. Je vratný: každá přepočtená jízda si nese původní hodnoty a vrátit to jde jedním příkazem.
+1. **Přepočet historie (`06`, název `_h`)**: jde do commitu (rozhodnuto 30. 10.). Je vratný: každá přepočtená jízda si nese původní hodnoty a vrátit to jde jedním příkazem.
 2. **Prahy** (5 min stání, 3 min chůze, 20 km/h, uzavření vlastní cesty po 72 h). Prahy pro telefon jdou měnit i později bez vydání appky (příznak `ride_autopause`).
 3. **„Na cestě“ = čas bez pauz** v appce i ve Velínu.
 4. **Nasazení:** SQL, Velín a appka musí jít do `main` spolu.
@@ -260,7 +282,9 @@ Lokální PostgreSQL 16 se živým schématem (snapshot `1871eba3` z 29. 10., u�
 - **Jízda rozjetá před nasazením** dostane dosavadní část jako 1. etapu.
 - **`start_user_trip`** u už převzaté jízdy neposouvá `updated_at`. Jinak by každé otevření appky oddálilo uzavření po 72 h.
 - **`finish_user_ride` u uzavřené jízdy** dál umí přejmenovat, stejně jako dnes.
-- **Nové pomocné funkce:** `_ride_stage_days` (počet dní), `_ride_close` (jádro uzavření), `_ride_append_late` (pozdní body), `_ride_auto_name` (název z dat); `_ride_stats` je nyní STABLE SECURITY DEFINER.
+- **Vrácení na kiosku před posledním dnem** (kolo 3): pro jízdu platí zavření kóje jako vrácení, i když rezervace ještě běží. Výjimka: motorka po zaparkování znovu vyjela. Rezervace, kód ani kiosk se tím nemění, jen záznam jízdy.
+- **`start_user_trip_from`** (kolo 3): nesmyslný čas prvního bodu se ořízne (7 dní zpět, převzetí − 10 min), neignoruje se celý; převzatá jízda bez jediného bodu se na něj posune (pomůže, když se ztratila odpověď prvního startu); zpětně se výpůjčka založí jen tehdy, když k ní žádná jízda ještě není (jinak by mohla vzniknout dvakrát).
+- **Nové pomocné funkce:** `_ride_stage_days` (počet dní), `_ride_close` (jádro uzavření), `_ride_append_late` (pozdní body), `_ride_auto_name` (název z dat), `_ride_booking_end` (konec výpůjčky včetně kiosku), `_ride_start_trip` + `_ride_trip_json` (společné jádro startu), `_ride_reopen_parked` (pokračování po vyjetí z kóje); `_ride_stats` je nyní STABLE SECURITY DEFINER.
 
 ## Soubory k použití dál
 - **Pro appku (T2):** `stats_vectors.json`, 16 vektorů se spočtenými hodnotami pro test parity.

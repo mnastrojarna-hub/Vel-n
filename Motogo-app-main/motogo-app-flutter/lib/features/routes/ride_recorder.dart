@@ -26,6 +26,7 @@ export 'ride_session.dart' show RidePhase, RidePauseReason;
 part 'ride_recorder_stream.dart';
 part 'ride_recorder_server.dart';
 part 'ride_recorder_pause.dart';
+part 'ride_recorder_offline.dart';
 
 /// Záznam jízdy — automaticky během výpůjčky („Moje jízdy") i ručně
 /// („Zaznamenat vlastní jízdu").
@@ -162,6 +163,10 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   Timer? _stopRetryTimer;
   /// Ukončení v tomhle běhu appky selhalo (offline) a ještě se nepovedlo.
   bool _stopFailed = false;
+  /// Obnova po startu appky doběhla (do té doby ruční jízda s id „nenahrává"
+  /// jen zdánlivě — nesmí se ukončit jako neuložená).
+  bool _restoreDone = false;
+  Future<bool?>? _stopFlight;
 
   Future<void> _restore() async {
     try {
@@ -188,7 +193,11 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       final session = s != null && s.ride == id ? s : null;
       state = state.copyWith(enabled: enabled, rideId: id, manual: manual);
       await _restoreSession(id, manual, session);
-    } catch (_) {/* poškozený cache → začneme načisto */}
+    } catch (_) {
+      /* poškozený cache → začneme načisto */
+    } finally {
+      _restoreDone = true;
+    }
   }
 
   /// Přepínač v „Mých zážitcích". Vypnutí rozjetou AUTOMATICKOU jízdu
@@ -213,7 +222,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     // Předchozí jízda je ukončená, ale server to nevzal (offline): nejdřív
     // ji uložit. Jinak by ji nový start (server obnovuje otevřenou vlastní
     // cestu) tiše prodloužil o novou jízdu, nebo by se smíchaly body.
-    if (stopPending) {
+    if (stopPending || _stopping) {
       await stop();
       if (stopPending) return RideStartResult.failed;
     }
@@ -346,50 +355,6 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   static bool _isForeground() =>
       WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
 
-  void _recomputeMax() {
-    _maxSpeedKmh = 0;
-    for (final p in _buffer) {
-      if (p.length > 3 && p[3] > _maxSpeedKmh) _maxSpeedKmh = p[3];
-    }
-  }
-
-  /// Zahodí lokální stav jízdy, kterou server už nepřijímá (výpůjčka
-  /// skončila, jízda smazaná). [keepBuffer]: čerstvé body si necháme pro
-  /// jízdu, kterou hlídač rozjede vzápětí (staré odfiltruje start podle času).
-  Future<void> _forgetRide({bool keepBuffer = false}) async {
-    await _detachStream();
-    _clockWaitUntil = null;
-    _clockQueue = null;
-    if (!keepBuffer) _buffer.clear();
-    _maxSpeedKmh = 0;
-    _needsServerRide = false;
-    _continuation = false;
-    _sessFrom = null;
-    _stopFailed = false;
-    _engine = null;
-    _cancelPendTimer();
-    _cancelStopRetry();
-    _resetLive();
-    state = state.copyWith(recording: false, points: 0, clearRide: true);
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.remove(kRideRecIdKey);
-      if (!keepBuffer) await p.remove(kRideRecBufKey);
-      await p.remove(kRideRecManualKey);
-    } catch (_) {}
-    await RideSessionMeta.clear();
-    _ref.invalidate(myRidesProvider);
-  }
-
-  Future<void> _persistBuffer() async {
-    _bufDirty = 0;
-    _persistAt = rideRecorderClock();
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.setString(kRideRecBufKey, jsonEncode(_buffer));
-    } catch (_) {}
-  }
-
   /// Odešle nasbíranou dávku bodů (dávky, časovač, přechod do pozadí).
   /// Single-flight: souběžné volání počká na rozjeté a skončí (dřív se
   /// stejné body posílaly dvakrát → pád „RangeError (end)", 4.0.2+107).
@@ -418,7 +383,9 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// krátkou jízdu server zahodí. true = uložená, false = zahozená (< 1 km),
   /// null = NEUZAVŘENO (offline) — id zůstává a zkusí se to znovu; UI to
   /// nesmí hlásit jako „příliš krátká".
-  Future<bool?> stop() => _stopImpl();
+  /// Souběžné volání (dvojí klepnutí, hlídač, časovač) dostane výsledek
+  /// téhož ukončení.
+  Future<bool?> stop() => _stopFlight ??= _stopImpl().whenComplete(() => _stopFlight = null);
 
   /// Smí se teď zkusit (znovu) ukončit jízdu? Po neúspěchu chvíli počkáme.
   bool get canRetryStop =>
@@ -432,7 +399,10 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// znovu; nový start počká, až se uloží. Výpůjčka obnovená po restartu
   /// (`rideId`, ještě nenahrává) sem NEPATŘÍ — tu hlídač rozjede dál.
   bool get stopPending =>
-      !state.recording && !_stopping && (_stopFailed || (state.manual && state.rideId != null));
+      _restoreDone &&
+      !state.recording &&
+      !_stopping &&
+      (_stopFailed || (state.manual && state.rideId != null));
 
   // ── Pauzy a cesty (veřejné API pro UI — viz LOGIC_API.md) ──
 

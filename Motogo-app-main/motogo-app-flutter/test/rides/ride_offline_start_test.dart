@@ -85,7 +85,7 @@ void main() {
         expect(server.fromCalls.single, closeTo(t0, 5), reason: 'jízda začíná prvním bodem relace');
         expect(server.rides.single.startedAt, closeTo(t0, 5));
       } else {
-        expect(sim.count('caps', 'trip_from'), 1); // starý server → start_user_trip
+        expect(sim.count('trip_from_missing'), 1); // starý server → start_user_trip
       }
     });
   }

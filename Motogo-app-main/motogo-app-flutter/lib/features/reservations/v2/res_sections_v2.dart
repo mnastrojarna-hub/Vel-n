@@ -11,6 +11,7 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../reservation_models.dart';
 import '../widgets/res_location_row.dart';
+import 'res_detail_bits_v2.dart';
 
 /// "Kdy a kde" (white card): pickup + return through `ResLocationRow` with
 /// the SAME address / GPS / fallback arguments as today's detail (navigation
@@ -30,7 +31,7 @@ class ResWhenWhereV2 extends StatelessWidget {
             : tripShortDate(tr, res.startDate);
     return MgCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        MgEyebrow(tr.tr('v2ResWhenWhere'), dark: false),
+        ResSectionEyebrowV2(tr.tr('v2ResWhenWhere')),
         ResLocationRow(
           label: tr.pickup,
           when: pickupWhen,
@@ -86,7 +87,7 @@ class ResGearV2 extends StatelessWidget {
       padding: const EdgeInsets.only(top: 12),
       child: MgCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          MgEyebrow(tr.tr('v2ResGear'), dark: false),
+          ResSectionEyebrowV2(tr.tr('v2ResGear')),
           if (own) ...[
             const SizedBox(height: 12),
             Row(children: [

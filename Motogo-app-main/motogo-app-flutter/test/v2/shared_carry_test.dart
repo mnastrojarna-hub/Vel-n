@@ -125,6 +125,18 @@ void main() {
       expect(c.read(bookingDraftProvider).motoId, isNull);
     });
 
+    testWidgets('v2: draft jiného (odhlášeného) účtu Domů zahodí i s termínem a cenou přistavení', (tester) async {
+      final c = await _pumpTabs(tester, v2: true);
+      _seed(c);
+      c.read(pickupDelivFeeProvider.notifier).state = 1500;
+      c.read(bookingDraftOwnerProvider.notifier).state = 'user-a';
+      await _tap(tester, 'TAB-HOME');
+      expect(c.read(bookingDraftProvider).motoId, isNull);
+      expect(c.read(catalogFilterProvider).startDate, isNull);
+      expect(c.read(pickupDelivFeeProvider), 0);
+      expect(c.read(bookingDraftOwnerProvider), isNull);
+    });
+
     testWidgets('v2 po zaplacení: zahodí draft i termín hotové rezervace, nový termín pak drží', (tester) async {
       final c = await _pumpTabs(tester, v2: true);
       _seed(c);

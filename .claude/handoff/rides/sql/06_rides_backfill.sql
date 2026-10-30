@@ -1,16 +1,26 @@
 -- ════════════════════════════════════════════════════════════════════
--- MotoGo24 — „Moje jízdy": přepočet starých jízd (8/8) — VOLITELNÉ (majitel)
+-- MotoGo24 — „Moje jízdy": přepočet starých jízd (8/8) — SOUČÁST BALÍČKU
+-- (rozhodnutí 2026-10-30: majitel chce rozumné statistiky i u starých jízd,
+-- schvalovací kolo nebude; návrat jedním příkazem níže).
 -- Uzavřené jízdy ze starých appek (pause_aware = false, stats_state IS NULL):
--- noci a dlouhá stání v uložené stopě (ticho ≥ 5 min bez projetí ≥ 15 km/h)
--- se z „Celkového času" a „Stání" přesunou do pause_sec. duration_min pak
--- = na cestě BEZ pauz, idle_sec = zbytek. Kilometry, čas jízdy, maximum
--- ani nastoupáno se NEMĚNÍ; nic se nemaže.
---   • ticho, které staré statistiky braly jako „stání" (posun < 3 km/h):
---     vždy pauza;
+-- noci a dlouhá stání v uložené stopě se z „Celkového času" a „Stání"
+-- přesunou do pause_sec — stejné pravidlo jako u 4.1.3 po nasazení
+-- (běh stání ≥ 5 min = pauza). duration_min pak = na cestě BEZ pauz,
+-- idle_sec = zbytek. Kilometry, čas jízdy, maximum ani nastoupáno se
+-- NEMĚNÍ; nic se nemaže.
+--   • běh stání: souvislá řada úseků, které staré statistiky počítaly jako
+--     „stání" (posun < 3 km/h, i ticho bez posunu > 300 m), dlouhá ≥ 5 min
+--     → pauza (noc s telefonem, který dál posílal body, i noc bez bodů);
 --   • ticho, které bylo „bez signálu" (posun > 300 m, ale < 15 km/h):
---     pauza jen u stopy, která nikdy nebyla prořídnutá (< 2000 bodů) —
---     u prořídnuté stopy nejde odlišit od mezery vzniklé prořídnutím;
+--     pauza (a z mezer pryč), když < 3 km/h nebo stopa nikdy nebyla
+--     prořídnutá (< 2000 bodů) — jinak nejde odlišit od prořídnutí;
+--   • ticho ≥ 24 h (staré statistiky ho nepočítaly nikam) bez projetí: pauza;
 --   • pauza nikdy nepřesáhne čas, který nepokrývá jízda a mezery.
+-- Známá mez: noc, kterou staré statistiky započítaly jako JÍZDU (bloudění
+-- polohy v budově ≥ 3 km/h), zůstane v čase jízdy — bez přepočtu km to nejde.
+-- Po přepočtu má jízda stats_state → appka i Velín ukážou nové popisky
+-- (_ride_json.stats_v2). Jízdy uzavřené později bez nové dávky (stats_state
+-- NULL) zůstávají se starými čísly i popisky.
 -- Idempotentní: zpracovaná jízda dostane stats_state = {"backfill":1,
 -- "old":{duration_min, idle_sec, gap_sec}} — původní hodnoty pro návrat:
 --   update public.user_rides set duration_min = (stats_state->'old'->>'duration_min')::int,
@@ -35,22 +45,38 @@ pts as (
               else (e.pt->>2) ~ '^[0-9]+(\.[0-9]+)?$' end
 ),
 pairs as (
-  select id, ts - lag(ts) over w as dt,
+  select id, ord, ts - lag(ts) over w as dt,
          case when lag(la) over w is null then null
               else 6371 * 2 * asin(least(1::float8, sqrt(power(sin(radians(la - lag(la) over w) / 2), 2)
                      + cos(radians(lag(la) over w)) * cos(radians(la))
                        * power(sin(radians(lo - lag(lo) over w) / 2), 2)))) end as d
     from pts window w as (partition by id order by ord)
 ),
+cls as (
+  -- still = úsek, který staré statistiky počítaly jako „stání" (ne jízda, ne mezera, ne vadný čas)
+  select p.*, p.d / nullif(p.dt, 0) * 3600 as v,
+         p.dt >= 0 and p.dt < 86400 and not (p.dt > 180 and p.d > 0.3)
+           and not coalesce(p.d / nullif(p.dt, 0) * 3600 >= 3 and p.d / nullif(p.dt, 0) * 3600 < 300, false) as still
+    from pairs p where p.dt is not null
+),
+runs as (
+  select c.*, sum(case when c.still then 0 else 1 end) over (partition by c.id order by c.ord) as run
+    from cls c
+),
+still_runs as (
+  select id, sum(dt) as dur from runs where still group by id, run having sum(dt) >= 300
+),
 agg as (
   select c.id, c.moving_sec, c.gap_sec,
          extract(epoch from (c.ended_at - c.started_at))::float8 as elapsed,
-         coalesce(sum(p.dt) filter (where p.dt >= 300 and p.dt < 2592000
-               and not (p.d / nullif(p.dt, 0) * 3600 >= 15 and p.d > 0.3)
-               and (p.dt >= 86400 or p.d / nullif(p.dt, 0) * 3600 < 3 or (p.d > 0.3 and c.n < 2000))), 0) as pause_raw,
-         coalesce(sum(p.dt) filter (where p.dt >= 300 and p.dt < 86400
-               and not (p.d / nullif(p.dt, 0) * 3600 >= 15) and p.d > 0.3 and c.n < 2000), 0) as gap_moved
-    from cand c left join pairs p on p.id = c.id and p.dt is not null
+         coalesce((select sum(s.dur) from still_runs s where s.id = c.id), 0)
+         + coalesce(sum(p.dt) filter (where p.dt >= 300 and p.dt < 86400 and p.d > 0.3 and p.v < 15
+               and (p.v < 3 or c.n < 2000)), 0)
+         + coalesce(sum(p.dt) filter (where p.dt >= 86400 and p.dt < 2592000
+               and not (p.v >= 15 and p.d > 0.3)), 0) as pause_raw,
+         coalesce(sum(p.dt) filter (where p.dt >= 300 and p.dt < 86400 and p.d > 0.3 and p.v < 15
+               and (p.v < 3 or c.n < 2000)), 0) as gap_moved
+    from cand c left join cls p on p.id = c.id
    group by c.id, c.moving_sec, c.gap_sec, c.ended_at, c.started_at
 ),
 calc as (

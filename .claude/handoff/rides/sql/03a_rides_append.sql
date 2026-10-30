@@ -13,8 +13,31 @@
 --       = 'gear') není vrácení motorky → body po ní se neořezávají.
 --   Dávka jen z bodů po vrácení jízdu NEUZAVÍRÁ — vrátí {booking_ended,
 --       end_at} a uzavře volající (_ride_close, closed_by = return).
+--   _ride_booking_end (interní) — konec výpůjčky pro účely jízdy: vrácení
+--       (returned_at), nebo DŘÍV motorka zaparkovaná v kóji kiosku
+--       (booking_kiosk_returns parked / skipped, zavření kóje po posledním
+--       vyjetí). Kiosk při vrácení před posledním dnem jen „parkuje" a
+--       rezervaci dokončí až den po konci (returned_at zpětně) — do té doby
+--       by appka nahrávala cestu autem domů jako jízdu na motorce. Vyjetí
+--       z kóje (state out) konec zase zruší. Výbava = NULL.
+--   Na cestě (duration) nikdy kratší než jízda + mezery (pojistka).
 -- Idempotentní (create or replace se stejným podpisem → práva zůstávají).
 -- ════════════════════════════════════════════════════════════════════
+
+create or replace function public._ride_booking_end(p_booking_id uuid)
+returns timestamptz language sql stable security definer set search_path = public as $$
+  select case when b.booking_kind = 'gear' then null
+              else least(b.returned_at,
+                         (select k.closed_at from booking_kiosk_returns k
+                           where k.booking_id = b.id and k.state in ('parked', 'skipped')
+                             and k.closed_at is not null
+                             and k.closed_at >= coalesce(k.out_at, '-infinity'::timestamptz))) end
+    from bookings b
+   where b.id = p_booking_id
+$$;
+
+comment on function public._ride_booking_end(uuid) is
+  'Jízdy: konec výpůjčky motorky = min(returned_at, zavření kóje kiosku ve stavu parked/skipped po posledním vyjetí); NULL = běží (nebo výbava). Řídí ořez bodů po vrácení, uzavírání a start nahrávání.';
 
 create or replace function public._ride_append_core(p_ride_id uuid, p_points jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -29,9 +52,8 @@ declare
 begin
   select * into v_r from user_rides where id = p_ride_id;          -- volající drží FOR UPDATE
   if v_r.id is null then return jsonb_build_object('success', false, 'error', 'ride_not_found'); end if;
-  if v_r.booking_id is not null then
-    select returned_at into v_ret from bookings where id = v_r.booking_id and booking_kind <> 'gear';
-  end if;
+  -- Konec výpůjčky: vrácení, nebo dřív zaparkování v kóji kiosku (vrácení před posledním dnem).
+  if v_r.booking_id is not null then v_ret := _ride_booking_end(v_r.booking_id); end if;
   v_track := case when jsonb_typeof(v_r.track) = 'array' then v_r.track else '[]'::jsonb end;
   if jsonb_array_length(v_track) > 0 then
     v_last := v_track -> (jsonb_array_length(v_track) - 1);
@@ -152,7 +174,8 @@ begin
   v_move := coalesce(v_r.moving_sec, 0) + (v_st->>'moving_sec')::int;
   v_gap := coalesce(v_r.gap_sec, 0) + (v_st->>'gap_sec')::int;
   v_pause := coalesce(v_r.pause_sec, 0) + (v_st->>'pause_sec')::int;
-  v_active := greatest(0, extract(epoch from (v_fix - v_r.started_at)) - v_pause);
+  -- Na cestě nikdy kratší než jízda + mezery (rozhozené hodiny, posunutý start).
+  v_active := greatest(0, extract(epoch from (v_fix - v_r.started_at)) - v_pause, v_move + v_gap);
   v_idle := greatest(0, round(v_active - v_move - v_gap))::int;
   v_avg := case when v_move >= 60 then least(round(v_km / (v_move::numeric / 3600), 1), 200.0) end;
   v_max := greatest(coalesce(v_r.max_speed_kmh, 0), coalesce((v_st->>'max_kmh')::numeric, 0),
@@ -179,6 +202,8 @@ begin
 end;
 $$;
 
+revoke all on function public._ride_booking_end(uuid) from public, anon, authenticated;
+grant execute on function public._ride_booking_end(uuid) to service_role;
 revoke all on function public._ride_append_core(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public._ride_append_core(uuid, jsonb) to service_role;
 

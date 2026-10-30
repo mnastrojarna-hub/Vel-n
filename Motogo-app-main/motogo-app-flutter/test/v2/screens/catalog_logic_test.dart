@@ -27,6 +27,7 @@ import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_page.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
+import 'package:motogo_app/features/catalog/v2/calc/calc_total_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
@@ -194,9 +195,12 @@ void main() {
           ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we), profile: _profile),
           catalogCalcRequestProvider.overrideWith((ref) => true),
         ]);
-    final cta = find.byType(MgCta).last;
+    // The total block's own CTA (the sticky dock mirrors it while it is
+    // below the edge — calc_sticky_test.dart).
+    final cta = find.descendant(of: find.byType(CalcTotalV2), matching: find.byType(MgCta));
     await t.ensureVisible(cta);
     await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
     await t.tap(cta);
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('booking'), findsOneWidget);

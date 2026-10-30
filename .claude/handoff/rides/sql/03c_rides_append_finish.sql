@@ -16,6 +16,8 @@
 --       (min(vrácení, poslední bod + 2 min)). Odpověď append zůstává
 --       ride_finished (+ reason booking_ended, když se něco uložilo).
 --       Jízdu ukončenou jezdcem (Stop) ani vlastní jízdu to nemění.
+--       „Vrácení" = _ride_booking_end (i zaparkování v kóji kiosku před
+--       posledním dnem, než ho kiosk_process_returns dokončí).
 --   _ride_reopen (interní) — VLASTNÍ cesta nové appky, kterou uzavřel úklid
 --       (72 h bez kontaktu se serverem: roaming vypnutý, cizina bez dat),
 --       se při dalších bodech znovu otevře a pokračuje — bez rozdělení i bez
@@ -36,7 +38,7 @@ begin
      or coalesce(v_r.stats_state->>'closed_by', '') not in ('return', 'cron', 'start') then
     return 0;
   end if;
-  select b.returned_at into v_ret from bookings b where b.id = v_r.booking_id and b.booking_kind <> 'gear';
+  v_ret := _ride_booking_end(v_r.booking_id);
   if v_ret is null or now() > v_ret + interval '7 days' then return 0; end if;
   -- Jádro filtruje: duplicity (≤ poslední uložený bod), body po vrácení, vadné.
   v_res := _ride_append_core(p_ride_id, p_points);
@@ -158,9 +160,10 @@ begin
     update user_rides set name = left(trim(p_name), 120) where id = p_ride_id;
   end if;
   if not v_r.is_recording then return _ride_finalize(p_ride_id, null); end if;   -- already_finished
-  -- Konec výpůjčky nesmí být později než vrácení motorky (start mohl posunout „připraveno").
+  -- Konec výpůjčky nesmí být později než vrácení motorky / zaparkování v kóji kiosku
+  -- (start mohl posunout „připraveno"; body po něm _ride_close ořízne).
   if v_r.booking_id is not null then
-    select returned_at into v_ret from bookings where id = v_r.booking_id and booking_kind <> 'gear';
+    v_ret := _ride_booking_end(v_r.booking_id);
     if v_ret is not null and v_ret < v_end then
       select greatest(v_ret, started_at) into v_end from user_rides where id = p_ride_id;
     end if;

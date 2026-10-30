@@ -10,6 +10,7 @@ import '../../../core/v2/widgets/mg_chips.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import 'res_fit_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// v2 shell of `EditCard` (white card, 1 px line, r16) with the SAME outer
 /// gutter, so the edit sections drop into the v2 page unchanged.
@@ -69,7 +70,9 @@ class EditTimePickerV2 extends StatelessWidget {
                 isExpanded: true,
                 dropdownColor: MgColors.surface,
                 icon: const MgIcon(MgIcons.chevronDown, size: 18, color: MgColors.link),
-                style: MgType.tab(MgType.h3.copyWith(color: MgColors.ink)),
+                // DropdownButton nahrazuje zděděný styl → bez merge by číslice
+                // byly v systémovém písmu (Roboto), ne v Montserratu appky.
+                style: DefaultTextStyle.of(context).style.merge(MgType.tab(MgType.h3.copyWith(color: MgColors.ink))),
                 items: [for (final v in items) DropdownMenuItem(value: v, child: Center(child: Text(v)))],
                 onChanged: onChanged,
               ),
@@ -127,7 +130,7 @@ class EditCalendarSectionV2 extends StatelessWidget {
     return EditCardV2(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Expanded(child: MgEyebrow(tr.tr('termLabel'), dark: false)),
+          Expanded(child: ResSectionEyebrowV2(tr.tr('termLabel'))),
           if (diffDays != 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

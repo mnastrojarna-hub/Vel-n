@@ -215,7 +215,7 @@ class _PickerList extends ConsumerWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(m.model, style: MgType.title.copyWith(color: MgColors.ink)),
+                MgWordFit(child: Text(m.model, style: MgType.title.copyWith(color: MgColors.ink))),
                 Text(calcMeta(tr, m), style: MgType.meta.copyWith(color: MgColors.meta)),
                 CalcFromPrice(moto: m, pct: pct, small: true),
                 if (calcStatus(tr, m) case final st?)

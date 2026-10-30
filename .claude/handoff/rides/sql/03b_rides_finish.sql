@@ -12,8 +12,17 @@
 --       (výpůjčka offline v den vrácení): nic se nemaže, automatický název
 --       i bod „cíl" se posunou s novým koncem. Existující bod „cíl" (přepočet,
 --       cesta znovuotevřená úklidem — 03c) se posune vždy.
+--       Výpůjčka skončila PŘED uloženými body (vrácení / zaparkování v kóji
+--       zjištěné až po nich, zpětně zapsané vrácení): body po konci výpůjčky
+--       (+ 30 s / 4.1.3 2 min) ze stopy pryč a km, čas jízdy, mezery, pauzy,
+--       max, nastoupáno, etapy i cíl znovu z oříznuté stopy (_ride_stats_v2).
+--       Bez konce výpůjčky se nic neořezává (Stop s hodinami telefonu napřed
+--       zůstává jako dřív). Na cestě nikdy kratší než jízda + mezery.
 --   _ride_finalize — stejný podpis, = _ride_close(id, konec, NULL, false).
---   _ride_json — navíc pause_sec, pause_aware, trip_id, trip_name, stages.
+--   _ride_json — navíc pause_sec, pause_aware, trip_id, trip_name, stages,
+--       stats_v2 (= čísla počítal nový výpočet: nahrávaná jízda nebo
+--       stats_state vyplněný — stejné pravidlo jako Velín rideStatsV2;
+--       stará uzavřená jízda bez přepočtu → appka i Velín staré popisky).
 --   get_public_rides — stejný podpis; jen UZAVŘENÉ jízdy (nahrávaná jízda
 --       by prozradila živou polohu) a bez trip_id, last_fix_at,
 --       pause_aware, is_recording (spojení jízd / stav nahrávání).
@@ -36,6 +45,8 @@ declare
   v_km numeric; v_move int; v_gap int; v_pause int; v_active float8; v_idle int; v_dur int; v_avg numeric;
   v_stages jsonb; v_n int; v_days int; v_name text; d1 date; d2 date;
   v_fla float8; v_flo float8; v_lla float8; v_llo float8; v_re boolean := coalesce(p_reclose, false);
+  v_state jsonb; v_st jsonb; v_cut boolean := false; v_lim float8; v_fix timestamptz; v_gain int; v_max numeric;
+  v_bend timestamptz; v_now_e float8 := extract(epoch from now());
 begin
   select * into v_r from user_rides where id = p_ride_id for update;
   if v_r.id is null then return jsonb_build_object('success', false, 'error', 'ride_not_found'); end if;
@@ -50,9 +61,50 @@ begin
   v_end := coalesce(p_ended_at, v_r.last_fix_at, v_r.updated_at, now());
   -- Konec nejvýš 2 min po posledním bodu (pozdní Stop / úklid nepřidá stání).
   if v_r.last_fix_at is not null then v_end := least(v_end, v_r.last_fix_at + interval '120 seconds'); end if;
+  if v_end < v_r.started_at then v_end := v_r.started_at; end if;
   v_track := case when jsonb_typeof(v_r.track) = 'array' then v_r.track else '[]'::jsonb end;
+  v_state := v_r.stats_state;
+  v_km := coalesce(v_r.distance_km, 0);
+  v_move := coalesce(v_r.moving_sec, 0); v_gap := coalesce(v_r.gap_sec, 0); v_pause := coalesce(v_r.pause_sec, 0);
+  v_gain := coalesce(v_r.elevation_gain_m, 0); v_max := v_r.max_speed_kmh;
+  v_stages := case when jsonb_typeof(v_r.stages) = 'array' then v_r.stages else '[]'::jsonb end;
+
+  -- Výpůjčka skončila PŘED uloženými body (vrácení / zaparkování v kóji zjištěné až po nich):
+  -- body po konci (+ rezerva na hodiny jako u příjmu) do jízdy nepatří (auto domů) → ze stopy
+  -- pryč a statistiky znovu z oříznuté stopy. Spouští jen věrohodný bod (≤ teď + 10 min).
+  if v_r.booking_id is not null then v_bend := _ride_booking_end(v_r.booking_id); end if;
+  v_lim := extract(epoch from v_bend) + case when v_r.pause_aware then 30 else 120 end;
+  if v_lim is not null and exists (select 1 from jsonb_array_elements(v_track) e
+              where case when jsonb_typeof(e) <> 'array' then false
+                         when jsonb_array_length(e) < 3 then false
+                         when not ((e->>2) ~ '^[0-9]+(\.[0-9]+)?$') then false
+                         else (e->>2)::float8 > v_lim and (e->>2)::float8 <= v_now_e + 600 end) then
+    v_cut := true;
+    select coalesce(jsonb_agg(e.pt order by e.ord), '[]'::jsonb) into v_track
+      from jsonb_array_elements(v_track) with ordinality e(pt, ord)
+     where case when jsonb_typeof(e.pt) <> 'array' then false
+                when jsonb_array_length(e.pt) < 3 then true
+                when not ((e.pt->>2) ~ '^[0-9]+(\.[0-9]+)?$') then true
+                else (e.pt->>2)::float8 <= v_lim end;
+    v_st := _ride_stats_v2(v_track, jsonb_build_object('legacy', not v_r.pause_aware), '[]'::jsonb);
+    v_km := (v_st->>'dist_km')::numeric; v_move := (v_st->>'moving_sec')::int;
+    v_gap := (v_st->>'gap_sec')::int; v_pause := (v_st->>'pause_sec')::int; v_gain := (v_st->>'gain_m')::int;
+    v_max := nullif(greatest(coalesce((v_st->>'max_kmh')::numeric, 0),
+                             case when not coalesce((v_st->'state'->>'has_dop')::boolean, false)
+                                  then coalesce((v_st->'state'->>'nodop_max')::numeric, 0) else 0 end), 0);
+    v_stages := v_st->'stages';
+    v_state := (v_st->'state') || case when v_r.stats_state ? 'closed_by'
+                                      then jsonb_build_object('closed_by', v_r.stats_state->'closed_by') else '{}'::jsonb end;
+    select max((e->>2)::float8) into v_lim from jsonb_array_elements(v_track) e
+     where case when jsonb_typeof(e) <> 'array' then false
+                when jsonb_array_length(e) < 3 then false
+                else (e->>2) ~ '^[0-9]+(\.[0-9]+)?$' end;
+    v_fix := coalesce(to_timestamp(v_lim), v_r.started_at);
+    v_end := greatest(v_r.started_at, least(v_end, v_fix + interval '120 seconds'));
+  end if;
+
   -- Stará appka: rozběhnuté stání/chůze na konci (≥ 5 min) do jízdy nepatří.
-  v_sf := (v_r.stats_state->>'still_from')::float8;
+  v_sf := (v_state->>'still_from')::float8;
   if not v_r.pause_aware and v_sf is not null and extract(epoch from v_end) - v_sf >= 300 then
     v_end := to_timestamp(v_sf);
     select coalesce(jsonb_agg(e.pt order by e.ord), '[]'::jsonb) into v_track
@@ -64,8 +116,6 @@ begin
   end if;
   if v_end < v_r.started_at then v_end := v_r.started_at; end if;
 
-  v_km := coalesce(v_r.distance_km, 0);
-  v_move := coalesce(v_r.moving_sec, 0); v_gap := coalesce(v_r.gap_sec, 0); v_pause := coalesce(v_r.pause_sec, 0);
   -- Stopa BEZ časových značek (prastarý klient) → km aspoň ze stopy (beze změny).
   if v_km = 0 and not exists (
        select 1 from jsonb_array_elements(v_track) e
@@ -81,15 +131,14 @@ begin
     return jsonb_build_object('success', true, 'discarded', true, 'distance_km', round(v_km, 1));
   end if;
 
-  -- Na cestě = start → konec BEZ pauz; zastávky = zbytek po jízdě a mezerách.
-  v_active := greatest(60, extract(epoch from (v_end - v_r.started_at)) - v_pause);
+  -- Na cestě = start → konec BEZ pauz (nikdy méně než jízda + mezery); zastávky = zbytek.
+  v_active := greatest(60, extract(epoch from (v_end - v_r.started_at)) - v_pause, v_move + v_gap);
   v_idle := greatest(0, round(v_active - v_move - v_gap))::int;
   v_dur := greatest(1, round(v_active / 60))::int;
   v_avg := nullif(least(case when v_move >= 60 then round(v_km / (v_move::numeric / 3600), 1)
                              when v_active - v_gap > 0 then round(v_km / ((v_active - v_gap)::numeric / 3600), 1)
                         end, 200.1), 200.1);
 
-  v_stages := case when jsonb_typeof(v_r.stages) = 'array' then v_r.stages else '[]'::jsonb end;
   v_n := jsonb_array_length(v_stages);
   if v_n > 0 and jsonb_typeof(v_stages->(v_n - 1)) = 'object' then
     v_stages := jsonb_set(v_stages, array[(v_n - 1)::text, 't'],
@@ -117,14 +166,18 @@ begin
   update user_rides set
     is_recording = false, ended_at = v_end, track = v_track, stages = v_stages,
     distance_km = v_km, duration_min = v_dur, moving_sec = v_move, idle_sec = v_idle,
+    gap_sec = v_gap, pause_sec = v_pause, elevation_gain_m = v_gain,
+    last_fix_at = case when v_cut then v_fix else last_fix_at end,
     avg_speed_kmh = v_avg,
-    max_speed_kmh = nullif(greatest(coalesce(max_speed_kmh, 0), coalesce(v_avg, 0)), 0),
+    max_speed_kmh = nullif(greatest(coalesce(v_max, 0), coalesce(v_avg, 0)), 0),
     end_lat = coalesce(v_lla, end_lat), end_lng = coalesce(v_llo, end_lng),
     name = v_name,
     -- closed_by jen u jízdy počítané novým výpočtem (stats_state NULL = staré
-    -- statistiky před nasazením — Velín i přepočet 06 se podle toho řídí).
-    stats_state = case when p_by is null or stats_state is null then stats_state
-                       else stats_state || jsonb_build_object('closed_by', p_by) end
+    -- statistiky před nasazením — Velín i přepočet 06 se podle toho řídí;
+    -- oříznutá jízda je přepočtená novým výpočtem → stav vždy).
+    stats_state = case when v_state is null then null
+                       when p_by is null then v_state
+                       else v_state || jsonb_build_object('closed_by', p_by) end
   where id = p_ride_id;
 
   insert into user_ride_points (ride_id, kind, lat, lng, happened_at, sort_order)
@@ -170,6 +223,7 @@ returns jsonb language sql stable as $$
     'moving_sec', p_ride.moving_sec, 'idle_sec', p_ride.idle_sec,
     'gap_sec', p_ride.gap_sec, 'last_fix_at', p_ride.last_fix_at,
     'pause_sec', p_ride.pause_sec, 'pause_aware', p_ride.pause_aware,
+    'stats_v2', (p_ride.is_recording or p_ride.stats_state is not null),
     'trip_id', p_ride.trip_id, 'trip_name', p_ride.trip_name, 'stages', p_ride.stages,
     'avg_speed_kmh', p_ride.avg_speed_kmh, 'max_speed_kmh', p_ride.max_speed_kmh,
     'elevation_gain_m', p_ride.elevation_gain_m,

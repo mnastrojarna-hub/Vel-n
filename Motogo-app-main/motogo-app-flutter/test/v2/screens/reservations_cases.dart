@@ -98,8 +98,11 @@ Map<String, ResCase> detailCases() {
     ),
     'done-0': (() => detailView(resv('d5', status: 'completed', from: -6, to: -4)), () => resOverrides(docs: docs)),
     'done-2': (() => detailView(resv('d6', status: 'completed', from: -6, to: -4, rating: 2)), () => resOverrides()),
+    // Timeline dates pinned to the widest format (2-digit day / month /
+    // hour) — the fit matrix gives the same answer every day.
     'done-5': (
-      () => detailView(resv('d7', status: 'completed', from: -6, to: -4, rating: 5, ownGear: true)),
+      () => detailView(resv('d7',
+          status: 'completed', from: -6, to: -4, rating: 5, ownGear: true, created: _wideAt, rated: _wideAt)),
       () => resOverrides(docs: docs)
     ),
     'cancelled': (() => detailView(resv('d8', status: 'cancelled', from: 10, to: 12)), () => resOverrides()),
@@ -301,5 +304,9 @@ Map<String, ResCase> editCases() {
 
 void _noop() {}
 
-/// Unpaid bookings older than 30 min read as cancelled (server window).
+/// A past moment with the widest timeline date ("28.12.2025 23:58").
+final _wideAt = DateTime(2025, 12, 28, 23, 58);
+
+/// Unpaid bookings older than 30 min read as cancelled (server window) —
+/// so this one stays relative to now.
 DateTime _fresh() => DateTime.now().subtract(const Duration(minutes: 5));

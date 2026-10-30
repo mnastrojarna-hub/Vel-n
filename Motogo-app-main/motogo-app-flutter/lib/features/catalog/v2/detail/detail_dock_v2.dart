@@ -15,8 +15,9 @@ import '../catalog_text.dart';
 /// TERMÍN · od 2 727 Kč/den" → [onPickDates] opens the date step — never a
 /// dead button. Otherwise REZERVOVAT · price → [onReserve] = the page's
 /// existing CTA action (PM-3 `startBookingFromSelection`; a start alone =
-/// single day, exactly the old `canProceed` rule); null = disabled (a
-/// carried range with a booked day).
+/// single day, exactly the old `canProceed` rule). [busy] (a carried range
+/// with a booked day, DESIGN_V2 sticky bar "busy"): the dates in amber and
+/// "ZMĚNIT TERMÍN" → [onPickDates] instead of REZERVOVAT.
 class DetailDockV2 extends StatelessWidget {
   final DateTime? selStart;
   final DateTime? selEnd;
@@ -29,6 +30,7 @@ class DetailDockV2 extends StatelessWidget {
   final String? fromPrice;
   final VoidCallback? onPickDates;
   final VoidCallback? onReserve;
+  final bool busy;
 
   const DetailDockV2({
     super.key,
@@ -39,6 +41,7 @@ class DetailDockV2 extends StatelessWidget {
     required this.onReserve,
     this.fromPrice,
     this.onPickDates,
+    this.busy = false,
   });
 
   @override
@@ -53,19 +56,20 @@ class DetailDockV2 extends StatelessWidget {
     } else {
       line = '${catRange(tr, s, selEnd!)} · ${catDays(tr, dayCount)}';
     }
-    final pick = s == null && onPickDates != null;
+    final change = busy && s != null && onPickDates != null;
+    final pick = (s == null || change) && onPickDates != null;
     return MgDock(
       aiDisc: true,
       contextLine: Text(
         line,
         maxLines: 2,
-        style: TextStyle(color: s == null ? MgColors.onDarkMeta : MgColors.onDarkLead),
+        style: TextStyle(color: change ? MgColors.warnDark : (s == null ? MgColors.onDarkMeta : MgColors.onDarkLead)),
       ),
       child: MgFabAvoid(
         child: pick
             ? MgCta(
-                label: tr.tr('v2CalcPickDatesCta'),
-                price: fromPrice,
+                label: tr.tr(change ? 'psChangeDates' : 'v2CalcPickDatesCta'),
+                price: change ? null : fromPrice,
                 onTap: onPickDates,
                 size: MgCtaSize.lg60,
                 loop: true,

@@ -151,7 +151,7 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
         const SizedBox(height: 18),
         // ① Termín
         Row(children: [
-          CalcStepBadge(n: 1, done: w.hasDates),
+          CalcStepBadge(n: 1, done: w.hasDates && !w.busy),
           const SizedBox(width: 10),
           Expanded(child: Text(tr.tr('v2DetStepDates'), style: MgType.section.copyWith(color: MgColors.ink))),
           if (w.hasDates)

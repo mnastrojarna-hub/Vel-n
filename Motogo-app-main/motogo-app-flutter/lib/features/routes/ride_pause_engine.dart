@@ -199,23 +199,9 @@ class RidePauseEngine {
     if (g == null || now > g) _guardFrom = now;
   }
 
-  /// Otevření appky / obnova po restartu: vlastní cesta stojí (auto-pauza
-  /// nebo „připraveno") déle než `idleDecisionS` (výchozí 20 h) od zastavení
-  /// nebo od posledního Pokračovat → GPS vypnout a zeptat se (ruční pauza,
-  /// důvod `long` = „Pokračovat v cestě / Ukončit a uložit"). Noc v hotelu
-  /// (≤ 20 h) se neptá; když se motorka právě hýbe, rozhodne obnova jízdy.
-  RideEngineStep decideIdle(double now) {
-    final s = RideEngineStep();
-    final since = _pausedSince;
-    if (!own || !autoPauseOn || _manual || _mode != _Mode.paused || since == null) return s;
-    if (_cfg.idleDecisionS <= 0) return s;
-    final g = _guardFrom;
-    final from = g != null && g > since ? g : since;
-    if (now - from < _cfg.idleDecisionS || _recentMotion(now)) return s;
-    _guard(s, RidePauseReason.long, now - since, by: 'open');
-    s.idle = true;
-    return s;
-  }
+  /// Otevření appky / obnova po restartu: vlastní cesta stojí ≥ 20 h →
+  /// GPS vypnout a zeptat se (viz `_decideIdle` v `ride_pause_guards.dart`).
+  RideEngineStep decideIdle(double now) => _decideIdle(now);
 
   /// Nové prahy / zapnutí-vypnutí auto-pauzy (flag) za běhu.
   RideEngineStep applyConfig(RideMotionConfig cfg, bool on) {

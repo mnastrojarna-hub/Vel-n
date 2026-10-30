@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,9 +10,11 @@ import '../../../../core/v2/widgets/mg_cta.dart';
 import '../../moto_model.dart';
 import '../catalog_text.dart';
 
-/// The calculator's REZERVOVAT while it is enabled AND scrolled off-screen
-/// (DESIGN_V22 §2.4 Kalkulačka "Sticky .kst", §7.6 #1; board: the dock
-/// appears only when the total block's CTA is under the edge). [onBook] is
+/// The calculator's REZERVOVAT while it is enabled AND still below the
+/// screen edge (DESIGN_V22 §2.4 Kalkulačka "Sticky .kst", §7.6 #1; board:
+/// the dock appears only when the total block's CTA is under the edge —
+/// steps ①–④ are being filled; scrolled past it, the page stays calm and
+/// its end never jumps by the dock's height). [onBook] is
 /// the very handler `CalcTotalV2` got (`startBookingFromSelection` with the
 /// same bike and dates); equality ignores it (same values = same action).
 @immutable
@@ -48,9 +49,10 @@ class CalcStickyData {
 /// [CalcStickyV2] from it in calculator mode only.
 final calcStickyProvider = StateProvider<CalcStickyData?>((_) => null);
 
-/// Tracks whether the total block's CTA ([stickyCtaKey]) is fully inside
-/// the enclosing scroll view and publishes [calcStickyProvider]. Checks run
-/// after the frame (never while the tree builds / lays out).
+/// Tracks whether the total block's CTA ([stickyCtaKey]) is still below the
+/// bottom edge of the enclosing scroll view and publishes
+/// [calcStickyProvider]. Checks run after the frame (never while the tree
+/// builds / lays out).
 mixin CalcStickyTracker<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   final GlobalKey stickyCtaKey = GlobalKey();
   ScrollableState? _scrollable;
@@ -90,10 +92,9 @@ mixin CalcStickyTracker<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     final cta = stickyCtaKey.currentContext?.findRenderObject();
     final view = _scrollable?.context.findRenderObject();
     if (want != null && cta is RenderBox && cta.attached && cta.hasSize && view is RenderBox && view.hasSize) {
-      final top = cta.localToGlobal(Offset.zero).dy;
-      final vt = view.localToGlobal(Offset.zero).dy;
-      final inside = top >= vt - 0.5 && top + cta.size.height <= vt + view.size.height + 0.5;
-      if (!inside) show = want;
+      final bottom = cta.localToGlobal(Offset.zero).dy + cta.size.height;
+      final vb = view.localToGlobal(Offset.zero).dy + view.size.height;
+      if (bottom > vb + 0.5) show = want;
     }
     final n = _sticky;
     if (n != null && n.mounted && n.state != show) n.state = show;

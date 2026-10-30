@@ -78,13 +78,15 @@ void main() {
       expect([d.pickupTime, d.notes, d.pickupMethod, d.helmetSize], ['12:00', 'Přijedu vlakem', 'delivery', 'M']);
     });
 
-    test('another bike at the same branch → bike-independent fields + delivery + extras', () {
+    test('another bike at the same branch → bike-independent fields + delivery + extras; consents asked again', () {
       final d = carryBookingDraft(prev: filled(), prevMoto: kBmw, moto: kShotgun, fresh: fresh(kShotgun.id, s, e));
       expect([d.motoId, d.startDate, d.pickupTime, d.returnTime, d.notes], [kShotgun.id, s, '12:00', '18:00', 'Přijedu vlakem']);
       expect([d.helmetSize, d.glovesSize, d.jacketSize, d.pantsSize], ['M', 'L', 'L', 'M']);
       expect([d.pickupMethod, d.returnMethod, d.pickupCity, d.returnCity], ['delivery', 'delivery', 'Jihlava', 'Jihlava']);
       expect(d.extras.map((x) => x.id), ['extra-spolujezdec', 'extra-boty-ridic']);
-      expect([d.trailerMotoId, d.consentVop, d.consentGdpr, d.consentKids], [null, true, true, false]);
+      // VOP / GDPR belong to the booking — re-confirmed for another bike
+      // until the owner decides otherwise (r2).
+      expect([d.trailerMotoId, d.consentVop, d.consentGdpr, d.consentKids], [null, false, false, false]);
       expect(d.discounts.single.code, 'POUKAZ500');
       expect(carryDropsDelivery(filled(), kBmw, kShotgun), isFalse);
     });

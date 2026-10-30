@@ -175,6 +175,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
         fromPrice: from,
         onPickDates: _pickDates,
         onReserve: w.onReserve,
+        busy: w.busy,
       ),
     );
   }

@@ -16,6 +16,12 @@ class RideServerSeam {
   /// Nový server: `start_user_trip` (ví o pauzách, nikdy nedělí výpůjčku).
   Future<RideTripStart> startTrip(String? bookingId) => startUserTrip(bookingId);
 
+  /// Nová jízda relace, která začala offline: začátek = [firstTs] (epoch s)
+  /// — `start_user_trip_from`; starý server → `missing` (záznamník pak
+  /// zavolá [startTrip]).
+  Future<RideTripStart> startTripFrom(String? bookingId, double firstTs) =>
+      startUserTripFrom(bookingId, firstTs);
+
   /// Starý server / fallback: `start_user_ride` bez polohy (jako dřív).
   Future<RideStart?> startLegacy(String? bookingId) => startUserRide(bookingId: bookingId);
 

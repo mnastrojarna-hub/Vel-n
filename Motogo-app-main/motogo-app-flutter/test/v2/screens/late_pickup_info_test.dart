@@ -14,6 +14,7 @@ import 'package:motogo_app/core/v2/widgets/mg_chips.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/booking/booking_provider.dart';
 import 'package:motogo_app/features/booking/booking_quote.dart';
+import 'package:motogo_app/features/booking/v2/sections/time_v2.dart' show lateSaving;
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
@@ -107,13 +108,23 @@ void main() {
       return ProviderScope.containerOf(t.element(find.byType(BookingDebugWrapper)));
     }
 
-    testWidgets('09:00 → concrete ½ discount; "Nastavit 12:00" writes the draft like the dropdown', (t) async {
+    // r2: the ½ row shows the SAME saving the calculator / Home promise
+    // (standard − 12:00 total, both with the rank discount); the gross
+    // "Sleva 50 % na 1. den" stays in the price summary.
+    testWidgets('09:00 → the calculator\'s saving; "Nastavit 12:00" writes the draft like the dropdown', (t) async {
       final c = await pumpForm(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
       final (s, e) = futureWeekend();
       final half = quoteFor(kBmw, s, e, pickupTime: '12:00').latePickupDiscount;
-      expect(half, greaterThan(0));
-      final offer = find.text(_cs('v2LpFormSave', {'amount': Money.czk(half)}));
+      final q = quoteFor(kBmw, s, e, loyalty: kLoyalty3);
+      final q12 = quoteFor(kBmw, s, e, pickupTime: '12:00', loyalty: kLoyalty3);
+      final save = lateSaving(q, q12);
+      expect(save, q.total - q12.total);
+      expect(save, greaterThan(0));
+      // With a rank the net saving is smaller than the gross half day.
+      expect(save, lessThan(half));
+      final offer = find.text(_cs('v2LpFormSaveNet', {'amount': Money.czk(save)}));
       expect(offer, findsOneWidget);
+      expect(find.text(_cs('v2LpFormSave', {'amount': Money.czk(half)})), findsNothing);
       expect(find.text(_cs('v2LpSsHint')), findsNothing);
       final set = find.text(_cs('v2CalcLateSet'));
       await t.ensureVisible(set);
@@ -122,7 +133,8 @@ void main() {
       await t.pump(const Duration(milliseconds: 400));
       expect(c.read(bookingDraftProvider).pickupTime, '12:00');
       expect(c.read(priceBreakdownProvider).latePickupDiscount, half);
-      expect(find.text(_cs('v2LpFormOn', {'amount': Money.czk(half)})), findsOneWidget);
+      expect(c.read(priceBreakdownProvider).total, q12.total);
+      expect(find.text(_cs('v2LpFormOnNet', {'amount': Money.czk(save)})), findsOneWidget);
       expect(find.text(_cs('v2CalcLateSet')), findsNothing);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 2));
@@ -131,8 +143,9 @@ void main() {
     testWidgets('self-service: ½ row + the kiosk note', (t) async {
       await pumpForm(t, bookingOverrides(moto: kHusq, draft: bookingDraft(kHusq, pickupTime: '12:00')));
       final (s, e) = futureWeekend();
-      final half = quoteFor(kHusq, s, e, pickupTime: '12:00').latePickupDiscount;
-      expect(find.text(_cs('v2LpFormOn', {'amount': Money.czk(half)})), findsOneWidget);
+      final save = lateSaving(
+          quoteFor(kHusq, s, e, loyalty: kLoyalty3), quoteFor(kHusq, s, e, pickupTime: '12:00', loyalty: kLoyalty3));
+      expect(find.text(_cs('v2LpFormOnNet', {'amount': Money.czk(save)})), findsOneWidget);
       expect(find.text(_cs('v2LpSsHint')), findsOneWidget);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 2));

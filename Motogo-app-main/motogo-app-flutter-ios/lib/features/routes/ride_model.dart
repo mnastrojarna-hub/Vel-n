@@ -200,8 +200,13 @@ class UserRide {
   final String? tripName;
   /// Etapy (dny) ze serveru; starý server → prázdné.
   final List<RideStage> stages;
-  /// Řádek přišel z nového serveru (zná pauzy a cesty).
+  /// Řádek přišel z nového serveru (zná pauzy a cesty) — JEN schopnost
+  /// serveru (cesty, slučování), ne vzorec statistik.
   final bool serverV2;
+  /// Statistiky spočítal nový vzorec (noci a pauzy mimo „na cestě"; server
+  /// `stats_v2`). Starší jízda drží staré součty → staré popisky (stejně
+  /// jako Velín); bez klíče = false.
+  final bool statsV2;
   final DateTime? lastFixAt; // kdy naposledy dorazil GPS bod
   final double? avgSpeedKmh; // průměr z času jízdy
   final double? maxSpeedKmh;
@@ -235,6 +240,7 @@ class UserRide {
     this.tripName,
     this.stages = const [],
     this.serverV2 = false,
+    this.statsV2 = false,
     this.lastFixAt,
     this.avgSpeedKmh,
     this.maxSpeedKmh,
@@ -390,6 +396,7 @@ class UserRide {
       tripName: _str(j['trip_name']),
       stages: RideStage.listFromJson(j['stages']),
       serverV2: j.containsKey('pause_aware'),
+      statsV2: j['stats_v2'] == true,
       lastFixAt: DateTime.tryParse(j['last_fix_at']?.toString() ?? ''),
       avgSpeedKmh: _toD(j['avg_speed_kmh']),
       maxSpeedKmh: _toD(j['max_speed_kmh']),

@@ -55,8 +55,7 @@ void main() {
     final tap = tr.t;
     tr.wait(19 * 3600, every: 3600, liveKm: 30);
     expect(tr.e.decideIdle(tr.t).isEmpty, isTrue);
-    expect(tr.detached, isTrue); // jen z první otázky
-    tr.detached = false;
+    expect(tr.detached, isFalse, reason: 'pojistka po Pokračovat GPS nevypnula');
     tr.wait(tap + 20 * 3600 + 60 - tr.t, every: 3600, liveKm: 30);
     expect(tr.e.decideIdle(tr.t).detach, isTrue);
   });

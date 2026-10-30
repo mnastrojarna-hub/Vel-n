@@ -16,6 +16,7 @@ import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import '../widgets/res_modification_history.dart';
 import 'res_fit_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// "Dokumenty" (one white band): the SAME documents as today's detail —
 /// completed: final invoice, contract, then the signed protocols; during
@@ -59,7 +60,7 @@ class ResDocsV2 extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
       color: MgColors.surface,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        MgEyebrow(tr.tr('documentsSection'), dark: false),
+        ResSectionEyebrowV2(tr.tr('documentsSection')),
         const SizedBox(height: 4),
         for (var i = 0; i < items.length; i++)
           _DocRow(

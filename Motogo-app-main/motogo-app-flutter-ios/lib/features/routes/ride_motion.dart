@@ -38,7 +38,7 @@ class RideFix {
 }
 
 /// Prahy detekce (SPEC §6.1). ★ = přepisovatelné z flagu `ride_autopause`
-/// (`conditions`: stop_min, walk_min, resume_kmh, home_h, long_h).
+/// (`conditions`: stop_min, walk_min, resume_kmh, home_h, long_h, idle_h).
 class RideMotionConfig {
   const RideMotionConfig({
     this.stopPauseS = 300,
@@ -46,6 +46,7 @@ class RideMotionConfig {
     this.resumeKmh = 20,
     this.homeAfterS = 3 * 3600,
     this.longPauseOwnS = 48 * 3600,
+    this.idleDecisionS = 20 * 3600,
   });
 
   static const double goodAccM = 25;
@@ -114,9 +115,14 @@ class RideMotionConfig {
   /// ★ dlouhá pauza vlastní cesty bez otevření appky → GPS vypnout
   /// (0 = vypnuto). Výchozí 48 h: noc ani den volna cestu neutne.
   final double longPauseOwnS;
+  /// ★ vlastní cesta stojí déle než tohle (od zastavení / Pokračovat) →
+  /// při otevření appky GPS vypnout a zeptat se „Pokračovat v cestě /
+  /// Ukončit a uložit" (0 = vypnuto). Výchozí 20 h: noc v hotelu se neptá.
+  final double idleDecisionS;
 
   /// Výchozí prahy upravené flagem (neplatné hodnoty se ignorují).
-  RideMotionConfig withFlag({num? stopMin, num? walkMin, num? resumeKmh, num? homeH, num? longH}) {
+  RideMotionConfig withFlag(
+      {num? stopMin, num? walkMin, num? resumeKmh, num? homeH, num? longH, num? idleH}) {
     double? ok(num? v, double min, double max) =>
         v != null && v.isFinite && v >= min && v <= max ? v.toDouble() : null;
     return RideMotionConfig(
@@ -125,6 +131,7 @@ class RideMotionConfig {
       resumeKmh: ok(resumeKmh, 8, 80) ?? this.resumeKmh,
       homeAfterS: (ok(homeH, 0.5, 72) ?? homeAfterS / 3600) * 3600,
       longPauseOwnS: (ok(longH, 0, 240) ?? longPauseOwnS / 3600) * 3600,
+      idleDecisionS: (ok(idleH, 0, 240) ?? idleDecisionS / 3600) * 3600,
     );
   }
 }

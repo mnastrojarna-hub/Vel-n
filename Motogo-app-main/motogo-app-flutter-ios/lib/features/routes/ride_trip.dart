@@ -193,6 +193,8 @@ class RideTrip {
       tripName: name,
       stages: stages,
       serverV2: rides.any((r) => r.serverV2),
+      // Součty cesty jsou „bez pauz" jen když tak počítá každá jízda.
+      statsV2: rides.every((r) => r.statsV2),
       lastFixAt: lastR.lastFixAt,
       avgSpeedKmh: avg != null && avg.isFinite && avg < 200 ? avg : null,
       maxSpeedKmh: max,

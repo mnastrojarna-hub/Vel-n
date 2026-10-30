@@ -110,6 +110,10 @@ List<RenderCase> catalogRenderCases() {
     d('loading', () => catalogOverrides(motosLoading: true), loading: true),
     d('error', () => catalogOverrides(motosError: Exception('net'))),
     d('gone', () => catalogOverrides(), build: () => detail('m-gone')),
+    // Carried dates over a booked day (r2): open calendar, warning, CTA off.
+    d('dates_busy', () => catalogOverrides(filter: dated, booked: {
+          'm-bmw': [BookedDateRange(start: we, end: we, status: 'confirmed')],
+        })),
     d('booked_loading', () => catalogOverrides(bookedLoading: true), loading: true),
     d('booked_error', () => catalogOverrides(bookedError: Exception('x'))),
     d('loyalty_fail', () => catalogOverrides(filter: dated, loyaltyError: Exception('rpc'))),

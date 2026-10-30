@@ -8,6 +8,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import 'res_edit_sections_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// A note line of the edit (V22 `.ed-nt`): ok = tint (move is free), warn =
 /// amber (storno conditions), plain = well.
@@ -67,7 +68,7 @@ class ResEditGroupV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) => EditCardV2(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          MgEyebrow(title, dark: false),
+          ResSectionEyebrowV2(title),
           const SizedBox(height: 12),
           child,
         ]),

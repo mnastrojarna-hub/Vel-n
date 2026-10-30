@@ -20,6 +20,7 @@ import 'package:motogo_app/features/booking/booking_entry.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
 import 'package:motogo_app/features/booking/booking_provider.dart';
 import 'package:motogo_app/features/booking/my_vouchers.dart';
+import 'package:motogo_app/features/booking/v2/booking_carry_v2.dart' show bookingDraftOwnerProvider;
 import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
 import 'package:motogo_app/features/booking/v2/booking_recap_v2.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
@@ -28,6 +29,7 @@ import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
+import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/payment/payment_provider.dart' show lastConfirmedBookingProvider;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -179,6 +181,50 @@ void main() {
     await _unmount(t);
   });
 
+  // r2: "Změnit" in the form writes the dates back to every place the
+  // customer returns to — calculator (same bike), Motorky list and Home
+  // funnel (catalog filter) — so REZERVOVAT from any of them keeps them.
+  testWidgets('calculator → form → dates changed there → back: calculator, list and funnel follow', (t) async {
+    final (r, c) = await _pump(t, '/search', [
+      ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we), profile: _profile),
+      catalogCalcRequestProvider.overrideWith((ref) => true),
+    ]);
+    await _tapCta(t);
+    final s2 = DateTime(ws.year, ws.month, ws.day + 7), e2 = DateTime(we.year, we.month, we.day + 7);
+    c.read(bookingDraftProvider.notifier).state = _fill(c.read(bookingDraftProvider));
+    t.widget<BookingDateCardV2>(find.byType(BookingDateCardV2)).onRangeSelected(s2, e2);
+    await t.pump();
+    final st = c.read(calcStateProvider);
+    expect([st.motoId, st.start, st.end], ['m-bmw', s2, e2]);
+    final f = c.read(catalogFilterProvider);
+    expect([f.startDate, f.endDate], [s2, e2]);
+    expect(c.read(funnelGivenProvider), FunnelRange(s2, e2));
+    await _back(t, r);
+    await _tapCta(t);
+    final d = c.read(bookingDraftProvider);
+    expect([d.startDate, d.endDate], [s2, e2]);
+    _expectKept(d);
+    await _unmount(t);
+  });
+
+  testWidgets('a draft of another (signed-out) account is never carried', (t) async {
+    final (_, c) = await _pump(t, '/moto/m-bmw', catalogOverrides(filter: dated, profile: _profile));
+    await _tapCta(t);
+    c.read(bookingDraftProvider.notifier).state = _fill(c.read(bookingDraftProvider)).copyWith(helmetSize: () => 'XL');
+    c.read(pickupDelivFeeProvider.notifier).state = 1500;
+    // The draft was seeded by account A; now nobody / account B is signed in.
+    c.read(bookingDraftOwnerProvider.notifier).state = 'user-a';
+    final el = t.element(find.byType(BookingDebugWrapper).last);
+    startBookingFromSelection(el, el as WidgetRef, kBmw, ws, we);
+    await _settle(t);
+    final d = c.read(bookingDraftProvider);
+    expect([d.pickupTime, d.notes, d.consentVop, d.pickupMethod, d.pickupCity], [null, null, false, 'store', null]);
+    expect(d.discounts, isEmpty);
+    expect(d.helmetSize, 'L', reason: 'B\'s own profile sizes');
+    expect(c.read(pickupDelivFeeProvider), 0);
+    await _unmount(t);
+  });
+
   testWidgets('detail → form → dates changed there → back: detail shows them, REZERVOVAT keeps all', (t) async {
     final (r, c) = await _pump(t, '/moto/m-bmw', catalogOverrides(filter: dated, profile: _profile));
     await _tapCta(t);
@@ -212,7 +258,7 @@ void main() {
     await _unmount(t);
   });
 
-  testWidgets('another bike → time, note, code and consents carried; a confirmed booking starts fresh', (t) async {
+  testWidgets('another bike → time, note and code carried, consents asked again; a confirmed booking starts fresh', (t) async {
     final (_, c) = await _pump(t, '/moto/m-bmw', catalogOverrides(filter: dated, profile: _profile));
     await _tapCta(t);
     c.read(bookingDraftProvider.notifier).state = _fill(c.read(bookingDraftProvider));
@@ -220,7 +266,7 @@ void main() {
     startBookingFromSelection(el, el as WidgetRef, kHusq, ws, we);
     await _settle(t);
     var d = c.read(bookingDraftProvider);
-    expect([d.motoId, d.pickupTime, d.notes, d.consentVop, d.pickupMethod], ['m-husq', '12:00', 'Přijedu vlakem', true, 'store']);
+    expect([d.motoId, d.pickupTime, d.notes, d.consentVop, d.pickupMethod], ['m-husq', '12:00', 'Přijedu vlakem', false, 'store']);
     expect(c.read(bookingMotoProvider)?.id, 'm-husq');
     // Paid meanwhile (payment sets lastConfirmedBookingProvider) → the
     // draft belongs to that booking; the next entry starts fresh.

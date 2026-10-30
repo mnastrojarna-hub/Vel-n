@@ -11,6 +11,7 @@ import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
+import 'res_detail_bits_v2.dart';
 
 enum _Node { done, current, future, cancelled }
 
@@ -51,7 +52,7 @@ class ResJourneyV2 extends StatelessWidget {
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Expanded(child: MgEyebrow(tr.tr('v2ResJourney'), dark: false)),
+        Expanded(child: ResSectionEyebrowV2(tr.tr('v2ResJourney'))),
         if (cancelled)
           Text(tr.cancelled, style: MgType.meta.copyWith(color: MgColors.err))
         else
