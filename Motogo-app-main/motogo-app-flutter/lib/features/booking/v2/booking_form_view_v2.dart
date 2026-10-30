@@ -22,6 +22,7 @@ import 'booking_dock_v2.dart';
 import 'booking_header_v2.dart';
 import 'booking_note_v2.dart';
 import 'booking_recap_v2.dart';
+import 'booking_sync_v2.dart' show BookingErrKind;
 import 'booking_v2_parts.dart';
 import 'booking_warning_v2.dart';
 
@@ -49,7 +50,16 @@ class BookingFormV2View extends StatefulWidget {
   final List<String> missingSizes;
   final bool canProceed;
   final AsyncValue<List<BookedDateRange>>? booked;
+
+  /// The draft range contains a day the bike's calendar shows booked
+  /// (`bookingDraftRangeBusy`) — the form keeps the calendar open and the
+  /// CTA locked.
+  final bool rangeBusy;
+
+  /// What the validation error is about → where it is fixed (null = none).
+  final BookingErrKind? errKind;
   final bool calOpen;
+  final VoidCallback onCloseCalendar;
   final bool noteOpen;
   final TextEditingController noteCtrl;
   final void Function(BookingDraft Function(BookingDraft)) onUpd;
@@ -87,7 +97,10 @@ class BookingFormV2View extends StatefulWidget {
     required this.missingSizes,
     required this.canProceed,
     required this.booked,
+    this.rangeBusy = false,
+    this.errKind,
     required this.calOpen,
+    required this.onCloseCalendar,
     required this.noteOpen,
     required this.noteCtrl,
     required this.onUpd,
@@ -117,29 +130,58 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   final _priceKey = GlobalKey();
   final _consentKey = GlobalKey();
   final _warnKey = GlobalKey();
+  final _timeKey = GlobalKey();
 
   void _scrollTo(GlobalKey key) {
     final c = key.currentContext;
     if (c == null) return;
     Scrollable.ensureVisible(c,
-        duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: 0.08);
+        duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: MgPinnedBack.revealAlignment(c));
   }
 
+  /// Date card open (calendar) and in view — "Změnit termín" fixes.
+  void _openDates() {
+    widget.onOpenCalendar();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollTo(_dateKey);
+    });
+  }
+
+  /// Where the validation error is fixed: dates → the date card (open),
+  /// pickup lead time → the time card, licence → the banner's own actions.
+  VoidCallback _errFix() => switch (widget.errKind) {
+        BookingErrKind.dates => _openDates,
+        BookingErrKind.time => () => _scrollTo(_timeKey),
+        _ => () => _scrollTo(_warnKey),
+      };
+
+  /// The error banner's working actions (navigation only).
+  List<(String, VoidCallback)> _errActions(AppTranslations tr) => switch (widget.errKind) {
+        BookingErrKind.licence => [
+            (tr.tr('pdPickOtherMoto'), widget.onBack),
+            (tr.tr('completeProfileBtn'), widget.onCompleteProfile),
+          ],
+        BookingErrKind.dates => [(tr.tr('psChangeDates'), _openDates)],
+        BookingErrKind.time => [(tr.tr('v2BkFixTime'), () => _scrollTo(_timeKey))],
+        null => const [],
+      };
+
   /// First reason the CTA is locked (display only — the lock itself is the
-  /// form's `canProceed`) and where it is fixed.
-  (String, GlobalKey)? _blocker(AppTranslations tr) {
+  /// form's `canProceed`) and the action that takes the customer to the fix.
+  (String, VoidCallback)? _blocker(AppTranslations tr) {
     final w = widget;
     if (w.canProceed) return null;
     final b = w.booked;
     final d = w.draft;
-    if (!w.hasDates) return (tr.tr('v2BkBlockDates'), _dateKey);
-    if (b != null && !b.hasValue && !b.hasError) return (tr.tr('v2BkBlockAvail'), _dateKey);
-    if (b != null && !b.hasValue && b.hasError) return (tr.tr('v2BkBlockAvailFail'), _warnKey);
-    if (w.err != null) return (tr.tr('v2BkBlockError'), _warnKey);
-    if (w.profileErr != null) return (tr.tr('v2BkBlockProfile'), _warnKey);
-    if (w.missingSizes.isNotEmpty) return (tr.tr('v2BkBlockSizes'), _gearKey);
+    if (!w.hasDates) return (tr.tr('v2BkBlockDates'), () => _scrollTo(_dateKey));
+    if (b != null && !b.hasValue && !b.hasError) return (tr.tr('v2BkBlockAvail'), () => _scrollTo(_dateKey));
+    if (b != null && !b.hasValue && b.hasError) return (tr.tr('v2BkBlockAvailFail'), () => _scrollTo(_warnKey));
+    if (w.rangeBusy) return (tr.tr('v2BkBlockBusy'), _openDates);
+    if (w.err != null) return (tr.tr('v2BkBlockError'), _errFix());
+    if (w.profileErr != null) return (tr.tr('v2BkBlockProfile'), () => _scrollTo(_warnKey));
+    if (w.missingSizes.isNotEmpty) return (tr.tr('v2BkBlockSizes'), () => _scrollTo(_gearKey));
     if (!(d.consentVop && d.consentGdpr && (!w.isKids || d.consentKids))) {
-      return (tr.tr('v2BkBlockConsent'), _consentKey);
+      return (tr.tr('v2BkBlockConsent'), () => _scrollTo(_consentKey));
     }
     return null;
   }
@@ -160,25 +202,31 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
         reveal(KeyedSubtree(
           key: _dateKey,
           child: BookingDateCardV2(
+            dayPrices: w.moto.prices,
             start: d.startDate,
             end: d.endDate,
             hasDates: w.hasDates,
             dayCount: w.dayCount,
             basePrice: w.bd.basePrice,
             calOpen: w.calOpen,
+            busy: w.rangeBusy,
             booked: booked,
             onOpenCalendar: w.onOpenCalendar,
+            onKeep: w.onCloseCalendar,
             onRangeSelected: w.onDatesSelected,
             onReset: w.onDatesReset,
             onRetryBooked: w.onRetryBooked,
           ),
         )),
-        reveal(BookingFormTimeSection(
-          draft: d,
-          onTimeChanged: w.onPickupTime,
-          onReturnTimeChanged: w.onReturnTime,
-          showReturn: !w.hideReturnTime,
-          selfService: w.selfServiceAtBranch,
+        reveal(KeyedSubtree(
+          key: _timeKey,
+          child: BookingFormTimeSection(
+            draft: d,
+            onTimeChanged: w.onPickupTime,
+            onReturnTimeChanged: w.onReturnTime,
+            showReturn: !w.hideReturnTime,
+            selfService: w.selfServiceAtBranch,
+          ),
         )),
         reveal(BookingFormPickupSection(
             draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked)),
@@ -222,6 +270,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
           child: BookingWarningsV2(
             missingSizes: w.missingSizes,
             err: w.err,
+            errActions: _errActions(tr),
             profileErr: w.profileErr,
             bookedFailed: booked != null && booked.hasError && !booked.hasValue,
             onCompleteProfile: w.onCompleteProfile,
@@ -233,6 +282,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     return MgPage(
       overlapHero: false,
       pinnedBack: w.onBack,
+      pinnedTitle: w.moto.model,
       sections: [
         // Hlavička a pod ní obsah vytažený o 24 px nahoru — kreslený PO
         // hlavičce, takže rekapitulace leží na jejím zaobleném okraji.
@@ -252,7 +302,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
               onProceed: w.onProceed,
               trailingLabel: blocker != null ? tr.tr('v2BkFix') : (w.hasDates ? tr.tr('v2Breakdown') : null),
               onTrailing: blocker != null
-                  ? () => _scrollTo(blocker.$2)
+                  ? blocker.$2
                   : (w.hasDates ? () => _scrollTo(_priceKey) : null),
             ),
     );

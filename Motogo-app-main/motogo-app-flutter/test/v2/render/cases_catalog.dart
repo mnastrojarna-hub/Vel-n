@@ -91,7 +91,7 @@ List<RenderCase> catalogRenderCases() {
     m('sheet_filters', () => catalogOverrides(), after: (t) => _openSheet(t, showCatalogFilterSheet)),
     calc('none', null),
     calc('all_selected', CalcState(motoId: 'm-bmw', start: ws, end: we)),
-    calc('late_12', CalcState(motoId: 'm-bmw', start: ws, end: we, pickupTime: '12:00')),
+    calc('one_day', CalcState(motoId: 'm-bmw', start: ws, end: ws)),
     calc('no_bike_dates', CalcState(start: ws, end: we)),
     calc('free_none', CalcState(start: ws, end: we), free: const []),
     calc('bike_no_dates', const CalcState(motoId: 'm-husq')),
@@ -110,6 +110,10 @@ List<RenderCase> catalogRenderCases() {
     d('loading', () => catalogOverrides(motosLoading: true), loading: true),
     d('error', () => catalogOverrides(motosError: Exception('net'))),
     d('gone', () => catalogOverrides(), build: () => detail('m-gone')),
+    // Carried dates over a booked day (r2): open calendar, warning, CTA off.
+    d('dates_busy', () => catalogOverrides(filter: dated, booked: {
+          'm-bmw': [BookedDateRange(start: we, end: we, status: 'confirmed')],
+        })),
     d('booked_loading', () => catalogOverrides(bookedLoading: true), loading: true),
     d('booked_error', () => catalogOverrides(bookedError: Exception('x'))),
     d('loyalty_fail', () => catalogOverrides(filter: dated, loyaltyError: Exception('rpc'))),

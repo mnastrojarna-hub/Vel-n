@@ -37,22 +37,62 @@ class FunnelRange {
   return (wk(fri), wk(DateTime(fri.year, fri.month, fri.day + 7)));
 }
 
-/// What the funnel "Kdy" row has selected: preset 0 / 1, or a custom range
-/// from the calendar sheet (preset 2). In-memory only.
+/// What the funnel "Kdy" row shows: the dates the customer GAVE, or —
+/// nothing given yet — the nearest weekend.
 @immutable
 class FunnelSelection {
-  final int preset;
-  final FunnelRange? custom;
-  const FunnelSelection(this.preset, [this.custom]);
+  final FunnelRange? given;
+  const FunnelSelection([this.given]);
 
-  FunnelRange range(DateTime now) {
-    if (preset == 2 && custom != null) return custom!;
+  FunnelRange range(DateTime now) => given ?? funnelPresets(now).$1;
+
+  /// 0 / 1 = that weekend preset is on, 2 = an own range (date line + ✕).
+  int preset(DateTime now) {
+    final g = given;
+    if (g == null) return 0;
     final p = funnelPresets(now);
-    return preset == 1 ? p.$2 : p.$1;
+    return g == p.$1 ? 0 : (g == p.$2 ? 1 : 2);
   }
+
+  @override
+  bool operator ==(Object other) => other is FunnelSelection && other.given == given;
+
+  @override
+  int get hashCode => given.hashCode;
 }
 
-final funnelSelectionProvider = StateProvider<FunnelSelection>((_) => const FunnelSelection(0));
+/// A remembered range still usable: not already started in the past (an
+/// in-memory pick from days ago) — else null (= not given).
+FunnelRange? funnelGivenRange(FunnelRange? r, DateTime now) {
+  if (r == null || r.end.isBefore(r.start)) return null;
+  return r.start.isBefore(DateTime(now.year, now.month, now.day)) ? null : r;
+}
+
+/// The last dates the customer gave — here or anywhere the app writes the
+/// catalogue dates (`catalogFilterProvider`: Motorky, calculator, pill;
+/// Domů writes them too, `homeGiveDates`), so they are never picked twice.
+/// A catalogue reset (Domů tab, "Bez termínu") does not forget them; only
+/// ✕ on the funnel does. In-memory, like the funnel selection before.
+final funnelGivenProvider = StateProvider<FunnelRange?>((ref) {
+  ref.listen(catalogFilterProvider.select((f) => (f.startDate, f.endDate)), (_, d) {
+    final s = d.$1, e = d.$2;
+    if (s != null && e != null) ref.controller.state = FunnelRange(s, e);
+  });
+  final f = ref.read(catalogFilterProvider);
+  final s = f.startDate, e = f.endDate;
+  return s != null && e != null ? FunnelRange(s, e) : null;
+});
+
+/// Calendar day of [now] (local midnight).
+DateTime funnelDay(DateTime now) => DateTime(now.year, now.month, now.day);
+
+/// "Today" of the funnel. `HomeFunnelV2` moves it on at midnight and when
+/// the app comes back, so a range given for a day that is now in the past
+/// is dropped (and never priced / sent to REZERVOVAT) without a restart.
+final funnelTodayProvider = StateProvider<DateTime>((ref) => funnelDay(DateTime.now()));
+
+final funnelSelectionProvider = Provider<FunnelSelection>(
+    (ref) => FunnelSelection(funnelGivenRange(ref.watch(funnelGivenProvider), ref.watch(funnelTodayProvider))));
 
 /// Customer licence groups (`profiles.license_group[]`), upper case.
 List<String> homeLicenseGroups(Map<String, dynamic>? profile) =>
@@ -124,9 +164,21 @@ final funnelCandidatesProvider =
   return out;
 });
 
+/// The range the funnel shows and prices (given, else the nearest weekend).
+/// Notifies only when the RANGE changes (`FunnelRange ==`): giving the
+/// weekend already shown (a card tap) or a new day with the same range
+/// does not.
+final funnelRangeProvider =
+    Provider<FunnelRange>((ref) => ref.watch(funnelSelectionProvider).range(ref.watch(funnelTodayProvider)));
+
 /// Index of the bike in the middle of the funnel carousel (the CTA and the
-/// ½ offer line use it). In-memory UI state.
-final funnelCenterProvider = StateProvider<int>((_) => 0);
+/// ½ offer line use it). In-memory UI state; other dates (picked anywhere)
+/// start again at the first bike of their list — the same dates (only now
+/// "given") keep the bike, like the pager does (photo = "n / m" = CTA).
+final funnelCenterProvider = StateProvider<int>((ref) {
+  ref.watch(funnelRangeProvider);
+  return 0;
+});
 
 /// Category label from the existing card keys (`motoCardCategory*`).
 String homeCategoryKey(String? cat) => switch (cat) {

@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/moto_fx.dart';
+import 'ride_live_stats.dart' show rideDaysLabel;
 import 'ride_model.dart';
 import 'ride_map.dart';
+import 'ride_rec_controls.dart' show rideRecTone;
+import 'ride_rec_phase.dart' show rideChipKey;
+import 'ride_recorder.dart';
+import 'ride_trip.dart' show rideDateRange;
+
+export 'ride_trip.dart' show rideDateRange;
 
 /// Karta jedné projeté jízdy v seznamu („Moje zážitky" i detail výpůjčky):
-/// náhled stopy na mapě + název, datum, motorka, km / čas / zastávky a odznak
-/// sdílení. Klepnutím se otevře detail jízdy.
-class RideCard extends StatelessWidget {
+/// náhled stopy na mapě + název, datum (u vícedenní jízdy rozsah a počet
+/// dní), motorka, km / čas v sedle / Ø / zastávky a odznak sdílení
+/// a záznamu (nahrává / pozastaveno). Klepnutím se otevře detail jízdy.
+class RideCard extends ConsumerWidget {
   final UserRide ride;
   final VoidCallback? onTap;
   /// Id jízd v pořadí seznamu — detail pak jde listovat do stran.
@@ -24,8 +33,22 @@ class RideCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final hasMap = ride.mapPoints.length >= 2;
+    final rec = ref.watch(rideRecorderProvider);
+    // Právě nahrávaná jízda ukáže fázi záznamu (nahrává / čeká / pozastaveno);
+    // jinak serverový příznak (např. záznam z jiného telefonu).
+    final mine = rec.recording && rec.rideId == ride.id;
+    final recBadge = mine
+        ? (() {
+            final tone = rideRecTone(rec);
+            return _badge('${tone.glyph} ${t(context).tr(rideChipKey(rec)!)}',
+                tone.fg, Colors.white);
+          })()
+        : (ride.isRecording
+            ? _badge('⏺ ${t(context).tr('rideRecording')}', MotoGoColors.red, Colors.white)
+            : null);
+    final days = ride.days;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: PressableScale(
@@ -56,13 +79,8 @@ class RideCard extends StatelessWidget {
                           points: ride.points,
                         ),
                       ),
-                      if (ride.isRecording)
-                        Positioned(
-                          left: 10,
-                          top: 10,
-                          child: _badge('⏺ ${t(context).tr('rideRecording')}',
-                              MotoGoColors.red, Colors.white),
-                        ),
+                      if (recBadge != null)
+                        Positioned(left: 10, top: 10, child: recBadge),
                       if (ride.isPublic)
                         Positioned(
                           right: 10,
@@ -76,15 +94,13 @@ class RideCard extends StatelessWidget {
               // Čerstvě spuštěná jízda má zatím jediný bod, takže se mapa
               // nekreslí — odznaky ale patří i tam, jinak jezdec nepozná,
               // že se nahrává, a vypadá to jako prázdná karta.
-              if (!hasMap && (ride.isRecording || ride.isPublic))
+              if (!hasMap && (recBadge != null || ride.isPublic))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
                   child: Wrap(
                     spacing: 8,
                     children: [
-                      if (ride.isRecording)
-                        _badge('⏺ ${t(context).tr('rideRecording')}',
-                            MotoGoColors.red, Colors.white),
+                      if (recBadge != null) recBadge,
                       if (ride.isPublic)
                         _badge('🌍 ${t(context).tr('rideShared')}',
                             MotoGoColors.green, MotoGoColors.black),
@@ -113,13 +129,18 @@ class RideCard extends StatelessWidget {
                       spacing: 12,
                       runSpacing: 4,
                       children: [
-                        _meta(Icons.event, rideDate(ride.startedAt)),
+                        _meta(Icons.event,
+                            rideDateRange(ride.startedAt, ride.endedAt ?? ride.lastFixAt ?? ride.startedAt)),
+                        if (days >= 2)
+                          _meta(Icons.calendar_month, rideDaysLabel(days, t(context))),
                         _meta(Icons.straighten, rideKm(ride.distanceKm)),
-                        if (ride.totalMin > 0)
-                          _meta(Icons.schedule, rideDuration(ride.totalMin)),
+                        // Čas v sedle místo celkového (ten by u vícedenní
+                        // jízdy obsahoval i noci); bez časů aspoň celkem.
                         if (ride.movingSec > 0)
                           _meta(Icons.motorcycle_outlined,
-                              rideDuration(ride.movingMin)),
+                              rideDuration(ride.movingMin))
+                        else if (ride.totalMin > 0)
+                          _meta(Icons.schedule, rideDuration(ride.totalMin)),
                         if ((ride.avgSpeedKmh ?? ride.avgOverallKmh) != null)
                           _meta(Icons.speed,
                               rideSpeed(ride.avgSpeedKmh ?? ride.avgOverallKmh)),

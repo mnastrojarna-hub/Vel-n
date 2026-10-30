@@ -228,6 +228,7 @@ final licenseValidationProvider = Provider<String?>((ref) {
   return BookingValidator.checkLicense(
     userLicenseGroups: userGroups,
     motoLicenseGroups: moto.licenseGroupsOrFallback,
+    lang: ref.watch(localeProvider).languageCode,
   );
 });
 
@@ -250,6 +251,7 @@ final overlapValidationProvider = Provider<String?>((ref) {
     startDate: draft.startDate!,
     endDate: draft.endDate!,
     isChildrensMoto: isChildrens,
+    lang: ref.watch(localeProvider).languageCode,
   );
 });
 

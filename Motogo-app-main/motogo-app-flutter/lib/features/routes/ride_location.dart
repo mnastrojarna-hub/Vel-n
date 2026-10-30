@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' show Stripe;
@@ -7,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/debug_logger.dart';
 import '../../core/i18n/i18n_provider.dart';
+import 'ride_motion.dart';
 
 /// GPS část záznamu jízdy („Moje jízdy") bez stavu: nastavení streamu,
 /// převod fixu na bod stopy, udržení appky naživu a diagnostika.
@@ -42,8 +41,11 @@ LocationSettings rideLocationSettings(String lang) {
       distanceFilter: kRideDistanceFilterM,
       intervalDuration: kRideMinInterval,
       foregroundNotificationConfig: ForegroundNotificationConfig(
-        notificationTitle: tr.tr('rideNotifTitle'),
-        notificationText: tr.tr('rideNotifText'),
+        // Statický text služby (mění se jen při novém připojení streamu);
+        // aktuální stav (nahrávám / pozastaveno) přepisuje nativně
+        // `RideKeepAlive.notify`.
+        notificationTitle: rideTrOr(tr, 'rpNotifTitle', 'rideNotifTitle'),
+        notificationText: rideTrOr(tr, 'rpNotifDefault', 'rideNotifText'),
         // Název kanálu vidí uživatel v systémovém nastavení. Držíme ho
         // jazykově neutrální, ať se při přepnutí jazyka nezaloží druhý.
         notificationChannelName: 'MotoGo24',
@@ -70,75 +72,86 @@ LocationSettings rideLocationSettings(String lang) {
   );
 }
 
-/// Fix → bod stopy `[lat, lng, čas (epoch s), rychlost km/h, výška m]`.
-/// Vrací null, když fix do stopy nepatří. [last] = poslední bod stopy.
-///
-/// ČAS je čas FIXU, ne čas příjmu. Dřív se bral `DateTime.now()` — jenže
-/// systém, který appku na pozadí uspí, po probuzení doručí nastřádané fixy
-/// najednou: všechny dostaly tutéž sekundu a server mezi nimi počítal
-/// kilometry „za 0 s" (Velín pak ukázal 2,3 km v Ø 97 km/h a čas jízdy —).
-/// Rozbité hodiny fixu (budoucnost, roky zpět) se nahradí časem příjmu,
-/// hodiny staré fixy z cache a fixy starší než poslední bod se zahodí.
-/// [notBefore]: první bod (bez [last]) nesmí být starší — iOS po spuštění
-/// streamu pošle nejdřív polohu z cache (klidně 20 min starou, jinde) a ta
-/// by se stala začátkem jízdy s falešnou mezerou.
-List<double>? ridePointFromFix(Position pos, List<double>? last,
-    {DateTime? now, DateTime? notBefore}) {
-  var kmh = pos.speed * 3.6;
-  if (!kmh.isFinite || kmh < 0) kmh = 0;
-  // Nepřesný fix zahazujeme JEN při stání (drift v kavárně = vymyšlené
-  // metry). Za jízdy ho necháme — v tunelu nebo městě má fix 60–100 m a
-  // pořád kreslí správnou silnici. Přesnost v kilometrech je pryč vždy.
-  if (pos.accuracy.isFinite &&
-      (pos.accuracy > kRideGarbageAccuracyM ||
-          (pos.accuracy > kRideMaxAccuracyM && kmh < 3))) {
-    return null;
-  }
-  if (kmh > 300) kmh = 0;
+/// Překlad s náhradním klíčem, když nový klíč ještě v překladech chybí.
+String rideTrOr(AppTranslations tr, String key, String fallbackKey) {
+  final v = tr.tr(key);
+  return v == key ? tr.tr(fallbackKey) : v;
+}
 
-  final at = now ?? DateTime.now();
+/// Překlad, nebo null, když klíč v překladech chybí (pak se text nemění).
+String? rideTrOpt(AppTranslations tr, String key, [Map<String, Object?>? args]) {
+  final v = args == null ? tr.tr(key) : tr.trArgs(key, args);
+  return v == key ? null : v;
+}
+
+/// Platná Dopplerova rychlost ze zařízení (km/h), jinak null.
+/// Neznámá rychlost NENÍ nula: Android ji bez měření vůbec nepošle
+/// (`hasSpeed` false), iOS pošle −1; nepřesná (> 2,5 m/s) se nebere.
+double? rideDopplerKmh(Position pos) {
+  final v = pos.speed;
+  if (!v.isFinite || v < 0 || !(pos.hasSpeed || v > 0)) return null;
+  final sa = pos.speedAccuracy;
+  if (pos.hasSpeedAccuracy && sa.isFinite && sa > RideMotionConfig.dopMaxSpeedAccMs) return null;
+  final kmh = v * 3.6;
+  return kmh > 300 ? null : kmh;
+}
+
+/// Fix z geolocatoru → [RideFix] pro detektor (SPEC §2.2, §5.5), nebo null,
+/// když je k ničemu (přesnost v km, stará poloha z cache).
+///
+/// ČAS je čas FIXU, ne čas příjmu (systém po probuzení doručí nastřádané
+/// fixy najednou). [clockOffset] = server − telefon (s): když fix nese čas
+/// telefonu (± 2 min od „teď"), posune se o něj; když nese skutečný čas GPS,
+/// nechá se. Rozbité hodiny fixu (budoucnost, roky zpět) → opravené „teď".
+RideFix? rideFixFromPosition(Position pos, {DateTime? now, double clockOffset = 0}) {
+  final local = now ?? DateTime.now();
+  final off = Duration(milliseconds: (clockOffset * 1000).round());
+  final corrNow = local.add(off);
+  final rawAcc = pos.accuracy;
+  final acc = (pos.hasAccuracy || rawAcc > 0) && rawAcc.isFinite && rawAcc >= 0 ? rawAcc : null;
+  if (acc != null && acc > kRideGarbageAccuracyM) return null;
   var t = pos.timestamp;
-  final age = at.difference(t);
+  if (clockOffset != 0 && t.difference(local).abs() < const Duration(seconds: 120)) {
+    t = t.add(off);
+  }
+  final age = corrNow.difference(t);
   if (age < const Duration(minutes: -2) || age > const Duration(days: 30)) {
-    t = at; // hodiny přijímače mimo realitu → čas příjmu
+    t = corrNow; // hodiny přijímače mimo realitu → čas příjmu
   } else if (age > kRideFixStale) {
     return null; // stará poloha z cache, ne bod téhle jízdy
-  } else if (last == null && notBefore != null && t.isBefore(notBefore)) {
-    return null; // poloha z cache z doby před záznamem
-  }
-  final ts = (t.millisecondsSinceEpoch / 1000).roundToDouble();
-  final lat = double.parse(pos.latitude.toStringAsFixed(5));
-  final lng = double.parse(pos.longitude.toStringAsFixed(5));
-
-  if (last != null && last.length > 2) {
-    // Opožděný / zopakovaný fix (po znovupřipojení streamu přijde nejdřív
-    // poslední známá poloha) — do stopy patří jen čas jdoucí dopředu.
-    if (ts < last[2]) return null;
-    // Vlastní filtr vzdálenosti: stream může být sdílený s navigací, která
-    // si ho otevřela s hustším filtrem (geolocator drží jeden na appku).
-    if (rideDistanceM(last[0], last[1], lat, lng) < kRideDistanceFilterM) {
-      return null;
-    }
   }
   final alt = pos.altitude;
-  return <double>[
-    lat,
-    lng,
-    ts,
-    double.parse(kmh.toStringAsFixed(1)),
-    if (alt.isFinite && alt != 0) double.parse(alt.toStringAsFixed(1)),
-  ];
+  final altOk = alt.isFinite && alt != 0 &&
+      (!pos.hasAltitudeAccuracy || pos.altitudeAccuracy <= 20);
+  return RideFix(
+    ts: (t.millisecondsSinceEpoch / 100).round() / 10,
+    lat: pos.latitude,
+    lng: pos.longitude,
+    acc: acc,
+    kmh: rideDopplerKmh(pos),
+    alt: altOk ? alt : null,
+  );
+}
+
+/// Fix → bod stopy `[lat, lng, čas (epoch s), rychlost km/h, výška m]`, nebo
+/// null (viz [rideFixFromPosition] + `ridePointFromRideFix`). [last] =
+/// poslední bod stopy; [notBefore]: první bod (bez [last]) nesmí být starší —
+/// iOS po spuštění streamu pošle nejdřív polohu z cache. Záznamník používá
+/// přímo `RidePauseEngine`; tohle zůstává pro jednorázové převody a testy.
+List<double>? ridePointFromFix(Position pos, List<double>? last,
+    {DateTime? now, DateTime? notBefore}) {
+  final f = rideFixFromPosition(pos, now: now);
+  if (f == null) return null;
+  if (last == null && notBefore != null &&
+      f.ts < notBefore.millisecondsSinceEpoch / 1000) {
+    return null; // poloha z cache z doby před záznamem
+  }
+  return ridePointFromRideFix(f, last);
 }
 
 /// Vzdálenost dvou bodů v metrech (haversine — stejně jako server).
-double rideDistanceM(double lat1, double lng1, double lat2, double lng2) {
-  const r = 6371000.0;
-  double rad(double d) => d * math.pi / 180;
-  final h = math.pow(math.sin(rad(lat2 - lat1) / 2), 2) +
-      math.cos(rad(lat1)) * math.cos(rad(lat2)) *
-          math.pow(math.sin(rad(lng2 - lng1) / 2), 2);
-  return 2 * r * math.asin(math.sqrt(h));
-}
+double rideDistanceM(double lat1, double lng1, double lat2, double lng2) =>
+    rideDistM(lat1, lng1, lat2, lng2);
 
 /// Android: dokud se nahrává jízda, nechá nativní strana Flutter engine
 /// naživu i po zavření okna appky (odsunutí z posledních aplikací, Zpět na
@@ -162,6 +175,49 @@ class RideKeepAlive {
     } catch (e) {
       _sent = null; // zkusí se příště znovu
       rideLog('keep_alive_failed', detail: '$e');
+    }
+  }
+
+  /// Text trvalé notifikace GPS služby podle stavu záznamu (nahrávám /
+  /// připraveno / pozastaveno). Nativně přepíše notifikaci geolocatoru
+  /// (id 75415) — jen když jeho služba běží na popředí. Vrací false, když to
+  /// nešlo (služba neběží, chyba) — pak zůstává statický text.
+  static Future<bool> notify(String title, String text) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return false;
+    try {
+      return await _ch.invokeMethod<bool>('notify', {'title': title, 'text': text}) ?? false;
+    } catch (e) {
+      rideLog('notif_failed', detail: '$e');
+      return false;
+    }
+  }
+
+  /// Běžná (zavíratelná) notifikace „záznam cesty čeká" — pojistka doma /
+  /// dlouhá pauza vypnula GPS. Klepnutí otevře appku.
+  static Future<void> notifyIdle(String title, String text) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _ch.invokeMethod<void>('notifyIdle', {'title': title, 'text': text});
+    } catch (e) {
+      rideLog('notif_failed', detail: 'idle: $e');
+    }
+  }
+
+  static Future<void> cancelIdle() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _ch.invokeMethod<void>('cancelIdle');
+    } catch (_) {}
+  }
+
+  /// Stav baterie `{pct, charging}` pro diagnostiku (jen Android, jinak null).
+  static Future<Map<String, Object?>?> battery() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return null;
+    try {
+      final r = await _ch.invokeMethod<Map<Object?, Object?>>('battery');
+      return r == null ? null : {for (final e in r.entries) '${e.key}': e.value};
+    } catch (_) {
+      return null;
     }
   }
 
@@ -197,5 +253,11 @@ class RideForeignStreams {
 /// ukazuje u jízdy, ať je vidět, PROČ ve stopě chybí úsek (appka na pozadí
 /// bez fixů, zavřená, chyba GPS služby…).
 void rideLog(String action, {String? detail, Map<String, dynamic>? data}) {
+  final sink = rideLogTestSink;
+  if (sink != null) return sink(action, detail, data);
   AppDebugLogger.instance.log(LogCategory.ride, action, detail: detail, data: data);
 }
+
+/// Testy: místo odesílání do `app_debug_logs` sbírat logy sem.
+@visibleForTesting
+void Function(String action, String? detail, Map<String, dynamic>? data)? rideLogTestSink;

@@ -17,6 +17,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
 import '../../loyalty/loyalty_provider.dart';
@@ -48,11 +49,15 @@ class HomeHeaderV2 extends ConsumerWidget {
     final rankName = RankCopy.name(tr, rank.level, status?.rankName);
     final pct = status?.percent ?? rank.level;
     final motto = RankCopy.motto(tr, rank.level);
+    final hasBanner = banner != null && banner.enabled && banner.text.trim().isNotEmpty;
 
+    // Kompaktní hlavička (V22 §2.4 #1, ≤ 190 bez stavového řádku): mezery
+    // nesou průhledné okraje 44px čipu a lišty, ne další SizedBoxy. Spodek
+    // 28 / 32 = 24 pod překryv hero karty + vizuálně ~10 pod posledním řádkem.
     return MgRankHero(
       rank: rank,
       ambientKey: 'home',
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, hasBanner ? 28 : 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         LayoutBuilder(builder: (context, c) {
           final narrow = c.maxWidth < 356;
@@ -72,10 +77,10 @@ class HomeHeaderV2 extends ConsumerWidget {
             ),
           ]);
         }),
-        const SizedBox(height: 12),
         // Pozdrav na JEDEN řádek (zmenší se, nikdy se nezalomí) a rank čip
         // vedle něj; když by se pozdrav musel zmenšit pod 75 %, čip sjede
-        // pod pozdrav (V22 §2.4 #1 — kompaktní hlavička).
+        // pod pozdrav (V22 §2.4 #1 — kompaktní hlavička). Nízký telefon
+        // (< 700 dp, home r3): 70 %, pak pozdrav na 2 řádky vedle čipu.
         LayoutBuilder(builder: (context, c) {
           final greeting = homeGreeting(tr, nick, DateTime.now());
           final gStyle = MgType.h3.copyWith(color: MgColors.onDark, height: 1.2);
@@ -93,7 +98,19 @@ class HomeHeaderV2 extends ConsumerWidget {
           }
 
           final chipW = chipLabel == null ? 0.0 : width(chipLabel, MgType.meta.copyWith(fontWeight: FontWeight.w800, height: 1)) + 40;
-          final inline = chipLabel == null || width(greeting, gStyle) * 0.75 + 8 + chipW <= c.maxWidth;
+          // Nízký telefon (< 700 dp): pozdrav smí na 70 % (jeho dolní mez),
+          // ať čip zůstane vedle něj a REZERVOVAT nad spodní lištou.
+          final short = MediaQuery.sizeOf(context).height < 700;
+          final inline = chipLabel == null || width(greeting, gStyle) * (short ? 0.7 : 0.75) + 8 + chipW <= c.maxWidth;
+          // …a když ani to ne, raději pozdrav na 2 řádky (≥ 80 %) vedle čipu
+          // než čip na vlastním řádku (hlavička o ~30 px nižší).
+          final avail = c.maxWidth - 8 - chipW;
+          final g80 = gStyle.copyWith(fontSize: gStyle.fontSize! * 0.8);
+          final two = !inline &&
+              short &&
+              avail >= 96 &&
+              mgWordsFit(context, greeting, g80, avail) &&
+              mgLinesFit(context, greeting, g80, avail, 2);
           final g = Semantics(
             button: true,
             hint: tr.tr('editNickname'),
@@ -105,8 +122,12 @@ class HomeHeaderV2 extends ConsumerWidget {
                 // uprostřed slova a bez useknutí.
                 child: MgWordFit(
                   minScale: 0.7,
-                  fitLines: 1,
-                  child: Text(greeting, maxLines: 3, overflow: TextOverflow.ellipsis, style: gStyle),
+                  fitLines: two ? 2 : 1,
+                  // Dva řádky o stupeň menší (17) — řádek zůstane 44 vysoký.
+                  child: Text(greeting,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: two ? gStyle.copyWith(fontSize: gStyle.fontSize! * 0.85) : gStyle),
                 ),
               ),
             ),
@@ -118,16 +139,24 @@ class HomeHeaderV2 extends ConsumerWidget {
                   semanticLabel: RankCopy.aria(tr, rank.level, rankName, pct),
                   onTap: () => openLoyaltyRanks(context),
                 );
-          if (inline) {
-            return Row(children: [
-              Flexible(child: g),
-              if (chip != null) ...[const SizedBox(width: 8), chip],
-            ]);
+          // Řádek je vždy 44 vysoký (tap zóna čipu): bez čipu (věrnost se
+          // načítá) nic neposkočí a mezery k logu i mottu zůstanou stejné.
+          if (inline || two) {
+            return ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Row(children: [
+                Flexible(child: g),
+                if (chip != null) ...[const SizedBox(width: 8), chip],
+              ]),
+            );
           }
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [g, const SizedBox(height: 4), chip!]);
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [g, chip!]),
+          );
         }),
         if (motto.isNotEmpty) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           Semantics(
             label: RankCopy.mottoAria(tr, rank, rankName),
             excludeSemantics: true,
@@ -144,17 +173,24 @@ class HomeHeaderV2 extends ConsumerWidget {
                 child: MgWordFit(
                   minScale: 0.85,
                   fitLines: 2,
-                  child: Text(motto, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: rank.accentOnDark)),
+                  // Nízký telefon: dvouřádkové motto s hustším řádkováním.
+                  child: Text(motto,
+                      style: MgType.small.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: rank.accentOnDark,
+                          height: MediaQuery.sizeOf(context).height < 700 ? 1.2 : null)),
                 ),
               ),
             ]),
           ),
         ],
-        HomeHeaderNote(snap: snap, nick: nick),
+        // Klidový řádek (S0 / S10) jen bez lišty Velínu — hlavička zůstane
+        // v rozpočtu a REZERVOVAT nad spodní lištou.
+        HomeHeaderNote(snap: snap, nick: nick, idle: !hasBanner),
         // Velín banner = poslední JEDEN řádek hlavičky: marquee, při omezení
         // pohybu statický s „…"; klepnutí ukáže celý text (V22 §2.4 #2).
-        if (banner != null && banner.enabled && banner.text.trim().isNotEmpty) ...[
-          const SizedBox(height: 6),
+        if (hasBanner) ...[
+          const SizedBox(height: 2),
           MgTopBanner(text: banner.text.trim()),
         ],
       ]),
@@ -200,7 +236,8 @@ class _LogoRow extends ConsumerWidget {
     );
     if (status != null) frame = MgPress(onTap: () => openLoyaltyRanks(context), child: frame);
     return Row(children: [
-      Padding(padding: const EdgeInsets.all(6), child: frame),
+      // 6 nahoře = místo pro korunu VIP rangů; dole jen 2 (značky ringu).
+      Padding(padding: const EdgeInsets.fromLTRB(6, 6, 6, 2), child: frame),
       const SizedBox(width: 6),
       Flexible(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

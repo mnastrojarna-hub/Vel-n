@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
+import '../features/booking/my_vouchers.dart';
 import 'i18n/i18n_provider.dart';
 import 'currency.dart';
 
@@ -17,53 +19,76 @@ class BookingFormPromoSection extends StatelessWidget {
   final BookingDraft draft;
   final void Function(BookingDraft Function(BookingDraft) fn) onUpd;
 
-  void _openPromoDialog(BuildContext context) {
-    final ctrl = TextEditingController();
+  /// Dialog slevového kódu. [prefill] = poukaz zvolený klepnutím (v2 karta)
+  /// → kód je v poli a uplatní ho až „Použít“ (r2: dárkový poukaz koupený
+  /// pro někoho jiného se nesmí utratit omylem jedním klepnutím).
+  void _openPromoDialog(BuildContext context, {String? prefill}) {
+    final ctrl = TextEditingController(text: prefill ?? '');
     String? error;
     bool loading = false;
+
+    // Jedno uplatnění pro tlačítko „Použít“, Enter i poukaz jedním klepnutím.
+    // Ochrana `loading`: bez ní dvojí Enter spustil dvě souběžné validace
+    // a fixní sleva (voucher) se přičetla dvakrát.
+    Future<void> apply(BuildContext ctx, StateSetter ss) async {
+      if (loading) return;
+      final code = ctrl.text.trim();
+      if (code.isEmpty) return;
+      if (draft.discounts.any((d) => d.code == code.toUpperCase())) {
+        ss(() => error = t(context).tr('promoAlreadyUsed').replaceAll('{code}', code));
+        return;
+      }
+      ss(() { loading = true; error = null; });
+      final result = await validateAndApplyCode(code);
+      if (!ctx.mounted) return;
+      ss(() => loading = false);
+      if (result.success && result.discount != null) {
+        final d = result.discount!;
+        if (d.type == DiscountType.percent &&
+            draft.discounts.any((x) => x.type == DiscountType.percent)) {
+          ss(() => error = t(context).tr('promoNoCombinePercent'));
+          return;
+        }
+        onUpd((dr) => dr.copyWith(discounts: [...dr.discounts, d]));
+        Navigator.pop(ctx);
+      } else {
+        ss(() => error = result.message(t(context).tr));
+      }
+    }
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, ss) => AlertDialog(
+        builder: (ctx, ss) {
+          return AlertDialog(
           title: Text(t(context).tr('discountCode'),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          content: Column(
+          content: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Vlastní dárkové poukazy bez opisování (2026-10-22): klepnutí
+              // kód vloží do pole, uplatní ho „Použít“ (r2).
+              Consumer(
+                builder: (_, ref, __) => MyVoucherChips(
+                  vouchers: unusedVouchers(ref.watch(myVouchersProvider).valueOrNull,
+                      draft.discounts.map((d) => d.code)),
+                  busy: loading,
+                  onUse: (code) => ss(() {
+                    ctrl.text = code;
+                    error = null;
+                  }),
+                ),
+              ),
               TextField(
                 controller: ctrl,
-                autofocus: true,
+                autofocus: prefill == null,
                 textCapitalization: TextCapitalization.characters,
-                onSubmitted: (_) async {
-                  // Stejná ochrana jako u tlačítka „Použít" — bez ní dvojí
-                  // Enter spustil dvě souběžné validace a fixní sleva
-                  // (voucher) se přičetla dvakrát.
-                  if (loading) return;
-                  final code = ctrl.text.trim();
-                  if (code.isEmpty) return;
-                  ss(() { loading = true; error = null; });
-                  final result = await validateAndApplyCode(code);
-                  if (!ctx.mounted) return;
-                  ss(() => loading = false);
-                  if (result.success && result.discount != null) {
-                    final d = result.discount!;
-                    if (d.type == DiscountType.percent &&
-                        draft.discounts
-                            .any((x) => x.type == DiscountType.percent)) {
-                      ss(() => error = t(context).tr('promoNoCombinePercent'));
-                      return;
-                    }
-                    onUpd((dr) => dr.copyWith(
-                          discounts: [...dr.discounts, d]));
-                    Navigator.pop(ctx);
-                  } else {
-                    ss(() => error = result.message(t(context).tr));
-                  }
-                },
+                onSubmitted: (_) => apply(ctx, ss),
                 decoration: InputDecoration(
                   hintText: t(context).tr('enterCodeHint'),
+                  hintMaxLines: 2,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10)),
                 ),
@@ -77,41 +102,13 @@ class BookingFormPromoSection extends StatelessWidget {
                 ),
             ],
           ),
+          ),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: Text(t(context).tr('cancel'))),
             ElevatedButton(
-              onPressed: loading
-                  ? null
-                  : () async {
-                      final code = ctrl.text.trim();
-                      if (code.isEmpty) return;
-                      if (draft.discounts.any(
-                          (d) => d.code == code.toUpperCase())) {
-                        ss(() => error = t(context).tr('promoAlreadyUsed').replaceAll('{code}', code));
-                        return;
-                      }
-                      ss(() { loading = true; error = null; });
-                      final result = await validateAndApplyCode(code);
-                      if (!ctx.mounted) return;
-                      ss(() => loading = false);
-                      if (result.success && result.discount != null) {
-                        final d = result.discount!;
-                        if (d.type == DiscountType.percent &&
-                            draft.discounts.any(
-                                (x) => x.type == DiscountType.percent)) {
-                          ss(() =>
-                              error = t(context).tr('promoNoCombinePercent'));
-                          return;
-                        }
-                        onUpd((dr) => dr.copyWith(
-                              discounts: [...dr.discounts, d]));
-                        Navigator.pop(ctx);
-                      } else {
-                        ss(() => error = result.message(t(context).tr));
-                      }
-                    },
+              onPressed: loading ? null : () => apply(ctx, ss),
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A2E22),
                   foregroundColor: Colors.white),
@@ -124,7 +121,8 @@ class BookingFormPromoSection extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
           ],
-        ),
+        );
+        },
       ),
     );
   }

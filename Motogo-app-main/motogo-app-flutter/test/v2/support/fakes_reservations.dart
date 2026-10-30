@@ -58,6 +58,7 @@ Reservation resv(
   String pickupTime = '12:00:00',
   DateTime? handedOver,
   DateTime? created,
+  DateTime? rated,
 }) =>
     Reservation(
       id: '${id}aaaaaaa-1111-2222-3333-444455556666',
@@ -88,7 +89,7 @@ Reservation resv(
       loyaltyDiscountAmount: 361,
       bookingSource: 'app',
       rating: rating,
-      ratedAt: rating == null ? null : rday(to),
+      ratedAt: rating == null ? null : (rated ?? rday(to)),
       sosReplacement: sosReplacement,
       endedBySos: endedBySos,
       helmetSize: gear && !ownGear ? 'L' : null,

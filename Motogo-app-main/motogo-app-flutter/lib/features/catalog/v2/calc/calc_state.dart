@@ -1,12 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../payment/payment_provider.dart' show lastConfirmedBookingProvider;
 import '../../catalog_provider.dart';
 import '../../moto_model.dart';
 
 /// State of the v2 price calculator (PLAN §2.2.4): IN MEMORY only. It never
-/// touches `bookingDraftProvider` / `catalogFilterProvider` until the user
-/// taps REZERVOVAT (→ `startBookingFromSelection`) or "Zobrazit volné
-/// motorky" (→ the same date write as the catalog date picker).
+/// touches `bookingDraftProvider` until the user taps REZERVOVAT (→
+/// `startBookingFromSelection`). Dates picked / cleared here are written
+/// through to `catalogFilterProvider` (one trip, `catalog_mode_sync.dart`:
+/// the same write as the catalog date picker). A paid booking empties its
+/// bike and dates (a clean start, like the booking draft).
+///
+/// No pickup time here (owner 2026-10-22): the time is chosen only in the
+/// booking form; the calculator prices the standard pickup (the form's
+/// 09:00 default) and shows the 12:00 saving as information.
 class CalcState {
   /// null = all branches.
   final String? branchId;
@@ -14,27 +21,21 @@ class CalcState {
   final DateTime? start;
   final DateTime? end;
 
-  /// '09:00' (default — the booking form's default) or '12:00' (½ 1st day).
-  final String pickupTime;
-
-  const CalcState({this.branchId, this.motoId, this.start, this.end, this.pickupTime = '09:00'});
+  const CalcState({this.branchId, this.motoId, this.start, this.end});
 
   bool get hasRange => start != null && end != null;
-  bool get late => pickupTime == '12:00';
 
   CalcState copyWith({
     String? Function()? branchId,
     String? Function()? motoId,
     DateTime? Function()? start,
     DateTime? Function()? end,
-    String? pickupTime,
   }) =>
       CalcState(
         branchId: branchId != null ? branchId() : this.branchId,
         motoId: motoId != null ? motoId() : this.motoId,
         start: start != null ? start() : this.start,
         end: end != null ? end() : this.end,
-        pickupTime: pickupTime ?? this.pickupTime,
       );
 }
 
@@ -56,7 +57,8 @@ class CalcStateNotifier extends StateNotifier<CalcState> {
 
   void clearDates() => state = state.copyWith(start: () => null, end: () => null);
 
-  void setPickup(String time) => state = state.copyWith(pickupTime: time);
+  /// After a paid booking: its bike and dates go, the branch stays.
+  void resetTrip() => state = CalcState(branchId: state.branchId);
 
   /// Entry from Home ("Spočítat přesnou cenu ›"): bike and / or dates.
   void prefill({String? motoId, DateTime? start, DateTime? end}) {
@@ -65,12 +67,20 @@ class CalcStateNotifier extends StateNotifier<CalcState> {
       motoId: motoId ?? state.motoId,
       start: start ?? state.start,
       end: end ?? (start != null ? null : state.end),
-      pickupTime: state.pickupTime,
     );
   }
 }
 
-final calcStateProvider = StateNotifierProvider<CalcStateNotifier, CalcState>((_) => CalcStateNotifier());
+final calcStateProvider = StateNotifierProvider<CalcStateNotifier, CalcState>((ref) {
+  final n = CalcStateNotifier();
+  // The next "Spočítat cenu" must not reopen the trip just booked (its own
+  // days would show as busy) — the same signal the booking draft and the
+  // Domů reset use for a clean start.
+  ref.listen<String?>(lastConfirmedBookingProvider, (prev, next) {
+    if (next != null && next != prev) n.resetTrip();
+  });
+  return n;
+});
 
 /// Bikes the calculator offers: the browse rule of `filteredMotorcyclesProvider`
 /// (permanently closed branches never offered), narrowed to the branch.

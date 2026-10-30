@@ -82,6 +82,11 @@ import 'translations_ext_42_refix3_b.dart';
 import 'translations_ext_43_payments.dart';
 import 'translations_ext_44_payfix.dart';
 import 'translations_ext_45_payments.dart';
+import 'translations_ext_46_booking_prefill.dart';
+import 'translations_ext_47_rides.dart';
+import 'translations_ext_48_shared_carry.dart';
+import 'translations_ext_61_shared_r2.dart';
+import 'translations_ext_58_v2_fix_r2.dart';
 import 'translations_ext_50_v2_core_a.dart';
 import 'translations_ext_50_v2_core_b.dart';
 import 'translations_ext_50_v2_core_c.dart';
@@ -103,8 +108,18 @@ import 'translations_ext_56_v2_routes_a.dart';
 import 'translations_ext_56_v2_routes_b.dart';
 import 'translations_ext_57_v2_rides_a.dart';
 import 'translations_ext_57_v2_rides_b.dart';
+import 'translations_ext_57_v2_rides_c.dart';
+import 'translations_ext_57_v2_rides_d.dart';
+import 'translations_ext_57_v2_rides_e.dart';
+import 'translations_ext_57_v2_rides_f.dart';
+import 'translations_ext_57_v2_rides_g.dart';
 import 'translations_ext_58_v2_fix_a.dart';
 import 'translations_ext_58_v2_fix_b.dart';
+import 'translations_ext_59_v2_late_info.dart';
+import 'translations_ext_58_v2_booking_r2.dart';
+import 'translations_ext_58_v2_addr_sheet.dart';
+import 'translations_ext_55_v2_profile_docscan.dart';
+import 'translations_ext_55_v2_profile_fix.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -187,6 +202,11 @@ final translations = _mergeAll([
   translationsExt43Payments,
   translationsExt44Payfix,
   translationsExt45Payments,
+  translationsExt46BookingPrefill,
+  translationsExt47Rides,
+  translationsExt48SharedCarry,
+  translationsExt61SharedR2,
+  translationsExt58V2FixR2,
   // v2 vzhled (klíče jen s prefixem `v2`, staré texty nepřepisují).
   translationsExt50V2CoreA,
   translationsExt50V2CoreB,
@@ -199,6 +219,7 @@ final translations = _mergeAll([
   translationsExt52V2CatalogB,
   translationsExt52V2CatalogC,
   translationsExt52V2CatalogD,
+  translationsExt52V2CatalogR2,
   translationsExt53V2BookingA,
   translationsExt53V2BookingB,
   translationsExt54V2ReservationsA,
@@ -209,8 +230,18 @@ final translations = _mergeAll([
   translationsExt56V2RoutesB,
   translationsExt57V2RidesA,
   translationsExt57V2RidesB,
+  translationsExt57V2RidesC,
+  translationsExt57V2RidesD,
+  translationsExt57V2RidesE,
+  translationsExt57V2RidesF,
+  translationsExt57V2RidesG,
   translationsExt58V2FixA,
   translationsExt58V2FixB,
+  translationsExt59V2LateInfo,
+  translationsExt58V2BookingR2,
+  translationsExt58V2AddrSheet,
+  translationsExt55V2ProfileDocscan,
+  translationsExt55V2ProfileFix,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

@@ -17,6 +17,7 @@ import '../../community_submit.dart' show showCommunityAddMenu;
 import '../../my_experiences_provider.dart';
 import '../../ride_model.dart';
 import '../../ride_recorder.dart' show RideRecorderState;
+import '../../ride_trip.dart' show groupRides;
 import '../record_dock_v2.dart';
 import '../trasy_hub_header_v2.dart';
 import 'moje_lists_v2.dart';
@@ -197,7 +198,7 @@ class _MojeViewV2State extends State<MojeViewV2> {
           value: sub,
           onChanged: _select,
           counts: {
-            MojeSub.rides: w.loggedIn ? w.rides.valueOrNull?.length : null,
+            MojeSub.rides: w.loggedIn && w.rides.hasValue ? groupRides(rides).length : null,
             MojeSub.saved: w.loggedIn ? w.routes.valueOrNull?.length : null,
             MojeSub.places: w.loggedIn ? w.places.valueOrNull?.length : null,
             MojeSub.history: historyItems.length,

@@ -10,13 +10,16 @@ import 'mg_word_fit.dart';
 /// (Uloženo, Zkopírováno). Night glass r14, icon 20, 13.5/700, 2.8 s; with
 /// an action 4 s. Errors that need action are never a toast (use the state
 /// templates); snackbars from unchanged logic code are themed by
-/// `MgThemeV2.overlay`.
+/// `MgThemeV2.overlay`. [lift] = extra bottom margin so the toast floats
+/// above a page dock that sits in the body (it must not cover the dock's
+/// buttons, e.g. ▶ Pokračovat right after ❚❚).
 void showMgToast(
   BuildContext context,
   String message, {
   String icon = MgIcons.checkCircle,
   String? actionLabel,
   VoidCallback? onAction,
+  double lift = 0,
 }) {
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
@@ -26,7 +29,7 @@ void showMgToast(
       behavior: SnackBarBehavior.floating,
       backgroundColor: MgColors.night.withValues(alpha: 0.96),
       elevation: 0,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: EdgeInsets.fromLTRB(16, 0, 16, 12 + lift),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: MgColors.neonA(0.25)),

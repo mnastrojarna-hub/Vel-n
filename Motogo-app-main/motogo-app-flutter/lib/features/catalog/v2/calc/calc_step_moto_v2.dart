@@ -13,8 +13,9 @@ import '../../../../core/v2/widgets/mg_sheet.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/net_image.dart';
 import '../../../loyalty/loyalty_provider.dart';
-import '../../catalog_provider.dart' show filteredMotoIdsProvider;
+import '../../catalog_provider.dart' show catalogFilterProvider, filteredMotoIdsProvider;
 import '../../moto_model.dart';
+import '../catalog_date_sheet_v2.dart' show catSetDates;
 import '../catalog_fit.dart';
 import '../catalog_text.dart';
 import 'calc_state.dart';
@@ -128,6 +129,11 @@ class _SelectedMoto extends ConsumerWidget {
             onTap: () {
               ref.read(filteredMotoIdsProvider.notifier).state =
                   siblings.contains(moto.id) ? siblings : [moto.id];
+              // The detail opens with the calculator's dates (the same write
+              // as "Zobrazit volné motorky") — never picked a second time.
+              final st = ref.read(calcStateProvider);
+              final f = ref.read(catalogFilterProvider);
+              if (st.hasRange && (f.startDate != st.start || f.endDate != st.end)) catSetDates(ref, st.start!, st.end!);
               context.push('/moto/${moto.id}');
             },
           ),
@@ -209,7 +215,7 @@ class _PickerList extends ConsumerWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(m.model, style: MgType.title.copyWith(color: MgColors.ink)),
+                MgWordFit(child: Text(m.model, style: MgType.title.copyWith(color: MgColors.ink))),
                 Text(calcMeta(tr, m), style: MgType.meta.copyWith(color: MgColors.meta)),
                 CalcFromPrice(moto: m, pct: pct, small: true),
                 if (calcStatus(tr, m) case final st?)

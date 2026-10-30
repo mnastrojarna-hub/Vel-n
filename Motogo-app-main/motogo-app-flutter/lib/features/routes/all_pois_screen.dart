@@ -33,8 +33,10 @@ import 'v2/place_card_v2.dart';
 import 'v2/places_filters_v2.dart';
 import 'v2/places_parts_v2.dart';
 import 'v2/poi_cat_icon_v2.dart';
+import 'v2/poi_tools_sheet_v2.dart';
 import 'v2/record_dock_v2.dart';
 import 'v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
+import 'v2/rt_sheet_rows_v2.dart' show RtOpt;
 import 'v2/rt_v2_text.dart';
 import 'v2/trasy_hub_header_v2.dart';
 
@@ -1250,6 +1252,98 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
               count++;
             }
 
+            // Akce sdílené starým i v2 vzhledem (kill-switch) — těla beze změny.
+            void onQuery(String v) {
+              deb?.cancel();
+              deb = Timer(
+                const Duration(milliseconds: 220),
+                () => setSheet(() => tQuery = v),
+              );
+            }
+
+            void clearQuery() {
+              deb?.cancel();
+              qCtl.clear();
+              setSheet(() => tQuery = '');
+            }
+
+            Future<void> pickNearMe() async {
+              if (!meAvail) {
+                final ok = await ensureLocation(ref, context: sheetCtx);
+                // Sheet mohl mezitím zmizet — setSheet na
+                // odpojeném StatefulBuilderu shodí appku.
+                if (!ok || !sheetCtx.mounted) return;
+              }
+              setSheet(() => tSort = PoiSort.nearMe);
+            }
+
+            final VoidCallback? pickNearRoute =
+                routeAvail ? () => setSheet(() => tSort = PoiSort.nearRoute) : null;
+            void pickRandom() => setSheet(() => tSort = PoiSort.random);
+            void toggleCat(String k) =>
+                setSheet(() => tCats.contains(k) ? tCats.remove(k) : tCats.add(k));
+            void toggleCountry(String c) => setSheet(
+                () => tCountry.contains(c) ? tCountry.remove(c) : tCountry.add(c));
+            void toggleMore() => setSheet(() => moreCountries = !moreCountries);
+            void toggleRating() => setSheet(() => showRating = !showRating);
+            void setMin(double r) => setSheet(() => tMin = r);
+            void clear() {
+              clearAllFilters();
+              Navigator.of(sheetCtx).pop();
+            }
+
+            void apply() {
+              _searchDebounce?.cancel();
+              if (_searchCtl.text != tQuery) _searchCtl.text = tQuery;
+              _setFilter((f) => f.copyWith(
+                    sort: tSort,
+                    countries: {...tCountry},
+                    cats: {...tCats},
+                    minRating: tMin,
+                    query: tQuery,
+                  ));
+              ref.read(placesSearchProvider.notifier).state = tQuery;
+              Navigator.of(sheetCtx).pop();
+            }
+
+            if (MgV2.on(sheetCtx)) {
+              RtOpt cc(String c, String label) =>
+                  RtOpt(label, tCountry.contains(c), () => toggleCountry(c));
+              String stars(double r) =>
+                  '${r % 1 == 0 ? r.toStringAsFixed(0) : r.toStringAsFixed(1)}+';
+              return PoiToolsSheetV2(
+                query: qCtl,
+                onQuery: onQuery,
+                hasQuery: tQuery.isNotEmpty,
+                onClearQuery: clearQuery,
+                sorts: [
+                  RtOpt(_sortLabel(sheetCtx, PoiSort.nearMe), tSort == PoiSort.nearMe, pickNearMe),
+                  RtOpt(_sortLabel(sheetCtx, PoiSort.nearRoute), tSort == PoiSort.nearRoute,
+                      pickNearRoute),
+                  RtOpt(_sortLabel(sheetCtx, PoiSort.random), tSort == PoiSort.random, pickRandom),
+                ],
+                cats: [
+                  for (final c in kPoiCats)
+                    RtOpt(t(sheetCtx).tr(c.i18nKey), tCats.contains(c.key),
+                        () => toggleCat(c.key), cat: c.key),
+                ],
+                countriesTop: [for (final c in split.top) cc(c, countryChipLabel(c))],
+                countriesRest: [for (final c in split.rest) cc(c, countryFullLabel(c, lang))],
+                moreCountries: moreCountries,
+                onMoreCountries: toggleMore,
+                showRating: showRating,
+                onRating: toggleRating,
+                ratings: [
+                  RtOpt(t(sheetCtx).tr('poiFilterAny'), tMin == 0, () => setMin(0)),
+                  for (final r in ratingOptions)
+                    RtOpt(stars(r), tMin == r, () => setMin(r), icon: MgIcons.starFilled),
+                ],
+                count: count,
+                onApply: apply,
+                onClear: clear,
+              );
+            }
+
             Widget chip(String label, bool active, VoidCallback? onTap) {
               final enabled = onTap != null;
               return PressableScale(
@@ -1335,10 +1429,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                           ],
                           PressableScale(
                             pressedScale: 0.94,
-                            onTap: () {
-                              clearAllFilters();
-                              Navigator.of(sheetCtx).pop();
-                            },
+                            onTap: clear,
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                               child: Row(
@@ -1383,13 +1474,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                 Expanded(
                                   child: TextField(
                                     controller: qCtl,
-                                    onChanged: (v) {
-                                      deb?.cancel();
-                                      deb = Timer(
-                                        const Duration(milliseconds: 220),
-                                        () => setSheet(() => tQuery = v),
-                                      );
-                                    },
+                                    onChanged: onQuery,
                                     decoration: InputDecoration(
                                       isDense: true,
                                       border: InputBorder.none,
@@ -1406,11 +1491,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                 if (tQuery.isNotEmpty)
                                   GestureDetector(
                                     behavior: HitTestBehavior.opaque,
-                                    onTap: () {
-                                      deb?.cancel();
-                                      qCtl.clear();
-                                      setSheet(() => tQuery = '');
-                                    },
+                                    onTap: clearQuery,
                                     child: const Padding(
                                       padding: EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 10),
@@ -1426,23 +1507,11 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                           section(t(sheetCtx).tr('sortTitle')),
                           Wrap(spacing: 8, runSpacing: 8, children: [
                             chip(_sortLabel(sheetCtx, PoiSort.nearMe),
-                                tSort == PoiSort.nearMe, () async {
-                              if (!meAvail) {
-                                final ok = await ensureLocation(ref, context: sheetCtx);
-                                // Sheet mohl mezitím zmizet — setSheet na
-                                // odpojeném StatefulBuilderu shodí appku.
-                                if (!ok || !sheetCtx.mounted) return;
-                              }
-                              setSheet(() => tSort = PoiSort.nearMe);
-                            }),
+                                tSort == PoiSort.nearMe, pickNearMe),
                             chip(_sortLabel(sheetCtx, PoiSort.nearRoute),
-                                tSort == PoiSort.nearRoute,
-                                routeAvail
-                                    ? () => setSheet(() => tSort = PoiSort.nearRoute)
-                                    : null),
+                                tSort == PoiSort.nearRoute, pickNearRoute),
                             chip(_sortLabel(sheetCtx, PoiSort.random),
-                                tSort == PoiSort.random,
-                                () => setSheet(() => tSort = PoiSort.random)),
+                                tSort == PoiSort.random, pickRandom),
                           ]),
                           const SizedBox(height: 18),
                           // ── Kategorie ──
@@ -1450,11 +1519,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                           Wrap(spacing: 8, runSpacing: 8, children: [
                             for (final c in kPoiCats)
                               chip('${c.emoji} ${t(sheetCtx).tr(c.i18nKey)}',
-                                  tCats.contains(c.key), () {
-                                setSheet(() => tCats.contains(c.key)
-                                    ? tCats.remove(c.key)
-                                    : tCats.add(c.key));
-                              }),
+                                  tCats.contains(c.key), () => toggleCat(c.key)),
                           ]),
                           // ── Země ──
                           if (split.top.isNotEmpty || split.rest.isNotEmpty) ...[
@@ -1462,16 +1527,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             section(t(sheetCtx).tr('poiFilterCountry')),
                             Wrap(spacing: 8, runSpacing: 8, children: [
                               for (final c in split.top)
-                                chip(countryChipLabel(c), tCountry.contains(c), () {
-                                  setSheet(() => tCountry.contains(c)
-                                      ? tCountry.remove(c)
-                                      : tCountry.add(c));
-                                }),
+                                chip(countryChipLabel(c), tCountry.contains(c),
+                                    () => toggleCountry(c)),
                               if (split.rest.isNotEmpty)
                                 chip(
                                   '${moreCountries ? '▲' : '▼'} ${t(sheetCtx).tr('routesFilterMoreCountries')} (${split.rest.length})',
                                   false,
-                                  () => setSheet(() => moreCountries = !moreCountries),
+                                  toggleMore,
                                 ),
                             ]),
                             AnimatedSize(
@@ -1484,11 +1546,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                       child: Wrap(spacing: 8, runSpacing: 8, children: [
                                         for (final c in split.rest)
                                           chip(countryFullLabel(c, lang),
-                                              tCountry.contains(c), () {
-                                            setSheet(() => tCountry.contains(c)
-                                                ? tCountry.remove(c)
-                                                : tCountry.add(c));
-                                          }),
+                                              tCountry.contains(c), () => toggleCountry(c)),
                                       ]),
                                     )
                                   : const SizedBox(width: double.infinity),
@@ -1499,7 +1557,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                           chip(
                             '${showRating ? '▲' : '▼'} ${t(sheetCtx).tr('poiFilterMinRating')}',
                             false,
-                            () => setSheet(() => showRating = !showRating),
+                            toggleRating,
                           ),
                           AnimatedSize(
                             duration: const Duration(milliseconds: 220),
@@ -1510,12 +1568,12 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                     padding: const EdgeInsets.only(top: 10),
                                     child: Wrap(spacing: 8, runSpacing: 8, children: [
                                       chip(t(sheetCtx).tr('poiFilterAny'), tMin == 0,
-                                          () => setSheet(() => tMin = 0)),
+                                          () => setMin(0)),
                                       for (final r in ratingOptions)
                                         chip(
                                             '★ ${r % 1 == 0 ? r.toStringAsFixed(0) : r.toStringAsFixed(1)}+',
                                             tMin == r,
-                                            () => setSheet(() => tMin = r)),
+                                            () => setMin(r)),
                                     ]),
                                   )
                                 : const SizedBox(width: double.infinity),
@@ -1528,19 +1586,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                       padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
                       child: PressableScale(
                         pressedScale: 0.98,
-                        onTap: () {
-                          _searchDebounce?.cancel();
-                          if (_searchCtl.text != tQuery) _searchCtl.text = tQuery;
-                          _setFilter((f) => f.copyWith(
-                                sort: tSort,
-                                countries: {...tCountry},
-                                cats: {...tCats},
-                                minRating: tMin,
-                                query: tQuery,
-                              ));
-                          ref.read(placesSearchProvider.notifier).state = tQuery;
-                          Navigator.of(sheetCtx).pop();
-                        },
+                        onTap: apply,
                         child: Container(
                           height: 52,
                           decoration: BoxDecoration(
@@ -1733,6 +1779,48 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
             final filtered = qq.isEmpty
                 ? sorted
                 : sorted.where((r) => searchMatches(r.searchBlob, qq)).toList();
+            // Akce sdílené starým i v2 vzhledem (kill-switch) — těla beze změny.
+            void onQuery(String v) {
+              deb?.cancel();
+              deb = Timer(
+                const Duration(milliseconds: 220),
+                () => setSheet(() => q = v),
+              );
+            }
+
+            void pickAll() {
+              _setFilter((f) => f.copyWith(clearRouteId: true));
+              Navigator.of(sheetCtx).pop();
+            }
+
+            void pick(RouteItem r) {
+              _setFilter((f) => f.copyWith(routeId: r.id));
+              Navigator.of(sheetCtx).pop();
+            }
+
+            if (MgV2.on(sheetCtx)) {
+              return RoutePickSheetV2(
+                query: qCtl,
+                onQuery: onQuery,
+                itemCount: filtered.length + 1,
+                emptyQuery: filtered.isEmpty && qq.isNotEmpty ? qq : null,
+                rowAt: (i) {
+                  // Počet u „Všechny trasy" = počet TRAS (viz níže).
+                  if (i == 0) {
+                    return (
+                      opt: RtOpt(t(sheetCtx).tr('poiAllRoutes'), _f.routeId == null, pickAll,
+                          icon: MgIcons.list),
+                      count: sorted.length,
+                    );
+                  }
+                  final r = filtered[i - 1];
+                  return (
+                    opt: RtOpt(r.nameFor(lang), _f.routeId == r.id, () => pick(r)),
+                    count: counts[r.id] ?? 0,
+                  );
+                },
+              );
+            }
             return SafeArea(
               top: false,
               child: Padding(
@@ -1775,13 +1863,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                                 controller: qCtl,
                                 // Debounce jako na hlavní obrazovce — bez něj se
                                 // celý seznam tras přestavoval na každé písmeno.
-                                onChanged: (v) {
-                                  deb?.cancel();
-                                  deb = Timer(
-                                    const Duration(milliseconds: 220),
-                                    () => setSheet(() => q = v),
-                                  );
-                                },
+                                onChanged: onQuery,
                                 decoration: InputDecoration(
                                   isDense: true,
                                   border: InputBorder.none,
@@ -1812,10 +1894,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             // to vypadalo, že tras je 45 000.
                             return _routePickTile(
                                 sheetCtx, Icons.apps, t(sheetCtx).tr('poiAllRoutes'),
-                                sorted.length, _f.routeId == null, () {
-                              _setFilter((f) => f.copyWith(clearRouteId: true));
-                              Navigator.of(sheetCtx).pop();
-                            });
+                                sorted.length, _f.routeId == null, pickAll);
                           }
                           final r = filtered[i - 1];
                           return _routePickTile(
@@ -1824,10 +1903,7 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
                             r.nameFor(lang),
                             counts[r.id] ?? 0,
                             _f.routeId == r.id,
-                            () {
-                              _setFilter((f) => f.copyWith(routeId: r.id));
-                              Navigator.of(sheetCtx).pop();
-                            },
+                            () => pick(r),
                           );
                         },
                       ),

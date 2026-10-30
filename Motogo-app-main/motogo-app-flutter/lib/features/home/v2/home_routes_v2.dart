@@ -11,7 +11,6 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_section.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../routes/routes_model.dart';
@@ -19,6 +18,7 @@ import '../../routes/routes_provider.dart';
 import 'home_sketch.dart';
 import 'home_ticket_parts.dart';
 import 'home_reveal.dart';
+import 'home_section_head.dart';
 
 const _dist = Distance();
 
@@ -46,11 +46,13 @@ class HomeRoutesV2 extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        MgSectionHeader(
+        // „Všechny trasy ›" vedle titulku, nebo (dlouhé slovo titulku by se
+        // dělilo) na vlastním řádku pod ním.
+        HomeSectionHead(
           eyebrow: tr.tr('v2HomeRoutesEyebrow'),
           title: tr.tr(origin == null ? 'v2HomeRoutesPopular' : 'v2HomeRoutesNear'),
-          trailingLabel: tr.tr('v2HomeRoutesAll'),
-          onTrailing: () {
+          link: tr.tr('v2HomeRoutesAll'),
+          onLink: () {
             // Trasy ukážou „‹ Domů" (V22 §6.2).
             v2SetTabOrigin(ref, const V2TabOrigin(tab: 3, route: Routes.home, labelKey: 'v2TabHome'));
             GoRouter.maybeOf(context)?.push(Routes.routesList);

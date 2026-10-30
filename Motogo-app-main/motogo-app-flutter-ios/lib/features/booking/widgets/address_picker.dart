@@ -1,12 +1,42 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/booking_address_carry.dart' show AddrQuick;
 import '../booking_ui_helpers.dart' show showAddrBottomSheet;
 import '../map_launcher.dart' show launchMapPicker;
 import '../price_calculator.dart' show PriceCalculator;
 import '../../../core/booking_form_locked_option.dart';
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+
+/// Jednořádková adresa (`bookings.pickup_address`, `return_address`) →
+/// (ulice, obec): obec = text za POSLEDNÍ čárkou, ulice = vše před ní —
+/// `'$ulice, $obec'` dá zpět původní text.
+(String, String) splitAddressLine(String? line) {
+  final s = (line ?? '').trim();
+  final i = s.lastIndexOf(',');
+  if (i < 0) return ('', s);
+  return (s.substring(0, i).trim(), s.substring(i + 1).trim());
+}
+
+/// Stejná adresa bez ohledu na velikost písmen, mezery a čárky.
+bool sameAddressLine(String? a, String? b) {
+  String n(String? s) => (s ?? '').toLowerCase().replaceAll(RegExp(r'[\s,]+'), ' ').trim();
+  return n(a).isNotEmpty && n(a) == n(b);
+}
+
+/// Data řádku adresy (zodpovězená sekce): [address] = zobrazená adresa
+/// (null = zatím nezadaná), [onTap] znovu otevře list adresy.
+class AddressRowData {
+  final String? address;
+  final VoidCallback onTap;
+  final double? distKm;
+  final double? fee;
+  const AddressRowData({required this.address, required this.onTap, this.distKm, this.fee});
+}
+
+/// Jiný vzhled řádku adresy (v2) — null = výchozí řádek.
+typedef AddressRowBuilder = Widget Function(BuildContext context, AddressRowData data);
 
 /// Address picker with geocoding.
 /// Delegates address entry to [showAddrBottomSheet] — the same modal used in
@@ -32,6 +62,22 @@ class AddressPickerWidget extends StatefulWidget {
   /// vidět zabalená s vysvětlením, vybrat nejde ([BookingLockedOptionTile]).
   final bool deliveryBlocked;
 
+  /// Adresa, kterou rezervace na téhle straně UŽ MÁ (jen strana na adrese;
+  /// 2026-10-22 „nic nevyplňovat dvakrát“): ukáže se jako vyplněná a
+  /// předvyplní list. Potvrzení stejné adresy hlásí rodiči přesně tenhle
+  /// text (= beze změny, žádný poplatek ani záznam v historii).
+  final String? initialAddress;
+
+  /// Adresa, kterou zákazník v téhle úpravě už zadal (stav rodiče) — po
+  /// znovusestavení widgetu se ukáže ona, ne [initialAddress].
+  final String? currentAddress;
+
+  /// Rychlé volby listu adresy (adresa druhé strany, adresa z profilu).
+  final List<AddrQuick> quick;
+
+  /// Vzhled řádku adresy (v2); null = výchozí řádek.
+  final AddressRowBuilder? rowBuilder;
+
   const AddressPickerWidget({
     super.key,
     required this.label,
@@ -42,6 +88,10 @@ class AddressPickerWidget extends StatefulWidget {
     required this.onDeliveryFeeChanged,
     this.branchLabel,
     this.deliveryBlocked = false,
+    this.initialAddress,
+    this.currentAddress,
+    this.quick = const [],
+    this.rowBuilder,
   });
 
   @override
@@ -56,15 +106,31 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
   double? _distanceKm;
   double? _deliveryFee;
 
+  // Vzdálenost / cena spočtená v listu — platí až s potvrzenou adresou
+  // (list zavřený bez potvrzení nemění cenu ani adresu).
+  double? _sheetKm, _sheetFee;
+
+  @override
+  void initState() {
+    super.initState();
+    _fill(widget.currentAddress ?? widget.initialAddress);
+  }
+
+  void _fill(String? line) {
+    final (street, city) = splitAddressLine(line);
+    _street = street;
+    _city = city;
+    _zip = '';
+    _lat = null;
+    _lng = null;
+  }
+
   @override
   void didUpdateWidget(AddressPickerWidget old) {
     super.didUpdateWidget(old);
     if (old.method == 'delivery' && widget.method != 'delivery') {
-      _street = '';
-      _city = '';
-      _zip = '';
-      _lat = null;
-      _lng = null;
+      // Rodič teď drží „beze změny“ → zpět na adresu rezervace (je-li).
+      _fill(widget.initialAddress);
       _distanceKm = null;
       _deliveryFee = null;
       // Defer parent setState — see note on "Restartujte aplikaci" crash fix.
@@ -80,41 +146,56 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
   String _deliveryTitle(BuildContext context) =>
       t(context).tr(widget.isPickup ? 'deliveryToAddress' : 'returnFromAddress');
 
+  void _onSaved(String city, String addr) {
+    final initial = widget.initialAddress;
+    // Stejná (nebo žádná) adresa jako v rezervaci = beze změny.
+    final unchanged = initial != null &&
+        (city.trim().isEmpty || sameAddressLine('$addr, $city', initial));
+    final km = _sheetKm, fee = _sheetFee;
+    setState(() {
+      if (unchanged) {
+        _fill(initial);
+        _distanceKm = null;
+        _deliveryFee = null;
+      } else {
+        _city = city;
+        _street = addr;
+        if (fee != null) {
+          _distanceKm = km;
+          _deliveryFee = fee;
+        }
+      }
+    });
+    if (fee != null) widget.onDeliveryFeeChanged(fee);
+    widget.onAddressChanged(unchanged
+        ? AddressResult(street: '', city: initial, zip: '')
+        : AddressResult(street: _street, city: _city, zip: _zip, lat: _lat, lng: _lng));
+  }
+
   void _openAddressSheet() {
+    _sheetKm = null;
+    _sheetFee = null;
     showAddrBottomSheet(
       context,
       _deliveryTitle(context),
       _city,
       _street,
-      (city, addr) {
-        setState(() {
-          _city = city;
-          _street = addr;
-        });
-        widget.onAddressChanged(AddressResult(
-            street: _street,
-            city: _city,
-            zip: _zip,
-            lat: _lat,
-            lng: _lng));
-      },
+      _onSaved,
       onDistCalc: (km, fee) {
-        if (!mounted) return;
-        setState(() {
-          _distanceKm = km;
-          _deliveryFee = fee;
-        });
-        widget.onDeliveryFeeChanged(fee);
+        _sheetKm = km;
+        _sheetFee = fee;
       },
       // The sheet fills itself from the map result and persists on confirm via
       // the onSave / onDistCalc callbacks above, so just hand back the result.
       onMapTap: (ctx) => launchMapPicker(ctx),
+      quick: widget.quick,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    final shown = _city.isNotEmpty ? '${_street.isNotEmpty ? '$_street, ' : ''}$_city' : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -144,6 +225,15 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
           ),
         if (!widget.deliveryBlocked && widget.method == 'delivery') ...[
           const SizedBox(height: 10),
+          if (widget.rowBuilder != null)
+            widget.rowBuilder!(
+                context,
+                AddressRowData(
+                    address: shown,
+                    onTap: _openAddressSheet,
+                    distKm: _distanceKm,
+                    fee: _deliveryFee))
+          else ...[
           GestureDetector(
             onTap: _openAddressSheet,
             child: Container(
@@ -157,13 +247,10 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
                     size: 16, color: Color(0xFF8AAB99)),
                 const SizedBox(width: 8),
                 Expanded(
-                    child: Text(
-                        _city.isNotEmpty
-                            ? '${_street.isNotEmpty ? '$_street, ' : ''}$_city'
-                            : tr.tr('clickEnterAddress'),
+                    child: Text(shown ?? tr.tr('clickEnterAddress'),
                         style: TextStyle(
                             fontSize: 12,
-                            color: _city.isNotEmpty
+                            color: shown != null
                                 ? const Color(0xFF0F1A14)
                                 : const Color(0xFF8AAB99)))),
                 const Icon(Icons.edit,
@@ -193,6 +280,7 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
                                   fontWeight: FontWeight.w700,
                                   color: MotoGoColors.greenDarker)),
                         ]))),
+          ],
         ],
       ],
     );
@@ -209,6 +297,36 @@ class _RadioOption extends StatelessWidget {
       required this.price,
       required this.selected,
       required this.onTap});
+
+  static const _labelStyle = TextStyle(
+      fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black);
+  static const _subStyle = TextStyle(fontSize: 10, color: MotoGoColors.g400);
+
+  /// Šířka [s] stylem [st] (s výchozím písmem a velikostí písma zařízení).
+  static double _w(BuildContext context, String s, TextStyle st) {
+    final tp = TextPainter(
+      text: TextSpan(text: s, style: DefaultTextStyle.of(context).style.merge(st)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    return tp.width;
+  }
+
+  /// Nejdelší slovo popisku / podtitulku — sloupec textu nesmí být užší
+  /// (jinak se slovo láme uprostřed: „Récupératio|n à votre adresse“).
+  double _longestWord(BuildContext context) {
+    var m = 0.0;
+    for (final (t, st) in [(label, _labelStyle), (sublabel, _subStyle)]) {
+      for (final w in t.split(RegExp(r'\s+'))) {
+        if (w.isEmpty) continue;
+        final ww = _w(context, w, st);
+        if (ww > m) m = ww;
+      }
+    }
+    return m;
+  }
+
   @override
   Widget build(BuildContext context) => GestureDetector(
       onTap: onTap,
@@ -220,7 +338,17 @@ class _RadioOption extends StatelessWidget {
               border: Border.all(
                   color: selected ? MotoGoColors.green : MotoGoColors.g200,
                   width: selected ? 2 : 1)),
-          child: Row(children: [
+          child: LayoutBuilder(builder: (context, c) {
+            final priceStyle = TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: selected
+                    ? MotoGoColors.greenDarker
+                    : MotoGoColors.g400);
+            // Cena vpravo jen když text vedle ní nezlomí slovo; jinak pod text.
+            final side = !c.hasBoundedWidth ||
+                c.maxWidth - 28 - _w(context, price, priceStyle) >= _longestWord(context);
+            return Row(children: [
             Container(
                 width: 18,
                 height: 18,
@@ -244,23 +372,13 @@ class _RadioOption extends StatelessWidget {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(label,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: MotoGoColors.black)),
-                  Text(sublabel,
-                      style: const TextStyle(
-                          fontSize: 10, color: MotoGoColors.g400)),
+                  Text(label, style: _labelStyle),
+                  Text(sublabel, style: _subStyle),
+                  if (!side) Text(price, style: priceStyle),
                 ])),
-            Text(price,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: selected
-                        ? MotoGoColors.greenDarker
-                        : MotoGoColors.g400)),
-          ])));
+            if (side) Text(price, style: priceStyle),
+          ]);
+          })));
 }
 
 class AddressResult {

@@ -272,7 +272,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           // v2 list: full width + ellipsis (fr / uk sort labels are long).
           isExpanded: widget.embedded,
           dropdownColor: Colors.white,
-          style: const TextStyle(fontSize: 12, color: MotoGoColors.black),
+          style: _ddStyle(context, const TextStyle(fontSize: 12, color: MotoGoColors.black)),
           items: [
             for (final o in const [
               ('default', 'homeFilterSortDefault'),
@@ -409,7 +409,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                   )),
                 ],
               ),
-              style: const TextStyle(fontSize: 14, color: MotoGoColors.black),
+              style: _ddStyle(context, const TextStyle(fontSize: 14, color: MotoGoColors.black)),
               items: [
                 DropdownMenuItem(
                   value: null,
@@ -491,6 +491,14 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           ),
       ],
     );
+  }
+
+  /// `DropdownButton.style` NAHRAZUJE zděděný styl (bez rodiny písma by
+  /// v2 list kreslil Roboto místo Montserratu); starý vzhled beze změny.
+  TextStyle _ddStyle(BuildContext context, TextStyle base) {
+    if (!widget.embedded) return base;
+    final f = Theme.of(context).textTheme.bodyMedium ?? DefaultTextStyle.of(context).style;
+    return base.copyWith(fontFamily: f.fontFamily, fontFamilyFallback: f.fontFamilyFallback);
   }
 
   /// Ve v2 listu (embedded) se dlouhý popisek pobočky zalomí do „…"

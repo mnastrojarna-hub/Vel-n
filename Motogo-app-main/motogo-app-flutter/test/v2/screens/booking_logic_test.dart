@@ -75,7 +75,8 @@ Future<ProviderContainer> _pumpRouted(WidgetTester tester, List<Override> overri
 }
 
 Future<void> _tap(WidgetTester t, Finder f) async {
-  await t.ensureVisible(f);
+  // Mid-viewport: at the top edge it would sit under the pinned back bar.
+  await Scrollable.ensureVisible(t.element(f), alignment: 0.4);
   await t.pump();
   await t.tap(f, warnIfMissed: false);
   await t.pump();

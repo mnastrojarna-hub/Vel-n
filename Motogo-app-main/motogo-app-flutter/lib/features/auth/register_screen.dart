@@ -8,14 +8,19 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/date_dropdown_field.dart';
 import 'auth_error_mapper.dart';
 import 'auth_provider.dart';
+import 'widgets/register_name_row.dart';
 import 'widgets/toast_helper.dart';
 import '../../core/widgets/mg_back.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/widgets/error_feedback.dart' show confirmDiscard;
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// 3-step registration — mirrors auth-register.js (regStep 1/2/3).
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  /// E-mail napsaný na přihlášení (`/register?email=…`) — nepíše se znovu.
+  final String? initialEmail;
+  const RegisterScreen({super.key, this.initialEmail});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -55,10 +60,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   /// Krok 1 má vyplněné údaje → odchod z registrace jen po potvrzení
   /// (systémové zpět / swipe / šipka by je jinak potichu zahodily).
+  /// Převzatý e-mail z přihlášení není „rozepsaný“ údaj (zůstává i tam).
   bool get _dirty =>
       _step > 1 ||
-      [_fnameCtrl, _lnameCtrl, _emailCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]
+      [_fnameCtrl, _lnameCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]
           .any((c) => c.text.trim().isNotEmpty) ||
+      _emailCtrl.text.trim() != (widget.initialEmail?.trim() ?? '') ||
       _phoneCtrl.text.replaceAll(' ', '') != '+420';
   bool _wasDirty = false;
 
@@ -70,6 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    _emailCtrl.text = widget.initialEmail?.trim() ?? '';
     for (final c in [_fnameCtrl, _lnameCtrl, _emailCtrl, _phoneCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]) {
       c.addListener(_onFieldChanged);
     }
@@ -130,7 +138,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.go(Routes.login);
+              // E-mail jde s sebou — na přihlášení se nepíše znovu.
+              final e = _emailCtrl.text.trim();
+              context.go(e.isEmpty
+                  ? Routes.login
+                  : Uri(path: Routes.login, queryParameters: {'email': e}).toString());
             },
             child: Text(t(context).login,
                 style: const TextStyle(
@@ -396,7 +408,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildScaffold(BuildContext context) {
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: Column(
           children: [
@@ -405,7 +417,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  MgBackTap(
+                  mgV1Back(context, onTap: _back, style: MgBackStyle.light, v1: MgBackTap(
                     onTap: _back,
                     child: PressableScale(
                       pressedScale: 0.88,
@@ -430,13 +442,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     ),
-                  ),
+                  )),
                   const SizedBox(width: 10),
-                  Text(
-                    t(context).tr('registerTitle'),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        t(context).tr('registerTitle'),
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                      ),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   // „Krok X/3" — jasná orientace v průvodci.
                   Text('${_step}/3',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: MotoGoColors.greenDark)),
@@ -561,12 +580,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 2),
       Text(t(context).tr('regStep1Subtitle'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
       const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(child: TextField(controller: _fnameCtrl, decoration: InputDecoration(labelText: t(context).tr('firstName')), autofillHints: const [AutofillHints.givenName])),
-          const SizedBox(width: 9),
-          Expanded(child: TextField(controller: _lnameCtrl, decoration: InputDecoration(labelText: t(context).tr('lastName')), autofillHints: const [AutofillHints.familyName])),
-        ],
+      RegisterNameRow(
+        labels: [t(context).tr('firstName'), t(context).tr('lastName')],
+        first: TextField(controller: _fnameCtrl, decoration: InputDecoration(labelText: t(context).tr('firstName')), autofillHints: const [AutofillHints.givenName]),
+        last: TextField(controller: _lnameCtrl, decoration: InputDecoration(labelText: t(context).tr('lastName')), autofillHints: const [AutofillHints.familyName]),
       ),
       const SizedBox(height: 9),
       TextField(controller: _emailCtrl, decoration: InputDecoration(labelText: t(context).email), keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email]),

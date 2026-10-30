@@ -174,19 +174,21 @@ class BookingFormExtrasSection extends ConsumerWidget {
             final needSize =
                 sel && item.sizes.isNotEmpty && selExtra?.size == null;
             return GestureDetector(
+              // Zvolená výbava s velikostmi → její list + „Odebrat“ (2026-10-22).
               onTap: () {
-                if (sel) {
+                if (sel && !isSpolujezdec && item.sizes.isEmpty) {
                   final ne = List<SelectedExtra>.from(draft.extras);
                   ne.removeWhere((e) => e.id == item.id);
                   onUpd((d) => d.copyWith(extras: ne));
                 } else if (isSpolujezdec) {
                   showPassengerGearSheet(context, item, ref,
                       (ne) => onUpd((d) => d.copyWith(extras: ne)),
-                      selfService: selfService);
+                      selfService: selfService, current: selExtra);
                 } else if (item.sizes.isNotEmpty) {
                   showSizeDialog(context, item, ref,
                       (ne) => onUpd((d) => d.copyWith(extras: ne)),
-                      sizesOverride: gearSizesFor('boots', kids: isKids, selfService: selfService));
+                      sizesOverride: gearSizesFor('boots', kids: isKids, selfService: selfService),
+                      current: selExtra);
                 } else {
                   final ne = List<SelectedExtra>.from(draft.extras);
                   ne.add(SelectedExtra(
@@ -248,7 +250,7 @@ class BookingFormExtrasSection extends ConsumerWidget {
                         ),
                         Text(
                           sel && selExtra?.size != null
-                              ? '${t(context).tr('sizeLabel')}: ${selExtra!.size}'
+                              ? '${t(context).tr('sizeLabel')}: ${extraSizeLabel(t(context).tr, selExtra!.size!)}'
                               : needSize
                                   ? '⚠ ${t(context).tr('clickSelectSize')}'
                                   : extraDescription(t(context).tr, item.id, item.description) ?? '',

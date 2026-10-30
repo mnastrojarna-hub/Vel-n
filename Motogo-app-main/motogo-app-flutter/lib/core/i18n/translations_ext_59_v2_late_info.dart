@@ -1,0 +1,78 @@
+/// v2 vzhled — vyzvednutí od 12:00 jako INFORMACE (majitel 2026-10-22):
+/// před formulářem rezervace žádná volba času, jen konkrétní úspora;
+/// čas se volí jen ve formuláři (tam ½ řádek s konkrétní slevou).
+/// Jen klíče `v2…` (kalkulačka, Domů, formulář rezervace).
+const Map<String, Map<String, String>> translationsExt59V2LateInfo = {
+  'cs': {
+    'v2LpCalcHandover': 'Čas a místo vyzvednutí, výbavu i velikosti zvolíš až v rezervaci. Při vyzvednutí od 12:00 máš 1.\u00a0den za polovinu (výpůjčka na 2 a více dní).',
+    'v2LpCalcTitle': 'Vyzvednutí od 12:00 = 1.\u00a0den za polovinu',
+    'v2LpCalcSave': 'Ušetříš {amount} a zaplatíš {total}. Čas vyzvednutí zvolíš v rezervaci.',
+    'v2LpHomeSave': '{bike}: při vyzvednutí od 12:00 ušetříš {amount}. Čas zvolíš v rezervaci.',
+    'v2LpFormSave': 'Při vyzvednutí od 12:00 máš 1.\u00a0den za polovinu: sleva {amount}.',
+    'v2LpFormOn': 'Vyzvedáváš od 12:00: 1.\u00a0den máš za polovinu, sleva {amount}.',
+    'v2LpSsHint': 'Na samoobslužné pobočce volíš jen čas vyzvednutí — motorku vrátíš kdykoli poslední den do 24:00. Se slevou za vyzvednutí od 12:00 ti kiosk motorku vydá až od 12:00.',
+  },
+  'en': {
+    'v2LpCalcHandover': 'You choose the pickup time and place, gear and sizes in the booking. Pick up from 12:00 and the 1st day is half price (rentals of 2+ days).',
+    'v2LpCalcTitle': 'Pickup from 12:00 = 1st day half price',
+    'v2LpCalcSave': 'You save {amount} and pay {total}. You choose the pickup time in the booking.',
+    'v2LpHomeSave': '{bike}: pick up from 12:00 and save {amount}. You choose the time in the booking.',
+    'v2LpFormSave': 'Pick up from 12:00 and the 1st day is half price: {amount} off.',
+    'v2LpFormOn': 'Pickup from 12:00: the 1st day is half price, {amount} off.',
+    'v2LpSsHint': 'At a self-service branch you only choose the pickup time — you can return the bike any time on the last day until 24:00. With the 12:00 pickup discount, the kiosk releases the bike only from 12:00.',
+  },
+  'de': {
+    'v2LpCalcHandover': 'Abholzeit und -ort, Ausrüstung und Größen wählst du erst bei der Buchung. Holst du ab 12:00 ab, kostet der 1.\u00a0Tag nur die Hälfte (Miete ab 2 Tagen).',
+    'v2LpCalcTitle': 'Abholung ab 12:00 = 1.\u00a0Tag zum halben Preis',
+    'v2LpCalcSave': 'Du sparst {amount} und zahlst {total}. Die Abholzeit wählst du bei der Buchung.',
+    'v2LpHomeSave': '{bike}: Bei Abholung ab 12:00 sparst du {amount}. Die Zeit wählst du bei der Buchung.',
+    'v2LpFormSave': 'Holst du ab 12:00 ab, kostet der 1.\u00a0Tag nur die Hälfte: {amount} Rabatt.',
+    'v2LpFormOn': 'Abholung ab 12:00: Der 1.\u00a0Tag kostet nur die Hälfte, {amount} Rabatt.',
+    'v2LpSsHint': 'In einer Selbstbedienungs-Filiale wählst du nur die Abholzeit — das Motorrad gibst du am letzten Tag jederzeit bis 24:00 zurück. Mit dem Rabatt für die Abholung ab 12:00 gibt dir der Kiosk das Motorrad erst ab 12:00 heraus.',
+  },
+  'es': {
+    'v2LpCalcHandover': 'La hora y el lugar de recogida, el equipo y las tallas los eliges en la reserva. Si recoges desde las 12:00, el 1.er día te sale a mitad de precio (alquileres de 2 días o más).',
+    'v2LpCalcTitle': 'Recogida desde las 12:00 = 1.er día a mitad de precio',
+    'v2LpCalcSave': 'Ahorras {amount} y pagas {total}. La hora de recogida la eliges en la reserva.',
+    'v2LpHomeSave': '{bike}: si recoges desde las 12:00, ahorras {amount}. La hora la eliges en la reserva.',
+    'v2LpFormSave': 'Si recoges desde las 12:00, el 1.er día te sale a mitad de precio: {amount} de descuento.',
+    'v2LpFormOn': 'Recogida desde las 12:00: el 1.er día a mitad de precio, {amount} de descuento.',
+    'v2LpSsHint': 'En una sucursal de autoservicio solo eliges la hora de recogida: la moto la devuelves cuando quieras el último día hasta las 24:00. Con el descuento por recogida desde las 12:00, el quiosco te entrega la moto solo a partir de las 12:00.',
+  },
+  'fr': {
+    'v2LpCalcHandover': 'Tu choisis l’heure et le lieu de retrait, l’équipement et les tailles dans la réservation. Avec un retrait dès 12 h, le 1er jour est à moitié prix (location de 2 jours ou plus).',
+    'v2LpCalcTitle': 'Retrait dès 12 h = 1er jour à moitié prix',
+    'v2LpCalcSave': 'Tu économises {amount} et tu paies {total}. Tu choisis l’heure de retrait dans la réservation.',
+    'v2LpHomeSave': '{bike} : avec un retrait dès 12 h, tu économises {amount}. Tu choisis l’heure dans la réservation.',
+    'v2LpFormSave': 'Avec un retrait à partir de 12:00, le 1er jour est à moitié prix : {amount} de remise.',
+    'v2LpFormOn': 'Retrait à partir de 12:00 : le 1er jour est à moitié prix, {amount} de remise.',
+    'v2LpSsHint': 'Dans une agence en libre-service, tu choisis seulement l’heure de retrait — tu rends la moto quand tu veux le dernier jour jusqu’à 24:00. Avec la remise pour un retrait à partir de 12:00, la borne ne te remet la moto qu’à partir de 12:00.',
+  },
+  'nl': {
+    'v2LpCalcHandover': 'Ophaaltijd en -plek, uitrusting en maten kies je pas bij de boeking. Haal je vanaf 12:00 op, dan betaal je de 1e dag maar de helft (huur van 2 dagen of langer).',
+    'v2LpCalcTitle': 'Ophalen vanaf 12:00 = 1e dag halve prijs',
+    'v2LpCalcSave': 'Je bespaart {amount} en betaalt {total}. De ophaaltijd kies je bij de boeking.',
+    'v2LpHomeSave': '{bike}: haal je vanaf 12:00 op, dan bespaar je {amount}. De tijd kies je bij de boeking.',
+    'v2LpFormSave': 'Haal je vanaf 12:00 op, dan betaal je de 1e dag maar de helft: {amount} korting.',
+    'v2LpFormOn': 'Ophalen vanaf 12:00: je betaalt de 1e dag maar de helft, {amount} korting.',
+    'v2LpSsHint': 'Bij een selfservicevestiging kies je alleen de ophaaltijd — de motor breng je op de laatste dag op elk moment tot 24:00 terug. Met de korting voor ophalen vanaf 12:00 geeft de kiosk je de motor pas vanaf 12:00 mee.',
+  },
+  'pl': {
+    'v2LpCalcHandover': 'Godzinę i miejsce odbioru, wyposażenie i rozmiary wybierzesz dopiero w rezerwacji. Przy odbiorze od 12:00 1.\u00a0dzień masz za pół ceny (wynajem na 2 dni lub dłużej).',
+    'v2LpCalcTitle': 'Odbiór od 12:00 = 1.\u00a0dzień za pół ceny',
+    'v2LpCalcSave': 'Oszczędzasz {amount} i płacisz {total}. Godzinę odbioru wybierzesz w rezerwacji.',
+    'v2LpHomeSave': '{bike}: przy odbiorze od 12:00 oszczędzasz {amount}. Godzinę wybierzesz w rezerwacji.',
+    'v2LpFormSave': 'Przy odbiorze od 12:00 1.\u00a0dzień masz za pół ceny: {amount} zniżki.',
+    'v2LpFormOn': 'Odbiór od 12:00: 1.\u00a0dzień masz za pół ceny, {amount} zniżki.',
+    'v2LpSsHint': 'W oddziale samoobsługowym wybierasz tylko godzinę odbioru — motocykl zwracasz w dowolnym momencie ostatniego dnia do 24:00. Ze zniżką za odbiór od 12:00 kiosk wyda ci motocykl dopiero od 12:00.',
+  },
+  'uk': {
+    'v2LpCalcHandover': 'Час і місце отримання, спорядження та розміри ти обереш у бронюванні. Якщо забереш мотоцикл з 12:00, перший день коштує половину (оренда від 2 днів).',
+    'v2LpCalcTitle': 'Отримання з 12:00 = перший день за пів ціни',
+    'v2LpCalcSave': 'Заощадиш {amount} і заплатиш {total}. Час отримання обереш у бронюванні.',
+    'v2LpHomeSave': '{bike}: з отриманням з 12:00 заощадиш {amount}. Час обереш у бронюванні.',
+    'v2LpFormSave': 'Якщо забереш з 12:00, перший день коштує половину: знижка {amount}.',
+    'v2LpFormOn': 'Отримання з 12:00: перший день коштує половину, знижка {amount}.',
+    'v2LpSsHint': 'На філії самообслуговування ти обираєш лише час отримання — мотоцикл повернеш будь-коли в останній день до 24:00. Зі знижкою за отримання з 12:00 кіоск видасть тобі мотоцикл лише з 12:00.',
+  },
+};

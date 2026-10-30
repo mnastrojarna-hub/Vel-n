@@ -8,6 +8,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../community_submit.dart';
 import 'places_parts_v2.dart';
 import 'record_dock_v2.dart';
@@ -71,7 +72,12 @@ class RoutesBandV2 extends StatelessWidget {
             child: Column(children: [
               Text('$v+', style: MgType.tab(MgType.h3.copyWith(color: MgColors.ink))),
               const SizedBox(height: 2),
-              Text(label, textAlign: TextAlign.center, style: MgType.meta.copyWith(color: MgColors.meta)),
+              // Dlouhé slovo („Sehenswürdigkeiten") se zmenší, nerozdělí.
+              MgWordFit(
+                minScale: 0.7,
+                alignment: Alignment.center,
+                child: Text(label, textAlign: TextAlign.center, style: MgType.meta.copyWith(color: MgColors.meta)),
+              ),
             ]),
           ),
         );

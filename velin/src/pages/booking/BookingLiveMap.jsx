@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import TrasyJizdaMapa from '../TrasyJizdaMapa'
 import { trackQuality, fmtGap } from '../../lib/rideTrack'
+import { rideRecState, rideCoreStats, rideAutoCloseHint, rentalHoldsRide, fmtSince } from '../../lib/rideStats'
+import { RideStatTiles, RideAwaitBox, confirmRideEnd } from '../TrasyJizdaStav'
 import { useMediaQuery } from '../../hooks/useIsMobile'
 
 // Detail rezervace → „Mapa a poloha": kde zákazník právě je a kudy dosud jel.
@@ -12,7 +14,14 @@ import { useMediaQuery } from '../../hooks/useIsMobile'
 //
 // Poloha chodí z appky po dávkách (nejpozději po ~90 s), takže „živá" =
 // poslední fix mladší 15 minut. Když je starší, ukážeme kdy naposledy —
-// nikdy netvrdíme, že zákazník je tam, kde byl před hodinou.
+// nikdy netvrdíme, že zákazník je tam, kde byl před hodinou. Nová appka
+// při stání (oběd, noc) nic neposílá — to je „Stojí od …" (poloha = kde
+// motorka zastavila), ne „Záznam visí"; ten až podle pravidel rideRecState.
+// Výpůjčku nové appky server tichem neuzavírá (jen jejím koncem), takže
+// dokud rezervace běží, stojící motorka nikdy „nevisí" (ani po týdnu).
+// Vrácená výpůjčka s jízdou pod 1 km „čeká na data z telefonu" (server ji
+// drží 7 dní po vrácení kvůli bodům z telefonu bez internetu) — ukončení by
+// ji smazalo, proto ne „visí" a „Ukončit" jen po varování (`confirmRideEnd`).
 //
 // user_rides NENÍ v supabase_realtime publikaci (a tahat celý `track`
 // realtimem by ani nedávalo smysl), takže se dotazujeme pollingem.
@@ -23,10 +32,6 @@ const POLL_IDLE_MS = 90000 // dojeté / nic neběží → jen občas
 const fmtTime = (v) => v
   ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' })
   : '—'
-const fmtDur = (min) => min == null ? '—'
-  : (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`)
-const fmtSec = (sec) => !sec ? '—' : fmtDur(Math.round(sec / 60))
-const fmtSpeed = (v) => v == null || Number(v) <= 0 ? '—' : `${Math.round(Number(v))} km/h`
 
 const REASONS = {
   no_app: {
@@ -169,8 +174,23 @@ export default function BookingLiveMap({ bookingId, booking }) {
   const ageSec = Number(data.age_sec || 0)
   const isLive = !!data.is_live
   const recording = !!data.is_recording
-  // „Visí" = pořád se tváří jako nahrávané, ale hodiny nic nepřišlo.
-  const stuck = recording && ageSec > 3 * 3600
+  // Jízda k rezervaci = výpůjčka (RPC booking_id nevrací, pravidla „visí" ho potřebují).
+  // RPC km zaokrouhluje na 0,1 → „1.0" může být 0,95 km (uzavření = smazání): radši opatrně.
+  const ride = { ...data, booking_id: bookingId, distance_lt1: Number(data.distance_km || 0) < 1.05 }
+  // Stav rezervace: RPC (čerstvý při každém dotazu) + vrácení/konec z detailu rezervace.
+  const bk = {
+    status: data.booking_status || booking?.status, booking_kind: booking?.booking_kind,
+    returned_at: booking?.returned_at, end_date: booking?.end_date,
+  }
+  const rental = rentalHoldsRide(bk)
+  const recState = rideRecState(ride, Date.now(), rental, bk)
+  // „Visí" = pořád se tváří jako nahrávané, ale bez bodu déle, než dává smysl.
+  const stuck = recState === 'stuck'
+  // „Čeká na data" = vrácená výpůjčka pod 1 km, server čeká na body z telefonu bez internetu.
+  const awaiting = recState === 'awaiting'
+  // „Stojí" = nahrává se, ale motorka stojí (server `is_standing`, jinak 15+ min bez bodu).
+  const standing = recording && !isLive && !stuck && !awaiting && (data.is_standing === true || recState === 'standing')
+  const since = fmtSince(data.last_fix_at)
 
   const badge = (bg, color, text) => (
     <span className="text-[10px] max-lg:text-[11px] font-extrabold uppercase rounded-btn"
@@ -185,7 +205,9 @@ export default function BookingLiveMap({ bookingId, booking }) {
             📍 Poloha zákazníka
           </h3>
           {isLive && badge('#dcfce7', '#15803d', '● Živě')}
-          {recording && !isLive && badge('#fef3c7', '#b45309', `Poslední signál před ${fmtGap(ageSec)}`)}
+          {standing && badge('#e2e8f0', '#334155', `⏸ Stojí od ${since}`)}
+          {stuck && badge('#fef3c7', '#b45309', `Poslední signál před ${fmtGap(ageSec)}`)}
+          {awaiting && badge('#fef3c7', '#92400e', '⏳ Čeká na data z telefonu')}
           {!recording && badge('#f1f5f9', '#475569', 'Jízda dojetá')}
           {stuck && badge('#fee2e2', '#dc2626', 'Záznam visí')}
           <span className="ml-auto text-xs" style={{ color: '#6b8f7b' }}>
@@ -196,19 +218,27 @@ export default function BookingLiveMap({ bookingId, booking }) {
         <p className="text-sm mb-3" style={{ color: '#4a6357' }}>
           {isLive
             ? `Poslední GPS bod dorazil před ${fmtGap(ageSec)} (${fmtTime(data.last_fix_at)}). Appka posílá polohu po dávkách, takže menší zpoždění je normální.`
-            : recording
-              ? `Záznam pořád běží, ale poslední GPS bod je z ${fmtTime(data.last_fix_at)}. Zákazník má nejspíš vypnutý telefon nebo je bez signálu — značka na mapě ukazuje, kde byl naposledy.`
-              : `Jízda je ukončená (${fmtTime(data.ended_at)}). Na mapě je celá projetá trasa.`}
+            : standing && data.pause_aware
+              ? `Motorka stojí od ${since} — appka nahrává jen při jízdě; poloha je místo, kde zastavila. Při rozjezdu záznam pokračuje sám.`
+              : awaiting
+                ? `Motorka je vrácená. Záznam má na serveru zatím jen ${Number(data.distance_km || 0).toFixed(1)} km — telefon byl nejspíš bez internetu a zbytek jízdy pošle, až se připojí; server na něj čeká (viz níže). Značka ukazuje poslední známou polohu (${fmtTime(data.last_fix_at)}).`
+              : standing
+                ? `Záznam běží, poslední GPS bod je z ${fmtTime(data.last_fix_at)}. Motorka nejspíš stojí (starší appka při stání body neposílá), případně je telefon vypnutý nebo bez signálu — značka ukazuje, kde byl naposledy.`
+                : recording
+                  ? `Záznam pořád běží, ale poslední GPS bod je z ${fmtTime(data.last_fix_at)}. Zákazník má nejspíš vypnutý telefon nebo je bez signálu — značka na mapě ukazuje, kde byl naposledy.`
+                  : `Jízda je ukončená (${fmtTime(data.ended_at)}). Na mapě je celá projetá trasa.`}
         </p>
 
         <TrasyJizdaMapa
           track={data.track || []}
           points={[]}
           live={{
-            lat: data.lat, lng: data.lng, isLive,
+            lat: data.lat, lng: data.lng, isLive, paused: standing,
             label: isLive
               ? 'Aktuální poloha zákazníka'
-              : `Naposledy viděn ${fmtTime(data.last_fix_at)}`,
+              : standing
+                ? `Motorka stojí od ${since}`
+                : `Naposledy viděn ${fmtTime(data.last_fix_at)}`,
           }}
           fitKey={data.ride_id}
           height={lowScreen ? 260 : 420}
@@ -217,28 +247,12 @@ export default function BookingLiveMap({ bookingId, booking }) {
 
       <div className="rounded-card" style={card}>
         {/* Telefon (< 640 px): dlaždice po dvou (při min. 150 px vycházel jen 1 sloupec) */}
-        <div className="grid gap-2 max-sm:!grid-cols-[repeat(auto-fit,minmax(130px,1fr))]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-          {[
-            ['📏', 'Ujeto', `${Number(data.distance_km || 0).toFixed(1)} km`],
-            ['⏱️', 'Celkový čas', fmtDur(data.duration_min)],
-            ['🏍️', 'Čas jízdy', fmtSec(data.moving_sec)],
-            ['⏸️', 'Čas stání', fmtSec(data.idle_sec)],
-            ['📵', 'Bez signálu', data.gap_sec ? fmtGap(data.gap_sec) : '—'],
-            ['📊', 'Ø rychlost', fmtSpeed(data.avg_speed_kmh)],
-            ['🚀', 'Max. rychlost', fmtSpeed(data.max_speed_kmh)],
-            ['🛰️', 'Bodů stopy', String(q.points)],
-            ['🚦', 'Start jízdy', fmtTime(data.started_at)],
-            ['🛵', 'Motorka', data.moto_name || '—'],
-          ].map(([emoji, label, value]) => (
-            <div key={label} className="rounded-card"
-              style={{ background: '#f1faf7', border: '1px solid #d4e8e0', padding: '8px 10px' }}>
-              <div className="text-[10px] max-lg:text-[11px] font-extrabold uppercase" style={{ color: '#6b8f7b' }}>
-                {emoji} {label}
-              </div>
-              <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{value}</div>
-            </div>
-          ))}
-        </div>
+        <RideStatTiles className="max-sm:!grid-cols-[repeat(auto-fit,minmax(130px,1fr))]" cells={[
+          ...rideCoreStats(ride, { pauseCount: q.pauses }),
+          ['🛰️', 'Bodů stopy', String(q.points)],
+          ['🚦', 'Start jízdy', fmtTime(data.started_at)],
+          ['🛵', 'Motorka', data.moto_name || '—'],
+        ]} />
 
         {q.sparse && (
           <p className="text-xs mt-3 rounded-card" style={{
@@ -259,9 +273,9 @@ export default function BookingLiveMap({ bookingId, booking }) {
             <p className="text-xs mb-2" style={{ color: '#991b1b' }}>
               Záznam se pořád tváří jako běžící, ale {fmtGap(ageSec)} nepřišel
               žádný GPS bod. Dokud visí, nemůže zákazníkovi vzniknout další
-              jízda. (Server ho uklidí sám do tří hodin — tímhle to jde hned.)
+              jízda. (Server ho uklidí sám {rideAutoCloseHint(ride, rental, bk)} — tímhle to jde hned.)
             </p>
-            <button onClick={closeStuck} disabled={closing}
+            <button onClick={() => { if (confirmRideEnd(ride, 'stuck')) closeStuck() }} disabled={closing}
               className="rounded-btn text-xs font-extrabold cursor-pointer max-lg:min-h-[40px]"
               style={{
                 padding: '6px 12px', border: 'none', background: '#dc2626',
@@ -269,6 +283,12 @@ export default function BookingLiveMap({ bookingId, booking }) {
               }}>
               {closing ? 'Ukončuji…' : 'Ukončit záznam'}
             </button>
+          </div>
+        )}
+
+        {awaiting && (
+          <div className="mt-3">
+            <RideAwaitBox ride={ride} booking={bk} closing={closing} onEnd={closeStuck} />
           </div>
         )}
 

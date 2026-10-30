@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/chrome/mg_page.dart';
+import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../booking/booking_quote.dart';
@@ -18,9 +20,10 @@ import 'detail_trip_card_v2.dart';
 /// — `_MotoDetailPageState` keeps the photo index / pager controller, the
 /// selected dates, the calendar expansion, the booked-dates watch and the
 /// REZERVOVAT action (PM-3) and hands values + its own callbacks in here.
-/// The only thing derived here is the display price ([quoteFor] = the
-/// booking form's own calculation for a fresh draft).
-class MotoDetailV2View extends ConsumerWidget {
+/// The only things derived here are the display prices ([quoteFor] = the
+/// booking form's own calculation for a fresh draft; the 12:00 variant is
+/// information only) and the scroll to the date step ("VYBRAT TERMÍN").
+class MotoDetailV2View extends ConsumerStatefulWidget {
   final Motorcycle moto;
   final List<String> images;
   final String branchInfo;
@@ -43,7 +46,14 @@ class MotoDetailV2View extends ConsumerWidget {
   final VoidCallback onReset;
   final AsyncValue<List<BookedDateRange>> bookedAsync;
 
-  /// The page's CTA action; null = `canProceed` false (no start date).
+  /// The chosen days hit a booked day (carried dates): warning, CTA off.
+  final bool busy;
+
+  /// Opens the date step's calendar (the page's own expand action).
+  final VoidCallback onPickDates;
+
+  /// The page's CTA action; null = `canProceed` false (no start date) or
+  /// [busy].
   final VoidCallback? onReserve;
 
   const MotoDetailV2View({
@@ -68,25 +78,54 @@ class MotoDetailV2View extends ConsumerWidget {
     required this.onReset,
     required this.bookedAsync,
     required this.onReserve,
+    required this.onPickDates,
+    this.busy = false,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MotoDetailV2View> createState() => _MotoDetailV2ViewState();
+}
+
+class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
+  final GlobalKey _tripKey = GlobalKey();
+
+  /// Dock "VYBRAT TERMÍN": open the calendar, then bring "Tvoje jízda" up.
+  void _pickDates() {
+    widget.onPickDates();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = _tripKey.currentContext;
+      if (c == null || !mounted) return;
+      Scrollable.ensureVisible(c,
+          duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: MgPinnedBack.revealAlignment(c));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = widget;
+    final moto = w.moto;
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
-    final q = hasDates && moto.prices != null ? quoteFor(moto, selStart!, selEnd!, loyalty: loyalty) : null;
+    final dated = w.hasDates && moto.prices != null;
+    final q = dated ? quoteFor(moto, w.selStart!, w.selEnd!, loyalty: loyalty) : null;
+    final q12 = dated && w.dayCount >= 2 ? quoteFor(moto, w.selStart!, w.selEnd!, pickupTime: '12:00', loyalty: loyalty) : null;
+    final cheapest = moto.prices?.cheapest ?? 0;
+    final from = cheapest > 0
+        ? t(context).trArgs('v2CatGridFrom', {'amount': catMoney(catFromPerDay(moto, loyalty?.percent ?? 0))})
+        : null;
     final heroH = (MediaQuery.sizeOf(context).height * 0.6).clamp(340.0, 560.0);
     return MgPage(
       background: MgColors.surface,
-      pinnedBack: onBack,
+      pinnedBack: w.onBack,
+      pinnedTitle: moto.model,
       header: DetailHeroV2(
         moto: moto,
-        images: images,
-        branchInfo: branchInfo,
-        imageIndex: imageIndex,
-        pageCtrl: pageCtrl,
-        onImageChanged: onImageChanged,
-        onOpenGallery: onOpenGallery,
-        onBack: onBack,
+        images: w.images,
+        branchInfo: w.branchInfo,
+        imageIndex: w.imageIndex,
+        pageCtrl: w.pageCtrl,
+        onImageChanged: w.onImageChanged,
+        onOpenGallery: w.onOpenGallery,
+        onBack: w.onBack,
         height: heroH,
       ),
       sections: [
@@ -109,30 +148,36 @@ class MotoDetailV2View extends ConsumerWidget {
             DetailKeyTilesV2(moto: moto),
             const SizedBox(height: 16),
             DetailTripCardV2(
+              key: _tripKey,
               moto: moto,
-              selStart: selStart,
-              selEnd: selEnd,
-              hasDates: hasDates,
-              dayCount: dayCount,
-              listTotal: totalPrice,
+              selStart: w.selStart,
+              selEnd: w.selEnd,
+              hasDates: w.hasDates,
+              dayCount: w.dayCount,
+              listTotal: w.totalPrice,
               quote: q,
-              calendarExpanded: calendarExpanded,
-              onToggleCalendar: onToggleCalendar,
-              onRangeSelected: onRangeSelected,
-              onStartSelected: onStartSelected,
-              onReset: onReset,
-              bookedAsync: bookedAsync,
+              quote12: q12,
+              busy: w.busy,
+              calendarExpanded: w.calendarExpanded,
+              onToggleCalendar: w.onToggleCalendar,
+              onRangeSelected: w.onRangeSelected,
+              onStartSelected: w.onStartSelected,
+              onReset: w.onReset,
+              bookedAsync: w.bookedAsync,
             ),
-            DetailMoreV2(moto: moto, branchInfo: branchInfo),
+            DetailMoreV2(moto: moto, branchInfo: w.branchInfo),
           ]),
         ),
       ],
       dock: DetailDockV2(
-        selStart: selStart,
-        selEnd: selEnd,
-        dayCount: dayCount,
-        price: q != null && q.total > 0 ? catMoney(q.total) : null,
-        onReserve: onReserve,
+        selStart: w.selStart,
+        selEnd: w.selEnd,
+        dayCount: w.dayCount,
+        price: !w.busy && q != null && q.total > 0 ? catMoney(q.total) : null,
+        fromPrice: from,
+        onPickDates: _pickDates,
+        onReserve: w.onReserve,
+        busy: w.busy,
       ),
     );
   }

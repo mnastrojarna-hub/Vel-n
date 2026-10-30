@@ -45,13 +45,20 @@ class LoginHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'MOTO GO 24',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 1,
+              // Úzký telefon / velké písmo: nápis se zmenší, nikdy neořízne.
+              const Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'MOTO GO 24',
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 1,
+                    ),
+                  ),
                 ),
               ),
             ],

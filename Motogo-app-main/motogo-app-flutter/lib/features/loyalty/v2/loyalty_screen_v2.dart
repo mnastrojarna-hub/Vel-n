@@ -142,13 +142,16 @@ class _Hero extends ConsumerWidget {
           border: Border.all(color: MgColors.neonA(0.2)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: MgWordFit(
-                minScale: 0.7,
-                child: Text((s == null ? tr.tr('loyaltyInfoTitle') : tr.tr('loyaltyMyRank')).toUpperCase(),
-                    style: MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary)),
-              ),
+          // Wrap: když se nadpis a „O programu“ nevejdou vedle sebe (de/fr/nl,
+          // velké písmo), tlačítko jde pod nadpis — nadpis se nikdy neláme ve slově.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+            MgWordFit(
+              minScale: 0.7,
+              child: Text((s == null ? tr.tr('loyaltyInfoTitle') : tr.tr('loyaltyMyRank')).toUpperCase(),
+                  style: MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary)),
             ),
             Semantics(
               button: true,

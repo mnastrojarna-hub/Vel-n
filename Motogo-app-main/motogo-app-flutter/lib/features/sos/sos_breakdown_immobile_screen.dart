@@ -10,6 +10,8 @@ import 'sos_feedback.dart';
 import 'sos_location.dart';
 import 'sos_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// "Nepojízdná – porucha" screen — mirrors s-sos-nepojizda-porucha.
 /// Always free (breakdown = not customer fault).
@@ -128,7 +130,7 @@ class _SosBreakdownImmobileState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -159,7 +161,7 @@ class _SosBreakdownImmobileState
                             style:
                                 const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                       ])),
-                  MgBackTap(
+                  mgV1Back(context, onTap: () => context.backOr(Routes.sos), style: MgBackStyle.light, v1: MgBackTap(
                     onTap: () => context.backOr(Routes.sos),
                     child: Container(
                       width: 36,
@@ -172,7 +174,7 @@ class _SosBreakdownImmobileState
                               style: TextStyle(
                                   fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black))),
                     ),
-                  ),
+                  )),
                 ]),
               ),
               const SizedBox(height: 16),

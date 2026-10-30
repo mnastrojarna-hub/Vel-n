@@ -16,22 +16,27 @@ class LoginFooter extends StatelessWidget {
     return Center(
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          // Wrap: při velkém písmu na úzkém telefonu se web zalomí pod
+          // telefon místo přetečení (jinak beze změny).
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Icon(Icons.phone, size: 14, color: MotoGoColors.g400),
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: () => launchUrl(Uri.parse('tel:+420774256271')),
-                child: const Text(
-                  '+420 774 256 271',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: MotoGoColors.g400,
-                    fontWeight: FontWeight.w600,
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.phone, size: 14, color: MotoGoColors.g400),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => launchUrl(Uri.parse('tel:+420774256271')),
+                  child: const Text(
+                    '+420 774 256 271',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: MotoGoColors.g400,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
+              ]),
               const Text(
                 '  ·  ',
                 style: TextStyle(fontSize: 12, color: MotoGoColors.g400),

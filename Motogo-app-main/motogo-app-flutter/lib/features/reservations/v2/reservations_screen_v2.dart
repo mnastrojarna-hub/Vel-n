@@ -19,6 +19,7 @@ import '../../../core/widgets/state_views.dart';
 import '../reservation_models.dart';
 import '../booking_restore.dart' show restoreAndPay;
 import '../reservation_provider.dart';
+import 'res_card_actions_v2.dart' show resPrimaryCardId;
 import 'res_filter_tabs_v2.dart';
 import 'res_list_header_v2.dart';
 import 'res_status_v2.dart';
@@ -90,6 +91,8 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
             ),
           );
         }
+        // Jen jedna karta s tmavým pruhem a rank CTA (ta, která čeká na akci).
+        final primaryId = resPrimaryCardId(reservations, pending);
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
           sliver: SliverList.builder(
@@ -99,6 +102,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
               final card = ReservationCardV2(
                 reservation: res,
                 payFlag: resPayFlag(res, pending),
+                primary: res.id == primaryId,
                 onTap: () => context.push('/reservations/${res.id}'),
                 onEdit: () => context.push('/reservations/${res.id}/edit'),
                 // „Obnovit" = obnovit a zaplatit (D3), stejně jako starý seznam.

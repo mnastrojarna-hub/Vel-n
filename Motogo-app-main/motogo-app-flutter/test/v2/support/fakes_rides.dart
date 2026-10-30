@@ -10,6 +10,10 @@ import 'package:motogo_app/core/i18n/translations_ext_56_v2_routes_a.dart';
 import 'package:motogo_app/core/i18n/translations_ext_56_v2_routes_b.dart';
 import 'package:motogo_app/core/i18n/translations_ext_57_v2_rides_a.dart';
 import 'package:motogo_app/core/i18n/translations_ext_57_v2_rides_b.dart';
+import 'package:motogo_app/core/i18n/translations_ext_57_v2_rides_c.dart';
+import 'package:motogo_app/core/i18n/translations_ext_57_v2_rides_d.dart';
+import 'package:motogo_app/core/i18n/translations_ext_57_v2_rides_e.dart';
+import 'package:motogo_app/core/i18n/translations_ext_57_v2_rides_f.dart';
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 import 'package:motogo_app/features/routes/active_ride_provider.dart';
 import 'package:motogo_app/features/routes/my_experiences_provider.dart';
@@ -24,6 +28,10 @@ void registerRidesStrings() {
     translationsExt56V2RoutesB,
     translationsExt57V2RidesA,
     translationsExt57V2RidesB,
+    translationsExt57V2RidesC,
+    translationsExt57V2RidesD,
+    translationsExt57V2RidesE,
+    translationsExt57V2RidesF,
   ]) {
     part.forEach((lang, map) => translations.putIfAbsent(lang, () => {}).addAll(map));
   }

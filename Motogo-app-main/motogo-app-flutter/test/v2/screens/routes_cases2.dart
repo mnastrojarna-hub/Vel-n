@@ -74,14 +74,13 @@ class _Pieces extends StatelessWidget {
         Container(
           color: const Color(0xFF0A1F14),
           padding: const EdgeInsets.all(12),
-          child: Row(children: [
+          // Test-only showcase of the pieces (not the real nav bar): a Wrap,
+          // so 320 dp / large text never overflows the harness row.
+          child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
             NavCircleV2(end: false, onTap: () {}),
-            const SizedBox(width: 10),
-            const Expanded(child: Text('Rajhrad a Židlochovicko', style: TextStyle(color: Colors.white))),
+            const Text('Rajhrad a Židlochovicko', style: TextStyle(color: Colors.white)),
             const NavRecChipV2(),
-            const SizedBox(width: 8),
             const NavStopsChipV2('2/5'),
-            const SizedBox(width: 8),
             NavCircleV2(end: true, onTap: () {}),
           ]),
         ),

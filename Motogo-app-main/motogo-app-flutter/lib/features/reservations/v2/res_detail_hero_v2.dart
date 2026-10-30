@@ -5,9 +5,9 @@ import '../../../core/v2/chrome/mg_photo_hero.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../reservation_models.dart';
 import 'res_status_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// Photo hero of the reservation detail (V22 `.rph`): the bike contained
 /// over a dark ground, back disc (photo style → the SAME `backOr` as
@@ -73,7 +73,7 @@ class ResTitleBlockV2 extends StatelessWidget {
       if ((res.branchName ?? '').isNotEmpty) res.branchName!,
     ].join(' · ');
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      MgEyebrow(tr.trArgs('v2ResEyebrowId', {'id': res.shortId}), dark: false),
+      ResSectionEyebrowV2(tr.trArgs('v2ResEyebrowId', {'id': res.shortId})),
       const SizedBox(height: 8),
       Semantics(
         header: true,

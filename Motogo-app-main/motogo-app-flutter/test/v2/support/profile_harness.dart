@@ -11,7 +11,11 @@ import 'package:motogo_app/features/profile/v2/profile_personal_v2.dart';
 
 class PfHubHarness extends ConsumerStatefulWidget {
   final bool expanded;
-  const PfHubHarness({super.key, this.expanded = false});
+
+  /// Pushed from the booking form (profile r3): back + `?edit=personal`.
+  final VoidCallback? onBack;
+  final bool bookingFix;
+  const PfHubHarness({super.key, this.expanded = false, this.onBack, this.bookingFix = false});
 
   @override
   ConsumerState<PfHubHarness> createState() => _PfHubHarnessState();
@@ -55,6 +59,8 @@ class _PfHubHarnessState extends ConsumerState<PfHubHarness> {
     void noop() {}
     final now = DateTime.now().year;
     return ProfileHubV2View(
+      onBack: widget.onBack,
+      bookingFix: widget.bookingFix,
       profile: a.valueOrNull,
       loading: loading,
       error: error,
@@ -70,7 +76,7 @@ class _PfHubHarnessState extends ConsumerState<PfHubHarness> {
         licExp: exp,
         dobFirstYear: now - 100,
         dobLastYear: now - 18,
-        licFirstYear: now,
+        licFirstYear: exp != null && exp!.year < now ? exp!.year : now,
         licLastYear: now + 20,
         licCategories: cats,
         licOptions: const ['AM', 'A1', 'A2', 'A', 'B'],

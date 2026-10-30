@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/chrome/mg_fab_avoid.dart';
-import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
@@ -12,45 +11,46 @@ import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../booking/booking_models.dart';
 import '../catalog_text.dart';
+import 'calc_parts_v2.dart' show CalcHalfInfo;
 
 /// Dark total block of the calculator (V22 §2.4: the one dark block below
-/// the steps): "TVOJE CENA · n dny", value 32/900 neon, average per day,
-/// rank savings, the ½ offer card (one tap "Nastavit 12:00" = calculator
-/// state only) and the rank CTA REZERVOVAT · price. [onBook] null =
+/// the steps): "TVOJE CENA · n dny" = the standard-pickup price, value
+/// 32/900 neon, average per day, rank savings, the ½ INFO card (owner
+/// 2026-10-22: no toggle — the concrete 12:00 saving, the time is chosen in
+/// the booking form) and the rank CTA REZERVOVAT · price. [onBook] null =
 /// disabled (availability not loaded / busy day / loyalty retry pending).
 class CalcTotalV2 extends StatelessWidget {
+  /// Standard pickup (the booking form's 09:00 default).
   final PriceBreakdown q;
 
-  /// Price at 09:00 and at 12:00 (½ 1st day) for the offer card.
-  final PriceBreakdown q9;
+  /// The same trip with pickup from 12:00 (½ 1st day) — info only.
   final PriceBreakdown q12;
-  final bool late;
-  final VoidCallback onSetLate;
   final VoidCallback? onBook;
   final String? rankName;
   final bool loyaltyFailed;
   final VoidCallback onRetryLoyalty;
   final String? blockedReason;
 
+  /// Key of the CTA (the sticky dock shows while it is off-screen).
+  final Key? ctaKey;
+
   const CalcTotalV2({
     super.key,
     required this.q,
-    required this.q9,
     required this.q12,
-    required this.late,
-    required this.onSetLate,
     required this.onBook,
     required this.onRetryLoyalty,
     this.rankName,
     this.loyaltyFailed = false,
     this.blockedReason,
+    this.ctaKey,
   });
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final days = q.days < 1 ? 1 : q.days;
-    final save12 = q9.total - q12.total;
+    final save12 = q.total - q12.total;
     final saved = q.loyaltyDiscount > 0 && rankName != null;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -111,48 +111,7 @@ class CalcTotalV2 extends StatelessWidget {
         ],
         if (q.days >= 2 && save12 > 0) ...[
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-            decoration: BoxDecoration(
-              color: MgColors.neonA(late ? 0.12 : 0.06),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: MgColors.neonA(late ? 0.45 : 0.25)),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(color: MgColors.neon, shape: BoxShape.circle),
-                  child: Center(
-                    child: late
-                        ? MgIcon(MgIcons.check, size: 18, color: MgColors.onNeon, stroke: 2.6)
-                        : Text('½', style: MgType.title.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      late
-                          ? tr.tr('v2CalcLateOn')
-                          : '${tr.tr('v2CalcLateTitle')} ${tr.trArgs('v2CalcLateText', {
-                              'amount': catMoney(save12),
-                              'total': catMoney(q12.total),
-                            })}',
-                      style: MgType.tab(MgType.small.copyWith(color: MgColors.onDarkLead)),
-                    ),
-                  ),
-                ),
-              ]),
-              if (!late)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: MgBtnText(label: tr.tr('v2CalcLateSet'), icon: MgIcons.clock, onTap: onSetLate, dark: true),
-                ),
-            ]),
-          ),
+          CalcHalfInfo(save: save12, total: q12.total),
         ] else if (q.days < 2) ...[
           const SizedBox(height: 10),
           Text(tr.tr('v2CalcLateOne'), style: MgType.small.copyWith(color: MgColors.onDarkMeta)),
@@ -163,6 +122,7 @@ class CalcTotalV2 extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         MgFabAvoid(
+          key: ctaKey,
           child: MgCta(
             label: tr.tr('v2CatCtaBook'),
             price: onBook == null ? null : catMoney(q.total),

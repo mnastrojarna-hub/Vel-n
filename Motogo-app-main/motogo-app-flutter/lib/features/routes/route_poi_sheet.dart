@@ -188,10 +188,10 @@ class _PoiPagerState extends State<_PoiPager> {
             ),
           // Viditelné zavření — panel jde jinak zavřít jen stažením dolů
           // (na iPhonu není tlačítko zpět). Drží se nahoře i při posunu.
-          const Positioned(
+          Positioned(
             top: 8,
             right: 10,
-            child: MgSheetClose(overlay: true),
+            child: MgV2.on(context) ? const PoiSheetCloseV2() : const MgSheetClose(overlay: true),
           ),
           if (many)
             Positioned(
@@ -401,7 +401,9 @@ class _PoiSheetContentState extends State<_PoiSheetContent> {
               ),
 
             Padding(
-              padding: EdgeInsets.fromLTRB(20, 18, 20,
+              // v2 bez fotky: obsah začne pod počítadlem a 44 px ✕ (jinak
+              // by křížek ležel přes konec názvu).
+              padding: EdgeInsets.fromLTRB(20, MgV2.on(context) && imgs.isEmpty ? 60 : 18, 20,
                   MediaQuery.of(context).padding.bottom + 28 + widget.bottomInset),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -687,12 +689,20 @@ String? _commonsFilePage(String url) {
 /// stránce) + tlačítko na otevření zdroje, pokud je fotka z Commons.
 void _showPhotoCredit(BuildContext context, String url, String lang) {
   final source = _commonsFilePage(url);
+  void open() => launchUrl(Uri.parse(source!), mode: LaunchMode.externalApplication);
+  final v2 = MgV2.on(context);
   showModalBottomSheet(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: v2 ? Colors.transparent : Colors.white,
     shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
-    builder: (c) => SafeArea(
+    builder: (c) => v2
+        ? PoiPhotoCreditV2(
+            text: AppTranslations.of(lang).tr('poiPhotoCredit'),
+            openLabel: AppTranslations.of(lang).tr('poiPhotoCreditOpen'),
+            onOpen: source == null ? null : open,
+          )
+        : SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
@@ -723,8 +733,7 @@ void _showPhotoCredit(BuildContext context, String url, String lang) {
             if (source != null) ...[
               const SizedBox(height: 10),
               TextButton.icon(
-                onPressed: () => launchUrl(Uri.parse(source),
-                    mode: LaunchMode.externalApplication),
+                onPressed: open,
                 icon: const Icon(Icons.open_in_new, size: 16),
                 label: Text(AppTranslations.of(lang).tr('poiPhotoCreditOpen')),
               ),

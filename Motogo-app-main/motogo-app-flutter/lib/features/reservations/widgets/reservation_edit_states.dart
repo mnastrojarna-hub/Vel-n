@@ -135,6 +135,19 @@ void showEditUncertain(BuildContext context, {required VoidCallback onReload}) {
   );
 }
 
+/// Vratka za zkrácení / levnější motorku (`process-refund`) proběhla jen
+/// ČÁSTEČNĚ: server vrací `partial: true` nebo `amount_refunded` menší než
+/// požadovaná částka (zákazníkovi se automaticky vrací jen ověřený přeplatek,
+/// zbytek dokončí obsluha — oprava 2026-10-22). Pak se celá částka neslibuje
+/// (`pdRefundManual`). Rozdíl do 1 Kč = zaokrouhlení ceny na haléře — server
+/// ho obsluze nehlásí (stejná tolerance jako `partial` na serveru).
+bool refundFellShort(Object? data, num requested) {
+  if (data is! Map) return false;
+  if (data['partial'] == true) return true;
+  final got = data['amount_refunded'];
+  return got is num && got + 1.005 < requested;
+}
+
 /// Předchozí doplatek této rezervace se ještě ověřuje (značka „platba
 /// odeslána") nebo se zaplacená změna ještě zapisuje (fronta D6) → DRUHÝ
 /// doplatek nenabízet (dvojí platba; server `payment_in_progress` /

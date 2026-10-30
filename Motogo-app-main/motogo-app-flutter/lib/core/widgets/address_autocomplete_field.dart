@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../theme.dart';
+import '../v2/flag/v2_scope.dart';
+import '../v2/tokens/mg_colors.dart';
 
 /// Single-line address autocomplete using Mapy.cz Suggest API.
 /// Shows ranked suggestions (address > street > municipality > POI) with
@@ -11,12 +13,17 @@ import '../theme.dart';
 class AddressAutocompleteField extends StatefulWidget {
   final ValueChanged<AddressSuggestion> onSelected;
   final VoidCallback? onCleared;
+
+  /// Every edit typed by the customer (not [AddressAutocompleteFieldState.setAddress]
+  /// nor a picked suggestion) — the picked suggestion no longer matches the text.
+  final ValueChanged<String>? onChanged;
   final String hint;
 
   const AddressAutocompleteField({
     super.key,
     required this.onSelected,
     this.onCleared,
+    this.onChanged,
     this.hint = 'Zadejte adresu, obec nebo ulici…',
   });
 
@@ -83,6 +90,7 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   }
 
   void _onChange(String v) {
+    widget.onChanged?.call(v);
     if (v.isEmpty) {
       setState(() {
         _items = [];
@@ -300,12 +308,39 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
   @override
   Widget build(BuildContext context) {
+    // v2: bílé pole s okrajem `lineInput` 1,5 px, při psaní 2 px `#0D6E0D`
+    // (V22 §2.1); starý vzhled beze změny.
+    final v2 = MgV2.on(context);
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: MotoGoColors.g200, width: 1.5),
-        ),
+      ListenableBuilder(
+        listenable: _focus,
+        builder: (context, field) {
+          if (!v2) {
+            return Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: MotoGoColors.g200, width: 1.5),
+              ),
+              child: field,
+            );
+          }
+          // Okraj v popředí — vyplněné pole by ho jinak překrylo.
+          final f = _focus.hasFocus;
+          return Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: MgColors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                  color: f ? MgColors.focusLight : MgColors.lineInput,
+                  width: f ? 2 : 1.5),
+            ),
+            child: field,
+          );
+        },
         child: TextField(
           controller: _ctrl,
           focusNode: _focus,
@@ -313,8 +348,8 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
           style: const TextStyle(fontSize: 13, color: MotoGoColors.black),
           decoration: InputDecoration(
             hintText: widget.hint,
-            hintStyle:
-                const TextStyle(fontSize: 12, color: MotoGoColors.g400),
+            hintStyle: TextStyle(
+                fontSize: 12, color: v2 ? MgColors.meta : MotoGoColors.g400),
             prefixIcon: _loading
                 ? const Padding(
                     padding: EdgeInsets.all(12),

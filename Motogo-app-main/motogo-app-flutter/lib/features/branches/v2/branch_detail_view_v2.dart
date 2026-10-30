@@ -55,6 +55,7 @@ class BranchDetailViewV2 extends StatelessWidget {
     String? v(String k) => tx['branches.$index.$k'];
     return MgPage(
       pinnedBack: onBack,
+      pinnedTitle: plainText(v('title') ?? ''),
       header: MgAppBar(title: plainText(v('title') ?? ''), onBack: onBack),
       overlapHero: false,
       sections: [

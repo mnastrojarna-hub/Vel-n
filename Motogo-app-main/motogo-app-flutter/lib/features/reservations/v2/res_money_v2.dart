@@ -8,11 +8,11 @@ import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../reservation_models.dart';
 import '../widgets/res_payment_details_tab.dart';
 import 'res_status_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// "Peníze" (white card): the same lines as today's Finanční souhrn
 /// (total, delivery, extras, ½ first-day discount, discount + code, payment
@@ -37,7 +37,7 @@ class _ResMoneyV2State extends State<ResMoneyV2> {
     final unpaid = res.paymentStatus == 'unpaid';
     return MgCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        MgEyebrow(tr.tr('financialSummary'), dark: false),
+        ResSectionEyebrowV2(tr.tr('financialSummary')),
         const SizedBox(height: 12),
         Text(tr.tr('totalPrice'), style: MgType.meta.copyWith(color: MgColors.meta)),
         Wrap(

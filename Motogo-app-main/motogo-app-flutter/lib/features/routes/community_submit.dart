@@ -9,6 +9,8 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/native/gps_service.dart';
 import 'routes_provider.dart' show mapyApiKey, reverseGeocode;
+import 'ride_pause_actions.dart';
+import 'ride_rec_phase.dart';
 import 'ride_recorder.dart';
 import 'route_submit_screen.dart';
 import 'submit_common.dart';
@@ -47,6 +49,27 @@ void showCommunityAddMenu(BuildContext context) {
               const SizedBox(height: 4),
               const MgSheetHandle(margin: EdgeInsets.symmetric(horizontal: 12)),
               const SizedBox(height: 12),
+              // Pozastavit / pokračovat — vlastní jízda i výpůjčka (SPEC §9.1).
+              // V auto-pauze záznam už stojí — řádek říká, co doopravdy udělá
+              // (vypne i GPS) a že večer není potřeba nic mačkat.
+              if (rec.recording)
+                _menuItem(
+                  c,
+                  rec.isManualPaused
+                      ? Icons.play_circle_outline
+                      : (rideIsAutoPaused(rec) ? Icons.gps_off : Icons.pause_circle_outline),
+                  t(c).tr(rec.isManualPaused
+                      ? 'rpResumeRow'
+                      : (rideIsAutoPaused(rec) ? 'rpPauseGpsRow' : 'rpPauseRow')),
+                  () {
+                    Navigator.pop(c);
+                    rideTogglePause(context, ref);
+                  },
+                  subtitle: [
+                    ridePhaseText(rec, t(c)),
+                    if (rideIsAutoPaused(rec)) t(c).tr('rpAutoNoAction'),
+                  ].whereType<String>().join('\n'),
+                ),
               if (!auto)
                 _menuItem(
                   c,
@@ -56,7 +79,9 @@ void showCommunityAddMenu(BuildContext context) {
                     Navigator.pop(c);
                     _toggleManualRide(context, ref, manual);
                   },
-                  subtitle: t(c).tr(manual ? 'rideManualRunning' : 'rideManualHint'),
+                  subtitle: t(c).tr(!manual
+                      ? 'rideManualHint'
+                      : (rec.isPaused && !rec.isArmed ? 'rpStopRowPaused' : 'rideManualRunning')),
                   danger: manual,
                 ),
               // v2: prázdný plánovač (stejná akce jako „Vytvořit novou trasu"
@@ -86,9 +111,9 @@ void showCommunityAddMenu(BuildContext context) {
               const SizedBox(height: 12),
             ],
           );
-          // v2 (o položku víc — plánovač): na nízkém telefonu se menu posouvá
-          // místo přetečení spodního okraje.
-          return MgV2.on(c) ? SingleChildScrollView(child: menu) : menu;
+          // Na nízkém telefonu / s velkým písmem (i ve starém vzhledu) se menu
+          // posouvá místo přetečení spodního okraje.
+          return SingleChildScrollView(child: menu);
         },
       ),
     ),
@@ -98,6 +123,8 @@ void showCommunityAddMenu(BuildContext context) {
 /// Zapnutí/vypnutí ručního záznamu jízdy z menu „Přidat". Stejná logika jako
 /// karta v „Mých zážitcích" — jízda kratší než 1 km se zahodí.
 Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running) async {
+  // Menu se mezitím zavře → po `await` číst přes kontejner, ne přes jeho `ref`.
+  final c = ProviderScope.containerOf(context, listen: false);
   final n = ref.read(rideRecorderProvider.notifier);
   final msg = ScaffoldMessenger.of(context);
   final tr = t(context);
@@ -109,7 +136,8 @@ Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running
         : (kept ? 'rideManualSaved' : 'rideManualTooShort')))));
     return;
   }
-  showRideStartResult(msg, tr, await n.startManualResult());
+  final r = await n.startManualResult();
+  showRideStartResult(msg, tr, r, armed: c.read(rideRecorderProvider).isArmed);
 }
 
 Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap,

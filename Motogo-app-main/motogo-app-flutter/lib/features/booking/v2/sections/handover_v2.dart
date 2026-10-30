@@ -17,7 +17,10 @@ class BkAddress {
   final double? distKm;
   final double? delivFee;
   final VoidCallback onTap;
-  const BkAddress({required this.city, required this.address, required this.onTap, this.distKm, this.delivFee});
+
+  /// Proč je adresa vyplněná sama („Stejná jako u přistavení“), nebo null.
+  final String? note;
+  const BkAddress({required this.city, required this.address, required this.onTap, this.distKm, this.delivFee, this.note});
 }
 
 /// v2 look of the pickup / return sections (V branch of
@@ -101,7 +104,9 @@ class _AddressRow extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Semantics(
         button: true,
-        label: hasAddr ? tr.trArgs('v2BkAddressA11y', {'address': text}) : text,
+        label: hasAddr
+            ? '${a.note != null ? '${a.note}. ' : ''}${tr.trArgs('v2BkAddressA11y', {'address': text})}'
+            : text,
         excludeSemantics: true,
         onTap: a.onTap,
         child: MgPress(
@@ -118,13 +123,31 @@ class _AddressRow extends StatelessWidget {
               MgIcon(MgIcons.pin, size: 20, color: MgColors.link),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(text,
-                    style: hasAddr
-                        ? MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)
-                        : MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
+                child: hasAddr
+                    // Vyplněná adresa = zodpovězená sekce: adresa přes celou
+                    // šířku, pod ní proč je vyplněná + „Změnit“ (2026-10-22).
+                    ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Text(text, style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
+                        const SizedBox(height: 4),
+                        Row(children: [
+                          Expanded(
+                            child: a.note == null
+                                ? const SizedBox.shrink()
+                                : Text(a.note!, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
+                          ),
+                          const SizedBox(width: 8),
+                          MgIcon(MgIcons.edit, size: 16, color: MgColors.link),
+                          const SizedBox(width: 4),
+                          Text(tr.tr('v2BkChange'),
+                              style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
+                        ]),
+                      ])
+                    : Text(text, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
               ),
-              const SizedBox(width: 8),
-              MgIcon(hasAddr ? MgIcons.edit : MgIcons.chevronRight, size: 18, color: MgColors.link),
+              if (!hasAddr) ...[
+                const SizedBox(width: 8),
+                MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.link),
+              ],
             ]),
           ),
         ),

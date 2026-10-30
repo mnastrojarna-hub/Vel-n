@@ -7,6 +7,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../branches_widgets.dart' show plainText, richText;
 import '../../profile/v2/profile_v2_parts.dart' show PfAnimatedSize;
 
@@ -28,7 +29,12 @@ class BranchBadgeV2 extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: dark ? Border.all(color: MgColors.neonA(0.4)) : null,
       ),
-      child: Text(text, style: MgType.eyebrow.copyWith(color: dark ? MgColors.neonText : MgColors.neon)),
+      // Raději o kus menší na jeden řádek; když ani tak, zalomí se mezi slovy.
+      child: MgWordFit(
+        minScale: 0.8,
+        fitLines: 1,
+        child: Text(text, style: MgType.eyebrow.copyWith(color: dark ? MgColors.neonText : MgColors.neon)),
+      ),
     );
   }
 }

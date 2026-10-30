@@ -246,11 +246,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Auth routes (no shell)
       GoRoute(
         path: Routes.login,
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) => LoginScreen(initialEmail: state.uri.queryParameters['email']),
       ),
       GoRoute(
         path: Routes.register,
-        builder: (context, state) => const MgBackGuard(child: RegisterScreen()),
+        builder: (context, state) =>
+            MgBackGuard(child: RegisterScreen(initialEmail: state.uri.queryParameters['email'])),
       ),
       GoRoute(
         path: Routes.resetPassword,

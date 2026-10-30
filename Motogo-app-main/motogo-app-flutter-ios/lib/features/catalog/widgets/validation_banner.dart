@@ -36,6 +36,7 @@ class ValidationBanner extends ConsumerWidget {
     final licenseErr = BookingValidator.checkLicense(
       userLicenseGroups: userGroups,
       motoLicenseGroups: moto.licenseGroupsOrFallback,
+      lang: t(context).lang,
     );
 
     // Overlap check
@@ -45,6 +46,7 @@ class ValidationBanner extends ConsumerWidget {
       startDate: startDate,
       endDate: endDate,
       isChildrensMoto: moto.licenseRequired == 'N',
+      lang: t(context).lang,
     );
 
     // Délka pronájmu (min/max z DB) — vynucováno na CTA rezervace, tady jen

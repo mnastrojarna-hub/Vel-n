@@ -40,6 +40,9 @@ class CacheCleanupService {
     // z ruční jízdy udělal automatickou a hlídač ji uprostřed vyjížďky
     // ukončil, protože k ní nenašel běžící rezervaci.
     'mg_ride_rec_manual',
+    'mg_ride_session', // fáze pauzy, kotva, posun hodin rozjeté cesty (přežije restart)
+    'mg_ride_caps', // co umí server (cesty / pauzy) + flag auto-pauzy
+    'mg_ride_stop_req', // Ukončit jízdu, které server nevzal (offline) — přežije restart
     _versionKey, // app version marker (update detection)
   };
 

@@ -4,6 +4,7 @@ import '../../../core/theme.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../v2/res_edit_gear_v2.dart';
+import '../v2/res_fit_v2.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
@@ -722,6 +723,14 @@ class ResModificationHistory extends StatelessWidget {
         final idx = e.key;
         final ev = e.value;
         final isLast = idx == events.length - 1;
+        final label = Text(ev.label,
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: ev.color));
+        final date = Text(_fmtDT(ev.at),
+            style: const TextStyle(
+                fontSize: 10, color: MotoGoColors.g400));
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -737,19 +746,14 @@ class ResModificationHistory extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(ev.label,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: ev.color)),
-                    Text(_fmtDT(ev.at),
-                        style: const TextStyle(
-                            fontSize: 10, color: MotoGoColors.g400)),
-                  ],
-                ),
+                // v2: popisek se zalomí (8 dp před datem), datum pod popisek,
+                // když by se slovo vedle data nevešlo — nikdy nepřeteče, ať je
+                // datum jakkoli široké (nl / de na 320 dp s velkým písmem).
+                child: resV2EventRow(context, label, date) ??
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [label, date],
+                    ),
               ),
             ),
           ],
