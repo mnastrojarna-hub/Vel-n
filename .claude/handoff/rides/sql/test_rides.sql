@@ -67,6 +67,9 @@ delete from public.user_rides where user_id in (select t_rides.u(n) from generat
 -- (replica role: FK cascades do not fire → kiosk rows of the test bookings explicitly)
 delete from public.booking_kiosk_returns where booking_id in (select t_rides.bk(n) from generate_series(1, 60) n);
 delete from public.bookings where id in (select t_rides.bk(n) from generate_series(1, 60) n);
+-- SOS replacement bookings of the SW block (bc…NN)
+delete from public.bookings where id in (select ('bc000000-0000-0000-0000-0000000000' || lpad(n::text, 2, '0'))::uuid
+                                           from generate_series(1, 60) n);
 reset session_replication_role;
 
 -- ───────────────────────── V: stats vectors (SPEC §3.7) ─────────────────────────
@@ -1218,6 +1221,219 @@ begin
   end loop;
   perform t_rides.chk('I6 feature flag ride_autopause', exists (select 1 from public.feature_flags where key = 'ride_autopause'
         and enabled and conditions->>'stop_min' = '5'));
+end $$;
+
+-- ───────────── SW: SOS bike swap (sos_swap: original completed + ended_by_sos, NO returned_at) ─────────────
+create function t_rides.bkr(n int) returns uuid language sql immutable as $$
+  select ('bc000000-0000-0000-0000-0000000000' || lpad(n::text, 2, '0'))::uuid $$;
+-- As sos_swap_bookings: original → completed, ended_by_sos, end_date = swap day (returned_at stays NULL);
+-- replacement booking (replacement_for_booking_id) created and picked up at p_at.
+create function t_rides.sos_swap(p_orig uuid, p_n int, p_uid uuid, p_at float8) returns uuid language plpgsql as $$
+declare v_end timestamptz; v_day timestamptz := ((to_timestamp(p_at) at time zone 'Europe/Prague')::date)::timestamptz;
+begin
+  perform set_config('session_replication_role', 'replica', true);
+  select end_date into v_end from public.bookings where id = p_orig;
+  update public.bookings set original_end_date = end_date::date, end_date = v_day, status = 'completed', ended_by_sos = true
+   where id = p_orig;
+  insert into public.bookings (id, user_id, moto_id, start_date, end_date, status, picked_up_at, sos_replacement,
+                               replacement_for_booking_id, pickup_time, created_at)
+  values (t_rides.bkr(p_n), p_uid, 'e0000000-0000-0000-0000-00000000000e', v_day, v_end, 'active', to_timestamp(p_at),
+          true, p_orig, '09:00', to_timestamp(p_at));
+  perform set_config('session_replication_role', 'origin', true);
+  return t_rides.bkr(p_n);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(42); e float8 := t_rides.ep('2026-12-01 09:00'); t float8; b uuid; b2 uuid; r jsonb;
+  v_a uuid; v_b uuid; x public.user_rides; km1 numeric;
+begin
+  -- SW1: new app ONLINE — breakdown, SOS swap; the replacement bike never lands in the broken bike's ride
+  b := t_rides.booking(42, u, '2026-12-01', '2026-12-04');
+  perform t_rides.at(u, e);
+  v_a := (public.start_user_trip(b)->>'id')::uuid;
+  perform t_rides.feed(u, v_a, t_rides.bike(49.1, 16.9, e, 60));
+  km1 := (t_rides.ride(v_a)).distance_km;
+  t := e + 1800;
+  b2 := t_rides.sos_swap(b, 42, u, t);
+  perform t_rides.chk('SW1 _ride_booking_end(original) = replacement created (swap)', public._ride_booking_end(b) = to_timestamp(t)
+        and public._ride_booking_end(b2) is null, coalesce(public._ride_booking_end(b)::text, 'NULL'));
+  perform set_config('session_replication_role', 'replica', true);
+  update public.bookings set created_at = to_timestamp(t - 30 * 86400) where id = b2;   -- e.g. inserted without created_at
+  perform t_rides.chk('SW0 swap = later of created_at / picked_up_at', public._ride_booking_end(b) = to_timestamp(t),
+        coalesce(public._ride_booking_end(b)::text, 'NULL'));
+  update public.bookings set created_at = to_timestamp(t), picked_up_at = null where id = b2;
+  perform t_rides.chk('SW0 swap without picked_up_at = created_at', public._ride_booking_end(b) = to_timestamp(t),
+        coalesce(public._ride_booking_end(b)::text, 'NULL'));
+  update public.bookings set picked_up_at = to_timestamp(t) where id = b2;
+  insert into public.bookings (id, user_id, moto_id, start_date, end_date, status, picked_up_at, ended_by_sos)
+  values (t_rides.bkr(59), u, 'e0000000-0000-0000-0000-00000000000e', '2026-11-20', '2026-11-22', 'completed',
+          '2026-11-20 08:00+00', true);
+  perform set_config('session_replication_role', 'origin', true);
+  perform t_rides.chk('SW0 SOS end without a replacement booking → NULL (as before)', public._ride_booking_end(t_rides.bkr(59)) is null);
+  -- batch across the swap: broken bike up to swap + 30 s kept, the rest dropped (ride still open)
+  perform t_rides.at(u, t + 60);
+  r := public.append_ride_track(v_a, t_rides.line(49.14, 20, 0.00002, t - 50, 5, 2), null);
+  x := t_rides.ride(v_a);
+  perform t_rides.chk('SW1 batch across the swap: ≤ swap + 30 s kept, later dropped', r->>'success' = 'true'
+        and (r->>'dropped')::int = 3 and x.is_recording and x.last_fix_at = to_timestamp(t + 30), r::text);
+  -- replacement bike points (van arrived) → ride_finished/booking_ended, closed at the swap, no replacement km
+  perform t_rides.at(u, t + 900);
+  r := public.append_ride_track(v_a, t_rides.line(49.2, 20, 0.0005, t + 600, 5, 40), null);
+  x := t_rides.ride(v_a);
+  perform t_rides.chk('SW1 replacement points → ride_finished/booking_ended', r->>'error' = 'ride_finished'
+        and r->>'reason' = 'booking_ended', r::text);
+  perform t_rides.chk('SW1 broken bike ride closed ≤ swap (closed_by return), its km only', not x.is_recording
+        and x.ended_at <= to_timestamp(t) and x.stats_state->>'closed_by' = 'return' and x.distance_km < km1 + 0.1
+        and x.distance_km >= km1, format('end %s km %s (bike %s)', x.ended_at, x.distance_km, km1));
+  r := public.start_user_trip(b);
+  perform t_rides.chk('SW1 start_user_trip(original) → booking_inactive', r->>'error' = 'booking_inactive', r::text);
+  r := public.start_user_trip(b2);
+  v_b := (r->>'id')::uuid;
+  perform t_rides.chk('SW1 start_user_trip(replacement) → new ride paired with the replacement', r->>'success' = 'true'
+        and r->>'resumed' = 'false' and (r->>'booking_id')::uuid = b2 and v_b <> v_a, r::text);
+  r := public.append_ride_track(v_b, t_rides.line(49.2, 20, 0.0005, t + 600, 5, 40), null);
+  perform t_rides.chk('SW1 replacement points land in the replacement ride', r->>'success' = 'true'
+        and (r->>'dropped')::int = 0 and (t_rides.ride(v_b)).distance_km > 1, r::text);
+  perform public.finish_user_ride(v_b, '[]'::jsonb, null);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(43); e float8 := t_rides.ep('2026-12-01 09:00'); t float8; b uuid; b2 uuid; r jsonb;
+  v_a uuid; v_b uuid; x public.user_rides; km1 numeric; pre jsonb; post jsonb;
+begin
+  -- SW2: new app OFFLINE from 1 h before the breakdown until the evening (V4): the cron closes the
+  -- broken bike's ride, its late points still land in it, the replacement's do not
+  b := t_rides.booking(43, u, '2026-12-01', '2026-12-04');
+  perform t_rides.at(u, e);
+  v_a := (public.start_user_trip(b)->>'id')::uuid;
+  perform t_rides.feed(u, v_a, t_rides.bike(49.3, 16.9, e, 60));
+  km1 := (t_rides.ride(v_a)).distance_km;
+  pre := t_rides.line(49.33, 120, 0.0005, e + 1000, 5, 40);           -- broken bike, offline (e+1000…e+1595)
+  t := e + 3600;
+  b2 := t_rides.sos_swap(b, 43, u, t);
+  post := t_rides.line(49.5, 120, 0.0005, t + 5400, 5, 40);           -- replacement bike, offline
+  perform t_rides.at(null, t + 900);  perform public.close_stale_user_rides();
+  x := t_rides.ride(v_a);
+  perform t_rides.chk('SW2 cron closes the swapped rental ≤ swap (closed_by cron)', not x.is_recording
+        and x.stats_state->>'closed_by' = 'cron' and x.ended_at <= to_timestamp(t) and x.distance_km = km1,
+        format('%s %s %s', x.is_recording, x.stats_state->>'closed_by', x.ended_at));
+  perform t_rides.at(u, t + 5400 + 600 + 3600);                       -- evening: hotel Wi-Fi, whole buffer
+  r := public.append_ride_track(v_a, pre || post, null);
+  x := t_rides.ride(v_a);
+  perform t_rides.chk('SW2 late points → ride_finished + reason booking_ended', r->>'error' = 'ride_finished'
+        and r->>'reason' = 'booking_ended', r::text);
+  perform t_rides.chk('SW2 broken bike km kept (late), replacement km not in it', not x.is_recording
+        and t_rides.near(x.distance_km, km1 + 119 * 0.0555975, 0.05) and x.last_fix_at = to_timestamp(e + 1595)
+        and x.ended_at = to_timestamp(e + 1595 + 120), format('km %s (online %s) fix %s end %s', x.distance_km, km1, x.last_fix_at, x.ended_at));
+  r := public.append_ride_track(v_a, post, null);
+  perform t_rides.chk('SW2 only replacement points → nothing added to the broken bike ride', r->>'error' = 'ride_finished'
+        and not (r ? 'reason') and (t_rides.ride(v_a)).distance_km = x.distance_km, r::text);
+  -- the replacement ride (started offline from its first point) takes the replacement points
+  perform t_rides.at(u, t + 5400 + 600 + 3600 + 60);
+  r := public.start_user_trip_from(b2, t + 5400);
+  v_b := (r->>'id')::uuid;
+  perform t_rides.chk('SW2 replacement ride from its first offline point', r->>'success' = 'true' and (r->>'booking_id')::uuid = b2
+        and (t_rides.ride(v_b)).started_at = to_timestamp(t + 5400), r::text);
+  r := public.append_ride_track(v_b, post, null);
+  perform t_rides.chk('SW2 replacement km in the replacement ride', r->>'success' = 'true' and (r->>'dropped')::int = 0
+        and t_rides.near((t_rides.ride(v_b)).distance_km, 119 * 0.0555975, 0.05), r::text);
+  perform public.finish_user_ride(v_b, '[]'::jsonb, null);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(44); e float8 := t_rides.ep('2026-12-01 09:00'); t float8; b uuid; b2 uuid; r jsonb;
+  v_a uuid; v_b uuid; x public.user_rides; km1 numeric;
+begin
+  -- SW3: released app 4.1.3 ONLINE after the swap: keeps appending to the broken bike's ride
+  b := t_rides.booking(44, u, '2026-12-01', '2026-12-04');
+  perform t_rides.at(u, e);
+  v_a := (public.start_user_ride(b, 49.0, 16.9)->>'id')::uuid;
+  perform t_rides.feed(u, v_a, t_rides.line(49.0005, 60, 0.0005, e + 5, 5, 40));
+  km1 := (t_rides.ride(v_a)).distance_km;
+  t := e + 1800;
+  b2 := t_rides.sos_swap(b, 44, u, t);
+  perform t_rides.at(u, t + 420);
+  r := public.append_ride_track(v_a, t_rides.line(49.1, 20, 0.0005, t + 300, 5, 40), null);
+  x := t_rides.ride(v_a);
+  perform t_rides.chk('SW3 4.1.3: replacement points → ride_finished (4.1.3 forgets), closed ≤ swap', r->>'error' = 'ride_finished'
+        and r->>'finished' = 'true' and not x.is_recording and x.ended_at <= to_timestamp(t) and x.distance_km = km1,
+        format('%s end %s km %s', r, x.ended_at, x.distance_km));
+  r := public.start_user_ride(b2, 49.1, 16.9);
+  v_b := (r->>'id')::uuid;
+  perform t_rides.chk('SW3 4.1.3: next start → new ride paired with the replacement', r->>'success' = 'true'
+        and r->>'resumed' = 'false' and (r->>'booking_id')::uuid = b2 and v_b <> v_a, r::text);
+  r := public.append_ride_track(v_b, t_rides.line(49.1, 20, 0.0005, t + 425, 5, 40), null);
+  perform t_rides.chk('SW3 4.1.3: replacement ride records', r->>'success' = 'true' and (r->>'dropped')::int = 0, r::text);
+  perform public.finish_user_ride(v_b, '[]'::jsonb, null);
+end $$;
+
+do $$
+declare u uuid := t_rides.u(45); e float8 := t_rides.ep('2026-12-01 09:00'); t float8; b uuid; b2 uuid; r jsonb;
+  v_a uuid; v_b uuid; x public.user_rides; km1 numeric;
+begin
+  -- SW4: 4.1.3 restarted after the swap while the broken bike's ride is still open (phone offline):
+  -- start_user_ride(replacement) closes it at the swap and starts the replacement ride; late points
+  -- (2 min clock grace) still land in the broken bike's ride
+  b := t_rides.booking(45, u, '2026-12-01', '2026-12-04');
+  perform t_rides.at(u, e);
+  v_a := (public.start_user_ride(b, 48.9, 16.9)->>'id')::uuid;
+  perform t_rides.feed(u, v_a, t_rides.line(48.9005, 60, 0.0005, e + 5, 5, 40));
+  km1 := (t_rides.ride(v_a)).distance_km;
+  t := e + 1800;
+  b2 := t_rides.sos_swap(b, 45, u, t);
+  perform t_rides.at(u, t + 600);
+  r := public.start_user_ride(b2, 48.95, 16.9);
+  v_b := (r->>'id')::uuid;
+  x := t_rides.ride(v_a);
+  perform t_rides.chk('SW4 4.1.3 restart: broken bike ride NOT resumed, closed ≤ swap (closed_by start)', r->>'success' = 'true'
+        and r->>'resumed' = 'false' and v_b <> v_a and (r->>'booking_id')::uuid = b2 and not x.is_recording
+        and x.ended_at <= to_timestamp(t) and x.stats_state->>'closed_by' = 'start',
+        format('%s end %s by %s', r, x.ended_at, x.stats_state->>'closed_by'));
+  r := public.append_ride_track(v_a, t_rides.line(48.94, 40, 0.0005, t - 160, 5, 40), null);   -- t-160 … t+35
+  x := t_rides.ride(v_a);
+  perform t_rides.chk('SW4 4.1.3 late points up to the swap (+2 min) kept', r->>'error' = 'ride_finished'
+        and r->>'reason' = 'booking_ended' and x.distance_km > km1 + 2 and x.last_fix_at = to_timestamp(t + 35)
+        and x.ended_at <= to_timestamp(t + 155), format('km %s (%s) fix %s end %s', x.distance_km, km1, x.last_fix_at, x.ended_at));
+  perform public.finish_user_ride(v_b, '[]'::jsonb, null);
+end $$;
+
+-- ───────────── SK: 4.1.3 start with lat/lng (server-stamped P0), phone clock behind the server ─────────────
+create function t_rides.skew_ride(p_uid uuid, p_e float8, p_skew float8) returns uuid language plpgsql as $$
+declare v_id uuid; b int;
+begin
+  perform t_rides.at(p_uid, p_e);
+  v_id := (public.start_user_ride(null, 49.2, 16.6)->>'id')::uuid;
+  -- 30 min at 54 km/h, 18 batches of 20 points every 5 s, stamped with the phone clock (server + p_skew)
+  for b in 0..17 loop
+    perform t_rides.at(p_uid, p_e + 5 + (b * 20 + 19) * 5 + 5);
+    perform public.append_ride_track(v_id, (select jsonb_agg(jsonb_build_array(round((49.2 + (b * 20 + i) * 0.00075)::numeric, 7), 16.6,
+            p_e + 5 + p_skew + (b * 20 + i) * 5, 54, 300) order by i) from generate_series(0, 19) i), null);
+  end loop;
+  return v_id;
+end $$;
+
+do $$
+declare u uuid := t_rides.u(60); e float8 := t_rides.ep('2026-12-02 09:00'); v_id uuid; x public.user_rides; y public.user_rides; r jsonb;
+begin
+  v_id := t_rides.skew_ride(u, e, 0);
+  y := t_rides.ride(v_id);
+  perform public.finish_user_ride(v_id, '[]'::jsonb, null);
+  v_id := t_rides.skew_ride(u, e + 7200, -600);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('SK1 4.1.3, phone 10 min behind: all km kept (as with an exact clock)', t_rides.near(x.distance_km, y.distance_km, 0.1)
+        and x.distance_km > 29.5 and x.moving_sec >= 1790, format('km %s (exact clock %s) moving %s', x.distance_km, y.distance_km, x.moving_sec));
+  perform t_rides.chk('SK1 server-stamped start point replaced by the phone points', jsonb_array_length(x.track) = 360
+        and (x.track->0->>2)::float8 = e + 7200 + 5 - 600 and jsonb_array_length(y.track) = 361,
+        format('pts %s first %s (exact %s)', jsonb_array_length(x.track), x.track->0->>2, jsonb_array_length(y.track)));
+  r := public.append_ride_track(v_id, (select jsonb_agg(jsonb_build_array(round((49.2 + i * 0.00075)::numeric, 7), 16.6,
+          e + 7200 + 5 - 600 + i * 5, 54, 300) order by i) from generate_series(0, 19) i), null);
+  perform t_rides.chk('SK2 first batch re-sent → still a duplicate', (r->>'dropped')::int = 20
+        and (t_rides.ride(v_id)).distance_km = x.distance_km, r::text);
+  perform t_rides.at(u, e + 7200 + 1900);
+  r := public.finish_user_ride(v_id, '[]'::jsonb, null);
+  x := t_rides.ride(v_id);
+  perform t_rides.chk('SK3 finish keeps the ride, duration ≥ moving', r->>'success' = 'true' and r->>'discarded' = 'false'
+        and x.duration_min * 60 + 30 >= x.moving_sec, format('%s dur %s mv %s', r, x.duration_min, x.moving_sec));
 end $$;
 
 -- (O runs crons far in the future → placed after every block that still needs open rides.)

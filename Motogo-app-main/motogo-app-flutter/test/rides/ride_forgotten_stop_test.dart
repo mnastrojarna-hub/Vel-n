@@ -1,7 +1,8 @@
-// Zapomenutý Stop po vícedenní vlastní cestě (ověření kola 3, H1 / X19):
-// další jízda se NIKDY tiše nepřidá ke staré cestě a GPS nesvítí dny —
-// po ≥ 20 h stání se appka při otevření zeptá „Pokračovat v cestě /
-// Ukončit a uložit". Noc na cestě (≤ 20 h) se neptá, výpůjčka nikdy.
+// Zapomenutý Stop po vícedenní vlastní cestě (ověření kola 3, H1 / X19;
+// kolo 4 V7): po ≥ 20 h stání appka při otevření jen PŘIPOMENE (GPS běží,
+// ranní rozjezd vícedenní cesty se nahraje sám); GPS nesvítí dny — po 48 h
+// stání ho pojistka vypne a appka se zeptá „Pokračovat v cestě / Ukončit
+// a uložit". Noc na cestě (≤ 20 h) nic, výpůjčka nikdy.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -61,7 +62,7 @@ void main() {
 
   int notifyIdle() => sim.native.where((m) => m.method == 'notifyIdle').length;
 
-  test('H1 2denní cesta končí doma, Stop zapomenut, appka otevřená každý večer → otázka, dojíždění se nepřidá', () async {
+  test('H1 2denní cesta končí doma, Stop zapomenut, appka otevřená každý večer → připomínka, po 48 h otázka, dojíždění se nepřidá', () async {
     final c = boot();
     final n = c.read(rideRecorderProvider.notifier);
     await sim.settle();
@@ -94,18 +95,27 @@ void main() {
     await sim.settle();
     expect(c.read(rideRecorderProvider).needsDecision, isFalse);
     await waitUntil(d0.add(const Duration(days: 2, hours: 19)), n);
-    n.onAppResumed(); // další večer (33 h) → minuta poslechu GPS, pak otázka
+    n.onAppResumed(); // další večer (33 h) → minuta poslechu GPS, pak jen připomínka
     await sim.settle();
     expect(c.read(rideRecorderProvider).needsDecision, isFalse);
     expect(sim.count('idle_check'), 1);
     await sim.wait(const Duration(minutes: 2), n);
-    final st = c.read(rideRecorderProvider);
+    var st = c.read(rideRecorderProvider);
+    expect(st.needsDecision, isFalse, reason: 'GPS běží dál (vícedenní cesta pokračuje sama)');
+    expect(st.phase, RidePhase.autoPaused);
+    expect(geo.listening, isTrue);
+    expect(st.notice, 'rpTripIdleRemind');
+    expect(st.noticeArgs?['date'], isNotEmpty);
+    expect(notifyIdle(), 2, reason: 'připomínka i v notifikaci');
+    expect(sim.count('idle_remind'), 1);
+    // bez další akce: 48 h od příjezdu domů pojistka GPS vypne a zeptá se
+    await waitUntil(d0.add(const Duration(days: 3, hours: 11)), n);
+    st = c.read(rideRecorderProvider);
     expect(st.needsDecision, isTrue);
     expect(st.pauseReason, RidePauseReason.long);
     expect(geo.listening, isFalse);
     expect(st.notice, 'rpTripIdleAsk');
-    expect(st.noticeArgs?['date'], isNotEmpty);
-    expect(sim.count('long_pause', 'open'), 1);
+    expect(sim.count('long_pause'), 1);
     for (var d = 3; d <= 5; d++) {
       await waitUntil(d0.add(Duration(days: d, hours: 19)), n);
       n.onAppResumed();

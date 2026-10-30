@@ -27,7 +27,8 @@ class RideAutoPauseFlag {
   final num? resumeKmh;
   final num? homeH;
   final num? longH;
-  /// Vlastní cesta stojí ≥ tolik h → při otevření appky se zeptat (0 = ne).
+  /// Vlastní cesta stojí ≥ tolik h → při otevření appky připomenout (GPS
+  /// běží dál; 0 = ne).
   final num? idleH;
 
   RideMotionConfig toConfig() => const RideMotionConfig().withFlag(

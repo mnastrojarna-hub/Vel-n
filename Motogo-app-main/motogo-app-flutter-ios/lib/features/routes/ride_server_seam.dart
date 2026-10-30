@@ -33,6 +33,9 @@ class RideServerSeam {
 
   Future<bool?> probe() => probeRideServerV2();
 
+  /// Výpůjčka skončila (vrácená / dokončená / zrušená)? null = nevíme.
+  Future<bool?> rentalEnded(String bookingId) => rideRentalEnded(bookingId);
+
   Future<RideAutoPauseFlag?> fetchFlag() => fetchRideAutoPauseFlag();
 }
 

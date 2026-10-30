@@ -19,7 +19,15 @@
 --       vyjetí). Kiosk při vrácení před posledním dnem jen „parkuje" a
 --       rezervaci dokončí až den po konci (returned_at zpětně) — do té doby
 --       by appka nahrávala cestu autem domů jako jízdu na motorce. Vyjetí
---       z kóje (state out) konec zase zruší. Výbava = NULL.
+--       z kóje (state out) konec zase zruší. SOS výměna motorky (sos_swap:
+--       původní rezervace completed + ended_by_sos, BEZ returned_at) končí
+--       založením náhradní výpůjčky — body náhradní motorky do jízdy
+--       porouchané nepatří a pozdní body (telefon offline) do ní dojdou.
+--       Výbava = NULL.
+--   4.1.3 start se souřadnicemi uloží bod P0 s časem SERVERU, další body
+--       nesou čas telefonu: dokud je ve stopě jen P0, hranice duplicit se
+--       neuplatní (telefon s hodinami pozadu by jinak ztratil začátek jízdy)
+--       a dávka s body staršími než P0 ho nahradí.
 --   Na cestě (duration) nikdy kratší než jízda + mezery (pojistka).
 -- Idempotentní (create or replace se stejným podpisem → práva zůstávají).
 -- ════════════════════════════════════════════════════════════════════
@@ -31,13 +39,20 @@ returns timestamptz language sql stable security definer set search_path = publi
                          (select k.closed_at from booking_kiosk_returns k
                            where k.booking_id = b.id and k.state in ('parked', 'skipped')
                              and k.closed_at is not null
-                             and k.closed_at >= coalesce(k.out_at, '-infinity'::timestamptz))) end
+                             and k.closed_at >= coalesce(k.out_at, '-infinity'::timestamptz)),
+                         -- SOS výměna: sos_swap původní výpůjčku dokončí BEZ returned_at →
+                         -- konec = založení náhradní výpůjčky (motorka náhrady patří do ní);
+                         -- sos_swap zapíše created_at = picked_up_at = now(), pozdější převzetí
+                         -- náhrady (úprava obsluhou) konec posune, dřívější nikdy
+                         case when b.ended_by_sos then
+                           (select min(greatest(r.created_at, r.picked_up_at)) from bookings r
+                             where r.replacement_for_booking_id = b.id) end) end
     from bookings b
    where b.id = p_booking_id
 $$;
 
 comment on function public._ride_booking_end(uuid) is
-  'Jízdy: konec výpůjčky motorky = min(returned_at, zavření kóje kiosku ve stavu parked/skipped po posledním vyjetí); NULL = běží (nebo výbava). Řídí ořez bodů po vrácení, uzavírání a start nahrávání.';
+  'Jízdy: konec výpůjčky motorky = min(returned_at, zavření kóje kiosku ve stavu parked/skipped po posledním vyjetí, u SOS výměny (ended_by_sos) založení náhradní výpůjčky — greatest(created_at, picked_up_at) náhrady); NULL = běží (nebo výbava, nebo SOS ukončení bez náhrady). Řídí ořez bodů po vrácení, uzavírání, pozdní body a start nahrávání.';
 
 create or replace function public._ride_append_core(p_ride_id uuid, p_points jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -71,6 +86,18 @@ begin
   -- Rezerva na hodiny telefonu: nová appka má čas srovnaný se serverem (30 s),
   -- stará appka razítkuje časem příjmu z nesrovnaných hodin (2 min).
   v_grace := case when v_r.pause_aware then 30 else 120 end;
+  -- 4.1.3: jediný uložený bod = start ze start_user_ride (čas SERVERU, ne telefonu).
+  -- Telefon s hodinami pozadu by jinak měl všechny body „starší" → duplicity.
+  if not v_r.pause_aware and jsonb_array_length(v_track) = 1 and v_lts is not null
+     and abs(v_lts - round(extract(epoch from v_r.started_at))) <= 2 then
+    v_maxts := null;
+    if exists (select 1 from jsonb_array_elements(p_points) e
+                where jsonb_typeof(e) = 'array' and jsonb_array_length(e) > 2
+                  and (e->>2) ~ '^[0-9]{1,12}(\.[0-9]+)?$'
+                  and (e->>2)::float8 < v_lts and (e->>2)::float8 >= v_start - 3600) then
+      v_track := '[]'::jsonb; v_last := null; v_lts := null;   -- P0 nahradí body telefonu
+    end if;
+  end if;
 
   -- 1) Filtr dávky (pořadí bodů zachováno).
   for v_pt in select e.pt from jsonb_array_elements(p_points) with ordinality e(pt, ord) order by e.ord loop

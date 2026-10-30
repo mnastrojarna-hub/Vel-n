@@ -1,3 +1,6 @@
+@Timeout(Duration(minutes: 3))
+library;
+
 // Výpůjčka, telefon offline v den vrácení (fix:logic:r2): úklid jízdu po
 // vrácení uzavře, appka pak doposílá velkou dávku po částech (≤ 2000). Server
 // (SQL 03c `_ride_append_late`) pozdní body do uzavřené výpůjčky uloží a

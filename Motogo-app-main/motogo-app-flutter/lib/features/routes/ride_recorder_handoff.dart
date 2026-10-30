@@ -1,8 +1,8 @@
 part of 'ride_recorder.dart';
 
-/// Body z doby kolem převzetí další výpůjčky: od převzetí − 10 min (stejné
-/// okno má server v `start_user_trip_from`).
-const double _kCarrySlackS = 600;
+/// Body další výpůjčky: od jejího převzetí − 2 min (rezerva na hodiny;
+/// server novou jízdu začne nejdřív 10 min před převzetím).
+const double _kCarrySlackS = 120;
 /// Body skončené výpůjčky čekají na start další výpůjčky nejvýš tak dlouho.
 const Duration _kCarryKeep = Duration(hours: 12);
 /// Výpůjčka stojící v auto-pauze: jak často se zeptat, jestli ještě běží.
@@ -62,7 +62,7 @@ extension _RideRecHandoff on RideRecorderNotifier {
         'app': RideRecorderNotifier._appState(),
       });
       await stop();
-      _keepCarry(carry, from);
+      _addCarry(carry, from);
       // Stará jízda ještě neuložená (offline) → hlídač to zkusí znovu.
       if (_st.recording || _st.rideId != null || stopPending) return;
       await ensureRecording(to);
@@ -71,16 +71,24 @@ extension _RideRecHandoff on RideRecorderNotifier {
     }
   }
 
-  void _keepCarry(List<List<double>> pts, String? from) {
+  /// Body, které skončená výpůjčka [from] nevzala (nebo nemusela vzít:
+  /// po jejím konci), schovat pro start další výpůjčky (`_takeCarry`).
+  void _addCarry(List<List<double>> pts, String? from) {
     if (from == null || pts.isEmpty) return;
+    final byTs = <double, List<double>>{
+      if (_hand.carryFrom == from)
+        for (final p in _hand.carry ?? const <List<double>>[]) p[2]: p,
+      for (final p in pts)
+        if (p.length > 2) p[2]: p,
+    };
     _hand
-      ..carry = pts
+      ..carry = (byTs.values.toList()..sort((a, b) => a[2].compareTo(b[2])))
       ..carryFrom = from
       ..carryAt = rideRecorderClock();
   }
 
   /// Start výpůjčky [to] hned po konci jiné: body z doby, kdy už jela tahle
-  /// (od převzetí − 10 min; bez času převzetí rozhodne `started_at`
+  /// (od převzetí − 2 min; bez času převzetí rozhodne `started_at`
   /// serveru), dostane nová jízda přes `start_user_trip_from`.
   void _takeCarry(String? to) {
     _hand.cutStart = false;

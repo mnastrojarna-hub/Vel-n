@@ -18,12 +18,14 @@ class Trace {
   final List<({double t, RidePhase phase, RidePauseReason? reason})> phases = [];
   bool detached = false;
   int homeNotices = 0;
+  int reminds = 0;
 
   void _take(RideEngineStep s, double at) {
     emitted.addAll(s.emit);
     logs.addAll(s.logs);
     if (s.detach) detached = true;
     if (s.homeNotice) homeNotices++;
+    if (s.remind) reminds++;
     if (s.phaseChanged) phases.add((t: at, phase: e.phase, reason: e.reason));
   }
 

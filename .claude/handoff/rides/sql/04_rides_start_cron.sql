@@ -29,7 +29,10 @@
 --   start_user_ride — stejný podpis/klíče; rozjetá jízda s AKTIVNÍ
 --       neskončenou výpůjčkou se obnoví v jakémkoli stáří (4.1.3 už výpůjčku
 --       nedělí), vlastní jízda nové appky do 72 h, jinak dál 3 h (4.1.3 beze
---       změny); párování podle data jen s neskončenou výpůjčkou motorky; id
+--       změny); jízda SKONČENÉ výpůjčky (vrácení, kóje, SOS výměna — konec
+--       _ride_booking_end) se neobnoví nikdy, uzavře se k jejímu konci
+--       (např. 4.1.3 po SOS výměně hned založí jízdu náhradní motorky);
+--       párování podle data jen s neskončenou výpůjčkou motorky; id
 --       výbavy nebo zaparkované výpůjčky → booking_inactive (4.1.3 pak
 --       nenahrává); po vyjetí z kóje pokračuje táž jízda (resumed).
 --   close_stale_user_rides — výpůjčka se uzavře až jejím koncem (vrácení
@@ -237,6 +240,8 @@ begin
       v_bret := _ride_booking_end(v_obk);
     end if;
     v_resume := case
+      -- výpůjčka už skončila (vrácení / kóje / SOS výměna) → neobnovovat, uzavřít k jejímu konci
+      when v_obk is not null and v_bret is not null then false
       when v_obk is not null and v_bst in ('reserved', 'active') and v_bret is null
            and (p_booking_id is null or p_booking_id = v_obk) then true
       when v_paw and v_obk is null then v_stale > now() - interval '72 hours'

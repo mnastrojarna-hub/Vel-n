@@ -33,17 +33,20 @@ class RideEngineStep {
   /// Vlastní cesta stojí u svého startu (doma?) — jen upozornit jezdce;
   /// GPS běží dál a po rozjezdu se nahrává samo.
   bool homeNotice = false;
-  /// Rozhodnutí při otevření appky: vlastní cesta stojí ≥ 20 h → GPS vypnout
-  /// a zeptat se „Pokračovat v cestě / Ukončit a uložit" (jezdec appku
-  /// právě vidí → bez notifikace, jen hláška).
+  /// Otevření appky po ≥ 48 h stání (pojistka „dlouhá pauza"): GPS vypnuto,
+  /// otázka „Pokračovat v cestě / Ukončit a uložit" (jezdec appku právě
+  /// vidí → bez notifikace, jen hláška).
   bool idle = false;
+  /// Otevření appky po ≥ 20 h stání: jen PŘIPOMENOUT (GPS běží dál, rozjezd
+  /// se nahraje sám — vícedenní cesta; hotovou cestu ať jezdec ukončí).
+  bool remind = false;
   /// Otázka čeká ~1 min na fixy (GPS musí běžet): jede-li motorka právě
   /// teď, rozhodne obnova jízdy a nikdo se neptá.
   bool probe = false;
   /// Nejvyšší SKUTEČNÁ Dopplerova rychlost vyslaných bodů (před značkou).
   double maxKmh = 0;
   bool get isEmpty =>
-      emit.isEmpty && logs.isEmpty && !phaseChanged && !detach && !homeNotice && !idle && !probe;
+      emit.isEmpty && logs.isEmpty && !phaseChanged && !detach && !homeNotice && !idle && !remind && !probe;
 }
 
 enum _Mode { riding, pending, paused }
@@ -97,6 +100,8 @@ class RidePauseEngine {
   /// nerozjede (viz `_decideIdle`).
   double? _askAt;
   bool _homeNoticed = false;
+  /// V téhle pauze už jezdci připomněla (otevřel appku po ≥ 20 h stání).
+  bool _reminded = false;
   /// Fixy s Dopplerem ≥ 12 km/h v relaci (telefon rychlost měří).
   int _dopMoving = 0;
 
@@ -121,6 +126,7 @@ class RidePauseEngine {
     _manual = false;
     _restored = false;
     _homeNoticed = false;
+    _reminded = false;
     _lastEmitted = null;
     _tripStart = null;
     _anchor = null;
@@ -207,7 +213,8 @@ class RidePauseEngine {
   }
 
   /// Otevření appky / obnova po restartu: vlastní cesta stojí ≥ 20 h →
-  /// GPS vypnout a zeptat se (viz `_decideIdle` v `ride_pause_guards.dart`).
+  /// připomenout, ≥ 48 h → GPS vypnout a zeptat se (viz `_decideIdle`
+  /// v `ride_pause_guards.dart`).
   RideEngineStep decideIdle(double now) => _decideIdle(now);
 
   /// Nové prahy / zapnutí-vypnutí auto-pauzy (flag) za běhu.
@@ -309,7 +316,7 @@ class RidePauseEngine {
       final ask = _askAt;
       if (ask != null && !_manual && now >= ask) {
         final d = _decideIdle(now);
-        if (d.detach) return d;
+        if (d.detach || d.remind) return d;
       }
       _guards(s, now, liveKm);
     }
@@ -361,6 +368,7 @@ class RidePauseEngine {
     _manual = false;
     _restored = false;
     _homeNoticed = false;
+    _reminded = false;
     _ring.clear();
     _pausePath.clear();
     if (autoPauseOn) {
@@ -495,6 +503,8 @@ class RidePauseEngine {
     _mode = _Mode.paused;
     _manual = false;
     _homeNoticed = false;
+    _reminded = false;
+    _askAt = null;
     _reason = r;
     _anchor = a;
     _pausedSince = a?[2] ?? lf?.ts;

@@ -123,6 +123,7 @@ extension _RideRecStream on RideRecorderNotifier {
     _engineTick();
     if (!_st.recording || _st.isManualPaused) return;
     if (_needsServerRide && !_starting) _ensureServerRide();
+    _checkRentalEnded();
     final at = _attachedAt;
     // Stojící motorka v auto-pauze fixy neposílá (filtr 20 m) — to je
     // normální, ne mrtvý stream (kotva = stream už fix dal).

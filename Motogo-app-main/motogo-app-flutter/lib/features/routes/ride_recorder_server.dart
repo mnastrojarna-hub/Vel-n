@@ -78,7 +78,7 @@ extension _RideRecServer on RideRecorderNotifier {
             rideLog('ride_continue_no_booking', data: {'ride': _contFrom, 'booking': booking, 'late': late});
             _continuation = false;
             await _forgetRide();
-            _keepCarry(snap, booking);
+            _addCarry(snap, booking);
             return false;
           }
           _inactiveBooking = booking;
@@ -110,7 +110,7 @@ extension _RideRecServer on RideRecorderNotifier {
               });
             }
             await _forgetRide();
-            _keepCarry(snap, booking);
+            _addCarry(snap, booking);
           }
           return false;
         case RideTripStartKind.notAuthenticated:
@@ -216,6 +216,8 @@ extension _RideRecServer on RideRecorderNotifier {
           // Uzavřená výpůjčka část přijala (pozdní body z doby offline; body
           // po vrácení zahodila). Zbytek dávky patří do TÉŽE jízdy — navázání
           // by po vrácení skončilo `booking_inactive` a zbytek zahodilo.
+          // Body po konci si nechat pro další výpůjčku (SOS výměna offline).
+          _addCarry(batch, _st.bookingId);
           _buffer.removeRange(0, batch.length < _buffer.length ? batch.length : _buffer.length);
           await _persistBuffer();
           if (_buffer.isNotEmpty && _st.rideId == id) return true;

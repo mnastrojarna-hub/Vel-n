@@ -119,8 +119,9 @@ class RideMotionConfig {
   /// (0 = vypnuto). Výchozí 48 h: noc ani den volna cestu neutne.
   final double longPauseOwnS;
   /// ★ vlastní cesta stojí déle než tohle (od zastavení / Pokračovat) →
-  /// při otevření appky GPS vypnout a zeptat se „Pokračovat v cestě /
-  /// Ukončit a uložit" (0 = vypnuto). Výchozí 20 h: noc v hotelu se neptá.
+  /// při otevření appky jen připomenout „cesta stojí od …" (GPS běží dál,
+  /// rozjezd se nahraje sám; GPS vypne až [longPauseOwnS]); 0 = vypnuto.
+  /// Výchozí 20 h: noc v hotelu nic.
   final double idleDecisionS;
 
   /// Výchozí prahy upravené flagem (neplatné hodnoty se ignorují).

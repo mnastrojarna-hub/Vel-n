@@ -49,15 +49,23 @@ void main() {
     const a = [49.2, 16.6, 1792000000.0, 0.0];
     RidePauseEngine restored() => RidePauseEngine(own: true)
       ..restore(phase: RidePhase.autoPaused, reason: RidePauseReason.stop, since: a[2], anchor: [...a], last: [...a], start: [...a]);
-    // otevřel appku po 30 h → minuta poslechu GPS, pak se zeptat
+    // otevřel appku po 30 h → minuta poslechu GPS, pak jen připomenout
+    // (GPS běží dál); po 50 h → GPS vypnout a zeptat se
     final e = restored();
     expect(e.decideIdle(a[2] + 30 * 3600).probe, isTrue);
     e.onAttach(a[2] + 30 * 3600);
-    final ask = e.onTick(a[2] + 30 * 3600 + 61, liveKm: 50);
+    final remind = e.onTick(a[2] + 30 * 3600 + 61, liveKm: 50);
+    expect(remind.detach, isFalse);
+    expect(remind.remind, isTrue);
+    expect(e.phase, RidePhase.autoPaused);
+    final e2 = restored();
+    expect(e2.decideIdle(a[2] + 50 * 3600).probe, isTrue);
+    e2.onAttach(a[2] + 50 * 3600);
+    final ask = e2.onTick(a[2] + 50 * 3600 + 61, liveKm: 50);
     expect(ask.detach, isTrue);
     expect(ask.idle, isTrue);
-    expect(e.phase, RidePhase.manualPaused);
-    expect(e.reason, RidePauseReason.long);
+    expect(e2.phase, RidePhase.manualPaused);
+    expect(e2.reason, RidePauseReason.long);
     // po 10 h (noc) se neptá; připojení streamu pojistku NEPRODLUŽUJE
     final f = restored();
     final t1 = a[2] + 10 * 3600;
