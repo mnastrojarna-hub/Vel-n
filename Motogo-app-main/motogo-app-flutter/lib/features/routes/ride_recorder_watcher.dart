@@ -19,8 +19,14 @@ import 'ride_recorder.dart';
 /// odbavení: od naplánovaného času vyzvednutí. Výpůjčka JEN výbavy
 /// (`booking_kind = 'gear'`) se nikdy nenahrává — není to jízda na motorce
 /// a nesmí ani ukončit pozastavenou vlastní cestu. [now] jen pro testy.
-String? rideActiveBookingId(List<Reservation> list, {DateTime? now}) {
+///
+/// [prefer] = výpůjčka, do které se právě nahrává: zůstává, dokud běží
+/// i po dnešku (`_rideKeepsRental`). Dvě motorky na jednom účtu (kamarád
+/// si dnes převzal druhou) tak jezdcovu cestu nerozdělí a jeho km nepadnou
+/// do cizí výpůjčky (seznam je řazený od nejnovějšího začátku).
+String? rideActiveBookingId(List<Reservation> list, {DateTime? now, String? prefer}) {
   final at = now ?? DateTime.now();
+  if (prefer != null && _rideKeepsRental(list, prefer, at)) return prefer;
   for (final r in list) {
     if (r.isGearOnly) continue; // výbava ≠ motorka
     if (!r.inRentalTerm) continue; // kalendářně; vydání řeší issuedAt níže
@@ -31,6 +37,23 @@ String? rideActiveBookingId(List<Reservation> list, {DateTime? now}) {
     if (r.status == 'active' && !at.isBefore(_ridePickupAt(r))) return r.id;
   }
   return null;
+}
+
+/// Nahrávaná výpůjčka [id] jede dál: převzatá, nevrácená, neukončená (ani
+/// SOS), termín běží a končí AŽ PO dnešku a žádná jiná ji nenahradila (SOS
+/// výměna motorky). Končí-li dnes, rozhoduje pořadí seznamu — navazující
+/// výpůjčka převzatá dnes ji vystřídá (vrácení zapsané obsluhou později).
+bool _rideKeepsRental(List<Reservation> list, String id, DateTime at) {
+  Reservation? r;
+  for (final x in list) {
+    if (x.id == id) r = x;
+    if (x.replacementForBookingId == id && x.status != 'cancelled') return false;
+  }
+  if (r == null || r.isGearOnly || !r.inRentalTerm || r.returnedAt != null) return false;
+  if (r.status == 'completed' || r.endedBySos) return false;
+  if (r.issuedAt == null && r.status != 'active') return false;
+  final end = DateTime(r.endDate.year, r.endDate.month, r.endDate.day);
+  return end.isAfter(DateTime(at.year, at.month, at.day));
 }
 
 /// Kdy zákazník výpůjčku [id] převzal (`picked_up_at`, jinak vydání /
@@ -118,7 +141,8 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
     // by zbytečně uzavřel (a po dojetí seznamu by vznikla druhá).
     if (!res.hasValue) return const SizedBox.shrink();
     final list = res.value ?? const <Reservation>[];
-    final bookingId = rideActiveBookingId(list);
+    // Nahrávaná výpůjčka má přednost, dokud běží (dvě motorky na účtu).
+    final bookingId = rideActiveBookingId(list, prefer: st.manual ? null : st.bookingId);
     final pickup = ridePickupOf(list, bookingId);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

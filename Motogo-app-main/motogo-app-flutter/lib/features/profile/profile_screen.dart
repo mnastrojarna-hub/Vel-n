@@ -32,6 +32,7 @@ import 'widgets/profile_menu_item.dart';
 import 'widgets/consent_sheet.dart';
 import 'widgets/settings_sheets.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import 'v2/profile_booking_fix_v2.dart';
 import 'v2/profile_hub_v2.dart';
 import 'v2/profile_personal_v2.dart' show PfFormData;
 import 'v2/profile_groups_v2.dart' show PfGroupActions;
@@ -231,7 +232,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     // v2 vzhled (PLAN §2.5.1): stejný stav, stejné ovladače a akce.
     if (MgV2.on(context)) {
+      // Pushed z formuláře rezervace („Doplnit v profilu"): zpět + doplnění.
+      final back = pfPushedBack(context);
       return ProfileHubV2View(
+        onBack: back,
+        bookingFix: back != null && pfBookingFixRequested(context),
         profile: profile,
         loading: loading,
         error: error,
@@ -250,7 +255,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           dobLastYear: (_dob != null && _dob!.year > DateTime.now().year - 18)
               ? _dob!.year
               : DateTime.now().year - 18,
-          licFirstYear: DateTime.now().year,
+          // Propadlý ŘP z dřívějška zůstane v nabídce (jinak assert dropdownu).
+          licFirstYear: (_licExp != null && _licExp!.year < DateTime.now().year)
+              ? _licExp!.year
+              : DateTime.now().year,
           licLastYear: DateTime.now().year + 20,
           licCategories: _licCategories,
           licOptions: _licCategoryOptions,

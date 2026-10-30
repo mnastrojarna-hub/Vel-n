@@ -221,6 +221,28 @@ Future<bool?> rideRentalEnded(String bookingId) async {
   }
 }
 
+/// Jízdu výpůjčky [rideId] uzavřel server sám (`closed_by` return / cron /
+/// start — zaparkování v kóji kiosku, úklid), ne jezdec ani obsluha → čas
+/// konce, jinak null. Výpůjčka přitom může dál běžit (kóje před posledním
+/// dnem = „zaparkováno", dokončí ji až noční zpracování). Starý server
+/// (sloupec `stats_state` neexistuje), offline, smazaná jízda → null.
+Future<DateTime?> rideRentalRideClosedAt(String rideId) async {
+  try {
+    final row = await MotoGoSupabase.client
+        .from('user_rides')
+        .select('is_recording, ended_at, closed_by:stats_state->>closed_by')
+        .eq('id', rideId)
+        .maybeSingle()
+        .timeout(const Duration(seconds: 10));
+    if (row == null || row['is_recording'] != false) return null;
+    if (!const {'return', 'cron', 'start'}.contains('${row['closed_by'] ?? ''}')) return null;
+    return DateTime.tryParse('${row['ended_at'] ?? ''}');
+  } catch (e) {
+    debugPrint('[rides] stav jízdy výpůjčky selhal: $e');
+    return null;
+  }
+}
+
 /// Jedna položka pro `set_user_rides_trip`: `tripId == id` = samostatná
 /// jízda, null = výchozí seskupení (podle výpůjčky), jiné = člen cesty.
 class RideTripItem {

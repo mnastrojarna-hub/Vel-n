@@ -24,6 +24,8 @@ class FakeRide {
   String? closedBy;
   /// Začátek jízdy (epoch s) — `start_user_trip_from` ho posune na první bod.
   double? startedAt;
+  /// Konec jízdy (epoch s), když ji uzavřel server (`rentalRideClosedAt`).
+  double? endedAt;
   final List<List<double>> pts = [];
   double get km => rideLiveDelta(null, pts).km;
 }
@@ -46,6 +48,7 @@ class FakeServer extends RideServerSeam {
   /// Výpůjčky skončené jinak než vrácením (SOS výměna → dokončená).
   final Set<String> ended = {};
   int rentalChecks = 0;
+  int parkChecks = 0;
   final List<FakeRide> rides = [];
   int tripCalls = 0, legacyCalls = 0, appendCalls = 0;
   double Function() now = () => 0;
@@ -119,11 +122,24 @@ class FakeServer extends RideServerSeam {
     return returns.containsKey(bookingId) || ended.contains(bookingId);
   }
 
+  /// Jízdu uzavřel server sám (`closed_by` return / cron / start) → kdy;
+  /// starý server (bez `stats_state`) / offline → null.
+  @override
+  Future<DateTime?> rentalRideClosedAt(String rideId) async {
+    parkChecks++;
+    if (offline || !trips) return null;
+    final r = rides.where((x) => x.id == rideId).firstOrNull;
+    if (r == null || r.open || !const {'return', 'cron', 'start'}.contains(r.closedBy)) return null;
+    final e = r.endedAt;
+    return e == null ? null : _at(e);
+  }
+
   /// Úklid (cron 72 h): otevřenou jízdu uzavře; vlastní cestu nová data
-  /// znovu otevřou (`_ride_reopen`).
-  void cronClose(FakeRide r) {
+  /// znovu otevřou (`_ride_reopen`). [at] = konec jízdy (epoch s).
+  void cronClose(FakeRide r, {double? at}) {
     r.open = false;
     r.closedBy = 'cron';
+    r.endedAt = at;
   }
 
   List<List<double>> _beforeReturn(FakeRide r, List<List<double>> points) {

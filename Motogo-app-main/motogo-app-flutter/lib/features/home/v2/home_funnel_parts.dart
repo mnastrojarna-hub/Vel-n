@@ -151,8 +151,8 @@ class FunnelTitle extends StatelessWidget {
     final min = short ? 0.7 : 0.85;
     return LayoutBuilder(builder: (context, c) {
       final one = homeLinesFitIn(context, text, h2.copyWith(fontSize: h2.fontSize! * min), c.maxWidth, 1);
-      // Nízký telefon a dva řádky: o stupeň menší nadpis (h3).
-      final style = one || !short ? h2 : MgType.h3.copyWith(color: MgColors.onDark);
+      // Nízký telefon a dva řádky: o stupeň menší nadpis (h3), hustší řádky.
+      final style = one || !short ? h2 : MgType.h3.copyWith(color: MgColors.onDark, height: 1.1);
       return MgWordFit(minScale: min, fitLines: one ? 1 : 2, child: Text(text, style: style));
     });
   }

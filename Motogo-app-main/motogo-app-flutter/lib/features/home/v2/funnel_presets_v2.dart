@@ -54,7 +54,8 @@ class FunnelPresets extends StatelessWidget {
             ),
             child: Stack(clipBehavior: Clip.none, children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                MgWordFit(minScale: 0.85, child: Text(label, style: labelStyle)),
+                // Nízký telefon: dvouřádkový popisek s hustším řádkováním.
+                MgWordFit(minScale: 0.85, child: Text(label, style: dense ? labelStyle.copyWith(height: 1.2) : labelStyle)),
                 const SizedBox(height: 2),
                 Text(dates, style: MgType.tab(MgType.meta.copyWith(color: MgColors.neonText))),
               ]),
@@ -138,7 +139,8 @@ class FunnelPresets extends StatelessWidget {
               Expanded(child: chip(1, l2, p.$2, s)),
             ]),
           );
-      // Z variant, kde se slova vejdou, ta s nejméně řádky popisku (shoda =
+      // První varianta, kde se slova vejdou a popisek má nejvýš 2 řádky; na
+      // nízkém telefonu (a když žádná nemá ≤ 2) ta s nejméně řádky (shoda =
       // větší písmo): „El siguiente fin de semana" na 320 dp 3 řádky, ne 4.
       final tiers = [(base, 52.0, 8.0), (small, 52.0, 8.0), (small, 44.0, 6.0)];
       int lines(TextStyle s, double w) {
@@ -155,6 +157,10 @@ class FunnelPresets extends StatelessWidget {
         final w = w3(t.$2, t.$3);
         if (!fit(t.$1, w)) continue;
         final n = lines(t.$1, w);
+        if (!dense && n <= 2) {
+          pick = t;
+          break;
+        }
         if (n < best) (pick, best) = (t, n);
       }
       if (pick != null) {

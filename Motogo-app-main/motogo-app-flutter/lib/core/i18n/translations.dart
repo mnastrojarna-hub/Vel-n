@@ -119,6 +119,7 @@ import 'translations_ext_59_v2_late_info.dart';
 import 'translations_ext_58_v2_booking_r2.dart';
 import 'translations_ext_58_v2_addr_sheet.dart';
 import 'translations_ext_55_v2_profile_docscan.dart';
+import 'translations_ext_55_v2_profile_fix.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -240,6 +241,7 @@ final translations = _mergeAll([
   translationsExt58V2BookingR2,
   translationsExt58V2AddrSheet,
   translationsExt55V2ProfileDocscan,
+  translationsExt55V2ProfileFix,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

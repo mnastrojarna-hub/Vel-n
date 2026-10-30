@@ -76,10 +76,28 @@ void main() {
 
   test('I2 výpůjčka se při otevření nikdy neptá ani nepřipomíná (končí vrácením)', () {
     final tr = parked(own: false);
-    tr.wait(5 * 24 * 3600, every: 3600, liveKm: 30);
+    tr.wait(47 * 3600, every: 3600, liveKm: 30);
     expect(openAndWait(tr), 'none');
     expect(tr.e.phase, RidePhase.autoPaused);
     expect(tr.detached, isFalse);
+    tr.e.noteForeground(tr.t); // otevření appky = kontakt → pojistka od teď
+    tr.wait(47 * 3600, every: 3600, liveKm: 30);
+    expect(openAndWait(tr), 'none');
+    expect(tr.detached, isFalse, reason: 'otevření appky pojistku výpůjčky posunulo');
+    expect(tr.reminds, 0);
+    expect(tr.homeNotices, 0);
+  });
+
+  test('I2b výpůjčka 48 h bez jízdy i bez otevření appky → pojistka vypne GPS (baterie), nic se neptá', () {
+    final tr = parked(own: false);
+    tr.wait(48 * 3600 + 1800, every: 1800, liveKm: 30);
+    expect(tr.detached, isTrue);
+    expect(tr.e.phase, RidePhase.manualPaused);
+    expect(tr.e.reason, RidePauseReason.long);
+    expect(tr.logsOf('long_pause'), hasLength(1));
+    expect(tr.reminds, 0);
+    expect(tr.homeNotices, 0);
+    expect(openAndWait(tr), 'none');
   });
 
   test('I3 po „Pokračovat v cestě" se počítá od klepnutí, ne od zastavení', () {

@@ -17,6 +17,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
 import '../../loyalty/loyalty_provider.dart';
@@ -78,7 +79,8 @@ class HomeHeaderV2 extends ConsumerWidget {
         }),
         // Pozdrav na JEDEN řádek (zmenší se, nikdy se nezalomí) a rank čip
         // vedle něj; když by se pozdrav musel zmenšit pod 75 %, čip sjede
-        // pod pozdrav (V22 §2.4 #1 — kompaktní hlavička).
+        // pod pozdrav (V22 §2.4 #1 — kompaktní hlavička). Nízký telefon
+        // (< 700 dp, home r3): 70 %, pak pozdrav na 2 řádky vedle čipu.
         LayoutBuilder(builder: (context, c) {
           final greeting = homeGreeting(tr, nick, DateTime.now());
           final gStyle = MgType.h3.copyWith(color: MgColors.onDark, height: 1.2);
@@ -98,8 +100,17 @@ class HomeHeaderV2 extends ConsumerWidget {
           final chipW = chipLabel == null ? 0.0 : width(chipLabel, MgType.meta.copyWith(fontWeight: FontWeight.w800, height: 1)) + 40;
           // Nízký telefon (< 700 dp): pozdrav smí na 70 % (jeho dolní mez),
           // ať čip zůstane vedle něj a REZERVOVAT nad spodní lištou.
-          final minG = MediaQuery.sizeOf(context).height < 700 ? 0.7 : 0.75;
-          final inline = chipLabel == null || width(greeting, gStyle) * minG + 8 + chipW <= c.maxWidth;
+          final short = MediaQuery.sizeOf(context).height < 700;
+          final inline = chipLabel == null || width(greeting, gStyle) * (short ? 0.7 : 0.75) + 8 + chipW <= c.maxWidth;
+          // …a když ani to ne, raději pozdrav na 2 řádky (≥ 80 %) vedle čipu
+          // než čip na vlastním řádku (hlavička o ~30 px nižší).
+          final avail = c.maxWidth - 8 - chipW;
+          final g80 = gStyle.copyWith(fontSize: gStyle.fontSize! * 0.8);
+          final two = !inline &&
+              short &&
+              avail >= 96 &&
+              mgWordsFit(context, greeting, g80, avail) &&
+              mgLinesFit(context, greeting, g80, avail, 2);
           final g = Semantics(
             button: true,
             hint: tr.tr('editNickname'),
@@ -111,8 +122,12 @@ class HomeHeaderV2 extends ConsumerWidget {
                 // uprostřed slova a bez useknutí.
                 child: MgWordFit(
                   minScale: 0.7,
-                  fitLines: 1,
-                  child: Text(greeting, maxLines: 3, overflow: TextOverflow.ellipsis, style: gStyle),
+                  fitLines: two ? 2 : 1,
+                  // Dva řádky o stupeň menší (17) — řádek zůstane 44 vysoký.
+                  child: Text(greeting,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: two ? gStyle.copyWith(fontSize: gStyle.fontSize! * 0.85) : gStyle),
                 ),
               ),
             ),
@@ -126,7 +141,7 @@ class HomeHeaderV2 extends ConsumerWidget {
                 );
           // Řádek je vždy 44 vysoký (tap zóna čipu): bez čipu (věrnost se
           // načítá) nic neposkočí a mezery k logu i mottu zůstanou stejné.
-          if (inline) {
+          if (inline || two) {
             return ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 44),
               child: Row(children: [
@@ -158,7 +173,12 @@ class HomeHeaderV2 extends ConsumerWidget {
                 child: MgWordFit(
                   minScale: 0.85,
                   fitLines: 2,
-                  child: Text(motto, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: rank.accentOnDark)),
+                  // Nízký telefon: dvouřádkové motto s hustším řádkováním.
+                  child: Text(motto,
+                      style: MgType.small.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: rank.accentOnDark,
+                          height: MediaQuery.sizeOf(context).height < 700 ? 1.2 : null)),
                 ),
               ),
             ]),

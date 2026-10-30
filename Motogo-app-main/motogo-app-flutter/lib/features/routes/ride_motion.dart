@@ -116,7 +116,8 @@ class RideMotionConfig {
   /// (GPS zůstává zapnuté, po rozjezdu se nahrává samo)
   final double homeAfterS;
   /// ★ dlouhá pauza vlastní cesty bez otevření appky → GPS vypnout
-  /// (0 = vypnuto). Výchozí 48 h: noc ani den volna cestu neutne.
+  /// (0 = vypnuto). Výchozí 48 h: noc ani den volna cestu neutne. Platí
+  /// i pro výpůjčku (tam od posledního otevření appky; otevření ji zapne).
   final double longPauseOwnS;
   /// ★ vlastní cesta stojí déle než tohle (od zastavení / Pokračovat) →
   /// při otevření appky jen připomenout „cesta stojí od …" (GPS běží dál,

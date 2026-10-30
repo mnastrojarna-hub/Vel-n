@@ -261,7 +261,7 @@ void main() {
     expect(md.e.phase, RidePhase.autoPaused);
   });
 
-  test('D13 dlouhá pauza: noc (20 h) nic; 48 h bez kontaktu → vlastní GPS vypnout, výpůjčka nic', () {
+  test('D13 dlouhá pauza: noc (20 h) nic; 48 h bez kontaktu → GPS vypnout (vlastní i výpůjčka, kolo 5)', () {
     for (final own in [true, false]) {
       final tr = riding(own: own);
       tr.go(60, 1800);
@@ -269,8 +269,9 @@ void main() {
       tr.wait(21 * 3600, liveKm: 30);
       expect(tr.detached, isFalse);
       tr.wait(27 * 3600 + 400, liveKm: 30);
-      expect(tr.detached, own);
-      expect(tr.e.reason, own ? RidePauseReason.long : RidePauseReason.stop);
+      expect(tr.detached, isTrue, reason: 'own $own');
+      expect(tr.e.reason, RidePauseReason.long);
+      expect(tr.homeNotices, 0, reason: 'daleko od startu — „doma" nic');
     }
   });
 

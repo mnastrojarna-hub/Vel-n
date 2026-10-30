@@ -34,9 +34,13 @@ extension _RidePauseGuards on RidePauseEngine {
   /// „dlouhá pauza" (výchozí 48 h od zastavení / posledního Pokračovat)
   /// = GPS vypnout. Otevření appky pojistku neprodlužuje (zapomenutý Stop);
   /// ne 2 min po připojení / otevření appky a ne, když se zrovna hýbe.
+  /// Výpůjčka: jen „dlouhá pauza" — 48 h bez jízdy I bez otevření appky
+  /// (otevření u výpůjčky počítá jako kontakt, `noteForeground`); motorka
+  /// stojící dny nedrží GPS a baterii (SOS v appce), otevření appky záznam
+  /// zase zapne samo.
   void _guards(RideEngineStep s, double now, double liveKm) {
     final since = _pausedSince;
-    if (!own || since == null) return;
+    if (since == null) return;
     final q = _quietFrom;
     if (q != null && now - q < _C.guardQuietS) return;
     if (_recentMotion(now)) return;
@@ -45,7 +49,7 @@ extension _RidePauseGuards on RidePauseEngine {
     final r = _reason;
     final ts = _tripStart, a = _anchor;
     final away = r == RidePauseReason.stop || r == RidePauseReason.walk || r == RidePauseReason.silence;
-    if (!_homeNoticed && away && ts != null && a != null &&
+    if (own && !_homeNoticed && away && ts != null && a != null &&
         ridePtDistM(a, ts) <= _C.homeRadiusM &&
         now - from >= _cfg.homeAfterS &&
         liveKm >= _C.homeMinKm) {

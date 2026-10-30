@@ -60,8 +60,8 @@ class RidePauseEngine {
 
   RideMotionConfig _cfg;
   RideMotionDetector _det;
-  /// Vlastní cesta (bez výpůjčky) — jen ta má upozornění „doma" a pojistku
-  /// „dlouhá pauza".
+  /// Vlastní cesta (bez výpůjčky) — jen ta má upozornění „doma"
+  /// a připomínku při otevření; pojistku „dlouhá pauza" má i výpůjčka.
   bool own;
   /// Flag `ride_autopause` (kill-switch): false = nahrává se vše jako dřív.
   bool autoPauseOn;
@@ -200,11 +200,13 @@ class RidePauseEngine {
   }
 
   /// Jezdec má appku v popředí → 2 min ticha pojistek. Pojistku „dlouhá
-  /// pauza" NEPRODLUŽUJE: zapomenutý Stop po cestě by jinak držel GPS
-  /// zapnuté dny a další jízdy tiše přidával ke staré cestě.
+  /// pauza" vlastní cesty NEPRODLUŽUJE: zapomenutý Stop po cestě by jinak
+  /// držel GPS zapnuté dny a další jízdy tiše přidával ke staré cestě.
+  /// Výpůjčku (končí vrácením, zapomenout ji nejde) ano.
   void noteForeground(double now) {
     final q = _quietFrom;
     if (q == null || now > q) _quietFrom = now;
+    if (!own) _noteDecision(now);
   }
 
   void _noteDecision(double now) {

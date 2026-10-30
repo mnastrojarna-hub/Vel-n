@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -8,6 +9,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'profile_booking_fix_v2.dart';
 import 'profile_fit.dart';
 import 'profile_personal_form_v2.dart';
 import 'profile_v2_parts.dart';
@@ -54,12 +56,18 @@ class PfFormData {
 /// "Osobní údaje" white card (V21 §1.2): summary of the saved profile with
 /// amber "Doplnit" for empty values, "Upravit" = today's toggle (incl. its
 /// "still loading / load failed" guard) that expands the SAME inline form.
+/// [fixBack] (opened from the booking form, profile_booking_fix_v2.dart):
+/// the booking banner on top, required fields marked, "Zpět k rezervaci".
 class ProfilePersonalV2 extends StatelessWidget {
   final Map<String, dynamic>? profile;
   final bool ready;
   final bool expanded;
   final VoidCallback onToggle;
   final PfFormData form;
+  final VoidCallback? fixBack;
+  final Key? bannerKey;
+  final Key? addressKey;
+  final Key? docsKey;
   const ProfilePersonalV2({
     super.key,
     required this.profile,
@@ -67,6 +75,10 @@ class ProfilePersonalV2 extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     required this.form,
+    this.fixBack,
+    this.bannerKey,
+    this.addressKey,
+    this.docsKey,
   });
 
   @override
@@ -93,13 +105,34 @@ class ProfilePersonalV2 extends StatelessWidget {
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [head, const SizedBox(height: 8), button]);
         }),
         const SizedBox(height: 12),
-        PfAnimatedSize(
-          child: open
-              ? MgEnter(child: ProfilePersonalFormV2(data: form))
-              : (profile == null ? const _SummarySkeleton() : _Summary(profile: profile!, form: form)),
-        ),
+        PfAnimatedSize(child: _body(open)),
       ]),
     );
+  }
+
+  Widget _body(bool open) {
+    final back = fixBack;
+    final Widget body = open
+        ? MgEnter(
+            child: back == null
+                ? ProfilePersonalFormV2(data: form)
+                : Consumer(builder: (context, ref, _) {
+                    final fix = pfBookingFix(context, ref);
+                    return ProfilePersonalFormV2(
+                      data: form,
+                      fix: true,
+                      fixLicence: pfNeedsLicence(ref),
+                      expiryNote: fix?.kind == PfFixKind.expired ? fix!.text : null,
+                      groupNote: fix?.kind == PfFixKind.group ? fix!.text : null,
+                      addressKey: addressKey,
+                      docsKey: docsKey,
+                      afterSave: PfBookingFixReturnV2(onBack: back),
+                    );
+                  }),
+          )
+        : (profile == null ? const _SummarySkeleton() : _Summary(profile: profile!, form: form));
+    if (back == null || !ready) return body;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [PfBookingFixBannerV2(key: bannerKey, onBack: back), body]);
   }
 }
 

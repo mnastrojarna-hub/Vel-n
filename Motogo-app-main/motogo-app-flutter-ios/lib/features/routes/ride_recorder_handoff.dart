@@ -7,6 +7,10 @@ const double _kCarrySlackS = 120;
 const Duration _kCarryKeep = Duration(hours: 12);
 /// Výpůjčka stojící v auto-pauze: jak často se zeptat, jestli ještě běží.
 const Duration _kRentalCheckEvery = Duration(minutes: 30);
+/// Jízdu výpůjčky uzavřel server (motorka v kóji kiosku, výpůjčka běží
+/// dál): GPS ještě tak dlouho čeká na ranní vyjetí (táž jízda se po něm
+/// sama znovu otevře), pak se vypne — zaparkování bývá i předčasné vrácení.
+const Duration _kParkedKeep = Duration(hours: 16);
 
 /// Stav předávání mezi jízdami (výměna motorky, konec výpůjčky).
 class _RideHandoff {
@@ -22,6 +26,10 @@ class _RideHandoff {
   bool cutStart = false;
   bool switching = false;
   DateTime? rentalCheckAt;
+  /// Kdy server uzavřel jízdu zaparkované výpůjčky (už zapsané do logu).
+  DateTime? parkedAt;
+  /// Probíhá probuzení výpůjčky po pojistce (otevření appky).
+  bool waking = false;
 }
 
 /// Předávání: výměna výpůjčky za jízdy, výpůjčka vrácená během auto-pauzy,
@@ -135,7 +143,11 @@ extension _RideRecHandoff on RideRecorderNotifier {
   /// Výpůjčka vrácená, zatímco záznam stojí v auto-pauze: na server nic
   /// nejde a hlídač běží jen s otevřenou appkou → jednou za 30 min pauzy se
   /// zeptat, jestli ještě běží; vrácená / dokončená / zrušená → ukončit
-  /// (GPS vypnout). Noc v boxu samoobsluhy (výpůjčka běží) nic neukončí.
+  /// (GPS vypnout). Výpůjčka běží, ale jízdu server uzavřel sám (motorka
+  /// v kóji kiosku — přes noc i předčasné vrácení, které kiosk dokončí až
+  /// den po konci) → GPS čeká na ranní vyjetí [_kParkedKeep], pak Ukončit
+  /// (jízda už uzavřená zůstane, jak je; vyjede-li motorka později, start
+  /// po otevření appky naváže tutéž jízdu).
   void _checkRentalEnded() {
     final b = _st.bookingId;
     final now = rideRecorderClock();
@@ -152,14 +164,59 @@ extension _RideRecHandoff on RideRecorderNotifier {
     if (now.difference(at) < _kRentalCheckEvery) return;
     _hand.rentalCheckAt = now;
     unawaited(() async {
+      bool still() =>
+          mounted && _st.bookingId == b && _st.recording && _st.phase != RidePhase.riding && !_stopping;
       final ended = await _api.rentalEnded(b);
-      if (ended != true || !mounted || _st.bookingId != b || !_st.recording ||
-          _st.phase == RidePhase.riding || _stopping) {
-        return;
-      }
+      if (ended == false && still()) return _checkRentalParked(b);
+      if (ended != true || !still()) return;
       rideLog('rental_ended', data: {'booking': b, 'app': RideRecorderNotifier._appState()});
       await stop();
     }());
+  }
+
+  /// Výpůjčka běží, jízdu ale server uzavřel sám (kóje kiosku) → po
+  /// [_kParkedKeep] od uzavření GPS vypnout (Ukončit). Starý server → nic.
+  Future<void> _checkRentalParked(String b) async {
+    final id = _st.rideId;
+    if (id == null) return;
+    final at = await _api.rentalRideClosedAt(id);
+    if (at == null || !mounted || _st.rideId != id || _st.bookingId != b || !_st.recording ||
+        _st.phase == RidePhase.riding || _stopping) {
+      return;
+    }
+    final h = (_nowEpoch() - at.millisecondsSinceEpoch / 1000) / 3600;
+    final data = {'booking': b, 'ride': id, 'closed': at.toUtc().toIso8601String(), 'h': (h * 10).round() / 10};
+    if (_hand.parkedAt != at) {
+      _hand.parkedAt = at;
+      rideLog('rental_parked', data: {...data, 'app': RideRecorderNotifier._appState()});
+    }
+    if (h * 3600 < _kParkedKeep.inSeconds) return;
+    rideLog('rental_parked_end', data: {...data, 'app': RideRecorderNotifier._appState()});
+    await stop();
+  }
+
+  /// Výpůjčka, které pojistka vypnula GPS (48 h bez jízdy i bez otevření
+  /// appky): otevřením appky se záznam sám znovu zapne („připraveno" —
+  /// výpůjčka nikdy nepotřebuje klepnutí). Bez povolené polohy nic (UI
+  /// nabídne Pokračovat; o polohu se tu neříká).
+  bool get _rentalGuarded =>
+      _st.recording && !_st.manual && _st.bookingId != null && _st.isManualPaused &&
+      _st.pauseReason == RidePauseReason.long;
+
+  Future<void> _wakeRentalGuard() async {
+    if (!_rentalGuarded || _hand.waking || _stopping || _starting) return;
+    _hand.waking = true;
+    try {
+      if (!await RideRecorderNotifier.hasLocationPermission() || !_rentalGuarded) return;
+      final since = _st.pausedSince;
+      final r = await resume();
+      rideLog('rental_guard_wake', data: {'booking': _st.bookingId, 'result': r.name});
+      if (r == RideStartResult.ok) {
+        _setNotice('rpRentGuardWoke', {'date': rideShortDate(since ?? rideRecorderClock())});
+      }
+    } finally {
+      _hand.waking = false;
+    }
   }
 
   /// Ukončení, které server nevzal (offline) — přežije i zabití appky.

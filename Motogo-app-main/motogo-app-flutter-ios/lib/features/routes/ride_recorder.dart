@@ -267,8 +267,11 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   }
 
   /// Spustí (nebo po restartu appky obnoví) záznam pro běžící výpůjčku.
-  /// Pozastavená cesta má `recording == true` → tady se nic nemění.
+  /// Pozastavená cesta má `recording == true` → tady se nic nemění; jen
+  /// výpůjčku po pojistce (GPS vypnuté po 48 h) otevřená appka znovu zapne.
   Future<void> ensureRecording(String? bookingId) async {
+    // Výpůjčka, které pojistka vypnula GPS → otevřená appka ji zase zapne.
+    if (_rentalGuarded && bookingId == state.bookingId && _isForeground()) return _wakeRentalGuard();
     if (!state.enabled || state.recording || _starting) return;
     if (stopPending) {
       // Neuložená předchozí jízda (offline) má přednost — body obou jízd

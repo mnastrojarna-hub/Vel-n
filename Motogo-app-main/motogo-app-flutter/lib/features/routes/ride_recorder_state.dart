@@ -63,8 +63,11 @@ class RideRecorderState {
       recording && phase == RidePhase.autoPaused && pauseReason == RidePauseReason.start;
   bool get isManualPaused => recording && phase == RidePhase.manualPaused;
   /// GPS vypnula pojistka (doma / dlouhá pauza) — UI nabídne Pokračovat / Ukončit.
+  /// Jen ruční záznam: výpůjčka Ukončit nemá — po pojistce vypadá jako ruční
+  /// pauza (Pokračovat) a otevření appky ji zapne samo.
   bool get needsDecision =>
       isManualPaused &&
+      manual &&
       (pauseReason == RidePauseReason.home || pauseReason == RidePauseReason.long);
   /// Ukončit smí jezdec jen ruční (vlastní) záznam; výpůjčka končí vrácením.
   bool get canStop => recording && manual;

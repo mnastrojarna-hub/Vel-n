@@ -220,6 +220,90 @@ void main() {
     await _end(t);
   });
 
+  // fix:home r3 — giving the weekend ALREADY shown (a card tap with no dates
+  // given yet) is the same range: the centred bike stays (photo = "n / m" =
+  // CTA = the booked bike), only other dates start again at bike 1.
+  testWidgets('same range given (card tap, no dates yet) keeps the centred bike', (t) async {
+    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+    await _frames(t);
+    final c = _c(t);
+    double page() => t.widget<PageView>(find.byType(PageView)).controller!.page!;
+    await t.tap(_sem((p) => p.label == _cs('v2HomeFnNext')).first);
+    await _frames(t);
+    expect(find.text('2 / 2'), findsOneWidget);
+    final r = funnelPresets(DateTime.now()).$1;
+    // What the card tap writes (homeGiveDates) before the detail opens.
+    c.read(catalogFilterProvider.notifier).state =
+        c.read(catalogFilterProvider).copyWith(startDate: () => r.start, endDate: () => r.end);
+    await _frames(t);
+    expect(c.read(funnelSelectionProvider).given, r);
+    expect(c.read(funnelCenterProvider), 1);
+    expect(page(), 1);
+    expect(find.text('2 / 2'), findsOneWidget);
+    final q = quoteFor(_two[1], r.start, r.end, loyalty: kLoyalty3).total;
+    expect(find.byWidgetPredicate((w) => w is MgCta && w.price == Money.czk(q)), findsOneWidget);
+    await _end(t);
+  });
+
+  testWidgets('no dates yet → › → tap the centred bike → back → REZERVOVAT books bike 2', (t) async {
+    t.view.physicalSize = const Size(412, 915) * 2;
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    // Home in a shell (as in the app) → the detail is PUSHED, Domů stays mounted.
+    final router = GoRouter(initialLocation: '/', routes: [
+      ShellRoute(builder: (c, s, child) => child, routes: [
+        GoRoute(path: '/', builder: (c, s) => const Scaffold(body: _funnel)),
+      ]),
+      GoRoute(path: '/moto/:id', builder: (c, s) => Scaffold(body: Text('moto ${s.pathParameters['id']}'))),
+      GoRoute(path: '/booking', builder: (c, s) => const Text('booking')),
+    ]);
+    final c = ProviderContainer(overrides: [
+      rankTokensProvider.overrideWithValue(RankTokens.forLevel(3)),
+      rankArcPctProvider.overrideWithValue(50),
+      ...homeOverrides(funnel: _two),
+    ]);
+    addTearDown(c.dispose);
+    await t.pumpWidget(UncontrolledProviderScope(
+      container: c,
+      child: MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('cs'),
+        supportedLocales: supportedLocales,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: v2TestTheme(),
+        builder: (ctx, child) => MgV2Scope(enabled: true, child: child!),
+      ),
+    ));
+    await _frames(t);
+    final r = funnelPresets(DateTime.now()).$1;
+    expect(_dates(c), (null, null), reason: 'nothing given yet');
+    await t.tap(_sem((p) => p.label == _cs('v2HomeFnNext')).first);
+    await _frames(t);
+    await t.tap(find.byWidgetPredicate((w) => w is FunnelBikeCard && w.center));
+    await _frames(t);
+    expect(find.text('moto m-husq'), findsOneWidget);
+    expect(_dates(c), (r.start, r.end));
+    router.pop();
+    await _frames(t);
+    expect(find.text('2 / 2'), findsOneWidget);
+    expect(t.widget<PageView>(find.byType(PageView)).controller!.page, 1);
+    final q = quoteFor(_two[1], r.start, r.end, loyalty: kLoyalty3).total;
+    final cta = find.byWidgetPredicate((w) => w is MgCta && w.price == Money.czk(q));
+    expect(cta, findsOneWidget, reason: 'REZERVOVAT shows the price of the bike in the photo');
+    await t.ensureVisible(cta);
+    await t.pump();
+    await t.tap(cta);
+    await _frames(t);
+    expect(find.text('booking'), findsOneWidget);
+    final d = c.read(bookingDraftProvider);
+    expect([d.motoId, d.startDate, d.endDate], ['m-husq', r.start, r.end]);
+    await _end(t);
+  });
+
   // The given-dates line (from Motorky / calendar) in every language.
   for (final lang in kV2Langs) {
     for (final size in kV2Sizes) {

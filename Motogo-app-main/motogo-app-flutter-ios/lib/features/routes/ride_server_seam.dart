@@ -36,6 +36,10 @@ class RideServerSeam {
   /// Výpůjčka skončila (vrácená / dokončená / zrušená)? null = nevíme.
   Future<bool?> rentalEnded(String bookingId) => rideRentalEnded(bookingId);
 
+  /// Jízdu výpůjčky uzavřel server sám (kóje kiosku, úklid) → kdy; null =
+  /// otevřená / ukončená jezdcem / nevíme / starý server.
+  Future<DateTime?> rentalRideClosedAt(String rideId) => rideRentalRideClosedAt(rideId);
+
   Future<RideAutoPauseFlag?> fetchFlag() => fetchRideAutoPauseFlag();
 }
 

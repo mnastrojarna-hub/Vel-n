@@ -91,6 +91,8 @@ extension _RideRecStream on RideRecorderNotifier {
     }
     final now = _nowEpoch();
     _engine?.noteForeground(now);
+    // Výpůjčka, které pojistka vypnula GPS → otevřením appky zase nahrává.
+    if (_rentalGuarded) unawaited(_wakeRentalGuard());
     // Vlastní cesta stojí ≥ 20 h (zapomenutý Stop po cestě?) → po ~1 min
     // GPS (jede-li právě, rozhodne rozjezd) vypnout a zeptat se; další jízda
     // se tak nikdy tiše nepřidá ke staré cestě.

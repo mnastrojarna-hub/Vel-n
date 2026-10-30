@@ -129,9 +129,10 @@ extension _RideRecPause on RideRecorderNotifier {
     if (st.homeNotice) _notifyHome();
     if (st.phaseChanged) _syncPhase();
     if (st.remind) _remindIdle();
-    if (st.detach && _engine?.reason == RidePauseReason.long) {
+    if (st.detach && _engine?.reason == RidePauseReason.long && (_st.manual || _st.bookingId == null)) {
       // Pojistka vypnula GPS (při otevření i na pozadí) → po otevření appky
       // hláška „Pokračovat v cestě / Ukončit" (notifikace jen mimo popředí).
+      // Výpůjčku otevření appky zapne samo (`_wakeRentalGuard` + hláška).
       final since = _st.pausedSince;
       _setNotice('rpTripIdleAsk', {'date': rideShortDate(since ?? rideRecorderClock())});
     }
@@ -225,7 +226,9 @@ extension _RideRecPause on RideRecorderNotifier {
     if (notify && (r == RidePauseReason.home || r == RidePauseReason.long)) {
       final tr = AppTranslations.of(_lang());
       final title = rideTrOpt(tr, 'rpNotifIdleTitle');
-      final text = rideTrOpt(tr, 'rpNotifIdleText');
+      // Výpůjčka: stačí otevřít appku (klepnutí není potřeba).
+      final text = rideTrOpt(tr, _st.bookingId != null && !_st.manual ? 'rpNotifRentIdleText' : 'rpNotifIdleText') ??
+          rideTrOpt(tr, 'rpNotifIdleText');
       if (title != null && text != null) await RideKeepAlive.notifyIdle(title, text);
     }
   }
