@@ -57,9 +57,12 @@ Stav 2026-10-22. Návrh, nic zatím nasazeno. Technické zadání pro implementa
 - Odhad spotřeby je **5–15 % baterie za noc**. Ověříme měřením na telefonu.
 - Pojistky u vlastní cesty (zapomenutý Stop — upraveno 30. 10.):
   - když stojíš **3 h na místě, kde cesta začala** (typicky doma, i po vícedenní cestě), přijde jen upozornění „Jsi zpátky tam, kde cesta začala“ — GPS běží dál a ráno se rozjezd nahraje sám;
-  - když cesta stojí **20 h a víc** a otevřeš appku (nebo ji systém mezitím zavřel), appka ještě minutu poslouchá GPS — když se zrovna rozjíždíš, nic se neptá a nahrává dál; jinak vypne GPS a zeptá se „Pokračovat v cestě / Ukončit a uložit“. Noc v hotelu (do 20 h) se neptá. Bez odpovědi se nic nenahrává — další jízda se tak tiše nepřilepí ke staré cestě;
-  - když appku vůbec neotevřeš, vypne se GPS po **48 h** stání (na Androidu přijde upozornění, pak stačí klepnout Pokračovat).
-- Neuložený Stop (bez signálu) se zkouší znovu sám (otevření appky, každé 2 min). Nová jízda se spustí, až se předchozí uloží — jinak by se obě spojily.
+  - když cesta stojí **20 h a víc** a otevřeš appku (třeba u snídaně), appka jen **připomene** „Cesta stojí od … Jedeš dál? Nic nedělej. Je hotová? Ukonči ji.“ — GPS běží dál a ranní rozjezd se nahraje sám do stejné cesty (upraveno 30. 10. večer: dřív tu appka GPS vypnula a když jsi neklepl Pokračovat, celý další den se ztratil). Noc v hotelu (do 20 h) nic;
+  - GPS vypne a zeptá se „Pokračovat v cestě / Ukončit a uložit“ až po **48 h** stání (při otevření appky i bez něj; na Androidu přijde upozornění). Zapomenutý Stop tak nesvítí dny; dojíždění v prvních 48 h po návratu domů se ale ke staré cestě přidá, pokud cestu po připomínce neukončíš.
+- Neuložený Stop (bez signálu) se zkouší znovu sám (otevření appky, každé 2 min) — i když systém appku mezitím zavře; ukončená cesta se už nikdy znovu nerozjede. Nová jízda se spustí, až se předchozí uloží — jinak by se obě spojily.
+- Když přes noc vypneš polohu, cesta se tím neukončí ani nerozdělí: appka ukáže „poloha nedostupná“ a po zapnutí polohy nahrává dál.
+- Výměna motorky (SOS) nebo navazující výpůjčka: stará jízda se uloží a body nové motorky jdou do nové jízdy — i když telefon byl při výměně bez signálu.
+- Výpůjčka vrácená, zatímco záznam stojí: appka to do 30 min pozná sama (i na pozadí) a GPS vypne. Noc v boxu samoobsluhy výpůjčku neukončí.
 - Výpůjčka nahraná celá bez dat (cizina bez roamingu) se po návratu signálu uloží celá od převzetí, i když už je motorka vrácená (po nasazení SQL).
 - U výpůjčky GPS zůstává zapnuté, aby Velín pořád viděl, kde motorka je.
 
@@ -91,7 +94,7 @@ Stav 2026-10-22. Návrh, nic zatím nasazeno. Technické zadání pro implementa
 
 ## Otevřené volby (výchozí stav navržen, stačí potvrdit nebo změnit)
 1. Prahy **5 min stání / 3 min chůze / rozjezd 2× nad 20 km/h**. Jdou měnit z Velína.
-2. GPS zapnuté přes noc při auto-pauze (odhad 5–15 % baterie). Pojistky: „doma“ po **3 h** jen upozornění; otázka při otevření appky po **20 h** stání; bez otevření GPS vypnout po **48 h** (vše jde měnit z Velína).
+2. **Baterie — potřebujeme tvoje rozhodnutí.** GPS zůstává přes noc zapnuté při auto-pauze (odhad 5–15 % baterie za noc) — u výpůjček každou noc, u vlastní cesty max. 48 h. Pojistky: „doma“ po **3 h** jen upozornění; po **20 h** při otevření appky jen připomínka (GPS běží dál); GPS vypnout po **48 h** (vše jde měnit z Velína). Možnosti: (a) nechat takhle; (b) noční pojistka: stojí-li motorka mezi 21:00 a 5:00 aspoň 3 h, GPS se vypne a ráno se nahrává až po otevření appky (riziko ztráty ranní jízdy); (c) přepínač pro jezdce „šetřit baterii v noci“. Výchozí: (a).
 3. Vlastní cesta se sama uloží po **3 dnech** bez jízdy (strop 30 dní).
 4. Stará appka 4.1.3: vlastní jízdy se dál dělí přes noc (jako dnes), výpůjčky už ne.
 5. „Na cestě“ nově **bez pauz**, v appce i ve Velínu.

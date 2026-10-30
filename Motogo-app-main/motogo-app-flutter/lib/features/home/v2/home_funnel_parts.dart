@@ -6,7 +6,6 @@ import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/chrome/mg_nav_helpers.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
-import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -16,6 +15,8 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
 import 'funnel_provider.dart';
 import 'home_fit.dart';
+
+export 'funnel_presets_v2.dart' show FunnelPresets;
 
 /// Bike detail from Home (the same `/moto/:id` push the old list used).
 void homePushMoto(BuildContext context, String id) => mgPushOrGo(context, '/moto/$id');
@@ -135,13 +136,39 @@ class _PagerBtn extends StatelessWidget {
       );
 }
 
+/// Funnel title "Kam vyrazíš příště, {nick}?": rather a bit smaller on
+/// ONE line than on two (to 85 %, a low phone to 70 %), else two lines at
+/// that scale, else it wraps at spaces — whole, never cut (REZERVOVAT stays
+/// above the bottom bar).
+class FunnelTitle extends StatelessWidget {
+  final String text;
+  final bool short;
+  const FunnelTitle({super.key, required this.text, required this.short});
+
+  @override
+  Widget build(BuildContext context) {
+    final h2 = MgType.h2.copyWith(color: MgColors.onDark);
+    final min = short ? 0.7 : 0.85;
+    return LayoutBuilder(builder: (context, c) {
+      final one = homeLinesFitIn(context, text, h2.copyWith(fontSize: h2.fontSize! * min), c.maxWidth, 1);
+      // Nízký telefon a dva řádky: o stupeň menší nadpis (h3).
+      final style = one || !short ? h2 : MgType.h3.copyWith(color: MgColors.onDark);
+      return MgWordFit(minScale: min, fitLines: one ? 1 : 2, child: Text(text, style: style));
+    });
+  }
+}
+
 /// Sub-line under the funnel title: your rank discount (+ free passenger
 /// gear from Motorkář), or list prices + "Zkusit znovu" when loyalty failed.
+/// [compact] = the discount only, kept to one line (a low phone, or the
+/// header motto already says the gear is free).
 class FunnelSubLine extends StatelessWidget {
   final bool loading;
   final LoyaltyStatus? loyalty;
+  final bool compact;
   final VoidCallback onRetry;
-  const FunnelSubLine({super.key, required this.loading, required this.loyalty, required this.onRetry});
+  const FunnelSubLine(
+      {super.key, required this.loading, required this.loyalty, required this.onRetry, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -174,18 +201,21 @@ class FunnelSubLine extends StatelessWidget {
         ]),
       );
     }
-    final text = l.level >= 3
+    final text = l.level >= 3 && !compact
         ? tr.trArgs('v2HomeFnSubGear', {'pct': l.percent})
         : tr.trArgs('v2HomeFnSub', {'pct': l.percent});
+    final style = MgType.small.copyWith(color: MgColors.onDarkLead);
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: EdgeInsets.only(top: compact ? 2 : 4),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Padding(
           padding: EdgeInsets.only(top: 1),
           child: MgIcon(MgIcons.gift, size: 16, color: MgColors.neon),
         ),
         const SizedBox(width: 6),
-        Expanded(child: Text(text, style: MgType.small.copyWith(color: MgColors.onDarkLead))),
+        Expanded(
+          child: compact ? MgWordFit(minScale: 0.88, fitLines: 1, child: Text(text, style: style)) : Text(text, style: style),
+        ),
       ]),
     );
   }
@@ -223,151 +253,5 @@ class FunnelDateLine extends StatelessWidget {
         ),
       ]),
     );
-  }
-}
-
-/// "Kdy" row: 2 weekend presets + the 52 px calendar button.
-class FunnelPresets extends StatelessWidget {
-  final FunnelSelection selection;
-  final ValueChanged<int> onPreset;
-  final VoidCallback onCalendar;
-  const FunnelPresets({super.key, required this.selection, required this.onPreset, required this.onCalendar});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final now = DateTime.now();
-    final p = funnelPresets(now);
-    final selected = selection.preset(now);
-    Widget chip(int i, String label, FunnelRange r, TextStyle labelStyle) {
-      final on = selected == i;
-      final dates = '${tripShortDate(tr, r.start)} – ${tripShortDate(tr, r.end)}';
-      return Semantics(
-        button: true,
-        selected: on,
-        label: '$label, $dates',
-        excludeSemantics: true,
-        child: MgPress(
-          onTap: () => onPreset(i),
-          child: AnimatedContainer(
-            duration: MgMotion.of(context, MgMotion.color),
-            constraints: const BoxConstraints(minHeight: 56),
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-            decoration: BoxDecoration(
-              color: on ? MgColors.neonA(0.12) : MgColors.white(0.07),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: on ? MgColors.neon : MgColors.white(0.18), width: 1.5),
-            ),
-            child: Stack(clipBehavior: Clip.none, children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                MgWordFit(minScale: 0.85, child: Text(label, style: labelStyle)),
-                const SizedBox(height: 2),
-                Text(dates, style: MgType.tab(MgType.meta.copyWith(color: MgColors.neonText))),
-              ]),
-              if (on)
-                Positioned(
-                  right: -14,
-                  top: -14,
-                  child: MgPop(
-                    playOnMount: true,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(colors: [MgColors.neonHi, MgColors.neonLo]),
-                        border: Border.all(color: MgColors.night, width: 2),
-                      ),
-                      child: const Center(child: MgIcon(MgIcons.check, size: 11, color: MgColors.onNeon, stroke: 3)),
-                    ),
-                  ),
-                ),
-            ]),
-          ),
-        ),
-      );
-    }
-
-    final calOn = selected == 2;
-    final l1 = tr.tr('v2HomeFnPreset1'), l2 = tr.tr('v2HomeFnPreset2');
-    Widget cal({required bool wide}) => MgFabAvoid(
-          // Vlastní termín (vpravo dole, pod AI tlačítkem) = CTA zóna: AI
-          // tlačítko ho nikdy nepřekryje (nakouknutí by zakrylo půlku).
-          child: Semantics(
-            button: true,
-            selected: calOn,
-            label: tr.tr('v2HomeFnOther'),
-            excludeSemantics: true,
-            child: MgPress(
-              onTap: onCalendar,
-              child: Container(
-                width: wide ? null : 52,
-                constraints: BoxConstraints(minHeight: wide ? 48 : 0),
-                padding: wide ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8) : null,
-                decoration: BoxDecoration(
-                  color: calOn ? MgColors.neonA(0.16) : MgColors.white(0.07),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: calOn ? MgColors.neon : MgColors.white(0.18), width: 1.5),
-                ),
-                child: wide
-                    ? Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        const MgIcon(MgIcons.calendarCheck, size: 20, color: MgColors.neon),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(tr.tr('v2HomeFnOther'),
-                              style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
-                        ),
-                      ])
-                    : const Center(child: MgIcon(MgIcons.calendarCheck, size: 24, color: MgColors.neon)),
-              ),
-            ),
-          ),
-        );
-    return LayoutBuilder(builder: (context, c) {
-      // Slovo se NIKDY nedělí („Wochen|ende"): 3 vedle sebe (předvolby +
-      // 52px kalendář) → menší písmo → 2 předvolby na celou šířku a „Jiný
-      // termín" pod nimi → předvolby pod sebou. Měří se při skutečné
-      // velikosti písma (textScaler), ne jen při 100 %.
-      final scaler = MediaQuery.textScalerOf(context);
-      final base = MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
-      final small = base.copyWith(fontSize: 11);
-      final probe = DefaultTextStyle.of(context).style;
-      bool fit(TextStyle s, double w) =>
-          homeWordsFit(l1, probe.merge(s), w, scaler) && homeWordsFit(l2, probe.merge(s), w, scaler);
-      final w3 = (c.maxWidth - 8 - 8 - 52) / 2 - 16 - 3;
-      final w2 = (c.maxWidth - 8) / 2 - 16 - 3;
-      Widget pair(TextStyle s) => IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Expanded(child: chip(0, l1, p.$1, s)),
-              const SizedBox(width: 8),
-              Expanded(child: chip(1, l2, p.$2, s)),
-            ]),
-          );
-      for (final s in [base, small]) {
-        if (fit(s, w3)) {
-          return IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Expanded(child: chip(0, l1, p.$1, s)),
-              const SizedBox(width: 8),
-              Expanded(child: chip(1, l2, p.$2, s)),
-              const SizedBox(width: 8),
-              cal(wide: false),
-            ]),
-          );
-        }
-      }
-      for (final s in [base, small]) {
-        if (fit(s, w2)) {
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [pair(s), const SizedBox(height: 8), cal(wide: true)]);
-        }
-      }
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        chip(0, l1, p.$1, base),
-        const SizedBox(height: 8),
-        chip(1, l2, p.$2, base),
-        const SizedBox(height: 8),
-        cal(wide: true),
-      ]);
-    });
   }
 }

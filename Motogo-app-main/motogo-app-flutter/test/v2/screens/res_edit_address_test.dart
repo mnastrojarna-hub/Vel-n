@@ -190,7 +190,7 @@ void main() {
             await _settle(t);
             final field = t.widget<TextField>(find.byType(TextField));
             expect(field.controller!.text, _saved);
-            await t.tap(find.text(_tr('cs', 'confirmAddressBtn')));
+            await t.tap(find.text(_tr('cs', 'v2AddrConfirm')));
             await _settle(t);
             expect(find.byType(TextField), findsNothing);
             expect(s.pNew, _saved);
@@ -207,7 +207,7 @@ void main() {
         await _settle(t);
         await t.enterText(find.byType(TextField), 'Lidická 5, Pelhřimov');
         await _settle(t);
-        await t.tap(find.text(_tr('cs', 'confirmAddressBtn')));
+        await t.tap(find.text(_tr('cs', 'v2AddrConfirm')));
         await _settle(t);
         expect(s.pNew, 'Lidická 5, Pelhřimov');
         expect(s.calc.pickupAddressChanged, isTrue);
@@ -226,7 +226,7 @@ void main() {
         expect(find.text(_tr('cs', 'bkAddrMine')), findsOneWidget);
         await t.tap(find.text(_tr('cs', 'bkAddrSamePickup')));
         await _settle(t);
-        await t.tap(find.text(_tr('cs', 'confirmAddressBtn')));
+        await t.tap(find.text(_tr('cs', 'v2AddrConfirm')));
         await _settle(t);
         expect(s.rNew, _saved);
         expect(s.rFee, greaterThan(0));

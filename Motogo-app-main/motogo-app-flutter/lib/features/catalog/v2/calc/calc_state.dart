@@ -82,15 +82,6 @@ final calcStateProvider = StateNotifierProvider<CalcStateNotifier, CalcState>((r
   return n;
 });
 
-/// Is any calendar day of [s]..[e] in [booked] (DST-safe day steps)? The
-/// rule of the calculator's date step and of the bike detail.
-bool calcBusyIn(List<BookedDateRange> booked, DateTime s, DateTime e) {
-  for (var d = DateTime(s.year, s.month, s.day); !d.isAfter(e); d = DateTime(d.year, d.month, d.day + 1)) {
-    if (booked.any((r) => r.containsDate(d))) return true;
-  }
-  return false;
-}
-
 /// Bikes the calculator offers: the browse rule of `filteredMotorcyclesProvider`
 /// (permanently closed branches never offered), narrowed to the branch.
 List<Motorcycle> calcOffered(List<Motorcycle> all, String? branchId) => [

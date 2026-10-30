@@ -20,6 +20,7 @@ class BookingValidator {
   static String? checkLicense({
     required List<String> userLicenseGroups,
     required List<String> motoLicenseGroups,
+    String lang = 'cs',
   }) {
     final required = motoLicenseGroups
         .map((e) => e.toUpperCase())
@@ -29,7 +30,7 @@ class BookingValidator {
     if (required.isEmpty || required.contains('N')) return null;
 
     if (userLicenseGroups.isEmpty) {
-      return (translations['cs']?['validationNoLicense'] ?? '')
+      return _tr(lang, 'validationNoLicense')
           .replaceAll('{license}', required.join(' / '));
     }
 
@@ -41,7 +42,7 @@ class BookingValidator {
     }
 
     final userGroups = userLicenseGroups.join(', ');
-    return (translations['cs']?['validationInsufficientLicense'] ?? '')
+    return _tr(lang, 'validationInsufficientLicense')
         .replaceAll('{groups}', userGroups)
         .replaceAll('{license}', required.join(' / '));
   }
@@ -55,6 +56,7 @@ class BookingValidator {
     required DateTime startDate,
     required DateTime endDate,
     required bool isChildrensMoto,
+    String lang = 'cs',
   }) {
     // Children's motorcycles are exempt from the overlap rule
     if (isChildrensMoto) return null;
@@ -88,7 +90,7 @@ class BookingValidator {
       if (!newStart.isAfter(resEnd) && !newEnd.isBefore(resStart)) {
         final fmt = _fmtDate(resStart);
         final fmtEnd = _fmtDate(resEnd);
-        return (translations['cs']?['validationOverlap'] ?? '')
+        return _tr(lang, 'validationOverlap')
             .replaceAll('{start}', fmt)
             .replaceAll('{end}', fmtEnd)
             .replaceAll('{moto}', res.motoName);
@@ -147,10 +149,14 @@ class BookingValidator {
       } else {
         key = 'validationPastPickup';
       }
-      return translations[lang]?[key] ?? translations['cs']?[key] ?? '';
+      return _tr(lang, key);
     }
     return null;
   }
+
+  /// Hláška v jazyce appky ([lang]), chybějící klíč → česky.
+  static String _tr(String lang, String key) =>
+      translations[lang]?[key] ?? translations['cs']?[key] ?? '';
 
   static String _fmtDate(DateTime d) => '${d.day}.${d.month}.${d.year}';
 }

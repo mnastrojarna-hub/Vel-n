@@ -11,10 +11,8 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
-import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
-import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
 import '../../booking/booking_entry.dart';
 import '../../booking/booking_quote.dart';
@@ -235,7 +233,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
             child: slot is FunnelEmptySlot ? slot : SizedBox(height: photoH, child: slot),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(16, short ? 10 : 14, 16, 16),
+            padding: EdgeInsets.fromLTRB(16, short ? 8 : 14, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FunnelTopRow(
                 count: list.length,
@@ -243,35 +241,33 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 onPrev: center > 0 ? () => _go(center - 1) : null,
                 onNext: center < list.length - 1 ? () => _go(center + 1) : null,
               ),
-              SizedBox(height: short ? 4 : 6),
+              SizedBox(height: short ? 2 : 6),
               MgEnter(
                 child: Semantics(
                   header: true,
-                  // Raději o kousek menší na jednom řádku než na dvou (REZERVOVAT
-                  // zůstane nad lištou); dlouhé jméno se zalomí v mezeře — celé.
-                  child: MgWordFit(
-                    minScale: 0.85,
-                    fitLines: 1,
-                    child: Text(tr.trArgs('v2HomeFnTitle', {'nick': nick}), style: MgType.h2.copyWith(color: MgColors.onDark)),
-                  ),
+                  child: FunnelTitle(text: tr.trArgs('v2HomeFnTitle', {'nick': nick}), short: short),
                 ),
               ),
               FunnelSubLine(
                 loading: loyaltyAsync.isLoading && loyalty == null,
                 loyalty: loyalty,
+                // Výbava zdarma už je v mottu hlavičky (rank 3) / nízký
+                // telefon: jen sleva na jeden řádek — REZERVOVAT nad lištou.
+                compact: short || rank.level == 3,
                 onRetry: () => ref.invalidate(loyaltyStatusProvider),
               ),
               if (sel.preset(now) == 2) FunnelDateLine(range: range, onClear: () => _select(null)),
-              SizedBox(height: short ? 8 : 10),
+              SizedBox(height: short ? 6 : 10),
               FunnelPresets(
                 selection: sel,
+                dense: short,
                 onPreset: (i) {
                   final p = funnelPresets(DateTime.now());
                   _select(i == 1 ? p.$2 : p.$1);
                 },
                 onCalendar: () => _pickDates(range),
               ),
-              SizedBox(height: short ? 8 : 10),
+              SizedBox(height: short ? 6 : 10),
               action,
             ]),
           ),

@@ -96,7 +96,10 @@ class HomeHeaderV2 extends ConsumerWidget {
           }
 
           final chipW = chipLabel == null ? 0.0 : width(chipLabel, MgType.meta.copyWith(fontWeight: FontWeight.w800, height: 1)) + 40;
-          final inline = chipLabel == null || width(greeting, gStyle) * 0.75 + 8 + chipW <= c.maxWidth;
+          // Nízký telefon (< 700 dp): pozdrav smí na 70 % (jeho dolní mez),
+          // ať čip zůstane vedle něj a REZERVOVAT nad spodní lištou.
+          final minG = MediaQuery.sizeOf(context).height < 700 ? 0.7 : 0.75;
+          final inline = chipLabel == null || width(greeting, gStyle) * minG + 8 + chipW <= c.maxWidth;
           final g = Semantics(
             button: true,
             hint: tr.tr('editNickname'),

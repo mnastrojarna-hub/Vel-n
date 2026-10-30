@@ -21,7 +21,7 @@ import 'package:motogo_app/features/booking/my_vouchers.dart';
 import 'package:motogo_app/features/booking/v2/booking_v2_parts.dart';
 import 'package:motogo_app/features/booking/v2/sections/extras_rows_v2.dart';
 import 'package:motogo_app/features/booking/v2/sections/promo_v2.dart';
-import 'package:motogo_app/features/booking/widgets/address_quick_options.dart';
+import 'package:motogo_app/features/booking/v2/addr_sheet_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fakes_booking.dart';
@@ -74,7 +74,8 @@ Future<ProviderContainer> _pump(WidgetTester t, List<Override> overrides, {List<
 }
 
 Future<void> _tap(WidgetTester t, Finder f) async {
-  await t.ensureVisible(f);
+  // Mid-viewport: at the top edge it would sit under the pinned back bar.
+  await Scrollable.ensureVisible(t.element(f), alignment: 0.4);
   await t.pump();
   await t.tap(f, warnIfMissed: false);
   await t.pump();
@@ -111,15 +112,16 @@ void main() {
     final c = await _pump(t,
         bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw, pickupMethod: 'delivery', returnMethod: 'delivery')));
     await _tap(t, find.text('Zadej adresu'));
-    final quick = find.byType(AddressQuickOptions);
-    expect(quick, findsOneWidget);
-    expect(find.descendant(of: quick, matching: find.text('Stejná jako u přistavení')), findsOneWidget);
-    expect(find.descendant(of: quick, matching: find.text('Moje adresa z profilu')), findsOneWidget);
-    expect(find.descendant(of: quick, matching: find.text('Mezná 9, 39301 Pelhřimov')), findsOneWidget);
-    await _tap(t, find.text('Moje adresa z profilu'));
+    final sheet = find.byType(AddrSheetV2View);
+    expect(sheet, findsOneWidget);
+    Finder inSheet(String s) => find.descendant(of: sheet, matching: find.text(s));
+    expect(inSheet('Stejná jako u přistavení'), findsOneWidget);
+    expect(inSheet('Moje adresa z profilu'), findsOneWidget);
+    expect(inSheet('Mezná 9, 39301 Pelhřimov'), findsOneWidget);
+    await _tap(t, inSheet('Moje adresa z profilu'));
     await t.pump(const Duration(seconds: 1));
-    expect(quick, findsNothing); // picked → distance shown, options hidden
-    await _tap(t, find.text('POTVRDIT ADRESU'));
+    expect(inSheet('Moje adresa z profilu'), findsNothing); // picked → distance shown, options hidden
+    await _tap(t, find.text('Potvrdit adresu'));
     final d = _d(c);
     expect([d.returnCity, d.returnAddress, d.pickupCity], ['Pelhřimov', 'Mezná 9', 'Jihlava']);
     expect(c.read(returnDelivFeeProvider), greaterThan(0));

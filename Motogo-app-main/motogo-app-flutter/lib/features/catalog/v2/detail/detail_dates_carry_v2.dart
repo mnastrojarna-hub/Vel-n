@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/v2/flag/v2_scope.dart';
 import '../../../booking/booking_models.dart' show BookingDraft;
 import '../../../booking/v2/booking_carry_v2.dart' show draftDatesFor, followDraftDates;
+import '../../../booking/v2/booking_sync_v2.dart' show bookingRangeBusy;
+import '../../../reservations/reservation_provider.dart' show reservationsProvider;
 import '../../catalog_provider.dart';
 import '../../moto_model.dart';
-import '../calc/calc_state.dart' show calcBusyIn;
 import '../catalog_date_sheet_v2.dart' show catClearDates, catSetDates;
 import '../catalog_mode_sync.dart' show catBeforeToday;
 
@@ -60,9 +61,21 @@ void detailShareReset(WidgetRef ref) {
 
 /// v2: the chosen days (a start alone = that day) hit a booked day of this
 /// bike — dates carried from the list / Home / the calculator are never
-/// checked by the calendar itself. Unknown while the bookings load.
-bool detailRangeBusy(AsyncValue<List<BookedDateRange>> booked, DateTime? s, DateTime? e) {
-  final list = booked.valueOrNull;
-  if (s == null || list == null) return false;
-  return calcBusyIn(list, s, e ?? s);
-}
+/// checked by the calendar itself. The booking form's rule
+/// (`bookingRangeBusy`): the customer's own unpaid draft of this bike (a
+/// declined card / cancelled 3DS) does not count — the payment replaces it,
+/// as in the old look. Unknown bookings / reservations = not busy.
+bool detailRangeBusy(
+  WidgetRef ref,
+  AsyncValue<List<BookedDateRange>> booked,
+  String motoId,
+  DateTime? s,
+  DateTime? e,
+) =>
+    bookingRangeBusy(
+      booked: booked.valueOrNull,
+      own: ref.watch(reservationsProvider).valueOrNull,
+      motoId: motoId,
+      start: s,
+      end: e ?? s,
+    );

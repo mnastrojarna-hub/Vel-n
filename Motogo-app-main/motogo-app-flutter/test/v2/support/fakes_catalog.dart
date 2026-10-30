@@ -17,6 +17,7 @@ import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
+import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
 
 /// Until the integration step registers ext_52 in `translations.dart`, the
@@ -181,6 +182,7 @@ List<Override> catalogOverrides({
   CalcState? calc,
   BannerData? banner,
   Map<String, dynamic>? profile,
+  List<Reservation> reservations = const [],
 }) {
   final all = motos ?? kMotos;
   return [
@@ -207,7 +209,7 @@ List<Override> catalogOverrides({
     calcFreeMotosProvider.overrideWith((ref, k) => Future.value(free ?? all.where((m) => m.id != 'm-shot').toList())),
     if (calc != null) calcStateProvider.overrideWith((ref) => _FixedCalc(calc)),
     profileProvider.overrideWith((ref) async => profile ?? {'license_group': ['A', 'B']}),
-    reservationsProvider.overrideWith((ref) => Stream.value(const [])),
+    reservationsProvider.overrideWith((ref) => Stream.value(reservations)),
     bannerProvider.overrideWithValue(AsyncData(banner)),
   ];
 }

@@ -72,7 +72,7 @@ void main() {
         await t.pump(const Duration(milliseconds: 50));
         // Still routing — the old sheet saved here with the old price (0).
         expect(find.text(_tr('calculatingKm')), findsOneWidget);
-        await t.tap(find.text(_tr('confirmAddressBtn')));
+        await t.tap(find.text(_tr('v2AddrConfirm')));
         await t.pump(const Duration(milliseconds: 50));
         expect(c.read(bookingDraftProvider).pickupCity, isNull, reason: 'waits for the price');
         await _steps(t, 8);

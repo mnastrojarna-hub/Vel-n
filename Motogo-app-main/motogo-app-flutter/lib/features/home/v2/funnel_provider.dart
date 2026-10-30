@@ -164,11 +164,19 @@ final funnelCandidatesProvider =
   return out;
 });
 
+/// The range the funnel shows and prices (given, else the nearest weekend).
+/// Notifies only when the RANGE changes (`FunnelRange ==`): giving the
+/// weekend already shown (a card tap) or a new day with the same range
+/// does not.
+final funnelRangeProvider =
+    Provider<FunnelRange>((ref) => ref.watch(funnelSelectionProvider).range(ref.watch(funnelTodayProvider)));
+
 /// Index of the bike in the middle of the funnel carousel (the CTA and the
 /// ½ offer line use it). In-memory UI state; other dates (picked anywhere)
-/// start again at the first bike of their list.
+/// start again at the first bike of their list — the same dates (only now
+/// "given") keep the bike, like the pager does (photo = "n / m" = CTA).
 final funnelCenterProvider = StateProvider<int>((ref) {
-  ref.watch(funnelSelectionProvider);
+  ref.watch(funnelRangeProvider);
   return 0;
 });
 

@@ -14,6 +14,9 @@ import '../../core/currency.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/booking_address_carry.dart' show AddrQuick;
 import 'widgets/address_quick_options.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import 'v2/addr_sheet_v2.dart';
 
 /// Pure UI helper functions for inline booking form in router.dart.
 /// NO ConsumerStatefulWidget, NO Riverpod — just widget builders.
@@ -254,11 +257,15 @@ void showAddrBottomSheet(BuildContext ctx,
     List<AddrQuick> quick = const []}) {
   final cCtrl = TextEditingController(
       text: [addr, city].where((s) => s != null && s.isNotEmpty).join(', '));
+  // v2 vzhled (kill-switch app_v2_ui) kreslí vlastní rám listu (MgSheetFrame).
+  final v2 = MgV2.peek(ctx);
   showModalBottomSheet(
     context: ctx,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
+    backgroundColor: v2 ? Colors.transparent : Colors.white,
+    barrierColor: v2 ? MgColors.nightA(0.55) : null,
+    elevation: v2 ? 0 : null,
+    shape: v2 ? null : const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (c) => _AddrSheetBody(
       ctrl: cCtrl, title: title,
@@ -755,6 +762,26 @@ class _AddrSheetBodyState extends State<_AddrSheetBody> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejný stav i tytéž akce listu.
+    if (MgV2.on(context)) {
+      return AddrSheetV2View(
+        title: widget.title,
+        controller: widget.ctrl,
+        onChanged: _onChanged,
+        suggestions: _sug,
+        onSuggestion: (s) => _track(_pick(s)),
+        quick: widget.quick,
+        showQuick: _sug.isEmpty && _distInfo == null,
+        onQuick: (q) => _track(_pick(q.asSuggestion)),
+        onGps: () => _track(_useGps()),
+        onMap: widget.onMapTap == null ? null : _openMap,
+        status: _distInfo,
+        statusError: _isError,
+        statusPending: !_isError && _km == null,
+        saving: _saving,
+        onConfirm: _confirm,
+      );
+    }
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(20, 16, 20,
         MediaQuery.of(context).viewInsets.bottom + 16),

@@ -226,7 +226,7 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
     if (MgV2.on(ctx)) {
       // Přenesený termín s obsazeným dnem: kalendář otevřený, varování,
       // REZERVOVAT vypnuté (jinak by to odmítla až platba).
-      final busy = detailRangeBusy(bookedAsync, _selStart, _selEnd);
+      final busy = detailRangeBusy(ref, bookedAsync, moto.id, _selStart, _selEnd);
       return MotoDetailV2View(
         moto: moto,
         images: images,

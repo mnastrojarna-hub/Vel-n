@@ -12,7 +12,9 @@ import '../../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../../../booking/booking_entry.dart';
 import '../../../booking/booking_quote.dart';
+import '../../../booking/v2/booking_sync_v2.dart' show bookingRangeBusy;
 import '../../../loyalty/loyalty_provider.dart';
+import '../../../reservations/reservation_provider.dart' show reservationsProvider;
 import '../../catalog_provider.dart';
 import '../../moto_model.dart';
 import '../catalog_date_sheet_v2.dart';
@@ -105,7 +107,17 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> with CalcStickyTracker 
     final loyaltyAsync = ref.watch(loyaltyStatusProvider);
     final loyalty = loyaltyAsync.valueOrNull;
     final booked = moto == null ? null : ref.watch(bookedDatesProvider(moto.id));
-    final busyInRange = st.hasRange && booked != null && booked.hasValue && calcBusyIn(booked.value!, st.start!, st.end!);
+    // The booking form's rule: the customer's own unpaid draft of this bike
+    // is not a busy day (the payment replaces it); unknown data never blocks.
+    final busyInRange = st.hasRange &&
+        moto != null &&
+        bookingRangeBusy(
+          booked: booked?.valueOrNull,
+          own: ref.watch(reservationsProvider).valueOrNull,
+          motoId: moto.id,
+          start: st.start,
+          end: st.end,
+        );
 
     int countIn(String? branch) => calcOffered(all, branch).length;
     String typeOf(String id) {
