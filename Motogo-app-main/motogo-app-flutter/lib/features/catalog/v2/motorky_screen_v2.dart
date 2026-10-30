@@ -15,6 +15,7 @@ import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
 import 'calc/calc_body_v2.dart';
+import 'calc/calc_sticky_v2.dart';
 import 'catalog_date_sheet_v2.dart';
 import 'catalog_filter_sheet_v2.dart';
 import 'catalog_mode.dart';
@@ -30,7 +31,9 @@ import 'motorky_header_v2.dart';
 /// availability), `catalogFilterProvider` (single source of the dates),
 /// `catalogSortProvider` — and the same card tap (sibling ids for the
 /// detail pager + `context.push('/moto/:id')`). Calculator mode =
-/// `CalcBodyV2`. The old screen stays for the kill-switch OFF.
+/// `CalcBodyV2` (+ its sticky REZERVOVAT dock). A trip that already started
+/// in the past (app alive across days) is dropped on mount and on resume.
+/// The old screen stays for the kill-switch OFF.
 class MotorkyScreenV2 extends ConsumerStatefulWidget {
   const MotorkyScreenV2({super.key});
 
@@ -38,7 +41,7 @@ class MotorkyScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<MotorkyScreenV2> createState() => _MotorkyScreenV2State();
 }
 
-class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
+class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsBindingObserver {
   bool _grid = false;
 
   /// Mode of THIS mount: the calculator only on an explicit request (Home
@@ -50,12 +53,30 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
   void initState() {
     super.initState();
     _mode = ref.read(catalogCalcRequestProvider) ? CatalogMode.calc : CatalogMode.find;
+    WidgetsBinding.instance.addObserver(this);
     // Consume the request and align the shared mode (never during build).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(catalogCalcRequestProvider.notifier).state = false;
+      catDropPastDates(ref);
+      // Any tab tap remounts the tab in "Najít motorku": the calculator's
+      // range of the previous mount is not picked again.
+      if (ref.read(catalogModeProvider) == CatalogMode.calc && _mode == CatalogMode.find) {
+        catCarryCalcDatesOnRemount(ref);
+      }
       if (ref.read(catalogModeProvider) != _mode) ref.read(catalogModeProvider.notifier).state = _mode;
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) catDropPastDates(ref);
   }
 
   void _setMode(CatalogMode m) {
@@ -118,6 +139,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
     final sort = ref.watch(catalogSortProvider);
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
     final count = motosAsync.hasValue ? motosAsync.value!.length : null;
+    final sticky = mode == CatalogMode.calc ? ref.watch(calcStickyProvider) : null;
 
     final header = MotorkyHeaderV2(
       mode: mode,
@@ -150,12 +172,19 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
         ),
       ];
     }
-    return MgPage(header: header, slivers: slivers, overlapHero: false, tabIndex: 1);
+    return MgPage(
+      header: header,
+      slivers: slivers,
+      overlapHero: false,
+      tabIndex: 1,
+      dock: sticky == null ? null : CalcStickyV2(data: sticky),
+    );
   }
 
   Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty) {
+    // A past range (dropped right after this frame) never offers REZERVOVAT.
     final s = f.startDate, e = f.endDate;
-    final hasDates = s != null && e != null;
+    final hasDates = s != null && e != null && !catBeforeToday(s);
     if (motos.isEmpty) return SliverToBoxAdapter(child: _empty(tr, hasDates));
     final days = hasDates ? catDayCount(s, e) : 0;
     final countLine = hasDates

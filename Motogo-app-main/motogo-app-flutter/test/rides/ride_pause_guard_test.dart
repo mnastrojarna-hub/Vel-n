@@ -45,24 +45,35 @@ void main() {
     expect(tr.detached, isFalse);
   });
 
-  test('G2 obnova appky (připojení streamu) dlouho po zastavení → 2 min nic, pak až 48 h od otevření', () {
-    final e = RidePauseEngine(own: true);
+  test('G2 připojení streamu (obnova) dlouho po zastavení: 2 min nic, dlouhá pauza dál od zastavení', () {
     const a = [49.2, 16.6, 1792000000.0, 0.0];
-    e.restore(phase: RidePhase.autoPaused, reason: RidePauseReason.stop, since: a[2], anchor: [...a], last: [...a], start: [...a]);
-    final t0 = a[2] + 30 * 3600; // otevřel appku po 30 h
-    e.onAttach(t0);
-    expect(e.onTick(t0 + 30, liveKm: 50).detach, isFalse);
-    expect(e.onTick(t0 + 150, liveKm: 50).detach, isFalse);
-    expect(e.onTick(t0 + 40 * 3600, liveKm: 50).detach, isFalse);
-    expect(e.onTick(t0 + 48 * 3600 + 200, liveKm: 50).detach, isTrue);
+    RidePauseEngine restored() => RidePauseEngine(own: true)
+      ..restore(phase: RidePhase.autoPaused, reason: RidePauseReason.stop, since: a[2], anchor: [...a], last: [...a], start: [...a]);
+    // otevřel appku po 30 h → zeptat se (zapomenutý Stop?)
+    final e = restored();
+    final ask = e.decideIdle(a[2] + 30 * 3600);
+    expect(ask.detach, isTrue);
+    expect(ask.idle, isTrue);
+    expect(e.phase, RidePhase.manualPaused);
+    expect(e.reason, RidePauseReason.long);
+    // po 10 h (noc) se neptá; připojení streamu pojistku NEPRODLUŽUJE
+    final f = restored();
+    final t1 = a[2] + 10 * 3600;
+    expect(f.decideIdle(t1).isEmpty, isTrue);
+    f.onAttach(t1);
+    expect(f.onTick(t1 + 30, liveKm: 50).detach, isFalse); // 2 min ticha
+    expect(f.onTick(a[2] + 47 * 3600, liveKm: 50).detach, isFalse);
+    expect(f.onTick(a[2] + 48 * 3600 + 60, liveKm: 50).detach, isTrue); // 48 h od zastavení
   });
 
-  test('G3 otevření appky (popředí) počítá pojistku znovu; pohyb v posledních 2 min ji odloží', () {
+  test('G3 otevření appky pojistku neprodlouží (zapomenutý Stop); pohyb v posledních 2 min ji odloží', () {
     final tr = parked();
     tr.wait(40 * 3600, liveKm: 30);
     tr.e.noteForeground(tr.t); // jezdec se podíval do appky
     tr.wait(20 * 3600, liveKm: 30);
-    expect(tr.detached, isFalse);
+    expect(tr.detached, isTrue, reason: 'GPS má jít vypnout 48 h po zastavení, ne 48 h po otevření');
+    expect(tr.logsOf('long_pause').length, 1);
+    expect(tr.e.reason, RidePauseReason.long);
     final m = parked();
     final since = m.e.pausedSince!;
     m.wait(since + 48 * 3600 - 30 - m.t, liveKm: 30);
@@ -182,8 +193,12 @@ void main() {
     expect(h.onFix(RideFix(ts: phone - 600, lat: 49.2, lng: 16.6, acc: 8, kmh: 0)).emit, isEmpty);
   });
 
-  test('config: výchozí dlouhá pauza 48 h, flag ji smí změnit', () {
+  test('config: výchozí dlouhá pauza 48 h, otázka při otevření 20 h, flag je smí změnit', () {
     expect(const RideMotionConfig().longPauseOwnS, 48 * 3600);
     expect(const RideMotionConfig().withFlag(longH: 20).longPauseOwnS, 20 * 3600);
+    expect(const RideMotionConfig().idleDecisionS, 20 * 3600);
+    expect(const RideMotionConfig().withFlag(idleH: 30).idleDecisionS, 30 * 3600);
+    expect(const RideMotionConfig().withFlag(idleH: 0).idleDecisionS, 0);
+    expect(const RideMotionConfig().withFlag(idleH: 999).idleDecisionS, 20 * 3600); // neplatné → výchozí
   });
 }

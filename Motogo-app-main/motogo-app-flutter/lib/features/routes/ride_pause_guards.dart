@@ -30,20 +30,22 @@ extension _RidePauseGuards on RidePauseEngine {
   }
 
   /// Vlastní cesta: „doma" = jen upozornění (GPS běží, rozjezd se nahraje
-  /// sám), „dlouhá pauza" bez kontaktu s jezdcem (výchozí 48 h) = GPS
-  /// vypnout. Ne hned po připojení / otevření appky / Pokračovat a ne,
-  /// když se zrovna hýbe. Vícedenní cesta (≥ 2 etapy) „doma" nehlásí.
-  void _guards(RideEngineStep s, double now, double liveKm, int stages) {
+  /// sám; i vícedenní cesta — základní tábor dostane jen připomínku),
+  /// „dlouhá pauza" (výchozí 48 h od zastavení / posledního Pokračovat)
+  /// = GPS vypnout. Otevření appky pojistku neprodlužuje (zapomenutý Stop);
+  /// ne 2 min po připojení / otevření appky a ne, když se zrovna hýbe.
+  void _guards(RideEngineStep s, double now, double liveKm) {
     final since = _pausedSince;
     if (!own || since == null) return;
-    final gf = _guardFrom;
-    if (gf != null && now - gf < _C.guardQuietS) return;
+    final q = _quietFrom;
+    if (q != null && now - q < _C.guardQuietS) return;
     if (_recentMotion(now)) return;
+    final gf = _guardFrom;
     final from = gf != null && gf > since ? gf : since;
     final r = _reason;
     final ts = _tripStart, a = _anchor;
     final away = r == RidePauseReason.stop || r == RidePauseReason.walk || r == RidePauseReason.silence;
-    if (!_homeNoticed && away && stages < 2 && ts != null && a != null &&
+    if (!_homeNoticed && away && ts != null && a != null &&
         ridePtDistM(a, ts) <= _C.homeRadiusM &&
         now - from >= _cfg.homeAfterS &&
         liveKm >= _C.homeMinKm) {
@@ -56,7 +58,7 @@ extension _RidePauseGuards on RidePauseEngine {
     }
   }
 
-  void _guard(RideEngineStep s, RidePauseReason r, double dur) {
+  void _guard(RideEngineStep s, RidePauseReason r, double dur, {String? by}) {
     _ring.clear();
     _pausePath.clear();
     _manual = true;
@@ -64,6 +66,6 @@ extension _RidePauseGuards on RidePauseEngine {
     s.detach = true;
     s.phaseChanged = true;
     s.logs.add(RideEngineLog(r == RidePauseReason.home ? 'home_pause' : 'long_pause',
-        data: {'since': _pausedSince, 'h': (dur / 360).round() / 10}));
+        detail: by, data: {'since': _pausedSince, 'h': (dur / 360).round() / 10, if (by != null) 'by': by}));
   }
 }

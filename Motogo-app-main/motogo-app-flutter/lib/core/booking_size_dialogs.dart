@@ -54,7 +54,7 @@ void showPassengerGearSheet(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             const MgSheetHandle(),
             const SizedBox(height: 14),
-            Text('${t(ctx).tr('sizesLabel')} – ${item.name}',
+            Text('${t(ctx).tr('sizesLabel')} – ${extraLabel(t(ctx).tr, item.id, item.name)}',
               style: const TextStyle(fontSize: 15,
                 fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
@@ -65,7 +65,7 @@ void showPassengerGearSheet(
               Text(t(ctx).tr('bkSizesFromLast'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A8A18))),
+                  color: Color(0xFF0F5E0E))),
             ],
             const SizedBox(height: 14),
             ...sizes.entries.map((e) {
@@ -74,7 +74,9 @@ void showPassengerGearSheet(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Text(e.key, style: const TextStyle(fontSize: 12,
+                  // Popisek v jazyce appky; v textu velikostí zůstává český
+                  // klíč („Helma: L“) — čte ho payment_screen.
+                  Text(t(ctx).tr(passengerGearKeys[e.key] ?? 'helmet'), style: const TextStyle(fontSize: 12,
                     fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Wrap(spacing: 6, runSpacing: 6,
@@ -84,7 +86,8 @@ void showPassengerGearSheet(
                         onTap: () => ss(() =>
                           sizes[e.key] = a ? null : s),
                         child: Container(
-                          constraints: const BoxConstraints(minWidth: 40),
+                          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                          alignment: Alignment.center,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
@@ -158,8 +161,7 @@ bool _prefillPassenger(Map<String, String?> sizes, WidgetRef ref, SelectedExtra?
   final gs = ref.read(profileProvider).valueOrNull?['gear_sizes'];
   final p = gs is Map ? gs['passenger'] : null;
   if (p is! Map) return false;
-  const keys = {'Helma': 'helmet', 'Rukavice': 'gloves', 'Bunda': 'jacket', 'Kalhoty': 'pants'};
-  keys.forEach((label, k) => sizes[label] = valid(label, p[k]));
+  passengerGearKeys.forEach((label, k) => sizes[label] = valid(label, p[k]));
   return sizes.values.any((v) => v != null);
 }
 
@@ -286,7 +288,7 @@ void showSizeDialog(
                   if (size == last)
                     Text(t(c).tr('bkSizeLastTag'), style: const TextStyle(
                       fontSize: 9, fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A8A18))),
+                      color: Color(0xFF0F5E0E))),
                 ])),
             )).toList()),
         if (current != null) _RemoveExtraButton(item: item, ref: ref, onExtrasUpdated: onExtrasUpdated),

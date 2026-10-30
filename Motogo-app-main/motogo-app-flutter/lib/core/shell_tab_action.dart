@@ -6,7 +6,8 @@ import 'router.dart';
 import 'pending_booking_fab_provider.dart';
 import '../features/booking/booking_provider.dart';
 import '../features/booking/booking_models.dart';
-import '../features/booking/v2/booking_carry_v2.dart' show bookingDraftSeedMarkProvider, bookingEntryFilterProvider;
+import '../features/booking/v2/booking_carry_v2.dart'
+    show bookingDraftForeign, bookingDraftOwnerProvider, bookingDraftSeedMarkProvider, bookingEntryFilterProvider;
 import '../features/catalog/catalog_provider.dart';
 import '../features/payment/payment_provider.dart' show lastConfirmedBookingProvider;
 import '../features/payment/payment_ui_helpers.dart';
@@ -54,21 +55,29 @@ Future<void> onShellTabTap(
 /// termínu i k formuláři. Po zaplacení se zahodí draft hotové rezervace
 /// a filtr jen s jejím termínem (Domů by jinak nabízelo termín už
 /// zarezervované jízdy); termín zvolený až potom zůstává. Odhlášení
-/// a „Znovu rezervovat“ resetují dál.
+/// a „Znovu rezervovat“ resetují dál. Draft jiného (odhlášeného) účtu se
+/// zahodí vždy, i s jeho termínem v katalogu.
 void _resetOnHome(BuildContext context, WidgetRef ref) {
   final v2 = MgV2.peek(context);
   final confirmed = ref.read(lastConfirmedBookingProvider);
-  if (v2 && confirmed == ref.read(bookingDraftSeedMarkProvider)) return;
+  final foreign = bookingDraftForeign(ref);
+  if (v2 && !foreign && confirmed == ref.read(bookingDraftSeedMarkProvider)) return;
   final f = ref.read(catalogFilterProvider);
   final atEntry = ref.read(bookingEntryFilterProvider);
   final filterOfBooked = atEntry != null && atEntry.$1 == f.startDate && atEntry.$2 == f.endDate;
   ref.read(bookingDraftProvider.notifier).state = BookingDraft();
   ref.read(bookingMotoProvider.notifier).state = null;
-  if (!v2 || filterOfBooked) {
+  if (!v2 || filterOfBooked || foreign) {
     ref.read(catalogFilterProvider.notifier).state = const CatalogFilter();
   }
   if (!v2) return;
+  if (foreign) {
+    for (final p in [pickupDelivFeeProvider, pickupDistKmProvider, returnDelivFeeProvider, returnDistKmProvider]) {
+      ref.read(p.notifier).state = 0;
+    }
+  }
   // Čisté kolo: další Domů už nic nemaže.
   ref.read(bookingDraftSeedMarkProvider.notifier).state = confirmed;
   ref.read(bookingEntryFilterProvider.notifier).state = null;
+  ref.read(bookingDraftOwnerProvider.notifier).state = null;
 }

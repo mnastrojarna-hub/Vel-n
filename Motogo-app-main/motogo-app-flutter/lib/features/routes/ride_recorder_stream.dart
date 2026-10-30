@@ -14,7 +14,7 @@ extension _RideRecStream on RideRecorderNotifier {
     _ownStream = !RideForeignStreams.any || (hadSub && _ownStream);
     _attachedAt = rideRecorderClock();
     _streamError = null;
-    _engine?.onAttach(_nowEpoch());
+    _engine?.onAttach(_nowEpoch(), byTap: reason == 'resume_manual');
     try {
       _sub = Geolocator.getPositionStream(
         locationSettings: rideLocationSettings(_lang()),
@@ -83,9 +83,22 @@ extension _RideRecStream on RideRecorderNotifier {
   /// GPS službu. Ruční pauza: jen doposlat. Auto-pauza: ticho je normální
   /// (stojí) → znovu připojit až po chybě / 30 min ticha.
   void _onAppResumedImpl() {
-    if (!_st.recording || _stopping) return;
-    // Jezdec appku otevřel → záznam není zapomenutý (pojistka počítá znovu).
-    _engine?.noteForeground(_nowEpoch());
+    if (_stopping) return;
+    if (!_st.recording) {
+      // Ukončení, které server nevzal (offline) — teď je šance na signál.
+      if (stopPending && canRetryStop) unawaited(stop());
+      return;
+    }
+    final now = _nowEpoch();
+    _engine?.noteForeground(now);
+    // Vlastní cesta stojí ≥ 20 h (zapomenutý Stop po cestě?) → GPS vypnout
+    // a zeptat se; další jízda se tak nikdy tiše nepřidá ke staré cestě.
+    final idle = _st.isManualPaused ? null : _engine?.decideIdle(now);
+    if (idle != null && idle.detach) {
+      unawaited(_applyStep(idle));
+      _maintenance();
+      return;
+    }
     if (!_st.isManualPaused) {
       final last = _lastFixAt ?? _attachedAt;
       final limit = _st.phase == RidePhase.autoPaused ? _kNoFixReattachPaused : _kNoFixReattach;

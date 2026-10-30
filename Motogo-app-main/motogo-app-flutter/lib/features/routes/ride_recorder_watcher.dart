@@ -114,8 +114,8 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
       // Hláška záznamníku (i obnovená z relace po restartu) — jednou.
       if (st.notice != null) _showNotice(st.notice!, st.noticeArgs);
       if (bookingId != null) {
-        if (st.manual && st.rideId != null && !st.recording) {
-          // Ruční jízdu nešlo uložit (offline) — nejdřív ji dořešit.
+        if (n.stopPending) {
+          // Předchozí jízdu nešlo uložit (offline) — nejdřív ji dořešit.
           if (n.canRetryStop) n.stop();
         } else if (st.recording && st.manual && st.bookingId != bookingId && st.isPaused) {
           // Vlastní cesta stojí a zákazník převzal výpůjčku → vlastní uložit,
@@ -125,18 +125,17 @@ class _RideRecorderWatcherState extends ConsumerState<RideRecorderWatcher>
           // Pozastavená cesta má recording = true → ensureRecording nic nedělá.
           n.ensureRecording(bookingId);
         }
-      } else if (st.manual && st.rideId != null && !st.recording &&
-          n.canRetryStop) {
+      } else if (st.manual && n.stopPending && n.canRetryStop) {
         // Ruční jízdu jezdec ukončil, ale server to nevzal (offline) —
         // dokud ji nikdo neuloží, zkoušíme to dál. Jinak by lokálně visela
         // navždy a jezdec viděl „příliš krátká", i když jel 80 km.
         n.stop();
       } else if (!st.manual &&
-          (st.recording || st.rideId != null) &&
+          (st.recording || st.rideId != null || n.stopPending) &&
           n.canRetryStop) {
         // Výpůjčka skončila (i když appka mezitím neběžela) → jízdu uzavři
-        // — v kterékoli fázi (i pozastavenou). `canRetryStop` drží odstup
-        // po neúspěchu (offline).
+        // — v kterékoli fázi (i pozastavenou), i když ji server ještě nemá
+        // (celá bez dat). `canRetryStop` drží odstup po neúspěchu (offline).
         n.stop();
       }
     });

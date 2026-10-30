@@ -10,11 +10,16 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 /// The form's blockers as T3 banners (V22 §5.2), with the SAME texts the
 /// old tree showed and the SAME fixes: missing gear sizes (amber, the
 /// form's own list), validation error (red: licence / overlap / rental
-/// length / pickup time), incomplete profile (amber + "Doplnit v profilu"
+/// length / pickup time — with the action that fixes it: [errActions]),
+/// incomplete profile (amber + "Doplnit v profilu"
 /// → /profile) and unknown availability (red + retry).
 class BookingWarningsV2 extends StatelessWidget {
   final List<String> missingSizes;
   final String? err;
+
+  /// Working fixes of [err] (label, tap): another bike / profile, dates,
+  /// pickup time — navigation only.
+  final List<(String, VoidCallback)> errActions;
   final String? profileErr;
   final bool bookedFailed;
   final VoidCallback onCompleteProfile;
@@ -24,6 +29,7 @@ class BookingWarningsV2 extends StatelessWidget {
     super.key,
     required this.missingSizes,
     required this.err,
+    this.errActions = const [],
     required this.profileErr,
     required this.bookedFailed,
     required this.onCompleteProfile,
@@ -51,6 +57,10 @@ class BookingWarningsV2 extends StatelessWidget {
             tone: MgTone.err,
             title: tr.tr('v2BkErrTitle'),
             text: err,
+            actions: [
+              for (final a in errActions)
+                MgBtnGhostLight(label: a.$1, onTap: a.$2, height: 44, expand: false),
+            ],
           ),
         )),
       if (profileErr != null)

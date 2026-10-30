@@ -43,6 +43,51 @@ export function rentalHoldsRide(b, now = Date.now()) {
   return st ? true : null
 }
 
+/** Vrácená výpůjčka motorky pod 1 km: server ji drží 7 dní po vrácení (okno pozdních bodů). */
+export const AWAIT_RENTAL_SEC = 7 * 24 * H
+/** Vlastní cesta nové appky pod 1 km: server ji drží do 30 dní od startu (ne 72 h). */
+export const AWAIT_OWN_SEC = 30 * 24 * H
+const RENTAL_MAX_SEC = 60 * 24 * H
+
+/** Jízda pod 1 km — uzavření ji SMAŽE. `distance_lt1` přebije `distance_km` tam,
+ *  kde je km zaokrouhlené (RPC Mapy a polohy: „1.0" může být 0,95 km). */
+export const rideUnder1Km = (ride) => ride?.distance_lt1 ?? Number(ride?.distance_km || 0) < 1
+
+/**
+ * Drží server nahrávku pod 1 km otevřenou kvůli bodům z telefonu, který byl
+ * bez internetu? Zrcadlí `close_stale_user_rides` (SPEC §23.2): uzavření by
+ * jízdu SMAZALO i s tím, co telefon teprve pošle. Vrácená výpůjčka motorky
+ * → do 7 dní po vrácení (max. 60 dní od startu), vlastní cesta nové appky
+ * (i jízda spárovaná s výpůjčkou jen výbavy) → do 30 dní od startu.
+ * @param booking rezervace (`returned_at`, `booking_kind`) — u výpůjčky bez ní null
+ * @returns {{kind: 'rental'|'own', until: number}|null} until = ms
+ */
+export function rideAwait(ride, booking = null, now = Date.now()) {
+  if (!ride?.is_recording || !hasPauseColumns(ride) || !rideUnder1Km(ride)) return null
+  const start = new Date(ride.started_at).getTime()
+  let kind, until
+  if (ride.booking_id && booking?.booking_kind !== 'gear') {
+    const ret = booking?.returned_at ? new Date(booking.returned_at).getTime() : NaN
+    if (!Number.isFinite(ret)) return null // nevrácená (drží ji běžící výpůjčka) / stav neznáme
+    kind = 'rental'
+    until = ret + AWAIT_RENTAL_SEC * 1000
+    if (Number.isFinite(start)) until = Math.min(until, start + RENTAL_MAX_SEC * 1000)
+  } else if (ride.pause_aware && Number.isFinite(start)) {
+    kind = 'own'
+    until = start + AWAIT_OWN_SEC * 1000
+  } else return null
+  return now < until ? { kind, until } : null
+}
+
+/** „do 6. 11. 14:32 (7 dní po vrácení motorky)" — do věty. */
+export function rideAwaitLabel(aw) {
+  if (!aw) return ''
+  const d = new Date(aw.until).toLocaleString('cs-CZ', {
+    day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Prague',
+  })
+  return `do ${d} (${aw.kind === 'rental' ? '7 dní po vrácení motorky' : '30 dní od startu'})`
+}
+
 /**
  * Po jak dlouhé době bez bodu už nahrávka „visí" (s).
  * `rental` = rentalHoldsRide(rezervace) tam, kde ji známe (Mapa a poloha).
@@ -59,11 +104,14 @@ export function rideStuckSec(ride, rental = null) {
 }
 
 /**
- * Stav běžící nahrávky: null (neběží) | 'live' | 'standing' | 'stuck'.
+ * Stav běžící nahrávky: null (neběží) | 'live' | 'standing' | 'awaiting' | 'stuck'.
+ * awaiting = jízda pod 1 km, kterou server drží otevřenou kvůli bodům z telefonu
+ * bez internetu (`rideAwait`) — vrácená výpůjčka hned, vlastní cesta po 72 h;
+ * ukončení by ji smazalo, proto to není „visí".
  * Stáří bodu bere ze serveru (`age_sec`), jinak z `last_fix_at`.
- * `rental` = rentalHoldsRide(rezervace), pokud ji volající zná.
+ * `rental` = rentalHoldsRide(rezervace), `booking` = rezervace, pokud je volající zná.
  */
-export function rideRecState(ride, now = Date.now(), rental = null) {
+export function rideRecState(ride, now = Date.now(), rental = null, booking = null) {
   if (!ride?.is_recording) return null
   let age = Number(ride.age_sec)
   if (ride.age_sec == null || !Number.isFinite(age)) {
@@ -71,14 +119,24 @@ export function rideRecState(ride, now = Date.now(), rental = null) {
     age = Number.isFinite(t) ? Math.max(0, (now - t) / 1000) : Infinity
   }
   if (age < LIVE_SEC) return 'live'
-  return age >= rideStuckSec(ride, rental) ? 'stuck' : 'standing'
+  const aw = rideAwait(ride, booking, now)
+  if (aw?.kind === 'rental') return 'awaiting' // motorka vrácená — nestojí, čeká se na data
+  if (age < rideStuckSec(ride, rental)) return 'standing'
+  return aw ? 'awaiting' : 'stuck'
 }
 
-/** Kdy zaseknutou / stojící nahrávku uzavře server sám (do věty). */
-export function rideAutoCloseHint(ride, rental = null) {
+/** Kdy zaseknutou / stojící / čekající nahrávku uzavře server sám (do věty). */
+export function rideAutoCloseHint(ride, rental = null, booking = null, now = Date.now()) {
   if (!hasPauseColumns(ride)) return 'do tří hodin od posledního bodu'
+  const aw = rideAwait(ride, booking, now)
+  if (aw?.kind === 'rental') return `${rideAwaitLabel(aw)} — čeká na body z telefonu, který byl bez internetu`
+  if (aw) return `${rideAwaitLabel(aw)} — jízda pod 1 km čeká na body z telefonu, který mohl být bez internetu`
   if (ride.booking_id && rental === false) return 'při dalším úklidu (výpůjčka už skončila, úklid běží každých 15 min)'
-  if (ride.booking_id) return 'po skončení výpůjčky (vrácení motorky)'
+  if (ride.booking_id) {
+    return rideUnder1Km(ride)
+      ? 'po skončení výpůjčky (vrácení motorky; jízdu pod 1 km až 7 dní po vrácení — čeká na body z telefonu bez internetu)'
+      : 'po skončení výpůjčky (vrácení motorky)'
+  }
   if (ride.pause_aware) return 'po 72 h bez jízdy (nejpozději 30 dní od startu)'
   return 'do tří hodin od posledního bodu'
 }

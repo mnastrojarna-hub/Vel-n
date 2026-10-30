@@ -20,7 +20,7 @@ class BookingPromoV2 extends StatelessWidget {
   final void Function(AppliedDiscount) onRemove;
 
   /// Vlastní neuplatněné dárkové poukazy — klepnutí = [onVoucher] (dialog
-  /// kód rovnou uplatní stejnou cestou jako napsaný; 2026-10-22).
+  /// s kódem v poli; uplatní ho až „Použít“, r2).
   final List<MyVoucher> vouchers;
   final ValueChanged<String>? onVoucher;
 

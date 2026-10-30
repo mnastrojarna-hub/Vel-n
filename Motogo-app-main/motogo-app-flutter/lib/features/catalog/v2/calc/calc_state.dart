@@ -1,13 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../payment/payment_provider.dart' show lastConfirmedBookingProvider;
 import '../../catalog_provider.dart';
 import '../../moto_model.dart';
 
 /// State of the v2 price calculator (PLAN §2.2.4): IN MEMORY only. It never
-/// touches `bookingDraftProvider` / `catalogFilterProvider` until the user
-/// taps REZERVOVAT (→ `startBookingFromSelection`), "Zobrazit volné
-/// motorky" / "Detail ›" or switches to "Najít motorku" (→ the same date
-/// write as the catalog date picker, `catalog_mode_sync.dart`).
+/// touches `bookingDraftProvider` until the user taps REZERVOVAT (→
+/// `startBookingFromSelection`). Dates picked / cleared here are written
+/// through to `catalogFilterProvider` (one trip, `catalog_mode_sync.dart`:
+/// the same write as the catalog date picker). A paid booking empties its
+/// bike and dates (a clean start, like the booking draft).
 ///
 /// No pickup time here (owner 2026-10-22): the time is chosen only in the
 /// booking form; the calculator prices the standard pickup (the form's
@@ -55,6 +57,9 @@ class CalcStateNotifier extends StateNotifier<CalcState> {
 
   void clearDates() => state = state.copyWith(start: () => null, end: () => null);
 
+  /// After a paid booking: its bike and dates go, the branch stays.
+  void resetTrip() => state = CalcState(branchId: state.branchId);
+
   /// Entry from Home ("Spočítat přesnou cenu ›"): bike and / or dates.
   void prefill({String? motoId, DateTime? start, DateTime? end}) {
     state = CalcState(
@@ -66,7 +71,25 @@ class CalcStateNotifier extends StateNotifier<CalcState> {
   }
 }
 
-final calcStateProvider = StateNotifierProvider<CalcStateNotifier, CalcState>((_) => CalcStateNotifier());
+final calcStateProvider = StateNotifierProvider<CalcStateNotifier, CalcState>((ref) {
+  final n = CalcStateNotifier();
+  // The next "Spočítat cenu" must not reopen the trip just booked (its own
+  // days would show as busy) — the same signal the booking draft and the
+  // Domů reset use for a clean start.
+  ref.listen<String?>(lastConfirmedBookingProvider, (prev, next) {
+    if (next != null && next != prev) n.resetTrip();
+  });
+  return n;
+});
+
+/// Is any calendar day of [s]..[e] in [booked] (DST-safe day steps)? The
+/// rule of the calculator's date step and of the bike detail.
+bool calcBusyIn(List<BookedDateRange> booked, DateTime s, DateTime e) {
+  for (var d = DateTime(s.year, s.month, s.day); !d.isAfter(e); d = DateTime(d.year, d.month, d.day + 1)) {
+    if (booked.any((r) => r.containsDate(d))) return true;
+  }
+  return false;
+}
 
 /// Bikes the calculator offers: the browse rule of `filteredMotorcyclesProvider`
 /// (permanently closed branches never offered), narrowed to the branch.

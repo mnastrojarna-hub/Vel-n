@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/supabase_client.dart';
 import '../../catalog/catalog_provider.dart' show catalogFilterProvider;
 import '../../catalog/moto_model.dart';
 import '../booking_models.dart';
@@ -16,8 +17,9 @@ import '../booking_provider.dart' show bookingDraftProvider;
 /// * STEJNÁ motorka → celý rozpracovaný draft, jen nový termín (při změně
 ///   termínu se pouští vozík — kus byl přidělený na starý termín);
 /// * JINÁ motorka → to, co na motorce nezávisí: čas vyzvednutí a návratu,
-///   poznámka, slevové kódy, „vlastní výbava“, velikosti řidiče, souhlasy
-///   VOP/GDPR. Místo předání (přistavení/odvoz i adresa) jen u stejné
+///   poznámka, slevové kódy, „vlastní výbava“, velikosti řidiče. Souhlasy
+///   VOP/GDPR se u jiné motorky potvrzují znovu (patří k rezervaci —
+///   přenos jen po rozhodnutí majitele, r2). Místo předání (přistavení/odvoz i adresa) jen u stejné
 ///   pobočky, doplňky jen u stejné pobočky a stejného typu (dětská /
 ///   dospělá) — jinak se nabízí jiné řady velikostí. Vozík a souhlas
 ///   zákonného zástupce se vždy pouští. Zbytek srovnají normalizace
@@ -55,8 +57,6 @@ BookingDraft carryBookingDraft({
     glovesSize: () => rider(prev.glovesSize, fresh.glovesSize),
     jacketSize: () => rider(prev.jacketSize, fresh.jacketSize),
     pantsSize: () => rider(prev.pantsSize, fresh.pantsSize),
-    consentVop: prev.consentVop,
-    consentGdpr: prev.consentGdpr,
     pickupMethod: sameBranch ? prev.pickupMethod : 'store',
     returnMethod: sameBranch ? prev.returnMethod : 'store',
     pickupAddress: sameBranch ? () => prev.pickupAddress : null,
@@ -93,6 +93,27 @@ List<SelectedExtra> _noTrailer(List<SelectedExtra> extras) =>
 /// uplatněné kódy, souhlasy a poznámka hotové rezervace).
 final bookingDraftSeedMarkProvider = StateProvider<String?>((_) => null);
 
+/// Účet (uid), pro který vstup založil současný draft. Draft nese adresy,
+/// slevové kódy, souhlasy a velikosti — jinému účtu na stejném telefonu se
+/// nikdy nepřenáší (odhlášení odkudkoli: profil, chyba platby, vypršelé
+/// přihlášení, chybějící profil). null = žádný draft.
+final bookingDraftOwnerProvider = StateProvider<String?>((_) => null);
+
+/// Přihlášený účet; null = nikdo (nebo Supabase ještě neběží — testy).
+String? bookingSessionUid() {
+  try {
+    return MotoGoSupabase.currentUser?.id;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// true = draft založil jiný účet, než je teď přihlášený.
+bool bookingDraftForeign(WidgetRef ref) {
+  final owner = ref.read(bookingDraftOwnerProvider);
+  return owner != null && owner != bookingSessionUid();
+}
+
 /// Data katalogového filtru při posledním vstupu do formuláře. Detail
 /// motorky převezme termín z draftu (změněný ve formuláři „Změnit“) jen
 /// dokud zákazník filtr mezitím nezměnil — novější volba vyhrává.
@@ -104,7 +125,7 @@ final bookingEntryFilterProvider = StateProvider<(DateTime?, DateTime?)?>((_) =>
 (DateTime, DateTime)? draftDatesFor(WidgetRef ref, String motoId) {
   final d = ref.read(bookingDraftProvider);
   final s = d.startDate, e = d.endDate;
-  if (d.motoId != motoId || s == null || e == null) return null;
+  if (d.motoId != motoId || s == null || e == null || bookingDraftForeign(ref)) return null;
   final f = ref.read(catalogFilterProvider);
   final atEntry = ref.read(bookingEntryFilterProvider);
   if (atEntry == null || atEntry.$1 != f.startDate || atEntry.$2 != f.endDate) return null;

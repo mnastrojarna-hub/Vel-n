@@ -7,7 +7,7 @@ import TrasyJizdaEtapy from './TrasyJizdaEtapy'
 import TrasyJizdaCesta from './TrasyJizdaCesta'
 import TrasyJizdaStav, { RideStatTiles } from './TrasyJizdaStav'
 import { trackQuality, fmtGap } from '../lib/rideTrack'
-import { rideCoreStats, rideRecState, rideDays, fmtSince, cz } from '../lib/rideStats'
+import { rideCoreStats, rideRecState, rentalHoldsRide, rideDays, fmtSince, cz } from '../lib/rideStats'
 
 // Detail projeté jízdy zákazníka — mapa se stopou, statistiky (pauzy, etapy
 // po dnech, příslušnost k cestě — stejně jako appka) a EDITACE:
@@ -22,7 +22,7 @@ const MAP_H = 'max-lg:!h-[min(320px,45dvh)]'
 // Telefon na šířku (nízký displej): tenčí lepivá hlavička a patička → víc místa pro obsah.
 const LOW_PAD = 'max-lg:[@media(max-height:500px)]:!py-2'
 
-export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged, trip, onOpenRide }) {
+export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged, trip, onOpenRide, booking = null }) {
   const [name, setName] = useState(ride.name || '')
   const [description, setDescription] = useState(ride.description || '')
   const [visibility, setVisibility] = useState(ride.visibility || 'private')
@@ -58,8 +58,11 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged, 
 
   const q = trackQuality(ride, track || [])
   // live (bod < 15 min) / standing (stojí — nová appka při stání nic
-  // neposílá) / stuck („visí": bez bodu déle, než dává smysl).
-  const recState = rideRecState(ride)
+  // neposílá) / awaiting (pod 1 km, server čeká na data z telefonu bez
+  // internetu) / stuck („visí": bez bodu déle, než dává smysl).
+  // `booking` = stav výpůjčky ze seznamu (vrácení) — bez něj pravidla postaru.
+  const rental = rentalHoldsRide(booking)
+  const recState = rideRecState(ride, Date.now(), rental, booking)
   const stuck = recState === 'stuck'
   const days = rideDays(ride, stages)
 
@@ -186,7 +189,7 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged, 
             </p>
           )}
 
-          <TrasyJizdaStav ride={ride} state={recState} closing={closing} onEnd={closeStuck} />
+          <TrasyJizdaStav ride={ride} state={recState} rental={rental} booking={booking} closing={closing} onEnd={closeStuck} />
 
           {/* statistiky jízdy — kompletní přehled (stejné hodnoty jako appka) */}
           <RideStatTiles cells={[
@@ -198,7 +201,8 @@ export default function TrasyJizdaModal({ ride, authorName, onClose, onChanged, 
             ['🛰️', 'Bodů stopy', track === null ? '…' : String(q.points)],
             ['🚦', 'Start', fmtDate(ride.started_at)],
             ['🏁', 'Konec', ride.ended_at ? fmtDate(ride.ended_at)
-              : (stuck ? 'záznam visí' : (recState === 'standing' ? 'stojí (pauza)' : 'nahrává se'))],
+              : (stuck ? 'záznam visí' : recState === 'awaiting' ? 'čeká na data z telefonu'
+                : (recState === 'standing' ? 'stojí (pauza)' : 'nahrává se'))],
           ]} />
           <TrasyJizdaEtapy stages={stages} />
           <TrasyJizdaCesta trip={trip} currentId={ride.id} onOpen={onOpenRide} />

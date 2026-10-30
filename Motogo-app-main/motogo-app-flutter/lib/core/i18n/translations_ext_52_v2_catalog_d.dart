@@ -1,3 +1,7 @@
+// Kolo 2 (detail motorky): nové klíče v samostatném souboru, sem jen
+// re-export — `translations.dart` ho tak má bez dalšího importu.
+export 'translations_ext_52_v2_catalog_r2.dart';
+
 /// v2 vzhled — katalog Motorky, detail motorky a kalkulačka ceny (PLAN §2.2,
 /// §4.1 ext_52). Jen klíče `v2…`; generováno z impl/catalog/i18n/gen.py.
 const Map<String, Map<String, String>> translationsExt52V2CatalogD = {
@@ -83,15 +87,9 @@ const Map<String, Map<String, String>> translationsExt52V2CatalogD = {
     'v2CalcSumDates': 'Wybierz termin w kalendarzu — cenę obliczymy od razu.',
     'v2CalcSumPickEnd': 'Wybierz dzień zwrotu, aby zobaczyć łączną cenę.',
     'v2CalcChart': 'Cena za dzień',
-    'v2CalcLateTitle': 'Odbierz od 12:00',
-    'v2CalcLateText': 'a 1. dzień masz za pół ceny: oszczędzasz {amount} i płacisz {total}.',
     'v2CalcLateOne': 'Przy wynajmie na 2 dni lub dłużej odbierz motocykl od 12:00, a 1. dzień masz za pół ceny.',
     'v2CalcLateSet': 'Ustaw 12:00',
-    'v2CalcLateOn': 'Odbiór od 12:00 · 1. dzień za pół ceny',
     'v2CalcLateRow': 'Odbiór od 12:00 (½ 1. dnia)',
-    'v2CalcHalfTag': '½ 1. dzień',
-    'v2CalcPickupTime': 'Godzina odbioru',
-    'v2CalcHandoverNote': 'Odbiór, wyposażenie i rozmiary wybierzesz w rezerwacji.',
     'v2CalcRankSaved': 'Dzięki randze {rank} oszczędzasz {amount}',
     'v2CalcIncl1': 'Bez kaucji',
     'v2CalcIncl2': 'Wyposażenie kierowcy w cenie',
@@ -186,15 +184,9 @@ const Map<String, Map<String, String>> translationsExt52V2CatalogD = {
     'v2CalcSumDates': 'Обери дати в календарі — ціну розрахуємо одразу.',
     'v2CalcSumPickEnd': 'Обери день повернення, щоб побачити загальну ціну.',
     'v2CalcChart': 'Ціна по днях',
-    'v2CalcLateTitle': 'Забери з 12:00',
-    'v2CalcLateText': 'і 1-й день буде за пів ціни: заощадиш {amount}, заплатиш {total}.',
     'v2CalcLateOne': 'При оренді на 2 дні й більше забери мотоцикл з 12:00 — і 1-й день буде за пів ціни.',
     'v2CalcLateSet': 'Обрати 12:00',
-    'v2CalcLateOn': 'Отримання з 12:00 · 1-й день за пів ціни',
     'v2CalcLateRow': 'Отримання з 12:00 (½ 1-го дня)',
-    'v2CalcHalfTag': '½ 1-й день',
-    'v2CalcPickupTime': 'Час отримання',
-    'v2CalcHandoverNote': 'Передання, спорядження й розміри обереш у бронюванні.',
     'v2CalcRankSaved': 'Завдяки рангу {rank} заощадиш {amount}',
     'v2CalcIncl1': 'Без застави',
     'v2CalcIncl2': 'Екіпірування водія в ціні',

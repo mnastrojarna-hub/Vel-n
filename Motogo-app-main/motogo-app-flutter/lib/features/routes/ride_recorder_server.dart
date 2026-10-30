@@ -31,6 +31,35 @@ extension _RideRecServer on RideRecorderNotifier {
     if (changed) rideLog('caps', data: {'trips': trips});
   }
 
+  /// Nejstarší bod relace, která na serveru ještě nemá jízdu (start bez
+  /// dat). null = běžný start (body ještě nejsou) / navázání / obnova.
+  double? _sessionFirstTs() {
+    final from = _sessFrom;
+    if (from == null || _st.rideId != null || _continuation) return null;
+    double? first;
+    for (final p in _buffer) {
+      if (p.length > 2 && p[2] >= from && (first == null || p[2] < first)) first = p[2];
+    }
+    return first;
+  }
+
+  /// `start_user_trip_from` (jízda začne prvním bodem relace), když jsou
+  /// body z doby offline; server, který ji nezná, → `start_user_trip`.
+  Future<RideTripStart> _startTripCall(String? booking, double? firstTs) async {
+    final now = rideRecorderClock();
+    final m = _tripFromMissingAt;
+    if (firstTs != null && (m == null || now.difference(m) > const Duration(minutes: 30))) {
+      final r = await _api.startTripFrom(booking, firstTs);
+      if (r.kind == RideTripStartKind.missing) {
+        if (m == null) rideLog('caps', detail: 'trip_from', data: {'from': false});
+        _tripFromMissingAt = now;
+      } else if (r.kind != RideTripStartKind.error) {
+        return r;
+      }
+    }
+    return _api.startTrip(booking);
+  }
+
   Future<bool> _createServerRideOnce() async {
     _needsServerRide = true;
     final api = _api;
@@ -38,8 +67,11 @@ extension _RideRecServer on RideRecorderNotifier {
     RideStart? started;
     var proto = 'legacy';
     final nowS = rideRecorderClock().millisecondsSinceEpoch / 1000;
+    // Start offline (zahraničí bez dat, hotelová Wi-Fi až večer): jízda
+    // začne prvním bodem relace, ne až teď — body z doby offline jsou její.
+    final firstTs = _sessionFirstTs();
     if (_caps.trips != false || _caps.stale(nowS)) {
-      final r = await api.startTrip(booking);
+      final r = await _startTripCall(booking, firstTs);
       // Mezitím zastaveno (vypnutý přepínač…) — kromě ukončování.
       if (!_st.recording && !_stopping) {
         _continuation = false;
@@ -90,6 +122,15 @@ extension _RideRecServer on RideRecorderNotifier {
             final late = await _drainEndedRental();
             if (late == null) return false;
             if (late > 0) rideLog('ride_continue_no_booking', data: {'ride': _st.rideId, 'booking': booking, 'late': late});
+            if (_st.rideId == null && _buffer.isNotEmpty) {
+              // Výpůjčka celá bez dat a server ji zpětně založit odmítl
+              // (starý server / vráceno před víc než 7 dny) — nic tiše.
+              rideLog('ride_points_lost', detail: 'booking_inactive', data: {
+                'n': _buffer.length,
+                'booking': booking,
+                if (firstTs != null) 'from': firstTs.round(),
+              });
+            }
             await _forgetRide();
           }
           return false;
@@ -125,9 +166,14 @@ extension _RideRecServer on RideRecorderNotifier {
     final wasCont = _continuation;
     _continuation = false;
     if (!started.resumed) {
-      // NOVÁ jízda: body staré jízdy (> 1 h) do ní nepatří.
-      final cutoff = rideRecorderClock().subtract(_kStaleBufferAge).millisecondsSinceEpoch / 1000;
+      // NOVÁ jízda: body staré jízdy (> 1 h) do ní nepatří — kromě bodů
+      // TÉHLE relace (start offline: jízda vznikla až teď, body jsou její;
+      // server s `start_user_trip_from` ji začne prvním z nich).
+      var cutoff = rideRecorderClock().subtract(_kStaleBufferAge).millisecondsSinceEpoch / 1000;
+      if (!wasCont && firstTs != null && firstTs < cutoff) cutoff = firstTs;
+      final n0 = _buffer.length;
       _buffer.removeWhere((p) => p.length > 2 && p[2] < cutoff);
+      if (_buffer.length < n0) rideLog('buffer_stale_cut', data: {'n': n0 - _buffer.length, 'cont': wasCont});
       _recomputeMax();
       await _persistBuffer();
       _resetLive();
@@ -140,12 +186,14 @@ extension _RideRecServer on RideRecorderNotifier {
     _proto = proto;
     _st = _st.copyWith(rideId: started.id);
     _needsServerRide = false;
+    _sessFrom = null;
     rideLog('ride_start', data: {
       'ride': started.id,
       'resumed': started.resumed,
       'manual': _st.manual,
       'booking': booking,
       'proto': proto,
+      if (firstTs != null) 'from': firstTs.round(),
       'app': RideRecorderNotifier._appState(),
     });
     if (wasCont && booking == null && started.id != _contFrom) {
@@ -366,9 +414,17 @@ extension _RideRecServer on RideRecorderNotifier {
       _cancelPendTimer();
       // Start proběhl offline a jízda na serveru ještě není → založit.
       if (_needsServerRide && !await _ensureServerRide()) {
+        if (!_needsServerRide && _st.rideId == null && !_st.recording) {
+          // Server jízdu odmítl založit (výpůjčka skončila) a záznam se
+          // zapomněl (`_forgetRide`, ztráta je v diagnostice) — není co
+          // zkoušet znovu.
+          return false;
+        }
         _lastStopFail = rideRecorderClock();
         await _detachStream();
         _st = _st.copyWith(recording: false);
+        _stopFailed = true;
+        _armStopRetry();
         return null;
       }
       // Rozjeté odeslání dávky necháme doběhnout DŘÍV (jinak body 2×).
@@ -388,11 +444,16 @@ extension _RideRecServer on RideRecorderNotifier {
         _lastStopFail = rideRecorderClock();
         await _detachStream();
         _st = _st.copyWith(recording: false);
+        _stopFailed = true;
+        _armStopRetry();
         return null;
       }
       await _detachStream();
       rideLog('ride_stop', data: {'ride': id, 'kept': kept, 'phase': _st.phase.name, 'app': RideRecorderNotifier._appState()});
       _engine = null;
+      _sessFrom = null;
+      _stopFailed = false;
+      _cancelStopRetry();
       _resetLive();
       _st = _st.copyWith(recording: false, points: 0, clearRide: true);
       _lastStopFail = null;
@@ -411,5 +472,23 @@ extension _RideRecServer on RideRecorderNotifier {
     } finally {
       _stopping = false;
     }
+  }
+
+  /// Neuložené ukončení zkoušet znovu i bez dalších událostí (appka otevřená
+  /// v jiné záložce, žádná změna stavu) — každé ~2 min, dokud se nepovede.
+  void _armStopRetry() {
+    if (_stopRetryTimer != null) return;
+    _stopRetryTimer = Timer.periodic(_kStopRetryAfter + const Duration(seconds: 5), (_) {
+      if (!stopPending) {
+        _cancelStopRetry();
+      } else if (canRetryStop) {
+        unawaited(stop());
+      }
+    });
+  }
+
+  void _cancelStopRetry() {
+    _stopRetryTimer?.cancel();
+    _stopRetryTimer = null;
   }
 }

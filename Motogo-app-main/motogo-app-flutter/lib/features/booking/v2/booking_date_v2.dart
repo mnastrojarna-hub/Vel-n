@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../catalog/moto_model.dart';
@@ -19,6 +20,9 @@ import 'booking_v2_parts.dart';
 /// or the hint + `AvailabilityCalendar` (its own v2 look) fed by the
 /// form's booked-dates watch; a failed load shows the same `MgErrorView`
 /// with the same retry. "Celkem za pronájem" = the rental base price.
+/// [busy]: the carried range contains a booked day — the calendar stays
+/// open with the reason. "Ponechat termín" ([onKeep]) folds an opened
+/// calendar back without picking the same range again.
 class BookingDateCardV2 extends StatelessWidget {
   final DateTime? start;
   final DateTime? end;
@@ -26,6 +30,8 @@ class BookingDateCardV2 extends StatelessWidget {
   final int dayCount;
   final double basePrice;
   final bool calOpen;
+  final bool busy;
+  final VoidCallback? onKeep;
 
   /// The form's booked-dates watch (null when no bike id).
   final AsyncValue<List<BookedDateRange>>? booked;
@@ -46,6 +52,8 @@ class BookingDateCardV2 extends StatelessWidget {
     required this.dayCount,
     required this.basePrice,
     required this.calOpen,
+    this.busy = false,
+    this.onKeep,
     required this.booked,
     required this.onOpenCalendar,
     required this.onRangeSelected,
@@ -67,7 +75,23 @@ class BookingDateCardV2 extends StatelessWidget {
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (!showCal) _summary(context),
           if (showCal) ...[
+            if (busy) ...[
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                MgIcon(MgIcons.calendarX, size: 18, color: MgColors.err),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(tr.tr('v2CalcRangeBusy'),
+                      style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.err)),
+                ),
+              ]),
+              const SizedBox(height: 8),
+            ],
             Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
+            if (hasDates && !busy && onKeep != null)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: MgBtnText(label: tr.tr('v2BkKeepDates'), icon: MgIcons.check, onTap: onKeep),
+              ),
             const SizedBox(height: 10),
             if (b != null && b.hasError && !b.hasValue)
               // Obsazenost se nenačetla — stejná hláška a oprava jako dřív.

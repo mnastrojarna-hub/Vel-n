@@ -24,6 +24,7 @@ import 'calc_receipt_v2.dart';
 import 'calc_state.dart';
 import 'calc_step_dates_v2.dart';
 import 'calc_step_moto_v2.dart';
+import 'calc_sticky_v2.dart';
 import 'calc_total_v2.dart';
 
 /// The v2 price calculator — Motorky tab, mode "Spočítat cenu" (PLAN
@@ -33,7 +34,9 @@ import 'calc_total_v2.dart';
 /// draft, standard pickup); the 12:00 half-day saving is information only
 /// (owner 2026-10-22: no time choice before the form). REZERVOVAT =
 /// `startBookingFromSelection` (PM-3) with the same bike and dates — the
-/// pickup time is chosen in the booking form.
+/// pickup time is chosen in the booking form. While that REZERVOVAT is
+/// enabled but scrolled away, the Motorky page shows it in a sticky dock
+/// (`calc_sticky_v2.dart`, the same handler).
 class CalcBodyV2 extends ConsumerStatefulWidget {
   const CalcBodyV2({super.key});
 
@@ -41,8 +44,20 @@ class CalcBodyV2 extends ConsumerStatefulWidget {
   ConsumerState<CalcBodyV2> createState() => _CalcBodyV2State();
 }
 
-class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
+class _CalcBodyV2State extends ConsumerState<CalcBodyV2> with CalcStickyTracker {
   final GlobalKey _datesKey = GlobalKey();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    stickyAttach();
+  }
+
+  @override
+  void dispose() {
+    stickyDetach();
+    super.dispose();
+  }
 
   void _toDates() {
     final c = _datesKey.currentContext;
@@ -67,6 +82,7 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
     final n = ref.read(calcStateProvider.notifier);
     final allAsync = ref.watch(motorcyclesProvider);
     if (!allAsync.hasValue) {
+      stickyWant(null);
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
         child: allAsync.hasError
@@ -89,14 +105,7 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
     final loyaltyAsync = ref.watch(loyaltyStatusProvider);
     final loyalty = loyaltyAsync.valueOrNull;
     final booked = moto == null ? null : ref.watch(bookedDatesProvider(moto.id));
-    var busyInRange = false;
-    if (st.hasRange && booked != null && booked.hasValue) {
-      for (var d = DateTime(st.start!.year, st.start!.month, st.start!.day);
-          !d.isAfter(st.end!);
-          d = DateTime(d.year, d.month, d.day + 1)) {
-        if (booked.value!.any((r) => r.containsDate(d))) busyInRange = true;
-      }
-    }
+    final busyInRange = st.hasRange && booked != null && booked.hasValue && calcBusyIn(booked.value!, st.start!, st.end!);
 
     int countIn(String? branch) => calcOffered(all, branch).length;
     String typeOf(String id) {
@@ -107,6 +116,7 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
     }
 
     final hasPrices = moto != null && (moto.prices?.cheapest ?? 0) > 0;
+    CalcStickyData? sticky;
     Widget result;
     if (moto == null && st.hasRange) {
       result = CalcFreeListV2(st: st, onShowAll: () => _showFree(st));
@@ -123,6 +133,8 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
                   ? tr.tr('v2CalcRangeBusy')
                   : null;
       final m = moto;
+      void book() => startBookingFromSelection(context, ref, m, st.start!, st.end!);
+      if (blocked == null) sticky = CalcStickyData(moto: m, start: st.start!, end: st.end!, total: q.total, onBook: book);
       result = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         MgEnter(trigger: '${m.id}${st.start}${st.end}', child: CalcReceiptV2(moto: m, start: st.start!, end: st.end!, q: q)),
         const SizedBox(height: 12),
@@ -133,9 +145,8 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
           loyaltyFailed: loyaltyAsync.hasError,
           onRetryLoyalty: () => ref.invalidate(loyaltyStatusProvider),
           blockedReason: blocked,
-          onBook: blocked != null
-              ? null
-              : () => startBookingFromSelection(context, ref, m, st.start!, st.end!),
+          ctaKey: stickyCtaKey,
+          onBook: blocked != null ? null : book,
         ),
       ]);
     } else if (moto != null && st.start == null && hasPrices) {
@@ -160,6 +171,7 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
     } else {
       result = CalcHint(tr.tr(st.start != null && st.end == null ? 'v2CalcSumPickEnd' : 'v2CalcSumEmpty'));
     }
+    stickyWant(sticky);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -207,10 +219,11 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> {
         const SizedBox(height: 12),
         CalcStepCardV2(
           n: 4,
-          done: moto != null && st.hasRange,
-          title: tr.tr('v2CalcStepHandover'),
           // Info only (owner 2026-10-22): the pickup time — and with it the
-          // 12:00 half-day saving — is chosen in the booking form.
+          // 12:00 half-day saving — is chosen in the booking form; an "i"
+          // tile, never a step that looks done or pending.
+          info: true,
+          title: tr.tr('v2CalcStepHandover'),
           child: CalcHint(tr.tr('v2LpCalcHandover')),
         ),
         const SizedBox(height: 16),

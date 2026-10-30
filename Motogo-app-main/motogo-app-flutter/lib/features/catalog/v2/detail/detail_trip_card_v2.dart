@@ -23,14 +23,17 @@ import '../../widgets/validation_banner.dart';
 import '../calc/calc_parts_v2.dart';
 import '../catalog_text.dart';
 import '../catalog_price.dart';
+import 'detail_trip_parts_v2.dart';
 
 /// "Tvoje jízda" card of the v2 detail (V22 §2.4: light step rows + the
 /// one dark total box). ① Termín = the page's own date state and
 /// `AvailabilityCalendar` callbacks (expand / collapse, range, start,
 /// reset — all owned by `_MotoDetailPageState`), availability banner,
-/// `ValidationBanner`; ② Předání a výbava = info only (chosen in the
-/// booking form); total = [quote] (the booking form's price for a fresh
-/// draft) with the old list total struck, no deposit, breakdown.
+/// `ValidationBanner`, a busy warning for carried dates ([busy]); ②
+/// Předání a výbava = info only (chosen in the booking form; "i" tile +
+/// the 12:00 saving from [quote12]); total = [quote] (the booking form's
+/// price for a fresh draft) with the old list total struck, no deposit,
+/// breakdown.
 class DetailTripCardV2 extends ConsumerStatefulWidget {
   final Motorcycle moto;
   final DateTime? selStart;
@@ -42,6 +45,10 @@ class DetailTripCardV2 extends ConsumerStatefulWidget {
   /// rank price is lower.
   final double listTotal;
   final PriceBreakdown? quote;
+
+  /// The same trip with pickup from 12:00 (2+ days) — information only.
+  final PriceBreakdown? quote12;
+  final bool busy;
   final bool calendarExpanded;
   final VoidCallback onToggleCalendar;
   final void Function(DateTime, DateTime) onRangeSelected;
@@ -64,6 +71,8 @@ class DetailTripCardV2 extends ConsumerStatefulWidget {
     required this.onStartSelected,
     required this.onReset,
     required this.bookedAsync,
+    this.quote12,
+    this.busy = false,
   });
 
   @override
@@ -196,20 +205,14 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
                   ),
                 ]),
         ),
+        if (w.busy) ...[
+          const SizedBox(height: 10),
+          CalcHint(tr.tr('v2CalcRangeBusy'), warn: true),
+        ],
         if (w.hasDates) ValidationBanner(moto: w.moto, startDate: w.selStart!, endDate: w.selEnd!),
         const SizedBox(height: 20),
         // ② Předání a výbava — vybírá se v rezervaci (beze změny chování).
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const CalcStepBadge(n: 2, done: false),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr.tr('v2DetStepHandover'), style: MgType.section.copyWith(color: MgColors.ink)),
-              const SizedBox(height: 4),
-              Text(tr.tr('v2DetHandoverLater'), style: MgType.small.copyWith(color: MgColors.lead)),
-            ]),
-          ),
-        ]),
+        DetailHandoverInfoV2(quote: q, quote12: w.quote12),
         const SizedBox(height: 20),
         if (loyaltyAsync.hasError && !loyaltyAsync.isLoading)
           Padding(

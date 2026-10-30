@@ -52,8 +52,8 @@ List<MyVoucher> unusedVouchers(List<MyVoucher>? all, Iterable<String> applied) {
   return [for (final v in all ?? const <MyVoucher>[]) if (!used.contains(v.code)) v];
 }
 
-/// Poukazy v dialogu slevového kódu (oba vzhledy, oba stromy): klepnutí =
-/// stejné uplatnění jako napsaný kód.
+/// Poukazy v dialogu slevového kódu (oba vzhledy, oba stromy): klepnutí
+/// kód vloží do pole, uplatní ho „Použít“ stejně jako napsaný kód (r2).
 class MyVoucherChips extends StatelessWidget {
   final List<MyVoucher> vouchers;
   final bool busy;

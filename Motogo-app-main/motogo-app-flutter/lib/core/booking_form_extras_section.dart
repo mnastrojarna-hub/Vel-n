@@ -120,6 +120,7 @@ class BookingFormExtrasSection extends ConsumerWidget {
           struck: freeByRank ? Money.czk(item.price) : null,
           freeWithRank: freeByRank,
           selected: sel,
+          opensSheet: isSpolujezdec || item.sizes.isNotEmpty,
           onTap: onTap,
         );
       }
@@ -177,7 +178,7 @@ class BookingFormExtrasSection extends ConsumerWidget {
                   ),
                   Text(
                     sel && selExtra?.size != null
-                        ? '${t(context).tr('sizeLabel')}: ${selExtra!.size}'
+                        ? '${t(context).tr('sizeLabel')}: ${extraSizeLabel(t(context).tr, selExtra!.size!)}'
                         : needSize
                             ? '⚠ ${t(context).tr('clickSelectSize')}'
                             : extraDescription(t(context).tr, item.id, item.description) ?? '',

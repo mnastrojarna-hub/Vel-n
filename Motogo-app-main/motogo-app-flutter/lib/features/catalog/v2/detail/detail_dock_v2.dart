@@ -10,10 +10,13 @@ import '../catalog_text.dart';
 
 /// Sticky dock of the v2 detail (board `.rk-sticky`): context line (the
 /// chosen dates · days, or the hint to pick a date), the docked AI disc
-/// (the floating button is hidden on `/moto/:id`) and the rank CTA
-/// REZERVOVAT · price. [onReserve] = the page's existing CTA action
-/// (PM-3 `startBookingFromSelection`); null while no start date is picked
-/// — exactly the old `canProceed` rule (a start alone = single day).
+/// (the floating button is hidden on `/moto/:id`) and the rank CTA.
+/// No date yet (DESIGN_V2 MotoDetail sticky bar, Stavy 9.1): "VYBRAT
+/// TERMÍN · od 2 727 Kč/den" → [onPickDates] opens the date step — never a
+/// dead button. Otherwise REZERVOVAT · price → [onReserve] = the page's
+/// existing CTA action (PM-3 `startBookingFromSelection`; a start alone =
+/// single day, exactly the old `canProceed` rule); null = disabled (a
+/// carried range with a booked day).
 class DetailDockV2 extends StatelessWidget {
   final DateTime? selStart;
   final DateTime? selEnd;
@@ -21,6 +24,10 @@ class DetailDockV2 extends StatelessWidget {
 
   /// Formatted price for the CTA (null = no complete range yet).
   final String? price;
+
+  /// "od 2 727 Kč/den" for the no-date CTA (null = no price list).
+  final String? fromPrice;
+  final VoidCallback? onPickDates;
   final VoidCallback? onReserve;
 
   const DetailDockV2({
@@ -30,6 +37,8 @@ class DetailDockV2 extends StatelessWidget {
     required this.dayCount,
     required this.price,
     required this.onReserve,
+    this.fromPrice,
+    this.onPickDates,
   });
 
   @override
@@ -44,6 +53,7 @@ class DetailDockV2 extends StatelessWidget {
     } else {
       line = '${catRange(tr, s, selEnd!)} · ${catDays(tr, dayCount)}';
     }
+    final pick = s == null && onPickDates != null;
     return MgDock(
       aiDisc: true,
       contextLine: Text(
@@ -52,13 +62,21 @@ class DetailDockV2 extends StatelessWidget {
         style: TextStyle(color: s == null ? MgColors.onDarkMeta : MgColors.onDarkLead),
       ),
       child: MgFabAvoid(
-        child: MgCta(
-          label: tr.tr('v2CatCtaBook'),
-          price: price,
-          onTap: onReserve,
-          size: MgCtaSize.lg60,
-          loop: onReserve != null,
-        ),
+        child: pick
+            ? MgCta(
+                label: tr.tr('v2CalcPickDatesCta'),
+                price: fromPrice,
+                onTap: onPickDates,
+                size: MgCtaSize.lg60,
+                loop: true,
+              )
+            : MgCta(
+                label: tr.tr('v2CatCtaBook'),
+                price: price,
+                onTap: onReserve,
+                size: MgCtaSize.lg60,
+                loop: onReserve != null,
+              ),
       ),
     );
   }

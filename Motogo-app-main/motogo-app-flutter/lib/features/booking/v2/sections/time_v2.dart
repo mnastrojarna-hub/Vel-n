@@ -8,6 +8,8 @@ import '../../../../core/v2/tokens/mg_space.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/widgets/time_dropdown_field.dart';
+import '../../../loyalty/loyalty_provider.dart';
+import '../../booking_models.dart' show PriceBreakdown;
 import '../../booking_provider.dart';
 import '../../booking_quote.dart';
 import '../../price_calculator.dart';
@@ -17,10 +19,12 @@ import '../booking_v2_parts.dart';
 /// `TimeDropdownField`s (hour : minute, 15 min steps) with the SAME
 /// callbacks, only themed for v2 inputs. Right under the pickup time the ½
 /// row — the ONE place where the 12:00 pickup is chosen (owner 2026-10-22):
-/// the concrete first-day discount of this trip (the price summary's own
-/// "Sleva 50 % na 1. den" amount, same engine), "Nastavit 12:00" = the same
-/// [onTimeChanged] as the dropdown, ✓ once the time is 12:00 or later; the
-/// general hint for a 1-day trip. Self-service: plus the info well.
+/// what this trip saves at 12:00 — the SAME figure the calculator and Home
+/// promise ([lateSaving]: standard minus 12:00 total, both with the rank
+/// discount; r2 — the gross "Sleva 50 % na 1. den" line stays in the price
+/// summary), "Nastavit 12:00" = the same [onTimeChanged] as the dropdown,
+/// ✓ once the time is 12:00 or later; the general hint for a 1-day trip.
+/// Self-service: plus the info well.
 class BookingTimeV2 extends ConsumerWidget {
   final String pickupValue;
   final String returnValue;
@@ -67,11 +71,12 @@ class BookingTimeV2 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
-    final draft = ref.watch(bookingDraftProvider);
+    // Jen termín (poznámka se píše do draftu po znacích).
+    final (s, e) = ref.watch(bookingDraftProvider.select((d) => (d.startDate, d.endDate)));
     final moto = ref.watch(bookingMotoProvider);
-    final s = draft.startDate, e = draft.endDate;
+    final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
     final half = moto != null && moto.prices != null && s != null && e != null
-        ? quoteFor(moto, s, e, pickupTime: '12:00').latePickupDiscount
+        ? lateSaving(quoteFor(moto, s, e, loyalty: loyalty), quoteFor(moto, s, e, pickupTime: '12:00', loyalty: loyalty))
         : 0.0;
     final late = PriceCalculator.isLatePickup(pickupValue);
     Widget dropdown(String value, void Function(String) onChanged) => Theme(
@@ -89,7 +94,7 @@ class BookingTimeV2 extends ConsumerWidget {
             on: half > 0 && late,
             text: half <= 0
                 ? tr.tr('latePickupHint12')
-                : tr.trArgs(late ? 'v2LpFormOn' : 'v2LpFormSave', {'amount': bkMoney(half)}),
+                : tr.trArgs(late ? 'v2LpFormOnNet' : 'v2LpFormSaveNet', {'amount': bkMoney(half)}),
             setLabel: tr.tr('v2CalcLateSet'),
             onSet: half > 0 && !late ? () => onTimeChanged('12:00') : null,
           ),
@@ -106,6 +111,14 @@ class BookingTimeV2 extends ConsumerWidget {
       ]),
     );
   }
+}
+
+/// What picking up from 12:00 saves: standard minus 12:00 total — the one
+/// definition the calculator (`CalcTotalV2`) and Home (`HomeOfferBlockV2`)
+/// use too, so the customer sees one number everywhere. Display only.
+double lateSaving(PriceBreakdown std, PriceBreakdown at12) {
+  final d = std.total - at12.total;
+  return d > 0 ? d : 0;
 }
 
 class _HalfOffer extends StatelessWidget {

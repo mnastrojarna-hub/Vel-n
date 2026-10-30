@@ -120,13 +120,12 @@ class MgTotalBox extends StatelessWidget {
         ]),
         if (savingsChip != null || onBreakdown != null) ...[
           const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: savingsChip ?? const SizedBox.shrink(),
-              ),
-            ),
+          // Wrap: on a narrow phone with large text the "Rozpis" button goes
+          // under the savings chip instead of squeezing it into a split word.
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, runSpacing: 4, children: [
+            savingsChip ?? const SizedBox.shrink(),
             if (onBreakdown != null)
               Semantics(
                 button: true,
@@ -152,7 +151,7 @@ class MgTotalBox extends StatelessWidget {
                   ),
                 ),
               ),
-          ]),
+          ])),
         ],
         if (breakdown != null)
           MgAnimatedSize(

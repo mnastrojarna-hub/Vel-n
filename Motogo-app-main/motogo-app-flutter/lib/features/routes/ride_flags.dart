@@ -5,7 +5,7 @@ import 'ride_motion.dart';
 
 /// Flag `ride_autopause` (Velín → feature_flags) = KILL-SWITCH automatické
 /// pauzy záznamu jízdy + prahy bez vydání verze (`conditions`:
-/// `{"stop_min":5,"walk_min":3,"resume_kmh":20,"home_h":3,"long_h":20}`).
+/// `{"stop_min":5,"walk_min":3,"resume_kmh":20,"home_h":3,"long_h":48,"idle_h":20}`).
 /// Chybějící řádek (starý server) = ZAPNUTO s výchozími prahy. Vypnutí =
 /// nahrává se bez auto-pauzy (jako dřív); ruční pauza a cesty zůstávají.
 class RideAutoPauseFlag {
@@ -16,6 +16,7 @@ class RideAutoPauseFlag {
     this.resumeKmh,
     this.homeH,
     this.longH,
+    this.idleH,
   });
 
   static const defaults = RideAutoPauseFlag();
@@ -26,9 +27,11 @@ class RideAutoPauseFlag {
   final num? resumeKmh;
   final num? homeH;
   final num? longH;
+  /// Vlastní cesta stojí ≥ tolik h → při otevření appky se zeptat (0 = ne).
+  final num? idleH;
 
-  RideMotionConfig toConfig() => const RideMotionConfig()
-      .withFlag(stopMin: stopMin, walkMin: walkMin, resumeKmh: resumeKmh, homeH: homeH, longH: longH);
+  RideMotionConfig toConfig() => const RideMotionConfig().withFlag(
+      stopMin: stopMin, walkMin: walkMin, resumeKmh: resumeKmh, homeH: homeH, longH: longH, idleH: idleH);
 
   /// Zápis do `mg_ride_caps.ap`.
   Map<String, dynamic> toJson() => {
@@ -38,6 +41,7 @@ class RideAutoPauseFlag {
         if (resumeKmh != null) 'resume': resumeKmh,
         if (homeH != null) 'home': homeH,
         if (longH != null) 'long': longH,
+        if (idleH != null) 'idle': idleH,
       };
 
   static num? _n(Object? v) => v is num ? v : num.tryParse('${v ?? ''}');
@@ -51,6 +55,7 @@ class RideAutoPauseFlag {
       resumeKmh: _n(j['resume']),
       homeH: _n(j['home']),
       longH: _n(j['long']),
+      idleH: _n(j['idle']),
     );
   }
 
@@ -66,6 +71,7 @@ class RideAutoPauseFlag {
       resumeKmh: _n(m['resume_kmh']),
       homeH: _n(m['home_h']),
       longH: _n(m['long_h']),
+      idleH: _n(m['idle_h']),
     );
   }
 
@@ -77,10 +83,11 @@ class RideAutoPauseFlag {
       other.walkMin == walkMin &&
       other.resumeKmh == resumeKmh &&
       other.homeH == homeH &&
-      other.longH == longH;
+      other.longH == longH &&
+      other.idleH == idleH;
 
   @override
-  int get hashCode => Object.hash(enabled, stopMin, walkMin, resumeKmh, homeH, longH);
+  int get hashCode => Object.hash(enabled, stopMin, walkMin, resumeKmh, homeH, longH, idleH);
 }
 
 /// Načte flag (timeout 8 s). null = nepodařilo se (offline) → platí poslední

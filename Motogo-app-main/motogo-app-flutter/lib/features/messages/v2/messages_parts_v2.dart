@@ -68,7 +68,7 @@ class MsgSegmentsV2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget seg(String label, bool on, bool isRight, int count) => Semantics(
+    Widget seg(String label, bool on, bool isRight, int count, {bool stacked = false}) => Semantics(
             selected: on,
             button: true,
             label: count > 0 ? '$label, $count' : label,
@@ -76,7 +76,8 @@ class MsgSegmentsV2 extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onChanged(isRight),
-              child: Stack(clipBehavior: Clip.none, children: [
+              // stacked: the row's min height reaches the Center → label centred.
+              child: Stack(clipBehavior: Clip.none, fit: stacked ? StackFit.passthrough : StackFit.loose, children: [
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -132,7 +133,7 @@ class MsgSegmentsV2 extends StatelessWidget {
               duration: MgMotion.of(context, MgMotion.color),
               constraints: const BoxConstraints(minHeight: 44),
               decoration: on ? _thumb : BoxDecoration(borderRadius: BorderRadius.circular(12)),
-              child: seg(l, on, isRight, n),
+              child: seg(l, on, isRight, n, stacked: true),
             );
         return Container(
           padding: const EdgeInsets.all(4),

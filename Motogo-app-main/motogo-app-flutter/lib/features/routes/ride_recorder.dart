@@ -152,6 +152,16 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   int _bufDirty = 0; // body přidané od posledního uložení dávky
   DateTime? _persistAt;
   bool _homeNotified = false; // ukázané upozornění „jsi u startu cesty"
+  /// Začátek relace, která ještě nemá jízdu na serveru (nový start; epoch s
+  /// na ose bodů). Body od něj patří k téhle jízdě, i když se ji podaří
+  /// založit až za hodiny (start offline) — `start_user_trip_from`.
+  double? _sessFrom;
+  /// `start_user_trip_from` server nezná (starý server) — kdy to zjistil.
+  DateTime? _tripFromMissingAt;
+  /// Neúspěšné ukončení (offline) se zkouší znovu i bez dalších událostí.
+  Timer? _stopRetryTimer;
+  /// Ukončení v tomhle běhu appky selhalo (offline) a ještě se nepovedlo.
+  bool _stopFailed = false;
 
   Future<void> _restore() async {
     try {
@@ -200,6 +210,13 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// nápravu nabídne UI. Během převzaté výpůjčky se jízda přiřadí k ní.
   Future<RideStartResult> startManualResult() async {
     if (state.recording) return RideStartResult.ok;
+    // Předchozí jízda je ukončená, ale server to nevzal (offline): nejdřív
+    // ji uložit. Jinak by ji nový start (server obnovuje otevřenou vlastní
+    // cestu) tiše prodloužil o novou jízdu, nebo by se smíchaly body.
+    if (stopPending) {
+      await stop();
+      if (stopPending) return RideStartResult.failed;
+    }
     final why = await _canUseGps();
     if (why != null) return why;
     _startFail = null;
@@ -235,6 +252,12 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
   /// Pozastavená cesta má `recording == true` → tady se nic nemění.
   Future<void> ensureRecording(String? bookingId) async {
     if (!state.enabled || state.recording || _starting) return;
+    if (stopPending) {
+      // Neuložená předchozí jízda (offline) má přednost — body obou jízd
+      // by se jinak smíchaly v jedné dávce.
+      if (canRetryStop) await stop();
+      if (stopPending || state.recording) return;
+    }
     final now = rideRecorderClock();
     if (_suppressAutoUntil != null && now.isBefore(_suppressAutoUntil!)) return;
     if (bookingId != null && bookingId == _inactiveBooking && _inactiveAt != null &&
@@ -341,8 +364,11 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     _maxSpeedKmh = 0;
     _needsServerRide = false;
     _continuation = false;
+    _sessFrom = null;
+    _stopFailed = false;
     _engine = null;
     _cancelPendTimer();
+    _cancelStopRetry();
     _resetLive();
     state = state.copyWith(recording: false, points: 0, clearRide: true);
     try {
@@ -399,6 +425,15 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
       !_stopping &&
       (_lastStopFail == null || rideRecorderClock().difference(_lastStopFail!) > _kStopRetryAfter);
 
+  /// Ukončení se nepovedlo (offline) a čeká na opakování: ruční jízda, která
+  /// po ukončení zůstala s id (i po restartu appky), nebo jakákoli jízda,
+  /// jejíž ukončení v tomhle běhu selhalo — i když ji server ještě nezaložil
+  /// (start i konec bez dat). Hlídač, návrat do appky i časovač to zkouší
+  /// znovu; nový start počká, až se uloží. Výpůjčka obnovená po restartu
+  /// (`rideId`, ještě nenahrává) sem NEPATŘÍ — tu hlídač rozjede dál.
+  bool get stopPending =>
+      !state.recording && !_stopping && (_stopFailed || (state.manual && state.rideId != null));
+
   // ── Pauzy a cesty (veřejné API pro UI — viz LOGIC_API.md) ──
 
   /// Ruční pauza (vlastní i výpůjčka): GPS se vypne, nic se nenahrává.
@@ -448,6 +483,7 @@ class RideRecorderNotifier extends StateNotifier<RideRecorderState> {
     _svcSub?.cancel();
     _timer?.cancel();
     _pendTimer?.cancel();
+    _stopRetryTimer?.cancel();
     super.dispose();
   }
 }

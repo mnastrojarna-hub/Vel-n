@@ -1,6 +1,6 @@
 import { rideStatsV2, fmtSince, fmtLongSec, rideDays, cz } from '../lib/rideStats'
 
-// Řádek seznamu „Jízdy zákazníků": štítky stavu (nahrává se / stojí / visí,
+// Řádek seznamu „Jízdy zákazníků": štítky stavu (nahrává se / stojí / čeká na data / visí,
 // veřejná, skrytá, cesta) a krátké statistiky. Popisky stejné jako detail.
 
 const fmtDate = (v) => v ? new Date(v).toLocaleString('cs-CZ', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
@@ -24,6 +24,8 @@ export function RideBadges({ ride, state, trip }) {
         ride.pause_aware
           ? 'Záznam běží, ale motorka stojí — appka nahrává jen při jízdě a při rozjezdu pokračuje sama.'
           : `Poslední GPS bod: ${fmtDate(since)}. Starší appka při stání body neposílá.`)}
+      {state === 'awaiting' && badge('#fef3c7', '#92400e', '⏳ Čeká na data',
+        'Jízda pod 1 km čeká na body z telefonu, který byl bez internetu — server ji drží (vrácená výpůjčka 7 dní po vrácení, vlastní cesta 30 dní od startu) a pak sám uzavře. Ukončení teď by ji smazalo.')}
       {state === 'stuck' && badge('#fee2e2', '#dc2626', 'Záznam visí',
         `Poslední GPS bod: ${fmtDate(since)}. Dokud záznam visí, nevznikne zákazníkovi další jízda.`)}
       {ride.status === 'hidden' && badge('#fee2e2', '#dc2626', 'Skryto')}

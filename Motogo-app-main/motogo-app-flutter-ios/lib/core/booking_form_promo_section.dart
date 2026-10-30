@@ -19,13 +19,13 @@ class BookingFormPromoSection extends StatelessWidget {
   final BookingDraft draft;
   final void Function(BookingDraft Function(BookingDraft) fn) onUpd;
 
-  /// Dialog slevového kódu. [autoCode] = poukaz zvolený klepnutím (v2 karta)
-  /// → dialog ho rovnou uplatní stejnou cestou jako napsaný kód.
-  void _openPromoDialog(BuildContext context, {String? autoCode}) {
-    final ctrl = TextEditingController(text: autoCode ?? '');
+  /// Dialog slevového kódu. [prefill] = poukaz zvolený klepnutím (v2 karta)
+  /// → kód je v poli a uplatní ho až „Použít“ (r2: dárkový poukaz koupený
+  /// pro někoho jiného se nesmí utratit omylem jedním klepnutím).
+  void _openPromoDialog(BuildContext context, {String? prefill}) {
+    final ctrl = TextEditingController(text: prefill ?? '');
     String? error;
     bool loading = false;
-    var autoDone = autoCode == null;
 
     // Jedno uplatnění pro tlačítko „Použít“, Enter i poukaz jedním klepnutím.
     // Ochrana `loading`: bez ní dvojí Enter spustil dvě souběžné validace
@@ -60,10 +60,6 @@ class BookingFormPromoSection extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, ss) {
-          if (!autoDone) {
-            autoDone = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) => apply(ctx, ss));
-          }
           return AlertDialog(
           title: Text(t(context).tr('discountCode'),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
@@ -72,21 +68,22 @@ class BookingFormPromoSection extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Vlastní dárkové poukazy jedním klepnutím (2026-10-22).
+              // Vlastní dárkové poukazy bez opisování (2026-10-22): klepnutí
+              // kód vloží do pole, uplatní ho „Použít“ (r2).
               Consumer(
                 builder: (_, ref, __) => MyVoucherChips(
                   vouchers: unusedVouchers(ref.watch(myVouchersProvider).valueOrNull,
                       draft.discounts.map((d) => d.code)),
                   busy: loading,
-                  onUse: (code) {
+                  onUse: (code) => ss(() {
                     ctrl.text = code;
-                    apply(ctx, ss);
-                  },
+                    error = null;
+                  }),
                 ),
               ),
               TextField(
                 controller: ctrl,
-                autofocus: autoCode == null,
+                autofocus: prefill == null,
                 textCapitalization: TextCapitalization.characters,
                 onSubmitted: (_) => apply(ctx, ss),
                 decoration: InputDecoration(

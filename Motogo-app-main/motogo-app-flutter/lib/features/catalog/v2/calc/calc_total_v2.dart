@@ -11,6 +11,7 @@ import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../booking/booking_models.dart';
 import '../catalog_text.dart';
+import 'calc_parts_v2.dart' show CalcHalfInfo;
 
 /// Dark total block of the calculator (V22 §2.4: the one dark block below
 /// the steps): "TVOJE CENA · n dny" = the standard-pickup price, value
@@ -30,6 +31,9 @@ class CalcTotalV2 extends StatelessWidget {
   final VoidCallback onRetryLoyalty;
   final String? blockedReason;
 
+  /// Key of the CTA (the sticky dock shows while it is off-screen).
+  final Key? ctaKey;
+
   const CalcTotalV2({
     super.key,
     required this.q,
@@ -39,6 +43,7 @@ class CalcTotalV2 extends StatelessWidget {
     this.rankName,
     this.loyaltyFailed = false,
     this.blockedReason,
+    this.ctaKey,
   });
 
   @override
@@ -106,42 +111,7 @@ class CalcTotalV2 extends StatelessWidget {
         ],
         if (q.days >= 2 && save12 > 0) ...[
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            decoration: BoxDecoration(
-              color: MgColors.neonA(0.06),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: MgColors.neonA(0.25)),
-            ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Semantics(
-                label: tr.tr('v2BkHalfA11y'),
-                child: ExcludeSemantics(
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(color: MgColors.neon, shape: BoxShape.circle),
-                    child: Center(
-                      child: Text('½', style: MgType.title.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon)),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const SizedBox(height: 2),
-                  Text(tr.tr('v2LpCalcTitle'),
-                      style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
-                  const SizedBox(height: 2),
-                  Text(
-                    tr.trArgs('v2LpCalcSave', {'amount': catMoney(save12), 'total': catMoney(q12.total)}),
-                    style: MgType.tab(MgType.small.copyWith(color: MgColors.onDarkLead)),
-                  ),
-                ]),
-              ),
-            ]),
-          ),
+          CalcHalfInfo(save: save12, total: q12.total),
         ] else if (q.days < 2) ...[
           const SizedBox(height: 10),
           Text(tr.tr('v2CalcLateOne'), style: MgType.small.copyWith(color: MgColors.onDarkMeta)),
@@ -152,6 +122,7 @@ class CalcTotalV2 extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         MgFabAvoid(
+          key: ctaKey,
           child: MgCta(
             label: tr.tr('v2CatCtaBook'),
             price: onBook == null ? null : catMoney(q.total),

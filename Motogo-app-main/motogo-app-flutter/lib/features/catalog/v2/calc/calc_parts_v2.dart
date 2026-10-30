@@ -11,6 +11,7 @@ import '../../../../core/v2/widgets/mg_chips.dart';
 import '../../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../loyalty/loyalty_provider.dart';
+import '../catalog_text.dart';
 
 /// Light head of the calculator (V22 §2.4 Kalkulačka): dark eyebrow pill
 /// "KALKULAČKA CENY", rank chip (dark pill + dot), H2 ink, lead.
@@ -42,10 +43,12 @@ class CalcHeadCardV2 extends ConsumerWidget {
 }
 
 /// One numbered step of the calculator: 34 px dark disc with a neon number
-/// (✓ when [done]), title 17/800 and the step body in a white card.
+/// (✓ when [done]), title 17/800 and the step body in a white card. [info]
+/// = a step with nothing to choose: a light "i" tile instead of the number.
 class CalcStepCardV2 extends StatelessWidget {
   final int n;
   final bool done;
+  final bool info;
   final String title;
   final Widget? trailing;
   final Widget child;
@@ -56,6 +59,7 @@ class CalcStepCardV2 extends StatelessWidget {
     required this.title,
     required this.child,
     this.done = false,
+    this.info = false,
     this.trailing,
   });
 
@@ -63,7 +67,7 @@ class CalcStepCardV2 extends StatelessWidget {
   Widget build(BuildContext context) => MgCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            CalcStepBadge(n: n, done: done),
+            info ? const CalcInfoBadge() : CalcStepBadge(n: n, done: done),
             const SizedBox(width: 10),
             Expanded(
               child: Semantics(header: true, child: Text(title, style: MgType.section.copyWith(color: MgColors.ink))),
@@ -96,6 +100,66 @@ class CalcStepBadge extends StatelessWidget {
               : Text('$n', style: MgType.tab(MgType.title.copyWith(fontWeight: FontWeight.w900, color: MgColors.neon))),
         ),
       );
+}
+
+/// Badge of an information-only step (calculator ④, detail ②): the light
+/// "i" icon tile in the 34 px slot of the step numbers.
+class CalcInfoBadge extends StatelessWidget {
+  const CalcInfoBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) => const ExcludeSemantics(child: MgIconTileLight(MgIcons.info, size: 34));
+}
+
+/// "Vyzvednutí od 12:00 = 1. den za polovinu" + the concrete saving (owner
+/// 2026-10-22: information, the time is chosen in the booking form). Dark =
+/// inside the calculator's total block, light = on a white card (detail).
+class CalcHalfInfo extends StatelessWidget {
+  final double save;
+  final double total;
+  final bool dark;
+  const CalcHalfInfo({super.key, required this.save, required this.total, this.dark = true});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: dark ? MgColors.neonA(0.06) : MgColors.tintOk,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: dark ? MgColors.neonA(0.25) : MgColors.tintOkBorder),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Semantics(
+          label: tr.tr('v2BkHalfA11y'),
+          child: ExcludeSemantics(
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(color: MgColors.neon, shape: BoxShape.circle),
+              child: Center(
+                child: Text('½', style: MgType.title.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon)),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const SizedBox(height: 2),
+            Text(tr.tr('v2LpCalcTitle'),
+                style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: dark ? MgColors.onDark : MgColors.ink)),
+            const SizedBox(height: 2),
+            Text(
+              tr.trArgs('v2LpCalcSave', {'amount': catMoney(save), 'total': catMoney(total)}),
+              style: MgType.tab(MgType.small.copyWith(color: dark ? MgColors.onDarkLead : MgColors.body2)),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
 }
 
 /// Amber / info hint line used inside the steps (T3-like, no action).

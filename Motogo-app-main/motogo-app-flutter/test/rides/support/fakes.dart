@@ -20,6 +20,10 @@ class FakeRide {
   bool open = true;
   bool gone = false;
   bool bookingEnded = false;
+  /// Kdo jízdu uzavřel (`cron` = úklid po 72 h → nová data ji znovu otevřou).
+  String? closedBy;
+  /// Začátek jízdy (epoch s) — `start_user_trip_from` ho posune na první bod.
+  double? startedAt;
   final List<List<double>> pts = [];
   double get km => rideLiveDelta(null, pts).km;
 }
@@ -30,6 +34,12 @@ class FakeServer extends RideServerSeam {
   bool trips;
   bool offline = false;
   final Set<String> inactive = {};
+  /// Server zná `start_user_trip_from` (zpětný začátek jízdy).
+  bool fromSupported = true;
+  final List<double> fromCalls = [];
+  /// Vrácené výpůjčky (epoch s): body po vrácení (+30 s) server zahodí;
+  /// `start_user_trip_from` s prvním bodem před vrácením jízdu založí zpětně.
+  final Map<String, double> returns = {};
   final List<FakeRide> rides = [];
   int tripCalls = 0, legacyCalls = 0, appendCalls = 0;
   double Function() now = () => 0;
@@ -71,6 +81,39 @@ class FakeServer extends RideServerSeam {
   }
 
   @override
+  Future<RideTripStart> startTripFrom(String? bookingId, double firstTs) async {
+    tripCalls++;
+    if (offline) return const RideTripStart(RideTripStartKind.offline);
+    if (!trips || !fromSupported) return const RideTripStart(RideTripStartKind.missing);
+    fromCalls.add(firstTs);
+    if (bookingId != null && inactive.contains(bookingId)) {
+      final ret = returns[bookingId];
+      if (ret == null || firstTs >= ret) return const RideTripStart(RideTripStartKind.bookingInactive);
+      final r = _open(bookingId)..startedAt = firstTs;
+      return RideTripStart(RideTripStartKind.ok, id: r.id, bookingId: bookingId, serverNow: now());
+    }
+    final o = openRide;
+    if (o != null && o.booking == bookingId) {
+      return RideTripStart(RideTripStartKind.ok, id: o.id, resumed: true, bookingId: bookingId, distanceKm: o.km);
+    }
+    final r = _open(bookingId)..startedAt = firstTs;
+    return RideTripStart(RideTripStartKind.ok, id: r.id, bookingId: bookingId, serverNow: now());
+  }
+
+  /// Úklid (cron 72 h): otevřenou jízdu uzavře; vlastní cestu nová data
+  /// znovu otevřou (`_ride_reopen`).
+  void cronClose(FakeRide r) {
+    r.open = false;
+    r.closedBy = 'cron';
+  }
+
+  List<List<double>> _beforeReturn(FakeRide r, List<List<double>> points) {
+    final ret = r.booking == null ? null : returns[r.booking];
+    if (ret == null) return points;
+    return [for (final p in points) if (p.length < 3 || p[2] <= ret + 30) p];
+  }
+
+  @override
   Future<RideStart?> startLegacy(String? bookingId) async {
     legacyCalls++;
     if (offline) return null;
@@ -86,8 +129,18 @@ class FakeServer extends RideServerSeam {
     if (offline) return RideAppendOutcome.retry;
     final r = rides.where((x) => x.id == id).firstOrNull;
     if (r == null || r.gone) return const RideAppendOutcome(RideAppendResult.gone);
+    if (!r.open && r.closedBy == 'cron' && r.booking == null && openRide == null && points.isNotEmpty) {
+      r.open = true; // _ride_reopen: vlastní cesta uzavřená úklidem, nová data
+      r.closedBy = null;
+    }
     if (!r.open) return RideAppendOutcome(RideAppendResult.closed, bookingEnded: r.bookingEnded);
-    r.pts.addAll([for (final p in points) List<double>.from(p)]);
+    final keep = _beforeReturn(r, points);
+    if (keep.isEmpty && points.isNotEmpty) {
+      r.open = false; // jen body po vrácení → server výpůjčku uzavře
+      r.bookingEnded = true;
+      return const RideAppendOutcome(RideAppendResult.closed, bookingEnded: true);
+    }
+    r.pts.addAll([for (final p in keep) List<double>.from(p)]);
     final d = rideLiveDelta(null, r.pts);
     return RideAppendOutcome(RideAppendResult.ok,
         distanceKm: d.km, movingSec: d.movingSec, stagesN: trips ? 1 : null, serverNow: trips ? now() : null);
@@ -98,7 +151,7 @@ class FakeServer extends RideServerSeam {
     if (offline) return null;
     final r = rides.where((x) => x.id == id).firstOrNull;
     if (r == null) return const RideFinish(discarded: true, distanceKm: 0);
-    r.pts.addAll(points);
+    r.pts.addAll(_beforeReturn(r, points));
     r.open = false;
     return RideFinish(discarded: r.km < 1, distanceKm: r.km);
   }

@@ -80,7 +80,9 @@ class TripDayCell extends StatelessWidget {
         if (s.showsPrice)
           // 320 dp / large text: the price shrinks to the cell, never spills
           // into the neighbour day.
-          FittedBox(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               s.price!,
@@ -90,6 +92,7 @@ class TripDayCell extends StatelessWidget {
               style: MgType.tab(MgType.calPrice.copyWith(
                 color: s.isSelected ? MgColors.priceOnNeon : (_dark ? MgColors.neonText : MgColors.link),
               )),
+            ),
             ),
           )
         else if (s.today)

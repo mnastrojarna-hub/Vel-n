@@ -248,14 +248,17 @@ void main() {
     tr.go(50, 60); // ráno vyrazí znovu (základní tábor) → nahrává se bez klepnutí
     expect(tr.e.phase, RidePhase.riding);
     expect(tr.emitted.length, greaterThan(n));
-    // vícedenní cesta (≥ 2 etapy) „doma" nehlásí
+    // vícedenní cesta (≥ 2 etapy, i základní tábor) dostane taky jen
+    // připomínku — GPS běží dál (2026-10-30: zapomenutý Stop po cestě)
     final md = Trace(eng());
     md.fix(kmh: 0);
     md.go(80, 900);
     md.go(80, 900, dir: -1);
     md.go(8, 10, dt: 10);
     md.wait(5 * 3600, liveKm: 40, stages: 2);
-    expect(md.homeNotices, 0);
+    expect(md.homeNotices, 1);
+    expect(md.detached, isFalse);
+    expect(md.e.phase, RidePhase.autoPaused);
   });
 
   test('D13 dlouhá pauza: noc (20 h) nic; 48 h bez kontaktu → vlastní GPS vypnout, výpůjčka nic', () {

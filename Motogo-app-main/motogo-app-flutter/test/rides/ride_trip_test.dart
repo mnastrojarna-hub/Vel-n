@@ -19,7 +19,8 @@ UserRide ride(String id,
     String? moto,
     List<List<num>> track = const [],
     List<Map<String, Object?>>? stages,
-    bool v2 = true}) {
+    bool v2 = true,
+    bool? statsV2}) {
   final j = <String, dynamic>{
     'id': id,
     'booking_id': booking,
@@ -39,6 +40,7 @@ UserRide ride(String id,
     if (stages != null) 'stages': stages,
   };
   if (v2) j['pause_aware'] = true;
+  if (statsV2 != null) j['stats_v2'] = statsV2;
   return UserRide.fromJson(j)!;
 }
 
@@ -221,6 +223,27 @@ void main() {
       expect(shape(applied(legacy, rm)), 'ride(x) trip(y,z)');
       undoRestores(rm, [legacy.first]);
     });
+  });
+
+  test('statsV2 = vzorec statistik (klíč stats_v2), serverV2 = jen schopnost serveru', () {
+    final old = ride('o', start: d0); // nový server, stará jízda (bez stats_v2)
+    expect(old.serverV2, isTrue);
+    expect(old.statsV2, isFalse);
+    expect(ride('n', start: d0, statsV2: true).statsV2, isTrue);
+    expect(ride('f', start: d0, statsV2: false).statsV2, isFalse);
+    expect(ride('l', start: d0, v2: false).statsV2, isFalse); // starý server
+    // cesta „bez pauz" jen když tak počítá každá její jízda
+    final mixed = RideTrip('t:t', [
+      ride('a', trip: 't', start: d0, statsV2: true),
+      ride('b', trip: 't', start: d0.add(const Duration(days: 1)), statsV2: false),
+    ]);
+    expect(mixed.aggregate.statsV2, isFalse);
+    expect(mixed.aggregate.serverV2, isTrue);
+    final all = RideTrip('t:t', [
+      ride('a', trip: 't', start: d0, statsV2: true),
+      ride('b', trip: 't', start: d0.add(const Duration(days: 1)), statsV2: true),
+    ]);
+    expect(all.aggregate.statsV2, isTrue);
   });
 
   test('slučování jen s novým serverem a aspoň dvěma položkami', () {

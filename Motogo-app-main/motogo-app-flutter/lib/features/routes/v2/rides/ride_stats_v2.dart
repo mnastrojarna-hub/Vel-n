@@ -17,8 +17,9 @@ typedef _Stat = (String icon, String value, String label);
 /// km · time in the saddle · Ø · max · climb · on the road without breaks ·
 /// short stops · breaks (n× · time, only when any) · no signal (only when
 /// any) · days (≥ 2) · rides (trip) · stops · photos, then start → end,
-/// bike, description. Rides from the old server keep their old labels
-/// (total time / stopped time — nights are still inside there).
+/// bike, description. Rides whose stats use the old formula (`statsV2`
+/// false — historic rows, old server) keep their old labels (total time /
+/// stopped time — nights are still inside there), same as Velín.
 class RideStatsCardV2 extends StatelessWidget {
   final UserRide ride;
 
@@ -31,7 +32,7 @@ class RideStatsCardV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final r = ride;
-    final v2 = r.serverV2;
+    final v2 = r.statsV2; // vzorec statistik, ne schopnost serveru
     final nDays = days ?? r.days;
     final pauses = r.pauseCount;
     final stats = <_Stat>[

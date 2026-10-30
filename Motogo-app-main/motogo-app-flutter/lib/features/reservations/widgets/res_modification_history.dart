@@ -740,11 +740,13 @@ class ResModificationHistory extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(ev.label,
+                    // v2: dlouhý popisek se zalomí, datum zůstane vpravo
+                    // (cs / nl na 320 dp s velkým písmem přetékaly o 0,4–0,7 px).
+                    resV2RowText(context, Text(ev.label,
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: ev.color)),
+                            color: ev.color))),
                     Text(_fmtDT(ev.at),
                         style: const TextStyle(
                             fontSize: 10, color: MotoGoColors.g400)),

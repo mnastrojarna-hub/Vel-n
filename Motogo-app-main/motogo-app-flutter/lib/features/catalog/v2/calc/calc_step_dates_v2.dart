@@ -10,6 +10,7 @@ import '../../catalog_provider.dart';
 import '../../moto_model.dart';
 import '../../widgets/availability_calendar.dart';
 import '../../widgets/validation_banner.dart';
+import '../catalog_mode_sync.dart' show catCalcClearDates, catCalcSetRange;
 import '../catalog_price.dart' show catAnimatedSize;
 import '../catalog_text.dart';
 import 'calc_parts_v2.dart';
@@ -25,7 +26,8 @@ import 'calc_state.dart';
 /// A given range (picked here, carried from the list / Home / a detail)
 /// folds into its summary + "Změnit" like the detail's date step (owner
 /// 2026-10-22: nothing already given is asked again); a range over a busy
-/// day stays open — it has to change.
+/// day stays open — it has to change. A picked / cleared range is the
+/// whole tab's trip (written through to the catalog dates, one trip).
 class CalcStepDatesV2 extends ConsumerStatefulWidget {
   final Motorcycle? moto;
   final CalcState st;
@@ -88,10 +90,10 @@ class _CalcStepDatesV2State extends ConsumerState<CalcStepDatesV2> {
                   selectedEnd: st.end,
                   onRangeSelected: (s, e) {
                     setState(() => _open = false);
-                    n.setRange(s, e);
+                    catCalcSetRange(ref, s, e);
                   },
                   onStartSelected: n.setStart,
-                  onReset: n.clearDates,
+                  onReset: () => catCalcClearDates(ref),
                 ),
                 if (moto == null) ...[
                   const SizedBox(height: 10),
@@ -111,7 +113,7 @@ class _CalcStepDatesV2State extends ConsumerState<CalcStepDatesV2> {
             color: MgColors.link,
             onTap: () {
               setState(() => _open = false);
-              n.clearDates();
+              catCalcClearDates(ref);
             },
           ),
           if (folded) MgBtnText(label: tr.tr('v2DetChange'), icon: MgIcons.edit, onTap: () => setState(() => _open = true)),

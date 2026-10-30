@@ -390,6 +390,24 @@ String extraLabel(String Function(String) tr, String id, String name) {
   return k == null ? name : tr(k);
 }
 
+/// Český klíč výbavy spolujezdce v uloženém textu velikostí („Helma: L,
+/// Rukavice: M“ — čte ho payment_screen, NEMĚNIT) a v
+/// `profiles.gear_sizes.passenger` → klíč překladu / pole `gear_sizes`.
+const passengerGearKeys = <String, String>{
+  'Helma': 'helmet',
+  'Rukavice': 'gloves',
+  'Bunda': 'jacket',
+  'Kalhoty': 'pants',
+};
+
+/// Uložený text velikostí doplňku v jazyce zákazníka (jen zobrazení):
+/// „Helma: L, Rukavice: M“ → „Helmet: L, Gloves: M“; boty („43“) beze změny.
+String extraSizeLabel(String Function(String) tr, String size) {
+  var out = size;
+  passengerGearKeys.forEach((cz, k) => out = out.replaceAll('$cz:', '${tr(k)}:'));
+  return out;
+}
+
 /// Přeložený popis doplňku; neznámé id → [desc] z DB.
 String? extraDescription(String Function(String) tr, String id, String? desc) {
   final k = extraDescKeys[id];

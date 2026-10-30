@@ -5,7 +5,7 @@ import { SmallBtn } from './BranchHelpers'
 import TrasyJizdaModal from './TrasyJizdaModal'
 import { RideBadges, RideStatsLine } from './TrasyJizdaInfo'
 import { useMediaQuery } from '../hooks/useIsMobile'
-import { rideRecState } from '../lib/rideStats'
+import { rideRecState, rentalHoldsRide } from '../lib/rideStats'
 import { groupRideTrips, tripOfRide } from '../lib/rideTrip'
 
 // Projeté jízdy zákazníků („Moje jízdy" v appce): stopa GPS z výpůjčky
@@ -14,7 +14,9 @@ import { groupRideTrips, tripOfRide } from '../lib/rideTrip'
 // Jízda je SOUKROMÁ, dokud ji zákazník sám nezveřejní — Velín to respektuje
 // a stav sdílení jen zobrazuje (změnit ho lze v detailu).
 // Nová appka nahrává jen při jízdě (pauzy, noci) — běžící záznam bez bodu
-// je proto „Stojí", ne hned „Záznam visí". Víc jízd téže výpůjčky nebo
+// je proto „Stojí", ne hned „Záznam visí"; jízda pod 1 km, kterou server drží
+// kvůli datům z telefonu bez internetu, „Čeká na data" (stav výpůjček běžících
+// nahrávek se dotahuje — stejná pravidla jako server). Víc jízd téže výpůjčky nebo
 // sloučených zákazníkem appka ukazuje jako jednu CESTU (štítek 🧳).
 
 const FILTERS = [
@@ -61,6 +63,7 @@ export default function TrasyJizdy({ onChanged }) {
   const [rides, setRides] = useState([])
   const [pointsByRide, setPointsByRide] = useState({})
   const [names, setNames] = useState({})
+  const [bookings, setBookings] = useState({})
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState(null)
   const [filter, setFilter] = useState('all')
@@ -104,6 +107,17 @@ export default function TrasyJizdy({ onChanged }) {
         if (!data || data.length < 1000) break
       }
       setRides(all)
+
+      // Stav výpůjček běžících nahrávek (vrácení, konec) — „visí" / „čeká na
+      // data" se řídí pravidly serveru. Chyba = stav neznáme (pravidla postaru).
+      const bids = [...new Set(all.filter(r => r.is_recording && r.booking_id).map(r => r.booking_id))]
+      const bmap = {}
+      for (let i = 0; i < bids.length; i += 200) {
+        const { data: bks } = await supabase.from('bookings')
+          .select('id, status, returned_at, end_date, booking_kind').in('id', bids.slice(i, i + 200))
+        ;(bks || []).forEach(b => { bmap[b.id] = b })
+      }
+      setBookings(bmap)
 
       // Body jízd (zastávky + start/cíl) — pro počty i detail.
       const byRide = {}
@@ -153,6 +167,12 @@ export default function TrasyJizdy({ onChanged }) {
     onChanged?.()
   }
 
+  /** Stav nahrávky s rezervací, pokud ji známe (rideRecState). */
+  const recStateOf = (r) => {
+    const bk = r.booking_id ? bookings[r.booking_id] || null : null
+    return rideRecState(r, Date.now(), rentalHoldsRide(bk), bk)
+  }
+
   const photoCount = (id) => (pointsByRide[id] || [])
     .reduce((s, p) => s + (Array.isArray(p.photos) ? p.photos.length : 0), 0)
 
@@ -164,7 +184,7 @@ export default function TrasyJizdy({ onChanged }) {
     if (filter === 'private' && r.visibility !== 'private') return false
     if (filter === 'hidden' && r.status !== 'hidden') return false
     if (filter === 'recording' && !r.is_recording) return false
-    if (filter === 'standing' && rideRecState(r) !== 'standing') return false
+    if (filter === 'standing' && recStateOf(r) !== 'standing') return false
     if (filter === 'photos' && photoCount(r.id) === 0) return false
     if (!search) return true
     const s = search.toLowerCase()
@@ -173,7 +193,7 @@ export default function TrasyJizdy({ onChanged }) {
       (r.trip_name || '').toLowerCase().includes(s) ||
       (names[r.user_id] || '').toLowerCase().includes(s)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [rides, filter, search, names, pointsByRide])
+  }), [rides, filter, search, names, pointsByRide, bookings])
 
 
   const publicCount = rides.filter(r => r.visibility === 'public' && r.status === 'approved').length
@@ -220,7 +240,7 @@ export default function TrasyJizdy({ onChanged }) {
             const pts = pointsByRide[ride.id] || []
             const stops = pts.filter(p => p.kind === 'stop').length
             const isHidden = ride.status === 'hidden'
-            const recState = rideRecState(ride)
+            const recState = recStateOf(ride)
             return (
               <div key={ride.id} className="rounded-card"
                 style={{
@@ -282,6 +302,7 @@ export default function TrasyJizdy({ onChanged }) {
           ride={detail}
           authorName={names[detail.user_id]}
           trip={tripOfRide(trips, detail)}
+          booking={detail.booking_id ? bookings[detail.booking_id] || null : null}
           onOpenRide={(r) => setDetail({ ...r, points: pointsByRide[r.id] || [] })}
           onClose={() => setDetail(null)}
           onChanged={() => { load(); onChanged?.() }}

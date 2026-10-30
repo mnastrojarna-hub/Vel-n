@@ -107,6 +107,7 @@ UserRide multiDayRide({String id = 'multi', bool recording = false}) {
     'gap_sec': 900,
     'pause_sec': 115200,
     'pause_aware': true,
+    'stats_v2': true,
     'avg_speed_kmh': 47.8,
     'max_speed_kmh': 143,
     'elevation_gain_m': 9840,
@@ -143,6 +144,7 @@ UserRide _simple(String id, DateTime start, {String? booking, String? tripId, St
       'max_speed_kmh': 118,
       'elevation_gain_m': 820,
       if (v2) 'pause_aware': true,
+      if (v2) 'stats_v2': true,
       if (v2) 'pause_sec': 0,
     })!;
 

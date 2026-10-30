@@ -127,12 +127,22 @@ class RideTripStart {
 
 /// Zahájí / obnoví záznam cesty (nový server). Nová jízda začíná
 /// „připravená" — server ji posune na skutečný rozjezd (značka −1).
-Future<RideTripStart> startUserTrip(String? bookingId) async {
+Future<RideTripStart> startUserTrip(String? bookingId) =>
+    _startTripRpc('start_user_trip', {'p_booking_id': bookingId});
+
+/// Jako [startUserTrip] pro relaci, která začala BEZ dat (start offline —
+/// zahraničí bez roamingu): nová jízda začne [firstTs] (první bod relace,
+/// epoch s), ne až teď — body z doby offline server nezahodí jako „starou
+/// jízdu". U výpůjčky vrácené dřív, než se jízdu podařilo založit, ji
+/// server založí zpětně (body do vrácení uloží, po něm zahodí). Starý server
+/// funkci nezná → `missing` → záznamník zavolá [startUserTrip].
+Future<RideTripStart> startUserTripFrom(String? bookingId, double firstTs) => _startTripRpc(
+    'start_user_trip_from', {'p_booking_id': bookingId, 'p_first_ts': (firstTs * 1000).round() / 1000});
+
+Future<RideTripStart> _startTripRpc(String fn, Map<String, dynamic> params) async {
   final t0 = DateTime.now();
   try {
-    final res = await MotoGoSupabase.client
-        .rpc('start_user_trip', params: {'p_booking_id': bookingId})
-        .timeout(const Duration(seconds: 20));
+    final res = await MotoGoSupabase.client.rpc(fn, params: params).timeout(const Duration(seconds: 20));
     final t1 = DateTime.now();
     if (res is! Map) return const RideTripStart(RideTripStartKind.error);
     final now = _d(res['now']);
@@ -162,7 +172,7 @@ Future<RideTripStart> startUserTrip(String? bookingId) async {
       serverNow: now,
     );
   } catch (e) {
-    debugPrint('[rides] start_user_trip selhalo: $e');
+    debugPrint('[rides] $fn selhalo: $e');
     return RideTripStart(switch (classifyRideRpcError(e)) {
       RideRpcErrorKind.missing => RideTripStartKind.missing,
       RideRpcErrorKind.offline => RideTripStartKind.offline,

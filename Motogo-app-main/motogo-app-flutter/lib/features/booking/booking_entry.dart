@@ -22,7 +22,8 @@ import 'v2/booking_carry_v2.dart';
 /// informaci.
 ///
 /// v2 vzhled (majitel 2026-10-22, „nic nevyplňovat dvakrát“): rozpracovaný
-/// draft se NEPŘEPISUJE — viz [carryBookingDraft]. Starý vzhled beze změny.
+/// draft se NEPŘEPISUJE — viz [carryBookingDraft] — pokud patří stejnému
+/// účtu ([bookingDraftOwnerProvider]). Starý vzhled beze změny.
 void startBookingFromSelection(
   BuildContext ctx,
   WidgetRef ref,
@@ -57,6 +58,10 @@ void startBookingFromSelection(
     // bookings.boots_size → Velín ukazoval boty, které si zákazník
     // nevybral (incident 2026-09-28).
   );
+  final foreign = bookingDraftForeign(ref);
+  // Komu draft patří (v2 ho jinému účtu nepřenese) — i ve starém vzhledu,
+  // aby přepnutí kill-switche nepřeneslo draft odhlášeného účtu.
+  ref.read(bookingDraftOwnerProvider.notifier).state = bookingSessionUid();
   if (!MgV2.peek(ctx)) {
     ref.read(bookingMotoProvider.notifier).state = moto;
     ref.read(bookingDraftProvider.notifier).state = fresh;
@@ -66,7 +71,9 @@ void startBookingFromSelection(
   final prev = ref.read(bookingDraftProvider);
   final prevMoto = ref.read(bookingMotoProvider);
   final confirmed = ref.read(lastConfirmedBookingProvider);
-  final submitted = confirmed != ref.read(bookingDraftSeedMarkProvider);
+  // Zaplacená rezervace mezitím NEBO draft jiného účtu (odhlášení mimo
+  // profil — chyba platby, vypršelé přihlášení) → čerstvý draft.
+  final submitted = confirmed != ref.read(bookingDraftSeedMarkProvider) || foreign;
   final next = carryBookingDraft(prev: prev, prevMoto: prevMoto, moto: moto, fresh: fresh, submitted: submitted);
   // Nový / jinde předaný draft: ceny přistavení a odvozu z minulé adresy
   // by jinak naskočily ke zvolení „na adresu“ bez adresy.
