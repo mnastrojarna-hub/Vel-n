@@ -1,128 +1,168 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { TOOLS } from './tools-definitions.ts'
-import { executeTool } from './tools-executor.ts'
-import { loadAgentConfig, buildSystemPrompt, buildDateHeader, formatBookingContext, formatMultipleBookingsContext, SEASON_NOTE, APP_PAY_NOTE } from './booking-context.ts'
-import { BRANCH_GATE_RULES_CS, GATE_BRANCH_NOTE_CS, markBookingsGate, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts'
-import { normLang, webLinksBlock } from '../_shared/agent-knowledge/site-url.ts'
-import { customerLanguage, replyLanguageRule } from '../_shared/agent-knowledge/customer-language.ts'
-import { agentMsg } from '../_shared/agent-knowledge/agent-messages.ts'
-import { LEGAL_SOURCE_RULES_CS, ownerFactsCs } from '../_shared/agent-knowledge/owner-facts.ts'
-import { branchModeCs } from '../_shared/agent-knowledge/branch-facts.ts'
-import { BOOKING_BRANCH_SELECT, customerBranchFallback, preferBookingBranch } from './customer-branch.ts'
-import { GEAR_RENTAL_RULES_CS } from '../_shared/agent-knowledge/gear-rental.ts'
-import { GEAR_BOOKING_COLS, isGearBooking, selectGearSafe } from '../_shared/agent-knowledge/gear-booking.ts'
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
-const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
-
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { TOOLS } from './tools-definitions.ts';
+import { executeTool } from './tools-executor.ts';
+import { loadAgentConfig, buildSystemPrompt, buildDateHeader, formatBookingContext, formatMultipleBookingsContext, SEASON_NOTE, APP_PAY_NOTE } from './booking-context.ts';
+import { BRANCH_GATE_RULES_CS, GATE_BRANCH_NOTE_CS, markBookingsGate, markGateBranches } from '../_shared/agent-knowledge/branch-gate.ts';
+import { normLang, webLinksBlock } from '../_shared/agent-knowledge/site-url.ts';
+import { customerLanguage, replyLanguageRule } from '../_shared/agent-knowledge/customer-language.ts';
+import { agentMsg } from '../_shared/agent-knowledge/agent-messages.ts';
+import { LEGAL_SOURCE_RULES_CS, ownerFactsCs } from '../_shared/agent-knowledge/owner-facts.ts';
+import { branchModeCs } from '../_shared/agent-knowledge/branch-facts.ts';
+import { BOOKING_BRANCH_SELECT, customerBranchFallback, preferBookingBranch } from './customer-branch.ts';
+import { GEAR_RENTAL_RULES_CS } from '../_shared/agent-knowledge/gear-rental.ts';
+import { GEAR_BOOKING_COLS, isGearBooking, selectGearSafe } from '../_shared/agent-knowledge/gear-booking.ts';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const MAX_ITERATIONS = 5
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+const MAX_ITERATIONS = 5;
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') return new Response('ok', {
+    headers: CORS
+  });
   try {
-    const { message, booking_id, conversation_history, images, lang, conversation_id, supports_images, supports_gear } = await req.json()
+    const { message, booking_id, conversation_history, images, lang, conversation_id, supports_images, supports_gear } = await req.json();
     // conversation_id (volitelné, UUID): appka jím může adresovat KONKRÉTNÍ vlákno logu.
     // Bez něj platí dosavadní heuristika „update poslední konverzace uživatele" — ta se
     // ale při dvou souběžných konverzacích slévá; appka by měla id začít posílat.
-    const convId = (typeof conversation_id === 'string' && /^[0-9a-f-]{8,40}$/i.test(conversation_id)) ? conversation_id : null
+    const convId = typeof conversation_id === 'string' && /^[0-9a-f-]{8,40}$/i.test(conversation_id) ? conversation_id : null;
     // Jazyk appky (8 jazyků) = záloha; jazyk zákazníka = podle jeho zpráv (audit i18n 2026-10-10, AI-06).
-    const userLang = normLang(lang)
+    const userLang = normLang(lang);
     const custLang = customerLanguage([
-      ...(Array.isArray(conversation_history) ? conversation_history as Array<{ role?: string; content?: unknown }> : []),
-      { role: 'user', content: typeof message === 'string' ? message : '' },
-    ], userLang)
-
+      ...Array.isArray(conversation_history) ? conversation_history : [],
+      {
+        role: 'user',
+        content: typeof message === 'string' ? message : ''
+      }
+    ], userLang);
     if (!message || typeof message !== 'string') {
-      return new Response(JSON.stringify({ error: 'Missing message' }), {
-        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return new Response(JSON.stringify({
+        error: 'Missing message'
+      }), {
+        status: 400,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // -- JWT auth --
-    const authHeader = req.headers.get('Authorization')
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized: missing auth header' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return new Response(JSON.stringify({
+        error: 'Unauthorized: missing auth header'
+      }), {
+        status: 401,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token);
     if (userErr || !user) {
-      console.error('ai-moto-agent: auth failed', userErr?.message)
-      return new Response(JSON.stringify({ error: 'Unauthorized: ' + (userErr?.message || 'invalid token') }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      console.error('ai-moto-agent: auth failed', userErr?.message);
+      return new Response(JSON.stringify({
+        error: 'Unauthorized: ' + (userErr?.message || 'invalid token')
+      }), {
+        status: 401,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     if (!ANTHROPIC_API_KEY) {
-      return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
-        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return new Response(JSON.stringify({
+        error: 'ANTHROPIC_API_KEY not configured'
+      }), {
+        status: 500,
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-
     // -- Load agent config from app_settings --
-    const agentConfig = await loadAgentConfig(supabaseAdmin)
+    const agentConfig = await loadAgentConfig(supabaseAdmin);
     // Vypnutí agenta z Velína musí agenta REÁLNĚ vypnout (dřív jen shodilo custom prompt
     // na fallback a Anthropic se volal dál — nešlo ho provozně utnout).
     if (agentConfig?.enabled === false) {
       return new Response(JSON.stringify({
         reply: agentMsg(custLang, 'appDisabled'),
-        suggest_sos: false,
-      }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        suggest_sos: false
+      }), {
+        headers: {
+          ...CORS,
+          'Content-Type': 'application/json'
+        }
+      });
     }
-    const dynamicSystemPrompt = buildSystemPrompt(agentConfig)
-    let maxTokens = Math.min(Math.max(Number(agentConfig?.max_tokens) || 2048, 1024), 8000)
-
+    const dynamicSystemPrompt = buildSystemPrompt(agentConfig);
+    let maxTokens = Math.min(Math.max(Number(agentConfig?.max_tokens) || 2048, 1024), 8000);
     // -- Build messages from conversation history --
-    const apiMessages: Array<{ role: string; content: unknown }> = []
-
+    const apiMessages = [];
     if (conversation_history && Array.isArray(conversation_history)) {
       // Pojistky proti nákladům/přetečení kontextu (stejně jako ai-public-agent): jen validní
       // role, per-zpráva 8000 znaků, celkem ~240k znaků a max 400 zpráv — zahazují se NEJSTARŠÍ.
-      const MAX_MSGS = 400, PER_MSG = 8000, TOTAL = 240_000
-      let hist = (conversation_history as Array<{ role?: string; content?: unknown }>)
-        .filter((m) => (m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string' && (m.content as string).trim() !== '')
-        .map((m) => ({ role: String(m.role), content: (m.content as string).length > PER_MSG ? (m.content as string).slice(0, PER_MSG) : (m.content as string) }))
-      if (hist.length > MAX_MSGS) hist = hist.slice(-MAX_MSGS)
-      let totalChars = hist.reduce((n, m) => n + m.content.length, 0)
-      while (hist.length > 1 && totalChars > TOTAL) { totalChars -= hist[0].content.length; hist.shift() }
-      while (hist.length && hist[0].role !== 'user') hist.shift()
-      for (const m of hist) apiMessages.push({ role: m.role, content: m.content })
+      const MAX_MSGS = 400, PER_MSG = 8000, TOTAL = 240_000;
+      let hist = conversation_history.filter((m)=>(m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string' && m.content.trim() !== '').map((m)=>({
+          role: String(m.role),
+          content: m.content.length > PER_MSG ? m.content.slice(0, PER_MSG) : m.content
+        }));
+      if (hist.length > MAX_MSGS) hist = hist.slice(-MAX_MSGS);
+      let totalChars = hist.reduce((n, m)=>n + m.content.length, 0);
+      while(hist.length > 1 && totalChars > TOTAL){
+        totalChars -= hist[0].content.length;
+        hist.shift();
+      }
+      while(hist.length && hist[0].role !== 'user')hist.shift();
+      for (const m of hist)apiMessages.push({
+        role: m.role,
+        content: m.content
+      });
     }
-
     // Build current user message — with images if provided
-    const hasImages = Array.isArray(images) && images.length > 0
+    const hasImages = Array.isArray(images) && images.length > 0;
     if (hasImages) {
-      const contentBlocks: Array<Record<string, unknown>> = []
-      for (const img of images.slice(0, 3)) {
+      const contentBlocks = [];
+      for (const img of images.slice(0, 3)){
         if (img.base64 && img.media_type) {
           contentBlocks.push({
             type: 'image',
-            source: { type: 'base64', media_type: img.media_type, data: img.base64 },
-          })
+            source: {
+              type: 'base64',
+              media_type: img.media_type,
+              data: img.base64
+            }
+          });
         }
       }
-      contentBlocks.push({ type: 'text', text: message })
-      apiMessages.push({ role: 'user', content: contentBlocks })
+      contentBlocks.push({
+        type: 'text',
+        text: message
+      });
+      apiMessages.push({
+        role: 'user',
+        content: contentBlocks
+      });
     } else {
-      apiMessages.push({ role: 'user', content: message })
+      apiMessages.push({
+        role: 'user',
+        content: message
+      });
     }
-
     // -- Pre-fetch booking context --
-    let bookingContext = ''
+    let bookingContext = '';
     // V kontextu jsou JEN výpůjčky výbavy (žádná rezervace motorky) → SOS tlačítko se nenabízí.
-    let gearOnlyCtx = false
+    let gearOnlyCtx = false;
     try {
       // POBOČKA + KÓJE + časy + stav převzetí (2026-09-20): agent dosud nevěděl, NA KTERÉ
       // pobočce a v KTERÉ kóji motorka stojí, ani jestli už je převzatá — na „kam si pro ni
@@ -141,8 +181,7 @@ serve(async (req) => {
           branches!branch_id(id, name, address, city, phone, type, is_open, notes, gps_lat, gps_lng)
         ),
         ${BOOKING_BRANCH_SELECT}
-      `
-
+      `;
       if (booking_id) {
         // Appka volí booking_id heuristikou „nejnovější zaplacená active/reserved dle
         // start_date" — když má zákazník AKTIVNÍ pronájem a k tomu pozdější budoucí
@@ -153,106 +192,108 @@ serve(async (req) => {
         // selectGearSafe: edge nasazené dřív než migrace 20261023a → dotaz bez gear sloupců
         // (jinak by všichni zákazníci s motorkou přišli o kontext rezervace).
         const [pinnedRes, listRes] = await Promise.all([
-          selectGearSafe(bookingFields, (c) => supabaseAdmin.from('bookings').select(c)
-            .eq('user_id', user.id).eq('id', booking_id).limit(1)),
-          selectGearSafe(bookingFields, (c) => supabaseAdmin.from('bookings').select(c)
-            .eq('user_id', user.id).in('status', ['active', 'reserved'])
-            .order('start_date', { ascending: false }).limit(10)),
-        ])
-        const pinned = (!pinnedRes.error && pinnedRes.data?.[0]) || null
-        const list = (!listRes.error && listRes.data) || []
-        preferBookingBranch([pinned, ...list] as Array<Record<string, unknown> | null>)
+          selectGearSafe(bookingFields, (c)=>supabaseAdmin.from('bookings').select(c).eq('user_id', user.id).eq('id', booking_id).limit(1)),
+          selectGearSafe(bookingFields, (c)=>supabaseAdmin.from('bookings').select(c).eq('user_id', user.id).in('status', [
+              'active',
+              'reserved'
+            ]).order('start_date', {
+              ascending: false
+            }).limit(10))
+        ]);
+        const pinned = !pinnedRes.error && pinnedRes.data?.[0] || null;
+        const list = !listRes.error && listRes.data || [];
+        preferBookingBranch([
+          pinned,
+          ...list
+        ]);
         // Pobočka s bránou (Velké Němčice): příznak has_gate do kontextu — nikdy kód.
-        await markBookingsGate(supabaseAdmin, [pinned, ...list] as Array<Record<string, unknown> | null>)
+        await markBookingsGate(supabaseAdmin, [
+          pinned,
+          ...list
+        ]);
         // Výpůjčka JEN VÝBAVY (2026-10-23): servisní agent řeší hlavně motorku → aktivní
         // MOTORKA > pinovaná motorka > aktivní výpůjčka výbavy > pinovaná (bez gear beze změny).
-        const isAct = (b: Record<string, unknown> | null) => b?.status === 'active'
-        const activeMoto = list.find(b => isAct(b) && !isGearBooking(b)) || (isAct(pinned) && !isGearBooking(pinned) ? pinned : null)
-        const activeAny = list.find(b => isAct(b)) || (isAct(pinned) ? pinned : null)
-        const primary = activeMoto || (pinned && !isGearBooking(pinned) ? pinned : null) || activeAny || pinned
+        const isAct = (b)=>b?.status === 'active';
+        const activeMoto = list.find((b)=>isAct(b) && !isGearBooking(b)) || (isAct(pinned) && !isGearBooking(pinned) ? pinned : null);
+        const activeAny = list.find((b)=>isAct(b)) || (isAct(pinned) ? pinned : null);
+        const primary = activeMoto || (pinned && !isGearBooking(pinned) ? pinned : null) || activeAny || pinned;
         if (primary) {
-          const others = list.filter(b => b.id !== primary.id)
-          if (pinned && pinned.id !== primary.id && !others.some(b => b.id === pinned.id)) others.push(pinned)
-          bookingContext = formatBookingContext(primary, others.length > 0 ? others : null)
-          gearOnlyCtx = [primary, ...others].every((b) => isGearBooking(b))
+          const others = list.filter((b)=>b.id !== primary.id);
+          if (pinned && pinned.id !== primary.id && !others.some((b)=>b.id === pinned.id)) others.push(pinned);
+          bookingContext = formatBookingContext(primary, others.length > 0 ? others : null);
+          gearOnlyCtx = [
+            primary,
+            ...others
+          ].every((b)=>isGearBooking(b));
         }
       } else {
-        const { data: allBookings, error: allErr } = await selectGearSafe(bookingFields, (c) => supabaseAdmin
-          .from('bookings')
-          .select(c)
-          .eq('user_id', user.id)
-          .in('status', ['active', 'reserved'])
-          .order('start_date', { ascending: false })
-          .limit(10))
-
+        const { data: allBookings, error: allErr } = await selectGearSafe(bookingFields, (c)=>supabaseAdmin.from('bookings').select(c).eq('user_id', user.id).in('status', [
+            'active',
+            'reserved'
+          ]).order('start_date', {
+            ascending: false
+          }).limit(10));
         if (!allErr && allBookings && allBookings.length > 0) {
-          preferBookingBranch(allBookings as Array<Record<string, unknown>>)
-          await markBookingsGate(supabaseAdmin, allBookings as Array<Record<string, unknown>>)
+          preferBookingBranch(allBookings);
+          await markBookingsGate(supabaseAdmin, allBookings);
           // Aktivní MOTORKA má přednost před aktivní výpůjčkou jen výbavy (ta zůstane mezi ostatními).
-          const activeBooking = allBookings.find(b => b.status === 'active' && !isGearBooking(b)) || allBookings.find(b => b.status === 'active')
-          const otherBookings = allBookings.filter(b => b.status !== 'active' || (!!activeBooking && b.id !== activeBooking.id && isGearBooking(b)))
-
+          const activeBooking = allBookings.find((b)=>b.status === 'active' && !isGearBooking(b)) || allBookings.find((b)=>b.status === 'active');
+          const otherBookings = allBookings.filter((b)=>b.status !== 'active' || !!activeBooking && b.id !== activeBooking.id && isGearBooking(b));
           if (activeBooking) {
-            bookingContext = formatBookingContext(activeBooking, otherBookings.length > 0 ? otherBookings : null)
+            bookingContext = formatBookingContext(activeBooking, otherBookings.length > 0 ? otherBookings : null);
           } else if (otherBookings.length === 1) {
-            bookingContext = formatBookingContext(otherBookings[0], null)
+            bookingContext = formatBookingContext(otherBookings[0], null);
           } else if (otherBookings.length > 1) {
-            bookingContext = formatMultipleBookingsContext(otherBookings)
+            bookingContext = formatMultipleBookingsContext(otherBookings);
           }
-          gearOnlyCtx = !!bookingContext && allBookings.every((b) => isGearBooking(b))
+          gearOnlyCtx = !!bookingContext && allBookings.every((b)=>isGearBooking(b));
         }
       }
-
       if (!bookingContext) {
         // Bez zaplacené aktivní/nadcházející rezervace: pobočka z rozpracované / poslední dokončené.
-        const fallback = await customerBranchFallback(supabaseAdmin, user.id).catch(() => '')
+        const fallback = await customerBranchFallback(supabaseAdmin, user.id).catch(()=>'');
         bookingContext = fallback + `\n\n## KONTEXT REZERVACE:
-Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dotazech na konkrétní motorku použij nástroj get_active_booking. NIKDY si nevymýšlej, jakou motorku má zákazník. Na dotaz, kde si motorku vyzvedne / kde je pobočka („kde jste", „kde je filiálka"), odpověz podle sekce POBOČKY níže (detaily přes get_branches) a pošli ho na pobočku — NIKDY netvrď, že informace o pobočkách není dostupná.`
+Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dotazech na konkrétní motorku použij nástroj get_active_booking. NIKDY si nevymýšlej, jakou motorku má zákazník. Na dotaz, kde si motorku vyzvedne / kde je pobočka („kde jste", „kde je filiálka"), odpověz podle sekce POBOČKY níže (detaily přes get_branches) a pošli ho na pobočku — NIKDY netvrď, že informace o pobočkách není dostupná.`;
       }
     } catch (prefetchErr) {
-      console.error('ai-moto-agent: booking prefetch error', prefetchErr)
-      bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.'
+      console.error('ai-moto-agent: booking prefetch error', prefetchErr);
+      bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.';
     }
-
     // -- Pre-fetch poboček (live snapshot do promptu) --
     // Reálný incident 2026-08-05 (konverzace v appce, zákazník bez rezervace, rusky):
     // na „kde je pobočka / kde si motorku vyzvednu" agent odpověděl „seznam poboček je
     // v databázi prázdný, adresy nedostupné" — get_branches tiše selhal na výčtu
     // neexistujících sloupců. Snapshot v promptu (stejný princip jako ai-public-agent)
     // zaručuje, že agent zná pobočku (Mezná) od první zprávy i bez volání toolu.
-    let branchesContext = ''
+    let branchesContext = '';
     try {
-      const { data: brData, error: brErr } = await supabaseAdmin.from('branches').select('*').order('name')
+      const { data: brData, error: brErr } = await supabaseAdmin.from('branches').select('*').order('name');
       // Zavřená pobočka (is_open=false) se nikde nenabízí — stejně jako get_branches.
-      const brRows = ((brData || []) as Array<Record<string, unknown>>).filter((b) => b.active !== false && b.is_open !== false)
-      await markGateBranches(supabaseAdmin, brRows)
+      const brRows = (brData || []).filter((b)=>b.active !== false && b.is_open !== false);
+      await markGateBranches(supabaseAdmin, brRows);
       if (!brErr && brRows.length > 0) {
-        const brLines = brRows.map((b, i) => {
-          const addr = [b.address, `${b.zip || ''} ${b.city || ''}`.trim()].filter(Boolean).join(', ')
-          const typ = b.type === 'samoobslužná'
-            ? branchModeCs(b.type)
-            : b.type === 'obslužná'
-              ? `${branchModeCs(b.type)} (Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl — neotvírají dveře, slouží jako IDENTIFIKACE: nahlásí je obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale — urychlí odbavení)`
-              : 'typ neuveden — režim výdeje ověř přes get_branches, netvrď samoobsluhu'
-          return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa přes get_branches'} — ${typ}${b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''}${b.notes ? `; pozn.: ${b.notes}` : ''}`
-        })
+        const brLines = brRows.map((b, i)=>{
+          const addr = [
+            b.address,
+            `${b.zip || ''} ${b.city || ''}`.trim()
+          ].filter(Boolean).join(', ');
+          const typ = b.type === 'samoobslužná' ? branchModeCs(b.type) : b.type === 'obslužná' ? `${branchModeCs(b.type)} (Přístupové kódy z e-mailu tu zákazník dostává TAKÉ a nejsou omyl — neotvírají dveře, slouží jako IDENTIFIKACE: nahlásí je obsluze, ta podle nich rezervaci dohledá, předání ~2 minuty; sken dokladů předem není podmínkou převzetí (obsluha je zkontroluje na místě; kódy ale přijdou až s kompletními doklady), doporučuje se ale — urychlí odbavení)` : 'typ neuveden — režim výdeje ověř přes get_branches, netvrď samoobsluhu';
+          return `${i + 1}. **${b.name || addr || 'pobočka'}** — ${addr || 'adresa přes get_branches'} — ${typ}${b.has_gate === true ? `; ${GATE_BRANCH_NOTE_CS}` : ''}${b.notes ? `; pozn.: ${b.notes}` : ''}`;
+        });
         branchesContext = `\n\n## POBOČKY (live snapshot z DB — JEDINÝ autoritativní seznam provozoven):
 ${brLines.join('\n')}
 - Zákazník BEZ rezervace („kde si motorku vyzvednu", „kde je pobočka", „kde jste"): odpověz ROVNOU adresou pobočky z tohoto seznamu — vyzvednutí probíhá na pobočce (je-li jich víc, volí se při rezervaci). NIKDY netvrď, že seznam poboček je prázdný nebo že adresy nejsou dostupné.
-- Režim výdeje/vrácení říkej VÝHRADNĚ podle typu konkrétní pobočky výše; GPS, telefon a další detaily → get_branches.`
+- Režim výdeje/vrácení říkej VÝHRADNĚ podle typu konkrétní pobočky výše; GPS, telefon a další detaily → get_branches.`;
       } else {
-        branchesContext = `\n\n## POBOČKY: snapshot se nepodařilo načíst${brErr ? ` (${brErr.message})` : ''} — na dotaz na pobočku/vyzvednutí zavolej get_branches. NIKDY netvrď, že žádné pobočky nemáme; když selže i tool, pošli zákazníka na kontakt firmy z jeho \`fallback_contact\`.`
+        branchesContext = `\n\n## POBOČKY: snapshot se nepodařilo načíst${brErr ? ` (${brErr.message})` : ''} — na dotaz na pobočku/vyzvednutí zavolej get_branches. NIKDY netvrď, že žádné pobočky nemáme; když selže i tool, pošli zákazníka na kontakt firmy z jeho \`fallback_contact\`.`;
       }
-    } catch { /* snapshot je best-effort — pravidla + get_branches to jistí */ }
-
+    } catch  {}
     // Fotky: novější buildy appky umí přiložit fotky budíků (posílají supports_images=true)
     // — agent o ně smí AKTIVNĚ požádat. Starší buildy tlačítko nemají, tam žádost o fotku
     // zákazníka jen frustruje.
-    const photoRules = supports_images === true
-      ? `\n\n## FOTKY OD ZÁKAZNÍKA:
-Appka umí k zprávě přiložit až 3 fotky (tlačítko fotoaparátu v chatu). Když si nejsi jistý, kterou kontrolku zákazník vidí nebo jak přesně vypadá problém, AKTIVNĚ ho popros o fotku budíků / přístrojové desky — je to rychlejší a přesnější než slovní popis. Došlou fotku vyhodnoť: popiš, které kontrolky/údaje na ní vidíš, a jejich význam VŽDY ověř v návodu té konkrétní motorky (get_motorcycle_manual) — nikdy jen „od oka".`
-      : `\n\n## FOTKY OD ZÁKAZNÍKA:
-Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. Když fotka přesto přijde, vyhodnoť ji.`
+    const photoRules = supports_images === true ? `\n\n## FOTKY OD ZÁKAZNÍKA:
+Appka umí k zprávě přiložit až 3 fotky (tlačítko fotoaparátu v chatu). Když si nejsi jistý, kterou kontrolku zákazník vidí nebo jak přesně vypadá problém, AKTIVNĚ ho popros o fotku budíků / přístrojové desky — je to rychlejší a přesnější než slovní popis. Došlou fotku vyhodnoť: popiš, které kontrolky/údaje na ní vidíš, a jejich význam VŽDY ověř v návodu té konkrétní motorky (get_motorcycle_manual) — nikdy jen „od oka".` : `\n\n## FOTKY OD ZÁKAZNÍKA:
+Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. Když fotka přesto přijde, vyhodnoť ji.`;
     // Provozní sezóna (info od provozovatele 2026-08-05) — statický fakt do promptu,
     // aby agent na „do kterého měsíce v roce půjčovna funguje" neodpovídal
     // „v naší databázi o sezóně nic není" (reálná konverzace v appce 05.08.).
@@ -267,184 +308,175 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
     // zákazníka + pravidlo jazyka odpovědi (dřív „výchozí jazyk čeština", app jazyk se ignoroval).
     // Výpůjčka výbavy bez motorky (2026-10-23): pravidla + zda TATO verze appky výpůjčku výbavy
     // umí (posílá supports_gear=true) — starší appka gear rezervace nezobrazuje.
-    const gearAppNote = supports_gear === true
-      ? '\n- Tahle verze appky výpůjčku výbavy UMÍ: zákazník ji vidí v Rezervacích (detail, kódy, úpravy) a může ji v appce i objednat, když to get_gear_rental_offer povoluje (app_available=true); jinak se zatím objednává na webu (order_url) a objednání bude brzy i v aplikaci — netvrď, že v appce už objednat jde.'
-      : '\n- Tahle verze appky výpůjčku výbavy zatím NEZOBRAZUJE — výpůjčku výbavy zákazník objedná (order_url), vidí a upravuje na webu (Upravit rezervaci, odkaz v ODKAZY NA WEB). Řekni, že bude brzy i v aplikaci; při app_available=true ji umí už nová verze appky → doporuč aktualizaci. Netvrď, že ji umí tahle verze.'
-    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + SEASON_NOTE + APP_PAY_NOTE + '\n\n## ' + BRANCH_GATE_RULES_CS
-      + '\n\n## ' + GEAR_RENTAL_RULES_CS + gearAppNote
-      + '\n\n## ' + ownerFactsCs() + '\n\n## ' + LEGAL_SOURCE_RULES_CS
-      + '\n\n## ' + webLinksBlock(custLang) + '\n\n' + replyLanguageRule(custLang, userLang)
-
+    const gearAppNote = supports_gear === true ? '\n- Tahle verze appky výpůjčku výbavy UMÍ: zákazník ji vidí v Rezervacích (detail, kódy, úpravy) a může ji v appce i objednat, když to get_gear_rental_offer povoluje (app_available=true); jinak se zatím objednává na webu (order_url) a objednání bude brzy i v aplikaci — netvrď, že v appce už objednat jde.' : '\n- Tahle verze appky výpůjčku výbavy zatím NEZOBRAZUJE — výpůjčku výbavy zákazník objedná (order_url), vidí a upravuje na webu (Upravit rezervaci, odkaz v ODKAZY NA WEB). Řekni, že bude brzy i v aplikaci; při app_available=true ji umí už nová verze appky → doporuč aktualizaci. Netvrď, že ji umí tahle verze.';
+    const systemPrompt = dynamicSystemPrompt + buildDateHeader() + photoRules + bookingContext + branchesContext + SEASON_NOTE + APP_PAY_NOTE + '\n\n## ' + BRANCH_GATE_RULES_CS + '\n\n## ' + GEAR_RENTAL_RULES_CS + gearAppNote + '\n\n## ' + ownerFactsCs() + '\n\n## ' + LEGAL_SOURCE_RULES_CS + '\n\n## ' + webLinksBlock(custLang) + '\n\n' + replyLanguageRule(custLang, userLang);
     // -- Agentic loop --
-    let finalText = ''
-    for (let i = 0; i < MAX_ITERATIONS; i++) {
+    let finalText = '';
+    for(let i = 0; i < MAX_ITERATIONS; i++){
       // Retry až 3× na 429/5xx/timeout/síťovou chybu (stejná pojistka jako ai-public-agent) —
       // dřív jediný transientní výpadek Anthropic shodil celý request na 502 a chat v appce umřel.
-      let response: Response | null = null
-      let lastErr = ''
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const ctrl = new AbortController()
-        const timer = setTimeout(() => ctrl.abort(), 45_000) // per-call timeout
+      let response = null;
+      let lastErr = '';
+      for(let attempt = 0; attempt < 3; attempt++){
+        const ctrl = new AbortController();
+        const timer = setTimeout(()=>ctrl.abort(), 45_000) // per-call timeout
+        ;
         try {
           response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
               'x-api-key': ANTHROPIC_API_KEY,
               'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
+              'content-type': 'application/json'
             },
             body: JSON.stringify({
               model: 'claude-sonnet-4-6',
               max_tokens: maxTokens,
               system: systemPrompt,
               tools: TOOLS,
-              messages: apiMessages,
+              messages: apiMessages
             }),
-            signal: ctrl.signal,
-          })
+            signal: ctrl.signal
+          });
         } catch (e) {
-          response = null
-          lastErr = `fetch_failed: ${(e as Error).message}`
-          clearTimeout(timer)
-          await new Promise((r) => setTimeout(r, 300 * (attempt + 1) ** 2))
-          continue
+          response = null;
+          lastErr = `fetch_failed: ${e.message}`;
+          clearTimeout(timer);
+          await new Promise((r)=>setTimeout(r, 300 * (attempt + 1) ** 2));
+          continue;
         }
-        clearTimeout(timer)
-        if (response.ok) break
-        lastErr = await response.text()
+        clearTimeout(timer);
+        if (response.ok) break;
+        lastErr = await response.text();
         if (response.status >= 500 || response.status === 429) {
-          await new Promise((r) => setTimeout(r, 300 * (attempt + 1) ** 2))
-          continue
+          await new Promise((r)=>setTimeout(r, 300 * (attempt + 1) ** 2));
+          continue;
         }
-        break
+        break;
       }
-
       if (!response || !response.ok) {
         // Po vyčerpání pokusů vrať slušnou odpověď místo 502 — konverzace v appce zůstane živá
         // a historie se neztratí; zákazník nemusí nic opakovat, stačí napsat „pokračuj".
-        console.error(`Anthropic API failed (iteration ${i}):`, response?.status || 'no-resp', String(lastErr).slice(0, 300))
+        console.error(`Anthropic API failed (iteration ${i}):`, response?.status || 'no-resp', String(lastErr).slice(0, 300));
         return new Response(JSON.stringify({
           reply: agentMsg(custLang, 'appTimeout'),
-          suggest_sos: false,
-        }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          suggest_sos: false
+        }), {
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json'
+          }
+        });
       }
-
-      const aiResult = await response.json()
-      const stopReason = aiResult.stop_reason
-
+      const aiResult = await response.json();
+      const stopReason = aiResult.stop_reason;
       // Odpověď uříznutá limitem tokenů → jednou zopakuj s maximálním stropem, ať zákazník
       // nedostane radu useknutou uprostřed věty.
       if (stopReason === 'max_tokens' && maxTokens < 8000) {
-        maxTokens = 8000
-        continue
+        maxTokens = 8000;
+        continue;
       }
-
       if (stopReason === 'end_turn') {
-        const textBlocks = (aiResult.content || []).filter((c: { type: string }) => c.type === 'text')
-        finalText = textBlocks.map((c: { text: string }) => c.text).join('\n')
-        break
+        const textBlocks = (aiResult.content || []).filter((c)=>c.type === 'text');
+        finalText = textBlocks.map((c)=>c.text).join('\n');
+        break;
       }
-
       if (stopReason === 'tool_use') {
-        apiMessages.push({ role: 'assistant', content: aiResult.content })
-
-        const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = []
-        const toolCalls = (aiResult.content || []).filter((c: { type: string }) => c.type === 'tool_use')
-
-        for (const toolCall of toolCalls) {
-          console.log(`ai-moto-agent: tool call [${i}] ${toolCall.name}`, JSON.stringify(toolCall.input))
-          const result = await executeTool(toolCall.name, toolCall.input || {}, supabaseAdmin, user.id, custLang)
+        apiMessages.push({
+          role: 'assistant',
+          content: aiResult.content
+        });
+        const toolResults = [];
+        const toolCalls = (aiResult.content || []).filter((c)=>c.type === 'tool_use');
+        for (const toolCall of toolCalls){
+          console.log(`ai-moto-agent: tool call [${i}] ${toolCall.name}`, JSON.stringify(toolCall.input));
+          const result = await executeTool(toolCall.name, toolCall.input || {}, supabaseAdmin, user.id, custLang);
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolCall.id,
-            content: JSON.stringify(result),
-          })
+            content: JSON.stringify(result)
+          });
         }
-
-        apiMessages.push({ role: 'user', content: toolResults })
-        continue
+        apiMessages.push({
+          role: 'user',
+          content: toolResults
+        });
+        continue;
       }
-
-      const textBlocks = (aiResult.content || []).filter((c: { type: string }) => c.type === 'text')
-      finalText = textBlocks.map((c: { text: string }) => c.text).join('\n') || agentMsg(custLang, 'appNoReply')
-      break
+      const textBlocks = (aiResult.content || []).filter((c)=>c.type === 'text');
+      finalText = textBlocks.map((c)=>c.text).join('\n') || agentMsg(custLang, 'appNoReply');
+      break;
     }
-
     if (!finalText) {
-      finalText = agentMsg(custLang, 'appAnalysisFail')
+      finalText = agentMsg(custLang, 'appAnalysisFail');
     }
-
     // -- Parse ---JSON--- block from final response --
     // Robustně: (a) match přes [\s\S]*? (nested objekt / víc klíčů dřív rozbil regex [^}]+ →
     // flag zůstal false A surový ---JSON--- blok prosákl zákazníkovi do odpovědi);
     // (b) fallback na prosté hledání "suggest_sos": true; (c) blok se z reply odstraní VŽDY,
     // i když se JSON nepodaří naparsovat, včetně neuzavřeného zbytku (---JSON--- bez ---END---).
-    let suggest_sos = false
-    let reply = finalText
-
-    const jsonMatch = finalText.match(/---JSON---\s*(\{[\s\S]*?\})\s*---END---/)
+    let suggest_sos = false;
+    let reply = finalText;
+    const jsonMatch = finalText.match(/---JSON---\s*(\{[\s\S]*?\})\s*---END---/);
     if (jsonMatch) {
       try {
-        const parsed = JSON.parse(jsonMatch[1])
-        suggest_sos = parsed.suggest_sos === true
-      } catch {
-        suggest_sos = /"suggest_sos"\s*:\s*true/.test(jsonMatch[1])
+        const parsed = JSON.parse(jsonMatch[1]);
+        suggest_sos = parsed.suggest_sos === true;
+      } catch  {
+        suggest_sos = /"suggest_sos"\s*:\s*true/.test(jsonMatch[1]);
       }
     } else if (/---JSON---[\s\S]*"suggest_sos"\s*:\s*true/.test(finalText)) {
-      suggest_sos = true
+      suggest_sos = true;
     }
     // Výpůjčka JEN VÝBAVY (žádná motorka v kontextu): SOS tlačítko patří k pronajaté motorce —
     // nespoléhá se jen na prompt (2026-10-23).
-    if (gearOnlyCtx) suggest_sos = false
-    reply = finalText
-      .replace(/---JSON---[\s\S]*?---END---/g, '')
-      .replace(/---JSON---[\s\S]*$/, '')
-      .trim()
-
-    let loggedConversationId: string | null = null
+    if (gearOnlyCtx) suggest_sos = false;
+    reply = finalText.replace(/---JSON---[\s\S]*?---END---/g, '').replace(/---JSON---[\s\S]*$/, '').trim();
+    let loggedConversationId = null;
     // -- Log konverzace do ai_customer_conversations (Velín → Analýza → AI konverzace) --
     // Appka posílá celou historii při každé zprávě: prázdná historie = nová
     // konverzace (INSERT), jinak se přepíše poslední konverzace uživatele.
     try {
-      const MSG_CAP = 8000
-      const historyMsgs = (Array.isArray(conversation_history) ? conversation_history : [])
-        .filter((m: { role?: string; content?: unknown }) =>
-          (m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string')
-        .map((m: { role: string; content: string }) => ({
+      const MSG_CAP = 8000;
+      const historyMsgs = (Array.isArray(conversation_history) ? conversation_history : []).filter((m)=>(m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string').map((m)=>({
           role: m.role,
-          content: m.content.slice(0, MSG_CAP),
-        }))
-      const userContent = hasImages ? `[${images.length}× foto] ${message}` : message
+          content: m.content.slice(0, MSG_CAP)
+        }));
+      const userContent = hasImages ? `[${images.length}× foto] ${message}` : message;
       const fullMessages = [
         ...historyMsgs,
-        { role: 'user', content: String(userContent).slice(0, MSG_CAP) },
-        { role: 'assistant', content: reply.slice(0, MSG_CAP) },
-      ]
-
-      let updatedId: string | null = null
+        {
+          role: 'user',
+          content: String(userContent).slice(0, MSG_CAP)
+        },
+        {
+          role: 'assistant',
+          content: reply.slice(0, MSG_CAP)
+        }
+      ];
+      let updatedId = null;
       if (convId) {
         // Appka adresuje konkrétní vlákno — žádná heuristika, žádné slévání souběžných konverzací.
-        const { error: updErr } = await supabaseAdmin
-          .from('ai_customer_conversations')
-          .update({ messages: fullMessages, ...(booking_id ? { booking_id } : {}) })
-          .eq('id', convId)
-          .eq('user_id', user.id)
-        if (!updErr) updatedId = convId
+        const { error: updErr } = await supabaseAdmin.from('ai_customer_conversations').update({
+          messages: fullMessages,
+          ...booking_id ? {
+            booking_id
+          } : {}
+        }).eq('id', convId).eq('user_id', user.id);
+        if (!updErr) updatedId = convId;
       }
       if (!updatedId && historyMsgs.length > 0) {
-        const { data: last } = await supabaseAdmin
-          .from('ai_customer_conversations')
-          .select('id')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        const { data: last } = await supabaseAdmin.from('ai_customer_conversations').select('id').eq('user_id', user.id).order('updated_at', {
+          ascending: false
+        }).limit(1).maybeSingle();
         if (last) {
-          const { error: updErr } = await supabaseAdmin
-            .from('ai_customer_conversations')
-            .update({ messages: fullMessages, ...(booking_id ? { booking_id } : {}) })
-            .eq('id', last.id)
-          if (!updErr) updatedId = last.id
+          const { error: updErr } = await supabaseAdmin.from('ai_customer_conversations').update({
+            messages: fullMessages,
+            ...booking_id ? {
+              booking_id
+            } : {}
+          }).eq('id', last.id);
+          if (!updErr) updatedId = last.id;
         }
       }
       if (!updatedId) {
@@ -452,24 +484,35 @@ Tato verze appky přílohy NEUMÍ — o fotku NEŽÁDEJ, doptávej se slovně. K
           user_id: user.id,
           title: String(message).slice(0, 80),
           messages: fullMessages,
-          booking_id: booking_id || null,
-        }).select('id').maybeSingle()
-        if (ins?.id) updatedId = ins.id
+          booking_id: booking_id || null
+        }).select('id').maybeSingle();
+        if (ins?.id) updatedId = ins.id;
       }
-      if (updatedId) loggedConversationId = updatedId
+      if (updatedId) loggedConversationId = updatedId;
     } catch (logErr) {
-      console.error('ai-moto-agent: conversation log error', logErr)
+      console.error('ai-moto-agent: conversation log error', logErr);
     }
-
     // conversation_id vracíme, aby si ho appka mohla uložit a posílat zpět (stabilní vlákno logu).
-    return new Response(JSON.stringify({ reply, suggest_sos, conversation_id: loggedConversationId }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
-
+    return new Response(JSON.stringify({
+      reply,
+      suggest_sos,
+      conversation_id: loggedConversationId
+    }), {
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (err) {
-    console.error('ai-moto-agent error:', err)
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-    })
+    console.error('ai-moto-agent error:', err);
+    return new Response(JSON.stringify({
+      error: err.message
+    }), {
+      status: 500,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-})
+});
