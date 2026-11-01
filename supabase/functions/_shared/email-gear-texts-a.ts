@@ -2,15 +2,19 @@
 // (cs, en, de, es; zbytek v email-gear-texts-b.ts). Tykání (styl živých šablon majitele).
 // {n} = počet / č. dveří, {gate} = kód schránky s klíčem od brány (jen tělo mailu majiteli
 // rezervace), {branch} = název pobočky. Žádné „Kód motorky“ — výpůjčka nemá motorku.
-import type { GearTexts } from './email-gear-blocks.ts'
-
-export const GEAR_TEXTS_A: Record<string, GearTexts> = {
+export const GEAR_TEXTS_A = {
   cs: {
-    days: ['{n} den', '{n} dny', '{n} dní'], perDay: '/den',
+    days: [
+      '{n} den',
+      '{n} dny',
+      '{n} dní'
+    ],
+    perDay: '/den',
     codesTitle: 'Přístupové kódy k výpůjčce výbavy',
     gateLabel: 'Kód schránky s klíčem od brány',
     gateHint: 'Horní schránka na pravém sloupku vrat — kód potřebuješ, jen když je brána zavřená.',
-    lockerLabel: 'Kód šatny', lockerLabelDoor: 'Kód šatny (dveře č. {n})',
+    lockerLabel: 'Kód šatny',
+    lockerLabelDoor: 'Kód šatny (dveře č. {n})',
     valid: 'Kód šatny platí po dobu výpůjčky — použiješ ho při vyzvednutí i při vrácení výbavy.',
     procTitle: 'Postup na pobočce {branch}',
     stepGate: 'Je-li vjezdová brána zavřená, otevři HORNÍ schránku na pravém sloupku vrat kódem {gate} — je v ní klíč od visacího zámku brány. Bránu odemkni a vejdi dovnitř.',
@@ -20,16 +24,31 @@ export const GEAR_TEXTS_A: Record<string, GearTexts> = {
     stepReturn: 'Při vrácení zadej na displeji stejný kód šatny, vrať do šatny všechnu výbavu a zavři dveře. Pak na displeji potvrď, že vracíš všechnu výbavu — tím výpůjčku ukončíš.',
     stepImportant: 'DŮLEŽITÉ: Byla-li brána zavřená, po odchodu ji zase zavři, zamkni visacím zámkem, klíč vrať do horní schránky a přetoč číselník, aby kód nezůstal nastavený. Otevřenou bránu nech otevřenou. Stejně postupuj i při vrácení výbavy.',
     pageLink: 'Fotky pobočky najdeš na stránce pobočky →',
-    chTitle: 'Přehled změn', chOld: 'Původně', chNew: 'Nově', chPeriod: 'Termín', chPickup: 'Čas vyzvednutí',
-    chReturn: 'Čas vrácení', chItems: 'Výbava', chTotal: 'Cena celkem', chBranch: 'Pobočka', notSpecified: 'Neuvedeno', byCustomer: 'Stornováno zákazníkem',
-    manualRefund: 'Částku ti vrátíme převodem na tvůj bankovní účet do 14 dnů (výpůjčka nebyla placená kartou).',
+    chTitle: 'Přehled změn',
+    chOld: 'Původně',
+    chNew: 'Nově',
+    chPeriod: 'Termín',
+    chPickup: 'Čas vyzvednutí',
+    chReturn: 'Čas vrácení',
+    chItems: 'Výbava',
+    chTotal: 'Cena celkem',
+    chBranch: 'Pobočka',
+    notSpecified: 'Neuvedeno',
+    byCustomer: 'Stornováno zákazníkem',
+    manualRefund: 'Částku ti vrátíme převodem na tvůj bankovní účet do 14 dnů (výpůjčka nebyla placená kartou).'
   },
   en: {
-    days: ['{n} day', '{n} days', '{n} days'], perDay: '/day',
+    days: [
+      '{n} day',
+      '{n} days',
+      '{n} days'
+    ],
+    perDay: '/day',
     codesTitle: 'Access codes for your gear rental',
     gateLabel: 'Code for the gate key lockbox',
     gateHint: 'Upper lockbox on the right gate pillar — you only need the code if the gate is closed.',
-    lockerLabel: 'Locker room code', lockerLabelDoor: 'Locker room code (door no. {n})',
+    lockerLabel: 'Locker room code',
+    lockerLabelDoor: 'Locker room code (door no. {n})',
     valid: 'The locker room code is valid for the rental period — you use it both to pick up and to return the gear.',
     procTitle: 'Procedure at the {branch} branch',
     stepGate: 'If the entrance gate is closed, open the UPPER lockbox on the right gate pillar with code {gate} — it holds the key to the gate padlock. Unlock the gate and go in.',
@@ -39,16 +58,31 @@ export const GEAR_TEXTS_A: Record<string, GearTexts> = {
     stepReturn: 'When returning, enter the same locker room code on the display, put all the gear back in the locker room and close the door. Then confirm on the display that you are returning all the gear — this ends your rental.',
     stepImportant: 'IMPORTANT: If the gate was closed, close it again when you leave, lock it with the padlock, return the key to the upper lockbox and scramble the combination dials so the code is not left showing. If the gate was open, leave it open. Do the same when returning the gear.',
     pageLink: 'Photos of the branch are on the branch page →',
-    chTitle: 'Summary of changes', chOld: 'Before', chNew: 'Now', chPeriod: 'Dates', chPickup: 'Pick-up time',
-    chReturn: 'Return time', chItems: 'Gear', chTotal: 'Total price', chBranch: 'Branch', notSpecified: 'Not specified', byCustomer: 'Cancelled by the customer',
-    manualRefund: 'We will return the amount by bank transfer to your account within 14 days (the rental was not paid by card).',
+    chTitle: 'Summary of changes',
+    chOld: 'Before',
+    chNew: 'Now',
+    chPeriod: 'Dates',
+    chPickup: 'Pick-up time',
+    chReturn: 'Return time',
+    chItems: 'Gear',
+    chTotal: 'Total price',
+    chBranch: 'Branch',
+    notSpecified: 'Not specified',
+    byCustomer: 'Cancelled by the customer',
+    manualRefund: 'We will return the amount by bank transfer to your account within 14 days (the rental was not paid by card).'
   },
   de: {
-    days: ['{n} Tag', '{n} Tage', '{n} Tage'], perDay: '/Tag',
+    days: [
+      '{n} Tag',
+      '{n} Tage',
+      '{n} Tage'
+    ],
+    perDay: '/Tag',
     codesTitle: 'Zugangscodes für deinen Ausrüstungsverleih',
     gateLabel: 'Code für die Schlüsselbox des Tors',
     gateHint: 'Obere Box an der rechten Torsäule — den Code brauchst du nur, wenn das Tor geschlossen ist.',
-    lockerLabel: 'Code für den Umkleideraum', lockerLabelDoor: 'Code für den Umkleideraum (Tür Nr. {n})',
+    lockerLabel: 'Code für den Umkleideraum',
+    lockerLabelDoor: 'Code für den Umkleideraum (Tür Nr. {n})',
     valid: 'Der Code für den Umkleideraum gilt während der Mietdauer — du brauchst ihn bei der Abholung und bei der Rückgabe der Ausrüstung.',
     procTitle: 'Ablauf in der Filiale {branch}',
     stepGate: 'Ist das Einfahrtstor geschlossen, öffne die OBERE Box an der rechten Torsäule mit dem Code {gate} — darin liegt der Schlüssel zum Vorhängeschloss des Tors. Schließ das Tor auf und geh hinein.',
@@ -58,16 +92,31 @@ export const GEAR_TEXTS_A: Record<string, GearTexts> = {
     stepReturn: 'Bei der Rückgabe gibst du am Display denselben Code ein, legst die gesamte Ausrüstung zurück in den Umkleideraum und schließt die Tür. Bestätige dann am Display, dass du die gesamte Ausrüstung zurückgibst — damit ist dein Verleih beendet.',
     stepImportant: 'WICHTIG: War das Tor geschlossen, schließ es beim Gehen wieder, sperr es mit dem Vorhängeschloss ab, leg den Schlüssel zurück in die obere Box und verdreh die Zahlenräder, damit der Code nicht eingestellt bleibt. Ein offenes Tor lässt du offen. Genauso gehst du bei der Rückgabe der Ausrüstung vor.',
     pageLink: 'Fotos der Filiale findest du auf der Filialseite →',
-    chTitle: 'Übersicht der Änderungen', chOld: 'Bisher', chNew: 'Neu', chPeriod: 'Zeitraum', chPickup: 'Abholzeit',
-    chReturn: 'Rückgabezeit', chItems: 'Ausrüstung', chTotal: 'Gesamtpreis', chBranch: 'Filiale', notSpecified: 'Nicht angegeben', byCustomer: 'Vom Kunden storniert',
-    manualRefund: 'Den Betrag überweisen wir dir innerhalb von 14 Tagen auf dein Konto zurück (die Ausleihe wurde nicht per Karte bezahlt).',
+    chTitle: 'Übersicht der Änderungen',
+    chOld: 'Bisher',
+    chNew: 'Neu',
+    chPeriod: 'Zeitraum',
+    chPickup: 'Abholzeit',
+    chReturn: 'Rückgabezeit',
+    chItems: 'Ausrüstung',
+    chTotal: 'Gesamtpreis',
+    chBranch: 'Filiale',
+    notSpecified: 'Nicht angegeben',
+    byCustomer: 'Vom Kunden storniert',
+    manualRefund: 'Den Betrag überweisen wir dir innerhalb von 14 Tagen auf dein Konto zurück (die Ausleihe wurde nicht per Karte bezahlt).'
   },
   es: {
-    days: ['{n} día', '{n} días', '{n} días'], perDay: '/día',
+    days: [
+      '{n} día',
+      '{n} días',
+      '{n} días'
+    ],
+    perDay: '/día',
     codesTitle: 'Códigos de acceso para tu alquiler de equipo',
     gateLabel: 'Código del cajetín con la llave de la puerta',
     gateHint: 'Cajetín superior en el pilar derecho de la puerta — solo necesitas el código si la puerta está cerrada.',
-    lockerLabel: 'Código del vestuario', lockerLabelDoor: 'Código del vestuario (puerta n.º {n})',
+    lockerLabel: 'Código del vestuario',
+    lockerLabelDoor: 'Código del vestuario (puerta n.º {n})',
     valid: 'El código del vestuario es válido durante el alquiler: lo usarás al recoger y al devolver el equipo.',
     procTitle: 'Procedimiento en la sucursal {branch}',
     stepGate: 'Si la puerta de entrada está cerrada, abre el cajetín SUPERIOR del pilar derecho con el código {gate}: dentro está la llave del candado de la puerta. Abre la puerta y entra.',
@@ -77,8 +126,17 @@ export const GEAR_TEXTS_A: Record<string, GearTexts> = {
     stepReturn: 'Al devolverlo, introduce en la pantalla el mismo código, deja todo el equipo en el vestuario y cierra la puerta. Después confirma en la pantalla que devuelves todo el equipo: así terminas el alquiler.',
     stepImportant: 'IMPORTANTE: si la puerta estaba cerrada, vuelve a cerrarla al salir, échale el candado, devuelve la llave al cajetín superior y gira las ruedas de la combinación para que el código no quede marcado. Si estaba abierta, déjala abierta. Haz lo mismo al devolver el equipo.',
     pageLink: 'Encontrarás fotos de la sucursal en su página →',
-    chTitle: 'Resumen de cambios', chOld: 'Antes', chNew: 'Ahora', chPeriod: 'Fechas', chPickup: 'Hora de recogida',
-    chReturn: 'Hora de devolución', chItems: 'Equipo', chTotal: 'Precio total', chBranch: 'Sucursal', notSpecified: 'No indicado', byCustomer: 'Cancelado por el cliente',
-    manualRefund: 'Te devolveremos el importe por transferencia bancaria a tu cuenta en un plazo de 14 días (el alquiler no se pagó con tarjeta).',
-  },
-}
+    chTitle: 'Resumen de cambios',
+    chOld: 'Antes',
+    chNew: 'Ahora',
+    chPeriod: 'Fechas',
+    chPickup: 'Hora de recogida',
+    chReturn: 'Hora de devolución',
+    chItems: 'Equipo',
+    chTotal: 'Precio total',
+    chBranch: 'Sucursal',
+    notSpecified: 'No indicado',
+    byCustomer: 'Cancelado por el cliente',
+    manualRefund: 'Te devolveremos el importe por transferencia bancaria a tu cuenta en un plazo de 14 días (el alquiler no se pagó con tarjeta).'
+  }
+};
