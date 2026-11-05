@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../chrome/mg_status_bar.dart';
 import '../flag/v2_scope.dart';
 import '../tokens/mg_colors.dart';
 import 'mg_back_v2.dart';
@@ -18,3 +19,13 @@ Color mgV1PageColor(BuildContext context, Color v1) => MgV2.on(context) ? MgColo
 Widget mgV1Back(BuildContext context,
         {required VoidCallback onTap, required Widget v1, MgBackStyle style = MgBackStyle.light}) =>
     MgV2.on(context) ? MgV2Back(onTap: onTap, style: style) : v1;
+
+/// Status-bar brightness of a v1 screen (or its top part) that lies under
+/// the status bar in the v2 look — a root route (navigation, document
+/// scanner, login) or an old screen inside the v2 shell (e-shop, map
+/// picker), where nothing else declares a style for it (fix:statusbar r1):
+/// `MgStatusBar` around [child] in v2 ([dark] = the surface is dark → light
+/// icons); [child] alone in the old look, which keeps the one global style
+/// of `main.dart`.
+Widget mgV1StatusBar(BuildContext context, {required bool dark, required Widget child}) =>
+    MgV2.on(context) ? MgStatusBar(dark: dark, child: child) : child;

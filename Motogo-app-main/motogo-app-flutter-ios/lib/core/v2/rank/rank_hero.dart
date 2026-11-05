@@ -50,6 +50,7 @@ class MgRankHero extends ConsumerWidget {
         MgMotion.firstTime('ambient:$ambientKey:${r.level}');
     return MgStatusBar(
       dark: true,
+      extendAbove: includeStatusBar ? MgStatusBar.bounce : 0,
       child: ClipRRect(
         borderRadius: radius,
         child: DecoratedBox(

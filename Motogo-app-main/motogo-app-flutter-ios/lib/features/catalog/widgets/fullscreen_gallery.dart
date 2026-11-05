@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/net_image.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/widgets/mg_v1_pass.dart';
 
 /// Fullscreen zoomable image gallery.
 /// Supports swipe between images, pinch-to-zoom, close via X or swipe down.
@@ -78,7 +79,9 @@ class _FullscreenGalleryState extends State<FullscreenGallery> {
     final topPad = MediaQuery.of(context).padding.top;
     final opacity = (1.0 - (_dragY.abs() / 300)).clamp(0.4, 1.0);
 
-    return Scaffold(
+    // Black over everything (the route is not opaque, so the page below
+    // would otherwise keep deciding the status bar) → light icons in v2.
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: Colors.black.withValues(alpha: opacity),
       body: Stack(
         children: [
@@ -168,6 +171,6 @@ class _FullscreenGalleryState extends State<FullscreenGallery> {
             ),
         ],
       ),
-    );
+    ));
   }
 }

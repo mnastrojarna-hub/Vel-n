@@ -40,6 +40,7 @@ class MgAppBar extends StatelessWidget {
     final fg = light ? MgColors.ink : MgColors.onDark;
     return MgStatusBar(
       dark: !light,
+      extendAbove: includeStatusBar ? MgStatusBar.bounce : 0,
       child: Container(
         decoration: BoxDecoration(
           gradient: light ? null : MgGradients.dark,

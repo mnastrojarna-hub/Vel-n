@@ -13,6 +13,7 @@ import 'shop_provider.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// Product detail — mirrors s-merch-detail from templates-shop-detail.js.
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -77,9 +78,10 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
       backgroundColor: MotoGoColors.bg,
       body: Column(
         children: [
-          // Image — takes ALL remaining space after content
+          // Image — takes ALL remaining space after content (under the
+          // status bar → light icons in v2, as the old global style was).
           Expanded(
-            child: Stack(
+            child: mgV1StatusBar(context, dark: true, child: Stack(
               fit: StackFit.expand,
               children: [
                 PageView.builder(
@@ -108,7 +110,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
               ],
-            ),
+            )),
           ),
 
           // Content — fixed size, image adapts above

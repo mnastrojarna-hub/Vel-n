@@ -407,7 +407,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildScaffold(BuildContext context) {
-    return Scaffold(
+    // Root route on the v2 canvas (SafeArea: the status bar lies on it) →
+    // dark icons in v2 whatever the previous page declared.
+    return mgV1StatusBar(context, dark: false, child: Scaffold(
       backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: Column(
@@ -550,7 +552,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildStep() {

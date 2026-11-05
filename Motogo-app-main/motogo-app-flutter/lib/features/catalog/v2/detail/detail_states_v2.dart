@@ -55,6 +55,7 @@ class _DetailLoadingV2State extends State<DetailLoadingV2> {
             children: [
               MgStatusBar(
                 dark: true,
+                extendAbove: MgStatusBar.bounce,
                 child: Container(
                   height: heroH,
                   color: MgColors.night,

@@ -10,6 +10,7 @@ import '../../core/widgets/mg_back.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// 3-step password reset flow — mirrors auth-session.js showForgotPassword().
 /// Step 1: Enter email → sends OTP code
@@ -185,7 +186,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   }
 
   Widget _buildScaffold(BuildContext context) {
-    return Scaffold(
+    // Root route: the dark header lies under the status bar → light icons
+    // in v2 whatever the previous page declared.
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
@@ -284,7 +287,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildStepIndicator() {

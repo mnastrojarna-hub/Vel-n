@@ -55,6 +55,7 @@ class MgPhotoHero extends StatelessWidget {
     }
     return MgStatusBar(
       dark: true,
+      extendAbove: MgStatusBar.bounce,
       child: SizedBox(
         height: height + top,
         child: Stack(fit: StackFit.expand, children: [

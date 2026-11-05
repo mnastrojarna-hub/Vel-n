@@ -14,6 +14,7 @@ import 'widgets/login_header.dart';
 import 'widgets/login_form_fields.dart';
 import 'widgets/login_buttons.dart';
 import 'widgets/login_footer.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// Login screen — 1:1 replica of the Capacitor MotoGo24 login UI.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -224,7 +225,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Root route: the dark gradient header lies under the status bar →
+    // light icons in v2 whatever the previous page declared.
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
@@ -353,6 +356,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }

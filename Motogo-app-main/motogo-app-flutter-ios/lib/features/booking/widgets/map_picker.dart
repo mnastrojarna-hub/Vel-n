@@ -9,6 +9,7 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/map_tile_errors.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/widgets/mg_v1_pass.dart';
 
 /// Fullscreen map picker — mirrors openMapPicker() from cart-address-geo.js.
 /// Uses flutter_map + OpenStreetMap tiles + CARTO Voyager (no API key).
@@ -239,12 +240,13 @@ class _MapPickerState extends State<MapPickerScreen> {
             child: Text('📍', style: TextStyle(fontSize: 32)),
           ),
 
-          // Top bar
+          // Top bar — dark gradient under the status bar → light icons in
+          // v2 (the picker is pushed inside the shell, whose base is light).
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Container(
+            child: mgV1StatusBar(context, dark: true, child: Container(
               padding: EdgeInsets.fromLTRB(
                 16, MediaQuery.of(context).padding.top + 8, 16, 12,
               ),
@@ -289,7 +291,7 @@ class _MapPickerState extends State<MapPickerScreen> {
                   ),
                 ],
               ),
-            ),
+            )),
           ),
 
           // Bottom address preview + confirm

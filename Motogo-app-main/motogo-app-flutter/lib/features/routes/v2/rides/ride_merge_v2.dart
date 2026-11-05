@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/chrome/mg_dock.dart';
+import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/states/mg_state_banner.dart';
@@ -123,9 +124,11 @@ class _RideMergeScreenV2State extends ConsumerState<RideMergeScreenV2> {
       ),
     );
 
+    // Canvas under the status bar → dark icons (a root-navigator route:
+    // nothing below it declares anything).
     return Scaffold(
       backgroundColor: MgColors.canvas,
-      body: SafeArea(
+      body: MgStatusBar(dark: false, child: SafeArea(
         bottom: false,
         child: Column(children: [
           Padding(
@@ -156,7 +159,7 @@ class _RideMergeScreenV2State extends ConsumerState<RideMergeScreenV2> {
               ),
             ),
         ]),
-      ),
+      )),
     );
   }
 

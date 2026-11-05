@@ -81,6 +81,7 @@ class DetailHeroV2 extends StatelessWidget {
     }
     return MgStatusBar(
       dark: true,
+      extendAbove: MgStatusBar.bounce,
       child: SizedBox(
         height: height + top,
         child: ColoredBox(

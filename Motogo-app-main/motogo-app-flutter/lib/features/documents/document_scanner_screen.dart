@@ -19,6 +19,7 @@ import '../auth/auth_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/widgets/mg_back_v2.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 // Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
 const String _kSupportPhone = '+420 774 256 271';
@@ -711,7 +712,12 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      // Root route, every step dark / black under the status bar → light
+      // icons in v2 (fix:statusbar r1); old look unchanged.
+      mgV1StatusBar(context, dark: true, child: _screen());
+
+  Widget _screen() {
     if (_planLoading) return _loadingScreen();
     if (_idType == null) return _idChoiceScreen();
     if (_stepIdx >= _sequence.length) return _doneScreen();

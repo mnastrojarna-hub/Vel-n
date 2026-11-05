@@ -29,6 +29,7 @@ import 'my_experiences_provider.dart';
 import 'ride_location.dart' show RideForeignStreams;
 import '../../core/widgets/map_tile_errors.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
 import 'v2/route_nav_skin_v2.dart';
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
@@ -1350,15 +1351,17 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
       }
       final geometry = _navGeo ?? custom.geometry;
-      return Scaffold(
+      // Root route (nothing below it is painted): the dark gradient panel
+      // over the map lies under the status bar → light icons in v2.
+      return mgV1StatusBar(context, dark: true, child: Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: _content(context, custom, null, geometry, lang),
-      );
+      ));
     }
 
     final dataAsync = ref.watch(routesDataProvider);
 
-    return Scaffold(
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: dataAsync.when(
         // Načítání i chyba mají hlavičku se šipkou zpět (navigace je přes
@@ -1403,7 +1406,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
           return _content(context, route, branch, geometry, lang);
         },
       ),
-    );
+    ));
   }
 
   Widget _content(BuildContext context, RouteItem route, RouteBranch? branch,
