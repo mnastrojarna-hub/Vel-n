@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../chrome/mg_dock.dart';
@@ -104,10 +106,15 @@ class MgStateScreen extends StatelessWidget {
       ),
     ]);
     final dock = _dock();
+    // No dock → the scroll content itself clears the bottom safe area (home
+    // indicator / gesture bar) and an open keyboard; a dock pads for them.
+    final EdgeInsets? pad = dock == null
+        ? EdgeInsets.only(bottom: math.max(MediaQuery.paddingOf(context).bottom, MediaQuery.viewInsetsOf(context).bottom))
+        : null;
     return Material(
       color: MgColors.canvas,
       child: Column(children: [
-        Expanded(child: SingleChildScrollView(child: body)),
+        Expanded(child: SingleChildScrollView(padding: pad, child: body)),
         if (dock != null) dock,
       ]),
     );

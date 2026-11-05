@@ -26,6 +26,8 @@ export const BID = '11111111-2222-4333-8444-555555555555'
 const UID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
 export const ADMIN_ID = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff'
 const ADMIN = 'adm.jwt.token'
+/** přihlášený ZÁKAZNÍK (vlastník rezervace) — appka po zkrácení (i2) */
+const CUST = 'cus.jwt.token'
 export const EMAIL = 'zakaznik@example.com'
 export const TOTAL = 3000
 const g = globalThis as any
@@ -102,6 +104,7 @@ export function fresh(days: number, o: { gear?: boolean; booking?: Record<string
     invoices: [dp(TOTAL, 0), ...extra.map((e, i) => dp(e.czk, i + 1))],
   })
   d.users.set(ADMIN, { id: ADMIN_ID })
+  d.users.set(CUST, { id: UID })
   d.rpcs.claim_email_send = (a) => { // živá RPC: INSERT … ON CONFLICT DO UPDATE … WHERE locked_at < now() - okno
     const now = Date.now() + skew, rows = d.rows('email_send_locks')
     const r = rows.find((x) => x.booking_id === a.p_booking_id && x.template_slug === a.p_slug)
@@ -139,9 +142,10 @@ export async function later<T>(ms: number, fn: () => Promise<T>): Promise<T> {
   const orig = Date.now; Date.now = () => orig() + ms
   try { return await fn() } finally { Date.now = orig }
 }
-export async function call(fn: string, body: any, as: 'service' | 'admin' = 'service'): Promise<any> {
+export async function call(fn: string, body: any, as: 'service' | 'admin' | 'customer' = 'service'): Promise<any> {
+  const token = as === 'admin' ? ADMIN : as === 'customer' ? CUST : SVC
   const res = await handlers[fn](new Request(`${SB}/functions/v1/${fn}`, { method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${as === 'admin' ? ADMIN : SVC}` }, body: JSON.stringify(body) }))
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) }))
   const t = await res.text(); try { return JSON.parse(t) } catch { return t }
 }
 /** Stripe → webhook-receiver (všechny čekající události, `times` = opakované doručení) */

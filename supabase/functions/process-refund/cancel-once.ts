@@ -127,8 +127,10 @@ export function duplicateAdminRefunds(refunds: StripeRefundLike[] | null | undef
     if (!ours(r, bookingId)) return false
     const c = Number(r.created)
     if (o.amountHaleru != null && o.amountHaleru > 0) {
-      // stejná částka = hlavní vratka (jedna platba) nebo požadavek celého storna (mg_target, více plateb)
+      // stejná částka = hlavní vratka (jedna platba), požadavek celého storna (mg_target, více plateb), nebo požadavek
+      // vč. části zaplacené převodem (mg_requested — i2: ruční dobropis vedle vratky kartou)
       const same = Number(r.amount) === o.amountHaleru || cancelTargetHaleru(r) === o.amountHaleru
+        || Number(r.metadata?.mg_requested) === o.amountHaleru
       return same && c >= Math.min(o.nowS - DUP_WINDOW_S, since ?? Infinity)
     }
     return since != null && c >= since

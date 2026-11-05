@@ -148,14 +148,18 @@ class AppV2UiNotifier extends StateNotifier<bool> {
     pending = remote == state ? null : remote;
   }
 
-  /// Použije čekající hodnotu, pokud je [location] kořen záložky a neběží
-  /// platba. Vrací true, když se vzhled přepnul.
+  /// Použije čekající hodnotu, pokud je [location] kořen záložky BEZ query
+  /// (`/profile?edit=personal` = Profil otevřený z rezervace kvůli doplnění
+  /// údajů, ne kořen) a neběží platba. Vrací true, když se vzhled přepnul.
+  /// Stránku pushnutou nad jinou (zásobník) hlídá volající (`MgV2Gate`).
   bool applyPendingIfSafe(String location) {
     final p = pending;
     if (p == null || !mounted) return false;
     if (_paymentRunning()) return false;
-    final path = Uri.tryParse(location)?.path ?? location;
+    final uri = Uri.tryParse(location);
+    final path = uri?.path ?? location;
     if (!kV2TabRoots.contains(path)) return false;
+    if (uri != null && uri.hasQuery) return false;
     pending = null;
     state = p;
     return true;

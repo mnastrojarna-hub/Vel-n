@@ -68,7 +68,7 @@ async function pay(db: LooseDb, body: Row, stored: Pi[] = []) {
   try {
     const res = await h(new Request('http://x/pp', { method: 'POST', headers: { Authorization: `Bearer ${SVC}` }, body: JSON.stringify(body) }))
     const json = await res.json()
-    return { status: res.status, json, intents: st.intents, code: json.code, amount: st.intents[0]?.amount, md: (st.intents[0]?.metadata || {}) as Row }
+    return { status: res.status, json, intents: st.intents, code: json.code, amount: st.intents[0]?.amount, md: (st.intents[0]?.metadata || {}) as Row, fetches: f.calls }
   } finally { st.restore(); f.restore() }
 }
 const bookPay = (total: number, amount: number, cardMin = true, over: Row = {}, extra: Row = {}) =>
@@ -167,4 +167,49 @@ Deno.test({ name: 'charges doplatek (app formát): ±1 Kč dle serveru, 1–15 K
   const f = await extPay(1100, 0); eq([f.status, f.code, f.intents.length], [400, 'amount_mismatch', 0], '0 za doplatek 100 = nesoulad, nic se nestrhne')
   const z = await extPay(1000, 0); eq([z.status, z.code, z.intents.length], [400, 'invalid_amount', 0], 'doplatek 0 se neplatí')
   const h = await extPay(1100, 115); eq([h.status, h.code, h.intents.length], [400, 'amount_mismatch', 0], 'víc než doplatek se nestrhne')
+} })
+
+// Oprava i2 (2026-11-05): důkaz „zdarma“ věří sloupcům, které si zákazník zapisuje sám (total_price 0 + discount_amount 100 +
+// vlastní poukaz 100 Kč při ceníku 1 000) → spodní mez ze serveru: kalibrace = potvrzeno + mail obsluze (pokaždé),
+// PP_FREE_FLOOR_ENFORCE=1 = odmítnuto (free_mismatch, nic nepotvrzeno); promo 100 % projde v obou režimech.
+Deno.test({ name: 'charges rezervace zdarma (i2): vlastní poukaz 100 Kč na cenu 1 000 → kalibrace potvrdí + mail obsluze, PP_FREE_FLOOR_ENFORCE=1 odmítne; promo 100 % projde', ignore: !MAPPED, fn: async () => {
+  const mk = () => {
+    const db = dbFor(booking({ total_price: 0, discount_amount: 100, voucher_id: 'v1' }), { vouchers: [{ id: 'v1', code: 'ABC', amount: 100, status: 'active', booking_id: null, valid_until: null }] })
+    db.rpcs._moto_dayprice_sum = () => ({ data: 1000, error: null }); return db
+  }
+  const promo = () => {
+    const db = dbFor(booking({ total_price: 0, discount_amount: 1000, promo_code_id: 'p1' }), { promo_codes: [{ id: 'p1', type: 'percent', value: 100, active: true }] })
+    db.rpcs._moto_dayprice_sum = () => ({ data: 1000, error: null }); return db
+  }
+  const free = { type: 'booking', booking_id: BID, amount: 0, mode: 'intent', card_min: true }
+  const d1 = mk(); const a = await pay(d1, free)
+  eq([a.status, a.json.free, d1.callsOf('rpc', 'confirm_payment').length], [200, true, 1], 'kalibrace: potvrzeno')
+  eq(a.fetches.some((c) => /send-email/.test(c.url) && /nepokrývají cenu/.test(String(c.body?.subject))), true, 'kalibrace: mail obsluze')
+  eq(d1.rows('debug_log').some((r) => r.action === 'free_booking_floor_mismatch'), true)
+  Deno.env.set('PP_FREE_FLOOR_ENFORCE', '1')
+  try {
+    const d2 = mk(); const b = await pay(d2, free)
+    eq([b.status, b.code, d2.callsOf('rpc', 'confirm_payment').length, b.intents.length], [400, 'free_mismatch', 0, 0], 'vynucení: odmítnuto')
+    eq(b.fetches.some((c) => /send-email/.test(c.url) && /ODMÍTNUTO/.test(String(c.body?.subject))), true, 'vynucení: mail obsluze')
+    const d3 = promo(); const c = await pay(d3, free)
+    eq([c.status, c.json.free, d3.callsOf('rpc', 'confirm_payment').length], [200, true, 1], 'promo 100 % s vynucením')
+  } finally { Deno.env.delete('PP_FREE_FLOOR_ENFORCE') }
+  const d4 = promo(); const d = await pay(d4, free)
+  eq([d.status, d.json.free, d.fetches.some((c) => /send-email/.test(c.url))], [200, true, false], 'promo 100 % bez vynucení, bez mailu')
+} })
+
+// Oprava i2 (2026-11-05): synchronní fallback /potvrzeni (verify_setup_session) potvrzoval 0 Kč rezervaci bez kontroly ceny.
+Deno.test({ name: 'charges verify_setup_session (i2): cena změněná na 500 po vzniku setup session → free_mismatch (nic nepotvrzeno); cena 0 → potvrzeno', ignore: !MAPPED, fn: async () => {
+  const st = stripe as unknown as { checkout: { sessions: { retrieve: (id: string) => Promise<Row> } } }
+  const orig = st.checkout.sessions.retrieve
+  st.checkout.sessions.retrieve = () => Promise.resolve({ id: 'cs_s1', status: 'complete', mode: 'setup', metadata: { action: 'verify_free_booking', booking_id: BID }, client_reference_id: BID })
+  try {
+    const db = dbFor(booking({ total_price: 500 }))
+    const r = await pay(db, { action: 'verify_setup_session', session_id: 'cs_s1' })
+    eq([r.status, r.code, r.json.server_total, db.callsOf('rpc', 'confirm_payment').length], [409, 'free_mismatch', 500, 0])
+    eq(r.fetches.some((c) => /send-email/.test(c.url) && /cena se změnila/.test(String(c.body?.subject))), true, 'mail obsluze')
+    const db2 = dbFor(booking({ total_price: 0 }))
+    const r2 = await pay(db2, { action: 'verify_setup_session', session_id: 'cs_s1' })
+    eq([r2.status, r2.json.success, db2.callsOf('rpc', 'confirm_payment').length], [200, true, 1])
+  } finally { st.checkout.sessions.retrieve = orig }
 } })

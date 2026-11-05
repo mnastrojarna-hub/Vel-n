@@ -9,7 +9,7 @@ const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/@supaba
 const CAN_RUN = (() => { try { return Deno.permissions.querySync({ name: 'run' }).state === 'granted' } catch { return false } })()
 const FLOW_FILES = ['./gear_flow_test.ts', './gear_payment_flow_test.ts', './gear_refund_flow_test.ts',
   './pp_charges_flow_test.ts'] // + verify:charges (2026-11-05): částky process-payment (appka, intent)
-const FLOW_MIN = 8 + 9 + 5 + 8 // počet flow testů v FLOW_FILES (ubyl-li by některý, runner selže)
+const FLOW_MIN = 8 + 9 + 5 + 10 // počet flow testů v FLOW_FILES (ubyl-li by některý, runner selže); +2 oprava i2 (cena 0: spodní mez, setup session)
 
 Deno.test({ name: 'gear flow testy celých handlerů (podproces s import mapou gear-flow-map.json)', ignore: MAPPED || !CAN_RUN, fn: async () => {
   const p = (f: string) => new URL(f, import.meta.url).pathname

@@ -54,3 +54,23 @@ Deno.test({ name: 'charges webhook: cena změněná mezi platbou a potvrzením (
   if (Number(bk().total_price) !== 100 || s.confirms() !== 1) throw new Error(`cena ${bk().total_price} potvrzení ${s.confirms()}`)
   if (!rows('debug_log').some((d: any) => d.action === 'card_rounding_mismatch')) throw new Error('chybí card_rounding_mismatch')
 } })
+
+// Oprava i2 (2026-11-05): 0 Kč rezervace přes Stripe Checkout setup (jen ověření karty) — cena se mohla po vzniku session
+// změnit (přecenění ve Velínu / vlastní UPDATE zákazníka přes RLS) → nepotvrdit (dřív 'paid' s cenou > 0 a nic strženo).
+function setupEvent() {
+  return { id: `evt_setup_${Math.random().toString(36).slice(2, 8)}`, type: 'checkout.session.completed', created: now(),
+    data: { object: { id: 'cs_setup_1', object: 'checkout.session', mode: 'setup', status: 'complete', payment_status: 'no_payment_required', currency: null, amount_total: 0,
+      metadata: { action: 'verify_free_booking', booking_id: BID, type: 'booking' }, payment_intent: null, customer: null, client_reference_id: BID } } }
+}
+Deno.test({ name: 'charges webhook (i2): setup session 0 Kč rezervace — cena mezitím 500 → NEpotvrzeno (200, záznam, mail obsluze); cena 0 → potvrzeno', ignore: !MAPPED, fn: async () => {
+  await boot()
+  const s = unpaid(0); bk().total_price = 500
+  await deliver([setupEvent()])
+  if (webhookStatuses[0] !== 200) throw new Error(`status ${webhookStatuses[0]}`)
+  if (bk().payment_status !== 'unpaid' || s.confirms() !== 0) throw new Error(`potvrzeno s cenou 500: ${bk().payment_status} / ${s.confirms()}`)
+  if (!rows('debug_log').some((d: any) => d.action === 'free_verify_price_changed')) throw new Error('chybí free_verify_price_changed')
+  if (!opsMails.some((m) => /cena se změnila/.test(m.subject))) throw new Error(`mail obsluze ${JSON.stringify(opsMails.map((m) => m.subject))}`)
+  const s2 = unpaid(0)
+  await deliver([setupEvent()])
+  if (bk().payment_status !== 'paid' || s2.confirms() !== 1) throw new Error(`cena 0 nepotvrzena: ${bk().payment_status} / ${s2.confirms()}`)
+} })

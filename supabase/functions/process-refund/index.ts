@@ -1312,7 +1312,9 @@ Deno.serve(async (req: Request) => {
           if (recId) {
             const r = liveR.find((x) => x.id === recId) || (await stripe.refunds.retrieve(recId) as unknown as StripeRefundLike)
             const md = (r?.metadata || {}) as Record<string, string | undefined>
-            if (['late_payment', 'duplicate_payment', 'unapplied_change'].includes(String(md.mg_source || ''))) recKey = null
+            // jen NAŠE vratky (mg_source process-refund); externí (Stripe portál: plná = storno, částečná = dobropis vystaví
+            // obsluha) a vratky mimo cenu (pozdní platba, duplicita, nezapsaná změna) → dosavadní chování níže
+            if (md.mg_source !== 'process-refund') recKey = null
             else recKey = md.mg_part === 'remainder' ? (md.mg_main_refund || null) : recId
           }
         } catch (e) { await dlog('recovery_refund_resolve_failed', 'warning', { refund_id: bodyRefundId, error: (e as Error).message }) }
@@ -1802,6 +1804,8 @@ Deno.serve(async (req: Request) => {
         // Více plateb (2026-11-05): požadavek celé vratky (haléře) — webhook pozná, že tahle vratka je jen
         // část (zbytek z jiných plateb), recovery dovrátí storno do něj (cancel-once-pool.ts).
         ...(booking_id && targetHaleru != null ? { mg_target: String(targetHaleru) } : {}),
+        // i2: požadavek vč. části zaplacené převodem (ruční dobropis po této vratce) — duplicita téhož požadavku obsluhy
+        ...(booking_id && targetHaleru != null && nonStripeOwedH > 0 ? { mg_requested: String(targetHaleru + nonStripeOwedH) } : {}),
         // HOTFIX storno 2026-10-29: identita storna (cancel-once.ts); mg_cancel_total = vráceno k tomuto
         // stornu celkem vč. tohoto požadavku (pojistný mail webhooku — cancel-mail-amount.ts).
         ...(booking_id && reason === 'cancellation' ? { mg_cancel_at: cancelTok,
