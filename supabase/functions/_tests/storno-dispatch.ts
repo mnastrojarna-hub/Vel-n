@@ -79,12 +79,15 @@ export async function velinConfirm(amt: number) {
   const total = Math.max(0, Math.round(Number(bk().total_price) || 0))
   const pct = total > 0 ? Math.round(amt / total * 100) : 0
   if (amt > 0 && !creditNotes().find((c) => Math.abs(Number(c.total) || 0) === amt)) {
-    await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) }, 'admin')
+    const res = await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) }, 'admin')
+    // BookingDetail: vratka selhala (ne-2xx / success:false) → chyba v UI, bez záznamu i mailu (i1)
+    if (!res || typeof res !== 'object' || res.success === false) return { failed: true, res }
   }
   const last = rows('booking_cancellations').at(-1)
   if (last) Object.assign(last, { refund_amount: amt, refund_percent: pct })
   await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, cancellation_reason: bk().cancellation_reason, cancelled_by_source: 'velin',
     source: 'app', refund_amount: amt, refund_percent: pct, skip_refund: true, force: true }, 'admin')
+  return { failed: false }
 }
 
 /** Plná vratka ručně v Stripe dashboardu u ŽIVÉ rezervace → webhook ji zruší (+ trigger po jeho UPDATE). */

@@ -13,9 +13,15 @@
 //    DUPLICITA téhož požadavku — stejná částka ≤ 3 min (dvojité odeslání, i když první vratka čeká
 //    „pending“), nebo vratka vzniklá, zatímco volání čekalo na zámek (souběžný dvojklik / dvě okna).
 //    Dřív (bez zámku) duplicitu srazil stejný Stripe idempotency klíč; zámek ji jinak rozbil.
+//  • Vratka z více plateb (dev f1–f3, sloučeno 2026-11-05): storno = HLAVNÍ vratka (mg_cancel_at, mg_target =
+//    požadovaná částka celého storna, mg_cancel_total = vráceno k tomuto stornu celkem vč. této vratky —
+//    pro pojistný mail webhooku) + zbytek z ostatních plateb rezervace (mg_part 'remainder', mg_main_refund,
+//    též mg_cancel_at). Hlavní vratka může jít z JINÉ platby než z uložené (mainSource), proto se kontrola
+//    dělá nad vratkami VŠECH plateb rezervace (cancel-once-pool.ts) a „vratka tohoto storna" = hlavní vratka;
+//    opakované volání nevrácený zbytek TÉHOŽ storna jen dovrátí do mg_target (idempotentně) — žádná nová vratka.
 
 type Md = Record<string, string | undefined>
-export type StripeRefundLike = { id: string; amount: number; status: string; created: number; metadata?: Md | null; charge?: unknown }
+export type StripeRefundLike = { id: string; amount: number; status: string; created: number; metadata?: Md | null; charge?: unknown; payment_intent?: unknown }
 type CnResult = { creditNoteId: string | null; pdfPath: string | null; refundId: string | null }
 type Card = { brand: string | null; last4: string | null }
 // deno-lint-ignore no-explicit-any
@@ -46,13 +52,63 @@ export function instantKey(s: unknown): string | null {
   return `${ms}.${((/\.(\d+)/.exec(s)?.[1]) || '').padEnd(6, '0').slice(3, 6)}`
 }
 
-function ours(r: StripeRefundLike, bookingId: string): boolean {
+const live = (r: StripeRefundLike) => r.status === 'succeeded' || r.status === 'pending'
+/** Naše storno vratka této rezervace (hlavní i zbytek z jiné platby). */
+function oursAny(r: StripeRefundLike, bookingId: string): boolean {
   const md = r.metadata || {}
-  return (r.status === 'succeeded' || r.status === 'pending')
-    && md.mg_source === 'process-refund' && md.mg_reason === 'cancellation' && md.mg_booking_id === bookingId
+  return live(r) && md.mg_source === 'process-refund' && md.mg_reason === 'cancellation' && md.mg_booking_id === bookingId
+}
+/** Naše HLAVNÍ storno vratka (zbytek z ostatních plateb — mg_part 'remainder' — patří k ní). */
+function ours(r: StripeRefundLike, bookingId: string): boolean {
+  return oursAny(r, bookingId) && r.metadata?.mg_part !== 'remainder'
 }
 
-/** Naše vratky TOHOTO storna (succeeded/pending), v pořadí ze Stripe (nejnovější první). */
+/** Celá vratka storna k hlavní vratce (haléře): hlavní + zbytek z ostatních plateb (mg_main_refund). */
+export function logicalRefundHaleru(main: StripeRefundLike, refunds: StripeRefundLike[] | null | undefined): number {
+  return Number(main.amount || 0) + (refunds || []).filter((r) => live(r) && r.id !== main.id && r.metadata?.mg_main_refund === main.id)
+    .reduce((s, r) => s + Number(r.amount || 0), 0)
+}
+
+/** Požadovaná částka celého storna z metadat hlavní vratky (mg_target, haléře); null = neznámá (starší vratka). */
+export function cancelTargetHaleru(main: StripeRefundLike): number | null {
+  const t = Number(main.metadata?.mg_target)
+  return Number.isFinite(t) && t > 0 ? Math.round(t) : null
+}
+
+/** Už vráceno k TOMUTO stornu (haléře): hlavní vratky storna + jejich zbytky z ostatních plateb. */
+export function cancellationRefundedHaleru(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): number {
+  return priorCancellationRefunds(refunds, bookingId, token).reduce((s, m) => s + logicalRefundHaleru(m, refunds), 0)
+}
+
+/** Cíl celého storna (haléře) = mg_cancel_total NEJNOVĚJŠÍ hlavní vratky tohoto storna (poslední rozhodnutí —
+ *  obsluha mohla chybějící zbytek po pádu vrátit vědomě sama; oprava i1 2026-11-05: dovrácení staršího mg_target
+ *  by ho vrátilo podruhé). null = neznámý (starší vratky bez mg_cancel_total). */
+export function cancellationGoalHaleru(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): number | null {
+  const newest = priorCancellationRefunds(refunds, bookingId, token)[0]
+  const t = Number(newest?.metadata?.mg_cancel_total)
+  return Number.isFinite(t) && t > 0 ? Math.round(t) : null
+}
+
+/** Kolik k TOMUTO stornu jako celku ještě chybí (haléře); null = cíl neznámý. */
+export function cancellationMissingHaleru(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): number | null {
+  const goal = cancellationGoalHaleru(refunds, bookingId, token)
+  return goal == null ? null : Math.max(0, goal - cancellationRefundedHaleru(refunds, bookingId, token))
+}
+
+/** Hlavní vratky storna s nedokončeným zbytkem (mg_target > vráceno k ní) — jen dokud stornu jako celku něco chybí
+ *  (cíl = nejnovější rozhodnutí); nejnovější první. */
+export function openCancelMains(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): StripeRefundLike[] {
+  if (cancellationMissingHaleru(refunds, bookingId, token) === 0) return []
+  return priorCancellationRefunds(refunds, bookingId, token)
+    .filter((m) => { const t = cancelTargetHaleru(m); return t != null && logicalRefundHaleru(m, refunds) < t })
+}
+
+/** Zámek drží jiné volání a vratka je čerstvá → to ji právě dokončuje (nebo isolate zabitý — viz respondExistingCancelRefund). */
+export function cancelBusy(prior: StripeRefundLike, lockHeld: boolean, nowMs = Date.now()): boolean {
+  return !lockHeld && nowMs - Number(prior.created) * 1000 < FRESH_MS
+}
+
+/** Naše HLAVNÍ vratky TOHOTO storna (succeeded/pending), v pořadí ze Stripe (nejnovější první). */
 export function priorCancellationRefunds(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): StripeRefundLike[] {
   const t = Date.parse(token), key = instantKey(token)
   return (refunds || []).filter((r) => {
@@ -71,7 +127,9 @@ export function duplicateAdminRefunds(refunds: StripeRefundLike[] | null | undef
     if (!ours(r, bookingId)) return false
     const c = Number(r.created)
     if (o.amountHaleru != null && o.amountHaleru > 0) {
-      return Number(r.amount) === o.amountHaleru && c >= Math.min(o.nowS - DUP_WINDOW_S, since ?? Infinity)
+      // stejná částka = hlavní vratka (jedna platba) nebo požadavek celého storna (mg_target, více plateb)
+      const same = Number(r.amount) === o.amountHaleru || cancelTargetHaleru(r) === o.amountHaleru
+      return same && c >= Math.min(o.nowS - DUP_WINDOW_S, since ?? Infinity)
     }
     return since != null && c >= since
   })
@@ -138,6 +196,14 @@ async function findCn(supabase: Db, bookingId: string, refundId: string): Promis
 export async function respondExistingCancelRefund(o: {
   supabase: Db; bookingId: string; token: string; prior: StripeRefundLike; refunds: StripeRefundLike[] | null
   refundableHaleru: number | null; lockHeld: boolean
+  /** kdo volá: služba (send-cancellation-email, trigger, webhook — smí dostat 503 a zkusit to znovu) / obsluha (Velín) */
+  callerKind?: 'service' | 'admin'
+  /** zámek drží jiné volání (nebo zabitý isolate) a stornu chybí zbytek → upozornit obsluhu (oprava i1 2026-11-05) */
+  onDeferred?: (a: { refundId: string; targetHaleru: number; refundedHaleru: number }) => Promise<void>
+  /** více plateb: dovrátí nevrácený zbytek TÉHOŽ storna do mg_target (true = něco vrátil) — cancel-once-pool.ts */
+  complete?: (prior: StripeRefundLike) => Promise<boolean>
+  /** více plateb: co po vratce zbývá na platbách V CENĚ rezervace (haléře; null = nevím) — místo refundableHaleru */
+  remaining?: () => Promise<number | null>
   createCn: (supabase: Db, bookingId: string, bk: { stripe_refund_id: string }) => Promise<CnResult>
   ensureCn: (supabase: Db, bookingId: string, bk: { stripe_refund_id: string }) => Promise<CnResult>
   cardOf: (r: StripeRefundLike) => Promise<Card | null>
@@ -149,13 +215,32 @@ export async function respondExistingCancelRefund(o: {
     .select('payment_status, stripe_refund_id, card_brand, card_last4').eq('id', bookingId).maybeSingle()
   // Zámek drží jiné volání a vratka je čerstvá → to ji právě dokončuje (stav, dobropis): nesahat,
   // jen vrátit existující dobropis (souběžný INSERT by vystavil druhý; attach smyčka mailu počká).
-  const busy = !o.lockHeld && Date.now() - Number(prior.created) * 1000 < FRESH_MS
+  const busy = cancelBusy(prior, o.lockHeld)
   const card: Card = { brand: cur?.card_brand ?? null, last4: cur?.card_last4 ?? null }
+  // Oprava i1 (2026-11-05): zámek po ZABITÉM isolatu (finally neproběhl, řádek email_send_locks zůstal až 3 min) —
+  // každé další volání do 60 s od vratky vypadalo jako souběh a stornu s nevráceným zbytkem (mg_target > vráceno)
+  // nikdo nic neřekl ani nic nezkusilo znovu. Teď: chyba do debug_log + mail obsluze (dedup) a službě 503, ať
+  // webhook (charge.refunded → retryNeeded) / send-cancellation-email zkusí znovu po vypršení zámku.
+  const target = cancelTargetHaleru(prior)
+  const refundedH = logicalRefundHaleru(prior, o.refunds)
+  if (busy && target != null && refundedH < target) {
+    await o.dlog('cancellation_remainder_deferred', 'error', { refund_id: prior.id, target_haleru: target, refunded_haleru: refundedH,
+      cancel_token: o.token, caller: o.callerKind || null })
+    if (o.onDeferred) await o.onDeferred({ refundId: prior.id, targetHaleru: target, refundedHaleru: refundedH }).catch(() => {})
+    if (o.callerKind === 'service') {
+      return new Response(JSON.stringify({ success: false, code: 'cancellation_in_progress', retry: true, refund_id: prior.id, status: prior.status,
+        error: 'Vratka storna se právě dokončuje — zkuste to znovu za chvíli.' }), { status: 503, headers: o.headers })
+    }
+  }
   let repaired = false
-  if (!busy && cur && statusLags(cur, prior, o.refunds)) {
+  // Pád mezi hlavní vratkou a zbytkem z ostatních plateb → dovrátit (idempotentně) a stav / dobropis dorovnat.
+  const completed = !busy && o.complete ? await o.complete(prior).catch(() => false) : false
+  const open = !!cur && ['paid', 'refund_pending', 'partial_refund'].includes(cur.payment_status)
+  if (!busy && cur && (statusLags(cur, prior, o.refunds) || (completed && open))) {
     // process-refund spadl po refunds.create a před zápisem stavu → dopsat, co by zapsal sám.
+    const left = o.remaining ? await o.remaining().catch(() => null) : o.refundableHaleru
     const patch: Record<string, unknown> = { stripe_refund_id: prior.id,
-      payment_status: prior.status === 'pending' ? 'refund_pending' : (o.refundableHaleru === 0 ? 'refunded' : 'partial_refund') }
+      payment_status: prior.status === 'pending' ? 'refund_pending' : (left === 0 ? 'refunded' : 'partial_refund') }
     if (!card.brand || !card.last4) {
       const c = await o.cardOf(prior).catch(() => null)
       if (c?.brand && !card.brand) patch.card_brand = card.brand = c.brand
@@ -171,7 +256,7 @@ export async function respondExistingCancelRefund(o: {
     if (cn.creditNoteId && !cn.pdfPath) cn = await o.ensureCn(supabase, bookingId, { stripe_refund_id: prior.id })
   }
   await o.dlog('cancellation_refund_exists', 'info', {
-    refund_id: prior.id, refund_status: prior.status, cancel_token: o.token, credit_note_id: cn.creditNoteId, busy, repaired,
+    refund_id: prior.id, refund_status: prior.status, cancel_token: o.token, credit_note_id: cn.creditNoteId, busy, repaired, completed,
   })
   return new Response(JSON.stringify({
     success: true, already_refunded: true, cancellation_refund_exists: true,

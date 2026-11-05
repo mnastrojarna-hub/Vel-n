@@ -11,6 +11,8 @@ import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
 import { settleStoredSession, type StripeCheckoutLike } from './checkout-guard.ts'
 import { roundingLabel, webLabels, fillLabel, shippingLabel } from './checkout-labels.ts'
 import { webBookingMiss, freeShopPlan, WEB_TXT } from './web-booking-guards.ts'
+// Měna plateb = vždy CZK, určuje ji server (oprava 2026-11-05) — `body.currency` se nepoužívá.
+import { CZK } from '../_shared/currency.ts'
 
 // D1/D2 (2026-10-16): web (hosted Checkout) — zbytek rezervace / objednávky do 1 Kč se
 // neúčtuje (rezervace jde přes ověření karty bez platby, objednávka se potvrdí), 1–15 Kč
@@ -68,8 +70,11 @@ export async function handleWebBookingCheckout(
     (booking as unknown as { stripe_session_id?: string | null }).stripe_session_id)
   if (prevSess.action === 'refuse') return refuse(409, 'payment_in_progress', { booking_id: body.booking_id, session_id: prevSess.sessionId })
 
-  let amountCzk = booking.total_price || body.amount || 0
-  const currency = body.currency || 'czk'
+  // Oprava i1 (2026-11-05): částku určuje JEN cena rezervace na serveru — dřív při total_price 0/NULL rozhodla
+  // částka z klienta (`body.amount`) a obešla ověření 100% slevy (zaplaceno 15 Kč, doklady 0). Cena 0 jde dál jako
+  // rezervace zdarma, kterou musí doložit kód / poukaz / spodní mez (free_unverified).
+  let amountCzk = Number(booking.total_price) || 0
+  const currency = CZK
 
   // D1: přibalená objednávka e-shopu se do minima karty počítá (jedna platba).
   const shopOrderIdPre = (body as unknown as Record<string, unknown>).shop_order_id as string | undefined
@@ -433,7 +438,7 @@ export async function handleSosPaymentLink(
     }
   }
 
-  const currency = body.currency || 'czk'
+  const currency = CZK
   const metadata: Record<string, string> = { type: 'sos', source: 'velin', booking_id: bookingId }
   if (incidentId) metadata.incident_id = incidentId
 
@@ -478,7 +483,7 @@ async function handleWebProductCheckout(
   const customerEmail = (webBody.customer_email as string) || ''
   const customerName  = (webBody.customer_name as string)  || ''
   const customerPhone = (webBody.customer_phone as string) || ''
-  const currency = body.currency || 'czk'
+  const currency = CZK
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -678,9 +683,14 @@ export async function handleWebShopCheckout(
   const customerCompany = (webBody.customer_company as string) || ''
   const customerIco = (webBody.customer_ico as string) || ''
   const customerDic = (webBody.customer_dic as string) || ''
-  const amountCzk = body.amount
-  const amountCents = Math.round(amountCzk * 100)
-  const currency = body.currency || 'czk'
+  // Oprava i1 (2026-11-05): celkem = hodnota poukazu + tisk (to, co Stripe skutečně účtuje v položkách) — dřív
+  // `shop_orders.total = body.amount` z klienta (jiná částka kazila Velín / strop vratky a poukaz < 15 Kč končil
+  // surovou chybou Stripe místo below_minimum). Klientská `amount` se jen zaloguje, když nesedí.
+  const amountCzk = Math.round((Number(voucherAmount) + printFee) * 100) / 100
+  const currency = CZK
+  if (Number.isFinite(Number(body.amount)) && Math.round(Number(body.amount)) !== Math.round(amountCzk)) {
+    console.warn('[WebShopCheckout] client amount differs from server total:', body.amount, 'vs', amountCzk)
+  }
   if (Number(amountCzk) > 0 && Number(amountCzk) < CARD_MIN) return belowMin(Number(amountCzk), CS.below_minimum_web)
 
   const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })

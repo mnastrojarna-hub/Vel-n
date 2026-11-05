@@ -39,6 +39,7 @@ export const CS: Record<string, string> = {
   missing_booking_id: 'Chybí rezervace k zaplacení – otevři ji v Rezervacích a zaplať odtud. Nic jsme nestrhli.',
   missing_order_id: 'Chybí objednávka k zaplacení – vrať se do košíku a odešli ji znovu. Nic jsme nestrhli.',
   invalid_amount: 'Částka k zaplacení chybí – otevři platbu znovu. Nic jsme nestrhli.',
+  invalid_currency: 'Platby přijímáme jen v českých korunách (CZK). Nic jsme nestrhli – otevři platbu znovu.',
   auth_required: 'Přihlášení chybí nebo vypršelo – přihlas se prosím znovu a platbu zopakuj. Nic jsme nestrhli.',
   auth_required_edit: 'Přihlášení chybí nebo vypršelo – přihlas se prosím znovu a úpravu zopakuj. Nic jsme nestrhli.',
   forbidden: 'Tuhle rezervaci nejde zaplatit z účtu, na kterém jsi přihlášen(a). Přihlas se účtem, kterým jsi ji vytvořil(a). Nic jsme nestrhli.',

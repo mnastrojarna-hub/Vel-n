@@ -117,7 +117,7 @@ Deno.test('f1/3: storno 100 % s uloženým doplatkem, který webhook ještě nez
     chargedHaleru: 1500, refundableHaleru: 1500, isCustomer: false, amount: 3000, nowMs: NOW } as never)
   eq(src, { kind: 'retarget', piId: 'pi_orig', refundableHaleru: 300000, outside: 'pending' })
   // zbytek storna ani vratka obsluhy ho nebere
-  eq((await otherRefundableIntents(f.stripe as never, d, BID, 'pi_orig')).map((c) => c.id), [])
+  eq((await otherRefundableIntents(f.stripe as never, d, BID, 'pi_orig', null, NOW)).map((c) => c.id), [])
   // zákaznická vratka z appky (oprava f2): z čekajícího doplatku ne — z původní platby jako u obsluhy
   eq(await mainSource(f.stripe as never, d, { bookingId: BID, storedPiId: 'pi_e', storedPi: pend, storedRefunds: [],
     chargedHaleru: 1500, refundableHaleru: 1500, isCustomer: true, amount: 100, nowMs: NOW } as never),
@@ -136,7 +136,7 @@ Deno.test('f1/3: zapsaný doplatek (applied_at / payment_ref v historii / starý
     pi('pi_legacy', 800, NOW / 1000 - 40, { booking_id: BID, type: 'extension' }),
     pi('pi_old', 700, NOW / 1000 - 8 * 86400, { booking_id: BID, type: 'extension', chg_hash: 'o' }),
     pi('pi_new', 600, NOW / 1000 - 20, { booking_id: BID, type: 'extension', chg_hash: 'n' })])
-  const c = await otherRefundableIntents(f.stripe as never, d, BID, 'pi_orig')
+  const c = await otherRefundableIntents(f.stripe as never, d, BID, 'pi_orig', null, NOW)
   ok(!c.some((x) => x.id === 'pi_new'), 'čekající doplatek vyřazen')
   eq(c.map((x) => x.id).sort(), ['pi_a', 'pi_h', 'pi_legacy', 'pi_old'])
 })

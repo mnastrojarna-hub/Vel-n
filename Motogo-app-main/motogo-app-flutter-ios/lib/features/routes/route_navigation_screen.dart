@@ -28,6 +28,8 @@ import 'route_reviews.dart';
 import 'my_experiences_provider.dart';
 import 'ride_location.dart' show RideForeignStreams;
 import '../../core/widgets/map_tile_errors.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/route_nav_skin_v2.dart';
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
 /// Mapy.com, živá poloha jezdce, sledování (follow) s otáčením mapy po směru
@@ -1622,12 +1624,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     ],
                   ),
                 ),
-                const RideNavRecChip(),
+                if (MgV2.on(context)) const NavRecChipV2() else const RideNavRecChip(),
                 if (_stops.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _openStopsSheet(lang),
-                    child: Container(
+                    child: MgV2.on(context)
+                        ? NavStopsChipV2('$reachedCount/${_stops.length}')
+                        : Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -1811,7 +1815,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   // Zpět / ukončit jízdu: dotyková plocha 48 px + popisek pro čtečku.
   Widget _circleBtn(IconData icon, VoidCallback onTap, {Color? color}) =>
-      MgBackTap(
+      MgV2.on(context)
+          ? NavCircleV2(end: icon == Icons.close, onTap: onTap)
+          : MgBackTap(
         onTap: onTap,
         close: icon == Icons.close,
         label: icon == Icons.close ? t(context).tr('routeEndBtn') : null,

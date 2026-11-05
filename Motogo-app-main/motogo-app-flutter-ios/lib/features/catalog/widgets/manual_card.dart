@@ -3,6 +3,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../moto_model.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/detail/detail_manual_v2.dart';
 
 /// Card displaying the motorcycle manual PDF with open/download actions.
 class ManualCard extends StatelessWidget {
@@ -27,6 +29,17 @@ class ManualCard extends StatelessWidget {
           duration: const Duration(seconds: 2),
         ));
       }
+    }
+
+    // v2 vzhled (kill-switch app_v2_ui): stejné akce (openManual výše).
+    if (MgV2.on(context)) {
+      return ManualCardV2Look(
+        fileName: fileName,
+        isPdf: isPdf,
+        onView: () => openManual(isPdf ? LaunchMode.inAppBrowserView : LaunchMode.externalApplication),
+        onSearch: () => openManual(LaunchMode.inAppBrowserView),
+        onDownload: () => openManual(LaunchMode.externalApplication),
+      );
     }
 
     return Container(

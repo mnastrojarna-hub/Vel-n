@@ -12,7 +12,7 @@ import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 import { placeFingerprint, applyPaidExtension, chgFromMetadata, swapDone } from '../_shared/extension-apply.ts'
 import { handlePaidChangeFailure, changeKindOf } from '../_shared/paid-change-failure.ts'
 import { paidChangeEligibility, markApplied, historyHasRef, PREVIOUS_MAX_AGE_H } from '../_shared/paid-change-guard.ts'
-import { classifyDue, bookingRoundingAvailable, gearRoundingAvailable, round2, CARD_MIN_CZK, type DueClass } from './card-minimum.ts'
+import { classifyDue, bookingRoundingAvailable, gearRoundingAvailable, round2, wholeCrownRounding, CARD_MIN_CZK, type DueClass } from './card-minimum.ts'
 import { CS, refuse, respond, declineMessageCs, SWAP_DRY_CODES, cancelledReasonKey } from './refusals.ts'
 import { mapStripeError, isUncertainStripeError } from './stripe-errors.ts'
 import { sanitizeAttemptId, chgHash, idempotencyKey, guardStoredIntent, storeIntentId, markCheckoutStarted, sameAttempt, findRecentLiveIntent } from './intent-guard.ts'
@@ -30,6 +30,8 @@ import { verifyShopSession, type StripeSessionsLike } from './verify-shop-sessio
 // ověření, odmítnutí nepovolených doplatků (gear-checkout.ts, ../webhook-receiver/gear-docs.ts).
 import { bookingKindForEdit, loadIsGear, gearBookingLabel, gearChangeBlock, GEAR_DRY_TXT } from './gear-checkout.ts'
 import { paidMailType } from '../webhook-receiver/gear-docs.ts'
+// Měna plateb = vždy CZK, určuje ji server (oprava 2026-11-05, _shared/currency.ts).
+import { CZK, requestedCurrencyOk } from '../_shared/currency.ts'
 
 /** Dokončená web session doplatku už zpracovaná (zapsaná / vyhodnocená / vrácená) → další úpravu neblokuje. */
 // deno-lint-ignore no-explicit-any
@@ -92,6 +94,14 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body: PaymentRequest = await req.json()
+
+    // Měna je vždy CZK (oprava 2026-11-05): jinou měnu z požadavku odmítnout ještě před všemi
+    // větvemi (appka, web, Velín) — dřív se strhla částka `amount` v měně klienta a webhook ji
+    // potvrdil a zaúčtoval jako Kč. Appka ani web nic jiného než 'czk' (nebo nic) neposílají.
+    const reqCurrency = (body as unknown as Record<string, unknown>).currency
+    if (!requestedCurrencyOk(reqCurrency)) {
+      return refuse(400, 'invalid_currency', { currency: String(reqCurrency) })
+    }
 
     // --- Sync fallback: ověř Stripe setup-mode session a potvrď free booking ---
     // Volá /potvrzeni page, pokud webhook ještě nepotvrdil booking. Nezávislé na
@@ -247,7 +257,8 @@ Deno.serve(async (req: Request) => {
       return await handleWebShopCheckout(body)
     }
 
-    const { incident_id, amount, currency, method, type, mode, payment_method_id, change } = body
+    const { incident_id, amount, method, type, mode, payment_method_id, change } = body
+    const currency = CZK
     const paymentType: PaymentType = type || 'booking'
     // BEZPEČNOST 2026-10-11: jen známé typy (appka booking/extension/sos/shop, web
     // booking/extension/shop). Neznámý typ dřív bez přihlášení založil PI a přepsal
@@ -351,9 +362,9 @@ Deno.serve(async (req: Request) => {
       } else if (Math.round(Number(amount)) !== Math.round(due)) {
         return refuse(409, 'amount_mismatch', { server_total: Math.round(due) }, CS.amount_mismatch_shop)
       } else if (shopRounding) {
-        // Platba v celých Kč u ceny s haléři (99,50 → 100) — rozdíl jako zaokrouhlení na dokladu.
-        const sub = round2(Math.round(Number(amount) * 100) / 100 - due)
-        if (sub !== 0 && Math.abs(sub) < 1) chargeRounding = { due, r: sub }
+        // Platba v celých Kč u ceny s haléři (99,50 → 100) — rozdíl jako zaokrouhlení na dokladu (i přesně 1 Kč — i1).
+        const sub = wholeCrownRounding(Number(amount), due)
+        if (sub != null) chargeRounding = { due, r: sub }
       }
     }
 
@@ -466,9 +477,9 @@ Deno.serve(async (req: Request) => {
           // cestu (card_min → 'round', zapisuje se do ceny).
           return refuse(409, 'amount_mismatch', { server_total: Math.round(payDue) })
         } else if (amt > 0 && 'card_rounding' in bkc) {
-          // Platba v celých Kč u ceny s haléři (15,40 → 15) — rozdíl jako zaokrouhlení na dokladu.
-          const sub = round2(Math.round(amt * 100) / 100 - payDue)
-          if (sub !== 0 && Math.abs(sub) < 1) chargeRounding = { due, r: sub }
+          // Platba v celých Kč u ceny s haléři (15,40 → 15) — rozdíl jako zaokrouhlení na dokladu (i přesně 1 Kč — i1).
+          const sub = wholeCrownRounding(amt, payDue)
+          if (sub != null) chargeRounding = { due, r: sub }
         }
       }
     }
@@ -932,8 +943,8 @@ Deno.serve(async (req: Request) => {
       } else if (!isSwap && dueClass.kind === 'ok' && (await bookingRoundingAvailable(supabase, booking_id))) {
         // Platba v celých Kč u doplatku s haléři (14,60 → 15) — rozdíl jako zaokrouhlení na
         // dokladu (u výměny ho z p_paid spočítá split_booking_moto_swap sama).
-        const sub = round2(Math.round(Number(amount) * 100) / 100 - extDue)
-        if (sub !== 0 && Math.abs(sub) < 1) { metadata.due = String(extDue); metadata.card_rounding = String(sub) }
+        const sub = wholeCrownRounding(Number(amount), extDue)
+        if (sub != null) { metadata.due = String(extDue); metadata.card_rounding = String(sub) }
       }
     }
 
@@ -1066,7 +1077,7 @@ Deno.serve(async (req: Request) => {
         const p = guard.pi
         if (p.status === 'requires_action' || p.status === 'requires_confirmation') {
           return respond(200, { success: true, off_session: true, status: p.status, client_secret: p.client_secret,
-            payment_intent_id: p.id, amount, currency: currency || 'czk', reused: true, ...respExtra })
+            payment_intent_id: p.id, amount, currency, reused: true, ...respExtra })
         }
         const le = (p.last_payment_error || {}) as { code?: string; decline_code?: string }
         return respond(200, {
@@ -1084,7 +1095,7 @@ Deno.serve(async (req: Request) => {
         } catch { /* ignore */ }
         return respond(200, {
           success: true, client_secret: guard.pi.client_secret, payment_intent_id: guard.pi.id, amount,
-          currency: currency || 'czk', customer_id: customerId || null, ephemeral_key: await ephemeralKeyFor(),
+          currency, customer_id: customerId || null, ephemeral_key: await ephemeralKeyFor(),
           reused: true, ...respExtra,
         })
       }
@@ -1117,7 +1128,7 @@ Deno.serve(async (req: Request) => {
       if (payment_method_id && customerId) {
         const offSessionParams: Stripe.PaymentIntentCreateParams = {
           amount: amountCents,
-          currency: currency || 'czk',
+          currency,
           metadata,
           customer: customerId,
           payment_method: payment_method_id,
@@ -1142,7 +1153,7 @@ Deno.serve(async (req: Request) => {
             // client_secret i u succeeded (D6): appka podle něj po restartu ověří PI.
             return respond(200, {
               success: true, off_session: true, status: 'succeeded', client_secret: intent.client_secret,
-              payment_intent_id: intent.id, amount, currency: currency || 'czk', ...respExtra,
+              payment_intent_id: intent.id, amount, currency, ...respExtra,
             })
           }
           // requires_action → klient musí dokončit SCA (3DS) přes Stripe SDK
@@ -1150,7 +1161,7 @@ Deno.serve(async (req: Request) => {
             return respond(200, {
               success: true, off_session: true, status: intent.status,
               client_secret: intent.client_secret,
-              payment_intent_id: intent.id, amount, currency: currency || 'czk', ...respExtra,
+              payment_intent_id: intent.id, amount, currency, ...respExtra,
             })
           }
           // jiný stav (canceled/processing/requires_payment_method) — vrátíme jako fallback,
@@ -1200,7 +1211,7 @@ Deno.serve(async (req: Request) => {
             return respond(200, {
               success: true, off_session: true, status: 'requires_action',
               client_secret: piFromError.client_secret,
-              payment_intent_id: piFromError.id, amount, currency: currency || 'czk', ...respExtra,
+              payment_intent_id: piFromError.id, amount, currency, ...respExtra,
             })
           }
           // D5: `message` česky a bez kontaktů (appka ≤ 4.1.3 ho zobrazuje); anglický text Stripe jen do debug_log.
@@ -1238,7 +1249,7 @@ Deno.serve(async (req: Request) => {
       // ho NEDOTÝKÁ.
       const intentParams: Record<string, unknown> = {
         amount: amountCents,
-        currency: currency || 'czk',
+        currency,
         metadata,
         payment_method_types: ['card', 'link'],
         description: productName,
@@ -1264,7 +1275,7 @@ Deno.serve(async (req: Request) => {
 
       return respond(200, {
         success: true, client_secret: intent.client_secret,
-        payment_intent_id: intent.id, amount, currency: currency || 'czk',
+        payment_intent_id: intent.id, amount, currency,
         // Payment Sheet support — Flutter uses these for saved cards
         customer_id: customerId || null,
         ephemeral_key: ephemeralKey,
@@ -1327,12 +1338,12 @@ Deno.serve(async (req: Request) => {
     const lineName = paymentType === 'extension' ? editLineLabel(change, siteLang) : productName
     const sessionParams: Record<string, unknown> = {
       line_items: checkoutRounding ? [
-        { price_data: { currency: currency || 'czk', product_data: { name: lineName }, unit_amount: Math.round(checkoutRounding.due * 100) }, quantity: 1 },
-        { price_data: { currency: currency || 'czk', product_data: { name: roundingLabel(siteLang) },
+        { price_data: { currency, product_data: { name: lineName }, unit_amount: Math.round(checkoutRounding.due * 100) }, quantity: 1 },
+        { price_data: { currency, product_data: { name: roundingLabel(siteLang) },
           unit_amount: Math.round(checkoutRounding.r * 100) }, quantity: 1 },
       ] : [{
         price_data: {
-          currency: currency || 'czk',
+          currency,
           product_data: { name: lineName },
           unit_amount: Math.round(amount * 100),
         },
@@ -1347,6 +1358,10 @@ Deno.serve(async (req: Request) => {
       success_url: finalSuccessUrl,
       cancel_url: finalCancelUrl,
       metadata,
+      // Oprava i1 (2026-11-05): metadata i na PaymentIntentu (jako handleWeb*Checkout) — payment_intent.succeeded
+      // jinak dohledává rezervaci jen podle bookings.stripe_payment_intent_id a doplatek úpravy by vzal jako platbu
+      // rezervace (webhook-receiver: náhradní dohledání jen u nezaplacené rezervace).
+      payment_intent_data: { metadata },
       locale: stripeLocale,
     }
 
@@ -1377,7 +1392,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true, checkout_url: session.url, session_id: session.id,
-        amount: checkoutRounding ? CARD_MIN_CZK : amount, currency: currency || 'czk',
+        amount: checkoutRounding ? CARD_MIN_CZK : amount, currency,
         ...(checkoutRounding ? { due: checkoutRounding.due, card_rounding: checkoutRounding.r, charge: CARD_MIN_CZK } : {}),
       }),
       { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }

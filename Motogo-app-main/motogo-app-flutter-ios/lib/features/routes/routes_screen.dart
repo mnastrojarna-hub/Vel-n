@@ -21,6 +21,20 @@ import 'animated_route_icon.dart';
 import 'collapsing_header.dart';
 import 'routes_quick_links.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/chrome/mg_page.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/motion/mg_anim.dart';
+import '../../core/widgets/state_views.dart';
+import 'v2/places_parts_v2.dart';
+import 'v2/record_dock_v2.dart';
+import 'v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
+import 'v2/route_card_v2.dart';
+import 'v2/routes_filter_sheet_v2.dart';
+import 'v2/routes_list_parts_v2.dart';
+import 'v2/rt_sheet_rows_v2.dart' show RtOpt;
+import 'v2/rt_v2_text.dart';
+import 'v2/trasy_hub_header_v2.dart';
 
 /// Řazení seznamu tras.
 enum _RouteSort { random, length, duration, nearMe, nearRoute }
@@ -254,6 +268,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     final lang = ref.watch(localeProvider).languageCode;
     final dataAsync = ref.watch(routesDataProvider);
 
+    if (MgV2.on(context)) {
+      return dataAsync.when(
+        data: (data) => _body(context, data, lang),
+        loading: () => RoutesStatePageV2(
+            header: RoutesHubHeaderV2(search: _searchField(context)), loading: true),
+        error: (e, _) => RoutesStatePageV2(
+            header: RoutesHubHeaderV2(search: _searchField(context)), child: _errorState(context, e)),
+      );
+    }
+
     return Material(
       color: MotoGoColors.bg,
       child: SafeArea(
@@ -341,6 +365,34 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
 
   /// Pole hloubkového hledání — název, popis, města na cestě i body zájmu.
   Widget _searchField(BuildContext context) {
+    void onChanged(String v) {
+      _searchDebounce?.cancel();
+      _searchDebounce = Timer(
+        const Duration(milliseconds: 280),
+        () {
+          if (!mounted) return;
+          setState(() => _query = v);
+          ref.read(placesSearchProvider.notifier).state = v;
+        },
+      );
+    }
+
+    void onClear() {
+      _searchDebounce?.cancel();
+      _searchCtl.clear();
+      setState(() => _query = '');
+      ref.read(placesSearchProvider.notifier).state = '';
+    }
+
+    if (MgV2.on(context)) {
+      return TrasySearchV2(
+        controller: _searchCtl,
+        hint: t(context).tr('routesSearch'),
+        onChanged: onChanged,
+        onClear: onClear,
+        showClear: _query.isNotEmpty || _searchCtl.text.isNotEmpty,
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -356,17 +408,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
               controller: _searchCtl,
               // Debounce: bez něj se při psaní přefiltrovávalo přes
               // 1 300 tras na každé písmeno.
-              onChanged: (v) {
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(
-                  const Duration(milliseconds: 280),
-                  () {
-                    if (!mounted) return;
-                    setState(() => _query = v);
-                    ref.read(placesSearchProvider.notifier).state = v;
-                  },
-                );
-              },
+              onChanged: onChanged,
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
@@ -381,12 +423,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
           if (_query.isNotEmpty || _searchCtl.text.isNotEmpty)
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _searchDebounce?.cancel();
-                _searchCtl.clear();
-                setState(() => _query = '');
-                ref.read(placesSearchProvider.notifier).state = '';
-              },
+              onTap: onClear,
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
                 child: Icon(Icons.close, size: 18, color: MotoGoColors.g400),
@@ -399,6 +436,10 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
 
   Widget _body(BuildContext context, RoutesData data, String lang) {
     if (data.routes.isEmpty) {
+      if (MgV2.on(context)) {
+        return RoutesStatePageV2(
+            header: RoutesHubHeaderV2(search: _searchField(context)), child: _emptyState(context));
+      }
       return Column(
         children: [
           _headerDelegate(context, data.routes.length,
@@ -434,6 +475,67 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     }
     _sortRoutes(routes, me, selAnchor);
     _precacheCovers(context, routes);
+
+    void openRoute(RouteItem r) {
+      // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
+      ref.read(lastOpenedRouteProvider.notifier).state = r.id;
+      // Sousedi pro listování swipem = právě vyfiltrovaný
+      // seznam v tom pořadí, v jakém ho uživatel vidí.
+      context.push('/routes/${r.id}',
+          extra: [for (final x in routes) x.id]);
+    }
+
+    if (MgV2.on(context)) {
+      return MgPage(
+        controller: _scroll,
+        overlapHero: false,
+        onRefresh: () async => ref.invalidate(routesDataProvider),
+        header: RoutesHubHeaderV2(search: _searchField(context)),
+        slivers: [
+          SliverToBoxAdapter(
+            child: RoutesBandV2(
+              routes: _fmtCount(data.routes.length, 1370, 10),
+              pois: _fmtCount(ref.watch(catalogPoisProvider).valueOrNull?.length, 37000, 1000),
+              toolbar: _filterBar(context, data, me, selAnchor != null),
+            ),
+          ),
+          if (routes.isEmpty)
+            SliverToBoxAdapter(child: _filterEmpty(context))
+          else ...[
+            SliverToBoxAdapter(
+              child: TrasyListHeaderV2(
+                count: rtPlural(t(context), 'v2RtRoutes', routes.length),
+                sort: _sortLabel(context, _sort),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList.builder(
+                itemCount: routes.length,
+                itemBuilder: (context, i) {
+                  final r = routes[i];
+                  return MgReveal(
+                    index: i < 6 ? i : 0,
+                    sessionKey: 'routes-${r.id}',
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _RouteCard(
+                        route: r,
+                        branch: r.branchId != null ? data.branches[r.branchId] : null,
+                        lang: lang,
+                        approach: me == null ? null : approachEstimate(me, r),
+                        onTap: () => openRoute(r),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
+        dock: TrasyRecordDockV2(onOpenRecorder: () => openRideRecorderV2(context)),
+      );
+    }
 
     return RefreshIndicator(
       color: MotoGoColors.greenDark,
@@ -506,14 +608,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                         // Dojezd od aktuální polohy (odhad) — původní délka/čas
                         // trasy na kartě zůstávají, tohle se jen přidává.
                         approach: me == null ? null : approachEstimate(me, r),
-                        onTap: () {
-                          // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
-                          ref.read(lastOpenedRouteProvider.notifier).state = r.id;
-                          // Sousedi pro listování swipem = právě vyfiltrovaný
-                          // seznam v tom pořadí, v jakém ho uživatel vidí.
-                          context.push('/routes/${r.id}',
-                              extra: [for (final x in routes) x.id]);
-                        },
+                        onTap: () => openRoute(r),
                       ),
                     ),
                   );
@@ -589,6 +684,26 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (sc) {
+        // Výběr sdílený starým i v2 vzhledem (kill-switch) — tělo beze změny.
+        void pick(_RouteSort s) {
+          // Stejná pojistka jako u filtru — sheet může přežít
+          // odpojení obrazovky a setState by pak padl.
+          if (mounted) setState(() => _sort = s);
+          Navigator.of(sc).pop();
+        }
+
+        if (MgV2.on(sc)) {
+          RtOpt o(_RouteSort s, String icon, bool enabled) =>
+              RtOpt(_sortLabel(context, s), _sort == s, enabled ? () => pick(s) : null, icon: icon);
+          return RoutesSortSheetV2(options: [
+            o(_RouteSort.random, MgIcons.shuffle, true),
+            o(_RouteSort.length, MgIcons.ruler, true),
+            o(_RouteSort.duration, MgIcons.clock, true),
+            o(_RouteSort.nearMe, MgIcons.gps, meAvail),
+            o(_RouteSort.nearRoute, MgIcons.route, routeAvail),
+          ]);
+        }
+
         Widget opt(_RouteSort s, IconData ic, bool enabled) => ListTile(
               enabled: enabled,
               leading: Icon(ic,
@@ -603,14 +718,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
               trailing: _sort == s
                   ? const Icon(Icons.check, color: MotoGoColors.greenDark)
                   : null,
-              onTap: enabled
-                  ? () {
-                      // Stejná pojistka jako u filtru — sheet může přežít
-                      // odpojení obrazovky a setState by pak padl.
-                      if (mounted) setState(() => _sort = s);
-                      Navigator.of(sc).pop();
-                    }
-                  : null,
+              onTap: enabled ? () => pick(s) : null,
             );
         return SafeArea(
           top: false,
@@ -640,6 +748,17 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   Widget _filterBar(BuildContext context, RoutesData data, LatLng? me, bool routeAvail) {
     final n = _activeFilterCount;
     final active = n > 0;
+    if (MgV2.on(context)) {
+      return RoutesToolbarV2(
+        activeCount: n,
+        sortLabel: '${t(context).tr('sortTitle')}: ${_sortLabel(context, _sort)}',
+        sortOn: _sort != _RouteSort.nearMe,
+        onFilter: () => _openFilterSheet(context, data, me),
+        onSort: () => _openSortSheet(context, me != null, routeAvail),
+        onMap: () => context.push(Routes.routesMap),
+        onClear: _clearFilters,
+      );
+    }
 
     Widget pill({
       required IconData icon,
@@ -771,6 +890,15 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   Widget _filterEmpty(BuildContext context) {
+    if (MgV2.on(context)) {
+      return TrasyEmptyV2(
+        icon: MgIcons.search,
+        title: t(context).tr('routesFilterEmpty'),
+        actionLabel: t(context).tr('routesFilterClear'),
+        onAction: _clearFilters,
+        actionInk: true,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
       child: Column(
@@ -928,6 +1056,95 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
             final dv = tDist ?? RangeValues(dMin, dMax);
             final tv = tDur ?? RangeValues(tMin, tMax);
 
+            // Akce sdílené starým i v2 vzhledem (kill-switch) — těla beze změny.
+            // Reset teď filtry i APLIKUJE a sheet zavře. Dřív vynuloval jen
+            // pracovní kopie, takže po zavření gestem zůstaly filtry beze
+            // změny a vypadalo to, že „zrušit filtry" nefunguje.
+            void clear() {
+              _clearFilters();
+              Navigator.of(sheetCtx).pop();
+            }
+
+            void toggleMore() => setSheet(() => moreCountries = !moreCountries);
+
+            Future<void> toggleApproach() async {
+              if (!tApproach && me == null) {
+                // Stejná pojistka jako u „Zrušit filtry":
+                // na odpojené obrazovce už `ref` nesmí nikdo
+                // použít (sheet ji přežije).
+                if (!mounted) return;
+                final ok = await ensureLocation(ref, context: sheetCtx);
+                if (!ok || !sheetCtx.mounted) return;
+              }
+              setSheet(() {
+                tApproach = !tApproach;
+                // Rozsah se přepnutím změní — hodnoty mimo
+                // nové meze by RangeSlider shodily.
+                tDist = null;
+                tDur = null;
+              });
+            }
+
+            void apply() {
+              // Sheet přežije odpojení obrazovky (typicky návrat
+              // appky z pozadí), takže tohle `setState` mohlo
+              // běžet nad už uvolněným State → pád
+              // „Null check operator used on a null value"
+              // (hlášeno z 4.0.0+103). Sheet zavřeme vždy,
+              // stav měníme jen když je obrazovka živá.
+              if (!mounted) {
+                Navigator.of(sheetCtx).pop();
+                return;
+              }
+              ref
+                  .read(placesFilterProvider.notifier)
+                  .update((f) => f.copyWith(countries: {...tCountry}));
+              setState(() {
+                // Plný rozsah = žádný filtr.
+                final td = tDist;
+                final tt = tDur;
+                final fullD =
+                    td == null || (td.start <= dMin && td.end >= dMax);
+                final fullT =
+                    tt == null || (tt.start <= tMin && tt.end >= tMax);
+                // Osy jsou svázané: když je jedna na plném
+                // rozsahu, dopočítaná druhá nesmí zůstat viset
+                // jako skrytý filtr, o kterém uživatel neví.
+                _fDist = (fullD || fullT) ? null : td;
+                _fDur = (fullD || fullT) ? null : tt;
+                _withApproach = tApproach;
+              });
+              Navigator.of(sheetCtx).pop();
+            }
+
+            if (MgV2.on(sheetCtx)) {
+              RtOpt cc(String c, String label) =>
+                  RtOpt(label, tCountry.contains(c), () => toggleCountry(c));
+              final ds = '${dv.start.round()}', de = '${dv.end.round()}';
+              final ts = _fmtDur(tv.start.round()), te = _fmtDur(tv.end.round());
+              return RoutesFilterSheetV2(
+                countriesTop: [for (final c in split.top) cc(c, countryChipLabel(c))],
+                countriesRest: [for (final c in split.rest) cc(c, countryFullLabel(c, lang))],
+                moreCountries: moreCountries,
+                onMoreCountries: toggleMore,
+                dist: hasDist
+                    ? RtRange(min: dMin, max: dMax, values: dv, labels: RangeLabels(ds, de),
+                        valueText: '$ds–$de km', onChanged: setDist)
+                    : null,
+                dur: hasDur
+                    ? RtRange(min: tMin, max: tMax, values: tv, labels: RangeLabels(ts, te),
+                        valueText: '$ts–$te', onChanged: setDur)
+                    : null,
+                approach: hasDist
+                    ? RtOpt(t(sheetCtx).tr('routesFilterWithApproach'), tApproach, toggleApproach,
+                        icon: MgIcons.moto)
+                    : null,
+                count: count,
+                onApply: apply,
+                onClear: clear,
+              );
+            }
+
             return SafeArea(
               top: false,
               child: Padding(
@@ -940,6 +1157,21 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
                       child: Row(
                         children: [
+                          // v2: titulek zabere zbytek řádku a zalomí se, „Zrušit
+                          // filtry" zůstane celé (de / fr / uk přetékalo).
+                          if (MgV2.on(sheetCtx))
+                            Expanded(
+                              child: Text(
+                                t(sheetCtx).tr('routesFilterTitle'),
+                                style: const TextStyle(
+                                  fontSize: MotoGoTypo.sizeH2,
+                                  fontWeight: MotoGoTypo.w900,
+                                  color: MotoGoColors.black,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                            )
+                          else ...[
                           Text(
                             t(sheetCtx).tr('routesFilterTitle'),
                             style: const TextStyle(
@@ -950,16 +1182,11 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                             ),
                           ),
                           const Spacer(),
-                          // Reset teď filtry i APLIKUJE a sheet zavře. Dřív
-                          // vynuloval jen pracovní kopie, takže po zavření
-                          // gestem zůstaly filtry beze změny a vypadalo to,
-                          // že „zrušit filtry" nefunguje.
+                          ],
+                          // Reset (filtry i APLIKUJE a sheet zavře) — viz clear().
                           PressableScale(
                             pressedScale: 0.94,
-                            onTap: () {
-                              _clearFilters();
-                              Navigator.of(sheetCtx).pop();
-                            },
+                            onTap: clear,
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
                               child: Row(
@@ -999,7 +1226,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                                 _selChip(
                                   '${moreCountries ? '▲' : '▼'} ${t(sheetCtx).tr('routesFilterMoreCountries')} (${split.rest.length})',
                                   false,
-                                  () => setSheet(() => moreCountries = !moreCountries),
+                                  toggleMore,
                                 ),
                             ]),
                             AnimatedSize(
@@ -1067,23 +1294,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                             _selChip(
                               '🏍️ ${t(sheetCtx).tr('routesFilterWithApproach')}',
                               tApproach,
-                              () async {
-                                if (!tApproach && me == null) {
-                                  // Stejná pojistka jako u „Zrušit filtry":
-                                  // na odpojené obrazovce už `ref` nesmí nikdo
-                                  // použít (sheet ji přežije).
-                                  if (!mounted) return;
-                                  final ok = await ensureLocation(ref, context: sheetCtx);
-                                  if (!ok || !sheetCtx.mounted) return;
-                                }
-                                setSheet(() {
-                                  tApproach = !tApproach;
-                                  // Rozsah se přepnutím změní — hodnoty mimo
-                                  // nové meze by RangeSlider shodily.
-                                  tDist = null;
-                                  tDur = null;
-                                });
-                              },
+                              toggleApproach,
                             ),
                           ],
                         ],
@@ -1095,37 +1306,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                       padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
                       child: PressableScale(
                         pressedScale: 0.98,
-                        onTap: () {
-                          // Sheet přežije odpojení obrazovky (typicky návrat
-                          // appky z pozadí), takže tohle `setState` mohlo
-                          // běžet nad už uvolněným State → pád
-                          // „Null check operator used on a null value"
-                          // (hlášeno z 4.0.0+103). Sheet zavřeme vždy,
-                          // stav měníme jen když je obrazovka živá.
-                          if (!mounted) {
-                            Navigator.of(sheetCtx).pop();
-                            return;
-                          }
-                          ref
-                              .read(placesFilterProvider.notifier)
-                              .update((f) => f.copyWith(countries: {...tCountry}));
-                          setState(() {
-                            // Plný rozsah = žádný filtr.
-                            final td = tDist;
-                            final tt = tDur;
-                            final fullD =
-                                td == null || (td.start <= dMin && td.end >= dMax);
-                            final fullT =
-                                tt == null || (tt.start <= tMin && tt.end >= tMax);
-                            // Osy jsou svázané: když je jedna na plném
-                            // rozsahu, dopočítaná druhá nesmí zůstat viset
-                            // jako skrytý filtr, o kterém uživatel neví.
-                            _fDist = (fullD || fullT) ? null : td;
-                            _fDur = (fullD || fullT) ? null : tt;
-                            _withApproach = tApproach;
-                          });
-                          Navigator.of(sheetCtx).pop();
-                        },
+                        onTap: apply,
                         child: Container(
                           height: 52,
                           decoration: BoxDecoration(
@@ -1213,6 +1394,13 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   Widget _emptyState(BuildContext context) {
+    if (MgV2.on(context)) {
+      return TrasyEmptyV2(
+        icon: MgIcons.route,
+        title: t(context).tr('routesEmptyTitle'),
+        body: t(context).tr('routesEmptySub'),
+      );
+    }
     return ListView(
       children: [
         const SizedBox(height: 80),
@@ -1247,6 +1435,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   }
 
   Widget _errorState(BuildContext context, Object e) {
+    if (MgV2.on(context)) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: MgErrorView(
+          error: e,
+          what: t(context).tr('routesError'),
+          onRetry: () => ref.invalidate(routesDataProvider),
+        ),
+      );
+    }
     return ListView(
       children: [
         const SizedBox(height: 80),
@@ -1309,6 +1507,17 @@ class _RouteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return RouteCardV2(
+        route: route,
+        branch: branch,
+        lang: lang,
+        approach: approach,
+        onTap: onTap,
+        onReviews: () => showRouteReviewsSheet(context,
+            routeId: route.id, routeName: route.nameFor(lang)),
+      );
+    }
     final cover = route.cover;
     return PressableScale(
       pressedScale: 0.97,

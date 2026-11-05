@@ -17,6 +17,8 @@
 // dřív, vrátíme already_paid a NEposíláme druhý mail.
 import { respond } from './refusals.ts'
 import { applyChargeRounding } from '../_shared/charge-rounding.ts'
+// Měna (oprava 2026-11-05): potvrdit jen platbu v CZK (_shared/currency.ts).
+import { paymentCurrencyOk } from '../_shared/currency.ts'
 
 // deno-lint-ignore no-explicit-any
 type Sb = any
@@ -70,6 +72,15 @@ export async function verifyShopSession(body: Record<string, unknown>, deps: Ver
       (Number(session.amount_total ?? 0) === 0) // web objednávka celá pokrytá slevou
     if (session.payment_status !== 'paid' && !freeSession) {
       return respond(200, { success: false, payment_status: session.payment_status, status: session.status })
+    }
+    // Platba v jiné měně než CZK se nepotvrzuje (částka by se vzala jako Kč) — jen záznam; webhook ji také odmítne.
+    if (!freeSession && !paymentCurrencyOk(session.currency)) {
+      try {
+        await sb.from('debug_log').insert({ source: 'process-payment', action: 'non_czk_payment_ignored', component: 'voucher_checkout', status: 'error',
+          error_message: `Platba v měně ${String(session.currency)} — nepotvrzeno, prověřte ve Stripe (vratka).`,
+          request_data: { session_id: sid, order_id: orderId, currency: session.currency, amount_total: session.amount_total } })
+      } catch { /* ignore */ }
+      return respond(200, { success: false, error: 'non_czk', order_id: orderId })
     }
     const piId = typeof session.payment_intent === 'string'
       ? session.payment_intent

@@ -30,7 +30,9 @@ export { otherRefundableIntents }
 /** Vrátí `remainingHaleru` z ostatních plateb rezervace (po částech, nejstarší první).
  *  `leftHaleru` = co na nich po této vratce ještě zbývá (≠ 0 → vratka byla jen částečná). */
 export async function refundRemainder(stripe: OtherIntentsStripe, sb: Sb, a: {
-  bookingId: string; mainPi: string | null; mainRefundId: string; remainingHaleru: number; reason?: string | null
+  bookingId: string; mainPi: string | null; mainRefundId: string; remainingHaleru: number; reason?: string | null; nowMs?: number
+  /** další metadata vratky (storno: mg_cancel_at — identita storna, cancel-once.ts) */
+  metadata?: Record<string, string>
 }): Promise<{ refunds: ExtraRefund[]; refundedHaleru: number; leftHaleru: number; error?: string }> {
   const refunds: ExtraRefund[] = []
   let remaining = Math.max(0, Math.round(a.remainingHaleru))
@@ -38,9 +40,11 @@ export async function refundRemainder(stripe: OtherIntentsStripe, sb: Sb, a: {
   if (!remaining) return { refunds, refundedHaleru: 0, leftHaleru: 0 }
   let cands: Awaited<ReturnType<typeof otherRefundableIntents>> = []
   try {
-    cands = await otherRefundableIntents(stripe, sb, a.bookingId, a.mainPi, a.mainRefundId)
+    cands = await otherRefundableIntents(stripe, sb, a.bookingId, a.mainPi, a.mainRefundId, a.nowMs)
   } catch (e) {
-    return { refunds, refundedHaleru: 0, leftHaleru: 0, error: (e as Error).message }
+    // Oprava i1 (2026-11-05): nic se nevrátilo → nevrácený zbytek ZBÝVÁ (dřív leftHaleru 0 = „nic nezbývá“
+    // → refundedStatus zapsal 'refunded' a další storno volání skončilo v idempotentní větvi bez dovrácení).
+    return { refunds, refundedHaleru: 0, leftHaleru: remaining, error: (e as Error).message }
   }
   // Opakovaný dispatch téhož storna: k této hlavní vratce už vrácené (i z jiné platby) se nevrací znovu.
   const already = cands.reduce((s, c) => s + c.refundsForMain, 0)
@@ -52,7 +56,7 @@ export async function refundRemainder(stripe: OtherIntentsStripe, sb: Sb, a: {
     try {
       const r = await stripe.refunds.create({
         payment_intent: c.id, amount: amt, reason: 'requested_by_customer',
-        metadata: { mg_source: 'process-refund', mg_reason: a.reason || '', mg_booking_id: a.bookingId, mg_part: 'remainder', mg_main_refund: a.mainRefundId },
+        metadata: { ...(a.metadata || {}), mg_source: 'process-refund', mg_reason: a.reason || '', mg_booking_id: a.bookingId, mg_part: 'remainder', mg_main_refund: a.mainRefundId },
       }, { idempotencyKey: `refund-rest:${a.mainRefundId}:${c.id}:${amt}` })
       refunds.push({ piId: c.id, refundId: r.id, amountHaleru: Number(r.amount ?? amt), status: String(r.status || 'succeeded') })
       remaining -= amt
@@ -73,11 +77,11 @@ export async function pickMainIntent(stripe: OtherIntentsStripe, sb: Sb, a: {
   /** od opravy f2 bez vlivu (zákaznická vratka se přesměrovává stejně) */
   isCustomer?: boolean; amount: number | null | undefined
   /** uložená platba stojí mimo cenu rezervace (outsidePrice) → hledat i když z ní vracet jde */
-  force?: boolean
+  force?: boolean; nowMs?: number
 }): Promise<{ piId: string; refundableHaleru: number } | null> {
   if (!(Number(a.amount) > 0)) return null
   if (!a.force && !(a.chargedHaleru === 0 || a.refundableHaleru === 0)) return null
-  const cands = (await otherRefundableIntents(stripe, sb, a.bookingId, a.storedPi)).filter((c) => c.refundableHaleru > 0)
+  const cands = (await otherRefundableIntents(stripe, sb, a.bookingId, a.storedPi, null, a.nowMs)).filter((c) => c.refundableHaleru > 0)
   return cands.length ? { piId: cands[0].id, refundableHaleru: cands[0].refundableHaleru } : null
 }
 
@@ -108,7 +112,7 @@ export async function mainSource(stripe: OtherIntentsStripe, sb: Sb, a: {
   }
   if (!(a.chargedHaleru === 0 || a.refundableHaleru === 0 || outside)) return { kind: 'stored' }
   const main = await pickMainIntent(stripe, sb, { bookingId: a.bookingId, storedPi: a.storedPiId, chargedHaleru: a.chargedHaleru,
-    refundableHaleru: a.refundableHaleru, amount: a.amount, force: !!outside })
+    refundableHaleru: a.refundableHaleru, amount: a.amount, force: !!outside, nowMs: a.nowMs })
   if (main) return { kind: 'retarget', ...main, outside }
   return outside ? { kind: 'manual', outside } : { kind: 'stored' }
 }
@@ -155,7 +159,7 @@ export async function staffFullBalanceHaleru(stripe: OtherIntentsStripe, sb: Sb,
 }): Promise<number | null> {
   try {
     const stored = await storedInPriceHaleru(stripe, sb, { ...a, errAs: false })
-    const others = (await otherRefundableIntents(stripe, sb, a.bookingId, a.storedPi?.id || null)).reduce((s, c) => s + c.refundableHaleru, 0)
+    const others = (await otherRefundableIntents(stripe, sb, a.bookingId, a.storedPi?.id || null, null, a.nowMs)).reduce((s, c) => s + c.refundableHaleru, 0)
     return stored + others
   } catch (e) {
     console.warn('[process-refund] full balance failed:', (e as Error).message)
@@ -171,7 +175,7 @@ export async function customerCapHaleru(stripe: OtherIntentsStripe, sb: Sb, a: {
     const stored = await storedInPriceHaleru(stripe, sb, { bookingId: a.bookingId, storedPi: p, storedRefunds: a.storedRefunds, nowMs: a.nowMs })
     let others = 0
     try {
-      others = (await otherRefundableIntents(stripe, sb, a.bookingId, p?.id || null)).reduce((s, c) => s + c.refundableHaleru, 0)
+      others = (await otherRefundableIntents(stripe, sb, a.bookingId, p?.id || null, null, a.nowMs)).reduce((s, c) => s + c.refundableHaleru, 0)
     } catch (e) { console.warn('[process-refund] customer cap: other payments failed:', (e as Error).message) }
     return Math.max(0, stored + others - Math.round((Number(a.totalPrice) || 0) * 100))
   } catch (e) {

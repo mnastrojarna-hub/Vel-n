@@ -21,6 +21,9 @@ import 'route_image.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_detail_view_v2.dart';
+import 'v2/rides/ride_dialogs_v2.dart';
 
 /// Detail projeté jízdy — mapa se stopou, statistiky, zastávky s fotkami
 /// a popisky (přidat / upravit / smazat), přepínač sdílení a export na
@@ -100,7 +103,9 @@ class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
     );
   }
 
-  Widget _missing(BuildContext context) => Scaffold(
+  Widget _missing(BuildContext context) => MgV2.on(context)
+      ? RideMissingV2(onBack: () => context.backOr('/my-experiences'))
+      : Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: SafeArea(
           child: Center(
@@ -180,7 +185,9 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
     final desc = TextEditingController(text: ride.description ?? '');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
+      builder: (c) => MgV2.on(c)
+          ? rideEditDialogV2(c, name, desc)
+          : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(c).tr('rideEditTitle'),
             style: const TextStyle(
@@ -235,7 +242,9 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
             : 'rpDeleteRecordingOwnQ');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
+      builder: (c) => MgV2.on(c)
+          ? rideConfirmDeleteV2(c, title: t(c).tr('rideDeleteConfirm'), body: warn ?? ride.name)
+          : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(c).tr('rideDeleteConfirm'),
             style: const TextStyle(
@@ -280,6 +289,21 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 (PLAN §2.7): stejná jízda a stejné akce, nový vzhled.
+    if (MgV2.on(context)) {
+      return RideDetailViewV2(
+        ride: ride,
+        busy: _busy,
+        onBack: () => context.backOr('/my-experiences'),
+        onEdit: _editTexts,
+        onShare: () => showRideShareSheet(context, ride),
+        onDelete: _delete,
+        onMapTap: _addStop,
+        onPointTap: (i) => _editPoint(ride.points[i]),
+        onEditPoint: _editPoint,
+        onVisibility: _toggleVisibility,
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: SafeArea(

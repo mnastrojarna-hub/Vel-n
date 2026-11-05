@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../loyalty/loyalty_leaderboard_provider.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../profile/v2/sheets/profile_dialogs_v2.dart';
 
 const _nicknameKey = 'mg_pilot_nickname';
 
@@ -64,7 +66,32 @@ void showNicknameDialog(
 
   showDialog(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) {
+      // Akce sdílené starým i v2 vzhledem (kill-switch app_v2_ui) — těla beze změny.
+      void onReset() {
+            ref.read(nicknameProvider.notifier).clearNickname();
+            Navigator.of(ctx).pop();
+          }
+      void onOk() {
+            final value = controller.text.trim();
+            if (value.isNotEmpty) {
+              ref.read(nicknameProvider.notifier).setNickname(value);
+            }
+            Navigator.of(ctx).pop();
+          }
+      if (MgV2.on(ctx)) {
+        return NicknameDialogV2(
+          title: t(context).tr('editNickname'),
+          controller: controller,
+          hint: firstName,
+          resetLabel: t(context).tr('homeFilterReset'),
+          cancelLabel: t(context).cancel,
+          onReset: onReset,
+          onCancel: () => Navigator.of(ctx).pop(),
+          onOk: onOk,
+        );
+      }
+      return AlertDialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       title: Text(
@@ -94,10 +121,7 @@ void showNicknameDialog(
       ),
       actions: [
         TextButton(
-          onPressed: () {
-            ref.read(nicknameProvider.notifier).clearNickname();
-            Navigator.of(ctx).pop();
-          },
+          onPressed: onReset,
           child: Text(t(context).tr('homeFilterReset'),
               style: TextStyle(color: Colors.black.withValues(alpha: 0.5))),
         ),
@@ -108,18 +132,13 @@ void showNicknameDialog(
               style: TextStyle(color: Colors.black.withValues(alpha: 0.5))),
         ),
         TextButton(
-          onPressed: () {
-            final value = controller.text.trim();
-            if (value.isNotEmpty) {
-              ref.read(nicknameProvider.notifier).setNickname(value);
-            }
-            Navigator.of(ctx).pop();
-          },
+          onPressed: onOk,
           child: const Text('OK',
               style: TextStyle(
                   color: MotoGoColors.green, fontWeight: FontWeight.w800)),
         ),
       ],
-    ),
+    );
+    },
   );
 }

@@ -16,6 +16,10 @@ import { refundLatePaymentOnCancelled } from './late-payment.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { prepareExtensionPayment, refundDuplicateCharges, markPaidAfterChange } from './extension-payment.ts'
 import { syncRefundBooking, webhookRecoveryBody } from '../_shared/refund-recovery.ts'
+// Storno z více plateb (2026-11-05): částka pojistného storno mailu + „jen část větší vratky" (cancel-mail-amount.ts).
+import { cancellationMailRefundCzk, partOfLargerRefund } from './cancel-mail-amount.ts'
+// Měna (oprava 2026-11-05): potvrzuje se jen platba v CZK (_shared/currency.ts).
+import { paymentCurrencyOk } from '../_shared/currency.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -138,6 +142,32 @@ async function roundingRetry(supabase: any, ref: string | null, id: string): Pro
   })
 }
 
+/** Platba v jiné měně než CZK (oprava 2026-11-05): process-payment ji už nezaloží (odmítá
+ *  `currency` ≠ czk), takže jde o starší / podvržený požadavek — rezervaci ani objednávku
+ *  NEpotvrzovat (částka by se brala jako Kč), jen záznam + e-mail obsluze (vratka ve Stripe).
+ *  200 = Stripe událost neopakuje. */
+// deno-lint-ignore no-explicit-any
+async function nonCzkIgnored(supabase: any, eventType: string, id: string, currency: unknown, amount: unknown,
+  md: Record<string, string>): Promise<Response> {
+  const data = { event_type: eventType, id, currency: String(currency ?? ''), amount, booking_id: md.booking_id || null,
+    order_id: md.order_id || null, type: md.type || null }
+  try {
+    await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'non_czk_payment_ignored', component: 'stripe',
+      status: 'error', error_message: `Platba v měně ${String(currency ?? '')} — nepotvrzeno, prověřte ve Stripe (vratka).`, request_data: data })
+  } catch { /* ignore */ }
+  try {
+    const url = Deno.env.get('SUPABASE_URL') ?? ''
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    await fetch(`${url}/functions/v1/send-email`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, apikey: key },
+      body: JSON.stringify({ to: 'info@motogo24.cz', subject: `⚠️ Platba v cizí měně (${String(currency ?? '')}) — nepotvrzeno`,
+        raw_html: `<p style="margin:0 0 8px">Stripe doručil ${eventType} ${id} v měně ${String(currency ?? '')} (částka ${String(amount ?? '')} v nejmenších jednotkách měny) k ${md.type || 'booking'} ${md.booking_id || md.order_id || '—'}.</p>`
+          + '<p style="margin:0">Platby přijímáme jen v CZK — rezervace / objednávka NEBYLA potvrzena. Prověřte platbu ve Stripe a vraťte ji.</p>' }),
+    })
+  } catch { /* ignore */ }
+  return new Response(JSON.stringify({ received: true, ignored: 'non_czk' }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } })
+}
+
 /** Byl řádek zaplacený už PŘED touto událostí? (pak jde o druhou událost téže platby,
  *  nebo o druhou platbu — refundDuplicateCharges rozliší podle Stripe). */
 // deno-lint-ignore no-explicit-any
@@ -213,6 +243,10 @@ Deno.serve(async (req: Request) => {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session
       const metadata = session.metadata || {}
+      // Platba v jiné měně než CZK → nepotvrzovat (setup session bez platby měnu nemá).
+      if (session.mode !== 'setup' && !paymentCurrencyOk(session.currency)) {
+        return await nonCzkIgnored(supabase, event.type, session.id, session.currency, session.amount_total, metadata as Record<string, string>)
+      }
       let paymentType = metadata.type || 'booking'
       let resolvedOrderId: string | null = metadata.order_id || null
       let resolvedBookingId: string | null = metadata.booking_id || null
@@ -355,6 +389,10 @@ Deno.serve(async (req: Request) => {
     } else if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       const metadata = paymentIntent.metadata || {}
+      // Platba v jiné měně než CZK → nepotvrzovat (částka by se vzala jako Kč).
+      if (!paymentCurrencyOk(paymentIntent.currency)) {
+        return await nonCzkIgnored(supabase, event.type, paymentIntent.id, paymentIntent.currency, paymentIntent.amount, metadata as Record<string, string>)
+      }
       let paymentType = metadata.type || 'booking'
       let resolvedOrderId: string | null = metadata.order_id || null
       let resolvedBookingId: string | null = metadata.booking_id || null
@@ -368,8 +406,15 @@ Deno.serve(async (req: Request) => {
           if (shopMatch?.id) { resolvedOrderId = shopMatch.id; paymentType = 'shop' }
           else {
             const { data: bkMatch } = await supabase.from('bookings')
-              .select('id').eq('stripe_payment_intent_id', paymentIntent.id).maybeSingle()
-            if (bkMatch?.id) { resolvedBookingId = bkMatch.id; paymentType = 'booking' }
+              .select('id, payment_status').eq('stripe_payment_intent_id', paymentIntent.id).maybeSingle()
+            // Oprava i1 (2026-11-05): PI bez metadat = platba REZERVACE jen u dosud nezaplacené rezervace — uložený
+            // doplatek úpravy (prepareExtensionPayment) u zaplacené / částečně vrácené rezervace by ji jinak
+            // „potvrdil“ (partial_refund → paid + druhý mail booking_reserved).
+            if (bkMatch?.id && bkMatch.payment_status === 'unpaid') { resolvedBookingId = bkMatch.id; paymentType = 'booking' }
+            else if (bkMatch?.id) {
+              await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'pi_fallback_skipped_not_unpaid', component: 'stripe', status: 'info',
+                request_data: { booking_id: bkMatch.id, payment_intent_id: paymentIntent.id, payment_status: bkMatch.payment_status } }).then(() => {}, () => {})
+            }
           }
         } catch (e) { console.warn('[webhook] PI fallback lookup failed:', e) }
       }
@@ -640,6 +685,10 @@ Deno.serve(async (req: Request) => {
           //    read-then-write přepsal mezitím zapsané 'partial_refund' na 'refunded');
           //    'refund_pending' nepřepisuje; stripe_refund_id jen do prázdného. Viz syncRefundBooking.
           const fromProcessRefund = latestSource === 'process-refund'
+          // Více plateb (2026-11-05): naše vratka je jen ČÁST větší vratky (zbytek jde z jiných plateb
+          // rezervace — mg_target > částka, nebo je sama zbytkem) → zástupný stav jen partial_refund; konečný
+          // stav zapíše process-refund (normálně hned po zbytku, po pádu recovery / další storno volání).
+          const partOfLarger = fromProcessRefund && partOfLargerRefund(latestRefund as any)
           const cancelPatch: Record<string, any> | null = shouldCancel ? {
             status: 'cancelled',
             cancelled_at: new Date().toISOString(),
@@ -650,7 +699,7 @@ Deno.serve(async (req: Request) => {
           } : null
           await syncRefundBooking(supabase, {
             bookingId: linkedBooking.id, currentStatus: linkedBooking.payment_status, currentRefundId: linkedBooking.stripe_refund_id,
-            fromProcessRefund, fullyRefunded, refundId: latestRefund?.id || null, cancelPatch,
+            fromProcessRefund, fullyRefunded: fullyRefunded && !partOfLarger, refundId: latestRefund?.id || null, cancelPatch,
           })
 
           await supabase.from('debug_log').insert({
@@ -675,14 +724,24 @@ Deno.serve(async (req: Request) => {
           //    PODRUHÉ celý zbytek uložené platby. U externího ČÁSTEČNÉHO refundu nevoláme —
           //    dobropis k ručnímu vystavení (viz debug_log warning výše).
           if (internalRefund || fullyRefunded) {
-            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-refund`, {
+            const rec = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-refund`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
               },
               body: JSON.stringify(webhookRecoveryBody(linkedBooking.id, latestRefund?.id || null)),
-            }).catch(e => console.warn('Webhook process-refund recovery failed:', e?.message))
+            }).catch(e => { console.warn('Webhook process-refund recovery failed:', e?.message); return null })
+            // Oprava i1 (2026-11-05): storno z více plateb s nevráceným zbytkem, jehož dokončení drží zámek jiného
+            // (možná zabitého) volání → process-refund odpoví 503 → Stripe událost doručí znovu po vypršení zámku a
+            // recovery zbytek dovrátí (dřív zůstal natrvalo nevrácený bez jediného dalšího pokusu).
+            if (rec && rec.status === 503) {
+              retryNeeded = true
+              await supabase.from('debug_log').insert({
+                source: 'webhook-receiver', action: 'charge_refunded_recovery_deferred', component: 'stripe', status: 'warning',
+                request_data: { booking_id: linkedBooking.id, refund_id: latestRefund?.id || null },
+              }).then(() => {}, () => {})
+            }
           }
 
           // 3) Storno mail s dobropisem — JEN když je rezervace zrušená (teď
@@ -712,6 +771,10 @@ Deno.serve(async (req: Request) => {
           if ((shouldCancel || alreadyCancelled) && linkedBooking.profiles?.email && !stornoMailCoversRefund) {
             // Jazyk zákazníka explicitně; undefined → send-cancellation-email dohledá sám.
             const language = await resolveBookingLanguage(supabase, linkedBooking.id)
+            // Naše storno vratka z více plateb: částka celého storna (mg_cancel_total), ne jen této charge.
+            const stornoCzk = shouldCancel ? null : await cancellationMailRefundCzk(stripe as any, latestRefund as any)
+            const mailCzk = stornoCzk ?? refundCzk
+            const mailPct = stornoCzk == null ? refundPct : (total > 0 ? Math.round((mailCzk / total) * 100) : 0)
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-cancellation-email`, {
               method: 'POST',
               headers: {
@@ -729,8 +792,8 @@ Deno.serve(async (req: Request) => {
                   ? (refundReason ? `Refund přes Stripe portál (${refundReason})` : 'Refund přes Stripe portál')
                   : (linkedBooking.cancellation_reason || 'Storno rezervace'),
                 cancelled_by_source: shouldCancel ? 'stripe_portal' : (linkedBooking.cancelled_by_source || 'customer'),
-                refund_amount: refundCzk,
-                refund_percent: refundPct,
+                refund_amount: mailCzk,
+                refund_percent: mailPct,
                 // HOTFIX storno 2026-10-29: peníze z této události už se vrátily (Stripe) — mail nesmí
                 // spustit další vratku (dřív: ruční vratka v dashboardu po stornu 0 % / nové cancelled_at
                 // → druhá reálná vratka). Dobropis dohledá/dohraje attach smyčka (jen recovery).

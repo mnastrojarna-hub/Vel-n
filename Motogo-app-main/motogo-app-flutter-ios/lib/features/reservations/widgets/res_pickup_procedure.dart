@@ -8,6 +8,8 @@ import '../../../core/widgets/collapsible_section.dart';
 import '../booking_gate_provider.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_procedure_v2.dart';
 
 /// „Postup při vyzvednutí“ v detailu rezervace na SAMOOBSLUŽNÉ pobočce
 /// (zadání majitele 2026-10-04): rozklikávací (výchozí zabalený) postup bod po
@@ -65,6 +67,14 @@ class ResPickupProcedure extends ConsumerWidget {
       ] else
         tr.tr('procStep2NoGear'),
     ];
+    // v2 vzhled (kill-switch app_v2_ui): tytéž kroky, otevírané z CO TEĎ.
+    if (MgV2.on(context)) {
+      return ResProcedureV2(
+        gateTitle: gate.hasGate ? tr.tr('gateProcTitle') : null,
+        steps: steps,
+        important: gate.hasGate ? tr.tr('procStepImportant') : null,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: CollapsibleSection(

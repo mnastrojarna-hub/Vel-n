@@ -18,6 +18,8 @@ import 'sos_here_address.dart';
 import 'sos_provider.dart';
 import 'sos_replacement_motos.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// Adresa přistavení náhrady = text, který zákazník v poli vidí (i ručně
 /// doplněné číslo domu nebo opravená GPS ulice); null = pole je prázdné.
@@ -168,7 +170,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
     final motosAsync = ref.watch(sosReplacementMotosProvider);
 
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: Column(
           children: [
@@ -183,12 +185,12 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
-                    MgBackTap(
+                    mgV1Back(context, onTap: () => context.backOr(Routes.home), style: MgBackStyle.dark, v1: MgBackTap(
                       onTap: () => context.backOr(Routes.home),
                       child: Container(width: 36, height: 36,
                         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
                         child: const Center(child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)))),
-                    ),
+                    )),
                     const SizedBox(width: 12),
                     Expanded(child: Text('🏍️ ${t(context).tr('replacementFree')}',
                       maxLines: 2, overflow: TextOverflow.ellipsis,

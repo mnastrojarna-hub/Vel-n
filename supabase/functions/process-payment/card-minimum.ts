@@ -42,6 +42,15 @@ export function classifyDue(due: number, amount: number, cardMin: boolean): DueC
   return { kind: 'below', due: d, charge: CARD_MIN_CZK, rounding: d <= WAIVE_MAX_CZK ? round2(-d) : round2(CARD_MIN_CZK - d) }
 }
 
+/** Platba v celých Kč u ceny s haléři (15,40 → 15; 14,60 → 15): rozdíl „zaplaceno − cena“ jako zaokrouhlení na dokladu.
+ *  Oprava i1 (2026-11-05): i rozdíl PŘESNĚ 1 Kč (tolerance ±1 u rezervace / doplatku) — dřív se zapsal jen |sub| < 1,
+ *  takže 16 Kč cena zaplacená 15 Kč měla doklad o 1 Kč jiný než stržení. null = nic k zápisu (0, nebo víc než 1 Kč =
+ *  rozhoduje kontrola částky volajícího). */
+export function wholeCrownRounding(amountCzk: number, dueCzk: number): number | null {
+  const sub = round2(Math.round((Number(amountCzk) || 0) * 100) / 100 - (Number(dueCzk) || 0))
+  return sub !== 0 && Math.abs(sub) <= 1 ? sub : null
+}
+
 /** Chybí sloupec card_rounding (SQL 20261016p1 ještě nenasazené)? */
 export function isMissingColumn(e: { code?: string | null; message?: string | null } | null | undefined): boolean {
   return /42703|PGRST204|card_rounding/i.test(`${e?.code || ''} ${e?.message || ''}`)

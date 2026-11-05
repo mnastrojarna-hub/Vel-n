@@ -14,6 +14,8 @@ import 'ride_recorder.dart';
 import 'ride_trip.dart' show rideDateRange;
 
 export 'ride_trip.dart' show rideDateRange;
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_card_v2.dart';
 
 /// Karta jedné projeté jízdy v seznamu („Moje zážitky" i detail výpůjčky):
 /// náhled stopy na mapě + název, datum (u vícedenní jízdy rozsah a počet
@@ -34,6 +36,10 @@ class RideCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // v2: stejná data i klepnutí, nový vzhled (PLAN §2.7).
+    if (MgV2.on(context)) {
+      return RideCardV2(ride: ride, onTap: onTap, siblingIds: siblingIds);
+    }
     final hasMap = ride.mapPoints.length >= 2;
     final rec = ref.watch(rideRecorderProvider);
     // Právě nahrávaná jízda ukáže fázi záznamu (nahrává / čeká / pozastaveno);

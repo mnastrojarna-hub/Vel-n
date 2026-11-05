@@ -10,6 +10,8 @@ import 'sos_feedback.dart';
 import 'sos_location.dart';
 import 'sos_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
 
 /// "Motorka nepojízdná" screen for accidents — mirrors s-sos-nepojizda.
 /// Shows fault decision (zaviněná/nezaviněná) + action cards.
@@ -113,7 +115,7 @@ class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -219,14 +221,14 @@ class _SosImmobileState extends ConsumerState<SosImmobileScreen> {
           Text(t(context).tr('motoImmobile'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
           Text(t(context).tr('cannotContinueRide'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
         ])),
-        MgBackTap(
+        mgV1Back(context, onTap: () => context.backOr(Routes.sos), style: MgBackStyle.light, v1: MgBackTap(
           onTap: () => context.backOr(Routes.sos),
           child: Container(
             width: 36, height: 36,
             decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
             child: const Center(child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black))),
           ),
-        ),
+        )),
       ]),
     );
   }

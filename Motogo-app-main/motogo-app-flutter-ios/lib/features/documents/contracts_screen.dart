@@ -23,6 +23,8 @@ import 'doc_open_runner.dart';
 import '../../core/date_days.dart';
 import '../../core/booking_rules.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/contracts_view_v2.dart';
 
 /// Company constant — mirrors COMPANY from documents.js.
 const _company = (
@@ -41,17 +43,33 @@ class ContractsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final docsAsync = ref.watch(contractsProvider);
 
-    return Scaffold(
-      backgroundColor: MotoGoColors.bg,
-      appBar: AppBar(
-        leading: MgBackTap(
-          onTap: () {
+    void onBack() {
             if (context.canPop()) {
               context.pop();
             } else {
               context.go(Routes.profile);
             }
-          },
+          }
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejné dokumenty i prohlížeče.
+    if (MgV2.on(context)) {
+      return ContractsViewV2(
+        docsAsync: docsAsync,
+        contractsOf: _contractsOf,
+        onBack: onBack,
+        onVop: () => _showVop(context),
+        onGdpr: () => _showGdpr(context),
+        onDamageSample: () => _showTemplateSample(context, 'damage_protocol', t(context).tr('damageProtocol')),
+        onOpenDoc: (d) => _openDoc(context, d),
+        onRetry: () => ref.invalidate(contractsProvider),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: MotoGoColors.bg,
+      appBar: AppBar(
+        leading: MgBackTap(
+          onTap: onBack,
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -90,7 +108,7 @@ class ContractsScreen extends ConsumerWidget {
           ),
           ...docsAsync.when(
             data: (docs) {
-              final contracts = docs.where((d) => ['contract', 'protocol', 'protocol_damage', 'vop'].contains(d.type)).toList();
+              final contracts = _contractsOf(docs);
               debugPrint('[CONTRACTS_SCREEN] Total docs: ${docs.length}, filtered contracts: ${contracts.length}');
               return [
                 if (contracts.isEmpty)
@@ -129,6 +147,10 @@ class ContractsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  /// Smlouvy / protokoly / VOP ze seznamu dokumentů (sdílené oběma vzhledy).
+  static List<UserDocument> _contractsOf(List<UserDocument> docs) =>
+      docs.where((d) => ['contract', 'protocol', 'protocol_damage', 'vop'].contains(d.type)).toList();
 
   Future<void> _showVop(BuildContext context) async {
     await showLegalDocument(context, 'vop');

@@ -114,12 +114,12 @@ async function historyIntents(stripe: BookingIntentsStripe, sb: Sb, bookingId: s
   return out
 }
 
-/** Ostatní úspěšné platby rezervace s tím, co z nich ještě jde vrátit (haléře), nejstarší první.
- *  `mainRefundId` → `refundsForMain` = kolik se z platby už vrátilo jako zbytek TÉTO hlavní vratky
- *  (metadata mg_main_refund) — opakovaný dispatch téhož storna ho od požadavku odečte. */
-export async function otherRefundableIntents(stripe: BookingIntentsStripe, sb: Sb, bookingId: string, mainPi: string | null,
-  mainRefundId: string | null = null): Promise<Candidate[]> {
-  if (!UUID_RX.test(bookingId)) return []
+/** Úspěšné platby rezervace kromě `mainPi` (Stripe search podle metadata.booking_id + platby z historie
+ *  úprav), bez e-shopu a duplicit, nejstarší první; `history` = zapsané platby (pro outsidePrice).
+ *  Sdílí otherRefundableIntents a process-refund/cancel-once-pool.ts (vratky storna přes VŠECHNY platby
+ *  rezervace — i vyčerpané, ze kterých už vracet nejde). */
+export async function bookingIntents(stripe: BookingIntentsStripe, sb: Sb, bookingId: string, mainPi: string | null): Promise<{ rows: IntentLike[]; history: string[] }> {
+  if (!UUID_RX.test(bookingId)) return { rows: [], history: [] }
   const found = await stripe.paymentIntents.search({ query: `metadata['booking_id']:'${bookingId}' AND status:'succeeded'`, limit: 100 })
   const all: IntentLike[] = [...(found?.data || [])]
   const known = new Set(all.map((p) => p.id))
@@ -132,9 +132,19 @@ export async function otherRefundableIntents(stripe: BookingIntentsStripe, sb: S
     && (p.metadata || {}).booking_id === bookingId && ((p.metadata || {}).type || 'booking') !== 'shop'
     && !(p.metadata || {}).duplicate_of)
   rows.sort((a, b) => (Number(a.created || 0) - Number(b.created || 0)) || (a.id < b.id ? -1 : 1))
+  return { rows, history }
+}
+
+/** Ostatní úspěšné platby rezervace s tím, co z nich ještě jde vrátit (haléře), nejstarší první.
+ *  `mainRefundId` → `refundsForMain` = kolik se z platby už vrátilo jako zbytek TÉTO hlavní vratky
+ *  (metadata mg_main_refund) — opakovaný dispatch téhož storna ho od požadavku odečte.
+ *  `nowMs` = „teď" pro stáří čekajícího doplatku (outsidePrice; testy), výchozí Date.now(). */
+export async function otherRefundableIntents(stripe: BookingIntentsStripe, sb: Sb, bookingId: string, mainPi: string | null,
+  mainRefundId: string | null = null, nowMs?: number): Promise<Candidate[]> {
+  const { rows, history } = await bookingIntents(stripe, sb, bookingId, mainPi)
   const out: Candidate[] = []
   for (const p of rows) {
-    if (await outsidePrice(sb, bookingId, p, { history })) continue
+    if (await outsidePrice(sb, bookingId, p, { history, nowMs })) continue
     const received = Number(p.amount_received || 0)
     if (!(received > 0)) continue
     let refunded = 0

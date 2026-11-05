@@ -120,8 +120,9 @@ Deno.test('cancel-once: zámek storno vratky přes claim_email_send(refund_cance
 
 const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/stripe@14').startsWith('file:') } catch { return false } })()
 const CAN_RUN = (() => { try { return Deno.permissions.querySync({ name: 'run' }).state === 'granted' } catch { return false } })()
-const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_once_flow_test.ts', './storno_hotfix_r1_flow_test.ts']
-const FLOW_MIN = 7 + 10 + 7 // počet flow testů (ubyl-li by některý, spouštěč selže)
+const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_once_flow_test.ts', './storno_hotfix_r1_flow_test.ts',
+  './storno_multi_intent_flow_test.ts'] // + vratka z více plateb (sloučení s dev f1–f3, 2026-11-05)
+const FLOW_MIN = 7 + 10 + 7 + 10 // počet flow testů (ubyl-li by některý, spouštěč selže)
 
 Deno.test({ name: 'storno hotfix: flow testy celých handlerů (podproces s import mapou storno-flow-map.json)', ignore: MAPPED || !CAN_RUN, fn: async () => {
   const p = (f: string) => new URL(f, import.meta.url).pathname

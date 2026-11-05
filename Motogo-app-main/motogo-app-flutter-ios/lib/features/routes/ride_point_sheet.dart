@@ -11,6 +11,8 @@ import '../../core/widgets/error_feedback.dart';
 import 'ride_model.dart';
 import 'ride_provider.dart';
 import 'route_image.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_point_sheet_v2.dart';
 
 /// Editor zastávky (bodu zájmu) na jízdě — název, popisek a fotky.
 /// Zastávku lze i smazat. Vrací true, když se něco uložilo / smazalo.
@@ -201,6 +203,25 @@ class _RidePointEditorState extends State<_RidePointEditor> {
   }
 
   Widget _buildSheet(BuildContext context) {
+    // v2: stejný stav, ovladače i akce — jen nový vzhled (PLAN §2.7).
+    if (MgV2.on(context)) {
+      return RidePointSheetV2View(
+        isNew: widget.point == null,
+        busy: _busy,
+        error: _error,
+        name: _name,
+        note: _note,
+        photos: _photos,
+        newPhotoPaths: [for (final x in _newPhotos) x.path],
+        maxPhotos: _maxPhotos,
+        onDelete: widget.point != null ? _delete : null,
+        onClose: _close,
+        onSave: _save,
+        onPick: _pick,
+        onRemovePhoto: (i) => setState(() => _photos.removeAt(i)),
+        onRemoveNew: (i) => setState(() => _newPhotos.removeAt(i)),
+      );
+    }
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),

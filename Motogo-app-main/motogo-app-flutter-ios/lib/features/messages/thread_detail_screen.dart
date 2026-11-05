@@ -12,6 +12,8 @@ import '../../core/widgets/state_views.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'messages_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/thread_view_v2.dart';
 
 /// Thread chat detail — mirrors s-messages-thread from templates-done-pages.js
 /// + renderThreadChat() from messages-ui.js.
@@ -141,6 +143,20 @@ class _ThreadDetailState extends ConsumerState<ThreadDetailScreen> {
             // Mark new messages as read on each refresh
             if (thread != null && thread.messages.any((m) => m.direction == 'admin' && m.readAt == null)) {
               markThreadRead(widget.threadId);
+            }
+
+            // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejný stav,
+            // realtime, odeslání i stavy (state) — jen jiný strom.
+            if (MgV2.on(context)) {
+              return ThreadViewV2(
+                thread: thread,
+                state: state,
+                sending: _sending,
+                replyCtrl: _replyCtrl,
+                scrollCtrl: _scrollCtrl,
+                onBack: _back,
+                onSend: _send,
+              );
             }
 
             return Scaffold(

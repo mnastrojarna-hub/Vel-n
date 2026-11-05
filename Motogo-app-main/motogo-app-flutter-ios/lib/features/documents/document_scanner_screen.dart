@@ -17,6 +17,8 @@ import 'docs_gate_provider.dart';
 import 'doc_scan_plan.dart';
 import '../auth/auth_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_back_v2.dart';
 
 // Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
 const String _kSupportPhone = '+420 774 256 271';
@@ -1162,7 +1164,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     )),
   );
 
-  Widget _backBtn(VoidCallback onTap) => MgBackTap(
+  Widget _backBtn(VoidCallback onTap) => MgV2.on(context)
+      // v2 vzhled zpět (kill-switch app_v2_ui) — stejná akce.
+      ? MgV2Back(onTap: onTap, style: MgBackStyle.dark)
+      : MgBackTap(
     onTap: onTap,
     child: Container(width: 36, height: 36,
         decoration: BoxDecoration(

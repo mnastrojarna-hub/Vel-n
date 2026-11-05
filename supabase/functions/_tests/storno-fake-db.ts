@@ -13,7 +13,8 @@ export class Db {
   users = new Map<string, { id: string }>() // token → uživatel
   files = new Map<string, Blob>()
   beforeUpdate: ((table: string, patch: Row) => void) | null = null
-  beforeInsert: ((table: string, row: Row) => void) | null = null
+  /** vrácený objekt { code, message } = INSERT selže jako v PostgreSQL (i1: unikátní index dobropisů) */
+  beforeInsert: ((table: string, row: Row) => void | { code?: string; message: string }) | null = null
   private n = 0
   constructor(tables: Record<string, Row[]>) { this.tables = tables }
   from(t: string) { return new Q(this, t) }
@@ -152,7 +153,7 @@ class Q implements PromiseLike<Res> {
         if (list.some((r) => all.some((x) => same(x[k], r[k])))) return this.finish([])
       }
       const made = list.map((r) => ({ id: crypto.randomUUID(), created_at: this.db.now(), ...r }))
-      for (const r of made) this.db.beforeInsert?.(this.table, r)
+      for (const r of made) { const e = this.db.beforeInsert?.(this.table, r); if (e && typeof e === 'object' && e.message) return { data: null, error: e } }
       all.push(...made)
       return this.finish(made.map((r) => ({ ...r })))
     }
