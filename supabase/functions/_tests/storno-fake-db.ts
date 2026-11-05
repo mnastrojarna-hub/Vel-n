@@ -122,6 +122,7 @@ class Q implements PromiseLike<Res> {
     return rows.map((r) => {
       const o: Row = {}
       for (const c of parts) {
+        if (c === '*') { Object.assign(o, r); continue } // `*, embed(...)` — všechny sloupce + embed (i1)
         const m = c.match(/^(?:(\w+):)?(\w+)(?:!(\w+))?\((.*)\)$/)
         if (!m) { o[c] = r[c]; continue }
         const [, alias, name, fk, sub] = m

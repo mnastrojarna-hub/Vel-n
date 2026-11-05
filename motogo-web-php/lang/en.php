@@ -1212,6 +1212,10 @@ return [
     'confirm.pending.reason5' => 'Internet connection dropped during the payment — no money was charged.',
     'confirm.pending.reason6' => 'You closed the Stripe Checkout window before the payment finished.',
     'confirm.pending.retry' => 'Retry payment',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace na /potvrzeni (platba vrácena automaticky)
+    'confirm.cancelledRefund.title' => 'The booking was cancelled in the meantime',
+    'confirm.cancelledRefund.text' => 'The booking was cancelled in the meantime (the payment deadline passed) and someone else booked the motorcycle, so the payment could not be assigned. We are refunding the payment to your card automatically (usually within 5–10 business days) – do not pay anything else.',
+    'confirm.cancelledRefund.cta' => 'New booking',
     'confirm.failed.title' => 'Payment failed',
     'confirm.failed.text1' => 'The bank or payment gateway rejected the payment and the transaction did not go through — nothing was charged from your account.',
     'confirm.failed.text2' => 'We have not confirmed the booking or order yet. Until the payment goes through, the bike and the date are still waiting for you.',

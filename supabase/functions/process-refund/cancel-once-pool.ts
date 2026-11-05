@@ -71,25 +71,25 @@ export async function cancellationRefundPool(stripe: BookingIntentsStripe, sb: S
   return { refunds, complete, error }
 }
 
-/** Dovrátí nevrácený zbytek storna `main` do mg_target; true = něco vrátil (stav + dobropis se dorovnají).
+/** Dovrátí nevrácený zbytek storna `main` do mg_target; vrací haléře vrácené TEĎ (0 = nic; stav + dobropis se dorovnají).
  *  Oprava i1 (2026-11-05): dovrací se jen to, co stornu JAKO CELKU chybí (cíl = mg_cancel_total nejnovější hlavní
  *  vratky — pozdější vědomá vratka obsluhy zbytek staré vratky pokryla); nic nechybí → starou vratku uzavřít.
  *  Neúplný pool (ostatní platby nečitelné) → nedovracet (chyběl by přehled, co už se vrátilo). */
 export async function completeCancelRemainder(stripe: PoolStripe, sb: Sb, a: {
   bookingId: string; main: StripeRefundLike; pool: StripeRefundLike[]; token: string; poolComplete?: boolean; dlog: Dlog
-}): Promise<boolean> {
+}): Promise<number> {
   const target = cancelTargetHaleru(a.main)
   const done = logicalRefundHaleru(a.main, a.pool)
-  if (target == null || done >= target) return false
+  if (target == null || done >= target) return 0
   if (a.poolComplete === false) {
     await a.dlog('cancellation_remainder_skipped_pool_incomplete', 'error', { refund_id: a.main.id, target_haleru: target, done_haleru: done })
-    return false
+    return 0
   }
   const missing = cancellationMissingHaleru(a.pool, a.bookingId, a.token)
   const want = missing == null ? target - done : Math.min(target - done, missing)
   if (want <= 0) {
     await closeStaleMain(stripe, { main: a.main, pool: a.pool, bookingId: a.bookingId, token: a.token, dlog: a.dlog, why: 'goal_reached' })
-    return false
+    return 0
   }
   const extra = await refundRemainder(stripe, sb, {
     // refundRemainder odečte, co se k této hlavní vratce už vrátilo (done − hlavní) → požadavek = to + chybějící
@@ -101,7 +101,7 @@ export async function completeCancelRemainder(stripe: PoolStripe, sb: Sb, a: {
     refund_id: a.main.id, target_haleru: target, before_haleru: done, wanted_haleru: want, missing_haleru: missing, refunded_now_haleru: fresh,
     extra: extra.refunds, left_haleru: extra.leftHaleru, error: extra.error || null,
   })
-  if (!(fresh > 0)) return false
+  if (!(fresh > 0)) return 0
   try {
     const { data } = await sb.from('invoices').select('id, number, total, items, notes')
       .eq('booking_id', a.bookingId).eq('type', 'credit_note').eq('stripe_refund_id', a.main.id).neq('status', 'cancelled').limit(1)
@@ -117,5 +117,5 @@ export async function completeCancelRemainder(stripe: PoolStripe, sb: Sb, a: {
   } catch (e) {
     await a.dlog('credit_note_reconcile_failed', 'error', { refund_id: a.main.id, error: (e as Error).message })
   }
-  return true
+  return fresh
 }

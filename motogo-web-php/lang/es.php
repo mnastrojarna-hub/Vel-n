@@ -843,6 +843,10 @@ return [
     'confirm.pending.reason5' => 'La conexión a Internet se cortó durante el pago — no se cobró nada.',
     'confirm.pending.reason6' => 'Cerraste la ventana de Stripe Checkout antes de finalizar el pago.',
     'confirm.pending.retry' => 'Reintentar el pago',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace na /potvrzeni (platba vrácena automaticky)
+    'confirm.cancelledRefund.title' => 'La reserva se canceló mientras tanto',
+    'confirm.cancelledRefund.text' => 'La reserva se canceló mientras tanto (venció el plazo de pago) y otra persona reservó la motocicleta, por lo que el pago no se pudo asignar. Le devolvemos el pago a su tarjeta automáticamente (normalmente en 5–10 días laborables); no pague nada más.',
+    'confirm.cancelledRefund.cta' => 'Nueva reserva',
     'confirm.failed.title' => 'El pago no se completó',
     'confirm.failed.text1' => 'El banco o la pasarela de pago rechazó la transacción y el pago no se realizó — no se cobró nada a tu cuenta.',
     'confirm.failed.text2' => 'Aún no hemos confirmado la reserva ni el pedido. Hasta que se complete el pago, la moto y la fecha siguen disponibles para ti.',

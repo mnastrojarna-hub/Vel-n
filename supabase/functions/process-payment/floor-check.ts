@@ -36,16 +36,45 @@ export async function floorCheck(sb: Sb, b: Record<string, unknown>, a: { due: n
 
 /** Rezervace s cenou 0: `accepted` = už ji uznaly dosavadní kontroly (100% kód / poukaz).
  *  Vrací true, když ji uznaly ony NEBO doložená spodní mez (slevy / odpuštění pokryjí cenu).
- *  Uznanou dosavadními kontrolami, kterou spodní mez nepotvrdí, jen zapíše do debug_log
- *  (`free_booking_floor_mismatch`) — ke kalibraci, než se i tady začne vynucovat. */
+ *  Oprava i2 (2026-11-05): dosavadní kontroly věří sloupcům, které si zákazník zapisuje sám (total_price,
+ *  discount_amount, voucher_id — RLS bookings_user_update): vlastní poukaz na 100 Kč + total_price 0 +
+ *  discount_amount 100 „pokryl“ libovolnou cenu. Uznanou dosavadními kontrolami, kterou spodní mez NEpotvrdí
+ *  (`f.floor > odpuštěno + 1`), teď zapíše do debug_log (`free_booking_floor_mismatch`), POKAŽDÉ pošle mail
+ *  obsluze a s `PP_FREE_FLOOR_ENFORCE=1` ji ODMÍTNE (→ free_mismatch, nic se nepotvrdí). Bez env = kalibrace
+ *  (chování jako dřív + mail). Nelze-li mez spočítat (chyba RPC) → jako dosud `accepted`. */
 export async function freeVerifiedByFloor(sb: Sb, b: Record<string, unknown>, accepted = false): Promise<boolean> {
   if (Number(b.total_price || 0) > 0) return accepted
   const f = await verifiedBookingFloors(sb, b)
   if (f == null) return accepted
   const waived = Math.min(Math.max(-Number(b.card_rounding || 0), 0), 1)
   const ok = f.floor <= waived + 1
-  if (accepted && !ok) await log(sb, 'free_booking_floor_mismatch', 'warning', b, { due: 0, kind: 'free', type: 'booking' }, f, false)
+  if (accepted && !ok) {
+    const enforce = Deno.env.get('PP_FREE_FLOOR_ENFORCE') === '1'
+    await log(sb, 'free_booking_floor_mismatch', enforce ? 'error' : 'warning', b, { due: 0, kind: 'free', type: 'booking' }, f, enforce)
+    await freeMismatchMail(b, f, enforce)
+    if (enforce) return false
+  }
   return accepted || ok
+}
+
+async function freeMismatchMail(b: Record<string, unknown>, f: { floor: number; full: number }, enforced: boolean) {
+  try {
+    const url = Deno.env.get('SUPABASE_URL') ?? ''
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const num = String(b.id || '').slice(-8).toUpperCase()
+    await fetch(`${url}/functions/v1/send-email`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, apikey: key },
+      body: JSON.stringify({ to: 'info@motogo24.cz',
+        subject: `⚠️ Rezervace #${num} za 0 Kč: slevy nepokrývají cenu dle ceníku (${f.floor} Kč) — ${enforced ? 'ODMÍTNUTO' : 'potvrzeno, prověřte'}`,
+        raw_html: `<p style="margin:0 0 8px">Rezervace <strong>#${num}</strong> (${String(b.id || '')}) má cenu 0 Kč a zákazník ji potvrzuje jako zdarma `
+          + `(promo kód / poukaz dle řádku rezervace), ale server z ceníku dokládá nejméně <strong>${f.floor} Kč</strong> `
+          + `(vč. výbavy a dopravy ${f.full} Kč) nepokrytých doloženými slevami. Uložená sleva: ${String(b.discount_amount ?? 0)} Kč, `
+          + `poukaz ${String(b.voucher_id || '—')}, promo ${String(b.promo_code_id || '—')}.</p>`
+          + (enforced
+            ? '<p style="margin:0">Potvrzení bylo ODMÍTNUTO (PP_FREE_FLOOR_ENFORCE=1) — zákazník vidí „slevu nejde ověřit“. Zkontrolujte poukaz / kód a rezervaci případně potvrďte ručně.</p>'
+            : '<p style="margin:0">Rezervace BYLA potvrzena (kalibrační režim). Zkontrolujte poukaz / kód — sloupce rezervace si zákazník umí přepsat sám. Vynucení: PP_FREE_FLOOR_ENFORCE=1.</p>') }),
+    })
+  } catch { /* ignore */ }
 }
 
 async function log(sb: Sb, action: string, status: string, b: Record<string, unknown>, a: { due: number; kind: string; type: string },

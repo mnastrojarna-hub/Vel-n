@@ -1741,6 +1741,10 @@ return [
     'confirm.pending.reason5' => 'Přerušení internetového spojení během platby — peníze nebyly stržené.',
     'confirm.pending.reason6' => 'Zavřené platební okno (Stripe Checkout) před dokončením platby.',
     'confirm.pending.retry' => 'Opakovat platbu',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace na /potvrzeni (platba vrácena automaticky)
+    'confirm.cancelledRefund.title' => 'Rezervace byla mezitím zrušená',
+    'confirm.cancelledRefund.text' => 'Rezervace byla mezitím zrušená (vypršel čas na zaplacení) a motorku si zarezervoval někdo jiný, takže platbu nešlo přiřadit. Platbu vám automaticky vracíme na kartu (obvykle do 5–10 pracovních dnů) – nic dalšího neplaťte.',
+    'confirm.cancelledRefund.cta' => 'Nová rezervace',
     'confirm.failed.title' => 'Platba se nezdařila',
     'confirm.failed.text1' => 'Banka nebo platební brána platbu odmítla a transakce neproběhla — z účtu ti nic nestrhli.',
     'confirm.failed.text2' => 'Rezervaci ani objednávku jsme zatím nepotvrdili. Dokud platba neproběhne, zboží i termín na tebe čekají.',

@@ -842,6 +842,10 @@ return [
     'confirm.pending.reason5' => 'La connexion Internet a été coupée pendant le paiement — aucun montant n\'a été débité.',
     'confirm.pending.reason6' => 'Vous avez fermé la fenêtre Stripe Checkout avant la fin du paiement.',
     'confirm.pending.retry' => 'Réessayer le paiement',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace na /potvrzeni (platba vrácena automaticky)
+    'confirm.cancelledRefund.title' => 'La réservation a été annulée entre-temps',
+    'confirm.cancelledRefund.text' => 'La réservation a été annulée entre-temps (le délai de paiement a expiré) et quelqu\'un d\'autre a réservé la moto, le paiement n\'a donc pas pu être affecté. Nous vous remboursons automatiquement le paiement sur votre carte (généralement sous 5 à 10 jours ouvrés) – ne payez rien d\'autre.',
+    'confirm.cancelledRefund.cta' => 'Nouvelle réservation',
     'confirm.failed.title' => 'Le paiement a échoué',
     'confirm.failed.text1' => 'La banque ou la passerelle de paiement a refusé la transaction — rien n\'a été débité de ton compte.',
     'confirm.failed.text2' => 'Nous n\'avons pas encore confirmé la réservation ni la commande. Tant que le paiement n\'est pas effectué, la moto et la date restent réservées pour toi.',

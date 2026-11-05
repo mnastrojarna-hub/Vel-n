@@ -821,6 +821,10 @@ return [
     'confirm.pending.reason5' => 'Internetverbinding viel weg tijdens de betaling — er is niets afgeschreven.',
     'confirm.pending.reason6' => 'U hebt het Stripe Checkout-venster gesloten voordat de betaling klaar was.',
     'confirm.pending.retry' => 'Betaling opnieuw proberen',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace na /potvrzeni (platba vrácena automaticky)
+    'confirm.cancelledRefund.title' => 'De boeking is intussen geannuleerd',
+    'confirm.cancelledRefund.text' => 'De boeking is intussen geannuleerd (de betaaltermijn is verstreken) en iemand anders heeft de motor geboekt, waardoor de betaling niet kon worden toegewezen. We storten de betaling automatisch terug op uw kaart (meestal binnen 5–10 werkdagen) – betaal niets meer.',
+    'confirm.cancelledRefund.cta' => 'Nieuwe boeking',
     'confirm.failed.title' => 'Betaling mislukt',
     'confirm.failed.text1' => 'De bank of betalingsgateway heeft de transactie geweigerd — er is niets van je rekening afgeschreven.',
     'confirm.failed.text2' => 'We hebben de reservering of bestelling nog niet bevestigd. Zolang de betaling niet rond is, blijven de motor en de datum voor jou gereserveerd.',

@@ -289,6 +289,9 @@ serve(async (req) => {
     // tvrdit „vráceno“ (věta o dokončení obsluhou — refund_state 'deferred'). skip_refund (Velín „Potvrdit vrácení“,
     // pojistný mail webhooku) beze změny — částka přichází z už provedené vratky.
     let refundUnsure = false
+    // Oprava i2 (2026-11-05): pojistný mail webhooku (skip_refund) může říct, že zbytek storna ještě chybí
+    // (refund_deferred — process-refund/cancel-once.ts) → mail neslibuje vrácení celé částky.
+    if ((reqBody as any).refund_deferred === true) refundUnsure = true
 
     if (booking_id) {
       // Vratka bez Stripe platby (QR/převod/hotově) = manuální — mail dostane
@@ -365,13 +368,34 @@ serve(async (req) => {
                 // z odpovědi chybí → požadavek jako dosud.
                 const got = Number(refundData.amount_refunded)
                 const requested = Number(refund_amount) || 0
-                if (!refundData.already_refunded && refundData.manual !== true && refundData.status !== 'no_op' && Number.isFinite(got) && got > 0 && got !== requested) {
+                // i2: jen část (zbytek dokončuje obsluha) → mail nese POŽADOVANOU částku s větou o dokončení (ne vrácený díl)
+                if (!refundData.already_refunded && refundData.manual !== true && refundData.status !== 'no_op' && refundData.partial !== true
+                  && Number.isFinite(got) && got > 0 && got !== requested) {
                   refund_amount = got
                   refund_percent = Number(booking.total_price) > 0 ? Math.round(got / Number(booking.total_price) * 100) : refund_percent
                   await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_amount_from_result', status: 'info',
                     request_data: { booking_id, requested, refunded: got, partial: refundData.partial === true } }).then(() => {}, () => {})
                 }
                 if (refundData.partial === true || (refundData.status === 'no_op' && requested > 0)) refundUnsure = true
+                // Oprava i2 (2026-11-05): „už vráceno“ (idempotentní větev / existující storno vratka) → doklady musí
+                // vratku v této výši krýt: Σ živých dobropisů < částka (část ceny zaplacená převodem bez dobropisu,
+                // vratka jen z části plateb…) → mail neslibuje vrácení; totéž když obsluha teprve posílá ruční část
+                // převodem ('refund_pending' + živý ruční dobropis).
+                if ((refundData.already_refunded === true || refundData.cancellation_refund_exists === true) && requested > 0) {
+                  try {
+                    const { data: cns } = await supabase.from('invoices').select('total, stripe_refund_id')
+                      .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
+                    const docs = (cns || []).reduce((t: number, c: any) => t + Math.abs(Number(c.total) || 0), 0)
+                    const manualLive = (cns || []).some((c: any) => c.stripe_refund_id == null)
+                    const { data: cur } = await supabase.from('bookings').select('payment_status').eq('id', booking_id).maybeSingle()
+                    const manualPending = manualLive && cur?.payment_status === 'refund_pending' && refundData.manual !== true
+                    if (docs + 1 < requested || manualPending) {
+                      refundUnsure = true
+                      await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_docs_below_amount', status: 'warning',
+                        request_data: { booking_id, requested, credit_notes_total: docs, manual_pending: manualPending, payment_status: cur?.payment_status ?? null } }).then(() => {}, () => {})
+                    }
+                  } catch { /* bez údaje → jako dřív */ }
+                }
                 console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, manual=${refundData.manual === true}, amount=${refund_amount}, unsure=${refundUnsure})`)
               } else {
                 refundUnsure = true

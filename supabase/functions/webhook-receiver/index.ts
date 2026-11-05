@@ -18,6 +18,9 @@ import { prepareExtensionPayment, refundDuplicateCharges, markPaidAfterChange } 
 import { syncRefundBooking, webhookRecoveryBody } from '../_shared/refund-recovery.ts'
 // Storno z více plateb (2026-11-05): částka pojistného storno mailu + „jen část větší vratky" (cancel-mail-amount.ts).
 import { cancellationMailRefundCzk, partOfLargerRefund } from './cancel-mail-amount.ts'
+// Oprava i2 (2026-11-05): dokončená / selhaná „pending“ vratka (refund-updated.ts), cena 0 Kč před potvrzením (free-verify.ts)
+import { onRefundUpdated } from './refund-updated.ts'
+import { freeVerifyCheck } from '../_shared/free-verify.ts'
 // Měna (oprava 2026-11-05): potvrzuje se jen platba v CZK (_shared/currency.ts).
 import { paymentCurrencyOk } from '../_shared/currency.ts'
 
@@ -290,6 +293,11 @@ Deno.serve(async (req: Request) => {
         // 0 Kč rezervace přes Stripe Checkout setup — karta ověřena, žádný charge.
         // Spustíme stejný flow jako u placené rezervace: confirm_payment + booking_reserved mail
         // + door codes (trigger) + KF generace. Bez tohoto by zákazník nedostal mail ani doklady.
+        // Oprava i2 (2026-11-05): cena se mohla mezi vznikem session a ověřením karty změnit → > 0 nepotvrdit (free-verify.ts).
+        const fv = await freeVerifyCheck(supabase, { bookingId: resolvedBookingId, sessionId: session.id, source: 'webhook-receiver' })
+        if (!fv.ok) {
+          return new Response(JSON.stringify({ received: true, ignored: fv.code }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
         try {
           await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
           try {
@@ -689,6 +697,16 @@ Deno.serve(async (req: Request) => {
           // rezervace — mg_target > částka, nebo je sama zbytkem) → zástupný stav jen partial_refund; konečný
           // stav zapíše process-refund (normálně hned po zbytku, po pádu recovery / další storno volání).
           const partOfLarger = fromProcessRefund && partOfLargerRefund(latestRefund as any)
+          // Oprava i2 (2026-11-05): uložená vratka → tahle, je-li novější (a není zbytkem z jiné platby) — po pádu
+          // process-refund u DRUHÉ vratky zůstala uložená první a recovery dobropis k druhé nevystavila.
+          let newerThanStored = false
+          if (fromProcessRefund && latestRefund && linkedBooking.stripe_refund_id && linkedBooking.stripe_refund_id !== latestRefund.id
+            && ((latestRefund.metadata || {}) as Record<string, string>).mg_part !== 'remainder') {
+            try {
+              const stored = refundsOnCharge.find((r) => r.id === linkedBooking.stripe_refund_id) || await stripe.refunds.retrieve(linkedBooking.stripe_refund_id)
+              newerThanStored = !!stored && Number((latestRefund as any).created || 0) >= Number((stored as any).created || 0)
+            } catch { newerThanStored = false }
+          }
           const cancelPatch: Record<string, any> | null = shouldCancel ? {
             status: 'cancelled',
             cancelled_at: new Date().toISOString(),
@@ -699,7 +717,7 @@ Deno.serve(async (req: Request) => {
           } : null
           await syncRefundBooking(supabase, {
             bookingId: linkedBooking.id, currentStatus: linkedBooking.payment_status, currentRefundId: linkedBooking.stripe_refund_id,
-            fromProcessRefund, fullyRefunded: fullyRefunded && !partOfLarger, refundId: latestRefund?.id || null, cancelPatch,
+            fromProcessRefund, fullyRefunded: fullyRefunded && !partOfLarger, refundId: latestRefund?.id || null, cancelPatch, newerThanStored,
           })
 
           await supabase.from('debug_log').insert({
@@ -723,6 +741,10 @@ Deno.serve(async (req: Request) => {
           //    (storno z Velínu, čekající vratka) prošla bránou a process-refund vrátil
           //    PODRUHÉ celý zbytek uložené platby. U externího ČÁSTEČNÉHO refundu nevoláme —
           //    dobropis k ručnímu vystavení (viz debug_log warning výše).
+          // Oprava i2 (2026-11-05): částky celého storna z odpovědi recovery (cancel_refunded_haleru / cancel_goal_haleru,
+          // cancel-once.ts) → pojistný mail uvádí, co se vrátilo; chybí-li zbytek (selhal / dokončuje se), mail to říká
+          // (refund_deferred) místo částky z mg_cancel_total (= už vráceno + POŽADAVEK).
+          let recAmounts: { refunded: number; goal: number | null; deferred: boolean } | null = null
           if (internalRefund || fullyRefunded) {
             const rec = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-refund`, {
               method: 'POST',
@@ -732,6 +754,13 @@ Deno.serve(async (req: Request) => {
               },
               body: JSON.stringify(webhookRecoveryBody(linkedBooking.id, latestRefund?.id || null)),
             }).catch(e => { console.warn('Webhook process-refund recovery failed:', e?.message); return null })
+            try {
+              const rj = rec ? await rec.clone().json() : null
+              if (rj && Number.isFinite(Number(rj.cancel_refunded_haleru))) {
+                const goal = Number.isFinite(Number(rj.cancel_goal_haleru)) && rj.cancel_goal_haleru != null ? Number(rj.cancel_goal_haleru) : null
+                recAmounts = { refunded: Number(rj.cancel_refunded_haleru), goal, deferred: rj.refund_deferred === true || rec!.status === 503 }
+              }
+            } catch { /* bez částek → mg_cancel_total jako dřív */ }
             // Oprava i1 (2026-11-05): storno z více plateb s nevráceným zbytkem, jehož dokončení drží zámek jiného
             // (možná zabitého) volání → process-refund odpoví 503 → Stripe událost doručí znovu po vypršení zámku a
             // recovery zbytek dovrátí (dřív zůstal natrvalo nevrácený bez jediného dalšího pokusu).
@@ -772,9 +801,12 @@ Deno.serve(async (req: Request) => {
             // Jazyk zákazníka explicitně; undefined → send-cancellation-email dohledá sám.
             const language = await resolveBookingLanguage(supabase, linkedBooking.id)
             // Naše storno vratka z více plateb: částka celého storna (mg_cancel_total), ne jen této charge.
-            const stornoCzk = shouldCancel ? null : await cancellationMailRefundCzk(stripe as any, latestRefund as any)
+            const stornoCzk = shouldCancel ? null
+              : recAmounts ? ((recAmounts.deferred && recAmounts.goal != null ? recAmounts.goal : recAmounts.refunded) / 100)
+              : await cancellationMailRefundCzk(stripe as any, latestRefund as any)
             const mailCzk = stornoCzk ?? refundCzk
             const mailPct = stornoCzk == null ? refundPct : (total > 0 ? Math.round((mailCzk / total) * 100) : 0)
+            const refundDeferred = !shouldCancel && !!recAmounts?.deferred
             await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-cancellation-email`, {
               method: 'POST',
               headers: {
@@ -798,6 +830,8 @@ Deno.serve(async (req: Request) => {
                 // spustit další vratku (dřív: ruční vratka v dashboardu po stornu 0 % / nové cancelled_at
                 // → druhá reálná vratka). Dobropis dohledá/dohraje attach smyčka (jen recovery).
                 skip_refund: true,
+                // i2: zbytek storna ještě chybí → mail neslibuje vrácení celé částky („dokončuje obsluha“)
+                ...(refundDeferred ? { refund_deferred: true } : {}),
                 source: linkedBooking.booking_source || 'app',
                 language,
               }),
@@ -807,6 +841,9 @@ Deno.serve(async (req: Request) => {
           console.warn('charge.refunded safety-net failed:', (e as Error).message)
         }
       }
+    } else if (event.type === 'charge.refund.updated' || event.type === 'refund.updated') {
+      // Oprava i2 (2026-11-05): vratka „pending“ dokončena / selhala (refund-updated.ts)
+      await onRefundUpdated(supabase, stripe as any, event.data.object as any)
     } else if (event.type === 'payout.paid') {
       const payout = event.data.object as Stripe.Payout
 

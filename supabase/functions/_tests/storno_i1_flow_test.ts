@@ -30,17 +30,17 @@ const sce = (amount: number) => call('send-cancellation-email', { booking_id: BI
 const velinUpd = () => Object.assign(bk(), { status: 'cancelled', cancelled_at: new Date().toISOString(), payment_status: 'refund_pending',
   cancelled_by_source: 'velin', cancellation_reason: 'Storno (Velín)' })
 const dl = (action: string) => rows('debug_log').filter((d) => d.action === action)
-/** zbytek z pi_orig selže jednou (přechodná chyba Stripe) */
-function failNextOrig() { world().onBeforeCreate = (p) => { if (p.payment_intent === 'pi_orig') { world().onBeforeCreate = null; throw new Error('Stripe: transient') } } }
+/** zbytek z pi_orig selhává (přechodná chyba Stripe) — i pro navazující volání (send-cancellation-email), dokud se nezruší */
+function failOrig(on: boolean) { world().onBeforeCreate = on ? (p) => { if (p.payment_intent === 'pi_orig') throw new Error('Stripe: transient') } : null }
 
 Deno.test({ name: 'i1 A1: obsluha vrátí chybějící zbytek sama → retry / webhook replay / služba už NIKDY nedovrací znovu', ignore: !MAPPED, fn: async () => {
   const bad: string[] = []
   for (const via of ['cancellation_retry', 'webhook_replay', 'service'] as const) {
-    fresh(10, { extra: TWO }); failNextOrig()
-    await velinCancel(1558) // hlavní 115 z pi_ext1 (mg_target 1558), zbytek 1443 selže → partial_refund + mail obsluze
+    fresh(10, { extra: TWO }); failOrig(true)
+    await velinCancel(1558) // hlavní 115 z pi_ext1 (mg_target 1558), zbytek 1443 selhává → partial_refund + mail obsluze
     const ev = world().takeEvents(); await deliver(ev)
     if (refundedKc() !== 115 || bk().payment_status !== 'partial_refund') { bad.push(`${via}: po pádu zbytku vráceno ${refundedKc()}, stav ${bk().payment_status}`); continue }
-    advance(5)
+    advance(5); failOrig(false)
     const adm = await pr(1443) // obsluha vědomě vrátí chybějících 1443 (nová hlavní vratka z pi_orig)
     if (!adm?.success || refundedKc() !== 1558) { bad.push(`${via}: ruční dorovnání ${JSON.stringify(adm)}, vráceno ${refundedKc()}`); continue }
     await deliver()
@@ -81,16 +81,18 @@ Deno.test({ name: 'i1 A2: zámek po zabitém isolatu + všechna volání do 60 s
 
 Deno.test({ name: 'i1 A4/A3: Stripe search padá → plné storno obsluhy selže napevno (nic z doplatku, žádné refunded), po obnovení projde', ignore: !MAPPED, fn: async () => {
   const bad: string[] = []
-  // A4: 3000 + 115, Velín 100 %
+  // A4: 3000 + 115, Velín 100 % — volání Velínu (bez částky) selže napevno (500 + mail obsluze); navazující
+  // send-cancellation-email (s částkou 3115) vrátí z uložené platby 115 a zbytek selže jako přechodná chyba →
+  // partial_refund (dřív 'refunded' a mail 3115 bez upozornění), retry služby s částkou dovrátí
   fresh(10, { extra: TWO }); world().failSearch = new Error('rate_limit: search')
   await velinCancel('full'); await deliver()
-  if (refundedKc() !== 0) bad.push(`A4: vráceno ${refundedKc()} (čekáno 0)`)
-  if (bk().payment_status !== 'refund_pending') bad.push(`A4: stav ${bk().payment_status}`)
-  if (!dl('other_payments_unavailable').length) bad.push('A4: chybí debug_log other_payments_unavailable')
+  if (refundedKc() !== 115) bad.push(`A4: vráceno ${refundedKc()} (čekáno 115 z uložené platby)`)
+  if (bk().payment_status !== 'partial_refund') bad.push(`A4: stav ${bk().payment_status}`)
+  if (!dl('other_payments_unavailable').length) bad.push('A4: chybí debug_log other_payments_unavailable (volání Velínu)')
   if (!opsMails.some((m) => /platby ve Stripe nejdou načíst/.test(m.subject))) bad.push(`A4: mail obsluze ${JSON.stringify(opsMails.map((m) => m.subject))}`)
   const cm = mails.filter((m) => m.to === EMAIL)
-  if (cm.length !== 1 || !/dokončuje obsluha/.test(cm[0].html)) bad.push(`A4: mail zákazníkovi ${cm.map((m) => m.html.slice(0, 300))}`)
-  world().failSearch = null; await pr(undefined, 'service'); await deliver()
+  if (cm.length !== 1 || !/dokončuje obsluha/.test(cm[0].html) || /byl zpracován a vrácen/.test(cm[0].html)) bad.push(`A4: mail zákazníkovi ${cm.map((m) => m.html.slice(0, 300))}`)
+  world().failSearch = null; await pr(3115, 'service'); await deliver()
   if (refundedKc() !== 3115 || bk().payment_status !== 'refunded') bad.push(`A4 retry: vráceno ${refundedKc()}, stav ${bk().payment_status}`)
   // A3: uložený doplatek už dřív vrácený (revert úpravy), cena zpět 3000, search padá
   fresh(10, { extra: TWO })
@@ -100,7 +102,8 @@ Deno.test({ name: 'i1 A4/A3: Stripe search padá → plné storno obsluhy selže
   await velinCancel('full'); await deliver()
   if (refundedKc() !== 115) bad.push(`A3: vráceno ${refundedKc()} (čekáno 115)`)
   if (bk().payment_status === 'refunded') bad.push('A3: stav refunded bez vrácení')
-  world().failSearch = null; await pr(undefined, 'service'); await deliver()
+  if (!mails.filter((m) => m.to === EMAIL).every((m) => /dokončuje obsluha/.test(m.html))) bad.push('A3: mail zákazníkovi slibuje vrácení')
+  world().failSearch = null; await pr(3000, 'service'); await deliver()
   if (refundedKc() !== 3115 || bk().payment_status !== 'refunded') bad.push(`A3 retry: vráceno ${refundedKc()}, stav ${bk().payment_status}`)
   if (bad.length) throw new Error(bad.join('\n'))
 } })

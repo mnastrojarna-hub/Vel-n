@@ -821,6 +821,10 @@ return [
     'confirm.pending.reason5' => 'Połączenie z internetem przerwało się podczas płatności — żadna kwota nie została pobrana.',
     'confirm.pending.reason6' => 'Zamknięcie okna Stripe Checkout przed zakończeniem płatności.',
     'confirm.pending.retry' => 'Powtórz płatność',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace na /potvrzeni (platba vrácena automaticky)
+    'confirm.cancelledRefund.title' => 'Rezerwacja została w międzyczasie anulowana',
+    'confirm.cancelledRefund.text' => 'Rezerwacja została w międzyczasie anulowana (upłynął termin płatności), a motocykl zarezerwował ktoś inny, więc płatności nie udało się przypisać. Płatność zwracamy automatycznie na Twoją kartę (zwykle w ciągu 5–10 dni roboczych) – nie płać nic więcej.',
+    'confirm.cancelledRefund.cta' => 'Nowa rezerwacja',
     'confirm.failed.title' => 'Płatność się nie powiodła',
     'confirm.failed.text1' => 'Bank lub bramka płatnicza odrzuciła transakcję — z twojego konta nic nie zostało pobrane.',
     'confirm.failed.text2' => 'Rezerwacja ani zamówienie nie zostały jeszcze potwierdzone. Dopóki płatność nie przejdzie, motocykl i termin czekają na ciebie.',

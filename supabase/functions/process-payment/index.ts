@@ -23,6 +23,7 @@ import { roundingLabel, editLineLabel } from './checkout-labels.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { settleMatchingSessions, type StripeCheckoutLike } from './checkout-guard.ts'
 import { floorCheck, freeVerifiedByFloor } from './floor-check.ts'
+import { freeVerifyCheck } from '../_shared/free-verify.ts'
 import { duplicateRow } from '../_shared/duplicate-payment.ts'
 import { failureRow } from '../_shared/paid-change-guard.ts'
 import { verifyShopSession, type StripeSessionsLike } from './verify-shop-session.ts'
@@ -128,9 +129,14 @@ Deno.serve(async (req: Request) => {
           return new Response(JSON.stringify({ success: false, error: 'No booking_id in session' }),
             { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
-        const { data: bk } = await supabaseAdmin.from('bookings')
-          .select('payment_status').eq('id', bookingId).single()
-        if (bk?.payment_status === 'paid') {
+        // Oprava i2 (2026-11-05): cena se mohla po vzniku setup session změnit → > 0 nepotvrdit (free-verify.ts)
+        const fv = await freeVerifyCheck(supabaseAdmin, { bookingId, sessionId, source: 'process-payment' })
+        if (!fv.ok) {
+          return new Response(JSON.stringify({ success: false, code: fv.code, server_total: fv.serverTotal, booking_id: bookingId,
+            error: fv.code === 'free_mismatch' ? 'Cena rezervace se mezitím změnila — rezervaci nelze potvrdit jako zdarma.' : 'Rezervace nenalezena.' }),
+            { status: fv.code === 'free_mismatch' ? 409 : 404, headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        if (fv.paid) {
           return new Response(JSON.stringify({ success: true, already_paid: true, booking_id: bookingId }),
             { headers: { ...CORS, 'Content-Type': 'application/json' } })
         }

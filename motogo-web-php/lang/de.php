@@ -996,6 +996,10 @@ return [
     'confirm.pending.reason5' => 'Die Internetverbindung wurde während der Zahlung unterbrochen — es wurde kein Geld abgebucht.',
     'confirm.pending.reason6' => 'Sie haben das Stripe-Checkout-Fenster vor Abschluss der Zahlung geschlossen.',
     'confirm.pending.retry' => 'Zahlung wiederholen',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace na /potvrzeni (platba vrácena automaticky)
+    'confirm.cancelledRefund.title' => 'Die Buchung wurde inzwischen storniert',
+    'confirm.cancelledRefund.text' => 'Die Buchung wurde inzwischen storniert (die Zahlungsfrist ist abgelaufen) und das Motorrad hat jemand anderes gebucht, daher konnte die Zahlung nicht zugeordnet werden. Wir erstatten die Zahlung automatisch auf Ihre Karte (in der Regel innerhalb von 5–10 Werktagen) – bitte zahlen Sie nichts weiter.',
+    'confirm.cancelledRefund.cta' => 'Neue Buchung',
     'confirm.failed.title' => 'Zahlung fehlgeschlagen',
     'confirm.failed.text1' => 'Die Bank oder das Zahlungs-Gateway hat die Zahlung abgelehnt — von deinem Konto wurde nichts abgebucht.',
     'confirm.failed.text2' => 'Wir haben die Reservierung bzw. Bestellung noch nicht bestätigt. Solange die Zahlung nicht durchgeht, bleiben das Motorrad und der Termin für dich reserviert.',

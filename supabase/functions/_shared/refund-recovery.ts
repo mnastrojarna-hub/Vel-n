@@ -34,6 +34,9 @@ type Sb = any
 export async function syncRefundBooking(sb: Sb, a: {
   bookingId: string; currentStatus: string | null | undefined; currentRefundId: string | null | undefined
   fromProcessRefund: boolean; fullyRefunded: boolean; refundId: string | null; cancelPatch?: Record<string, unknown> | null
+  /** Oprava i2 (2026-11-05): tahle vratka je NOVĚJŠÍ než uložená (a není zbytkem z jiné platby) → uloženou nahradit
+   *  (compare-and-set na starou hodnotu). Dřív jen do prázdného: po pádu u druhé vratky zůstala uložená ta první. */
+  newerThanStored?: boolean
 }): Promise<{ statusWritten: boolean; refundIdWritten: boolean }> {
   const status = a.fullyRefunded ? 'refunded' : 'partial_refund'
   if (!a.fromProcessRefund) {
@@ -52,6 +55,10 @@ export async function syncRefundBooking(sb: Sb, a: {
   if (a.refundId && !a.currentRefundId) {
     const { data, error } = await sb.from('bookings').update({ stripe_refund_id: a.refundId })
       .eq('id', a.bookingId).is('stripe_refund_id', null).select('id')
+    refundIdWritten = !error && Array.isArray(data) && data.length > 0
+  } else if (a.refundId && a.currentRefundId && a.currentRefundId !== a.refundId && a.newerThanStored) {
+    const { data, error } = await sb.from('bookings').update({ stripe_refund_id: a.refundId })
+      .eq('id', a.bookingId).eq('stripe_refund_id', a.currentRefundId).select('id')
     refundIdWritten = !error && Array.isArray(data) && data.length > 0
   }
   return { statusWritten, refundIdWritten }
