@@ -1,6 +1,6 @@
 // fix:booking:r3 — (1) licence / overlap errors in the app language (shared
 // validator, both trees; before: always Czech); (2) v2 look of the address
-// sheet (Android only): lineInput field, white rows, GPS / Mapa ghost
+// sheet (both trees): lineInput field, white rows, GPS / Mapa ghost
 // buttons, ONE ink „Potvrdit adresu“, ✕ 44 — the same actions as before.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

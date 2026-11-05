@@ -176,7 +176,14 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
                 builder: (_, __) => ShellFabLayer(
                   location: location,
                   v2: true,
-                  bottomBase: 8 + _chrome.dockHeight,
+                  // Nav hidden + no dock: the body reaches the screen edge, so
+                  // the strips clear the home indicator / gesture bar themselves
+                  // (a visible dock already includes the safe area; with the
+                  // keyboard open the bottom padding is 0 → unchanged).
+                  bottomBase: 8 +
+                      (_chrome.dockHeight > 0
+                          ? _chrome.dockHeight
+                          : (navHidden ? MediaQuery.paddingOf(context).bottom : 0)),
                   onStripsHeight: (h) => _chrome.reportStrips(h > 0 ? h + 8 : 0),
                 ),
               ),

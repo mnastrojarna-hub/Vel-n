@@ -21,7 +21,7 @@ import '../../../core/v2/widgets/mg_sheet.dart';
 /// `btnGhostLight`, the distance / status as a tintOk / warn line and ONE
 /// ink primary „Potvrdit adresu“. Pure look: every action is the old
 /// sheet's closure (`_pick`, `_useGps`, `_openMap`, `_confirm`), state comes
-/// from the old sheet (Android only, CLAUDE.md rule 6).
+/// from the old sheet (both trees, CLAUDE.md rule 1).
 class AddrSheetV2View extends StatelessWidget {
   final String title;
   final TextEditingController controller;

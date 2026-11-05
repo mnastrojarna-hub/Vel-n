@@ -2,7 +2,7 @@
 /// úspory za vyzvednutí od 12:00 všude (stejná jako kalkulačka a Domů),
 /// „Ponechat termín“ v otevřeném kalendáři, obsazený den v přeneseném
 /// termínu a oprava času vyzvednutí z chybové hlášky.
-/// Jen klíče `v2…` (jen Android v2 strom, CLAUDE.md pravidlo 6).
+/// Jen klíče `v2…` (oba stromy, CLAUDE.md pravidlo 1).
 const Map<String, Map<String, String>> translationsExt58V2BookingR2 = {
   'cs': {
     'v2LpFormSaveNet': 'Při vyzvednutí od 12:00 máš 1. den za polovinu a ušetříš {amount}.',

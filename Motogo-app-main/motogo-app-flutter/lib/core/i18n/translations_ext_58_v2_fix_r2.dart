@@ -1,4 +1,4 @@
-/// v2 vzhled (jen Android strom) — kalendář s cenou pod volným dnem
+/// v2 vzhled (oba stromy) — kalendář s cenou pod volným dnem
 /// (V22 §3.3): poznámka pod legendou. Tyká se ve všech jazycích.
 const Map<String, Map<String, String>> translationsExt58V2FixR2 = {
   'cs': {

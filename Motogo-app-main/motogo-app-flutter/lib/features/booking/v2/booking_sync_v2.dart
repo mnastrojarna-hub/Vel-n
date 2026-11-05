@@ -11,8 +11,8 @@ import '../booking_provider.dart';
 import 'booking_carry_v2.dart' show bookingEntryFilterProvider;
 
 // ═══════════════════════════════════════════════════════════════════
-// v2 rezervační formulář ↔ zbytek appky (jen Android v2, CLAUDE.md
-// pravidlo 6). Nic z toho nemění rezervaci, cenu ani odeslání.
+// v2 rezervační formulář ↔ zbytek appky (oba stromy, CLAUDE.md
+// pravidlo 1). Nic z toho nemění rezervaci, cenu ani odeslání.
 // ═══════════════════════════════════════════════════════════════════
 
 /// Termín změněný ve formuláři („Změnit“) platí i tam, kam se zákazník

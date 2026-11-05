@@ -46,10 +46,12 @@ GoRouter _router(String initial) => GoRouter(
     );
 
 Future<GoRouter> _pump(WidgetTester tester, String initial,
-    {PendingBooking? pending, int unread = 0, bool banner = false}) async {
+    {PendingBooking? pending, int unread = 0, bool banner = false, double bottomInset = 0}) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(360, 780) * 2;
   tester.view.devicePixelRatio = 2;
+  // Home indicator / gesture bar (logical px).
+  tester.view.padding = FakeViewPadding(bottom: bottomInset * 2);
   addTearDown(tester.view.reset);
   final router = _router(initial);
   await tester.pumpWidget(ProviderScope(
@@ -156,6 +158,21 @@ void main() {
     expect(find.text('Dokončit rezervaci'), findsOneWidget);
     expect(find.text('2'), findsOneWidget); // Profil badge
     expect(find.byType(MgAiFab), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('strips: 8 px above the nav; nav hidden without a dock → above the bottom safe area', (tester) async {
+    final pending = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now());
+    final router = await _pump(tester, '/search', pending: pending, bottomInset: 34);
+    final navTop = tester.getTopLeft(find.byType(V2NavBar)).dy;
+    expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy, moreOrLessEquals(navTop - 8));
+    // Focused flow without a dock (the test page has none): the body reaches
+    // the screen edge, the strip must clear the 34 px home indicator.
+    unawaited(router.push('/moto/abc'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(V2NavBar), findsNothing);
+    expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy, moreOrLessEquals(780 - 34 - 8));
     expect(tester.takeException(), isNull);
   });
 

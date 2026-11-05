@@ -1,4 +1,4 @@
-/// v2 vzhled (jen Android strom) — detail motorky, kolo 2: chyba načtení
+/// v2 vzhled (oba stromy) — detail motorky, kolo 2: chyba načtení
 /// jedné motorky (DESIGN_V22 §7.3 #7, ne text o celé nabídce). Tyká se ve
 /// všech jazycích. Registrace: export v `translations_ext_52_v2_catalog_d`
 /// + položka v seznamu `translations.dart`.

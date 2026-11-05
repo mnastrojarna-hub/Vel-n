@@ -1,6 +1,6 @@
 /// v2 vzhled — list adresy přistavení / vrácení (rezervace i úprava
 /// rezervace, V22 §6.4): nápověda pole (tykání) a jediné hlavní tlačítko
-/// „Potvrdit adresu“ (bez verzálek). Jen klíče `v2…` (jen Android v2 strom,
+/// „Potvrdit adresu“ (bez verzálek). Jen klíče `v2…` (oba stromy,
 /// CLAUDE.md pravidlo 6).
 const Map<String, Map<String, String>> translationsExt58V2AddrSheet = {
   'cs': {
