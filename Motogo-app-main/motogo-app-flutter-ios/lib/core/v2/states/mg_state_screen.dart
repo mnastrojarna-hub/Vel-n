@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../chrome/mg_dock.dart';
+import '../chrome/mg_status_bar.dart';
 import '../motion/mg_anim.dart';
 import '../rank/rank_hero.dart';
 import '../tokens/mg_colors.dart';
@@ -26,6 +27,9 @@ export 'mg_tone.dart' show MgTone;
 /// −24 + dark dock with the rank CTA; warn / error / info = canvas, tone
 /// disc 72, ink title, white dock with `btnInk` + `btnText`. Texts and
 /// actions are the caller's EXISTING ones; nothing here decides anything.
+/// Status bar: canvas → dark icons (`MgStatusBar`); the dark hero of
+/// success / pending declares light icons itself while it lies under the
+/// status bar (scrolled away → canvas again).
 class MgStateScreen extends StatelessWidget {
   final MgTone tone;
   final String title;
@@ -111,12 +115,15 @@ class MgStateScreen extends StatelessWidget {
     final EdgeInsets? pad = dock == null
         ? EdgeInsets.only(bottom: math.max(MediaQuery.paddingOf(context).bottom, MediaQuery.viewInsetsOf(context).bottom))
         : null;
-    return Material(
-      color: MgColors.canvas,
-      child: Column(children: [
-        Expanded(child: SingleChildScrollView(padding: pad, child: body)),
-        if (dock != null) dock,
-      ]),
+    return MgStatusBar(
+      dark: false,
+      child: Material(
+        color: MgColors.canvas,
+        child: Column(children: [
+          Expanded(child: SingleChildScrollView(padding: pad, child: body)),
+          if (dock != null) dock,
+        ]),
+      ),
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/states/mg_state_screen.dart';
+import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
@@ -170,14 +171,18 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
 
   Widget _frame(Widget body) => Scaffold(
         backgroundColor: MgColors.canvas,
-        body: SafeArea(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-              child: Align(alignment: AlignmentDirectional.centerStart, child: MgV2Back(onTap: _back, style: MgBackStyle.light)),
-            ),
-            Expanded(child: body),
-          ]),
+        // Canvas under the status bar → dark icons.
+        body: MgStatusBar(
+          dark: false,
+          child: SafeArea(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                child: Align(alignment: AlignmentDirectional.centerStart, child: MgV2Back(onTap: _back, style: MgBackStyle.light)),
+              ),
+              Expanded(child: body),
+            ]),
+          ),
         ),
       );
 

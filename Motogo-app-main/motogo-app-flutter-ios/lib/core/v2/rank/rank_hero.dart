@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../chrome/mg_status_bar.dart';
 import '../motion/mg_anim.dart';
 import '../motion/mg_motion.dart';
 import '../tokens/mg_shadows.dart';
@@ -13,7 +14,8 @@ import 'rank_tokens.dart';
 /// first stop, a static tier texture (4–7 % white, zero motion), a 2 px
 /// minted bottom edge and ONE ambient sweep per session (headlight / sheen /
 /// prism / aurora / aurora + embers; none under reduced motion). White text
-/// on it stays ≥ 4.5 : 1 for every level.
+/// on it stays ≥ 4.5 : 1 for every level — so it declares light status-bar
+/// icons (`MgStatusBar`) while it lies under the status bar.
 class MgRankHero extends ConsumerWidget {
   final Widget child;
   final RankTokens? rank;
@@ -46,54 +48,57 @@ class MgRankHero extends ConsumerWidget {
     final playAmbient = ambient &&
         !MgMotion.reduced(context) &&
         MgMotion.firstTime('ambient:$ambientKey:${r.level}');
-    return ClipRRect(
-      borderRadius: radius,
-      child: DecoratedBox(
-        decoration: BoxDecoration(gradient: MgGradients.hero(r.aura)),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(child: CustomPaint(painter: _TexturePainter(r.tier))),
-            ),
-            if (playAmbient)
+    return MgStatusBar(
+      dark: true,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: MgGradients.hero(r.aura)),
+          child: Stack(
+            children: [
               Positioned.fill(
-                child: IgnorePointer(
-                  child: MgProgressOnce(
-                    duration: Duration(milliseconds: r.tier.index >= 3 ? 2400 : 900),
-                    delay: const Duration(milliseconds: 350),
-                    curve: Curves.easeOut,
-                    builder: (_, t) => CustomPaint(painter: _AmbientPainter(r, t)),
+                child: IgnorePointer(child: CustomPaint(painter: _TexturePainter(r.tier))),
+              ),
+              if (playAmbient)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: MgProgressOnce(
+                      duration: Duration(milliseconds: r.tier.index >= 3 ? 2400 : 900),
+                      delay: const Duration(milliseconds: 350),
+                      curve: Curves.easeOut,
+                      builder: (_, t) => CustomPaint(painter: _AmbientPainter(r, t)),
+                    ),
                   ),
                 ),
-              ),
-            Positioned(
-              left: 28,
-              right: 28,
-              bottom: 0,
-              height: 2,
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: 0.85,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(2),
-                      gradient: LinearGradient(colors: [
-                        const Color(0x00FFFFFF),
-                        r.ctaEdge.first,
-                        r.uiDark,
-                        r.ctaEdge[2],
-                        const Color(0x00FFFFFF),
-                      ], stops: const [0, 0.25, 0.5, 0.75, 1]),
+              Positioned(
+                left: 28,
+                right: 28,
+                bottom: 0,
+                height: 2,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: 0.85,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        gradient: LinearGradient(colors: [
+                          const Color(0x00FFFFFF),
+                          r.ctaEdge.first,
+                          r.uiDark,
+                          r.ctaEdge[2],
+                          const Color(0x00FFFFFF),
+                        ], stops: const [0, 0.25, 0.5, 0.75, 1]),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: EdgeInsets.only(top: top).add(padding),
-              child: child,
-            ),
-          ],
+              Padding(
+                padding: EdgeInsets.only(top: top).add(padding),
+                child: child,
+              ),
+            ],
+          ),
         ),
       ),
     );

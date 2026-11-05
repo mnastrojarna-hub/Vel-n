@@ -15,6 +15,7 @@ import '../../../features/reservations/reservation_models.dart';
 import '../../../features/reservations/reservation_provider.dart';
 import '../chrome/mg_ai_fab.dart';
 import '../chrome/mg_chrome_metrics.dart';
+import '../chrome/mg_status_bar.dart';
 import '../chrome/mg_top_banner.dart';
 import '../chrome/v2_nav_bar.dart';
 import '../tokens/mg_colors.dart';
@@ -27,6 +28,10 @@ import 'shell_nav_map.dart';
 /// flows / with the keyboard) and the floating AI button. Tab taps go
 /// through the shared `onShellTabTap` (payment-running confirm, Home reset).
 /// Location is read from the router delegate, so pushed routes count too.
+/// Status bar (fix:statusbar): the shell declares its canvas (dark icons)
+/// for whatever has no region of its own (a v1 screen kept inside the v2
+/// look); v2 pages, their dark headers and the banner band declare
+/// themselves and win while they lie under the status bar.
 class AppShellV2 extends ConsumerStatefulWidget {
   final Widget child;
   const AppShellV2({super.key, required this.child});
@@ -150,54 +155,57 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
       child: Scaffold(
         backgroundColor: MgColors.canvas,
         resizeToAvoidBottomInset: false,
-        body: MgChromeScope(
-          chrome: _chrome,
-          navVisible: !navHidden,
-          fabVisible: !fabHidden,
-          child: Stack(children: [
-            Column(children: [
-              // v2 jednořádkový banner (marquee; při omezení pohybu statický
-              // řádek, klepnutí = celý text) — stejný jako v hlavičce Domů.
-              if (topBanner) MgTopBanner(text: banner.valueOrNull!.text, band: true),
-              Expanded(
-                child: MediaQuery.removePadding(
-                  context: context,
-                  removeTop: topBanner,
-                  child: NotificationListener<ScrollEndNotification>(
-                    onNotification: _onScroll,
-                    child: MgBackGuard(shell: true, child: widget.child),
+        body: MgStatusBar(
+          dark: false,
+          child: MgChromeScope(
+            chrome: _chrome,
+            navVisible: !navHidden,
+            fabVisible: !fabHidden,
+            child: Stack(children: [
+              Column(children: [
+                // v2 jednořádkový banner (marquee; při omezení pohybu statický
+                // řádek, klepnutí = celý text) — stejný jako v hlavičce Domů.
+                if (topBanner) MgTopBanner(text: banner.valueOrNull!.text, band: true),
+                Expanded(
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeTop: topBanner,
+                    child: NotificationListener<ScrollEndNotification>(
+                      onNotification: _onScroll,
+                      child: MgBackGuard(shell: true, child: widget.child),
+                    ),
+                  ),
+                ),
+              ]),
+              Positioned.fill(
+                child: ListenableBuilder(
+                  listenable: _chrome,
+                  builder: (_, __) => ShellFabLayer(
+                    location: location,
+                    v2: true,
+                    // Nav hidden + no dock: the body reaches the screen edge, so
+                    // the strips clear the home indicator / gesture bar themselves
+                    // (a visible dock already includes the safe area; with the
+                    // keyboard open the bottom padding is 0 → unchanged).
+                    bottomBase: 8 +
+                        (_chrome.dockHeight > 0
+                            ? _chrome.dockHeight
+                            : (navHidden ? MediaQuery.paddingOf(context).bottom : 0)),
+                    onStripsHeight: (h) => _chrome.reportStrips(h > 0 ? h + 8 : 0),
                   ),
                 ),
               ),
-            ]),
-            Positioned.fill(
-              child: ListenableBuilder(
+              ListenableBuilder(
                 listenable: _chrome,
-                builder: (_, __) => ShellFabLayer(
-                  location: location,
-                  v2: true,
-                  // Nav hidden + no dock: the body reaches the screen edge, so
-                  // the strips clear the home indicator / gesture bar themselves
-                  // (a visible dock already includes the safe area; with the
-                  // keyboard open the bottom padding is 0 → unchanged).
-                  bottomBase: 8 +
-                      (_chrome.dockHeight > 0
-                          ? _chrome.dockHeight
-                          : (navHidden ? MediaQuery.paddingOf(context).bottom : 0)),
-                  onStripsHeight: (h) => _chrome.reportStrips(h > 0 ? h + 8 : 0),
+                // Above a visible dock AND the strips (strips sit on the dock).
+                builder: (_, __) => Positioned(
+                  right: 16,
+                  bottom: 12 + _chrome.dockHeight + _chrome.stripsHeight,
+                  child: MgAiFab(hidden: fabHidden),
                 ),
               ),
-            ),
-            ListenableBuilder(
-              listenable: _chrome,
-              // Above a visible dock AND the strips (strips sit on the dock).
-              builder: (_, __) => Positioned(
-                right: 16,
-                bottom: 12 + _chrome.dockHeight + _chrome.stripsHeight,
-                child: MgAiFab(hidden: fabHidden),
-              ),
-            ),
-          ]),
+            ]),
+          ),
         ),
         bottomNavigationBar: navHidden
             ? null

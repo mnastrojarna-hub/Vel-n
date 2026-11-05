@@ -6,6 +6,7 @@ import '../shell/shell_nav_map.dart';
 import '../tokens/mg_colors.dart';
 import 'mg_chrome_metrics.dart';
 import 'mg_pinned_back.dart';
+import 'mg_status_bar.dart';
 
 export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 
@@ -20,7 +21,10 @@ export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 /// the header (with its back disc) scrolls away, a 44 px back disc stays
 /// pinned top-left, so a long page always shows a way back (owner rule R6);
 /// once the hero is gone too it sits in a compact light bar with
-/// [pinnedTitle] (`MgPinnedBack`).
+/// [pinnedTitle] (`MgPinnedBack`). Status bar (fix:statusbar): the page
+/// declares its [background] through `MgStatusBar`; a dark header / hero and
+/// the collapsed pinned bar declare themselves and win while they lie under
+/// the status bar, so the icons follow the surface as the page scrolls.
 class MgPage extends ConsumerStatefulWidget {
   final Widget? header;
   final List<Widget> sections;
@@ -156,42 +160,45 @@ class _MgPageState extends ConsumerState<MgPage> {
         child: scroll,
       );
     }
-    return MgPinnedScope(
-      title: widget.pinnedBack != null ? widget.pinnedTitle : null,
-      child: Material(
-        color: widget.background,
-        child: Stack(children: [
-          Positioned.fill(child: scroll),
-          if (widget.dock != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: MgSizeReporter(
-                onSize: (s) {
-                  if (mounted && (s.height - _dockH).abs() > 0.5) setState(() => _dockH = s.height);
-                },
-                child: widget.dock!,
+    return MgStatusBar.forColor(
+      widget.background,
+      child: MgPinnedScope(
+        title: widget.pinnedBack != null ? widget.pinnedTitle : null,
+        child: Material(
+          color: widget.background,
+          child: Stack(children: [
+            Positioned.fill(child: scroll),
+            if (widget.dock != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: MgSizeReporter(
+                  onSize: (s) {
+                    if (mounted && (s.height - _dockH).abs() > 0.5) setState(() => _dockH = s.height);
+                  },
+                  child: widget.dock!,
+                ),
               ),
-            ),
-          if (widget.pinnedBack != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: MgPinnedBack(
-                controller: _ctrl,
-                // The header's own disc sits in its top ~70 px: show the
-                // pinned one just before that part leaves the screen.
-                after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
-                heroExtent: widget.header != null ? _headerH : _heroH + widget.sectionPadding.resolve(Directionality.of(context)).top,
-                close: widget.pinnedClose,
-                onTap: widget.pinnedBack!,
-                background: widget.background,
-                title: widget.pinnedTitle,
+            if (widget.pinnedBack != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: MgPinnedBack(
+                  controller: _ctrl,
+                  // The header's own disc sits in its top ~70 px: show the
+                  // pinned one just before that part leaves the screen.
+                  after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
+                  heroExtent: widget.header != null ? _headerH : _heroH + widget.sectionPadding.resolve(Directionality.of(context)).top,
+                  close: widget.pinnedClose,
+                  onTap: widget.pinnedBack!,
+                  background: widget.background,
+                  title: widget.pinnedTitle,
+                ),
               ),
-            ),
-        ]),
+          ]),
+        ),
       ),
     );
   }

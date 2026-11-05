@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_chrome_metrics.dart';
+import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/rank/rank_copy.dart';
@@ -108,11 +109,15 @@ class LoyaltyScreenV2 extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: MgColors.night,
-      body: DecoratedBox(
-        decoration: BoxDecoration(gradient: MgGradients.hero(rank.aura)),
-        child: ListView(
-          padding: EdgeInsets.only(bottom: MgChrome.bottomObstruction(context)),
-          children: [top, ...body],
+      // Night screen → light status-bar icons.
+      body: MgStatusBar(
+        dark: true,
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: MgGradients.hero(rank.aura)),
+          child: ListView(
+            padding: EdgeInsets.only(bottom: MgChrome.bottomObstruction(context)),
+            children: [top, ...body],
+          ),
         ),
       ),
     );

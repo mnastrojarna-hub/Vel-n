@@ -6,13 +6,15 @@ import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_sheet.dart';
+import 'mg_status_bar.dart';
 
 /// The Velín banner in the v2 look (DESIGN_V22 §2.4 #2): ONE neon line —
 /// a slow marquee when the text is longer than the line, a static line with
 /// an ellipsis under reduced motion (it never moves then). Tap = the full
 /// text in a light sheet, so nothing is ever lost. [band] = its own night
-/// band under the status bar (shell tabs without their own banner line);
-/// otherwise an inline row (last line of a dark header).
+/// band under the status bar (shell tabs without their own banner line) —
+/// it declares light status-bar icons (`MgStatusBar`); otherwise an inline
+/// row (last line of a dark header).
 class MgTopBanner extends StatelessWidget {
   final String text;
   final bool band;
@@ -52,10 +54,13 @@ class MgTopBanner extends StatelessWidget {
     );
     if (!band) return line;
     final top = MediaQuery.paddingOf(context).top;
-    return Container(
-      color: MgColors.night,
-      padding: EdgeInsets.fromLTRB(16, top, 16, 0),
-      child: line,
+    return MgStatusBar(
+      dark: true,
+      child: Container(
+        color: MgColors.night,
+        padding: EdgeInsets.fromLTRB(16, top, 16, 0),
+        child: line,
+      ),
     );
   }
 }

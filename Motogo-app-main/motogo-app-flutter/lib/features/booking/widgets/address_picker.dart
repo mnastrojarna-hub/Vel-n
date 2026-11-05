@@ -310,7 +310,9 @@ class _RadioOption extends StatelessWidget {
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
-    return tp.width;
+    final w = tp.width;
+    tp.dispose();
+    return w;
   }
 
   /// Nejdelší slovo popisku / podtitulku — sloupec textu nesmí být užší

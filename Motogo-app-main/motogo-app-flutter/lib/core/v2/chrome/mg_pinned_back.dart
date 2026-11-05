@@ -8,6 +8,7 @@ import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_back_v2.dart';
+import 'mg_status_bar.dart';
 
 /// Title of the collapsed bar of an `MgPage` with a pinned back; MgPage puts
 /// it around its body so [MgPinnedBack.reveal] (called from a section of the
@@ -30,7 +31,9 @@ class MgPinnedScope extends InheritedWidget {
 /// 1 px `line` hairline, the LIGHT disc and the optional [title] — so the
 /// content scrolls under the bar, never under a bare disc. Not in the tree
 /// while hidden; fades (instant under reduced motion). [onTap] = the
-/// screen's own back action (unchanged).
+/// screen's own back action (unchanged). The bar declares its brightness
+/// (`MgStatusBar`, from [background]) — once it covers the status bar the
+/// icons switch; the bare disc declares nothing (the hero under it does).
 class MgPinnedBack extends StatelessWidget {
   final ScrollController controller;
   final double after;
@@ -134,24 +137,27 @@ class MgPinnedBack extends StatelessWidget {
     });
   }
 
-  Widget _bar(double top, double barH) => ClipRect(
+  Widget _bar(double top, double barH) => MgStatusBar.forColor(
+        background,
         key: const ValueKey('mg-pinned-bar'),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            height: top + barH,
-            padding: EdgeInsets.fromLTRB(12, top + 8, 16, 8),
-            decoration: BoxDecoration(
-              color: background.withValues(alpha: 0.94),
-              border: const Border(bottom: BorderSide(color: MgColors.line)),
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            child: Container(
+              height: top + barH,
+              padding: EdgeInsets.fromLTRB(12, top + 8, 16, 8),
+              decoration: BoxDecoration(
+                color: background.withValues(alpha: 0.94),
+                border: const Border(bottom: BorderSide(color: MgColors.line)),
+              ),
+              child: Row(children: [
+                MgV2Back(key: const ValueKey('mg-pinned-back'), onTap: onTap, close: close, style: MgBackStyle.light),
+                if ((title ?? '').isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Expanded(child: _BarTitle(title!)),
+                ],
+              ]),
             ),
-            child: Row(children: [
-              MgV2Back(key: const ValueKey('mg-pinned-back'), onTap: onTap, close: close, style: MgBackStyle.light),
-              if ((title ?? '').isNotEmpty) ...[
-                const SizedBox(width: 10),
-                Expanded(child: _BarTitle(title!)),
-              ],
-            ]),
           ),
         ),
       );

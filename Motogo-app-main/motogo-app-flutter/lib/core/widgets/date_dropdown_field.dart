@@ -97,13 +97,19 @@ class _DateDropdownFieldState extends State<DateDropdownField> {
   Widget build(BuildContext context) {
     final tr = t(context);
     final monthNames = [for (final k in _monthAbbrKeys) tr.tr(k)];
+    // Uložený rok mimo [firstYear, lastYear] (prošlý ŘP — volající dává
+    // firstYear = letošek; ročník nad lastYear) zůstane v nabídce: rozsah se
+    // k němu roztáhne (pořadí beze změny), jinak assert dropdownu — hodnota
+    // bez položky (pád v debugu, prázdné pole v release).
+    final first = math.min(widget.firstYear, _year ?? widget.firstYear);
+    final last = math.max(widget.lastYear, _year ?? widget.lastYear);
     final years = <int>[];
     if (widget.yearsDescending) {
-      for (var y = widget.lastYear; y >= widget.firstYear; y--) {
+      for (var y = last; y >= first; y--) {
         years.add(y);
       }
     } else {
-      for (var y = widget.firstYear; y <= widget.lastYear; y++) {
+      for (var y = first; y <= last; y++) {
         years.add(y);
       }
     }
