@@ -7,7 +7,7 @@ import '../tokens/mg_colors.dart';
 import 'mg_chrome_metrics.dart';
 import 'mg_pinned_back.dart';
 
-export 'mg_pinned_back.dart' show MgPinnedBack;
+export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 
 /// Page scaffold of every v2 screen (PLAN §1.9): [header] (MgRankHero /
 /// MgAppBar / MgPhotoHero), [sections] in a scroll view (the first one
@@ -156,40 +156,43 @@ class _MgPageState extends ConsumerState<MgPage> {
         child: scroll,
       );
     }
-    return Material(
-      color: widget.background,
-      child: Stack(children: [
-        Positioned.fill(child: scroll),
-        if (widget.dock != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: MgSizeReporter(
-              onSize: (s) {
-                if (mounted && (s.height - _dockH).abs() > 0.5) setState(() => _dockH = s.height);
-              },
-              child: widget.dock!,
+    return MgPinnedScope(
+      title: widget.pinnedBack != null ? widget.pinnedTitle : null,
+      child: Material(
+        color: widget.background,
+        child: Stack(children: [
+          Positioned.fill(child: scroll),
+          if (widget.dock != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: MgSizeReporter(
+                onSize: (s) {
+                  if (mounted && (s.height - _dockH).abs() > 0.5) setState(() => _dockH = s.height);
+                },
+                child: widget.dock!,
+              ),
             ),
-          ),
-        if (widget.pinnedBack != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: MgPinnedBack(
-              controller: _ctrl,
-              // The header's own disc sits in its top ~70 px: show the
-              // pinned one just before that part leaves the screen.
-              after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
-              heroExtent: widget.header != null ? _headerH : _heroH + widget.sectionPadding.resolve(Directionality.of(context)).top,
-              close: widget.pinnedClose,
-              onTap: widget.pinnedBack!,
-              background: widget.background,
-              title: widget.pinnedTitle,
+          if (widget.pinnedBack != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: MgPinnedBack(
+                controller: _ctrl,
+                // The header's own disc sits in its top ~70 px: show the
+                // pinned one just before that part leaves the screen.
+                after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
+                heroExtent: widget.header != null ? _headerH : _heroH + widget.sectionPadding.resolve(Directionality.of(context)).top,
+                close: widget.pinnedClose,
+                onTap: widget.pinnedBack!,
+                background: widget.background,
+                title: widget.pinnedTitle,
+              ),
             ),
-          ),
-      ]),
+        ]),
+      ),
     );
   }
 }

@@ -7,14 +7,16 @@ import '../../core/router.dart';
 import '../../core/supabase_client.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/address_autocomplete_field.dart';
+import '../../core/widgets/error_feedback.dart';
 import '../auth/widgets/toast_helper.dart';
-import '../catalog/catalog_provider.dart';
+import '../catalog/catalog_provider.dart' show MotoCategory;
 import '../catalog/moto_model.dart';
 import '../../core/friendly_error.dart';
 import '../../core/widgets/state_views.dart';
 import 'sos_feedback.dart';
 import 'sos_here_address.dart';
 import 'sos_provider.dart';
+import 'sos_replacement_motos.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 
 /// Adresa přistavení náhrady = text, který zákazník v poli vidí (i ručně
@@ -120,6 +122,18 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
+      if (isSosMotoTakenError(e)) {
+        // Někdo ji mezitím vzal (nebo nebyla volná): zpět do seznamu —
+        // „Zkusit znovu“ by selhalo stejně a nic by neřeklo proč.
+        FriendlyError.log('sos_replacement_taken', e);
+        setState(() => _selectedMoto = null);
+        ref.invalidate(sosReplacementMotosProvider);
+        await showErrorDialog(context,
+            title: t(context).tr('sosReplaceTakenTitle'),
+            body: t(context).tr('sosReplaceTakenBody'),
+            actions: [('pick', t(context).tr('sosReplacePickOther'))]);
+        return;
+      }
       final retry = await showSosActionFailed(context,
           title: t(context).tr('eoSosReplaceFailTitle'), error: e,
           extra: t(context).tr('eoSosReplaceByPhone'));
@@ -150,7 +164,8 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final motosAsync = ref.watch(motorcyclesProvider);
+    // Jen motorky volné do konce pronájmu (server by ostatní odmítl).
+    final motosAsync = ref.watch(sosReplacementMotosProvider);
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -198,18 +213,22 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                     motosAsync.when(
                       data: (motos) {
                         if (motos.isEmpty) {
-                          // Bez dostupné motorky nesmí zákazník zírat na
-                          // prázdný seznam — naveď ho na asistenční linku.
+                          // Žádná motorka volná do konce pronájmu: zákazník
+                          // nesmí zírat na prázdný seznam — nonstop linka.
                           return Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: MotoGoColors.amberBg,
                               borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
                             ),
-                            child: Text(
-                              '⚠️ ${t(context).tr('sosNoMotos')}\n📞 +420 774 256 271',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF78350F), height: 1.5),
-                            ),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                              Text(
+                                '⚠️ ${t(context).tr('sosNoMotos')}\n📞 +420 774 256 271',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF78350F), height: 1.5),
+                              ),
+                              const SizedBox(height: 10),
+                              const SosCallButton(),
+                            ]),
                           );
                         }
                         return Column(
@@ -225,7 +244,7 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
                           compact: true,
                           error: e,
                           what: t(context).tr('errorLoadingMotos'),
-                          onRetry: () => ref.invalidate(motorcyclesProvider),
+                          onRetry: () => ref.invalidate(sosReplacementMotosProvider),
                           contact: false,
                           extra: const [SosCallButton()]),
                     ),

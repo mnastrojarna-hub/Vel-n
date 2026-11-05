@@ -3,7 +3,10 @@
 // motion, the pinned back of MgPage collapses into a light bar once the hero
 // is gone (photo disc only over the hero), and the v2 theme overlay gives old
 // text fields the lineInput look while borderless fields stay borderless.
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/chrome/mg_page.dart';
 import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
@@ -14,6 +17,7 @@ import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/sos/sos_detail_screen.dart';
 import 'package:motogo_app/features/sos/sos_provider.dart';
+import 'package:motogo_app/features/sos/sos_replacement_motos.dart';
 import 'package:motogo_app/features/sos/sos_replacement_screen.dart';
 import 'package:motogo_app/features/sos/sos_report_screen.dart';
 
@@ -56,6 +60,7 @@ void main() {
               scaffold: false,
               overrides: [
                 motorcyclesProvider.overrideWith((ref) => Stream.value(_motos)),
+                sosReplacementMotosProvider.overrideWith((ref) async => _motos),
                 activeSosProvider.overrideWith((ref) => Stream.value(e.value.$2)),
                 sosTimelineProvider.overrideWith((ref, id) => Stream.value(const [])),
               ]);
@@ -150,6 +155,98 @@ void main() {
       await tester.pump();
       expect(find.byKey(bar), findsOneWidget);
       expect(tester.widget<MgV2Back>(find.byKey(back)).style, MgBackStyle.light);
+    });
+
+    // r4: a two-line title at a larger system text size — the bar grows to
+    // the real two-line height (16 + text), the second line is never cut.
+    const title = 'BMW R 1200 GS Adventure';
+    for (final scale in [1.0, 1.15, 1.3]) {
+      for (final w in [320.0, 360.0]) {
+        testWidgets('bar title fits at text scale $scale, ${w.toInt()} dp', (tester) async {
+          final ctrl = ScrollController();
+          await pumpV2(
+              tester,
+              Builder(
+                builder: (c) => MediaQuery(
+                  data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: MgPage(
+                    controller: ctrl,
+                    pinnedBack: () {},
+                    pinnedTitle: title,
+                    header: Container(height: 300, color: Colors.black),
+                    sections: rows(),
+                  ),
+                ),
+              ),
+              size: Size(w, 700),
+              dpr: 1,
+              reducedMotion: true,
+              scaffold: false);
+          await tester.pump();
+          ctrl.jumpTo(400);
+          await tester.pump();
+          await tester.pump();
+          final p = tester.renderObject<RenderParagraph>(find.text(title));
+          final barH = tester.getSize(find.byKey(bar)).height;
+          expect(p.didExceedMaxLines, isFalse);
+          expect(p.textSize.height, lessThanOrEqualTo(p.size.height + 0.01), reason: 'second line cut');
+          expect(barH, greaterThanOrEqualTo(17 + p.textSize.height - 0.01)); // 8 + 8 padding + hairline
+          expect(barH, greaterThanOrEqualTo(MgPinnedBack.barHeight));
+          expect(barH, lessThanOrEqualTo(MgPinnedBack.barHeight + 20));
+          final want = MgPinnedBack.barHeightFor(tester.element(find.byKey(bar)), title, w);
+          expect(barH, closeTo(want, 0.01));
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
+    // r4: `reveal` is a scroll OFFSET — a 300 / 500 / 900 px target lands
+    // 12 px under the bar (an alignment landed tall ones under it).
+    testWidgets('reveal lands 300 / 500 / 900 px targets 12 px under the bar', (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 24);
+      final ctrl = ScrollController();
+      final keys = {300: GlobalKey(), 500: GlobalKey(), 900: GlobalKey()};
+      final last = GlobalKey();
+      await pumpV2(
+          tester,
+          MgPage(
+            controller: ctrl,
+            pinnedBack: () {},
+            pinnedTitle: title,
+            header: Container(height: 300, color: Colors.black),
+            sections: [
+              for (final e in keys.entries) ...[
+                const SizedBox(height: 600),
+                SizedBox(key: e.value, height: e.key.toDouble(), child: const ColoredBox(color: Colors.green)),
+              ],
+              const SizedBox(height: 1200),
+              SizedBox(key: last, height: 100, child: const ColoredBox(color: Colors.red)),
+              const SizedBox(height: 40),
+            ],
+          ),
+          size: const Size(390, 844),
+          dpr: 1,
+          reducedMotion: true,
+          scaffold: false);
+      await tester.pump();
+      final barH = MgPinnedBack.barHeightFor(tester.element(find.byType(MgPage)), title, 390);
+      final top = 24 + barH + 12;
+      for (final e in keys.entries) {
+        await MgPinnedBack.reveal(e.value.currentContext!);
+        await tester.pump();
+        await tester.pump();
+        expect(tester.getTopLeft(find.byKey(e.value)).dy, closeTo(top, 0.5), reason: '${e.key} px target');
+        expect(find.byKey(bar), findsOneWidget);
+      }
+      // Animated: same landing (the future completes with the pumped frames).
+      unawaited(MgPinnedBack.reveal(keys[300]!.currentContext!, duration: const Duration(milliseconds: 300)));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byKey(keys[300]!)).dy, closeTo(top, 0.5));
+      // Near the end: clamped to the scroll range, never past it.
+      await MgPinnedBack.reveal(last.currentContext!);
+      await tester.pump();
+      expect(ctrl.position.pixels, closeTo(ctrl.position.maxScrollExtent, 0.5));
+      expect(tester.takeException(), isNull);
     });
   });
 

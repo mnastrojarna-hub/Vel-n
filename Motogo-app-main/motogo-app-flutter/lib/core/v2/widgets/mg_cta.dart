@@ -91,12 +91,15 @@ class MgCta extends ConsumerWidget {
       TextSpan(children: [
         TextSpan(text: label.toUpperCase()),
         if (price != null) ...[
+          // The money moment never breaks: the amount and its currency are one
+          // word (Money.czk separates them with an ordinary space) and a line
+          // break may fall only AFTER the "·" — never "… · 11 893" / "Kč".
           TextSpan(
-            text: '  ·  ',
+            text: '  ·  ',
             style: TextStyle(color: labelColor.withValues(alpha: 0.55), fontWeight: FontWeight.w700),
           ),
           TextSpan(
-            text: price,
+            text: price!.replaceAll(' ', ' '),
             style: MgType.tab(const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0)),
           ),
         ],
@@ -118,7 +121,9 @@ class MgCta extends ConsumerWidget {
       children: [
         if (glyph != null) ...[MgIcon(glyph, size: 18, color: labelColor), const SizedBox(width: 8)],
         // Slovo se nikdy nezalomí uprostřed: nejdřív zmenšit, pak zalomit v mezeře.
-        Flexible(child: MgWordFit(alignment: Alignment.center, child: text)),
+        // S cenou nejdřív o kousek menší na JEDEN řádek (ЗАБРОНЮВАТИ · 11 893 Kč
+        // na 320 dp), teprve pak zalomit za „·“.
+        Flexible(child: MgWordFit(alignment: Alignment.center, fitLines: price != null ? 1 : null, child: text)),
         if (arrow) ...[const SizedBox(width: 8), MgIcon(MgIcons.arrowRight, size: 18, color: labelColor)],
       ],
     );

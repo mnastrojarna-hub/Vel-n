@@ -72,6 +72,7 @@ class SosIncident {
   final String? assignedTo;
   final String? contactPhone;
   final String? bookingId;
+  final String? motoId; // the bike of the incident (left out of the replacement list)
   final List<String> photos;
   final DateTime createdAt;
   final DateTime? resolvedAt;
@@ -82,6 +83,7 @@ class SosIncident {
     this.title, this.description, this.motoRideable, this.customerFault,
     this.replacementStatus, this.assignedTo, this.contactPhone,
     this.bookingId,
+    this.motoId,
     this.photos = const [], required this.createdAt, this.resolvedAt,
     this.bookingEndDate,
   });
@@ -98,6 +100,7 @@ class SosIncident {
     assignedTo: json['assigned_to'] as String?,
     contactPhone: json['contact_phone'] as String?,
     bookingId: json['booking_id'] as String?,
+    motoId: json['moto_id'] as String?,
     photos: (json['photos'] as List?)?.map((e) => e.toString()).toList() ?? [],
     createdAt: DateTime.parse(json['created_at'] as String),
     bookingEndDate: json['bookings']?['end_date'] != null

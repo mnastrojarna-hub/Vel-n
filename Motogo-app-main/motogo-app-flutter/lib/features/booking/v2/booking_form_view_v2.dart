@@ -135,8 +135,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   void _scrollTo(GlobalKey key) {
     final c = key.currentContext;
     if (c == null) return;
-    Scrollable.ensureVisible(c,
-        duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: MgPinnedBack.revealAlignment(c));
+    MgPinnedBack.reveal(c, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
   }
 
   /// Date card open (calendar) and in view — "Změnit termín" fixes.

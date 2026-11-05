@@ -101,11 +101,10 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
     if (!mounted) return;
     final c = _fixTarget().currentContext;
     if (c == null) return;
-    await Scrollable.ensureVisible(
+    await MgPinnedBack.reveal(
       c,
       duration: MgMotion.reduced(context) ? Duration.zero : MgMotion.sheet,
       curve: MgMotion.out,
-      alignment: MgPinnedBack.revealAlignment(c),
     );
     if (again || !mounted) return;
     // The form may still have been growing (scroll extent too short): once more.

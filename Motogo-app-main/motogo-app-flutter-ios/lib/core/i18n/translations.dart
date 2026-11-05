@@ -86,6 +86,7 @@ import 'translations_ext_46_booking_prefill.dart';
 import 'translations_ext_47_rides.dart';
 import 'translations_ext_48_shared_carry.dart';
 import 'translations_ext_61_shared_r2.dart';
+import 'translations_ext_64_sos_replace.dart';
 import 'translations_uk_main.dart';
 import 'translations_uk_ext_a.dart';
 import 'translations_uk_ext_b.dart';
@@ -172,6 +173,7 @@ final translations = _mergeAll([
   translationsExt47Rides,
   translationsExt48SharedCarry,
   translationsExt61SharedR2,
+  translationsExt64SosReplace,
   translationsUkMain,
   translationsUkExt1,
   translationsUkExt6,

@@ -95,8 +95,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final c = _tripKey.currentContext;
       if (c == null || !mounted) return;
-      Scrollable.ensureVisible(c,
-          duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: MgPinnedBack.revealAlignment(c));
+      MgPinnedBack.reveal(c, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
     });
   }
 
