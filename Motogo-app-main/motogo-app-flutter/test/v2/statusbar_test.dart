@@ -31,6 +31,8 @@ import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
 import 'package:motogo_app/core/v2/states/mg_state_screen.dart';
 import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
+import 'package:motogo_app/features/catalog/v2/detail/detail_hero_v2.dart';
+import 'package:motogo_app/features/catalog/v2/detail/detail_states_v2.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/loyalty/v2/loyalty_screen_v2.dart';
 import 'package:motogo_app/features/messages/messages_provider.dart';
@@ -38,7 +40,7 @@ import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:motogo_app/features/routes/v2/builder_parts_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'support/fakes_home.dart' show loyaltyAt;
+import 'support/fakes_home.dart' show kMotos, loyaltyAt;
 import 'support/fakes_profile.dart';
 import 'support/fakes_profile_sub.dart';
 import 'support/profile_harness.dart';
@@ -365,5 +367,134 @@ void main() {
     expect(find.text('OLD'), findsOneWidget);
     expect(find.byType(AnnotatedRegion<SystemUiOverlayStyle>), findsNothing);
     expect(_topStyle(tester), isNull);
+  });
+
+  // r1: iOS bounce / pull-to-refresh paints the first sliver BELOW the top
+  // edge (BouncingScrollPhysics); the dark top keeps its icons while it is
+  // pushed down (its region reaches above it) instead of the page base
+  // winning for the length of the bounce. jumpTo bypasses the physics, so
+  // the probe is platform-independent.
+  group('overscroll (iOS bounce): the dark top keeps light icons', () {
+    const bounces = [-10.0, -40.0, -120.0, -400.0];
+
+    testWidgets('rank hero header + pinned back (tab roots)', (tester) async {
+      final ctrl = ScrollController();
+      addTearDown(ctrl.dispose);
+      await _pump(
+        tester,
+        MgPage(
+          controller: ctrl,
+          header: const MgRankHero(ambient: false, child: SizedBox(height: 160)),
+          pinnedBack: () {},
+          pinnedTitle: 'Profil',
+          sections: [_long()],
+        ),
+      );
+      expect(_topStyle(tester), MgStatusBar.onDark);
+      for (final px in bounces) {
+        await _jump(tester, px);
+        expect(_topStyle(tester), MgStatusBar.onDark, reason: 'overscroll $px');
+        expect(SystemChrome.latestStyle?.statusBarIconBrightness, Brightness.light, reason: 'overscroll $px');
+      }
+      await _jump(tester, 0);
+      expect(_topStyle(tester), MgStatusBar.onDark);
+      // Scrolled away still collapses to the light bar.
+      await _jump(tester, 600);
+      expect(_topStyle(tester), MgStatusBar.onLight);
+      await _jump(tester, 0);
+      expect(_topStyle(tester), MgStatusBar.onDark);
+    });
+
+    testWidgets('photo hero as first section (res detail)', (tester) async {
+      final ctrl = ScrollController();
+      addTearDown(ctrl.dispose);
+      await _pump(
+        tester,
+        MgPage(
+          controller: ctrl,
+          overlapHero: false,
+          pinnedBack: () {},
+          pinnedTitle: 'Honda CB500X',
+          sections: [
+            MgPhotoHero(image: const ColoredBox(color: Colors.white), kenBurns: false, onBack: () {}, title: 'Honda'),
+            _long(),
+          ],
+        ),
+      );
+      for (final px in bounces) {
+        await _jump(tester, px);
+        expect(_topStyle(tester), MgStatusBar.onDark, reason: 'overscroll $px');
+      }
+      await _jump(tester, 500);
+      expect(_topStyle(tester), MgStatusBar.onLight);
+    });
+
+    testWidgets('dark MgAppBar header (lists); light one stays dark icons', (tester) async {
+      await _pump(tester, MgPage(header: MgAppBar(title: 'Zprávy', onBack: () {}), sections: [_long()]));
+      for (final px in bounces) {
+        await _jump(tester, px);
+        expect(_topStyle(tester), MgStatusBar.onDark, reason: 'overscroll $px');
+      }
+      await _pump(tester, MgPage(header: MgAppBar(title: 'Doklady', onBack: () {}, light: true), sections: [_long()]));
+      await _jump(tester, -40);
+      expect(_topStyle(tester), MgStatusBar.onLight);
+    });
+
+    testWidgets('moto detail hero (DetailHeroV2) + the loading skeleton', (tester) async {
+      final pageCtrl = PageController();
+      addTearDown(pageCtrl.dispose);
+      await _pump(
+        tester,
+        MgPage(
+          overlapHero: false,
+          pinnedBack: () {},
+          pinnedTitle: 'BMW R 1200 GS Adventure',
+          sections: [
+            DetailHeroV2(
+              moto: kMotos.first,
+              images: const ['https://motogo24.cz/m/1.png'],
+              branchInfo: 'Mezná',
+              imageIndex: 0,
+              pageCtrl: pageCtrl,
+              onImageChanged: (_) {},
+              onOpenGallery: null,
+              onBack: () {},
+              height: 320,
+            ),
+            _long(),
+          ],
+        ),
+      );
+      expect(_topStyle(tester), MgStatusBar.onDark);
+      for (final px in bounces) {
+        await _jump(tester, px);
+        expect(_topStyle(tester), MgStatusBar.onDark, reason: 'overscroll $px');
+      }
+      await _pump(tester, DetailLoadingV2(onRetry: () {}, onBack: () {}));
+      expect(_topStyle(tester), MgStatusBar.onDark);
+      await _jump(tester, -40);
+      expect(_topStyle(tester), MgStatusBar.onDark);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('MgStateScreen ok / pending hero', (tester) async {
+      for (final tone in [MgTone.ok, MgTone.pending]) {
+        await _pump(
+          tester,
+          MgStateScreen(
+            tone: tone,
+            title: 'Zaplaceno',
+            why: 'Potvrzení přijde e-mailem.',
+            steps: List.generate(20, (i) => 'Krok ${i + 1}'),
+            primary: MgStateAction('Pokračovat', () {}),
+            onClose: () {},
+          ),
+        );
+        for (final px in bounces) {
+          await _jump(tester, px);
+          expect(_topStyle(tester), MgStatusBar.onDark, reason: '$tone overscroll $px');
+        }
+      }
+    });
   });
 }
