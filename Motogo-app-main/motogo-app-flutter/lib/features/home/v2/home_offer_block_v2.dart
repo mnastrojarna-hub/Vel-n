@@ -47,9 +47,10 @@ class HomeOfferBlockV2 extends ConsumerWidget {
         HomeReveal(
           index: 1,
           sessionKey: 'home-offer',
-          // Nabídka ½ (peníze) — AI tlačítko ji nikdy nezakryje (SH-12).
+          // Nabídka ½ = peněžní fakt: AI tlačítko ji nikdy nezakryje — když se
+          // nedá zvednout nad ni, uhne úplně (SH-12, design D9).
           child: MgFabAvoid(
-            kind: MgAvoidKind.tap,
+            kind: MgAvoidKind.cta,
             child: MgTintFeature(
             offer: true,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),

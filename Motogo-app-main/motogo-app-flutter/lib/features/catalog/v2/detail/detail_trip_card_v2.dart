@@ -52,6 +52,12 @@ class DetailTripCardV2 extends ConsumerStatefulWidget {
   final bool calendarExpanded;
   final VoidCallback onToggleCalendar;
   final void Function(DateTime, DateTime) onRangeSelected;
+
+  /// CB-17: the detail dock's "Rozpis" opens the same breakdown — the
+  /// open flag lives in the view then (null = this card's own, as before);
+  /// [totalKey] marks the total box the dock scrolls to.
+  final ValueNotifier<bool>? breakdown;
+  final Key? totalKey;
   final void Function(DateTime) onStartSelected;
   final VoidCallback onReset;
   final AsyncValue<List<BookedDateRange>> bookedAsync;
@@ -68,6 +74,8 @@ class DetailTripCardV2 extends ConsumerStatefulWidget {
     required this.calendarExpanded,
     required this.onToggleCalendar,
     required this.onRangeSelected,
+    this.breakdown,
+    this.totalKey,
     required this.onStartSelected,
     required this.onReset,
     required this.bookedAsync,
@@ -81,6 +89,34 @@ class DetailTripCardV2 extends ConsumerStatefulWidget {
 
 class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
   bool _breakdown = false;
+
+  Widget _weekendChips(BuildContext context, AppTranslations tr, List<BookedDateRange> booked) {
+    final now = DateTime.now();
+    bool free((DateTime, DateTime) r) {
+      for (var d = r.$1; !d.isAfter(r.$2); d = DateTime(d.year, d.month, d.day + 1)) {
+        if (booked.any((x) => x.containsDate(d))) return false;
+      }
+      return true;
+    }
+    final presets = [
+      (tr.tr('v2CatPresetWeekend'), catWeekend(now)),
+      (tr.tr('v2CatPresetNextWeekend'), catWeekend(now, skip: 1)),
+    ].where((p) => free(p.$2)).toList();
+    if (presets.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final p in presets)
+          MgChoiceChip(
+            label: p.$1,
+            sub: catRange(tr, p.$2.$1, p.$2.$2),
+            selected: false,
+            icon: MgIcons.calendarCheck,
+            onTap: () => widget.onRangeSelected(p.$2.$1, p.$2.$2),
+          ),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +209,10 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
           ),
           tile(tr.tr('dateTabsReturn'), w.selEnd),
         ]),
+        // CB-26: without dates two one-tap presets (Detail board) — the
+        // same `onRangeSelected` as the calendar; only a weekend this
+        // bike's loaded calendar shows free is offered.
+        if (!w.hasDates && b.hasValue) _weekendChips(context, tr, b.value!),
         if (!w.calendarExpanded && w.hasDates)
           Align(
             alignment: Alignment.centerRight,
@@ -238,6 +278,7 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
           ),
         if (w.hasDates && q != null && q.total > 0)
           MgTotalBox(
+            key: w.totalKey,
             eyebrow: '${tr.tr('v2YourPrice')} · ${catDays(tr, w.dayCount)}',
             value: catMoney(q.total),
             sub: '${tr.trArgs('v2AvgPerDay', {'amount': catMoney((q.total / (w.dayCount < 1 ? 1 : w.dayCount)).roundToDouble())})}'
@@ -254,8 +295,10 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
                     dark: true,
                   )
                 : null,
-            onBreakdown: () => setState(() => _breakdown = !_breakdown),
-            breakdownOpen: _breakdown,
+            onBreakdown: () => w.breakdown != null
+                ? w.breakdown!.value = !w.breakdown!.value
+                : setState(() => _breakdown = !_breakdown),
+            breakdownOpen: w.breakdown?.value ?? _breakdown,
             breakdown: _Breakdown(q: q, days: w.dayCount),
           )
         else

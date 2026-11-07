@@ -135,8 +135,9 @@ class HomeTicketV2 extends ConsumerWidget {
                           const MgIcon(MgIcons.pin, size: 14, color: MgColors.onDarkBody),
                           const SizedBox(width: 4),
                           Expanded(
+                            // Typ pobočky se nikdy neusekne (dlouhé jazyky → 2 řádky).
                             child: Text(meta,
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: MgType.small.copyWith(color: MgColors.onDarkBody)),
                           ),

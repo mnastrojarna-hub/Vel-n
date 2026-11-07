@@ -9,6 +9,7 @@ import '../../../core/booking_form_return_section.dart';
 import '../../../core/booking_form_time_section.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/states/mg_state_screen.dart';
@@ -19,6 +20,7 @@ import '../booking_models.dart';
 import 'booking_consents_v2.dart';
 import 'booking_date_v2.dart';
 import 'booking_dock_v2.dart';
+import 'booking_express_v2.dart';
 import 'booking_header_v2.dart';
 import 'booking_note_v2.dart';
 import 'booking_recap_v2.dart';
@@ -132,15 +134,70 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   final _warnKey = GlobalKey();
   final _timeKey = GlobalKey();
 
+  /// Express layout (CB-11, Booking board "Máme to připravené"): the
+  /// "Termín a předání" cards (date, time, pickup, return) and the gear /
+  /// extras section start collapsed for a returning customer whose trip is
+  /// ready; a first-time customer (sizes missing) sees everything open. A
+  /// section holding a blocker is always open (and stays open).
+  late bool _handover;
+  late bool _ready;
+
+  static bool _handoverBlocked(BookingFormV2View w) {
+    final d = w.draft;
+    // A chosen delivery without its address is a required input (D7).
+    bool noAddr(String? a, String? c) => (a ?? '').trim().isEmpty && (c ?? '').trim().isEmpty;
+    return !w.hasDates ||
+        w.rangeBusy ||
+        w.calOpen ||
+        w.errKind == BookingErrKind.dates ||
+        w.errKind == BookingErrKind.time ||
+        (d.pickupMethod == 'delivery' && noAddr(d.pickupAddress, d.pickupCity)) ||
+        (d.returnMethod == 'delivery' && noAddr(d.returnAddress, d.returnCity));
+  }
+
+  static bool _readyBlocked(BookingFormV2View w) => w.missingSizes.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    final express = !_handoverBlocked(widget) && !_readyBlocked(widget);
+    _handover = !express;
+    _ready = !express;
+  }
+
+  @override
+  void didUpdateWidget(covariant BookingFormV2View oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_handoverBlocked(widget)) _handover = true;
+    if (_readyBlocked(widget)) _ready = true;
+  }
+
   void _scrollTo(GlobalKey key) {
     final c = key.currentContext;
     if (c == null) return;
     MgPinnedBack.reveal(c, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
   }
 
+  /// Opens the collapsed express section holding [key] (if needed), then
+  /// brings [key] into view — every "Doplnit" / fix action goes through it.
+  void _reveal(GlobalKey key, {bool handover = false, bool ready = false}) {
+    if ((handover && !_handover) || (ready && !_ready)) {
+      setState(() {
+        if (handover) _handover = true;
+        if (ready) _ready = true;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scrollTo(key);
+      });
+    } else {
+      _scrollTo(key);
+    }
+  }
+
   /// Date card open (calendar) and in view — "Změnit termín" fixes.
   void _openDates() {
     widget.onOpenCalendar();
+    if (!_handover) setState(() => _handover = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scrollTo(_dateKey);
     });
@@ -150,7 +207,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   /// pickup lead time → the time card, licence → the banner's own actions.
   VoidCallback _errFix() => switch (widget.errKind) {
         BookingErrKind.dates => _openDates,
-        BookingErrKind.time => () => _scrollTo(_timeKey),
+        BookingErrKind.time => () => _reveal(_timeKey, handover: true),
         _ => () => _scrollTo(_warnKey),
       };
 
@@ -161,7 +218,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
             (tr.tr('completeProfileBtn'), widget.onCompleteProfile),
           ],
         BookingErrKind.dates => [(tr.tr('psChangeDates'), _openDates)],
-        BookingErrKind.time => [(tr.tr('v2BkFixTime'), () => _scrollTo(_timeKey))],
+        BookingErrKind.time => [(tr.tr('v2BkFixTime'), () => _reveal(_timeKey, handover: true))],
         null => const [],
       };
 
@@ -172,13 +229,13 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     if (w.canProceed) return null;
     final b = w.booked;
     final d = w.draft;
-    if (!w.hasDates) return (tr.tr('v2BkBlockDates'), () => _scrollTo(_dateKey));
-    if (b != null && !b.hasValue && !b.hasError) return (tr.tr('v2BkBlockAvail'), () => _scrollTo(_dateKey));
+    if (!w.hasDates) return (tr.tr('v2BkBlockDates'), () => _reveal(_dateKey, handover: true));
+    if (b != null && !b.hasValue && !b.hasError) return (tr.tr('v2BkBlockAvail'), () => _reveal(_dateKey, handover: true));
     if (b != null && !b.hasValue && b.hasError) return (tr.tr('v2BkBlockAvailFail'), () => _scrollTo(_warnKey));
     if (w.rangeBusy) return (tr.tr('v2BkBlockBusy'), _openDates);
     if (w.err != null) return (tr.tr('v2BkBlockError'), _errFix());
     if (w.profileErr != null) return (tr.tr('v2BkBlockProfile'), () => _scrollTo(_warnKey));
-    if (w.missingSizes.isNotEmpty) return (tr.tr('v2BkBlockSizes'), () => _scrollTo(_gearKey));
+    if (w.missingSizes.isNotEmpty) return (tr.tr('v2BkBlockSizes'), () => _reveal(_gearKey, ready: true));
     if (!(d.consentVop && d.consentGdpr && (!w.isKids || d.consentKids))) {
       return (tr.tr('v2BkBlockConsent'), () => _scrollTo(_consentKey));
     }
@@ -196,62 +253,104 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     var i = 0;
     Widget reveal(Widget child) => MgReveal(index: i++, sessionKey: 'booking-form', child: child);
+    final handoverBlocked = _handoverBlocked(w);
+    final readyBlocked = _readyBlocked(w);
+    final handoverCards = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      KeyedSubtree(
+        key: _dateKey,
+        child: BookingDateCardV2(
+          dayPrices: w.moto.prices,
+          start: d.startDate,
+          end: d.endDate,
+          hasDates: w.hasDates,
+          dayCount: w.dayCount,
+          basePrice: w.bd.basePrice,
+          calOpen: w.calOpen,
+          busy: w.rangeBusy,
+          booked: booked,
+          onOpenCalendar: w.onOpenCalendar,
+          onKeep: w.onCloseCalendar,
+          onRangeSelected: w.onDatesSelected,
+          onReset: w.onDatesReset,
+          onRetryBooked: w.onRetryBooked,
+        ),
+      ),
+      KeyedSubtree(
+        key: _timeKey,
+        child: BookingFormTimeSection(
+          draft: d,
+          onTimeChanged: w.onPickupTime,
+          onReturnTimeChanged: w.onReturnTime,
+          showReturn: !w.hideReturnTime,
+          selfService: w.selfServiceAtBranch,
+        ),
+      ),
+      BookingFormPickupSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
+      BookingFormReturnSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
+    ]);
     final sections = <Widget>[
-        reveal(BookingRecapV2(moto: w.moto)),
-        reveal(KeyedSubtree(
-          key: _dateKey,
-          child: BookingDateCardV2(
-            dayPrices: w.moto.prices,
-            start: d.startDate,
-            end: d.endDate,
-            hasDates: w.hasDates,
-            dayCount: w.dayCount,
-            basePrice: w.bd.basePrice,
-            calOpen: w.calOpen,
-            busy: w.rangeBusy,
-            booked: booked,
-            onOpenCalendar: w.onOpenCalendar,
-            onKeep: w.onCloseCalendar,
-            onRangeSelected: w.onDatesSelected,
-            onReset: w.onDatesReset,
-            onRetryBooked: w.onRetryBooked,
+        // CB-10: the recap is the trip (dates, times, place) — same values;
+        // CB-11: its footer row opens "Termín a předání".
+        reveal(BookingRecapV2(
+          moto: w.moto,
+          start: w.hasDates ? d.startDate : null,
+          end: w.hasDates ? d.endDate : null,
+          dayCount: w.dayCount,
+          pickupTime: d.pickupTime,
+          returnTime: w.hideReturnTime ? null : d.returnTime,
+          half: w.bd.latePickupDiscount > 0,
+          pickupDelivery: d.pickupMethod == 'delivery',
+          onPickDates: _openDates,
+          footer: BookingHandoverRowV2(
+            open: _handover,
+            ok: !handoverBlocked,
+            onToggle: () => setState(() => _handover = handoverBlocked || !_handover),
           ),
         )),
-        reveal(KeyedSubtree(
-          key: _timeKey,
-          child: BookingFormTimeSection(
-            draft: d,
-            onTimeChanged: w.onPickupTime,
-            onReturnTimeChanged: w.onReturnTime,
-            showReturn: !w.hideReturnTime,
-            selfService: w.selfServiceAtBranch,
-          ),
+        bkAnimatedSize(context, _handover ? handoverCards : const SizedBox(width: double.infinity)),
+        reveal(BookingReadyCardV2(
+          draft: d,
+          bd: w.bd,
+          open: _ready,
+          gearOk: !readyBlocked,
+          onToggle: () => setState(() => _ready = readyBlocked || !_ready),
         )),
-        reveal(BookingFormPickupSection(
-            draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked)),
-        reveal(BookingFormReturnSection(
-            draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked)),
-        reveal(KeyedSubtree(
-          key: _gearKey,
-          child: BookingFormExtrasSection(
-            draft: d,
-            onUpd: w.onUpd,
-            isKids: w.isKids,
-            selfService: w.selfService,
-            motoId: w.moto.id,
-          ),
-        )),
+        bkAnimatedSize(
+          context,
+          _ready
+              ? KeyedSubtree(
+                  key: _gearKey,
+                  child: BookingFormExtrasSection(
+                    draft: d,
+                    onUpd: w.onUpd,
+                    isKids: w.isKids,
+                    selfService: w.selfService,
+                    motoId: w.moto.id,
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
         KeyedSubtree(
           key: _priceKey,
           child: BookingFormPriceSection(draft: d, bd: w.bd, dayCount: w.dayCount, pricedExtras: w.pricedExtras),
         ),
-        BookingFormPromoSection(draft: d, onUpd: w.onUpd),
-        BookingNoteCardV2(
-          controller: w.noteCtrl,
-          open: w.noteOpen,
-          onToggle: w.onToggleNote,
-          onChanged: w.onNoteChanged,
+        // Promo + note as two pills while nothing is entered (board);
+        // an applied code, own vouchers or an open note show their card.
+        BookingFormPromoSection(
+          draft: d,
+          onUpd: w.onUpd,
+          express: true,
+          expressNote: w.noteOpen || w.noteCtrl.text.trim().isNotEmpty
+              ? null
+              : BookingChipButtonV2(icon: MgIcons.doc, label: tr.tr('v2UxCbNoteChip'), onTap: w.onToggleNote),
         ),
+        if (w.noteOpen || w.noteCtrl.text.trim().isNotEmpty)
+          BookingNoteCardV2(
+            controller: w.noteCtrl,
+            open: w.noteOpen,
+            onToggle: w.onToggleNote,
+            onChanged: w.onNoteChanged,
+          ),
         KeyedSubtree(
           key: _consentKey,
           child: BookingConsentsV2(
@@ -296,7 +395,15 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
           : BookingDockV2(
               canProceed: w.canProceed,
               blocker: blocker?.$1,
-              context2: w.hasDates ? '${tr.tr('v2YourPrice')} · ${bkDays(tr, w.dayCount)}' : null,
+              // CB-16: "· ušetříš 1 585 Kč" = the price card's rank saving.
+              context2: w.hasDates
+                  ? [
+                      tr.tr('v2YourPrice'),
+                      bkDays(tr, w.dayCount),
+                      if (w.bd.loyaltyDiscount > 0)
+                        bkNb(tr.trArgs('v2UxCbDockSaves', {'amount': bkMoney(w.bd.loyaltyDiscount)})),
+                    ].join(' · ')
+                  : null,
               price: w.hasDates ? bkNb(bkMoney(w.bd.total)) : null,
               onProceed: w.onProceed,
               trailingLabel: blocker != null ? tr.tr('v2BkFix') : (w.hasDates ? tr.tr('v2Breakdown') : null),

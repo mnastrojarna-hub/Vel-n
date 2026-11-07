@@ -75,6 +75,7 @@ class HomeRoutesV2 extends ConsumerWidget {
             // Karta: foto 120 + název (2 řádky) + štítky; roste s písmem.
             height: 272 + (homeRouteTitleH(context) - 40) + (homeRouteChipH(context) - 24) * 2,
             child: ListView.separated(
+              key: const ValueKey('home-routes-list'),
               scrollDirection: Axis.horizontal,
               // Karty dosednou celé, další vykoukne o 44 px (SH-19).
               physics: MgSnapScrollPhysics(itemExtent: homeRouteCardW(context) + 12),

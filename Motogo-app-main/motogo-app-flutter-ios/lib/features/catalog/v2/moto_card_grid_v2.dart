@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
@@ -36,10 +37,9 @@ class MotoCardGridV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final m = moto;
-    final meta = [
-      if (m.category != null && m.category!.isNotEmpty) catCategoryLabel(tr, m.category!),
-      if ((m.branchName ?? m.branchCity) != null) (m.branchName ?? m.branchCity)!,
-    ].join(' · ');
+    // CB-06: category on line 1, "branch · type" on line 2 (never cut).
+    final cat = m.category != null && m.category!.isNotEmpty ? catCategoryLabel(tr, m.category!) : null;
+    final branch = catBranchLine(tr, m);
     final img = m.displayImage;
     return Semantics(
       button: true,
@@ -64,12 +64,18 @@ class MotoCardGridV2 extends StatelessWidget {
                   color: MgColors.night,
                   child: img.isEmpty
                       ? Center(child: MgIcon(MgIcons.moto, size: 40, color: MgColors.onDarkFloor))
-                      : MgImage(
-                          img,
-                          thumbWidth: 500,
-                          fit: BoxFit.cover,
-                          placeholder: const ColoredBox(color: MgColors.night),
-                          error: Center(child: MgIcon(MgIcons.moto, size: 40, color: MgColors.onDarkFloor)),
+                      // CB-14: the photo flies into the detail hero.
+                      : MgHeroPhoto(
+                          tag: mgHeroTagMoto(m.id),
+                          child: MgImage(
+                            img,
+                            thumbWidth: 500,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            placeholder: const ColoredBox(color: MgColors.panel),
+                            error: Center(child: MgIcon(MgIcons.moto, size: 40, color: MgColors.onDarkFloor)),
+                          ),
                         ),
                 ),
                 DecoratedBox(
@@ -116,11 +122,10 @@ class MotoCardGridV2 extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  if (meta.isNotEmpty)
-                    Text(meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: MgType.micro.copyWith(color: MgColors.meta)),
+                  if (cat != null)
+                    MgWordFit(minScale: 0.8, child: Text(cat, style: MgType.micro.copyWith(color: MgColors.meta))),
+                  if (branch != null)
+                    MgWordFit(minScale: 0.8, child: Text(branch, style: MgType.micro.copyWith(color: MgColors.meta))),
                   const SizedBox(height: 4),
                   // Large text in the narrow column: scale before a word
                   // ("Husqvarna") would split in half.

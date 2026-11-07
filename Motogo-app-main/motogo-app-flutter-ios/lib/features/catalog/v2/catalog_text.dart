@@ -75,3 +75,27 @@ double catFromPerDay(Motorcycle m, int pct) =>
     DateTime(sunday.year, sunday.month, sunday.day + 7),
   );
 }
+
+/// Branch type label ("s obsluhou" / "samoobsluha nonstop", the calculator's
+/// keys); null when the branch type is unknown (never guessed).
+String? catBranchType(AppTranslations tr, Motorcycle m) => m.branchType == null
+    ? null
+    : (m.branchType == 'samoobslužná' ? tr.tr('v2CalcBranchSelf') : tr.tr('v2CalcBranchStaffed'));
+
+/// "Mezná · s obsluhou" (CB-06: branch + type wherever a branch is named);
+/// null without a branch.
+String? catBranchLine(AppTranslations tr, Motorcycle m) {
+  final name = m.branchName ?? m.branchCity;
+  if (name == null || name.trim().isEmpty) return null;
+  final type = catBranchType(tr, m);
+  return type == null ? name : '$name · $type';
+}
+
+/// Street address of the branch ("Mezná 9, Pelhřimov"); null when unknown.
+String? catBranchAddress(Motorcycle m) {
+  final parts = [
+    if ((m.branchAddress ?? '').trim().isNotEmpty) m.branchAddress!.trim(),
+    if ((m.branchCity ?? '').trim().isNotEmpty && !(m.branchAddress ?? '').contains(m.branchCity!)) m.branchCity!.trim(),
+  ];
+  return parts.isEmpty ? null : parts.join(', ');
+}

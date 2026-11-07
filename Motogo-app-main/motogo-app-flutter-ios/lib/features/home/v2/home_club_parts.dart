@@ -92,7 +92,11 @@ class ClubPerkPair extends StatelessWidget {
 /// current ring / locked). Names in semantics + long-press tooltip.
 class ClubTierRail extends StatelessWidget {
   final int current;
-  const ClubTierRail({super.key, required this.current});
+
+  /// Tap on a league disc → preview of that tier's look (board Main
+  /// "Klepni a ukážeme ti vzhled"); gets the tier's first level.
+  final ValueChanged<int>? onPreview;
+  const ClubTierRail({super.key, required this.current, this.onPreview});
 
   static const _from = [1, 6, 10, 17, 20];
   static const _pts = [0, 10, 18, 32, 38];
@@ -120,14 +124,22 @@ class ClubTierRail extends StatelessWidget {
             ? tr.tr('v2HomeClubHere')
             : tr.trArgs('v2HomeClubFrom', {'n': _pts[i], 'points': RankCopy.points(tr, _pts[i])});
     final locked = i > current;
+    final preview = onPreview == null ? null : () => onPreview!(_from[i]);
     return Tooltip(
       message: '$name · $state',
       child: Semantics(
         label: '$name, $state',
+        hint: preview == null ? null : tr.tr('v2UxShTierHint'),
+        button: preview != null,
+        onTap: preview,
         excludeSemantics: true,
         child: MgReveal(
           index: i,
-          child: Container(
+          child: MgPress(
+            scale: 0.92,
+            onTap: preview,
+            child: Container(
+            key: ValueKey('club-tier-$i'),
             width: 40,
             height: 40,
             decoration: BoxDecoration(
@@ -147,6 +159,7 @@ class ClubTierRail extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ),
         ),
       ),

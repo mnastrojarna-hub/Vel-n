@@ -19,7 +19,7 @@ import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/book
 import { sendBookingMessage, logAudit, cancelBookingFromVelin, edgeErrorDetail, paidForRefund } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 import RefundConfirmModal from './booking/RefundConfirmModal'
-import { manualRefundOpen, manualRefundSentStatus } from './booking/manualRefundState'
+import { livePaidDocsCzk, manualRefundOpen, manualRefundSentStatus } from './booking/manualRefundState'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import BookingDamagePanel from './booking/BookingDamagePanel'
@@ -414,7 +414,9 @@ export default function BookingDetail() {
       const cn = creditNotes.find(c => !c.stripe_refund_id)
       const amount = cn ? Math.abs(Number(cn.total) || 0) : null
       // Částečná vratka (živé dobropisy — karta i převod — < celková cena) → 'partial_refund', plná → 'refunded' (i4).
-      const newStatus = manualRefundSentStatus(booking, creditNotes)
+      // i5r2: živá rezervace vždy 'partial_refund'; zrušená porovnává se zaplacenými doklady (DP), bez nich s cenou.
+      const paidDocs = booking?.status === 'cancelled' ? await livePaidDocsCzk(supabase, id) : null
+      const newStatus = manualRefundSentStatus(booking, creditNotes, paidDocs)
       const res = await debugAction('booking.manual_refund_sent', 'BookingDetail', () =>
         supabase.from('bookings').update({ payment_status: newStatus }).eq('id', id)
       , { booking_id: id, amount, new_status: newStatus })

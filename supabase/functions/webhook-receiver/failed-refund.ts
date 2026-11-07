@@ -6,13 +6,13 @@
 //    (dobropis na tutéž částku) a zákazník dostal mail o vrácení 0 Kč; po zrušení u selhaného ZBYTKU (hlavní vratka
 //    odešla) nekryl dobropis už nic a recovery / Velín pak vrátily víc, než ukazovaly doklady.
 //  • stará událost (Stripe doručí znovu po ne-2xx, druhý typ události, zpožděná) PO úspěšném opakování rezervaci znovu
-//    neotevírá: vratka je „současná“, jen když je uloženou vratkou rezervace (nebo uložená chybí / je starší) a žádná
-//    novější živá naše vratka téhož důvodu (mimo tutéž logickou vratku) ji nenahradila a uvnitř téže logické vratky není
-//    živá část už ≥ cíl (mg_target — recovery selhaný zbytek dovrátila).
+//    neotevírá: nahrazená je jen OPAKOVANÁ vratka (i5r2: novější živá naše vratka téhož důvodu se stejným požadavkem
+//    mg_target, ne jen „novější uložená“ / „téhož důvodu“), storno, kterému už nic nechybí (novější hlavní vratka
+//    storna), nebo vratka, jejíž živá část téže logické vratky je už ≥ cíl (mg_target — recovery dovrátila zbytek).
 // Stav se čte ze Stripe znovu (ne ze snímku v události); nečitelné platby → nic se nemění (jen mail jako dřív).
 import { cancellationRefundPool } from '../process-refund/cancel-once-pool.ts'
 import { shrinkCreditNote } from '../process-refund/credit-note-sync.ts'
-import type { StripeRefundLike } from '../process-refund/cancel-once.ts'
+import { cancellationMissingHaleru, priorCancellationRefunds, type StripeRefundLike } from '../process-refund/cancel-once.ts'
 import type { BookingIntentsStripe } from '../_shared/booking-intents.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -59,19 +59,31 @@ export async function failedRefundState(sb: Sb, stripe: FailedRefundStripe, r: R
   const liveHaleru = main ? (live(main) ? Number(main.amount || 0) : 0)
     + pool.refunds.filter((x) => x.id !== mainId && live(x) && x.metadata?.mg_main_refund === mainId).reduce((s, x) => s + Number(x.amount || 0), 0) : null
   const created = Number(fresh?.created ?? r.created ?? 0)
-  const storedId = bk.stripe_refund_id || null
-  const stored = storedId ? find(storedId) : null
-  const current = !storedId || storedId === r.id || storedId === mainId || !stored || Number(stored.created || 0) <= created
   const reason = md.mg_reason || ''
+  // i5r2 (verify:refunds R1): novější vratka selhanou nahrazuje JEN jako její OPAKOVÁNÍ — naše, téže rezervace a důvodu,
+  // ne zbytek, živá, novější a se stejným požadavkem (mg_target, jinak částka). Dřív stačila novější uložená vratka
+  // rezervace / naše vratka téhož důvodu → selhaná vratka 1. zkrácení „nahrazená“ vratkou 2. úpravy o JINOU částku:
+  // rezervace se neotevřela a mail obsluze místo „Chybí vrátit“ tvrdil „nahradila novější vratka“.
+  const ask = Number(main?.metadata?.mg_target ?? r.amount)
   const newer = pool.refunds.some((x) => {
     const xm = x.metadata || {}
-    return x.id !== r.id && x.id !== mainId && xm.mg_main_refund !== mainId && live(x) && xm.mg_source === 'process-refund'
-      && xm.mg_booking_id === bk.id && (xm.mg_reason || '') === reason && Number(x.created || 0) > created
+    return x.id !== r.id && x.id !== mainId && xm.mg_main_refund !== mainId && xm.mg_part !== 'remainder' && live(x)
+      && xm.mg_source === 'process-refund' && xm.mg_booking_id === bk.id && (xm.mg_reason || '') === reason
+      && Number(x.created || 0) > created && Number(xm.mg_target ?? x.amount) === ask
   })
+  // storno: novější rozhodnutí o TOMTO stornu (nejnovější živá hlavní vratka storna vznikla po selhané) a stornu jako celku
+  // nic nechybí (Velín „Potvrdit vrácení“ jiné částky, dovrácení) → nahrazeno. Starší hlavní vratka (selhalo dorovnání
+  // 50 % → 100 %) nic nenahrazuje — její cíl je menší.
+  let covered = false
+  if (reason === 'cancellation' && md.mg_cancel_at) {
+    const newest = priorCancellationRefunds(pool.refunds, bk.id, md.mg_cancel_at)[0]
+    covered = !!newest && newest.id !== mainId && Number(newest.created || 0) > created
+      && cancellationMissingHaleru(pool.refunds, bk.id, md.mg_cancel_at) === 0
+  }
   // selhaná část už nahrazena uvnitř TÉŽE logické vratky (recovery dovrátila zbytek, cíl snížen) → živá část ≥ mg_target
   const target = Number(main?.metadata?.mg_target)
   const redone = liveHaleru != null && Number.isFinite(target) && target > 0 && liveHaleru >= target
-  return { known, failedNow, mainId, liveHaleru: known ? liveHaleru : null, superseded: !current || newer || redone }
+  return { known, failedNow, mainId, liveHaleru: known ? liveHaleru : null, superseded: newer || covered || redone }
 }
 
 /** Dobropis logické vratky (k hlavní vratce) zmenšit na živou část. Vrací { number, before, after } (after null = beze změny). */

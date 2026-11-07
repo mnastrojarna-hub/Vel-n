@@ -4,6 +4,9 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/motion/mg_anim_loops.dart';
+import '../../../../core/v2/motion/mg_hero_photo.dart';
+import '../../../../core/v2/motion/mg_ken_burns.dart';
+import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
@@ -30,6 +33,13 @@ class DetailHeroV2 extends StatelessWidget {
   final VoidCallback? onBack;
   final double height;
 
+  /// CB-13: dates chosen → the availability pill speaks about THEM:
+  /// [rangeFree] true = loaded and free ("● Volná v tvém termínu", the
+  /// detail's one live indicator); false / null (busy / still loading) =
+  /// no pill. Without dates the old "Dnes volná" stays.
+  final bool hasDates;
+  final bool? rangeFree;
+
   const DetailHeroV2({
     super.key,
     required this.moto,
@@ -41,6 +51,8 @@ class DetailHeroV2 extends StatelessWidget {
     required this.onOpenGallery,
     required this.onBack,
     required this.height,
+    this.hasDates = false,
+    this.rangeFree,
   });
 
   Widget _fallback() => Container(
@@ -49,7 +61,14 @@ class DetailHeroV2 extends StatelessWidget {
         child: MgIcon(MgIcons.moto, size: 64, color: MgColors.onDarkFloor),
       );
 
-  Widget _photo(String url) => MgImage(
+  /// CB-14: the first photo is the landing spot of the card photo's flight.
+  Widget _photo(String url, int i) => MgHeroPhoto(
+        tag: mgHeroTagMoto(moto.id),
+        enabled: i == 0,
+        child: _img(url),
+      );
+
+  Widget _img(String url) => MgImage(
         url,
         thumbWidth: 1000,
         // contain = celá fotka viditelná (jako ve Velíně) — jako dřív.
@@ -72,10 +91,10 @@ class DetailHeroV2 extends StatelessWidget {
         controller: pageCtrl,
         itemCount: images.length,
         onPageChanged: onImageChanged,
-        itemBuilder: (_, i) => _photo(images[i]),
+        itemBuilder: (_, i) => _photo(images[i], i),
       );
     } else if (images.isNotEmpty) {
-      photo = _photo(images.first);
+      photo = _photo(images.first, 0);
     } else {
       photo = _fallback();
     }
@@ -87,10 +106,24 @@ class DetailHeroV2 extends StatelessWidget {
         child: ColoredBox(
           color: MgColors.night,
           child: Stack(fit: StackFit.expand, children: [
+            // CB-15: dark placeholder (never a light flash) and a 180 ms
+            // cross-fade when the photo page changes (instant when reduced).
             if (images.isNotEmpty)
               ExcludeSemantics(
                 child: Stack(fit: StackFit.expand, children: [
-                  MgImage(images[idx], thumbWidth: 400, fit: BoxFit.cover, error: _fallback()),
+                  AnimatedSwitcher(
+                    duration: MgMotion.of(context, MgMotion.color),
+                    child: KeyedSubtree(
+                      key: ValueKey(idx),
+                      child: MgImage(images[idx],
+                          thumbWidth: 400,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          placeholder: const ColoredBox(color: MgColors.panel),
+                          error: _fallback()),
+                    ),
+                  ),
                   ColoredBox(color: MgColors.nightA(0.62)),
                 ]),
               ),
@@ -99,7 +132,11 @@ class DetailHeroV2 extends StatelessWidget {
               child: Semantics(
                 button: onOpenGallery != null,
                 label: tr.trArgs('v2DetGalleryAria', {'n': idx + 1, 'total': images.length}),
-                child: GestureDetector(onTap: onOpenGallery, child: photo),
+                // CB-28: Ken Burns 8 s one-shot (once per session, off when reduced).
+                child: GestureDetector(
+                  onTap: onOpenGallery,
+                  child: MgKenBurns(sessionKey: 'detail-hero-${moto.id}', child: photo),
+                ),
               ),
             ),
             IgnorePointer(
@@ -143,7 +180,10 @@ class DetailHeroV2 extends StatelessWidget {
               bottom: 40,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 Row(children: [
-                  if (moto.availableToday == true) _pill(tr.tr('v2CatFreeToday'), live: true),
+                  if (hasDates && rangeFree == true)
+                    _pill(tr.tr('v2CatFreeInRange'), live: true)
+                  else if (!hasDates && moto.availableToday == true)
+                    _pill(tr.tr('v2CatFreeToday'), live: true),
                   const Spacer(),
                   if (images.isNotEmpty)
                     Semantics(

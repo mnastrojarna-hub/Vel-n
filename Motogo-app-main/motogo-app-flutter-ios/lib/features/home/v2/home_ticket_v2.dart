@@ -5,11 +5,13 @@ import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/shell_actions.dart';
+import '../../../core/shell_fabs.dart' show cancelPendingBookingFlow;
 import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/chrome/mg_nav_helpers.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
@@ -19,11 +21,13 @@ import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/widgets/pickup_location_link.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
 import '../../documents/docs_gate_provider.dart';
-import '../../reservations/reservation_models.dart';
+import '../../routes/ride_recorder.dart';
 import '../../sos/sos_provider.dart';
 import 'home_state.dart';
 import 'home_ticket_checklist.dart';
 import 'home_ticket_parts.dart';
+import 'home_ticket_pay_v2.dart';
+import 'home_ticket_rows_v2.dart';
 import 'home_reveal.dart';
 
 /// Ticket S1–S9 (DESIGN_V2 §5.3 / V22 `.tk`): the one dark hero when a
@@ -54,7 +58,19 @@ class HomeTicketV2 extends ConsumerWidget {
         : homeIsDelivery(r)
             ? (r.pickupAddress ?? r.branchName)
             : r.branchName;
-    final meta = [if (place != null && place.trim().isNotEmpty) place.trim(), if (r != null) r.shortId].join(' · ');
+    // Board Main: "{pobočka} · {samoobsluha | s obsluhou}" (rozvoz = adresa);
+    // číslo rezervace jen pro čtečku obrazovky.
+    final kind = r == null || homeIsDelivery(r)
+        ? null
+        : r.isSelfService
+            ? tr.tr('v2CalcBranchSelf')
+            : r.branchType == 'obslužná'
+                ? tr.tr('v2CalcBranchStaffed')
+                : null;
+    final meta = [if (place != null && place.trim().isNotEmpty) place.trim(), if (kind != null) kind].join(' · ');
+    final aria = [meta, if (r != null) r.shortId].where((x) => x.isNotEmpty).join(' · ');
+    final payable = snap.ticket == HomeTicket.s2 && snap.pending?.verifying != true;
+    final riding = snap.ticket == HomeTicket.s8 && r != null;
 
     return HomeReveal(
       sessionKey: 'home-ticket',
@@ -70,7 +86,7 @@ class HomeTicketV2 extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Semantics(
             button: r != null,
-            label: '$title. $meta',
+            label: '$title. $aria',
             child: MgPress(
               onTap: r == null ? null : openDetail,
               // Eyebrow + stav se nevejdou ani zmenšené → pod sebe a fotka o
@@ -81,7 +97,12 @@ class HomeTicketV2 extends ConsumerWidget {
                 return SizedBox(
                 height: stacked ? 158 : 128,
                 child: Stack(fit: StackFit.expand, children: [
-                  HomePhoto(url: r?.motoImage),
+                  // Sdílená fotka → detail rezervace (V2 §5.3 Hero).
+                  MgHeroPhoto(
+                    tag: mgHeroTagRes(r?.id ?? 'none'),
+                    enabled: r != null,
+                    child: HomePhoto(url: r?.motoImage),
+                  ),
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -96,7 +117,7 @@ class HomeTicketV2 extends ConsumerWidget {
                     left: 12,
                     right: 12,
                     top: 10,
-                    child: _PillRow(left: left, right: right, stacked: stacked),
+                    child: TkPillRow(left: left, right: right, stacked: stacked),
                   ),
                   Positioned(
                     left: 16,
@@ -110,10 +131,17 @@ class HomeTicketV2 extends ConsumerWidget {
                               color: MgColors.onDark,
                               shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 12, offset: const Offset(0, 2))])),
                       if (meta.isNotEmpty)
-                        Text(meta,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: MgType.small.copyWith(color: MgColors.onDarkBody)),
+                        Row(children: [
+                          const MgIcon(MgIcons.pin, size: 14, color: MgColors.onDarkBody),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            // Typ pobočky se nikdy neusekne (dlouhé jazyky → 2 řádky).
+                            child: Text(meta,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: MgType.small.copyWith(color: MgColors.onDarkBody)),
+                          ),
+                        ]),
                     ]),
                   ),
                 ]),
@@ -124,11 +152,19 @@ class HomeTicketV2 extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              if (r != null) ...[_DatesRow(res: r), const SizedBox(height: 12)],
-              HomeTicketChecklist(snap: snap, docsOk: docsOk),
+              if (riding) ...[
+                // Board Main S8: den výpůjčky v kroužku + kam a kdy vrátit.
+                TkRideDayRow(res: r, now: now),
+                const SizedBox(height: 12),
+                const _RecLine(),
+              ] else ...[
+                if (r != null) ...[TkDatesRow(res: r), const SizedBox(height: 12)],
+                // S2 k zaplacení: místo seznamu odpočet (board Main S2).
+                if (!payable) HomeTicketChecklist(snap: snap, docsOk: docsOk),
+              ],
               const SizedBox(height: 16),
               _action(context, ref, tr, sosAllowed),
-              if (r != null && !_ctaIsDetail) ...[
+              if (r != null && !_ctaIsDetail && !payable) ...[
                 const SizedBox(height: 4),
                 Center(
                   child: HomeTextLink(label: tr.tr('v2HomeCtaDetail'), dark: true, onTap: openDetail),
@@ -157,7 +193,8 @@ class HomeTicketV2 extends ConsumerWidget {
         return TkPill(tr.tr(snap.pending?.verifying == true ? 'v2HomeEbVerify' : 'v2HomeEbPay'),
             tone: TkPillTone.pending);
       case HomeTicket.s7:
-        return TkPill(tr.tr('v2HomeEbToday'));
+        final hm = r?.pickupHm;
+        return TkPill(hm == null ? tr.tr('v2HomeEbToday') : tr.trArgs('v2UxShEbTodayFrom', {'time': hm}));
       case HomeTicket.s8:
         final y = r?.dayCount ?? 1;
         final x = r == null ? 1 : (DateTime(now.year, now.month, now.day).difference(tripDay(r.startDate)).inDays + 1).clamp(1, y);
@@ -183,8 +220,9 @@ class HomeTicketV2 extends ConsumerWidget {
       case HomeTicket.s9:
         return TkPill(tr.tr('homeStatusActive'), tone: TkPillTone.ok);
       default:
-        return TkPill(tr.tr('homeStatusUpcoming'),
-            tone: docsOk == true ? TkPillTone.ok : TkPillTone.plain, icon: docsOk == true ? MgIcons.check : null);
+        // Zaplaceno + doklady v pořádku → „Připraveno" (board Main S6).
+        if (docsOk == true) return TkPill(tr.tr('v2UxShPillReady'), tone: TkPillTone.ok, icon: MgIcons.check);
+        return TkPill(tr.tr('homeStatusUpcoming'), tone: TkPillTone.plain);
     }
   }
 
@@ -223,7 +261,12 @@ class HomeTicketV2 extends ConsumerWidget {
         if (p.verifying) {
           return TkPendingBlock(title: tr.tr('psFabVerifying'), text: tr.tr('v2HomeVerifyText'));
         }
-        return cta('v2HomeCtaPay', () => openPendingPayment(context, ref, p), price: Money.czk(p.totalPrice));
+        return TkPayBlock(
+          pending: p,
+          cta: cta('v2HomeCtaPay', () => openPendingPayment(context, ref, p), price: Money.czk(p.totalPrice)),
+          // Týž postup jako ✕ proužku (potvrzení → zrušení → „Zkusit znovu").
+          onCancel: () => cancelPendingBookingFlow(context, ref, p),
+        );
       case HomeTicket.s3:
         return cta('v2HomeCtaDocs', () => mgPushOrGo(context, Routes.docs));
       case HomeTicket.s4:
@@ -268,63 +311,14 @@ class HomeTicketV2 extends ConsumerWidget {
   }
 }
 
-/// Eyebrow left, status right; when both do not fit, each shrinks in
-/// proportion to its natural width (never one pill squeezed to nothing);
-/// [stacked] = one under the other (see [tkPillsStack]).
-class _PillRow extends StatelessWidget {
-  final TkPill left;
-  final TkPill? right;
-  final bool stacked;
-  const _PillRow({required this.left, this.right, this.stacked = false});
+/// S8 recording line from the recorder (automatic recording only).
+class _RecLine extends ConsumerWidget {
+  const _RecLine();
 
   @override
-  Widget build(BuildContext context) {
-    final r = right;
-    if (r == null) return Row(children: [Flexible(child: left)]);
-    if (stacked) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        left,
-        const SizedBox(height: 4),
-        r,
-      ]);
-    }
-    return Row(children: [
-      Flexible(flex: tkPillWidth(context, left).round(), child: Align(alignment: Alignment.centerLeft, child: left)),
-      const SizedBox(width: 8),
-      Flexible(flex: tkPillWidth(context, r).round(), child: Align(alignment: Alignment.centerRight, child: r)),
-    ]);
-  }
-}
-
-/// "pá 16. 10. 12:00 → ne 18. 10. · 3 dny".
-class _DatesRow extends StatelessWidget {
-  final Reservation res;
-  const _DatesRow({required this.res});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final pt = res.pickupHm;
-    final rt = (res.returnTime ?? '').trim();
-    final start = '${tripShortDate(tr, res.startDate)}${pt == null ? '' : ' $pt'}';
-    final end = '${tripShortDate(tr, res.endDate)}${rt.length >= 5 ? ' ${rt.substring(0, 5)}' : ''}';
-    final days = res.dayCount;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 40),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: MgColors.white(0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: MgColors.white(0.14)),
-      ),
-      child: Row(children: [
-        const MgIcon(MgIcons.calendarCheck, size: 16, color: MgColors.neon),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text('$start → $end · $days ${tr.daysWord(days)}',
-              style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDark))),
-        ),
-      ]),
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rec = ref.watch(rideRecorderProvider);
+    if (!rec.recording || rec.manual) return const SizedBox.shrink();
+    return TkRecLine(gpsLost: rec.gpsLost, km: rec.liveKm);
   }
 }

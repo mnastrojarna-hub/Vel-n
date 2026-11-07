@@ -88,6 +88,26 @@ class MotoDetailV2View extends ConsumerStatefulWidget {
 
 class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
   final GlobalKey _tripKey = GlobalKey();
+  final GlobalKey _totalKey = GlobalKey();
+
+  /// CB-17: the trip card's breakdown flag, shared with the dock "Rozpis".
+  final ValueNotifier<bool> _breakdown = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _breakdown.dispose();
+    super.dispose();
+  }
+
+  /// Dock "Rozpis": open the existing breakdown and bring the total up.
+  void _showBreakdown() {
+    _breakdown.value = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = _totalKey.currentContext;
+      if (c == null || !mounted) return;
+      MgPinnedBack.reveal(c, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
+    });
+  }
 
   /// Dock "VYBRAT TERMÍN": open the calendar, then bring "Tvoje jízda" up.
   void _pickDates() {
@@ -126,6 +146,8 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
         onOpenGallery: w.onOpenGallery,
         onBack: w.onBack,
         height: heroH,
+        hasDates: w.hasDates,
+        rangeFree: w.hasDates && w.bookedAsync.hasValue && !w.busy,
       ),
       sections: [
         Container(
@@ -146,8 +168,12 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
             ),
             DetailKeyTilesV2(moto: moto),
             const SizedBox(height: 16),
-            DetailTripCardV2(
+            ValueListenableBuilder<bool>(
+              valueListenable: _breakdown,
+              builder: (_, __, ___) => DetailTripCardV2(
               key: _tripKey,
+              breakdown: _breakdown,
+              totalKey: _totalKey,
               moto: moto,
               selStart: w.selStart,
               selEnd: w.selEnd,
@@ -164,6 +190,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
               onReset: w.onReset,
               bookedAsync: w.bookedAsync,
             ),
+            ),
             DetailMoreV2(moto: moto, branchInfo: w.branchInfo),
           ]),
         ),
@@ -177,6 +204,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
         onPickDates: _pickDates,
         onReserve: w.onReserve,
         busy: w.busy,
+        onBreakdown: !w.busy && q != null && q.total > 0 ? _showBreakdown : null,
       ),
     );
   }

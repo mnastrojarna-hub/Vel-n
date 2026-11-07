@@ -5,11 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
-import '../../../core/widgets/state_views.dart';
 import '../../booking/booking_entry.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
@@ -24,7 +25,10 @@ import 'catalog_price.dart';
 import 'catalog_text.dart';
 import 'moto_card_full_v2.dart';
 import 'moto_card_grid_v2.dart';
+import 'motorky_compact_bar_v2.dart';
+import 'motorky_error_v2.dart';
 import 'motorky_header_v2.dart';
+import 'motorky_loading_v2.dart';
 
 /// v2 Motorky tab (`/search`, PLAN §2.2.1, technique R): the SAME providers
 /// as `MotoSearchScreen` — `filteredMotorcyclesProvider` (filter + date
@@ -41,8 +45,21 @@ class MotorkyScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<MotorkyScreenV2> createState() => _MotorkyScreenV2State();
 }
 
-class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsBindingObserver {
+class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _grid = false;
+
+  /// CB-27: the content under the mode switch fades in over `enter` 450
+  /// when the mode changes (V21 §3.1); full at once under reduced motion.
+  late final AnimationController _modeFade = AnimationController(vsync: this, duration: MgMotion.enter, value: 1);
+
+  void _fadeMode() {
+    if (MgMotion.reduced(context)) {
+      _modeFade.value = 1;
+    } else {
+      _modeFade.forward(from: 0);
+    }
+  }
 
   /// Mode of THIS mount: the calculator only on an explicit request (Home
   /// funnel), otherwise the bike list — a once-used calculator must not
@@ -71,6 +88,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _modeFade.dispose();
     super.dispose();
   }
 
@@ -89,6 +107,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
         catCarryCalcToList(ref);
       }
       setState(() => _mode = m);
+      _fadeMode();
     }
     if (ref.read(catalogModeProvider) != m) ref.read(catalogModeProvider.notifier).state = m;
   }
@@ -106,6 +125,20 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
     ref.invalidate(motorcyclesProvider);
     ref.invalidate(filteredMotorcyclesProvider);
   }
+
+  /// Pull-to-refresh (CB-18): the SAME reload as "Zkusit znovu", waiting
+  /// for the new list so the spinner ends with it.
+  Future<void> _refresh() async {
+    _reloadMotos();
+    try {
+      await ref.read(filteredMotorcyclesProvider.future);
+    } catch (_) {
+      // The error state of the list says what happened.
+    }
+  }
+
+  /// Full card height (the skeleton uses the same geometry).
+  double _cardHeight(BuildContext context) => (MediaQuery.sizeOf(context).height * 0.72).clamp(460.0, 600.0);
 
   /// Same as the old card `onTap`: order for swiping in the detail pager =
   /// the shown (sorted) list, then open the detail.
@@ -126,7 +159,10 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
     // Switches from inside the tab (calculator "show free") write the
     // shared mode — follow them.
     ref.listen<CatalogMode>(catalogModeProvider, (_, next) {
-      if (next != _mode) setState(() => _mode = next);
+      if (next != _mode) {
+        setState(() => _mode = next);
+        _fadeMode();
+      }
     });
     // Dates picked elsewhere while the calculator is shown (its "Detail ›")
     // are already answered there too.
@@ -162,22 +198,38 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
           // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
           skipLoadingOnReload: true,
           data: (all) => _list(tr, sortMotorcycles(all, sort), filter, loyalty),
-          // Nikdy holý spinner: po 15 s „trvá to déle" + Zkusit znovu.
-          loading: () => SliverFillRemaining(hasScrollBody: false, child: MgLoadingView(onRetry: _reloadMotos)),
-          // Co se stalo, proč a jak to opravit + akce.
-          error: (e, _) => SliverFillRemaining(
-            hasScrollBody: false,
-            child: MgErrorView(error: e, what: tr.tr('fxMotosLoadFail'), onRetry: _reloadMotos),
+          // Kostry ve tvaru karet (CB-08); po 15 s „trvá to déle" + Zkusit znovu.
+          loading: () => SliverToBoxAdapter(
+            child: MotorkyLoadingV2(grid: _grid, cardHeight: _cardHeight(context), onRetry: _reloadMotos),
           ),
+          // Co se stalo, proč a jak to opravit + akce.
+          // Stavy 8.6 (CB-21): karta pod hlavičkou, termín a filtry zůstanou.
+          error: (e, _) => SliverToBoxAdapter(child: MotorkyErrorV2(error: e, onRetry: _reloadMotos)),
         ),
       ];
     }
     return MgPage(
       header: header,
-      slivers: slivers,
+      slivers: [
+        SliverFadeTransition(
+          opacity: CurvedAnimation(parent: _modeFade, curve: MgMotion.out),
+          sliver: SliverMainAxisGroup(slivers: slivers),
+        ),
+      ],
       overlapHero: false,
       tabIndex: 1,
       dock: sticky == null ? null : CalcStickyV2(data: sticky),
+      // CB-18: pull-to-refresh only where "Zkusit znovu" exists (the list).
+      onRefresh: mode == CatalogMode.find ? _refresh : null,
+      overscrollColor: MgColors.night,
+      // CB-07: compact night bar once the header has scrolled away.
+      pinnedBar: mode == CatalogMode.find
+          ? MotorkyCompactBarV2(
+              onOpenDates: () => showCatalogDateSheet(context),
+              onOpenFilters: () => showCatalogFilterSheet(context),
+              onCalc: () => _setMode(CatalogMode.calc),
+            )
+          : null,
     );
   }
 
@@ -232,14 +284,14 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
         SliverToBoxAdapter(child: foot),
       ]);
     }
-    final h = (MediaQuery.sizeOf(context).height * 0.72).clamp(460.0, 600.0);
+    final h = _cardHeight(context);
+    // CB-30: full view without the canvas count line (the header says it).
     return SliverMainAxisGroup(slivers: [
-      SliverToBoxAdapter(child: head),
+      const SliverToBoxAdapter(child: SizedBox(height: 12)),
       SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, i) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: MotoCardFullV2(
+          (context, i) {
+            final card = MotoCardFullV2(
               key: ValueKey('mc-${motos[i].id}'),
               moto: motos[i],
               price: catCardPrice(tr, motos[i], s, e, loyalty),
@@ -249,8 +301,13 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
               height: h,
               onOpen: () => _open(motos, motos[i]),
               onCta: hasDates ? () => _book(motos, motos[i], s, e) : null,
-            ),
-          ),
+            );
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              // CB-28: the first three cards reveal once per session.
+              child: i < 3 ? MgReveal(index: i, sessionKey: 'motorky-cards', child: card) : card,
+            );
+          },
           childCount: motos.length,
         ),
       ),

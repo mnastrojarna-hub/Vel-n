@@ -509,15 +509,21 @@ serve(async (req) => {
           if (docsCheck && Number(refund_amount) > 0) {
             try {
               const requested = Number(refund_amount) || 0
-              const { data: invs } = await supabase.from('invoices').select('type, total, stripe_refund_id')
+              const { data: invs } = await supabase.from('invoices').select('type, total, stripe_refund_id, created_at')
                 .eq('booking_id', booking_id).in('type', ['credit_note', 'payment_receipt']).neq('status', 'cancelled')
-              const cns = (invs || []).filter((c: any) => c.type === 'credit_note')
+              const { data: cur } = await supabase.from('bookings').select('payment_status, cancelled_at').eq('id', booking_id).maybeSingle()
+              const allCns = (invs || []).filter((c: any) => c.type === 'credit_note')
+              // Oprava i5r2 (verify:refunds R2): storno kryjí jen dobropisy TOHOTO storna (od cancelled_at − 2 min jako
+              // refund-split.ts) — dobropisy dřívějších zkrácení / úprav vracely jinou částku (dřív 1000 + 600 ≥ 1400 →
+              // mail „1400 Kč vráceno“, ačkoli storno nevrátilo nic). Bez cancelled_at jako dřív (všechny).
+              const since = Date.parse(String(cur?.cancelled_at || ''))
+              const cns = Number.isFinite(since) ? allCns.filter((c: any) => !(Date.parse(String(c.created_at || '')) < since - 120_000)) : allCns
               const docs = cns.reduce((t: number, c: any) => t + Math.abs(Number(c.total) || 0), 0)
+              const docsAll = allCns.reduce((t: number, c: any) => t + Math.abs(Number(c.total) || 0), 0)
               const paidDocs = (invs || []).filter((c: any) => c.type === 'payment_receipt').reduce((t: number, c: any) => t + (Number(c.total) || 0), 0)
               const manualLive = cns.some((c: any) => c.stripe_refund_id == null)
-              const { data: cur } = await supabase.from('bookings').select('payment_status').eq('id', booking_id).maybeSingle()
               const manualPending = manualLive && cur?.payment_status === 'refund_pending'
-              if (!manualPending && docs + 1 < requested && paidDocs > 0 && docs + 1 >= paidDocs && requested > paidDocs + 1) {
+              if (!manualPending && docs + 1 < requested && paidDocs > 0 && docsAll + 1 >= paidDocs && requested > paidDocs + 1) {
                 // Oprava i4 (2026-11-07, S3b): částka nad doklady o platbě (nezaplacený doplatek úpravy je v total_price →
                 // Velín / tabulka storna) a vše zaplacené je vrácené (dobropisy ≥ DP) → mail nese skutečně vrácenou částku.
                 refund_amount = Math.round(docs * 100) / 100

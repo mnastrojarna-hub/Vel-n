@@ -135,15 +135,17 @@ class _SkipPill extends StatelessWidget {
           onTap: onTap,
           child: Container(
             key: const ValueKey('intro-skip'),
-            height: 44,
+            constraints: const BoxConstraints(minHeight: 44),
             padding: const EdgeInsets.symmetric(horizontal: 26),
-            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: MgColors.white(0.06),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: MgColors.white(0.22)),
             ),
-            child: Text(label, style: MgType.button.copyWith(color: MgColors.onDarkBody)),
+            child: Center(
+              widthFactor: 1,
+              child: Text(label, style: MgType.button.copyWith(color: MgColors.onDarkBody)),
+            ),
           ),
         ),
       );

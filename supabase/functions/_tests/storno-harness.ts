@@ -139,6 +139,7 @@ export function advance(min: number) {
   skew += min * 60_000
   for (const t of ['invoices', 'debug_log', 'sent_emails', 'message_log']) for (const r of db().rows(t)) r.created_at = new Date(Date.parse(r.created_at) - min * 60_000).toISOString()
   for (const r of world().refunds) r.created -= min * 60 // Stripe: dřívější vratky jsou o `min` starší
+  for (const v of world().byKey.values()) v.refund.created -= min * 60 // i5r2: i přehraná odpověď (idempotency) nese původní čas vzniku
   for (const e of world().events) e.created -= min * 60
 }
 export async function later<T>(ms: number, fn: () => Promise<T>): Promise<T> {

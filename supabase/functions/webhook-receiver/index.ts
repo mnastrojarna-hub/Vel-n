@@ -355,7 +355,7 @@ Deno.serve(async (req: Request) => {
           return new Response(JSON.stringify({ received: true, ignored: fv.code }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } })
         }
         try {
-          await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
+          if (await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId) === 'retry') retryNeeded = true
           try {
             await supabase.from('debug_log').insert({
               source: 'webhook-receiver', action: 'free_verify_confirmed',
@@ -388,6 +388,7 @@ Deno.serve(async (req: Request) => {
         // i5: přijato v Kč ze session (Adaptive Pricing — PaymentIntent v měně zákazníka) pro dělení s přibalenou objednávkou / mail
         if (cb === 'revive_failed' && stripePaymentIntentId) await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, stripePaymentIntentId, { shopOrderId: metadata.shop_order_id || null, czkReceivedH: sessCzk.amountTotalH })
         if (cb === 'skipped' && await handleCancelledPayment(supabase, stripe, resolvedBookingId, stripePaymentIntentId, { shopOrderId: metadata.shop_order_id || null, czkReceivedH: sessCzk.amountTotalH })) retryNeeded = true
+        if (cb === 'retry') retryNeeded = true // i5r2: stav rezervace nečitelný → nepotvrzeno, Stripe doručí znovu
         // Druhá platba za tutéž rezervaci (dvě záložky / starší Checkout Session) → vrátit.
         if (cb === 'duplicate' && stripePaymentIntentId) {
           await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
@@ -505,6 +506,7 @@ Deno.serve(async (req: Request) => {
         const cb = ext ? null : await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null)
         if (cb === 'revive_failed') await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, paymentIntent.id, { shopOrderId: metadata.shop_order_id || null })
         if (cb === 'skipped' && await handleCancelledPayment(supabase, stripe, resolvedBookingId, paymentIntent.id, { shopOrderId: metadata.shop_order_id || null })) retryNeeded = true
+        if (cb === 'retry') retryNeeded = true // i5r2: stav rezervace nečitelný → nepotvrzeno, Stripe doručí znovu
         if (cb === 'duplicate') {
           await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
             table: 'bookings', refId: resolvedBookingId, type: 'booking' })
@@ -836,7 +838,12 @@ Deno.serve(async (req: Request) => {
           // cancel-once.ts) → pojistný mail uvádí, co se vrátilo; chybí-li zbytek (selhal / dokončuje se), mail to říká
           // (refund_deferred) místo částky z mg_cancel_total (= už vráceno + POŽADAVEK).
           let recAmounts: { refunded: number; goal: number | null; deferred: boolean } | null = null
-          if (internalRefund || (fullyRefunded && bookingFullyRefunded)) {
+          // Oprava i5r2 (verify:refunds R3): rozhoduje NEJNOVĚJŠÍ vratka. Externí (dashboard) na charge, která dřív nesla naši
+          // (např. selhanou) vratku, dřív prošla jako „interní“ → recovery sama vystavila dobropis („Storno … (recovery)“
+          // u živé rezervace) a mail obsluze zároveň velel vystavit ho ručně → dva dobropisy k jedné vratce. Externí vratka
+          // → recovery jen když je rezervace celá vrácená (portálové storno); částečná = jen mail obsluze (dobropis ručně).
+          const recover = extLatest ? (fullyRefunded && bookingFullyRefunded) : (internalRefund || (fullyRefunded && bookingFullyRefunded))
+          if (recover) {
             const rec = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-refund`, {
               method: 'POST',
               headers: {

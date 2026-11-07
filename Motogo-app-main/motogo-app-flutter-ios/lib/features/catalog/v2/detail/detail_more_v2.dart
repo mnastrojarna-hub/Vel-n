@@ -13,6 +13,7 @@ import '../../widgets/moto_video_player.dart';
 import 'detail_specs_v2.dart';
 import 'detail_trip_card_v2.dart';
 import '../catalog_price.dart';
+import '../catalog_text.dart';
 
 /// Light sections under "Tvoje jízda": V kostce (`shortDescItems`, label +
 /// value), Popis (localized plain description, 4 lines + Zobrazit víc),
@@ -105,8 +106,13 @@ class _DetailMoreV2State extends State<DetailMoreV2> {
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: ManualCard(moto: m),
             ),
-            if (widget.branchInfo.isNotEmpty)
-              MgRow(icon: MgIcons.pin, title: tr.tr('branchPrefix'), sub: widget.branchInfo),
+            // CB-06: branch · type + street address.
+            if ((catBranchLine(tr, m) ?? widget.branchInfo).isNotEmpty)
+              MgRow(
+                icon: MgIcons.pin,
+                title: catBranchLine(tr, m) ?? widget.branchInfo,
+                sub: catBranchAddress(m) ?? tr.tr('branchPrefix'),
+              ),
           ]),
         ),
       ),

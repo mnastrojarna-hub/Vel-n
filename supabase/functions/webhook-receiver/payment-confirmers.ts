@@ -88,14 +88,25 @@ export async function confirmBookingPayment(
   transactionId: string,
   stripePaymentIntentId?: string | null,
   suppressMail = false
-): Promise<'ok' | 'duplicate' | 'revive_failed' | 'error' | 'skipped'> {
+): Promise<'ok' | 'duplicate' | 'revive_failed' | 'error' | 'skipped' | 'retry'> {
   try {
     // Oprava i4 (2026-11-07): zrušená rezervace, jejíž platba se už vrací / vrátila (pozdní platba vrácená automaticky —
     // late-payment.ts zapíše 'refunded'; storno s vratkou), se událostí platby NIKDY neoživuje (confirm_payment oživí
     // každou zrušenou s payment_status <> 'paid' — znovu doručená / druhá událost téže platby by vrátila rezervaci
     // zákazníkovi, jehož peníze už odešly zpět). Bez vratky, bez dokladů, bez mailu.
+    // i5r2 (verify:charges T3): kontrolu stavu nejde přečíst → NEpotvrzovat ('retry' → webhook 500, Stripe doručí znovu).
+    // Dřív fail-open: supabase-js chybu čtení vrací jako { data: null, error } (nehází) → confirm_payment oživil i zrušenou
+    // a už vrácenou rezervaci (rezervace zpět zákazníkovi, peníze už u něj, doklady a maily).
     try {
-      const { data: pre } = await supabase.from('bookings').select('status, payment_status').eq('id', bookingId).maybeSingle()
+      const { data: pre, error: preErr } = await supabase.from('bookings').select('status, payment_status').eq('id', bookingId).maybeSingle()
+      if (preErr) {
+        console.warn('[confirmBookingPayment] status pre-check failed:', preErr.message)
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'confirm_booking_precheck_failed', component: 'stripe',
+            status: 'error', request_data: { booking_id: bookingId, transaction_id: transactionId }, error_message: preErr.message } as never)
+        } catch { /* ignore */ }
+        return 'retry'
+      }
       const p = pre as { status?: string; payment_status?: string } | null
       if (p?.status === 'cancelled' && ['refunded', 'partial_refund', 'refund_pending'].includes(String(p.payment_status))) {
         try {
@@ -105,7 +116,10 @@ export async function confirmBookingPayment(
         } catch { /* ignore */ }
         return 'skipped'
       }
-    } catch { /* bez údaje → jako dřív */ }
+    } catch (e) {
+      console.warn('[confirmBookingPayment] status pre-check threw:', (e as Error).message)
+      return 'retry'
+    }
     // ── ATOMIC dedup: confirm_payment RPC interně dělá UPDATE WHERE payment_status != 'paid'
     //    RETURNING — jen JEDNA paralelní Stripe webhook session získá was_already_paid=false,
     //    druhý event (checkout.session.completed vs payment_intent.succeeded přicházejí <1 s
@@ -179,6 +193,7 @@ export async function confirmBookingPayment(
             : { confirmed_at: new Date().toISOString() }),
         })
         .eq('id', bookingId)
+        .neq('status', 'cancelled') // i5r2: záložní zápis nikdy neoživí zrušenou rezervaci
     }
 
     // Save Stripe IDs for future refunds

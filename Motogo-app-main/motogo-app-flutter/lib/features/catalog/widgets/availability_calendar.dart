@@ -4,6 +4,8 @@ import '../../../core/theme.dart';
 import '../moto_model.dart';
 import '../../../core/date_days.dart';
 import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/motion/mg_haptic.dart';
+import '../../../core/v2/widgets/mg_toast.dart';
 import '../v2/availability_calendar_v2.dart';
 
 /// Interactive availability calendar — mirrors genCal() + pickS/pickD
@@ -47,6 +49,11 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   int _step = 1; // 1 = select start, 2 = select end
   DateTime? _start;
   DateTime? _end;
+
+  /// v2 (CB-24, V22 §3.3): first booked day of a refused range + attempt
+  /// counter (shakes the inline note again). Display only.
+  DateTime? _blockedDay;
+  int _blockedTry = 0;
 
   List<String> _getDayLabels(BuildContext context) => [
     t(context).tr('calMon'), t(context).tr('calTue'), t(context).tr('calWed'),
@@ -109,7 +116,12 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
 
   void _onDayTap(DateTime date) {
     if (widget.readOnly) return;
-    if (_isPast(date) || _isOccupied(date)) return;
+    final v2 = MgV2.on(context);
+    if (_isPast(date) || _isOccupied(date)) {
+      // v2: a busy day says why it does not react (toast = info only).
+      if (v2 && !_isPast(date)) showMgToast(context, t(context).tr('v2UxCbBusyDay'));
+      return;
+    }
 
     widget.onDateTap?.call(date);
 
@@ -127,10 +139,12 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         widget.onReset?.call();
         return;
       }
+      if (v2) MgHaptic.select();
       setState(() {
         _start = date;
         _end = null;
         _step = 2;
+        _blockedDay = null;
       });
       widget.onStartSelected?.call(date);
     } else {
@@ -139,6 +153,14 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
       var d = _start!;
       while (!d.isAfter(date)) {
         if (_isOccupied(d)) {
+          // v2: inline T3 note under the grid (shakes), start kept.
+          if (v2) {
+            setState(() {
+              _blockedDay = d;
+              _blockedTry++;
+            });
+            return;
+          }
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(t(context).tr('calRangeOccupied')),
             duration: const Duration(seconds: 2),
@@ -147,9 +169,11 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         }
         d = nextCalendarDay(d);
       }
+      if (v2) MgHaptic.select();
       setState(() {
         _end = date;
         _step = 1;
+        _blockedDay = null;
       });
       widget.onRangeSelected?.call(_start!, date);
     }
@@ -190,6 +214,8 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         onPrevMonth: _prevMonth,
         onNextMonth: _nextMonth,
         dayPrices: widget.dayPrices,
+        blockedDay: _step == 2 ? _blockedDay : null,
+        blockedTry: _blockedTry,
       );
     }
     final daysInMonth = DateTime(_year, _month + 1, 0).day;

@@ -63,9 +63,8 @@ class MotorkyCompactBarV2 extends ConsumerWidget {
                   Expanded(
                     child: MgWordFit(
                       minScale: 0.75,
+                      fitLines: 1,
                       child: Text(label,
-                          maxLines: 1,
-                          softWrap: false,
                           style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
                     ),
                   ),

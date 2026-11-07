@@ -4,7 +4,9 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/calendar/trip_day_state.dart';
 import '../../../../core/v2/chrome/mg_dock.dart';
 import '../../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_cta.dart';
 import '../catalog_text.dart';
 
@@ -32,6 +34,9 @@ class DetailDockV2 extends StatelessWidget {
   final VoidCallback? onReserve;
   final bool busy;
 
+  /// CB-17: "Rozpis" next to the trip line (null = hidden).
+  final VoidCallback? onBreakdown;
+
   const DetailDockV2({
     super.key,
     required this.selStart,
@@ -42,6 +47,7 @@ class DetailDockV2 extends StatelessWidget {
     this.fromPrice,
     this.onPickDates,
     this.busy = false,
+    this.onBreakdown,
   });
 
   @override
@@ -54,17 +60,23 @@ class DetailDockV2 extends StatelessWidget {
     } else if (selEnd == null) {
       line = tripShortDate(tr, s);
     } else {
-      line = '${catRange(tr, s, selEnd!)} · ${catDays(tr, dayCount)}';
+      line = '${catRange(tr, s, selEnd!)} · ${catDays(tr, dayCount).replaceAll(' ', '\u00A0')}';
     }
     final change = busy && s != null && onPickDates != null;
     final pick = (s == null || change) && onPickDates != null;
+    final text = Text(
+      line,
+      maxLines: 2,
+      style: TextStyle(color: change ? MgColors.warnDark : (s == null ? MgColors.onDarkMeta : MgColors.onDarkLead)),
+    );
     return MgDock(
       aiDisc: true,
-      contextLine: Text(
-        line,
-        maxLines: 2,
-        style: TextStyle(color: change ? MgColors.warnDark : (s == null ? MgColors.onDarkMeta : MgColors.onDarkLead)),
-      ),
+      contextLine: onBreakdown == null || pick
+          ? text
+          : Row(children: [
+              Expanded(child: text),
+              MgBtnText(label: tr.tr('v2Breakdown'), icon: MgIcons.chevronUp, dark: true, onTap: onBreakdown),
+            ]),
       child: MgFabAvoid(
         child: pick
             ? MgCta(

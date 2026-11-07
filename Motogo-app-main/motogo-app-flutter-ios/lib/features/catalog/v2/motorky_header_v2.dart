@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/banner_provider.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/rank/mg_logo_ring.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/rank/rank_copy.dart';
@@ -77,10 +78,14 @@ class MotorkyHeaderV2 extends ConsumerWidget {
           final chipStyle = DefaultTextStyle.of(context).style.merge(MgType.meta.copyWith(fontWeight: FontWeight.w800, height: 1));
           // Chip = label + dot, gaps, padding, border; toggle = 94 + gap.
           final chipW = chipLabel == null ? 0.0 : catLineWidth(context, chipLabel, chipStyle) + 44;
-          final chipInRow = chipW <= c.maxWidth - (find ? 102 : 0);
+          // − the logo ring (52 + 12) and the view toggle (94 + 8).
+          final chipInRow = chipW <= c.maxWidth - 64 - (find ? 102 : 0);
           final chip = chipLabel == null ? null : MgRankChip(label: chipLabel);
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              // CB-29: the board's LogoRow — logo in the tier ring.
+              const MgLogoRing(size: 52),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 8, runSpacing: 4, children: [
@@ -137,6 +142,10 @@ class MotorkyHeaderV2 extends ConsumerWidget {
                         semantic: tr.trArgs('v2CatFiltersAria', {'n': filter.activeCount}),
                         onTap: onOpenFilters,
                       ),
+                      // CB-20: categories as quick chips (the filter panel's
+                      // own write); counts only while they are exact (no
+                      // category chosen → the loaded list per category).
+                      ..._categoryChips(context, ref, filter),
                       if (branches.length > 1) ...[
                         const SizedBox(width: 8),
                         _Chip(label: tr.tr('homeFilterAllBranches'), selected: filter.branch == null, onTap: () => onBranch(null)),
@@ -173,6 +182,32 @@ class MotorkyHeaderV2 extends ConsumerWidget {
       ]),
     );
   }
+}
+
+List<Widget> _categoryChips(BuildContext context, WidgetRef ref, CatalogFilter filter) {
+  final tr = t(context);
+  final list = ref.watch(filteredMotorcyclesProvider).valueOrNull;
+  final counts = filter.category == null && list != null
+      ? {for (final k in MotoCategory.labels.keys) k: k == null ? list.length : list.where((m) => m.category == k).length}
+      : null;
+  void set(String? key) {
+    final f = ref.read(catalogFilterProvider);
+    // Same toggle as the panel chip: the chosen one again clears it.
+    ref.read(catalogFilterProvider.notifier).state = f.copyWith(category: () => f.category == key ? null : key);
+  }
+
+  return [
+    for (final e in MotoCategory.labels.entries)
+      if (counts == null || e.key == null || (counts[e.key] ?? 0) > 0) ...[
+        const SizedBox(width: 8),
+        _Chip(
+          label: tr.tr(MotoCategory.labelKey(e.key)),
+          count: counts?[e.key],
+          selected: filter.category == e.key,
+          onTap: () => set(e.key),
+        ),
+      ],
+  ];
 }
 
 class _ViewToggle extends StatelessWidget {
@@ -308,9 +343,10 @@ class _Chip extends StatelessWidget {
   final String? icon;
   final bool selected;
   final int badge;
+  final int? count;
   final String? semantic;
   final VoidCallback onTap;
-  const _Chip({required this.label, required this.onTap, this.icon, this.selected = false, this.badge = 0, this.semantic});
+  const _Chip({required this.label, required this.onTap, this.icon, this.selected = false, this.badge = 0, this.count, this.semantic});
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +354,7 @@ class _Chip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: semantic ?? label,
+      label: semantic ?? (count == null ? label : '$label, $count'),
       excludeSemantics: true,
       onTap: onTap,
       child: MgPress(
@@ -334,6 +370,12 @@ class _Chip extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (icon != null) ...[MgIcon(icon!, size: 16, color: selected ? fg : MgColors.neon), const SizedBox(width: 6)],
             Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1)),
+            if (count != null) ...[
+              const SizedBox(width: 6),
+              Text('$count',
+                  style: MgType.tab(MgType.micro.copyWith(
+                      fontWeight: FontWeight.w800, color: selected ? MgColors.onNeon : MgColors.neonText, height: 1))),
+            ],
             if (badge > 0) ...[
               const SizedBox(width: 6),
               Container(

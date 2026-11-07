@@ -7,6 +7,7 @@
 // over a busy day is still refused with the snackbar.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/v2/states/mg_state_banner.dart';
 import 'package:motogo_app/core/v2/calendar/trip_calendar.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
@@ -91,7 +92,9 @@ void main() {
       expect([_cell(t, ws).selected, _cell(t, ws).pendingStart], [TripSel.single, true]);
       await t.tap(find.byWidgetPredicate((w) => w is TripDayCell && tripSameDay(w.state.date, we), skipOffstage: false));
       await t.pump(const Duration(milliseconds: 300));
-      expect(find.byType(SnackBar), findsOneWidget);
+      // CB-24: inline note (V22 §3.3) instead of the old SnackBar.
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(MgStateBanner), findsOneWidget);
       expect([_cell(t, ws).selected, _cell(t, we).selected], [TripSel.single, TripSel.none]);
     });
   });

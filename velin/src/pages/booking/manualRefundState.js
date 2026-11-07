@@ -10,9 +10,25 @@ export function manualRefundOpen(booking, creditNotes) {
   return (creditNotes || []).find((c) => !c.stripe_refund_id) || null
 }
 
-/** Stav po „Vratka odeslána“: živé dobropisy (karta + převod) kryjí cenu → 'refunded', jinak 'partial_refund'. */
-export function manualRefundSentStatus(booking, creditNotes) {
-  const total = Number(booking?.total_price) || 0
+/** Stav po „Vratka odeslána“. Oprava i5r2 (verify:refunds R2): ŽIVÁ (nezrušená) rezervace má svou aktuální cenu dál
+ *  zaplacenou → vždy 'partial_refund' (dřív součet dobropisů dvou zkrácení ≥ snížená cena → 'refunded' u živé rezervace:
+ *  storno pak „už vráceno“ nevrátilo nic a triggery čekající paid/partial_refund se přeskočily). Zrušená: živé dobropisy
+ *  (karta + převod) kryjí zaplacené doklady (Σ živých DP — `paidDocsCzk`; bez nich cenu) → 'refunded', jinak 'partial_refund'.
+ *  Bez stavu rezervace jako dřív (dle ceny). */
+export function manualRefundSentStatus(booking, creditNotes, paidDocsCzk = null) {
+  if (booking?.status && booking.status !== 'cancelled') return 'partial_refund'
+  const paid = Number(paidDocsCzk) || 0
+  const total = booking?.status === 'cancelled' && paid > 0 ? paid : (Number(booking?.total_price) || 0)
   const back = (creditNotes || []).reduce((s, c) => s + Math.abs(Number(c.total) || 0), 0)
   return total > 0 && back + 1 < total ? 'partial_refund' : 'refunded'
+}
+
+/** Σ živých dokladů o přijaté platbě (DP, Kč) rezervace — pro manualRefundSentStatus u zrušené rezervace; null = nečitelné. */
+export async function livePaidDocsCzk(supabase, bookingId) {
+  try {
+    const { data, error } = await supabase.from('invoices').select('total').eq('booking_id', bookingId)
+      .eq('type', 'payment_receipt').neq('status', 'cancelled')
+    if (error) return null
+    return (data || []).reduce((s, r) => s + (Number(r.total) || 0), 0)
+  } catch { return null }
 }

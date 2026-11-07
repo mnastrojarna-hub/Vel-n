@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/rank/mg_logo_ring.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
@@ -51,6 +52,9 @@ class BookingHeaderV2 extends StatelessWidget {
               ]),
             ),
           ),
+          // CB-29: the board's logo in the tier ring (display only).
+          const SizedBox(width: 8),
+          const MgLogoRing(size: 48),
         ]),
         const SizedBox(height: 12),
         BookingStepsV2(current: currentStep),

@@ -64,7 +64,8 @@ class FunnelBikeCard extends StatelessWidget {
       photo = TweenAnimationBuilder<double>(
         tween: Tween(begin: 1, end: center ? 1.06 : 1),
         duration: center ? MgMotion.kenBurns : MgMotion.pager,
-        curve: center ? Curves.easeOut : MgMotion.emphasized,
+        // One curve both ways: changing it would re-evaluate the running tween.
+        curve: Curves.easeOut,
         builder: (_, s, child) => Transform.scale(key: const ValueKey('funnel-kb'), scale: s, child: child),
         child: photo,
       );

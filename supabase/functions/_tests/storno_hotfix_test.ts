@@ -127,8 +127,9 @@ const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_onc
   './storno_i2_flow_test.ts', // + oprava i2 (2026-11-05): dedup vratek, převodem placená část, strop ruční vratky, duplicitní dobropis, recovery 2. vratky, pending vratka, pojistný mail
   './storno_i3_flow_test.ts', './storno_i3_mail_flow_test.ts', // + oprava i3 (2026-11-07): dlužná částka dle DP, převodem placená část jen s dokladem, e-shop část, pojistný mail jen k tomuto stornu, externí vratka dle zůstatku rezervace
   './storno_i4_flow_test.ts', // + oprava i4 (2026-11-07): opakování selhané vratky, znovuotevření po selhání, vratky mimo cenu, pending dedup, požadavek nad zaplacené, ruční část vedle karty, spadlá 2. vratka úpravy, Adaptive Pricing
-  './storno_i5_flow_test.ts'] // + oprava i5 (2026-11-07): dobropis selhané vratky se sám zmenší, osiřelý zbytek storna, stará událost „failed“, nová platba zrušené vrácené rezervace, Fio doplatek ke zrušené, Adaptive Pricing vratky
-const FLOW_MIN = 7 + 10 + 7 + 10 + 8 + 2 + 4 + 8 + 13 + 8 + 9 // počet flow testů (ubyl-li by některý, spouštěč selže)
+  './storno_i5_flow_test.ts', // + oprava i5 (2026-11-07): dobropis selhané vratky se sám zmenší, osiřelý zbytek storna, stará událost „failed“, nová platba zrušené vrácené rezervace, Fio doplatek ke zrušené, Adaptive Pricing vratky
+  './storno_i5r2_flow_test.ts'] // + oprava i5r2 (2026-11-07): „nahrazená“ vratka jen opakováním, „Vratka odeslána“ u živé, recovery dle nejnovější vratky, přehraná selhaná vratka bez výpisu, kontrola stavu při potvrzení platby
+const FLOW_MIN = 7 + 10 + 7 + 10 + 8 + 2 + 4 + 8 + 13 + 8 + 9 + 10 // počet flow testů (ubyl-li by některý, spouštěč selže)
 
 Deno.test({ name: 'storno hotfix: flow testy celých handlerů (podproces s import mapou storno-flow-map.json)', ignore: MAPPED || !CAN_RUN, fn: async () => {
   const p = (f: string) => new URL(f, import.meta.url).pathname

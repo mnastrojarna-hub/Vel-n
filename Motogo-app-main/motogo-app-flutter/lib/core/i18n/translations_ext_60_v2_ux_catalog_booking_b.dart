@@ -2,6 +2,8 @@
 /// Klíče JEN s prefixem `v2UxCb`; všech 8 jazyků (cs tyká), bez emoji.
 const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
   'cs': {
+    'v2UxCbPickTime': 'Vyber čas',
+    'v2UxCbHalfFrom12': 'Od 12:00 máš 1. den za polovinu',
     'v2UxCbHandover': 'Termín a předání',
     'v2UxCbReadyTitle': 'Máme to připravené',
     'v2UxCbGear': 'Výbava',
@@ -24,6 +26,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
     'v2UxCbPromoTitle': 'Slevový kód nebo poukaz',
   },
   'en': {
+    'v2UxCbPickTime': 'Pick a time',
+    'v2UxCbHalfFrom12': 'From 12:00 your first day is half price',
     'v2UxCbHandover': 'Dates and handover',
     'v2UxCbReadyTitle': 'We’ve got it ready',
     'v2UxCbGear': 'Gear',
@@ -46,6 +50,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
     'v2UxCbPromoTitle': 'Discount code or voucher',
   },
   'de': {
+    'v2UxCbPickTime': 'Uhrzeit wählen',
+    'v2UxCbHalfFrom12': 'Ab 12:00 ist dein 1. Tag zum halben Preis',
     'v2UxCbHandover': 'Termin und Übergabe',
     'v2UxCbReadyTitle': 'Alles ist vorbereitet',
     'v2UxCbGear': 'Ausrüstung',
@@ -68,6 +74,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
     'v2UxCbPromoTitle': 'Rabattcode oder Gutschein',
   },
   'es': {
+    'v2UxCbPickTime': 'Elige la hora',
+    'v2UxCbHalfFrom12': 'Desde las 12:00 tu primer día cuesta la mitad',
     'v2UxCbHandover': 'Fechas y entrega',
     'v2UxCbReadyTitle': 'Lo tenemos listo',
     'v2UxCbGear': 'Equipo',
@@ -90,6 +98,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
     'v2UxCbPromoTitle': 'Código de descuento o vale',
   },
   'fr': {
+    'v2UxCbPickTime': 'Choisis l’heure',
+    'v2UxCbHalfFrom12': 'Dès 12:00, ton 1er jour est à moitié prix',
     'v2UxCbHandover': 'Dates et remise',
     'v2UxCbReadyTitle': 'Tout est prêt',
     'v2UxCbGear': 'Équipement',
@@ -112,6 +122,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
     'v2UxCbPromoTitle': 'Code promo ou bon',
   },
   'nl': {
+    'v2UxCbPickTime': 'Kies een tijd',
+    'v2UxCbHalfFrom12': 'Vanaf 12:00 is je eerste dag half geld',
     'v2UxCbHandover': 'Data en overdracht',
     'v2UxCbReadyTitle': 'We hebben alles klaar',
     'v2UxCbGear': 'Uitrusting',
@@ -134,6 +146,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
     'v2UxCbPromoTitle': 'Kortingscode of tegoedbon',
   },
   'pl': {
+    'v2UxCbPickTime': 'Wybierz godzinę',
+    'v2UxCbHalfFrom12': 'Od 12:00 masz 1. dzień za pół ceny',
     'v2UxCbHandover': 'Termin i odbiór',
     'v2UxCbReadyTitle': 'Mamy to przygotowane',
     'v2UxCbGear': 'Strój',
@@ -156,6 +170,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingB = {
     'v2UxCbPromoTitle': 'Kod rabatowy lub voucher',
   },
   'uk': {
+    'v2UxCbPickTime': 'Вибери час',
+    'v2UxCbHalfFrom12': 'Від 12:00 перший день за пів ціни',
     'v2UxCbHandover': 'Дати й передача',
     'v2UxCbReadyTitle': 'Усе готово',
     'v2UxCbGear': 'Екіпірування',

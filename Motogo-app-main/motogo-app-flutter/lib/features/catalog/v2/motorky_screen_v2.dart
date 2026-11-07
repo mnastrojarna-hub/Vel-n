@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
@@ -43,8 +45,21 @@ class MotorkyScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<MotorkyScreenV2> createState() => _MotorkyScreenV2State();
 }
 
-class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsBindingObserver {
+class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _grid = false;
+
+  /// CB-27: the content under the mode switch fades in over `enter` 450
+  /// when the mode changes (V21 §3.1); full at once under reduced motion.
+  late final AnimationController _modeFade = AnimationController(vsync: this, duration: MgMotion.enter, value: 1);
+
+  void _fadeMode() {
+    if (MgMotion.reduced(context)) {
+      _modeFade.value = 1;
+    } else {
+      _modeFade.forward(from: 0);
+    }
+  }
 
   /// Mode of THIS mount: the calculator only on an explicit request (Home
   /// funnel), otherwise the bike list — a once-used calculator must not
@@ -73,6 +88,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _modeFade.dispose();
     super.dispose();
   }
 
@@ -91,6 +107,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
         catCarryCalcToList(ref);
       }
       setState(() => _mode = m);
+      _fadeMode();
     }
     if (ref.read(catalogModeProvider) != m) ref.read(catalogModeProvider.notifier).state = m;
   }
@@ -142,7 +159,10 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
     // Switches from inside the tab (calculator "show free") write the
     // shared mode — follow them.
     ref.listen<CatalogMode>(catalogModeProvider, (_, next) {
-      if (next != _mode) setState(() => _mode = next);
+      if (next != _mode) {
+        setState(() => _mode = next);
+        _fadeMode();
+      }
     });
     // Dates picked elsewhere while the calculator is shown (its "Detail ›")
     // are already answered there too.
@@ -190,7 +210,12 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
     }
     return MgPage(
       header: header,
-      slivers: slivers,
+      slivers: [
+        SliverFadeTransition(
+          opacity: CurvedAnimation(parent: _modeFade, curve: MgMotion.out),
+          sliver: SliverMainAxisGroup(slivers: slivers),
+        ),
+      ],
       overlapHero: false,
       tabIndex: 1,
       dock: sticky == null ? null : CalcStickyV2(data: sticky),
@@ -260,13 +285,13 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
       ]);
     }
     final h = _cardHeight(context);
+    // CB-30: full view without the canvas count line (the header says it).
     return SliverMainAxisGroup(slivers: [
-      SliverToBoxAdapter(child: head),
+      const SliverToBoxAdapter(child: SizedBox(height: 12)),
       SliverList(
         delegate: SliverChildBuilderDelegate(
-          (context, i) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: MotoCardFullV2(
+          (context, i) {
+            final card = MotoCardFullV2(
               key: ValueKey('mc-${motos[i].id}'),
               moto: motos[i],
               price: catCardPrice(tr, motos[i], s, e, loyalty),
@@ -276,8 +301,13 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
               height: h,
               onOpen: () => _open(motos, motos[i]),
               onCta: hasDates ? () => _book(motos, motos[i], s, e) : null,
-            ),
-          ),
+            );
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              // CB-28: the first three cards reveal once per session.
+              child: i < 3 ? MgReveal(index: i, sessionKey: 'motorky-cards', child: card) : card,
+            );
+          },
           childCount: motos.length,
         ),
       ),

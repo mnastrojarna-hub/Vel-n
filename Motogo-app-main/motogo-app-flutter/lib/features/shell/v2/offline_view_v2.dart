@@ -101,7 +101,10 @@ class _OfflineStripV2State extends State<OfflineStripV2> {
       left: 12,
       right: 12,
       child: IgnorePointer(
-        child: MgStickySlide(
+        // Overlay entry bez Scaffoldu → vlastní Material pro styl textu.
+        child: Material(
+          type: MaterialType.transparency,
+          child: MgStickySlide(
           visible: _shown,
           from: AxisDirection.up,
           child: Semantics(
@@ -134,6 +137,7 @@ class _OfflineStripV2State extends State<OfflineStripV2> {
               ]),
             ),
           ),
+        ),
         ),
       ),
     );

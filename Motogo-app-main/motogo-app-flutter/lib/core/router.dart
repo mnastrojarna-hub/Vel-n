@@ -158,14 +158,14 @@ extension MotoGoBackNav on BuildContext {
 ///
 /// v2 vzhled (SH-14): MaterialPage na obou platformách — iOS swipe zpět,
 /// Android prediktivní zpět (MgPageTransitions); VYPNUTO beze změny.
-Page<void> _swipeBackPage(LocalKey key, Widget child, [BuildContext? context]) =>
+Page<void> routerSwipeBackPage(LocalKey key, Widget child, [BuildContext? context]) =>
     defaultTargetPlatform == TargetPlatform.iOS || (context != null && MgV2.peek(context))
         ? MaterialPage<void>(key: key, child: child)
         : NoTransitionPage<void>(key: key, child: child);
 
 /// Kořen záložky: v2 = fade-through `tab` 210 (design M1, SH-13), jinak beze
 /// změny okamžitě.
-Page<void> _tabPage(BuildContext context, GoRouterState state, Widget child) => MgV2.peek(context)
+Page<void> routerTabPage(BuildContext context, GoRouterState state, Widget child) => MgV2.peek(context)
     ? mgTabPage(key: state.pageKey, child: child)
     : NoTransitionPage<void>(key: state.pageKey, child: child);
 
@@ -373,27 +373,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: Routes.home,
-            pageBuilder: (context, state) => _tabPage(context, state, const V2Switch(v1: HomeScreen(), v2: HomeScreenV2())),
+            pageBuilder: (context, state) => routerTabPage(context, state, const V2Switch(v1: HomeScreen(), v2: HomeScreenV2())),
           ),
           GoRoute(
             path: Routes.search,
-            pageBuilder: (context, state) => _tabPage(context, state, const V2Switch(v1: MotoSearchScreen(), v2: MotorkyScreenV2())),
+            pageBuilder: (context, state) => routerTabPage(context, state, const V2Switch(v1: MotoSearchScreen(), v2: MotorkyScreenV2())),
           ),
           GoRoute(
             path: Routes.reservations,
-            pageBuilder: (context, state) => _tabPage(context, state, const V2Switch(v1: ReservationsScreen(), v2: ReservationsScreenV2())),
+            pageBuilder: (context, state) => routerTabPage(context, state, const V2Switch(v1: ReservationsScreen(), v2: ReservationsScreenV2())),
           ),
           GoRoute(
             path: Routes.shop,
             // v2: běžná push stránka (swipe / prediktivní zpět, PS-15);
             // VYPNUTO beze změny okamžitě (i na iPhonu).
             pageBuilder: (context, state) => MgV2.peek(context)
-                ? _swipeBackPage(state.pageKey, const ShopScreen(), context)
+                ? routerSwipeBackPage(state.pageKey, const ShopScreen(), context)
                 : const NoTransitionPage(child: ShopScreen()),
           ),
           GoRoute(
             path: Routes.profile,
-            pageBuilder: (context, state) => _tabPage(context, state, const ProfileScreen()),
+            pageBuilder: (context, state) => routerTabPage(context, state, const ProfileScreen()),
           ),
           // Sub-routes inside shell
           GoRoute(
@@ -403,7 +403,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.booking,
-            pageBuilder: (context, state) => _swipeBackPage(
+            pageBuilder: (context, state) => routerSwipeBackPage(
               const ValueKey('booking-debug'),
               const BookingDebugWrapper(),
               context,
@@ -519,12 +519,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           // dřív byl katalog bodů zájmu mimo shell a lišta na něm mizela.
           GoRoute(
             path: Routes.routes,
-            pageBuilder: (context, state) => _tabPage(context, state, const AllPoisScreen(asTab: true)),
+            pageBuilder: (context, state) => routerTabPage(context, state, const AllPoisScreen(asTab: true)),
           ),
           GoRoute(
             path: Routes.routesList,
             pageBuilder: (context, state) =>
-                _swipeBackPage(state.pageKey, const RoutesScreen(), context),
+                routerSwipeBackPage(state.pageKey, const RoutesScreen(), context),
           ),
           GoRoute(
             path: Routes.placesMap,

@@ -21,7 +21,7 @@
 // (customerCapHaleru — jen platby v ceně) z ostatních plateb; co nejde automaticky → obsluha.
 import { otherRefundableIntents, outsidePrice, type BookingIntentsStripe, type IntentLike, type Outside, type RefundLike } from '../_shared/booking-intents.ts'
 // Oprava i4 (2026-11-07): klíč zbytku se po SELHANÉ vratce mění (jinak Stripe přehraje selhanou) — retry-key.ts
-import { isReplayOfFailed, REPLAYED_FAILED, retrySuffix } from './retry-key.ts'
+import { isReplayOfFailed, REPLAYED_FAILED, replayedFailedRefund, retrySuffix } from './retry-key.ts'
 
 // deno-lint-ignore no-explicit-any
 type Sb = any
@@ -56,12 +56,14 @@ export async function refundRemainder(stripe: OtherIntentsStripe, sb: Sb, a: {
     const amt = Math.min(c.refundableHaleru, remaining)
     if (amt <= 0) { left += c.refundableHaleru; continue }
     try {
+      const startS = Math.floor(Date.now() / 1000)
       const r = await stripe.refunds.create({
         payment_intent: c.id, amount: amt, reason: 'requested_by_customer',
         metadata: { ...(a.metadata || {}), mg_source: 'process-refund', mg_reason: a.reason || '', mg_booking_id: a.bookingId, mg_part: 'remainder', mg_main_refund: a.mainRefundId },
       }, { idempotencyKey: `refund-rest:${a.mainRefundId}:${c.id}:${amt}${retrySuffix(c.failedRefunds)}` })
       // i4: Stripe přehrál už SELHANOU vratku (klíč z doby před pádem) → nic se nevrátilo, nepočítat jako vrácené
-      if (isReplayOfFailed(r.id, c.failedRefunds)) throw new Error(`${REPLAYED_FAILED} ${r.id} (${c.id})`)
+      // i5r2 (R8): i bez výpisu vratek — vratka starší než toto volání je přehraná → stav znovu ze Stripe
+      if (isReplayOfFailed(r.id, c.failedRefunds) || await replayedFailedRefund(stripe as never, r, startS)) throw new Error(`${REPLAYED_FAILED} ${r.id} (${c.id})`)
       refunds.push({ piId: c.id, refundId: r.id, amountHaleru: Number(r.amount ?? amt), status: String(r.status || 'succeeded') })
       remaining -= amt
       left += c.refundableHaleru - amt

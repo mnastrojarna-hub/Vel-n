@@ -3,13 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/rank/rank_copy.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
+import '../../../core/v2/widgets/mg_disclosure.dart';
 import '../../../core/v2/widgets/mg_sheet.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
@@ -19,6 +22,7 @@ import '../../reservations/reservation_models.dart';
 import '../../reservations/reservation_provider.dart';
 import 'home_club_parts.dart';
 import 'home_reveal.dart';
+import 'home_tier_preview_v2.dart';
 
 /// "Tvůj klub" (V22 §2.4 #8 / R5.7): the rank on a white card — emblem,
 /// name in ink, tier progress on a well (1 segment = 1 point), next-rank
@@ -59,11 +63,15 @@ class HomeClubCardV2 extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr.tr('v2HomeClubKicker').toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta)),
+                  // Board Main: „TVŮJ KLUB · LEVEL n Z 20" (úroveň jen jednou).
+                  MgWordFit(
+                    minScale: 0.75,
+                    child: Text(
+                        tr.trArgs('v2UxShClubEyebrow', {'n': status.level, 'max': status.maxLevel}).toUpperCase(),
+                        style: MgType.eyebrow.copyWith(color: MgColors.meta)),
+                  ),
                   // „Ambassadeur", „Діамантовий райдер": zmenšit, nikdy nedělit slovo.
                   MgWordFit(minScale: 0.7, child: Text(name, style: MgType.h3.copyWith(color: MgColors.ink))),
-                  Text(RankCopy.levelLine(tr, status.level, status.percent),
-                      style: MgType.small.copyWith(color: MgColors.lead)),
                 ]),
               ),
               MgIconButton(
@@ -128,45 +136,64 @@ class HomeClubCardV2 extends ConsumerWidget {
                 ),
               ),
             ]),
-            const SizedBox(height: 4),
-            Text(
-              '${tr.tr('loyaltyLevelOf').replaceAll('{lvl}', '${status.level}').replaceAll('{max}', '${status.maxLevel}')}'
-              ' · ${tr.tr('loyaltyBookingsCount').replaceAll('{n}', '${status.qualifyingCount}')}',
-              style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta)),
-            ),
-            const SizedBox(height: 12),
-            ClubPerkPair(
-              first: ClubPerk(
-                big: '−${status.percent} %',
-                label: tr.tr('v2HomeClubPerkPct'),
-              ),
-              second: ClubPerk(
-                icon: status.level >= 3 ? MgIcons.helmet : MgIcons.lock,
-                label: RankCopy.gearLine(tr, status.level),
-                locked: status.level < 3,
-              ),
-            ),
-            if (saved > 0) ...[
-              const SizedBox(height: 10),
-              Text(tr.trArgs('v2HomeClubSaved', {'amount': Money.czk(saved)}),
-                  style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.body2))),
-            ],
-            const SizedBox(height: 16),
-            Text(tr.tr('v2HomeClubRail').toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta)),
             const SizedBox(height: 8),
-            ClubTierRail(current: tier),
-            const SizedBox(height: 10),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 1),
-                child: MgIcon(MgIcons.starFilled, size: 14, color: MgColors.meta),
+            const Divider(height: 1, thickness: 1, color: MgColors.line),
+            // Board Main: jeden souhrnný řádek výhod + „Výhody a ligy ▾"
+            // (zbytek sbalený — pravidlo majitele o rozbalování).
+            MgDisclosure(
+              key: const ValueKey('home-club-more'),
+              label: tr.tr('v2UxShClubMore'),
+              expandedLabel: tr.tr('v2UxShClubLess'),
+              summary: Text.rich(
+                TextSpan(children: [
+                  TextSpan(
+                      text: mgNbsp('−${status.percent} %'),
+                      style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w900, color: MgColors.link))),
+                  if (status.level >= 3)
+                    TextSpan(text: ' · ${tr.tr('v2UxShClubGearShort')}', style: MgType.small.copyWith(color: MgColors.body2)),
+                ]),
               ),
-              const SizedBox(width: 6),
-              Expanded(child: Text(tr.tr('loyaltyAppOnly'), style: MgType.meta.copyWith(color: MgColors.meta))),
-            ]),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: HomeTextLink(label: tr.tr('v2HomeClubAll'), onTap: () => openLoyaltyRanks(context)),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  MgFabAvoid(
+                    kind: MgAvoidKind.tap,
+                    child: ClubPerkPair(
+                      first: ClubPerk(
+                        big: mgNbsp('−${status.percent} %'),
+                        label: tr.tr('v2HomeClubPerkPct'),
+                      ),
+                      second: ClubPerk(
+                        icon: status.level >= 3 ? MgIcons.helmet : MgIcons.lock,
+                        label: RankCopy.gearLine(tr, status.level),
+                        locked: status.level < 3,
+                      ),
+                    ),
+                  ),
+                  if (saved > 0) ...[
+                    const SizedBox(height: 10),
+                    Text(mgNbsp(tr.trArgs('v2HomeClubSaved', {'amount': Money.czk(saved)})),
+                        style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.body2))),
+                  ],
+                  const SizedBox(height: 16),
+                  Text(tr.tr('v2HomeClubRail').toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta)),
+                  const SizedBox(height: 8),
+                  ClubTierRail(current: tier, onPreview: (level) => showTierPreviewSheet(context, level)),
+                  const SizedBox(height: 10),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 1),
+                      child: MgIcon(MgIcons.starFilled, size: 14, color: MgColors.meta),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(tr.tr('loyaltyAppOnly'), style: MgType.meta.copyWith(color: MgColors.meta))),
+                  ]),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: HomeTextLink(label: tr.tr('v2HomeClubAll'), onTap: () => openLoyaltyRanks(context)),
+                  ),
+                ]),
+              ),
             ),
           ]),
         ),

@@ -20,7 +20,7 @@ import { cancellationRefundPool, closeStaleCancelMains, completeCancelRemainder,
 // Oprava i3 (2026-11-07): dlužná částka dle dokladů jako DB trigger _cap_refund_to_paid, převodem placená část (doc-owed.ts).
 import { bankPaidCzk, docSums, docsOwedCzk, shopPartHaleru, stripeRefundsWithoutCnHaleru } from './doc-owed.ts'
 // Oprava i4 (2026-11-07): idempotency klíč vratky po SELHANÉ vratce nový (Stripe by přehrál selhanou) — retry-key.ts
-import { failedRefundIds, isReplayOfFailed, REPLAYED_FAILED, retrySuffix } from './retry-key.ts'
+import { failedRefundIds, isReplayOfFailed, REPLAYED_FAILED, replayedFailedRefund, retrySuffix } from './retry-key.ts'
 // Oprava i5 (2026-11-07, V1): osiřelé zbytky storna (hlavní vratka selhala, zbytek z jiné platby odešel)
 import { orphanCoverHaleru, respondOrphanCancelRefund } from './cancel-orphans.ts'
 import { paymentCurrencyOk } from '../_shared/currency.ts'
@@ -310,7 +310,7 @@ async function createCreditNoteForExistingRefund(
 
     // Načti booking + customer pro template
     const { data: bkRow } = await supabase.from('bookings')
-      .select('user_id, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
+      .select('user_id, status, total_price, start_date, end_date, motorcycles!moto_id(model), profiles:user_id(id, full_name, email, phone, street, city, zip, ico, dic)')
       .eq('id', bookingId).single()
     if (!bkRow) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id }
     const refundPercent = (bkRow.total_price && bkRow.total_price > 0)
@@ -339,8 +339,10 @@ async function createCreditNoteForExistingRefund(
     const issueDate = new Date().toISOString().slice(0, 10)
     // Výpůjčka výbavy (2026-10-23): bez motorky → „výpůjčka výbavy“ (gear) / „motorky“ (gear.ts).
     const motoModel = (bkRow as any).motorcycles?.model || await noMotoRefundSubject(supabase, bookingId)
-    // Důvod z naší vratky (zkrácení / výměna / úprava …); externí vratka (Stripe portál) = storno.
-    const reasonText = rmd.mg_source === 'process-refund' && rmd.mg_reason ? reasonTextFor(rmd.mg_reason) : 'Storno rezervace'
+    // Důvod z naší vratky (zkrácení / výměna / úprava …); externí vratka (Stripe portál) = storno — i5r2 (R3): jen u zrušené
+    // rezervace, u živé „Vrácení platby zákazníkovi“ (dřív „Storno rezervace“ i na dobropisu k vratce z dashboardu u živé).
+    const reasonText = rmd.mg_source === 'process-refund' && rmd.mg_reason ? reasonTextFor(rmd.mg_reason)
+      : ((bkRow as any).status === 'cancelled' ? 'Storno rezervace' : 'Vrácení platby zákazníkovi')
 
     const { data: cnInv, error: cnInsErr } = await supabase.from('invoices').insert({
       number: cnNumber,
@@ -706,6 +708,7 @@ async function customerPriceFloorCzk(supabase: any, bookingId: string): Promise<
 async function customerRefundNeedsStaff(
   supabase: any, bookingId: string, amount: unknown, reason: string | undefined,
   dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
+  why?: string,
 ): Promise<Response> {
   let recent = false
   try {
@@ -722,7 +725,7 @@ async function customerRefundNeedsStaff(
     await sendOpsMail(
       `⚠️ Vratku za úpravu rezervace #${num} vyřiďte ručně`,
       `<p>Zákazník v aplikaci upravil rezervaci <strong>#${num}</strong> (${reasonTextFor(reason)}) a požádal o vrácení <strong>${amt} Kč</strong>.</p>`
-      + '<p>Automatická vratka NEPROBĚHLA — k rezervaci se nenašel ověřený přeplatek (platby Stripe / Fio − vrácené − aktuální cena). '
+      + `<p>Automatická vratka NEPROBĚHLA — ${why || 'k rezervaci se nenašel ověřený přeplatek (platby Stripe / Fio − vrácené − aktuální cena).'} `
       + `${STAFF_REFUND_HOWTO}</p>`,
     )
   }
@@ -867,7 +870,9 @@ async function otherPaymentsUnavailable(
     `⚠️ Vratka rezervace #${num} se neprovedla — platby ve Stripe nejdou načíst`,
     `<p>Rezervace <strong>#${num}</strong> (${bookingId}, ${reasonTextFor(reason)}${Number(amount) > 0 ? `, ${Number(amount)} Kč` : ', celý zůstatek'}): `
     + 'ostatní platby rezervace se nepodařilo načíst ze Stripe (limit vyhledávání / výpadek), takže nejde ověřit, z čeho a kolik vracet.</p>'
-    + '<p>Nic se nevrátilo. Zkuste vratku znovu z detailu rezervace ve Velíně (storno: „Potvrdit vrácení“), až Stripe odpoví.</p>',
+    + (reason === 'cancellation' || !reason
+      ? '<p>Nic se nevrátilo. Zkuste vratku znovu z detailu rezervace ve Velíně (storno: „Potvrdit vrácení“), až Stripe odpoví.</p>'
+      : `<p>Nic se nevrátilo. ${STAFF_REFUND_HOWTO}</p>`),
     { where, requested: amount ?? null })
   return new Response(
     JSON.stringify({ success: false, code: 'other_payments_unavailable', retry: true,
@@ -1629,6 +1634,7 @@ Deno.serve(async (req: Request) => {
     // uložená platba + její vratky (mainSource: patří vůbec do ceny rezervace?)
     let storedPi: any = null
     let storedRefunds: any[] | null = null
+    let storedRefundsErr: string | null = null // i5r2 (R8): výpis vratek uložené platby selhal
     try {
       const pi = await stripe.paymentIntents.retrieve(stripePaymentIntentId)
       storedPi = pi
@@ -1646,11 +1652,20 @@ Deno.serve(async (req: Request) => {
         for (const r of refundsList.data) {
           if (r.status === 'succeeded' || r.status === 'pending') alreadyRefunded += r.amount
         }
-      } catch { /* non-fatal */ }
+      } catch (e) { storedRefundsErr = (e as Error).message || 'refunds.list failed' }
       refundableHaleru = Math.max(0, charged - alreadyRefunded)
       refundableCZK = refundableHaleru / 100
     } catch (e) {
       console.warn('[process-refund] PI lookup failed:', (e as Error).message)
+    }
+    // Oprava i5r2 (verify:refunds R8): vratky uložené platby nejdou přečíst (limit / výpadek Stripe) → NEvracet. Dřív
+    // „non-fatal“: refundable = celá platba a bez seznamu chyběla přípona :f<n> (retry-key.ts) → opakování po SELHANÉ vratce
+    // poslalo původní klíč, Stripe přehrál selhanou vratku a process-refund hlásil úspěch (0 Kč vráceno, bez mailu).
+    if (booking_id && storedPi && storedRefundsErr) {
+      await dlog('stored_refunds_unavailable', 'error', { payment_intent_id: stripePaymentIntentId, error: storedRefundsErr })
+      if (isCustomer) return await customerRefundNeedsStaff(supabase, booking_id, amount, reason, dlog,
+        'Vratky platby ve Stripe se nepodařilo načíst (limit / výpadek Stripe), takže nešlo bezpečně ověřit, co už bylo vráceno.')
+      return await otherPaymentsUnavailable(supabase, booking_id, amount, reason, dlog, 'stored_refunds')
     }
     // Oprava i4 (2026-11-07, verify:charges): uložená platba v jiné měně než CZK (Stripe Checkout s Adaptive Pricing — strženo
     // v měně zákazníka) → žádná automatická vratka (částky rezervace jsou v haléřích CZK; ořez na „refundable“ v eurocentech
@@ -1962,8 +1977,10 @@ Deno.serve(async (req: Request) => {
     const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${seqPart}${retrySuffix(mainFailed)}`
 
     await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru, idempotency_key: idempotencyKey })
+    const createStartS = Math.floor(Date.now() / 1000)
     const refund = await stripe.refunds.create(refundParams, { idempotencyKey })
-    if (isReplayOfFailed(refund.id, mainFailed)) {
+    // i5r2 (R8): přehrání nezávisle na výpisu vratek — vratka starší než toto volání = Stripe přehrál klíč → stav znovu ze Stripe
+    if (isReplayOfFailed(refund.id, mainFailed) || await replayedFailedRefund(stripe as any, refund as any, createStartS)) {
       // Stripe přehrál vratku, která už selhala (klíč staré verze / souběh) → peníze neodešly: bez zápisu stavu, dobropisu i zbytku.
       await dlog('stripe_refund_replayed_failed', 'error', { refund_id: refund.id, idempotency_key: idempotencyKey })
       throw new Error(`${REPLAYED_FAILED} ${refund.id}`)

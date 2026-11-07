@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_calendar.dart';
 import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/tokens/mg_space.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
 import '../../../core/v2/widgets/mg_sheet.dart';
@@ -22,13 +25,83 @@ Future<void> showCatalogDateSheet(BuildContext context) => showMgSheet<void>(
       context,
       title: t(context).tr('v2CatDateTitle'),
       builder: (_) => const _CatalogDateBody(),
-      footer: Builder(
-        builder: (ctx) => MgBtnInk(
-          label: t(ctx).tr('v2CatDone'),
-          onTap: () => Navigator.of(ctx).maybePop(),
+      footer: const _CatalogDateFooter(),
+    );
+
+/// Board footer (CB-19): "POUŽÍT TERMÍN · 3 DNY" (neon on ink) with a
+/// range, "Hotovo" without; "Zrušit termín" = the sheet's own clear.
+class _CatalogDateFooter extends ConsumerWidget {
+  const _CatalogDateFooter();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = t(context);
+    final f = ref.watch(catalogFilterProvider);
+    final s = f.startDate, e = f.endDate;
+    final range = s != null && e != null;
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      MgBtnInk(
+        label: range
+            ? tr.trArgs('v2UxCbUseDates', {'days': catDays(tr, catDayCount(s, e))}).toUpperCase()
+            : tr.tr('v2CatDone'),
+        neonLabel: range,
+        onTap: () => Navigator.of(context).maybePop(),
+      ),
+      if (range) Center(child: MgBtnText(label: tr.tr('v2CatDateClear'), onTap: () => catClearDates(ref))),
+    ]);
+  }
+}
+
+/// Board "VYZVEDNUTÍ → VRÁCENÍ" well with the days chip (bumps on change).
+class _RangeWell extends StatelessWidget {
+  final DateTime start;
+  final DateTime? end;
+  const _RangeWell({required this.start, this.end});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    Widget tile(String label, DateTime? d) => Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            MgWordFit(minScale: 0.8, child: Text(label.toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta))),
+            const SizedBox(height: 2),
+            Text(d == null ? '–' : tripShortDate(tr, d).replaceAll(' ', '\u00A0'),
+                style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+          ]),
+        );
+    return Semantics(
+      container: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+        decoration: BoxDecoration(
+          color: MgColors.well,
+          borderRadius: BorderRadius.circular(MgRadius.button),
+          border: Border.all(color: MgColors.line),
         ),
+        child: Row(children: [
+          tile(tr.tr('dateTabsPickup'), start),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: MgIcon(MgIcons.arrowRight, size: 18, color: MgColors.link),
+          ),
+          tile(tr.tr('dateTabsReturn'), end),
+          if (end != null) ...[
+            const SizedBox(width: 6),
+            MgBump(
+              trigger: catDayCount(start, end!),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: MgColors.ink, borderRadius: BorderRadius.circular(999)),
+                child: Text(catDays(tr, catDayCount(start, end!)).replaceAll(' ', '\u00A0'),
+                    style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.neon))),
+              ),
+            ),
+          ],
+        ]),
       ),
     );
+  }
+}
 
 /// Same write as the old `_onRangeSelected`.
 void catSetDates(WidgetRef ref, DateTime start, DateTime end) {
@@ -80,8 +153,9 @@ class _CatalogDateBody extends ConsumerWidget {
         ),
       ]),
       const SizedBox(height: 16),
+      // CB-19: the board's pickup → return well with the days chip.
       if (hasDates) ...[
-        TripSummaryRow(start: f.startDate!, end: f.endDate, days: catDayCount(f.startDate!, f.endDate!)),
+        _RangeWell(start: f.startDate!, end: f.endDate),
         const SizedBox(height: 12),
       ],
       Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),

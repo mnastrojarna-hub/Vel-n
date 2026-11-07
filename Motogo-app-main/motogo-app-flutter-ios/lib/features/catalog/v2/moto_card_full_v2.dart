@@ -4,6 +4,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
+import '../../../core/v2/motion/mg_ken_burns.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -97,7 +99,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final multi = imgs.length > 1;
     final specs = m.shortDescItems(tr.tr).take(4).map((e) => e.card).toList();
     final lic = catLicenseLabel(tr, m);
-    final branch = m.branchName ?? m.branchCity;
+    final branch = catBranchLine(tr, m);
     // [height] is the MINIMUM: with large text / long words the card grows
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).
@@ -115,7 +117,20 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
               Positioned.fill(
                 child: ExcludeSemantics(
                   child: Stack(fit: StackFit.expand, children: [
-                    MgImage(imgs[_page.clamp(0, imgs.length - 1)], thumbWidth: 400, fit: BoxFit.cover, error: _fallback()),
+                    // CB-15: dark placeholder + 180 ms cross-fade per photo.
+                    AnimatedSwitcher(
+                      duration: MgMotion.of(context, MgMotion.color),
+                      child: KeyedSubtree(
+                        key: ValueKey(_page),
+                        child: MgImage(imgs[_page.clamp(0, imgs.length - 1)],
+                            thumbWidth: 400,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            placeholder: const ColoredBox(color: MgColors.panel),
+                            error: _fallback()),
+                      ),
+                    ),
                     ColoredBox(color: MgColors.nightA(0.62)),
                   ]),
                 ),
@@ -128,17 +143,24 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                   controller: _pc,
                   itemCount: imgs.length,
                   onPageChanged: (i) => setState(() => _page = i),
-                  itemBuilder: (_, i) => GestureDetector(
-                    onTap: widget.onOpen,
-                    child: MgImage(
-                      imgs[i],
-                      thumbWidth: 900,
-                      fit: BoxFit.contain,
-                      width: double.infinity,
-                      placeholder: const SizedBox.expand(),
-                      error: _fallback(),
-                    ),
-                  ),
+                  itemBuilder: (_, i) {
+                    // CB-14: the first photo flies into the detail hero;
+                    // CB-28: Ken Burns once on the first card of the list.
+                    Widget img = MgHeroPhoto(
+                      tag: mgHeroTagMoto(m.id),
+                      enabled: i == 0,
+                      child: MgImage(
+                        imgs[i],
+                        thumbWidth: 900,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        placeholder: const SizedBox.expand(),
+                        error: _fallback(),
+                      ),
+                    );
+                    if (i == 0 && widget.live) img = MgKenBurns(sessionKey: 'motorky-card-${m.id}', child: img);
+                    return GestureDetector(onTap: widget.onOpen, child: img);
+                  },
                 ),
               ),
             Positioned.fill(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../../features/booking/v2/time_sheet_v2.dart';
 import '../v2/flag/v2_scope.dart';
 import '../v2/icons/mg_icon.dart';
 import '../v2/tokens/mg_colors.dart';
@@ -19,11 +20,17 @@ class TimeDropdownField extends StatelessWidget {
   /// nabídky vždy doplní, i když do kroku nespadá.
   final int minuteStep;
 
+  /// v2: title of the time sheet + the "½ from 12:00" mark (pickup only).
+  final String? sheetTitle;
+  final bool halfFrom12;
+
   const TimeDropdownField({
     super.key,
     required this.value,
     required this.onChanged,
     this.minuteStep = 15,
+    this.sheetTitle,
+    this.halfFrom12 = false,
   });
 
   int get _hour {
@@ -49,6 +56,18 @@ class TimeDropdownField extends StatelessWidget {
       _minute, // vždy zachovej aktuální minutu
     }.toList()
       ..sort();
+
+    // v2 (CB-22): one field + a sheet with the same times, same "HH:MM".
+    if (MgV2.on(context)) {
+      return TimeFieldV2(
+        hour: _hour,
+        minute: _minute,
+        minutes: minutes,
+        onChanged: onChanged,
+        sheetTitle: sheetTitle,
+        halfFrom12: halfFrom12,
+      );
+    }
 
     return Row(
       children: [

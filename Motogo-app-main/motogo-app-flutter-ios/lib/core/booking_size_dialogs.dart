@@ -5,7 +5,9 @@ import '../features/auth/auth_provider.dart' show profileProvider;
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
 import '../features/loyalty/loyalty_provider.dart';
+import '../features/booking/v2/sizes_sheet_v2.dart';
 import 'i18n/i18n_provider.dart';
+import 'v2/flag/v2_scope.dart';
 import 'widgets/mg_nav_controls.dart';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -37,6 +39,21 @@ void showPassengerGearSheet(
     'Helma': null, 'Rukavice': null, 'Bunda': null, 'Kalhoty': null,
   };
   final fromLast = _prefillPassenger(sizes, ref, current, selfService);
+  // v2 (CB-03): same prefill, same confirm / remove actions, new look.
+  if (MgV2.peek(ctx)) {
+    showPassengerSizesSheetV2(
+      ctx,
+      title: '${t(ctx).tr('sizesLabel')} – ${extraLabel(t(ctx).tr, item.id, item.name)}',
+      sub: t(ctx).tr('passengerBootsSeparate'),
+      fromLast: fromLast,
+      sizes: sizes,
+      options: {for (final k in sizes.keys) k: _passengerGearSizes(k, selfService)},
+      labelOf: (k) => t(ctx).tr(passengerGearKeys[k] ?? 'helmet'),
+      onConfirm: (m) => _applyPassenger(ref, item, m, onExtrasUpdated),
+      onRemove: current == null ? null : () => _removeExtra(ref, item, onExtrasUpdated),
+    );
+    return;
+  }
   showModalBottomSheet(
     context: ctx,
     isScrollControlled: true,
@@ -108,23 +125,7 @@ void showPassengerGearSheet(
             SizedBox(width: double.infinity, height: 48,
               child: ElevatedButton(
                 onPressed: anySelected ? () {
-                  // Jen zvolené kusy — payment_screen `_parsePassengerGearSizes`
-                  // chybějící části tolerantně přeskočí (→ NULL v DB).
-                  final sizeStr = sizes.entries
-                      .where((e) => e.value != null)
-                      .map((e) => '${e.key}: ${e.value}')
-                      .join(', ');
-                  final ne = List<SelectedExtra>.from(
-                    ref.read(bookingDraftProvider).extras);
-                  ne.removeWhere((e) => e.id == item.id);
-                  // Od [loyaltyFreeGearLevel] je tento gear zdarma.
-                  final lvl = ref
-                      .read(loyaltyStatusProvider).valueOrNull?.level ?? 0;
-                  ne.add(SelectedExtra(id: item.id,
-                    name: item.name,
-                    price: effectiveExtraPrice(item.id, item.price, lvl),
-                    size: sizeStr));
-                  onExtrasUpdated(ne);
+                  _applyPassenger(ref, item, sizes, onExtrasUpdated);
                   Navigator.pop(c);
                 } : null,
                 style: ElevatedButton.styleFrom(
@@ -140,6 +141,51 @@ void showPassengerGearSheet(
             if (current != null) _RemoveExtraButton(item: item, ref: ref, onExtrasUpdated: onExtrasUpdated),
           ]));
       }));
+}
+
+/// Uloží výbavu spolujezdce s vybranými velikostmi (starý i v2 list).
+void _applyPassenger(WidgetRef ref, ExtraCatalogItem item, Map<String, String?> sizes,
+    void Function(List<SelectedExtra>) onExtrasUpdated) {
+  // Jen zvolené kusy — payment_screen `_parsePassengerGearSizes`
+  // chybějící části tolerantně přeskočí (→ NULL v DB).
+  final sizeStr = sizes.entries
+      .where((e) => e.value != null)
+      .map((e) => '${e.key}: ${e.value}')
+      .join(', ');
+  final ne = List<SelectedExtra>.from(
+    ref.read(bookingDraftProvider).extras);
+  ne.removeWhere((e) => e.id == item.id);
+  // Od [loyaltyFreeGearLevel] je tento gear zdarma.
+  final lvl = ref
+      .read(loyaltyStatusProvider).valueOrNull?.level ?? 0;
+  ne.add(SelectedExtra(id: item.id,
+    name: item.name,
+    price: effectiveExtraPrice(item.id, item.price, lvl),
+    size: sizeStr));
+  onExtrasUpdated(ne);
+}
+
+/// Uloží doplněk s jednou velikostí (boty) — starý i v2 list.
+void _applySize(WidgetRef ref, ExtraCatalogItem item, String size,
+    void Function(List<SelectedExtra>) onExtrasUpdated) {
+  final ne = List<SelectedExtra>.from(
+    ref.read(bookingDraftProvider).extras);
+  ne.removeWhere((e) => e.id == item.id);
+  // Od [loyaltyFreeGearLevel] je tento gear zdarma.
+  final lvl = ref
+      .read(loyaltyStatusProvider).valueOrNull?.level ?? 0;
+  ne.add(SelectedExtra(id: item.id,
+    name: item.name,
+    price: effectiveExtraPrice(item.id, item.price, lvl),
+    size: size));
+  onExtrasUpdated(ne);
+}
+
+/// Odebere už zvolený doplněk (starý i v2 list).
+void _removeExtra(WidgetRef ref, ExtraCatalogItem item, void Function(List<SelectedExtra>) onExtrasUpdated) {
+  final ne = List<SelectedExtra>.from(ref.read(bookingDraftProvider).extras)
+    ..removeWhere((e) => e.id == item.id);
+  onExtrasUpdated(ne);
 }
 
 /// Předvyplní [sizes] z už zvolené výbavy ([current], text „Helma: L, …“)
@@ -190,9 +236,7 @@ class _RemoveExtraButton extends StatelessWidget {
           height: 44,
           child: TextButton(
             onPressed: () {
-              final ne = List<SelectedExtra>.from(ref.read(bookingDraftProvider).extras)
-                ..removeWhere((e) => e.id == item.id);
-              onExtrasUpdated(ne);
+              _removeExtra(ref, item, onExtrasUpdated);
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: const Color(0xFFB91C1C)),
@@ -231,6 +275,20 @@ void showSizeDialog(
 }) {
   final sizeList = sizesOverride ?? item.sizes;
   final last = current == null ? _lastBootsSize(ref, item.id) : null;
+  // v2 (CB-03): same sizes, tap = pick + close, same remove.
+  if (MgV2.peek(ctx)) {
+    showSingleSizeSheetV2(
+      ctx,
+      title: '${t(ctx).tr('v2UxCbPickSize')} – ${extraLabel(t(ctx).tr, item.id, item.name)}',
+      sub: extraDescription(t(ctx).tr, item.id, item.description),
+      sizes: sizeList,
+      current: current?.size,
+      last: last,
+      onPick: (size) => _applySize(ref, item, size, onExtrasUpdated),
+      onRemove: current == null ? null : () => _removeExtra(ref, item, onExtrasUpdated),
+    );
+    return;
+  }
   showModalBottomSheet(
     context: ctx,
     backgroundColor: Colors.white,
@@ -257,17 +315,7 @@ void showSizeDialog(
           children: sizeList.map((size) =>
             GestureDetector(
               onTap: () {
-                final ne = List<SelectedExtra>.from(
-                  ref.read(bookingDraftProvider).extras);
-                ne.removeWhere((e) => e.id == item.id);
-                // Od [loyaltyFreeGearLevel] je tento gear zdarma.
-                final lvl = ref
-                    .read(loyaltyStatusProvider).valueOrNull?.level ?? 0;
-                ne.add(SelectedExtra(id: item.id,
-                  name: item.name,
-                  price: effectiveExtraPrice(item.id, item.price, lvl),
-                  size: size));
-                onExtrasUpdated(ne);
+                _applySize(ref, item, size, onExtrasUpdated);
                 Navigator.pop(c);
               },
               child: Container(

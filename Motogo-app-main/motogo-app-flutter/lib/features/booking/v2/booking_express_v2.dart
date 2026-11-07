@@ -146,7 +146,10 @@ class BookingReadyCardV2 extends StatelessWidget {
     if (draft.ownGear) {
       gearValue = Text(tr.tr('v2UxCbOwnGear'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink));
     } else if (sizes.isEmpty) {
-      gearValue = Text(tr.tr('v2BkBlockSizes'), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.warn));
+      gearValue = MgWordFit(
+        minScale: 0.75,
+        child: Text(tr.tr('v2BkBlockSizes'), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.warn)),
+      );
     } else {
       gearValue = Wrap(spacing: 6, runSpacing: 6, children: [for (final s in sizes) _SizeMini(icon: s.$1, size: s.$2)]);
     }
@@ -177,26 +180,40 @@ class BookingReadyCardV2 extends StatelessWidget {
             onTap: onToggle,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(MgSpace.card, MgSpace.card, MgSpace.card, 8),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  const MgIconTileDark(MgIcons.shield, size: 40),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: MgWordFit(
-                      minScale: 0.8,
-                      child: Text(tr.tr('v2UxCbReadyTitle'), style: MgType.section.copyWith(color: MgColors.ink)),
+              child: LayoutBuilder(builder: (context, c) {
+                final title = tr.tr('v2UxCbReadyTitle');
+                final style = MgType.section.copyWith(color: MgColors.ink);
+                // "Změnit ⌄" beside the title while the title's longest word
+                // still fits there; otherwise it moves to the chip line
+                // (pl / large text — never a split word).
+                final linkW = bkLineWidth(context, tr.tr('v2BkChange'), MgType.small.copyWith(fontWeight: FontWeight.w800)) + 28;
+                final side = bkWordWidth(context, title, style) * 0.8 <= c.maxWidth - 52 - linkW;
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    const MgIconTileDark(MgIcons.shield, size: 40),
+                    const SizedBox(width: 12),
+                    Expanded(child: MgWordFit(minScale: 0.8, child: Text(title, style: style))),
+                    if (side) ...[const SizedBox(width: 8), _ChangeLink(open: open)],
+                  ]),
+                  // Rank chip on its own line under the title (never faded).
+                  if (rank != null || !side)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 52, top: 4),
+                      // Each at its own width; the link wraps under the chip
+                      // rather than squeezing it.
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (rank != null) MgRankChip(label: rank, onLight: true),
+                          if (!side) _ChangeLink(open: open),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _ChangeLink(open: open),
-                ]),
-                // Rank chip on its own line under the title (never faded).
-                if (rank != null)
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(start: 52, top: 4),
-                    child: MgRankChip(label: rank, onLight: true),
-                  ),
-              ]),
+                ]);
+              }),
             ),
           ),
         ),
@@ -223,21 +240,31 @@ class _ReadyRow extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 52),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: MgSpace.card, vertical: 10),
-            child: Row(children: [
-              _StateDisc(ok: ok),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 72,
-                child: MgWordFit(
-                  minScale: 0.75,
-                  child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: value),
-              const SizedBox(width: 4),
-              MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.meta),
-            ]),
+            child: Builder(builder: (context) {
+              final style = MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead);
+              final text = Text(label, style: style);
+              // Label column beside the value while its word fits 84 px
+              // (cs / en); longer words (de, fr, uk, large text) sit above.
+              final side = bkWordWidth(context, label, style) <= 84;
+              return Row(children: [
+                _StateDisc(ok: ok),
+                const SizedBox(width: 10),
+                if (side) ...[
+                  SizedBox(width: 84, child: text),
+                  const SizedBox(width: 8),
+                  Expanded(child: value),
+                ] else
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      text,
+                      const SizedBox(height: 4),
+                      value,
+                    ]),
+                  ),
+                const SizedBox(width: 4),
+                MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.meta),
+              ]);
+            }),
           ),
         ),
       );

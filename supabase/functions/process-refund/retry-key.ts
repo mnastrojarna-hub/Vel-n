@@ -9,6 +9,9 @@
 //    živé verzi (okno nasazení: stará a nová verze srazí duplicitu stejně jako dřív).
 //  • isReplayOfFailed — Stripe vrátil vratku, o které už víme, že selhala (klíč staré verze / jiný souběh) → chyba,
 //    žádný zápis stavu, dobropisu ani bookkeepingu zbytku.
+//  • replayedFailedRefund (i5r2, verify:refunds R8) — totéž BEZ výpisu vratek (výpis selhal / je zastaralý): vratka,
+//    která vznikla dřív než toto volání (created < začátek − 5 s), je přehraná → stav znovu ze Stripe (přehraný objekt
+//    nese stav z doby vzniku, typicky 'pending'); selhaná / zrušená → chyba jako výše.
 type RefundLike = { id?: string | null; status?: string | null }
 
 /** Vratka, která peníze NEvrátila. */
@@ -31,3 +34,17 @@ export function isReplayOfFailed(refundId: string | null | undefined, failedIds:
 }
 
 export const REPLAYED_FAILED = 'stripe_replayed_failed_refund'
+
+/** Tolerance hodin edge funkce vs. Stripe (s). */
+const REPLAY_SLACK_S = 5
+
+/** i5r2 (R8): `r` vznikla před voláním refunds.create (začátek `startS`) → přehraná idempotency klíčem; true = Stripe ji teď
+ *  vede jako selhanou / zrušenou (peníze neodešly). Nečitelný stav → dle přehraného objektu. */
+export async function replayedFailedRefund(stripe: { refunds: { retrieve?: (id: string) => Promise<unknown> } },
+  r: { id?: string | null; status?: string | null; created?: number | null } | null | undefined, startS: number): Promise<boolean> {
+  const created = Number(r?.created)
+  if (!r?.id || !Number.isFinite(created) || created <= 0 || created >= startS - REPLAY_SLACK_S) return false
+  if (failedRefund(r)) return true
+  if (!stripe.refunds.retrieve) return false
+  try { return failedRefund((await stripe.refunds.retrieve(String(r.id))) as RefundLike) } catch { return false }
+}

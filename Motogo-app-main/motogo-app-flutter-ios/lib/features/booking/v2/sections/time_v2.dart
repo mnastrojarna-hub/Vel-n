@@ -79,16 +79,21 @@ class BookingTimeV2 extends ConsumerWidget {
         ? lateSaving(quoteFor(moto, s, e, loyalty: loyalty), quoteFor(moto, s, e, pickupTime: '12:00', loyalty: loyalty))
         : 0.0;
     final late = PriceCalculator.isLatePickup(pickupValue);
-    Widget dropdown(String value, void Function(String) onChanged) => Theme(
+    Widget dropdown(String value, void Function(String) onChanged, {required bool pickup}) => Theme(
           data: inputTheme(Theme.of(context)),
-          child: TimeDropdownField(value: value, onChanged: onChanged),
+          child: TimeDropdownField(
+            value: value,
+            onChanged: onChanged,
+            sheetTitle: tr.tr(pickup ? 'v2BkPickupTime' : 'v2BkReturnTime'),
+            halfFrom12: pickup && half > 0,
+          ),
         );
     return BkCard(
       icon: MgIcons.clock,
       title: tr.tr(showPickup ? 'v2BkPickupTime' : 'v2BkReturnTime'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (showPickup) ...[
-          dropdown(pickupValue, onTimeChanged),
+          dropdown(pickupValue, onTimeChanged, pickup: true),
           const SizedBox(height: 10),
           _HalfOffer(
             on: half > 0 && late,
@@ -107,7 +112,7 @@ class BookingTimeV2 extends ConsumerWidget {
           const SizedBox(height: 16),
           BkLabel(tr.tr('v2BkReturnTime')),
         ],
-        if (showReturn) dropdown(returnValue, onReturnTimeChanged),
+        if (showReturn) dropdown(returnValue, onReturnTimeChanged, pickup: false),
       ]),
     );
   }

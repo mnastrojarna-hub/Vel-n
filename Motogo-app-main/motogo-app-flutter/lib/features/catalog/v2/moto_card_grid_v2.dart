@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
@@ -63,12 +64,18 @@ class MotoCardGridV2 extends StatelessWidget {
                   color: MgColors.night,
                   child: img.isEmpty
                       ? Center(child: MgIcon(MgIcons.moto, size: 40, color: MgColors.onDarkFloor))
-                      : MgImage(
-                          img,
-                          thumbWidth: 500,
-                          fit: BoxFit.cover,
-                          placeholder: const ColoredBox(color: MgColors.night),
-                          error: Center(child: MgIcon(MgIcons.moto, size: 40, color: MgColors.onDarkFloor)),
+                      // CB-14: the photo flies into the detail hero.
+                      : MgHeroPhoto(
+                          tag: mgHeroTagMoto(m.id),
+                          child: MgImage(
+                            img,
+                            thumbWidth: 500,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            placeholder: const ColoredBox(color: MgColors.panel),
+                            error: Center(child: MgIcon(MgIcons.moto, size: 40, color: MgColors.onDarkFloor)),
+                          ),
                         ),
                 ),
                 DecoratedBox(
@@ -130,8 +137,13 @@ class MotoCardGridV2 extends StatelessWidget {
                         style: MgType.title.copyWith(color: MgColors.ink, height: 1.2)),
                   ),
                   const Spacer(),
-                  Text(price.grid,
-                      style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.price, height: 1.2))),
+                  // CB-30: the price stays on one line (scales, never wraps).
+                  MgWordFit(
+                    minScale: 0.75,
+                    fitLines: 1,
+                    child: Text(price.grid,
+                        style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.price, height: 1.2))),
+                  ),
                   if (price.struck != null)
                     Text(price.struck!,
                         style: MgType.tab(MgType.meta.copyWith(

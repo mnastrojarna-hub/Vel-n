@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'theme.dart';
 import 'i18n/i18n_provider.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/shell/v2/update_dialog_v2.dart';
 
 /// In-app update offers — keeps users on the newest release without waiting
 /// for them to visit the store.
@@ -152,7 +154,21 @@ class InAppUpdateService {
   static void _showUpdateDialog(BuildContext context, String storeVersion) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) {
+        void later() => Navigator.of(ctx).pop();
+        void update() {
+          Navigator.of(ctx).pop();
+          launchUrl(
+            Uri.parse(_appStoreUrl),
+            mode: LaunchMode.externalApplication,
+          );
+        }
+
+        // v2 vzhled (Stavy 19.3): tytéž dvě akce Později / Aktualizovat.
+        if (MgV2.on(ctx)) {
+          return UpdateOfferDialogV2(version: storeVersion, onLater: later, onUpdate: update);
+        }
+        return AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(MotoGoRadius.lg),
         ),
@@ -179,7 +195,7 @@ class InAppUpdateService {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
+            onPressed: later,
             child: Text(
               t(context).tr('updateLater'),
               style: const TextStyle(
@@ -199,13 +215,7 @@ class InAppUpdateService {
                 borderRadius: BorderRadius.circular(MotoGoRadius.pill),
               ),
             ),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              launchUrl(
-                Uri.parse(_appStoreUrl),
-                mode: LaunchMode.externalApplication,
-              );
-            },
+            onPressed: update,
             child: Text(
               t(context).tr('updateNow'),
               style: const TextStyle(
@@ -215,7 +225,8 @@ class InAppUpdateService {
             ),
           ),
         ],
-      ),
+      );
+      },
     );
   }
 }

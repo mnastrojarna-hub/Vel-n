@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
+import 'package:motogo_app/core/v2/calendar/trip_calendar.dart';
+import 'package:motogo_app/core/v2/icons/mg_icon.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/states/mg_tech_details.dart';
 import 'package:motogo_app/core/v2/widgets/mg_back_v2.dart';
@@ -14,6 +16,7 @@ import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/core/v2/widgets/mg_photo_viewer.dart';
 import 'package:motogo_app/core/v2/widgets/mg_skeleton.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
+import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
 import 'package:motogo_app/features/catalog/v2/moto_filter_panel_v2.dart';
@@ -221,6 +224,34 @@ void main() {
     await t.pump(const Duration(seconds: 1));
     expect(loads, greaterThan(before));
     expect(find.byType(RefreshIndicator), findsOneWidget);
+    await _drain(t);
+  });
+
+  testWidgets('verify FND-9/SH-14: a fling on the calendar in the bike detail changes the month, never the bike', (t) async {
+    final (ws, we) = futureWeekend();
+    await pumpV2(t, const MotoDetailScreen(motoId: 'm-husq'),
+        overrides: [
+          ...catalogOverrides(filter: CatalogFilter(startDate: ws, endDate: we)),
+          filteredMotoIdsProvider.overrideWith((ref) => ['m-bmw', 'm-husq', 'm-shot']),
+        ],
+        reducedMotion: true,
+        size: const Size(412, 915));
+    await t.pump(const Duration(milliseconds: 500));
+    expect(find.text('2 / 3'), findsOneWidget);
+    final change = find.byWidgetPredicate((w) => w is MgBtnText && w.icon == MgIcons.edit);
+    await t.ensureVisible(change);
+    await t.pump();
+    await t.tap(change, warnIfMissed: false);
+    await t.pump(const Duration(milliseconds: 400));
+    final grid = find.byType(TripCalendar);
+    expect(grid, findsOneWidget);
+    await t.ensureVisible(grid);
+    await t.pump();
+    final month0 = t.widget<TripCalendar>(grid).month;
+    await t.fling(grid, const Offset(-300, 0), 1200);
+    await t.pump(const Duration(milliseconds: 500));
+    expect(t.widget<TripCalendar>(grid).month, isNot(month0));
+    expect(find.text('2 / 3'), findsOneWidget);
     await _drain(t);
   });
 

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/date_days.dart' show nextCalendarDay;
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_calendar.dart';
+import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
+import '../../../core/v2/states/mg_tone.dart';
 import '../moto_model.dart' show DayPrices;
 
 /// v2 look of `AvailabilityCalendar` (V-seam): the SAME State owns the
@@ -30,8 +33,15 @@ class AvailabilityCalendarV2View extends StatelessWidget {
   /// (date filter of the list) → no prices.
   final DayPrices? dayPrices;
 
+  /// CB-24: the first booked day of a refused range (null = none) and the
+  /// attempt counter that shakes the note again.
+  final DateTime? blockedDay;
+  final int blockedTry;
+
   const AvailabilityCalendarV2View({
     this.dayPrices,
+    this.blockedDay,
+    this.blockedTry = 0,
     super.key,
     required this.year,
     required this.month,
@@ -110,11 +120,11 @@ class AvailabilityCalendarV2View extends StatelessWidget {
         ? null
         : (step == 1
             ? (start == null
-                ? tr.tr('calSelectPickup')
+                ? tr.tr('v2UxCbCalPickStart')
                 : (end != null && tripSameDay(start!, end!)
                     ? tr.tr('calClickToReset')
                     : tr.tr('v2CalTapToChange')))
-            : tr.tr('calSelectReturn'));
+            : tr.tr('v2UxCbCalPickEnd'));
     final crosses = _crossesBusy;
     return TripCalendar(
       month: DateTime(year, month),
@@ -123,6 +133,15 @@ class AvailabilityCalendarV2View extends StatelessWidget {
       onPrevMonth: onPrevMonth,
       onNextMonth: onNextMonth,
       boxed: false,
+      banner: blockedDay == null
+          ? null
+          : MgShake(
+              trigger: blockedTry,
+              child: MgStateBanner(
+                tone: MgTone.warn,
+                title: tr.trArgs('v2UxCbRangeBusy', {'date': tripShortDate(tr, blockedDay!)}),
+              ),
+            ),
       legend: showLegend
           ? const TripLegend(items: [
               TripLegendKind.free,

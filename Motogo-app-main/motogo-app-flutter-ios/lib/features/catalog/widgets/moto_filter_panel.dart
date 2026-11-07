@@ -7,7 +7,29 @@ import '../../home/widgets/license_chip.dart';
 import '../catalog_provider.dart';
 import 'availability_calendar.dart';
 import 'filter_branch_chip.dart';
+import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../v2/moto_filter_panel_v2.dart';
+
+/// Řazení výpisu (hodnota → klíč popisku) — sdílí starý panel i v2 list.
+const kFilterSortOptions = [
+  ('default', 'homeFilterSortDefault'),
+  ('price_asc', 'homeFilterSortPriceAsc'),
+  ('price_desc', 'homeFilterSortPriceDesc'),
+  ('power_asc', 'homeFilterSortPowerAsc'),
+  ('power_desc', 'homeFilterSortPowerDesc'),
+];
+
+/// Skupiny ŘP (null = všechny) — sdílí starý panel i v2 list.
+const kFilterLicenseOptions = <(String?, String)>[
+  (null, 'homeFilterLicenseAll'),
+  ('AM', 'homeFilterLicenseAM'),
+  ('A1', 'homeFilterLicenseA1'),
+  ('A2', 'homeFilterLicenseA2'),
+  ('A', 'homeFilterLicenseA'),
+  ('B', 'homeFilterLicenseB'),
+  ('N', 'homeFilterLicenseN'),
+];
 
 /// Filtr motorek — JEDEN panel sdílený obrazovkami Domů a Rezervovat.
 ///
@@ -89,6 +111,25 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   Widget build(BuildContext context) {
     final filter = ref.watch(catalogFilterProvider);
     final active = filter.activeCount;
+
+    // v2 list „Filtry" (CB-01): stejný stav a stejné settery, nový vzhled.
+    if (widget.embedded && MgV2.on(context)) {
+      return MotoFilterPanelV2View(
+        filter: filter,
+        sort: ref.watch(catalogSortProvider),
+        branches: ref.watch(branchesProvider),
+        ranges: _ranges(context, filter),
+        licenseOptions: kFilterLicenseOptions,
+        sortOptions: kFilterSortOptions,
+        showReset: active > 0,
+        onReset: _reset,
+        onCategory: (v) => _set(_f.copyWith(category: () => v)),
+        onLicense: (v) => _set(_f.copyWith(licenseGroup: () => v)),
+        onBranch: (v) => _set(_f.copyWith(branch: () => v)),
+        onToday: (v) => _set(_f.copyWith(availableTodayOnly: v)),
+        onSort: (v) => ref.read(catalogSortProvider.notifier).state = v,
+      );
+    }
 
     if (widget.embedded) {
       return Column(
@@ -214,7 +255,6 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   }
 
   Widget _body(BuildContext context, CatalogFilter filter) {
-    final ranges = ref.watch(motoRangesProvider);
     final branches = ref.watch(branchesProvider);
     final todayToggle = GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -274,13 +314,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           dropdownColor: Colors.white,
           style: _ddStyle(context, const TextStyle(fontSize: 12, color: MotoGoColors.black)),
           items: [
-            for (final o in const [
-              ('default', 'homeFilterSortDefault'),
-              ('price_asc', 'homeFilterSortPriceAsc'),
-              ('price_desc', 'homeFilterSortPriceDesc'),
-              ('power_asc', 'homeFilterSortPowerAsc'),
-              ('power_desc', 'homeFilterSortPowerDesc'),
-            ])
+            for (final o in kFilterSortOptions)
               DropdownMenuItem(
                   value: o.$1,
                   child: widget.embedded
@@ -359,15 +393,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            for (final g in const [
-              (null, 'homeFilterLicenseAll'),
-              ('AM', 'homeFilterLicenseAM'),
-              ('A1', 'homeFilterLicenseA1'),
-              ('A2', 'homeFilterLicenseA2'),
-              ('A', 'homeFilterLicenseA'),
-              ('B', 'homeFilterLicenseB'),
-              ('N', 'homeFilterLicenseN'),
-            ])
+            for (final g in kFilterLicenseOptions)
               LicenseChip(
                 label: t(context).tr(g.$2),
                 active: filter.licenseGroup == g.$1,
@@ -433,46 +459,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
         const SizedBox(height: 16),
 
         // ── VÝKON / VÝŠKA SEDLA / TOČIVÝ MOMENT / HMOTNOST ──
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterPower',
-          unit: 'kW',
-          bounds: ranges.power,
-          lo: filter.minPowerKw,
-          hi: filter.maxPowerKw,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minPowerKw: () => lo, maxPowerKw: () => hi)),
-        ),
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterSeatHeight',
-          unit: 'mm',
-          bounds: ranges.seat,
-          lo: filter.minSeatMm,
-          hi: filter.maxSeatMm,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minSeatMm: () => lo, maxSeatMm: () => hi)),
-        ),
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterTorque',
-          unit: 'Nm',
-          bounds: ranges.torque,
-          lo: filter.minTorqueNm,
-          hi: filter.maxTorqueNm,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minTorqueNm: () => lo, maxTorqueNm: () => hi)),
-        ),
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterWeight',
-          unit: 'kg',
-          bounds: ranges.weight,
-          lo: filter.minWeightKg,
-          hi: filter.maxWeightKg,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minWeightKg: () => lo, maxWeightKg: () => hi)),
-        ),
+        for (final m in _ranges(context, filter)) _rangeSlider(context, m),
 
         // ── Dnes volné + řazení ── (ve v2 listu pod sebou: dlouhé popisky
         // řazení v fr/uk jinak přetečou řádek; starý vzhled beze změny)
@@ -546,9 +533,56 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
       );
   }
 
+  /// Čtyři posuvníky filtru (stejné meze a settery pro starý vzhled i v2).
+  List<FilterRangeModel> _ranges(BuildContext context, CatalogFilter filter) {
+    final ranges = ref.watch(motoRangesProvider);
+    return [
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterPower',
+        unit: 'kW',
+        bounds: ranges.power,
+        lo: filter.minPowerKw,
+        hi: filter.maxPowerKw,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minPowerKw: () => lo, maxPowerKw: () => hi)),
+      ),
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterSeatHeight',
+        unit: 'mm',
+        bounds: ranges.seat,
+        lo: filter.minSeatMm,
+        hi: filter.maxSeatMm,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minSeatMm: () => lo, maxSeatMm: () => hi)),
+      ),
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterTorque',
+        unit: 'Nm',
+        bounds: ranges.torque,
+        lo: filter.minTorqueNm,
+        hi: filter.maxTorqueNm,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minTorqueNm: () => lo, maxTorqueNm: () => hi)),
+      ),
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterWeight',
+        unit: 'kg',
+        bounds: ranges.weight,
+        lo: filter.minWeightKg,
+        hi: filter.maxWeightKg,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minWeightKg: () => lo, maxWeightKg: () => hi)),
+      ),
+    ].whereType<FilterRangeModel>().toList();
+  }
+
   /// Posuvník od–do. Krajní polohy = BEZ omezení (null), takže motorky
-  /// s nevyplněným údajem zůstávají ve výpisu.
-  Widget _rangeSlider(
+  /// s nevyplněným údajem zůstávají ve výpisu. null = neplatné meze.
+  FilterRangeModel? _rangeModel(
     BuildContext context, {
     required String labelKey,
     required String unit,
@@ -557,7 +591,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
     required int? hi,
     required void Function(int? lo, int? hi) onChanged,
   }) {
-    if (!bounds.valid) return const SizedBox.shrink();
+    if (!bounds.valid) return null;
     final min = bounds.min.toDouble();
     final max = bounds.max.toDouble();
     // Uložená hodnota mimo aktuální meze (data dorazila až po nastavení
@@ -573,11 +607,31 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
     // motorek = desítky dotazů za vteřinu).
     final shownLo = drag == null ? loIn : (drag.start <= min ? null : drag.start.round());
     final shownHi = drag == null ? hiIn : (drag.end >= max ? null : drag.end.round());
+    return FilterRangeModel(
+      labelKey: labelKey,
+      valueLabel: _rangeLabel(context, shownLo, shownHi, unit),
+      values: values,
+      min: min,
+      max: max,
+      onDrag: (v) => setState(() => _drag[labelKey] = v),
+      onDragEnd: (v) {
+        setState(() => _drag.remove(labelKey));
+        // Krajní poloha (i po zaokrouhlení) = BEZ omezení, ať se do
+        // filtru nezapisuje hodnota, která nic nefiltruje, ale svítí
+        // v odznaku aktivních filtrů.
+        final a = v.start.round();
+        final b = v.end.round();
+        onChanged(a <= bounds.min ? null : a, b >= bounds.max ? null : b);
+      },
+    );
+  }
+
+  /// Starý vzhled posuvníku (beze změny).
+  Widget _rangeSlider(BuildContext context, FilterRangeModel m) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(context, labelKey,
-            value: _rangeLabel(context, shownLo, shownHi, unit)),
+        _label(context, m.labelKey, value: m.valueLabel),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: MotoGoColors.green,
@@ -588,19 +642,11 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 8),
           ),
           child: RangeSlider(
-            values: values,
-            min: min,
-            max: max,
-            onChanged: (v) => setState(() => _drag[labelKey] = v),
-            onChangeEnd: (v) {
-              setState(() => _drag.remove(labelKey));
-              // Krajní poloha (i po zaokrouhlení) = BEZ omezení, ať se do
-              // filtru nezapisuje hodnota, která nic nefiltruje, ale svítí
-              // v odznaku aktivních filtrů.
-              final a = v.start.round();
-              final b = v.end.round();
-              onChanged(a <= bounds.min ? null : a, b >= bounds.max ? null : b);
-            },
+            values: m.values,
+            min: m.min,
+            max: m.max,
+            onChanged: m.onDrag,
+            onChangeEnd: m.onDragEnd,
           ),
         ),
         const SizedBox(height: 8),

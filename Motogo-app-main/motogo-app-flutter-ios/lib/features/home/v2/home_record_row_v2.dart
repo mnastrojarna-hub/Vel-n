@@ -15,6 +15,7 @@ import '../../routes/v2/rides/rec_widgets_v2.dart';
 import '../../routes/v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
 import '../../routes/v2/rides/ride_pause_actions_v2.dart';
 import '../../routes/v2/rides/ride_phase_v2.dart';
+import 'home_fit.dart';
 import 'home_reveal.dart';
 
 /// "Zaznamenat jízdu" — row 1 of the Moje zážitky band (DESIGN_V22 §4.2 B).
@@ -87,6 +88,16 @@ class HomeRecordRowV2 extends ConsumerWidget {
     // ukončení) — stejná, jakou otevírá lišta v Trasách / Mých zážitcích.
     // Úzký telefon: menší ikona a popis pod ní přes celou šířku řádku,
     // ať se „Fahrtaufzeichnung" ani „місцезнаходження" nikdy nerozdělí.
+    // Úzké rozvržení jen když se slovo titulku / popisu nevejde ani zmenšené
+    // vedle 44px dlaždice (měřením, SH-24 — dřív pevně < 300 dp).
+    bool needsNarrow(BuildContext context, double w) {
+      final textW = w - 16 - 44 - 12 - (chevron != null ? 28 : 0);
+      bool fits(String text, TextStyle style, double min) => homeWordsFitIn(context, text, style, textW / min);
+      return textW <= 0 ||
+          !fits(title, MgType.title, 0.7) ||
+          !fits(sub, MgType.tab(MgType.small), 0.85);
+    }
+
     Widget main(bool narrow) => Semantics(
           button: true,
           label: '$title. $sub',
@@ -145,7 +156,7 @@ class HomeRecordRowV2 extends ConsumerWidget {
           final ts = MediaQuery.textScalerOf(context).scale(1);
           final iconOnly = c.maxWidth < 360 * ts;
           return Row(children: [
-            Expanded(child: main(c.maxWidth < (live ? 340 : 300) * ts)),
+            Expanded(child: LayoutBuilder(builder: (context, m) => main(needsNarrow(context, m.maxWidth)))),
             if (live) RecPauseDiscV2(paused: rec.isManualPaused, dark: false, onTap: () => rideTogglePauseV2(context, ref)),
             if (manual) ...[
               const SizedBox(width: 6),

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
+import '../../../../core/v2/motion/mg_anim.dart';
+import '../../../../core/v2/motion/mg_motion.dart';
+import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
@@ -11,7 +14,7 @@ import '../../moto_detail_page.dart';
 /// the overlay controls): the SAME `PageView` (controller, item count,
 /// `onPageChanged`, `MotoDetailPage` per bike) — only the back control
 /// becomes the photo-style `MgV2Back` (same `backOr(Routes.search)`) and the
-/// position counter a glass pill next to it. No new arrows (swipe as today).
+/// position counter a glass pill next to it with ‹ › (CB-12, tap = swipe).
 class MotoDetailPagerV2View extends StatelessWidget {
   final bool hasPager;
   final PageController controller;
@@ -34,6 +37,17 @@ class MotoDetailPagerV2View extends StatelessWidget {
     required this.onBack,
   });
 
+  void _go(BuildContext context, int dir) {
+    if (!controller.hasClients) return;
+    if (MgMotion.reduced(context)) {
+      controller.jumpToPage((controller.page ?? 0).round() + dir);
+    } else if (dir < 0) {
+      controller.previousPage(duration: MgMotion.pager, curve: MgMotion.out);
+    } else {
+      controller.nextPage(duration: MgMotion.pager, curve: MgMotion.out);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
@@ -55,25 +69,29 @@ class MotoDetailPagerV2View extends StatelessWidget {
           MotoDetailPage(motoId: motoId, showBackButton: true),
         if (hasPager) ...[
           Positioned(top: top + 12, left: 16, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
+          // CB-12: "‹ n / m ›" — the chevrons are the tap twin of the
+          // existing swipe (same controller, 300 ms out; a jump when the
+          // system asks for reduced motion).
           Positioned(
-            top: top + 18,
-            left: 16 + 44 + 10,
+            top: top + 12,
+            left: 16 + 44 + 8,
             child: Semantics(
               label: tr.trArgs('v2DetPagerAria', {'n': currentIndex + 1, 'total': ids.length}),
-              excludeSemantics: true,
               child: Container(
-                height: 32,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                height: 46, // 44 hit inside the 1 px ring
                 decoration: BoxDecoration(
                   color: MgColors.nightA(0.8),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: MgColors.white(0.22)),
+                  boxShadow: MgShadows.photoControl,
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  MgIcon(MgIcons.moto, size: 16, color: MgColors.neon),
-                  const SizedBox(width: 6),
-                  Text('${currentIndex + 1} / ${ids.length}',
-                      style: MgType.tab(MgType.meta.copyWith(color: MgColors.onDark, height: 1))),
+                  _Chev(left: true, label: tr.tr('v2UxCbPrevBike'), onTap: () => _go(context, -1)),
+                  ExcludeSemantics(
+                    child: Text('${currentIndex + 1} / ${ids.length}',
+                        style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark, height: 1))),
+                  ),
+                  _Chev(left: false, label: tr.tr('v2UxCbNextBike'), onTap: () => _go(context, 1)),
                 ]),
               ),
             ),
@@ -82,4 +100,29 @@ class MotoDetailPagerV2View extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// 44 px chevron hit area inside the pager pill.
+class _Chev extends StatelessWidget {
+  final bool left;
+  final String label;
+  final VoidCallback onTap;
+  const _Chev({required this.left, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        onTap: onTap,
+        child: MgPress(
+          scale: 0.92,
+          onTap: onTap,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(child: MgIcon(left ? MgIcons.chevronLeft : MgIcons.chevronRight, size: 18, color: MgColors.onDark)),
+          ),
+        ),
+      );
 }

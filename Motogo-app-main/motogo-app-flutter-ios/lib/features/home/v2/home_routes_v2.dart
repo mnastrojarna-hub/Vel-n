@@ -7,8 +7,10 @@ import 'package:latlong2/latlong.dart' show Distance, LengthUnit;
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/shell/shell_nav_map.dart' show V2TabOrigin, v2SetTabOrigin;
+import '../../../core/v2/gestures/mg_snap_physics.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
@@ -73,16 +75,20 @@ class HomeRoutesV2 extends ConsumerWidget {
             // Karta: foto 120 + název (2 řádky) + štítky; roste s písmem.
             height: 272 + (homeRouteTitleH(context) - 40) + (homeRouteChipH(context) - 24) * 2,
             child: ListView.separated(
+              key: const ValueKey('home-routes-list'),
               scrollDirection: Axis.horizontal,
+              // Karty dosednou celé, další vykoukne o 44 px (SH-19).
+              physics: MgSnapScrollPhysics(itemExtent: homeRouteCardW(context) + 12),
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               itemCount: pick.isEmpty ? 3 : pick.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (_, i) => pick.isEmpty
-                  ? const _RouteSkeleton()
+                  ? _RouteSkeleton(width: homeRouteCardW(context))
                   : HomeReveal(
                       index: i,
                       sessionKey: 'home-routes',
                       child: _RouteCard(
+                        width: homeRouteCardW(context),
                         route: pick[i],
                         km: away(pick[i]),
                         onTap: () => homePushRoute(context, pick[i].id, [for (final r in pick) r.id]),
@@ -94,6 +100,9 @@ class HomeRoutesV2 extends ConsumerWidget {
     );
   }
 }
+
+/// Route card width: the next card peeks 44 px (240–296).
+double homeRouteCardW(BuildContext context) => (MediaQuery.sizeOf(context).width - 16 - 12 - 44).clamp(240.0, 296.0);
 
 /// Height of the 2-line route title at the current text size.
 double homeRouteTitleH(BuildContext context) =>
@@ -115,14 +124,15 @@ class _RouteCard extends StatelessWidget {
   final RouteItem route;
   final double? km;
   final VoidCallback onTap;
-  const _RouteCard({required this.route, required this.km, required this.onTap});
+  final double width;
+  const _RouteCard({required this.route, required this.km, required this.onTap, this.width = 296});
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final name = route.nameFor(tr.lang);
     final chips = <(String, Color, Color)>[
-      if (route.distanceKm != null) ('${route.distanceKm!.round()} km', MgColors.well, MgColors.body2),
+      if (route.distanceKm != null) (mgNbsp('${route.distanceKm!.round()} km'), MgColors.well, MgColors.body2),
       if (route.durationMin != null) (homeDuration(route.durationMin!), MgColors.well, MgColors.body2),
       if (route.difficulty == 'easy') (tr.tr('routeDiffEasy'), MgColors.tintOk, MgColors.link),
       if (route.difficulty == 'medium') (tr.tr('routeDiffMedium'), MgColors.warnBg, MgColors.warn),
@@ -136,7 +146,7 @@ class _RouteCard extends StatelessWidget {
         scale: 0.98,
         onTap: onTap,
         child: Container(
-          width: 296,
+          width: width,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: MgColors.surface,
@@ -158,7 +168,7 @@ class _RouteCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                HomeSketch(points: route.waypoints, width: 296, height: 120, tile: false, stroke: 3),
+                HomeSketch(points: route.waypoints, width: width, height: 120, tile: false, stroke: 3),
                 if (km != null)
                   Positioned(
                     left: 12,
@@ -215,11 +225,12 @@ class _RouteCard extends StatelessWidget {
 }
 
 class _RouteSkeleton extends StatelessWidget {
-  const _RouteSkeleton();
+  final double width;
+  const _RouteSkeleton({this.width = 296});
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 296,
+        width: width,
         decoration: BoxDecoration(
           color: MgColors.surface,
           borderRadius: BorderRadius.circular(16),

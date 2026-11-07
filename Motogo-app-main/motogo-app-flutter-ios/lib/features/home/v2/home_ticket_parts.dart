@@ -7,6 +7,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/net_image.dart';
@@ -195,7 +196,8 @@ class TkCheckRow extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.only(top: 2, bottom: last ? 0 : 10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(text, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: color)),
+              // NBSP: částka a počet dní se nikdy nerozdělí (SH-37).
+              Text(mgNbsp(text), style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: color)),
               if (sub != null) ...[
                 const SizedBox(height: 2),
                 Text(sub!, style: MgType.meta.copyWith(color: MgColors.onDarkSecondary)),
