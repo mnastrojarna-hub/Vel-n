@@ -17,7 +17,7 @@ import 'package:motogo_app/features/routes/v2/submit_success_v2.dart';
 import 'package:motogo_app/features/routes/ride_recorder.dart' show RideStartResult;
 
 import '../support/fakes_rides.dart';
-import '../support/fakes_routes.dart' show kRtRoutes;
+import '../support/fakes_routes.dart' show kBranchMezna, kBranchVn, kRtRoutes;
 import 'cases_core.dart' show launcher, tapOpen;
 import 'render_harness.dart';
 
@@ -117,7 +117,8 @@ List<RenderCase> routesRidesUxCases() => [
                 alignment: Alignment.bottomCenter,
                 child: RoutesMapPicker(
                   routes: kRtRoutes.take(3).toList(),
-                  branches: const {},
+                  // fix:r2 — the start branch on each card (old card parity).
+                  branches: const {'b1': kBranchVn, 'b2': kBranchMezna},
                   lang: 'cs',
                   activeId: kRtRoutes.first.id,
                   lines: const {},

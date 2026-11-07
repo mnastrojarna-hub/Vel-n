@@ -81,7 +81,7 @@ class MgMapTileStrip extends StatelessWidget {
                   disc,
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Padding(padding: const EdgeInsets.only(top: 5), child: text),
                       link(const EdgeInsets.only(right: 12)),
                     ]),

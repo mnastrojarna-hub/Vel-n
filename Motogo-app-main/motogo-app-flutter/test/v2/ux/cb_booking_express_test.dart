@@ -113,6 +113,25 @@ void main() {
     await _done(t);
   });
 
+  testWidgets('fix:r2 — "Máme to připravené": summary rows only while folded (open = the editors, no double)', (t) async {
+    await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
+    final card = find.byType(BookingReadyCardV2);
+    expect(_open<BookingReadyCardV2>(t), isTrue);
+    expect(find.descendant(of: card, matching: find.text(_cs.tr('v2UxCbGear'))), findsNothing);
+    expect(find.byType(BookingFormExtrasSection), findsOneWidget);
+    // Fold it with its header: the summary rows come back, editors go.
+    final head = find.descendant(of: card, matching: find.text(_cs.tr('v2UxCbReadyTitle')));
+    await Scrollable.ensureVisible(t.element(head), alignment: 0.4);
+    await t.pump();
+    await t.tap(head);
+    await t.pump(const Duration(milliseconds: 400));
+    expect(_open<BookingReadyCardV2>(t), isFalse);
+    expect(find.descendant(of: card, matching: find.text(_cs.tr('v2UxCbGear'))), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.text(_cs.tr('v2UxCbExtras'))), findsOneWidget);
+    expect(find.byType(BookingFormExtrasSection), findsNothing);
+    await _done(t);
+  });
+
   testWidgets('a section the customer folded re-opens on its blocker fix (Doplnit → date card)', (t) async {
     await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
     final link = find.descendant(of: find.byType(BookingHandoverRowV2), matching: find.text(_cs.tr('v2BkChange')));

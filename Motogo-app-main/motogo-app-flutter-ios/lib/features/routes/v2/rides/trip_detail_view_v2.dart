@@ -10,6 +10,7 @@ import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
+import '../../../../core/widgets/map_tile_errors.dart';
 import '../../ride_map.dart';
 import '../../ride_model.dart';
 import '../../ride_trip.dart';
@@ -105,7 +106,11 @@ class TripDetailViewV2 extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: MgShadows.card),
                     clipBehavior: Clip.antiAlias,
-                    child: RideTrackMap(track: a.track, segments: a.segments, points: a.points),
+                    // Map tiles failing: the strip over the map (above the track).
+                    child: MapTileErrorInset(
+                      top: 8,
+                      child: RideTrackMap(track: a.track, segments: a.segments, points: a.points),
+                    ),
                   ),
                 ),
                 Padding(

@@ -16,6 +16,7 @@ import 'routes_model.dart';
 import 'routes_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/widgets/map_tile_errors.dart';
 import '../../core/v2/widgets/mg_back_v2.dart';
 import 'v2/map_controls_v2.dart';
 import 'v2/routes_map_panel_v2.dart' show MapToolChipV2;
@@ -196,7 +197,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: PlacesMapView(
+            // v2: the tile strip goes under the header (its height varies).
+            child: MapTileErrorInset(child: PlacesMapView(
               attributionOnLeft: true,
               key: _mapKey,
               places: places,
@@ -213,7 +215,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                 ref.read(placesSelectionProvider.notifier).toggle(e.key);
               },
               onPlaceLongPress: (e) => _openDetail(context, e, places, lang),
-            ),
+            )),
           ),
           Positioned(
             top: 0,
@@ -221,8 +223,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
             right: 0,
             child: SafeArea(
               bottom: false,
-              child: _header(context, places.length, activeLabel,
-                  computingIds.isNotEmpty, onNext),
+              child: mapHeaderWithTileStrip(context, _header(context, places.length, activeLabel,
+                  computingIds.isNotEmpty, onNext)),
             ),
           ),
           // Čip „Tvoje trasa" — zůstane i po návratu z editoru.

@@ -176,7 +176,11 @@ class _ResEditV2ViewState extends State<ResEditV2View> {
     final dateIntent = {ResEditIntent.extend, ResEditIntent.shorten, ResEditIntent.move};
     final showPrice = widget.calc.hasChanges && widget.tab != 'move' && widget.tab != 'swap';
     final focusDock = i != null && i != ResEditIntent.swap && widget.saveLabel != null;
-    final chooserDock = i == null && widget.saveLabel != null && widget.onSave != null;
+    // Chooser: the CTA stays as on the old page while a change can be saved,
+    // is being saved (busy) or is blocked by missing sizes (disabled).
+    final chooserDock = i == null &&
+        widget.saveLabel != null &&
+        (widget.onSave != null || widget.saving || widget.missingSizes.isNotEmpty);
     Widget keep(bool visible, Widget? child) => child == null
         ? const SizedBox.shrink()
         : Visibility(visible: visible, maintainState: true, child: child);
@@ -212,8 +216,8 @@ class _ResEditV2ViewState extends State<ResEditV2View> {
       keep(_shows({ResEditIntent.moto}), s.moto),
       keep(_shows({ResEditIntent.gear}), s.extras),
       if (i != ResEditIntent.swap && showPrice) ResEditPriceV2(booking: widget.booking, calc: widget.calc),
-      if (i != null && i != ResEditIntent.swap && widget.missingSizes.isNotEmpty)
-        ResMissingSizesV2(missing: widget.missingSizes),
+      // Blocker always visible (old page: on the same page as the CTA).
+      if (i != ResEditIntent.swap && widget.missingSizes.isNotEmpty) ResMissingSizesV2(missing: widget.missingSizes),
     ]);
 
     final dock = (focusDock || chooserDock)

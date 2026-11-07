@@ -7,6 +7,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import 'res_fit_v2.dart';
 
 /// Filter values of the list — the SAME values and order as the old screen
 /// (`resFilterProvider`: all / aktivni / nadchazejici / dokoncene /
@@ -15,9 +16,11 @@ const kResFilterKeys = ['all', 'aktivni', 'nadchazejici', 'dokoncene', 'cancelle
 const kResFilterI18n = ['all', 'active', 'upcoming', 'completed', 'cancelled'];
 
 /// Filter track (V22 `.ls-seg` on a `well` track): one segment per filter
-/// with its count; the selected one is ink with white text. Scrolls
-/// sideways when the 8-language labels do not fit. Under it the swipe hint
-/// with ‹ › (= the same filter step as the horizontal swipe).
+/// with its count; the selected one is ink with white text. When the
+/// 8-language labels do not fit one row, the tabs wrap onto more lines (old
+/// screen: a Wrap of all 5 chips, each one tap away — owner rule wins over
+/// the single-track board). Under it the swipe hint with ‹ › (= the same
+/// filter step as the horizontal swipe).
 class ResFilterTabsV2 extends StatefulWidget {
   final String value;
 
@@ -96,9 +99,32 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
     });
   }
 
+  /// All tabs laid out on more lines (no horizontal track to reveal in).
+  bool _wrap = false;
+
+  /// Width of one tab as `_Tab` lays it out (padding 12+12, min 56).
+  double _tabWidth(BuildContext context, String label, int? count) {
+    final ls = MgType.small.copyWith(fontWeight: FontWeight.w800);
+    var w = 24 + resLineWidth(context, label, ls);
+    if (count != null) {
+      final cw = resLineWidth(context, '$count', MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w800, height: 1)));
+      w += 6 + (cw + 10 < 18 ? 18 : cw + 10);
+    }
+    return w < 56 ? 56 : w;
+  }
+
+  bool _needsWrap(BuildContext context, double width) {
+    final tr = t(context);
+    var sum = 0.0;
+    for (var i = 0; i < kResFilterKeys.length; i++) {
+      sum += _tabWidth(context, tr.tr(kResFilterI18n[i]), widget.counts?[kResFilterKeys[i]]);
+    }
+    return sum > width + 0.5;
+  }
+
   void _reveal({bool animate = true}) {
     final c = _keys[widget.value]?.currentContext;
-    if (c == null || !mounted) return;
+    if (c == null || !mounted || _wrap) return;
     Scrollable.ensureVisible(c,
         alignment: 0.5,
         duration: animate ? MgMotion.of(context, MgMotion.tab) : Duration.zero,
@@ -126,7 +152,33 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: MgColors.line),
         ),
-        child: NotificationListener<ScrollMetricsNotification>(
+        child: LayoutBuilder(builder: (context, box) {
+          _wrap = _needsWrap(context, box.maxWidth);
+          if (_wrap) {
+            // Více řádků: každá záložka na jedno klepnutí, výběr bez
+            // posuvného palce (výplň po záložkách, i během tahu prstem).
+            return ValueListenableBuilder<double>(
+              valueListenable: widget.dragProgress ?? _zero,
+              builder: (context, p, _) {
+                final target = (idx + (p > 0 ? 1 : (p < 0 ? -1 : 0))).clamp(0, kResFilterKeys.length - 1);
+                final t = target == idx ? 0.0 : p.abs().clamp(0.0, 1.0);
+                return Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (var i = 0; i < kResFilterKeys.length; i++)
+                    _Tab(
+                      key: _keys[kResFilterKeys[i]],
+                      label: tr.tr(kResFilterI18n[i]),
+                      count: widget.counts?[kResFilterKeys[i]],
+                      selected: kResFilterKeys[i] == widget.value,
+                      on: i == idx ? t < 0.5 : (i == target && t >= 0.5),
+                      fill: i == idx ? 1 - t : (i == target ? t : 0),
+                      dragging: p != 0,
+                      onTap: () => widget.onSelect(kResFilterKeys[i]),
+                    ),
+                ]);
+              },
+            );
+          }
+          return NotificationListener<ScrollMetricsNotification>(
           onNotification: (_) {
             WidgetsBinding.instance.addPostFrameCallback((_) => _edges());
             return false;
@@ -205,7 +257,8 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
           ),
           ),
           ),
-        ),
+          );
+        }),
       ),
       SizedBox(
         height: 44,

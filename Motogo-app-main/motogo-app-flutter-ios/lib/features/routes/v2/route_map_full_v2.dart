@@ -13,6 +13,7 @@ import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../../../core/widgets/map_tile_errors.dart';
 import '../route_export.dart';
 import '../routes_model.dart';
 import 'review_editor_v2.dart' show rtSheetScrimV2;
@@ -38,38 +39,42 @@ class RouteFullMapV2 extends StatelessWidget {
       child: Material(
         color: MgColors.canvas,
         child: Stack(children: [
-          Positioned.fill(child: map),
+          // Map tiles failing: the strip goes under the header (1–2 lines).
+          Positioned.fill(child: MapTileErrorInset(child: map)),
           Positioned(
             left: 0,
             right: 0,
             top: 0,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(16, top + 8, 16, 28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [MgColors.night, MgColors.nightA(0.92), MgColors.nightA(0)],
-                  stops: const [0, 0.62, 1],
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Container(
+                padding: EdgeInsets.fromLTRB(16, top + 8, 16, 28),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [MgColors.night, MgColors.nightA(0.92), MgColors.nightA(0)],
+                    stops: const [0, 0.62, 1],
+                  ),
                 ),
-              ),
-              child: Row(children: [
-                MgV2Back(onTap: onClose, close: true, style: MgBackStyle.dark),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Semantics(
-                      header: true,
-                      child: MgWordFit(
-                        minScale: 0.85,
-                        child: Text(title, maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
+                child: Row(children: [
+                  MgV2Back(onTap: onClose, close: true, style: MgBackStyle.dark),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Semantics(
+                        header: true,
+                        child: MgWordFit(
+                          minScale: 0.85,
+                          child: Text(title, maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
+                        ),
                       ),
-                    ),
-                    if (sub != null) Text(sub!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.onDarkMeta))),
-                  ]),
-                ),
-              ]),
-            ),
+                      if (sub != null) Text(sub!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.onDarkMeta))),
+                    ]),
+                  ),
+                ]),
+              ),
+              const MapTileErrorStripV2(padding: EdgeInsets.symmetric(horizontal: 16)),
+            ]),
           ),
         ]),
       ),

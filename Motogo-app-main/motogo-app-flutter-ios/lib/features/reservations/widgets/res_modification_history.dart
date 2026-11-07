@@ -5,6 +5,7 @@ import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../v2/res_edit_gear_v2.dart';
 import '../v2/res_fit_v2.dart';
+import '../v2/res_history_v2.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_card.dart';
@@ -46,6 +47,7 @@ class ResModificationHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) return ResHistoryV2(res: res, sosIncidents: sosIncidents);
     final hasDateMod = res.originalStartDate != null &&
         res.originalEndDate != null &&
         _datesChanged;

@@ -22,6 +22,8 @@ const double kRoutesMapCardV2Extent = 250;
 class RtMapCardDataV2 {
   final String name;
   final String meta;
+  /// The route's start branch name (old card: under the meta line).
+  final String? sub;
   final Color color;
   final bool active;
   final VoidCallback onPick;
@@ -29,6 +31,7 @@ class RtMapCardDataV2 {
   const RtMapCardDataV2({
     required this.name,
     required this.meta,
+    this.sub,
     required this.color,
     required this.active,
     required this.onPick,
@@ -110,7 +113,7 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         button: true,
         selected: d.active,
-        label: '${d.name}, ${d.meta}',
+        label: d.sub == null ? '${d.name}, ${d.meta}' : '${d.name}, ${d.meta}, ${d.sub}',
         child: MgPress(
           onTap: d.onPick,
           child: Container(
@@ -140,10 +143,18 @@ class _Card extends StatelessWidget {
                           style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.meta))),
                     ),
                     const Spacer(),
-                    // "Detail ›" (board: chevron after the word), 44 px hit.
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: Semantics(
+                    // Start branch (old card) beside "Detail ›" (board:
+                    // chevron after the word, 44 px hit) — no extra height.
+                    Row(children: [
+                      Expanded(
+                        child: d.sub == null
+                            ? const SizedBox.shrink()
+                            : Text(d.sub!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: MgType.meta.copyWith(color: MgColors.meta)),
+                      ),
+                      Semantics(
                         button: true,
                         label: t(context).tr('routesMapDetail'),
                         excludeSemantics: true,
@@ -160,7 +171,7 @@ class _Card extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
+                    ]),
                   ]),
                 ),
               ),

@@ -283,6 +283,9 @@ void main() {
     Widget card(Widget chip) => SizedBox(height: 200, child: Stack(children: [const SizedBox.expand(), chip]));
 
     testWidgets('card map: v2 strip at the top (8), same text; retry = MapTileErrors.retry', (t) async {
+      // 320: the narrow layout (link under the text) never stretches either.
+      await pumpV2(t, card(const MapTileErrorChip()), size: const Size(320, 690));
+      expect(t.getSize(find.byType(MgMapTileStrip)).height, lessThan(120), reason: 'never stretched to the map');
       await pumpV2(t, card(const MapTileErrorChip()));
       expect(find.byType(MgMapTileStrip), findsOneWidget);
       expect(find.byType(TextButton), findsNothing);

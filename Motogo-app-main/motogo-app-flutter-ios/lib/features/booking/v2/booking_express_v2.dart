@@ -218,17 +218,27 @@ class BookingReadyCardV2 extends StatelessWidget {
             ),
           ),
         ),
-        _ReadyRow(label: tr.tr('v2UxCbGear'), ok: gearOk, value: gearValue, onTap: onToggle),
-        const Divider(height: 1, thickness: 1, indent: MgSpace.card, endIndent: MgSpace.card, color: MgColors.line),
-        _ReadyRow(
-          label: tr.tr('v2UxCbExtras'),
-          ok: true,
-          value: extrasValue,
-          onTap: onToggle,
-          // A long extra name ("Beifahrerausrüstung") takes the full row
-          // width under the label instead of the 84 px label column.
-          valueWords: extras.isEmpty ? null : extras.join(' '),
-          valueStyle: MgType.body.copyWith(fontWeight: FontWeight.w800),
+        // Summary rows only while folded — open, the full "Výbava a
+        // doplňky" editors right under the card show the same values.
+        bkAnimatedSize(
+          context,
+          open
+              ? const SizedBox(width: double.infinity)
+              : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _ReadyRow(label: tr.tr('v2UxCbGear'), ok: gearOk, value: gearValue, onTap: onToggle),
+                  const Divider(
+                      height: 1, thickness: 1, indent: MgSpace.card, endIndent: MgSpace.card, color: MgColors.line),
+                  _ReadyRow(
+                    label: tr.tr('v2UxCbExtras'),
+                    ok: true,
+                    value: extrasValue,
+                    onTap: onToggle,
+                    // A long extra name ("Beifahrerausrüstung") takes the full row
+                    // width under the label instead of the 84 px label column.
+                    valueWords: extras.isEmpty ? null : extras.join(' '),
+                    valueStyle: MgType.body.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ]),
         ),
         const SizedBox(height: 6),
       ]),
