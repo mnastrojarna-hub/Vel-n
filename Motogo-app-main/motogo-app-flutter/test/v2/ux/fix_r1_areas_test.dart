@@ -3,6 +3,7 @@
 // the edit / SOS / date surfaces that were still the old look inside v2.
 // Every test drives the SAME callbacks the old widgets used.
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/motion/mg_anim.dart';
@@ -19,9 +20,11 @@ import 'package:motogo_app/features/reservations/v2/res_edit_moto_rows_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_sizes_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_swap_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_swap_date_sheet_v2.dart';
+import 'package:motogo_app/features/reservations/v2/res_timeline_v2.dart';
 import 'package:motogo_app/features/routes/animated_route_icon.dart';
 import 'package:motogo_app/features/sos/v2/sos_here_address_v2.dart';
 
+import '../support/fakes_reservations.dart';
 import '../support/v2_harness.dart';
 
 Motorcycle _moto(String id, String model, {String branchType = 'obslužná'}) => Motorcycle.fromJson({
@@ -318,4 +321,20 @@ void main() {
     await t.pump();
     expect(t.getRect(thumb).left, x0);
   });
+
+  for (final (lang, w) in [('en', 320.0), ('es', 320.0), ('fr', 320.0), ('en', 360.0)]) {
+    testWidgets('timeline: pickup / return date + time never clipped ($lang $w)', (t) async {
+      if (!montserratLoaded) return markTestSkipped('no Montserrat');
+      final res = resv('tl', status: 'reserved', from: 2, to: 4, pickupTime: '23:59:00');
+      await pumpV2(t, SingleChildScrollView(padding: const EdgeInsets.all(16), child: ResJourneyV2(res: res)),
+          lang: lang, size: Size(w, 780), reducedMotion: true);
+      await t.pump();
+      final paras = t.renderObjectList<RenderParagraph>(
+          find.descendant(of: find.byType(ResJourneyV2), matching: find.byType(RichText)));
+      expect(paras, isNotEmpty);
+      for (final p in paras) {
+        expect(p.didExceedMaxLines, isFalse, reason: p.text.toPlainText());
+      }
+    });
+  }
 }

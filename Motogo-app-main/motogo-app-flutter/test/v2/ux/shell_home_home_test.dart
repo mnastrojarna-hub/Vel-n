@@ -69,7 +69,7 @@ void main() {
   testWidgets('SH-09 meta: branch · type; booking number VISIBLE on its own line (old Domů card parity)', (tester) async {
     await _home(tester, homeCases()['s6']!());
     expect(find.text('Velké Němčice · samoobsluha nonstop'), findsOneWidget);
-    expect(find.descendant(of: find.byKey(const ValueKey('tk-short-id')), matching: find.text('#55556666')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('tk-short-id'))).data, '#55556666');
     expect(find.bySemanticsLabel(RegExp('#55556666')), findsWidgets);
     await _home(tester, homeCases()['s4']!());
     expect(find.text('Mezná · s obsluhou'), findsOneWidget);

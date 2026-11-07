@@ -120,8 +120,10 @@ void main() {
           final day = t.getRect(find.byKey(const ValueKey('date-v2-day')).first);
           final month = t.getRect(find.byKey(const ValueKey('date-v2-month')).first);
           final year = t.getRect(find.byKey(const ValueKey('date-v2-year')).first);
-          // 1 : 1.4 : 1 in one row at normal text, from 320 dp up.
-          if (s == 1.0) {
+          // 1 : 1.4 : 1 in one row at normal text (cs from 320 dp, every
+          // language at 412); a long hint ("Année") moves the year under the
+          // row instead of being cut (the sweep checks nothing is cut).
+          if (s == 1.0 && (lang == 'cs' || w >= 412)) {
             expect({day.top, month.top, year.top}.length, 1, reason: '$lang $w: one row');
             expect(day.width / month.width, closeTo(10 / 14, 0.02));
           }
