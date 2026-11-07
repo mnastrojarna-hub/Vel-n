@@ -21,6 +21,7 @@ import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_address_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_chooser_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_view_v2.dart';
+import 'package:motogo_app/features/reservations/widgets/res_modification_history.dart';
 import 'package:motogo_app/features/reservations/widgets/reservation_edit_extras_section.dart';
 import 'package:motogo_app/features/reservations/widgets/reservation_edit_moto_section.dart';
 import 'package:motogo_app/features/reservations/widgets/reservation_swap_section.dart';
@@ -29,6 +30,7 @@ import 'package:motogo_app/features/sos/v2/sos_replacement_view_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/reservations_cases.dart';
+import '../support/fakes_history.dart';
 import '../support/fakes_reservations.dart';
 import 'cases_core.dart' show launcher, tapOpen;
 import 'cases_ux_auth_sos_misc.dart' show asmBase, asmMotos, asmRegModel;
@@ -239,6 +241,18 @@ List<RenderCase> coverageUxCases() => [
       RenderCase('cov', 'register', 'date_menu', () => RegisterViewV2(m: asmRegModel(1)), asmBase,
           scaffold: false,
           after: (t) => _tap(t, 'Den')),
+      // fix:r2 — "Historie rezervace" in the v2 look (ResHistoryV2).
+      RenderCase('cov', 'history', 'mods',
+          () => SingleChildScrollView(padding: const EdgeInsets.all(16), child: ResModificationHistory(res: histModsRes())),
+          () => resOverrides()),
+      RenderCase(
+          'cov',
+          'history',
+          'cancel_sos',
+          () => SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: ResModificationHistory(res: histCancelSosRes(), sosIncidents: histIncidents())),
+          () => resOverrides()),
       RenderCase('cov', 'booking', 'address_sheet',
           () => launcher((c) => showAddrBottomSheet(c, 'Adresa přistavení', 'Brno', 'Masarykova 12', (_, __) {})),
           () => resOverrides(),

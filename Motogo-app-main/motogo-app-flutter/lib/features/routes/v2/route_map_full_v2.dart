@@ -47,31 +47,31 @@ class RouteFullMapV2 extends StatelessWidget {
             top: 0,
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Container(
-              padding: EdgeInsets.fromLTRB(16, top + 8, 16, 28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [MgColors.night, MgColors.nightA(0.92), MgColors.nightA(0)],
-                  stops: const [0, 0.62, 1],
+                padding: EdgeInsets.fromLTRB(16, top + 8, 16, 28),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [MgColors.night, MgColors.nightA(0.92), MgColors.nightA(0)],
+                    stops: const [0, 0.62, 1],
+                  ),
                 ),
-              ),
-              child: Row(children: [
-                MgV2Back(onTap: onClose, close: true, style: MgBackStyle.dark),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Semantics(
-                      header: true,
-                      child: MgWordFit(
-                        minScale: 0.85,
-                        child: Text(title, maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
+                child: Row(children: [
+                  MgV2Back(onTap: onClose, close: true, style: MgBackStyle.dark),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Semantics(
+                        header: true,
+                        child: MgWordFit(
+                          minScale: 0.85,
+                          child: Text(title, maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
+                        ),
                       ),
-                    ),
-                    if (sub != null) Text(sub!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.onDarkMeta))),
-                  ]),
-                ),
-              ]),
+                      if (sub != null) Text(sub!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.onDarkMeta))),
+                    ]),
+                  ),
+                ]),
               ),
               const MapTileErrorStripV2(padding: EdgeInsets.symmetric(horizontal: 16)),
             ]),
