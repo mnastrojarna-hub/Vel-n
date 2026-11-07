@@ -19,6 +19,7 @@ import '../../booking/booking_quote.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../loyalty/loyalty_provider.dart';
+import '../../routes/ride_recorder.dart';
 import '../nickname_provider.dart';
 import 'funnel_carousel_v2.dart';
 import 'funnel_provider.dart';
@@ -124,6 +125,9 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     if (funnelDay(DateTime.now()) != now) WidgetsBinding.instance.addPostFrameCallback((_) => _syncDay());
     final range = sel.range(now);
     final async = ref.watch(funnelCandidatesProvider(range));
+    // Záznam jízdy běží → jeho tečka je živý indikátor Domů; tečka „Volná
+    // v termínu" stojí (max. jeden živý indikátor na obrazovce).
+    final recLive = ref.watch(rideRecorderProvider.select((r) => r.recording));
     final loyaltyAsync = ref.watch(loyaltyStatusProvider);
     final loyalty = loyaltyAsync.valueOrNull;
     final lastBike = ref.watch(homeLastBikeIdProvider);
@@ -168,6 +172,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 return FunnelBikeCard(
                   moto: m,
                   center: i == center,
+                  ping: !recLive,
                   again: again,
                   badge: again
                       ? tr.tr('v2HomeFnAgain')

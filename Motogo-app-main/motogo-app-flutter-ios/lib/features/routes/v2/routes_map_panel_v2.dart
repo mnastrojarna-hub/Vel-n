@@ -65,9 +65,22 @@ class RoutesMapPanelV2 extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Semantics(
                     header: true,
-                    child: MgWordFit(
-                      child: Text(title, maxLines: 1, style: MgType.tab(MgType.section.copyWith(color: MgColors.ink))),
-                    ),
+                    child: Builder(builder: (context) {
+                      // The route count after the last " · " never gets cut:
+                      // only the words before it scale (≤ 75 %) / ellipsize.
+                      final st = MgType.tab(MgType.section.copyWith(color: MgColors.ink));
+                      final cut = title.lastIndexOf(' · ');
+                      if (cut < 0) return MgWordFit(child: Text(title, maxLines: 1, style: st));
+                      return Row(children: [
+                        Flexible(
+                          child: MgWordFit(
+                            minScale: 0.75,
+                            child: Text(title.substring(0, cut), maxLines: 1, overflow: TextOverflow.ellipsis, style: st),
+                          ),
+                        ),
+                        Text(title.substring(cut).replaceAll(' ', '\u00A0'), maxLines: 1, softWrap: false, style: st),
+                      ]);
+                    }),
                   ),
                   Text(hint, maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.small.copyWith(color: MgColors.meta)),
                 ]),
@@ -117,7 +130,15 @@ class _Card extends StatelessWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(d.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
                     const SizedBox(height: 4),
-                    Text(d.meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.meta))),
+                    // Whole meta line (km · time · difficulty): scales ≤ 80 %
+                    // before an ellipsis would cut the difficulty.
+                    MgWordFit(
+                      minScale: 0.8,
+                      child: Text(d.meta,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.meta))),
+                    ),
                     const Spacer(),
                     // "Detail ›" (board: chevron after the word), 44 px hit.
                     Align(

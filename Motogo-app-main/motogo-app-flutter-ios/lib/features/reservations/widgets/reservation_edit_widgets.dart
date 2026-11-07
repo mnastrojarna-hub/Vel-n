@@ -9,7 +9,9 @@ import '../../booking/booking_models.dart';
 import '../../../core/currency.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../v2/res_edit_gear_v2.dart';
+import '../v2/res_edit_moto_rows_v2.dart' show EditBranchFilterV2;
 import '../v2/res_edit_sections_v2.dart';
+import '../v2/res_edit_sizes_v2.dart';
 
 // ignore_for_file: library_private_types_in_public_api
 
@@ -118,8 +120,7 @@ class EditTimePicker extends StatelessWidget {
         label: label,
         hour: hour,
         minute: _nearestQuarter(minute),
-        onHour: (v) => onChanged('${v ?? hour}:$minute'),
-        onMinute: (v) => onChanged('$hour:${v ?? minute}'),
+        onChanged: onChanged,
       );
     }
 
@@ -230,6 +231,11 @@ class EditGearSizePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v2: celá karta ve v2 vzhledu (res_edit_sizes_v2.dart), totéž pravidlo.
+    if (MgV2.on(context)) {
+      return EditGearSizePickerV2(
+          label: label, icon: editGearIconV2(icon), sizes: sizes, selectedSize: selectedSize, onSizeSelected: onSizeSelected);
+    }
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -318,6 +324,8 @@ class EditBranchFilter extends ConsumerWidget {
     if (branches.isEmpty) return const SizedBox.shrink();
     // Hodnota mimo nabídku (pobočka bez motorek) by DropdownButton shodila.
     final safeValue = branches.any((b) => b['id'] == value) ? value : null;
+    // v2: tatáž volba jako řada čipů (res_edit_moto_rows_v2.dart).
+    if (MgV2.on(context)) return EditBranchFilterV2(branches: branches, value: safeValue, onChanged: onChanged);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(

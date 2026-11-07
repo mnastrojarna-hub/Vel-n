@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -25,7 +24,11 @@ import '../../catalog/moto_model.dart';
 class BranchesSheetV2 extends StatelessWidget {
   final List branches;
   final Map<String, List<Map<String, dynamic>>> motosByBranch;
-  const BranchesSheetV2({super.key, required this.branches, required this.motosByBranch});
+
+  /// Opens a maps / tel: link — the old sheet's own launcher (the v2 view
+  /// only builds the SAME targets as `BranchDetailCard`).
+  final void Function(Uri) onLaunch;
+  const BranchesSheetV2({super.key, required this.branches, required this.motosByBranch, required this.onLaunch});
 
   @override
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -37,6 +40,7 @@ class BranchesSheetV2 extends StatelessWidget {
               child: _BranchCardV2(
                 branch: Map<String, dynamic>.from(branches[i] as Map),
                 motos: motosByBranch[branches[i]['id']] ?? const [],
+                onLaunch: onLaunch,
               ),
             ),
           ),
@@ -46,7 +50,8 @@ class BranchesSheetV2 extends StatelessWidget {
 class _BranchCardV2 extends StatefulWidget {
   final Map<String, dynamic> branch;
   final List<Map<String, dynamic>> motos;
-  const _BranchCardV2({required this.branch, required this.motos});
+  final void Function(Uri) onLaunch;
+  const _BranchCardV2({required this.branch, required this.motos, required this.onLaunch});
 
   @override
   State<_BranchCardV2> createState() => _BranchCardV2State();
@@ -73,7 +78,7 @@ class _BranchCardV2State extends State<_BranchCardV2> {
     final url = hasGps
         ? 'https://www.google.com/maps/dir/?api=1&destination=$_lat,$_lng'
         : 'https://www.google.com/maps/dir/?api=1&destination=${Uri.encodeComponent(_address)}';
-    launchUrl(Uri.parse(url));
+    widget.onLaunch(Uri.parse(url));
   }
 
   @override
@@ -158,7 +163,7 @@ class _BranchCardV2State extends State<_BranchCardV2> {
                         label: tr.tr('navigateToBranch'),
                         icon: MgIcons.navigate,
                         neonLabel: true,
-                        onTap: () => launchUrl(Uri.parse('https://maps.google.com/?q=$_lat,$_lng')),
+                        onTap: () => widget.onLaunch(Uri.parse('https://maps.google.com/?q=$_lat,$_lng')),
                       ),
                     ],
                     if (phone.isNotEmpty)
@@ -167,7 +172,7 @@ class _BranchCardV2State extends State<_BranchCardV2> {
                         child: MgBtnText(
                           label: '${tr.tr('callLabel')} $phone',
                           icon: MgIcons.phone,
-                          onTap: () => launchUrl(Uri.parse('tel:$phone')),
+                          onTap: () => widget.onLaunch(Uri.parse('tel:$phone')),
                         ),
                       ),
                     if (widget.motos.isNotEmpty) ...[

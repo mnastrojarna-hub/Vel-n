@@ -59,6 +59,8 @@ class _RangeWell extends StatelessWidget {
   final DateTime? end;
   const _RangeWell({required this.start, this.end});
 
+  static final _dateStyle = MgType.tab(MgType.title.copyWith(color: MgColors.ink));
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
@@ -66,8 +68,11 @@ class _RangeWell extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             MgWordFit(minScale: 0.8, child: Text(label.toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta))),
             const SizedBox(height: 2),
-            Text(d == null ? '–' : tripShortDate(tr, d).replaceAll(' ', '\u00A0'),
-                style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+            // NBSP-joined date = one word: it scales (≤ 75 %), never "…1|1".
+            MgWordFit(
+              minScale: 0.75,
+              child: Text(d == null ? '–' : tripShortDate(tr, d).replaceAll(' ', '\u00A0'), style: _dateStyle),
+            ),
           ]),
         );
     final days = end == null
@@ -98,7 +103,14 @@ class _RangeWell extends StatelessWidget {
               .map((l) => catWordWidth(context, l.toUpperCase(), base))
               .reduce((a, b) => a > b ? a : b);
           final chipW = days == null ? 0.0 : catLineWidth(context, catDays(tr, catDayCount(start, end!)), base) + 30;
-          final side = days == null || (c.maxWidth - 30 - chipW) / 2 >= word * 0.8;
+          // …and both dates fit their tile (at 75 %) beside it too.
+          final dateBase = DefaultTextStyle.of(context).style.merge(_dateStyle);
+          final dateW = [start, end]
+              .whereType<DateTime>()
+              .map((d) => catLineWidth(context, tripShortDate(tr, d).replaceAll(' ', '\u00A0'), dateBase))
+              .fold(0.0, (a, b) => a > b ? a : b);
+          final half = (c.maxWidth - 30 - chipW) / 2;
+          final side = days == null || (half >= word * 0.8 && half >= dateW * 0.75);
           final row = Row(children: [
             tile(tr.tr('dateTabsPickup'), start),
             Padding(

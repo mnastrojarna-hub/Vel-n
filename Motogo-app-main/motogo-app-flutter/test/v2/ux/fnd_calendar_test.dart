@@ -1,4 +1,5 @@
-// FND-9: month fling (beats an ancestor pager), month slide, band timing,
+// FND-9: month fling (off inside a swipeable pager — the pager keeps the
+// swipe, owner parity rule), month slide, band timing,
 // reduced motion = band painted at once.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,18 +43,42 @@ class _CalState extends State<_Cal> {
 void main() {
   setUpAll(loadMontserrat);
 
-  testWidgets('fling ← inside a PageView = next month, the pager stays', (tester) async {
-    final pc = PageController();
+  testWidgets('fling ← = next month, → = previous (no pager around)', (tester) async {
     final months = <DateTime>[];
-    await pumpV2(tester, PageView(controller: pc, children: [_Cal(onMonth: months.add), const Text('page 2')]));
+    await pumpV2(tester, _Cal(onMonth: months.add));
     await tester.fling(find.text('15'), const Offset(-220, 0), 1200);
     await tester.pumpAndSettle();
     expect(months, [DateTime(2026, 11)]);
-    expect(pc.page, 0);
     await tester.fling(find.text('15'), const Offset(220, 0), 1200);
     await tester.pumpAndSettle();
     expect(months.last, DateTime(2026, 10));
-    expect(pc.page, 0);
+  });
+
+  testWidgets('inside a swipeable pager (moto detail): a swipe over the calendar pages, months stay', (tester) async {
+    for (final fast in [false, true]) {
+      final pc = PageController();
+      final months = <DateTime>[];
+      await pumpV2(tester, PageView(key: ValueKey(fast), controller: pc, children: [_Cal(onMonth: months.add), const Text('page 2')]));
+      if (fast) {
+        await tester.fling(find.text('15'), const Offset(-220, 0), 1200);
+      } else {
+        await tester.drag(find.text('15'), const Offset(-260, 0));
+      }
+      await tester.pumpAndSettle();
+      expect(pc.page, 1, reason: 'fast=$fast');
+      expect(months, isEmpty, reason: 'fast=$fast');
+    }
+  });
+
+  testWidgets('a pager that cannot be swiped keeps the month fling', (tester) async {
+    final months = <DateTime>[];
+    await pumpV2(
+      tester,
+      PageView(physics: const NeverScrollableScrollPhysics(), children: [_Cal(onMonth: months.add), const Text('page 2')]),
+    );
+    await tester.fling(find.text('15'), const Offset(-220, 0), 1200);
+    await tester.pumpAndSettle();
+    expect(months, [DateTime(2026, 11)]);
   });
 
   testWidgets('‹ › taps still switch months', (tester) async {

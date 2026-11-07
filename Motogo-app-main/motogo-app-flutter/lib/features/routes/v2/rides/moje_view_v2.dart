@@ -14,6 +14,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/widgets/mg_back.dart' show mgIsTopmost;
 import '../../active_ride_provider.dart' show ActiveRide;
 import '../../community_submit.dart' show showCommunityAddMenu;
+import '../../../reservations/v2/page_swipe_v2.dart';
 import '../../my_experiences_provider.dart';
 import '../../ride_model.dart';
 import '../../ride_recorder.dart' show RideRecorderState;
@@ -220,7 +221,19 @@ class _MojeViewV2State extends State<MojeViewV2> {
         chrome: _chrome,
         navVisible: true,
         fabVisible: false,
-        child: page,
+        // The whole page (header, summary, chips, empty space under a
+        // short list) switches the sub-tab too, as before F-15; the list
+        // body itself follows the finger (MgSwipeSegments wins there).
+        child: V2PageSwipe(
+          onStep: (dir) {
+            const v = MojeSub.values;
+            final j = v.indexOf(sub) + dir;
+            if (j < 0 || j >= v.length || !mgIsTopmost(context)) return false;
+            _select(v[j]);
+            return true;
+          },
+          child: page,
+        ),
       ),
       // Rezervace dot = the value the shell last computed (no polling here).
       bottomNavigationBar: Consumer(

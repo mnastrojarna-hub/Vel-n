@@ -58,8 +58,9 @@ class HomeTicketV2 extends ConsumerWidget {
         : homeIsDelivery(r)
             ? (r.pickupAddress ?? r.branchName)
             : r.branchName;
-    // Board Main: "{pobočka} · {samoobsluha | s obsluhou}" (rozvoz = adresa);
-    // číslo rezervace jen pro čtečku obrazovky.
+    // Board Main: "{pobočka} · {samoobsluha | s obsluhou}" (rozvoz = adresa).
+    // Číslo rezervace na vlastním řádku pod ním — viditelně a nikdy useknuté
+    // (stará karta Domů ho ukazuje, zákazník ho diktuje podpoře).
     final kind = r == null || homeIsDelivery(r)
         ? null
         : r.isSelfService
@@ -68,7 +69,7 @@ class HomeTicketV2 extends ConsumerWidget {
                 ? tr.tr('v2CalcBranchStaffed')
                 : null;
     final meta = [if (place != null && place.trim().isNotEmpty) place.trim(), if (kind != null) kind].join(' · ');
-    final aria = [meta, if (r != null) r.shortId].where((x) => x.isNotEmpty).join(' · ');
+    final shortId = r?.shortId ?? '';
     final payable = snap.ticket == HomeTicket.s2 && snap.pending?.verifying != true;
     final riding = snap.ticket == HomeTicket.s8 && r != null;
 
@@ -86,7 +87,7 @@ class HomeTicketV2 extends ConsumerWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Semantics(
             button: r != null,
-            label: '$title. $aria',
+            label: '$title. ${[meta, shortId].where((x) => x.isNotEmpty).join(' · ')}',
             child: MgPress(
               onTap: r == null ? null : openDetail,
               // Eyebrow + stav se nevejdou ani zmenšené → pod sebe a fotka o
@@ -142,6 +143,15 @@ class HomeTicketV2 extends ConsumerWidget {
                                 style: MgType.small.copyWith(color: MgColors.onDarkBody)),
                           ),
                         ]),
+                      if (shortId.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 18),
+                          child: Text(shortId,
+                              key: const ValueKey('tk-short-id'),
+                              maxLines: 1,
+                              softWrap: false,
+                              style: MgType.tab(MgType.meta.copyWith(color: MgColors.onDarkMeta))),
+                        ),
                     ]),
                   ),
                 ]),

@@ -21,12 +21,17 @@ import '../../../core/widgets/state_views.dart';
 import '../reservation_models.dart';
 import '../booking_restore.dart' show restoreAndPay;
 import '../reservation_provider.dart';
+import 'page_swipe_v2.dart';
 import 'res_card_actions_v2.dart' show resPrimaryCardId;
 import 'res_filter_tabs_v2.dart';
 import 'res_list_header_v2.dart';
 import 'res_skeletons_v2.dart';
 import 'res_status_v2.dart';
 import 'reservation_card_v2.dart';
+
+/// Cards built eagerly inside the swiping body (≈ 2–3 screenfuls); the
+/// rest of the list is a lazy sliver.
+const kResSwipeHead = 10;
 
 /// Rezervace tab, v2 look (PLAN §2.4.1, technique R). Same providers and
 /// behaviour as `ReservationsScreen`: `filteredReservationsProvider` +
@@ -68,11 +73,16 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
     super.dispose();
   }
 
-  void _swipeFilter(int direction) {
+  void _swipeFilter(int direction) => _step(direction);
+
+  /// Neighbour filter (+1 / −1); false at the ends.
+  bool _step(int direction) {
     final filter = ref.read(resFilterProvider);
     final idx = kResFilterKeys.indexOf(filter);
     final next = (idx + direction).clamp(0, kResFilterKeys.length - 1);
-    if (next != idx) _setFilter(kResFilterKeys[next]);
+    if (next == idx) return false;
+    _setFilter(kResFilterKeys[next]);
+    return true;
   }
 
   /// The same filter change as a tab tap / ‹ › / swipe (`resFilterProvider`);
@@ -123,6 +133,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
           ),
         );
 
+    Widget? tail;
     final list = reservationsAsync.when<Widget?>(
       data: (reservations) {
         if (reservations.isEmpty) {
@@ -133,29 +144,43 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
         }
         // Jen jedna karta s tmavým pruhem a rank CTA (ta, která čeká na akci).
         final primaryId = resPrimaryCardId(reservations, pending);
+        Widget cardAt(int index) {
+          final res = reservations[index];
+          final card = ReservationCardV2(
+            reservation: res,
+            payFlag: resPayFlag(res, pending),
+            primary: res.id == primaryId,
+            onTap: () => context.push('/reservations/${res.id}'),
+            onEdit: () => context.push('/reservations/${res.id}/edit'),
+            // „Obnovit" = obnovit a zaplatit (D3), stejně jako starý seznam.
+            onRestore: () => restoreAndPay(context, ref, res),
+          );
+          // Only the first screenful reveals, once per app session — a
+          // card scrolled back into view never blinks again.
+          return Padding(
+            key: ValueKey(res.id),
+            padding: const EdgeInsets.only(bottom: 12),
+            child: index < 6 ? MgReveal(index: index, sessionKey: 'res-list', child: card) : card,
+          );
+        }
+
+        // The first screenfuls follow the finger + slide in; the rest is a
+        // LAZY sliver list (long histories never build / repaint at once) —
+        // a swipe there switches through the page-level twin.
+        final head = reservations.length < kResSwipeHead ? reservations.length : kResSwipeHead;
+        if (reservations.length > head) {
+          tail = SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList.builder(
+              itemCount: reservations.length - head,
+              itemBuilder: (context, i) => cardAt(head + i),
+            ),
+          );
+        }
         return swipeable(Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            for (var index = 0; index < reservations.length; index++)
-              Builder(builder: (context) {
-              final res = reservations[index];
-              final card = ReservationCardV2(
-                reservation: res,
-                payFlag: resPayFlag(res, pending),
-                primary: res.id == primaryId,
-                onTap: () => context.push('/reservations/${res.id}'),
-                onEdit: () => context.push('/reservations/${res.id}/edit'),
-                // „Obnovit" = obnovit a zaplatit (D3), stejně jako starý seznam.
-                onRestore: () => restoreAndPay(context, ref, res),
-              );
-              // Only the first screenful reveals, once per app session — a
-              // card scrolled back into view never blinks again.
-              return Padding(
-                key: ValueKey(res.id),
-                padding: const EdgeInsets.only(bottom: 12),
-                child: index < 6 ? MgReveal(index: index, sessionKey: 'res-list', child: card) : card,
-              );
-            }),
+            for (var index = 0; index < head; index++) cardAt(index),
           ]),
         ));
       },
@@ -179,26 +204,32 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
       ),
     );
 
-    return MgPage(
-      tabIndex: 2,
-      overlapHero: false,
-      header: const ResListHeaderV2(),
-      onRefresh: _refresh,
-      sections: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: ResFilterTabsV2(
-            value: filter,
-            counts: src.hasValue ? counts : null,
-            onSelect: _setFilter,
-            onStep: _swipeFilter,
-            dragProgress: _drag,
+    final lazyTail = tail;
+    return V2PageSwipe(
+      // Header, tabs, empty space and the lazy rest switch the filter too
+      // (the page-wide swipe of before); the body below follows the finger.
+      onStep: _step,
+      child: MgPage(
+        tabIndex: 2,
+        overlapHero: false,
+        header: const ResListHeaderV2(),
+        onRefresh: _refresh,
+        sections: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: ResFilterTabsV2(
+              value: filter,
+              counts: src.hasValue ? counts : null,
+              onSelect: _setFilter,
+              onStep: _swipeFilter,
+              dragProgress: _drag,
+            ),
           ),
-        ),
-        if (stale) MgStaleNote(onRetry: retry),
-        if (list != null) list,
-      ],
-      slivers: [if (errorSliver != null) errorSliver],
+          if (stale) MgStaleNote(onRetry: retry),
+          if (list != null) list,
+        ],
+        slivers: [if (lazyTail != null) lazyTail, if (errorSliver != null) errorSliver],
+      ),
     );
   }
 }

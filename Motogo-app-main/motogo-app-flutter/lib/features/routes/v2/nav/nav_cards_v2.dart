@@ -9,6 +9,7 @@ import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_cta.dart';
 import '../../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import 'nav_hud_v2.dart';
 
@@ -203,8 +204,7 @@ class NavForkHintV2 extends StatelessWidget {
     Widget side(String label, bool next, bool left) {
       final fg = next ? MgColors.onDark : MgColors.ink;
       final arrow = Transform.flip(flipX: left, child: MgIcon(MgIcons.arrowRight, size: 20, color: next ? MgColors.neon : MgColors.link));
-      return Expanded(
-        child: Container(
+      return Container(
           constraints: const BoxConstraints(minHeight: 52),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
@@ -222,9 +222,29 @@ class NavForkHintV2 extends StatelessWidget {
             ),
             if (!left) ...[const SizedBox(width: 6), arrow],
           ]),
-        ),
       );
     }
+
+    // Side by side while each place name keeps whole words in ≤ 2 lines
+    // ("Výhon u Židlochovic" at 320 / 360 dp); otherwise the two options
+    // stack, each the full width — a destination is never cut.
+    final options = LayoutBuilder(builder: (context, c) {
+      final st = MgType.small.copyWith(fontWeight: FontWeight.w800);
+      final w = (c.maxWidth - 8) / 2 - 20 - 20 - 6;
+      bool fits(String l) => mgWordsFit(context, l, st, w) && mgLinesFit(context, l, st, w, 2, dir: Directionality.of(context));
+      if (!c.maxWidth.isFinite || (fits(leftLabel) && fits(rightLabel))) {
+        return Row(children: [
+          Expanded(child: side(leftLabel, nextIsLeft, true)),
+          const SizedBox(width: 8),
+          Expanded(child: side(rightLabel, !nextIsLeft, false)),
+        ]);
+      }
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        side(leftLabel, nextIsLeft, true),
+        const SizedBox(height: 8),
+        side(rightLabel, !nextIsLeft, false),
+      ]);
+    });
 
     return Semantics(
       button: onTap != null,
@@ -241,7 +261,7 @@ class NavForkHintV2 extends StatelessWidget {
               Flexible(child: Text(tr.tr('navForkTitle'), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
             ]),
             const SizedBox(height: 8),
-            Row(children: [side(leftLabel, nextIsLeft, true), const SizedBox(width: 8), side(rightLabel, !nextIsLeft, false)]),
+            options,
           ]),
         ),
       ),

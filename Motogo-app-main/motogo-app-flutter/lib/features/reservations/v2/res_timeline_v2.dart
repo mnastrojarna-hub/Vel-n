@@ -114,9 +114,18 @@ class ResJourneyV2 extends StatelessWidget {
         // Celá slova („Повернення", „Devolución" ve čtvrtině 320 dp s velkým
         // písmem) zmenšená nejvýš na 80 %; když se ani tak nevejdou, cesta
         // se vykreslí svisle (r2: dřív zmenšení až na 70 %).
+        // Datum a čas pod krokem („po 9. 11. 23:59") se taky musí vejít celý
+        // (nejvýš 2 řádky, nikdy rozdělené slovo) — jinak svisle (klíčová
+        // informace se nikdy neořízne).
         final cellW = c.maxWidth / nodes.length;
+        bool subFits(String? s) =>
+            s == null ||
+            (mgWordsFit(context, s, _NodeCell.subStyle, cellW - 1) &&
+                mgLinesFit(context, s, _NodeCell.subStyle, cellW - 1, 2, dir: Directionality.of(context)));
         final across = !c.maxWidth.isFinite ||
-            nodes.every((n) => mgWordsFit(context, n.$1, _NodeCell.labelStyle, cellW - 1, minScale: _NodeCell.minScale));
+            nodes.every((n) =>
+                mgWordsFit(context, n.$1, _NodeCell.labelStyle, cellW - 1, minScale: _NodeCell.minScale) &&
+                subFits(n.$2));
         if (!across) {
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             for (var i = 0; i < nodes.length; i++) cell(i, true),
@@ -211,7 +220,7 @@ class _NodeCell extends StatelessWidget {
         : Text(sub!,
             textAlign: vertical ? TextAlign.start : TextAlign.center,
             maxLines: 2,
-            style: MgType.tab(MgType.micro.copyWith(color: MgColors.link)));
+            style: subStyle);
     if (vertical) {
       // Svislá cesta: kolečko + spojnice vlevo, popisek vpravo.
       return Semantics(
@@ -263,4 +272,5 @@ class _NodeCell extends StatelessWidget {
 
   static const minScale = 0.8;
   static final labelStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, height: 1.15);
+  static final subStyle = MgType.tab(MgType.micro.copyWith(color: MgColors.link));
 }

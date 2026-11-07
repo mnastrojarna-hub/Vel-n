@@ -17,7 +17,11 @@ import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
 import '../messages_provider.dart';
+import '../../reservations/v2/page_swipe_v2.dart';
 import 'messages_parts_v2.dart';
+
+/// Cards built eagerly inside the swiping body; the rest is a lazy sliver.
+const kMsgSwipeHead = 12;
 
 /// Zprávy in the v2 look (PLAN §2.5.2, seam view of `MessagesScreen`): dark
 /// compact app bar with the 2-segment switch Oznámení [n] / Konverzace and
@@ -107,25 +111,34 @@ class _MessagesViewV2State extends ConsumerState<MessagesViewV2> {
       ),
     );
     final (Widget? box, Widget? sliver) = chatTab ? _threads(context) : _notes(context);
-    return MgPage(
-      header: header,
-      overlapHero: false,
-      onRefresh: _refresh,
-      sections: [
-        if (box != null)
-          MgSwipeSegments<bool>(
-            values: const [false, true],
-            value: chatTab,
-            onChanged: onTab,
-            progress: _drag,
-            child: ConstrainedBox(
-              // I krátký obsah má pod sebou plochu pro tah.
-              constraints: const BoxConstraints(minHeight: 360),
-              child: MgSwipeSwitcher(switchKey: chatTab, direction: chatTab ? 1 : -1, child: box),
+    // Header, segment, empty space and the lazy rest of a long list switch
+    // the tab too (page-wide swipe); the body below follows the finger.
+    return V2PageSwipe(
+      onStep: (dir) {
+        if ((dir > 0) == chatTab) return false;
+        onTab(dir > 0);
+        return true;
+      },
+      child: MgPage(
+        header: header,
+        overlapHero: false,
+        onRefresh: _refresh,
+        sections: [
+          if (box != null)
+            MgSwipeSegments<bool>(
+              values: const [false, true],
+              value: chatTab,
+              onChanged: onTab,
+              progress: _drag,
+              child: ConstrainedBox(
+                // I krátký obsah má pod sebou plochu pro tah.
+                constraints: const BoxConstraints(minHeight: 360),
+                child: MgSwipeSwitcher(switchKey: chatTab, direction: chatTab ? 1 : -1, child: box),
+              ),
             ),
-          ),
-      ],
-      slivers: [if (sliver != null) sliver],
+        ],
+        slivers: [if (sliver != null) sliver],
+      ),
     );
   }
 
@@ -137,27 +150,41 @@ class _MessagesViewV2State extends ConsumerState<MessagesViewV2> {
         if (msgs.isEmpty) {
           return (MsgEmptyV2(icon: MgIcons.mail, text: tr.tr('noNotifications')), null);
         }
+        Widget note(int i) {
+          final card = MsgNoteCardV2(
+            key: ValueKey(msgs[i].id),
+            m: msgs[i],
+            expanded: widget.expanded.contains(msgs[i].id),
+            onTap: () => widget.onToggleNote(msgs[i]),
+          );
+          // Only the first screenful reveals, once per app session — a
+          // card scrolled back into view never blinks again.
+          return i < 6 ? MgReveal(index: i, sessionKey: 'msg-notes', child: card) : card;
+        }
+
+        // First screenfuls in the swiping body, the rest lazily (unbounded
+        // history never builds / repaints at once).
+        final head = msgs.length < kMsgSwipeHead ? msgs.length : kMsgSwipeHead;
         return (
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              for (var i = 0; i < msgs.length; i++) ...[
+              for (var i = 0; i < head; i++) ...[
                 if (i > 0) const SizedBox(height: 10),
-                // Only the first screenful reveals, once per app session —
-                // a card scrolled back into view never blinks again.
-                Builder(builder: (_) {
-                  final card = MsgNoteCardV2(
-                    key: ValueKey(msgs[i].id),
-                    m: msgs[i],
-                    expanded: widget.expanded.contains(msgs[i].id),
-                    onTap: () => widget.onToggleNote(msgs[i]),
-                  );
-                  return i < 6 ? MgReveal(index: i, sessionKey: 'msg-notes', child: card) : card;
-                }),
+                note(i),
               ],
             ]),
           ),
-          null
+          msgs.length > head
+              ? SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  sliver: SliverList.separated(
+                    itemCount: msgs.length - head,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => note(head + i),
+                  ),
+                )
+              : null
         );
       },
       loading: () => (null, SliverFillRemaining(child: MgLoadingView(onRetry: widget.onRetryAdmin))),
@@ -194,18 +221,23 @@ class _MessagesViewV2State extends ConsumerState<MessagesViewV2> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                for (var i = 0; i < threads.length; i++) ...[
+                for (var i = 0; i < threads.length && i < kMsgSwipeHead; i++) ...[
                   if (i > 0) const SizedBox(height: 10),
-                  MgReveal(
-                    key: ValueKey(threads[i].id),
-                    index: i,
-                    child: MsgThreadCardV2(thread: threads[i], onTap: () => widget.onOpenThread(threads[i])),
-                  ),
+                  _thread(threads, i),
                 ],
               ]),
             ),
         ]),
-        null
+        threads.length > kMsgSwipeHead
+            ? SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                sliver: SliverList.separated(
+                  itemCount: threads.length - kMsgSwipeHead,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) => _thread(threads, kMsgSwipeHead + i),
+                ),
+              )
+            : null
       ),
       loading: () => (null, SliverFillRemaining(child: MgLoadingView(onRetry: widget.onRetryThreads))),
       error: (e, _) => (
@@ -216,4 +248,10 @@ class _MessagesViewV2State extends ConsumerState<MessagesViewV2> {
       ),
     );
   }
+
+  Widget _thread(List<MessageThread> threads, int i) => MgReveal(
+        key: ValueKey(threads[i].id),
+        index: i < 6 ? i : 0,
+        child: MsgThreadCardV2(thread: threads[i], onTap: () => widget.onOpenThread(threads[i])),
+      );
 }

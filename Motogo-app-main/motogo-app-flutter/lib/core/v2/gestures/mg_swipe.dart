@@ -65,7 +65,10 @@ class MgSwipeSegments<T> extends StatefulWidget {
 }
 
 class _MgSwipeSegmentsState<T> extends State<MgSwipeSegments<T>> with SingleTickerProviderStateMixin {
-  double _dx = 0;
+  /// Drag offset — drives only the fade / shift layers (no rebuild of this
+  /// widget, the child is a cached repaint boundary).
+  final ValueNotifier<double> _dxN = ValueNotifier(0);
+  double get _dx => _dxN.value;
   double _from = 0;
   late final AnimationController _back = AnimationController(vsync: this, duration: MgMotion.thumb)
     ..addListener(() => _set(_from * (1 - MgMotion.spring.transform(_back.value))));
@@ -73,6 +76,7 @@ class _MgSwipeSegmentsState<T> extends State<MgSwipeSegments<T>> with SingleTick
   @override
   void dispose() {
     _back.dispose();
+    _dxN.dispose();
     super.dispose();
   }
 
@@ -94,7 +98,7 @@ class _MgSwipeSegmentsState<T> extends State<MgSwipeSegments<T>> with SingleTick
 
   void _set(double dx) {
     if (!mounted) return;
-    setState(() => _dx = dx);
+    _dxN.value = dx;
     final p = widget.progress;
     if (p != null) {
       final dir = dx < 0 ? 1 : -1;
@@ -133,10 +137,6 @@ class _MgSwipeSegmentsState<T> extends State<MgSwipeSegments<T>> with SingleTick
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
     final reduced = MgMotion.reduced(context);
-    final dir = _dx < 0 ? 1 : -1;
-    final f = _neighbour(dir) == null ? MgSwipe.endRubber : MgSwipe.follow;
-    final shift = reduced ? 0.0 : _dx * f;
-    final fade = reduced ? 1.0 : 1 - 0.15 * (_dx.abs() / (_width / 2)).clamp(0.0, 1.0);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onHorizontalDragStart: (_) {
@@ -146,9 +146,21 @@ class _MgSwipeSegmentsState<T> extends State<MgSwipeSegments<T>> with SingleTick
       onHorizontalDragUpdate: (d) => _set(_dx + (d.primaryDelta ?? 0)),
       onHorizontalDragEnd: _end,
       onHorizontalDragCancel: _springBack,
-      child: Opacity(
-        opacity: fade,
-        child: Transform.translate(offset: Offset(shift, 0), child: widget.child),
+      child: ValueListenableBuilder<double>(
+        valueListenable: _dxN,
+        // The body is built once per real rebuild and composited as its own
+        // layer: a drag frame only moves / fades that layer.
+        child: RepaintBoundary(child: widget.child),
+        builder: (context, dx, child) {
+          final dir = dx < 0 ? 1 : -1;
+          final f = _neighbour(dir) == null ? MgSwipe.endRubber : MgSwipe.follow;
+          final shift = reduced ? 0.0 : dx * f;
+          final fade = reduced ? 1.0 : 1 - 0.15 * (dx.abs() / (_width / 2)).clamp(0.0, 1.0);
+          return Opacity(
+            opacity: fade,
+            child: Transform.translate(offset: Offset(shift, 0), child: child),
+          );
+        },
       ),
     );
   }

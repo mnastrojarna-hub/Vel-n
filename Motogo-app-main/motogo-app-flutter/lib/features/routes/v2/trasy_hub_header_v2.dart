@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart' show MotoGoBackNav, Routes;

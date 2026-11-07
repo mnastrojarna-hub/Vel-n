@@ -4,8 +4,10 @@ import '../../../core/booking_rules.dart' show selfServiceHidesReturnTime;
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
+import '../../../core/v2/widgets/mg_photo_viewer.dart';
 import '../../booking/booking_models.dart';
 import '../../booking/v2/booking_recap_v2.dart';
 import '../../booking/v2/booking_v2_parts.dart' show bkDays, bkNb;
@@ -128,6 +130,10 @@ class PaymentViewV2 extends StatelessWidget {
                 : draft.returnTime,
             half: breakdown.latePickupDiscount > 0,
             pickupDelivery: draft.pickupMethod == 'delivery',
+            // The old page's gallery card: every photo + branch city.
+            withCity: true,
+            photoCount: m.images.length,
+            onPhotoTap: () => showMgPhotoViewer(context, urls: m.images.isNotEmpty ? m.images : [m.displayImage]),
           ),
         ),
       Padding(
@@ -143,8 +149,19 @@ class PaymentViewV2 extends StatelessWidget {
                 depositNote: c.sosDepositNote,
                 verified: verified,
               )
-            else if (verified != null)
-              PayVerifiedLineV2(verified),
+            else ...[
+              // An applied promo / voucher stays visible before paying (the
+              // old page's inline price card); the full receipt = "Rozpis".
+              if (breakdown.discountTotal > 0)
+                PayRowV2(
+                  key: const ValueKey('pay-v2-discount'),
+                  icon: MgIcons.tag,
+                  label: tr.tr('discountLabel'),
+                  value: '−${Money.czk(breakdown.discountTotal)}',
+                  valueColor: MgColors.link,
+                ),
+              if (verified != null) PayVerifiedLineV2(verified),
+            ],
             if (round) ...[
               const SizedBox(height: MgSpace.s12),
               PayRoundingNoteV2(due: amount, forceMin: forceMin),

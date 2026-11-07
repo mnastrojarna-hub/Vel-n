@@ -148,7 +148,9 @@ List<RenderCase> coverageUxCases() => [
               swap: SwapMotoSection(booking: _b(), userLicenseGroups: const ['A'], onSwapped: (_, __, ___, ____) {})),
           () => resOverrides(),
           after: (t) async {
-            final f = find.byIcon(Icons.edit_calendar);
+            // v2: the date box opens the calendar sheet (old: dialog icon).
+            final v2 = find.byKey(const ValueKey('swap-v2-date'));
+            final f = v2.evaluate().isNotEmpty ? v2 : find.byIcon(Icons.edit_calendar);
             if (f.evaluate().isEmpty) return;
             await t.ensureVisible(f.first);
             await t.tap(f.first, warnIfMissed: false);

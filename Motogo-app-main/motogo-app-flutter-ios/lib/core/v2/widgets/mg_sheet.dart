@@ -39,6 +39,8 @@ Future<T?> showMgSheet<T>(
     barrierColor: MgColors.nightA(0.55),
     elevation: 0,
     sheetAnimationStyle: MgMotion.sheetStyle(context),
+    // A title-less sheet's body is built right here (the route's context),
+    // so the frame can see a T2 body and put its ✕ on the disc row.
     builder: (ctx) => MgSheetFrame(
       title: title,
       light: light,
@@ -46,10 +48,16 @@ Future<T?> showMgSheet<T>(
       maxHeightFactor: maxHeightFactor,
       onClose: onClose,
       padding: padding,
-      child: Builder(builder: builder),
+      child: title == null ? builder(ctx) : Builder(builder: builder),
     ),
   );
 }
+
+/// A sheet body that starts with a 56 px tone disc on the left (the T2
+/// result body, Stavy board 2.8 / 3.1). In a title-less [MgSheetFrame] the
+/// ✕ then shares the disc's row (overlaid top-right) instead of taking its
+/// own 44 px row above it; hit area and close behaviour unchanged.
+abstract interface class MgSheetDiscBody {}
 
 /// The v2 sheet chrome (usable inside an existing `showModalBottomSheet`
 /// builder, so old sheet logic keeps its own route / result handling).
@@ -161,6 +169,7 @@ class _MgSheetFrameState extends State<MgSheetFrame> with SingleTickerProviderSt
     final maxH = (mq.size.height - mq.padding.top) * widget.maxHeightFactor;
     final fg = light ? MgColors.ink : MgColors.onDark;
     final close = widget.onClose ?? () => Navigator.of(context).maybePop();
+    final inlineClose = title == null && widget.showClose && child is MgSheetDiscBody;
     final pull = widget.scrollable && _dragOn(context);
     final body = widget.scrollable
         ? Flexible(
@@ -188,59 +197,60 @@ class _MgSheetFrameState extends State<MgSheetFrame> with SingleTickerProviderSt
             type: MaterialType.transparency,
             child: DefaultTextStyle.merge(
               style: TextStyle(color: fg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: light ? MgColors.grabberLight : MgColors.white(0.25),
-                        borderRadius: BorderRadius.circular(3),
+              child: _withInlineClose(
+                inlineClose ? _closeBtn(light, close) : null,
+                padding,
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: light ? MgColors.grabberLight : MgColors.white(0.25),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: title == null
-                              ? const SizedBox(height: 44)
-                              : Semantics(
-                                  header: true,
-                                  child: MgWordFit(minScale: 0.75, child: Text(title, style: MgType.h3.copyWith(color: fg))),
-                                ),
+                    if (!inlineClose)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: title == null
+                                  ? const SizedBox(height: 44)
+                                  : Semantics(
+                                      header: true,
+                                      child: MgWordFit(minScale: 0.75, child: Text(title, style: MgType.h3.copyWith(color: fg))),
+                                    ),
+                            ),
+                            if (widget.showClose) ...[
+                              const SizedBox(width: 8),
+                              _closeBtn(light, close),
+                            ],
+                          ],
                         ),
-                        if (widget.showClose) ...[
-                          const SizedBox(width: 8),
-                          MgV2Back(
-                            close: true,
-                            style: light ? MgBackStyle.light : MgBackStyle.dark,
-                            onTap: close,
+                      ),
+                    body,
+                    if (footer != null)
+                      Container(
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + mq.padding.bottom),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: light ? MgColors.line : MgColors.white(0.08)),
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  body,
-                  if (footer != null)
-                    Container(
-                      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + mq.padding.bottom),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: light ? MgColors.line : MgColors.white(0.08)),
                         ),
-                      ),
-                      child: footer,
-                    )
-                  else
-                    SizedBox(height: mq.padding.bottom),
-                ],
+                        child: footer,
+                      )
+                    else
+                      SizedBox(height: mq.padding.bottom),
+                  ],
+                ),
               ),
             ),
           ),
@@ -249,6 +259,25 @@ class _MgSheetFrameState extends State<MgSheetFrame> with SingleTickerProviderSt
     );
     // Always the same wrapper: re-parenting mid-drag would drop the scroll.
     return Transform.translate(key: const ValueKey('mg-sheet-pull'), offset: Offset(0, dy), child: frame);
+  }
+
+  static Widget _closeBtn(bool light, VoidCallback close) => MgV2Back(
+        close: true,
+        style: light ? MgBackStyle.light : MgBackStyle.dark,
+        onTap: close,
+      );
+
+  /// [close] overlaid top-right on the first body row: centred on the 56 px
+  /// disc that starts under the grabber (8 + 5) and the body's top padding.
+  static Widget _withInlineClose(Widget? close, EdgeInsetsGeometry padding, Widget column) {
+    if (close == null) return column;
+    return Builder(builder: (context) {
+      final top = padding.resolve(Directionality.of(context)).top;
+      return Stack(children: [
+        column,
+        Positioned(top: 13 + top + (56 - 44) / 2, right: 12, child: close),
+      ]);
+    });
   }
 }
 

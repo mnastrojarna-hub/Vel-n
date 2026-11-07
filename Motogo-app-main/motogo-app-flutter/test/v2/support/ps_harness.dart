@@ -15,7 +15,7 @@ import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'v2_harness.dart' show loadMontserrat, v2TestTheme;
+import 'v2_harness.dart' show legacyTestTheme, loadMontserrat, v2TestTheme;
 
 class _FixedLocale extends LocaleNotifier {
   _FixedLocale(String lang) {
@@ -69,7 +69,8 @@ Future<GoRouter> pumpPs(
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: v2TestTheme(),
+      // Flag OFF = the old screens' guards keep their reference theme.
+      theme: v2 ? v2TestTheme() : legacyTestTheme(),
       builder: (context, c) => MgV2Scope(
         enabled: v2,
         child: MediaQuery(

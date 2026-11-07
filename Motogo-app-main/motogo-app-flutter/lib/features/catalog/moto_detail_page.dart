@@ -198,15 +198,15 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
               // The error's own reason + fix (old MgErrorView), not a fixed text.
               why: '${friendlyWhy(t(context), FriendlyError.of(e))} ${FriendlyError.of(e).body(t(context))}',
               tech: '$e',
+              primary: MgStateAction(t(context).tr('eoRetry'), () => ref.invalidate(motorcyclesProvider)),
+              secondary: MgStateAction(t(context).tr('v2UxCbBackToMotos'), _back),
+              onClose: widget.showBackButton ? _back : null,
+              closeIsBack: true,
               children: [
                 if (FriendlyError.of(e).needsSettings)
                   MgBtnGhostLight(
                       label: t(context).tr('eoOpenSettings'), onTap: () => openFixSettings(FriendlyError.of(e))),
               ],
-              primary: MgStateAction(t(context).tr('eoRetry'), () => ref.invalidate(motorcyclesProvider)),
-              secondary: MgStateAction(t(context).tr('v2UxCbBackToMotos'), _back),
-              onClose: widget.showBackButton ? _back : null,
-              closeIsBack: true,
             )
           : _stateFrame(MgErrorView(
         error: e,

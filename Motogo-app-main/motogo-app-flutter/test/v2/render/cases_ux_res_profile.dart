@@ -62,7 +62,7 @@ List<RenderCase> resProfileUxCases() {
   return [
     RenderCase('rpux', 'sheet', 'ride_feedback', _feedback, () => resOverrides()),
     RenderCase('rpux', 'sheet', 'branches_open',
-        () => SingleChildScrollView(child: BranchesSheetV2(branches: _branches, motosByBranch: _motos)),
+        () => SingleChildScrollView(child: BranchesSheetV2(branches: _branches, motosByBranch: _motos, onLaunch: (_) {})),
         () => resOverrides(),
         after: _expandFirst),
     RenderCase(

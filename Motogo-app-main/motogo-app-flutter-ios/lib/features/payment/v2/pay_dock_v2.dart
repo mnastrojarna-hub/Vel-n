@@ -81,12 +81,25 @@ class PayDockV2 extends StatelessWidget {
       return MgDock(
         light: true,
         contextLine: MgWordFit(child: Text(contextLine, maxLines: 2, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700)))),
-        child: MgBtnInk(
-          key: const ValueKey('pay-v2-cta'),
-          label: price == null ? label : '$label · $price',
-          busy: busy,
-          onTap: enabled ? onPay : null,
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          MgBtnInk(
+            key: const ValueKey('pay-v2-cta'),
+            label: price == null ? label : '$label · $price',
+            busy: busy,
+            onTap: enabled ? onPay : null,
+          ),
+          // The old button's verifying texts (do not pay again) — every flow.
+          if (busy && status != null) ...[
+            const SizedBox(height: 8),
+            Text(status!,
+                textAlign: TextAlign.center,
+                style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+          ],
+          if (busy && statusNote != null) ...[
+            const SizedBox(height: 4),
+            Text(statusNote!, textAlign: TextAlign.center, style: MgType.small.copyWith(color: MgColors.meta)),
+          ],
+        ]),
       );
     }
     return DecoratedBox(

@@ -10,6 +10,8 @@ import '../../core/widgets/address_autocomplete_field.dart' show AddressSuggesti
 import '../../core/widgets/error_feedback.dart' show explainLocation;
 import '../routes/routes_provider.dart' show mapyApiKey;
 import 'sos_location.dart' show sosLocate;
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/sos_here_address_v2.dart';
 
 /// Adresa místa [lat], [lng]: Mapy.com rgeocode, záložně Nominatim, a když
 /// ani jedno neodpoví (bez signálu), aspoň souřadnice — obsluha podle nich
@@ -164,6 +166,10 @@ class SosHereAddressState extends State<SosHereAddress> {
         : _used
             ? tr.tr('sosHereUsed')
             : (addr.isNotEmpty ? addr : tr.tr('sosHereTap'));
+    // v2: světlý řádek (SOS board), týž stav i klepnutí.
+    if (MgV2.on(context)) {
+      return SosHereAddressV2(title: tr.tr('sosHereTitle'), sub: sub, busy: _busy, used: _used, onTap: _tap);
+    }
     return Semantics(
       button: true,
       label: '${tr.tr('sosHereTitle')}. $sub',

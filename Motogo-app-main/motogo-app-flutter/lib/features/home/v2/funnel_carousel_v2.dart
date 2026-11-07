@@ -30,10 +30,15 @@ class FunnelBikeCard extends StatelessWidget {
   final String? listPrice;
   final VoidCallback onTap;
 
+  /// false = "Volná v termínu" dot static: another live indicator (ride
+  /// recording) already runs on Domů (DESIGN_V2 §1.3 — one live indicator).
+  final bool ping;
+
   const FunnelBikeCard({
     super.key,
     required this.moto,
     required this.center,
+    this.ping = true,
     required this.badge,
     required this.again,
     required this.priceLabel,
@@ -96,6 +101,7 @@ class FunnelBikeCard extends StatelessWidget {
             // „Volná v termínu" + štítek ŘP: když se oba nevejdou, dostanou místo
             // podle délky a zmenší se (štítek smí na 2 řádky) — nic se neusekne.
             child: _TopPills(
+              ping: ping,
               free: tr.tr('v2HomeFnFree'),
               center: center,
               badge: badge,
@@ -168,7 +174,8 @@ class _TopPills extends StatelessWidget {
   final bool center;
   final String? badge;
   final bool again;
-  const _TopPills({required this.free, required this.center, required this.badge, required this.again});
+  final bool ping;
+  const _TopPills({required this.free, required this.center, required this.badge, required this.again, this.ping = true});
 
   static final _freeStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
   static final _badgeStyle = MgType.micro.copyWith(height: 1.15, fontWeight: FontWeight.w800);
@@ -179,7 +186,7 @@ class _TopPills extends StatelessWidget {
     final freePill = _GlassPill(
       border: MgColors.neonA(0.42),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        MgPing(size: 7, color: MgColors.neon, active: center),
+        MgPing(size: 7, color: MgColors.neon, active: center && ping),
         const SizedBox(width: 6),
         Flexible(
           child: MgWordFit(

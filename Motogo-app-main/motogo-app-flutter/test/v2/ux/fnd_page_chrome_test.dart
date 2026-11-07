@@ -113,20 +113,35 @@ void main() {
   });
 
   group('shell nav slot', () {
-    test('nav hidden on SOS, cart, voucher, product detail', () {
-      for (final p in ['/sos', '/sos/theft', '/cart', '/voucher', '/shop/abc']) {
+    test('nav STAYS on SOS, cart, voucher, product detail (old shell parity); hidden on focused flows', () {
+      for (final p in ['/sos', '/sos/theft', '/sos/done', '/cart', '/voucher', '/shop/abc', '/shop', '/']) {
+        expect(v2NavHiddenFor(p), isFalse, reason: p);
+        expect(v2FabHiddenFor(p), p == '/' ? isFalse : isTrue, reason: p);
+      }
+      for (final p in ['/sos/payment', '/checkout', '/booking', '/payment']) {
         expect(v2NavHiddenFor(p), isTrue, reason: p);
       }
-      expect(v2NavHiddenFor('/shop'), isFalse);
-      expect(v2NavHiddenFor('/'), isFalse);
     });
 
+    for (final at in ['/sos', '/sos/theft', '/cart', '/voucher', '/shop/abc']) {
+      testWidgets('$at keeps the nav: one tap to Profil', (tester) async {
+        await pumpShellV2(tester, at, prefs: const {'mg_v2_ai_coach_seen': true});
+        final slot = find.ancestor(of: find.byType(V2NavBar), matching: find.byType(MgStickySlide));
+        expect(tester.widget<MgStickySlide>(slot).visible, isTrue);
+        expect(tester.getSize(slot).height, greaterThan(60));
+        await tester.tap(find.text('Profil'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('PAGE /profile'), findsOneWidget);
+      });
+    }
+
     for (final reduced in [false, true]) {
-      testWidgets('/sos collapses the nav slot, / brings it back (reduced=$reduced)', (tester) async {
-        final router = await pumpShellV2(tester, '/', reducedMotion: reduced);
+      testWidgets('/checkout collapses the nav slot, / brings it back (reduced=$reduced)', (tester) async {
+        final router = await pumpShellV2(tester, '/', reducedMotion: reduced, paths: [...kShellTestPaths, '/checkout']);
         final slot = find.ancestor(of: find.byType(V2NavBar), matching: find.byType(MgStickySlide));
         expect(tester.getSize(slot).height, greaterThan(60));
-        router.go('/sos');
+        router.go('/checkout');
         await tester.pump();
         if (reduced) {
           await tester.pump();
@@ -137,7 +152,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 200));
           expect(tester.getSize(slot).height, 0);
         }
-        expect(find.text('PAGE /sos'), findsOneWidget);
+        expect(find.text('PAGE /checkout'), findsOneWidget);
         router.go('/');
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));

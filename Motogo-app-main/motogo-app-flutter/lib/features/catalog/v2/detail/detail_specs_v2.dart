@@ -4,6 +4,7 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../moto_model.dart';
@@ -20,7 +21,8 @@ class DetailKeyTilesV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final m = moto;
-    String n(num v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+    // Locale grouping (D4 mgNum): "1 170" ccm; decimals as the value has them.
+    String n(num v) => v == v.roundToDouble() ? mgNum(v, tr.lang) : mgNum(v, tr.lang, decimals: 1);
     final tiles = <(String, String, String, String)>[
       if (m.powerKw != null) (MgIcons.gauge, n(m.powerKw!), 'kW', tr.tr('specPower')),
       if (m.engineCc != null) (MgIcons.moto, n(m.engineCc!), 'ccm', tr.tr('specEngine')),
@@ -31,6 +33,8 @@ class DetailKeyTilesV2 extends StatelessWidget {
     ].take(4).toList();
     if (tiles.isEmpty) return const SizedBox.shrink();
     final unitStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta);
+    // 2 × 2 fallback: lower tiles (72) so all four clear the dock at 360 × 780.
+    var minH = 96.0;
     Widget tile(int i) => MgReveal(
           index: i,
           child: Semantics(
@@ -38,7 +42,7 @@ class DetailKeyTilesV2 extends StatelessWidget {
             label: '${tiles[i].$4}: ${tiles[i].$2} ${tiles[i].$3}',
             excludeSemantics: true,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 96),
+              constraints: BoxConstraints(minHeight: minH),
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
               decoration: BoxDecoration(
                 color: MgColors.well,
@@ -88,6 +92,7 @@ class DetailKeyTilesV2 extends StatelessWidget {
         if (catWordWidth(context, tl.$4, base) > inner) fits = false;
       }
       final cols = fits ? 4 : 2;
+      if (!fits) minH = 72;
       final rows = <Widget>[];
       for (var r = 0; r * cols < 4 && r * cols < tiles.length; r++) {
         if (r > 0) rows.add(const SizedBox(height: 8));

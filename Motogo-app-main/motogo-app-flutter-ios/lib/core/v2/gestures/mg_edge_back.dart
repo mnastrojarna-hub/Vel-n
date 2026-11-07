@@ -9,7 +9,7 @@ import 'mg_swipe.dart';
 /// intents — design G2). The system Cupertino gesture is off there, so this
 /// 20 px strip forwards the swipe to the SAME [onBack] the ‹ control runs:
 /// the page follows the finger 1:1 (≤ 40 % width) with a 12 px ink edge
-/// shadow; release past 30 % of the width or faster than 700 px/s →
+/// shadow left of it over the canvas; release past 30 % of the width or faster than 700 px/s →
 /// [onBack], else it slides back over `MgMotion.sheet`. Android / other
 /// platforms: [child] only (predictive back + the existing confirm).
 /// Reduced motion: no follow, same release rule. Use ONLY where the route's
@@ -63,16 +63,33 @@ class _MgEdgeBackState extends State<MgEdgeBack> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     if (!widget.enabled || Theme.of(context).platform != TargetPlatform.iOS) return widget.child;
     final shift = MgMotion.reduced(context) ? 0.0 : _dx.clamp(0.0, _width * 0.4);
+    // Fixed child list (no `if` before the page): the page element and its
+    // state are never re-created when a drag starts.
     return Stack(children: [
+      // The uncovered strip shows the canvas, never the black under an
+      // opaque route.
+      Positioned.fill(child: ColoredBox(color: shift > 0 ? MgColors.canvas : const Color(0x00000000))),
       Transform.translate(
         offset: Offset(shift, 0),
-        child: DecoratedBox(
-          position: DecorationPosition.foreground,
-          decoration: BoxDecoration(
-            boxShadow: shift > 0 ? [BoxShadow(color: MgColors.inkA(0.18), blurRadius: 12, offset: const Offset(-6, 0))] : null,
-          ),
-          child: widget.child,
-        ),
+        child: Stack(clipBehavior: Clip.none, fit: StackFit.passthrough, children: [
+          widget.child,
+          // 12 px ink edge shadow OUTSIDE the page's left edge (no veil
+          // over the page itself).
+          if (shift > 0)
+            Positioned(
+              left: -12,
+              top: 0,
+              bottom: 0,
+              width: 12,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [MgColors.inkA(0), MgColors.inkA(0.18)]),
+                  ),
+                ),
+              ),
+            ),
+        ]),
       ),
       Positioned(
         left: 0,

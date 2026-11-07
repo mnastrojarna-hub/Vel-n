@@ -228,7 +228,7 @@ void main() {
     await _drain(t);
   });
 
-  testWidgets('verify FND-9/SH-14: a fling on the calendar in the bike detail changes the month, never the bike', (t) async {
+  testWidgets('verify FND-9 (owner parity): a swipe on the calendar in the bike detail pages to the next bike as in the old look; months via ‹ ›', (t) async {
     final (ws, we) = futureWeekend();
     await pumpV2(t, const MotoDetailScreen(motoId: 'm-husq'),
         overrides: [
@@ -248,11 +248,10 @@ void main() {
     expect(grid, findsOneWidget);
     await t.ensureVisible(grid);
     await t.pump();
-    final month0 = t.widget<TripCalendar>(grid).month;
     await t.fling(grid, const Offset(-300, 0), 1200);
     await t.pump(const Duration(milliseconds: 500));
-    expect(t.widget<TripCalendar>(grid).month, isNot(month0));
-    expect(find.text('2 / 3'), findsOneWidget);
+    await t.pump(const Duration(milliseconds: 500));
+    expect(find.text('3 / 3'), findsOneWidget);
     await _drain(t);
   });
 

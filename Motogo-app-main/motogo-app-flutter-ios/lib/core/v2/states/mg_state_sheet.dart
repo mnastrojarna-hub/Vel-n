@@ -19,9 +19,10 @@ class MgStateChip {
   const MgStateChip(this.label, [this.tone = MgTone.info]);
 }
 
-/// T2 body: tone disc 56 + chips, title 20/800 (2 lines), why, ≤ 3 steps,
-/// support row, technical details. Buttons are pinned by the sheet frame.
-class MgStateSheetBody extends StatelessWidget {
+/// T2 body: tone disc 56 (the sheet's ✕ on its row — Stavy 2.8 / 3.1),
+/// chips under it, title 20/800 (2 lines), why, ≤ 3 steps, support row,
+/// technical details. Buttons are pinned by the sheet frame.
+class MgStateSheetBody extends StatelessWidget implements MgSheetDiscBody {
   final MgTone tone;
   final String title;
   final String? why;
@@ -50,17 +51,13 @@ class MgStateSheetBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        MgToneDisc(tone: tone, size: 56, icon: icon),
-        if (chips.isNotEmpty) ...[
-          const SizedBox(width: 12),
-          Expanded(
-            child: Wrap(spacing: 6, runSpacing: 6, children: [
-              for (final c in chips) MgMeaningChip(label: c.label, tone: c.tone),
-            ]),
-          ),
-        ],
-      ]),
+      MgToneDisc(tone: tone, size: 56, icon: icon),
+      if (chips.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final c in chips) MgMeaningChip(label: c.label, tone: c.tone),
+        ]),
+      ],
       const SizedBox(height: 14),
       Semantics(
         header: true,

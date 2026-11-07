@@ -177,6 +177,8 @@ void main() {
   testWidgets('strips: 8 px above the nav; nav hidden without a dock → above the bottom safe area', (tester) async {
     final pending = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now());
     final router = await _pump(tester, '/search', pending: pending, bottomInset: 34);
+    // The strip slides in once the pending booking arrives (sticky 300).
+    await tester.pump(const Duration(milliseconds: 400));
     final navTop = tester.getTopLeft(find.byType(V2NavBar)).dy;
     expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy, moreOrLessEquals(navTop - 8));
     // Focused flow without a dock (the test page has none): the body reaches

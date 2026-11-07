@@ -157,7 +157,7 @@ void main() {
   final (ws, we) = futureWeekend();
   final dated = CatalogFilter(startDate: ws, endDate: we);
 
-  testWidgets('calculator → form: bike + dates filled and folded; back + REZERVOVAT keeps the form', (t) async {
+  testWidgets('calculator → form: bike + dates filled, date card folded; back + REZERVOVAT keeps the form', (t) async {
     final (r, c) = await _pump(t, '/search', [
       ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we), profile: _profile),
       catalogCalcRequestProvider.overrideWith((ref) => true),
@@ -165,8 +165,8 @@ void main() {
     await _tapCta(t);
     expect(find.byType(BookingDebugWrapper), findsOneWidget);
     expect(find.descendant(of: find.byType(BookingRecapV2), matching: find.text(kBmw.model)), findsWidgets);
-    // CB-11 express: folded under the recap until opened.
-    expect(t.widget<BookingHandoverRowV2>(find.byType(BookingHandoverRowV2)).open, isFalse);
+    // CB-11 express headers start OPEN (owner "nic neomezit").
+    expect(t.widget<BookingHandoverRowV2>(find.byType(BookingHandoverRowV2)).open, isTrue);
     await openBookingExpress(t);
     final dateCard = find.byType(BookingDateCardV2);
     expect(find.descendant(of: dateCard, matching: find.text('Změnit')), findsOneWidget);

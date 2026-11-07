@@ -55,7 +55,8 @@ void main() {
           );
           await t.pump();
           expect(t.takeException(), isNull);
-          final title = _tr(lang, pickup ? 'deliveryToAddress' : 'returnFromAddress');
+          // v2: the same options in tykání (the v2 booking form's keys).
+          final title = _tr(lang, pickup ? 'v2BkDeliveryTo' : 'v2BkReturnFrom');
           for (final text in [_tr(lang, 'atBranch'), title]) {
             if (montserratLoaded) expect(midWordBreak(t.renderObject<RenderParagraph>(find.text(text))), isNull, reason: text);
           }

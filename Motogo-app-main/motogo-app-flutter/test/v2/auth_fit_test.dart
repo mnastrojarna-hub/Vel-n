@@ -13,7 +13,7 @@ import 'package:motogo_app/features/auth/login_screen.dart';
 import 'package:motogo_app/features/auth/register_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'support/v2_harness.dart' show kV2Langs, loadMontserrat, v2TestTheme;
+import 'support/v2_harness.dart' show kV2Langs, legacyTestTheme, loadMontserrat, v2TestTheme;
 
 Future<void> _pump(WidgetTester tester, Widget screen, String lang, double scale, bool v2) async {
   tester.view.physicalSize = const Size(320, 690) * 2;
@@ -34,7 +34,8 @@ Future<void> _pump(WidgetTester tester, Widget screen, String lang, double scale
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: v2TestTheme(),
+      // Flag OFF = the old screens' guards keep their reference theme.
+      theme: v2 ? v2TestTheme() : legacyTestTheme(),
       builder: (c, child) => MgV2Scope(
         enabled: v2,
         child: MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale)), child: child!),

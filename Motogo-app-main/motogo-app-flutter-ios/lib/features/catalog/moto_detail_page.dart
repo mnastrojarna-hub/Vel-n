@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/friendly_error.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
@@ -22,6 +23,7 @@ import 'widgets/specs_section.dart';
 import 'widgets/validation_banner.dart';
 import '../../core/date_days.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/widgets/error_feedback.dart' show openFixSettings;
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/states/mg_state_screen.dart';
@@ -29,6 +31,7 @@ import '../../core/v2/widgets/mg_buttons.dart';
 import 'v2/detail/detail_dates_carry_v2.dart';
 import 'v2/detail/detail_states_v2.dart';
 import 'v2/detail/moto_detail_view_v2.dart';
+import 'v2/motorky_error_v2.dart' show friendlyWhy;
 
 /// Detail content for a single motorcycle.
 /// Used inside the pager (MotoDetailScreen) — one page per motorcycle.
@@ -192,12 +195,18 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
           ? MgStateScreen(
               tone: MgTone.err,
               title: t(context).tr('v2DetLoadFail'),
-              why: t(context).tr('v2UxCbErrWhyDetail'),
+              // The error's own reason + fix (old MgErrorView), not a fixed text.
+              why: '${friendlyWhy(t(context), FriendlyError.of(e))} ${FriendlyError.of(e).body(t(context))}',
               tech: '$e',
               primary: MgStateAction(t(context).tr('eoRetry'), () => ref.invalidate(motorcyclesProvider)),
               secondary: MgStateAction(t(context).tr('v2UxCbBackToMotos'), _back),
               onClose: widget.showBackButton ? _back : null,
               closeIsBack: true,
+              children: [
+                if (FriendlyError.of(e).needsSettings)
+                  MgBtnGhostLight(
+                      label: t(context).tr('eoOpenSettings'), onTap: () => openFixSettings(FriendlyError.of(e))),
+              ],
             )
           : _stateFrame(MgErrorView(
         error: e,

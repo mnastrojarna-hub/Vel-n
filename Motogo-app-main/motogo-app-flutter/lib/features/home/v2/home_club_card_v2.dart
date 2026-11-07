@@ -115,6 +115,11 @@ class HomeClubCardV2 extends ConsumerWidget {
                       style: MgType.tab(MgType.meta.copyWith(color: MgColors.lead)),
                     ),
                 ]),
+                const SizedBox(height: 4),
+                // Celkem bodů (rezervace z appky i webu) — jako stará karta Domů.
+                Text(tr.tr('loyaltyBookingsCount').replaceAll('{n}', '${status.qualifyingCount}'),
+                    key: const ValueKey('home-club-count'),
+                    style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
               ]),
             ),
             const SizedBox(height: 12),
@@ -137,6 +142,19 @@ class HomeClubCardV2 extends ConsumerWidget {
               ),
             ]),
             const SizedBox(height: 8),
+            // Vždy vidět (stará karta Domů): sleva jen z appky + všechny ranky.
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: MgIcon(MgIcons.starFilled, size: 14, color: MgColors.meta),
+              ),
+              const SizedBox(width: 6),
+              Expanded(child: Text(tr.tr('loyaltyAppOnly'), style: MgType.meta.copyWith(color: MgColors.meta))),
+            ]),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: HomeTextLink(label: tr.tr('v2HomeClubAll'), onTap: () => openLoyaltyRanks(context)),
+            ),
             const Divider(height: 1, thickness: 1, color: MgColors.line),
             // Board Main: jeden souhrnný řádek výhod + „Výhody a ligy ▾"
             // (zbytek sbalený — pravidlo majitele o rozbalování).
@@ -179,19 +197,6 @@ class HomeClubCardV2 extends ConsumerWidget {
                   Text(tr.tr('v2HomeClubRail').toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta)),
                   const SizedBox(height: 8),
                   ClubTierRail(current: tier, onPreview: (level) => showTierPreviewSheet(context, level)),
-                  const SizedBox(height: 10),
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 1),
-                      child: MgIcon(MgIcons.starFilled, size: 14, color: MgColors.meta),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(tr.tr('loyaltyAppOnly'), style: MgType.meta.copyWith(color: MgColors.meta))),
-                  ]),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: HomeTextLink(label: tr.tr('v2HomeClubAll'), onTap: () => openLoyaltyRanks(context)),
-                  ),
                 ]),
               ),
             ),

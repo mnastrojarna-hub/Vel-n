@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/features/auth/v2/date_field_v2.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
@@ -113,17 +114,17 @@ void main() {
         () => fresh ? profileOverrides(profile: kProfileNew, docs: PfDocs.none, unread: 0) : profileOverrides(),
         height: 4200,
         check: (lang, w, s) {
-          final dd = find.byType(DropdownButtonFormField<int>);
-          expect(dd, findsNWidgets(6));
-          final day = t.getRect(dd.at(0)), month = t.getRect(dd.at(1)), year = t.getRect(dd.at(2));
-          if (!fresh && w == 412 && s == 1.0 && lang == 'cs') {
-            // Today's 3 : 5 : 4 row where it fits.
-            expect({day.top, month.top, year.top}.length, 1);
-            expect(day.width / year.width, closeTo(3 / 4, 0.02));
+          // v2 date row (sheet pickers instead of the Material menus).
+          expect(find.byType(DateFieldRowV2), findsNWidgets(2));
+          expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+          final day = t.getRect(find.byKey(const ValueKey('date-v2-day')).first);
+          final month = t.getRect(find.byKey(const ValueKey('date-v2-month')).first);
+          final year = t.getRect(find.byKey(const ValueKey('date-v2-year')).first);
+          // 1 : 1.4 : 1 in one row at normal text, from 320 dp up.
+          if (s == 1.0) {
+            expect({day.top, month.top, year.top}.length, 1, reason: '$lang $w: one row');
+            expect(day.width / month.width, closeTo(10 / 14, 0.02));
           }
-          if (w == 320 && s == 1.3) expect(year.top, greaterThan(day.bottom), reason: '$lang: year on its own line');
-          // 360 dp (the usual phone): one row again once a date is filled in.
-          if (!fresh && w == 360 && s == 1.0) expect(year.top, day.top, reason: '$lang: one row at 360');
         },
       );
       expect(fails, isEmpty, reason: '${fresh ? 'empty' : 'filled'}:\n${fails.take(20).join('\n')}');

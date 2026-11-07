@@ -98,7 +98,16 @@ class HomeRecordRowV2 extends ConsumerWidget {
           !fits(sub, MgType.tab(MgType.small), 0.85);
     }
 
-    Widget main(bool narrow) => Semantics(
+    // Úzké rozvržení: titulek vedle 36px dlaždice jen když se tam jeho
+    // nejdelší slovo vejde aspoň zmenšené (týž styl a minScale jako při
+    // kreslení); jinak titulek pod dlaždici přes celou šířku řádku
+    // („Enregistrement" na 320 dp se dřív dělilo).
+    bool titleBesideTile(BuildContext context, double w) {
+      final tw = w - 16 - 36 - 10 - (chevron != null ? 24 : 0);
+      return tw > 0 && homeWordsFitIn(context, title, MgType.title, tw / 0.7);
+    }
+
+    Widget main(bool narrow, {bool titleBelow = false}) => Semantics(
           button: true,
           label: '$title. $sub',
           excludeSemantics: true,
@@ -112,11 +121,11 @@ class HomeRecordRowV2 extends ConsumerWidget {
                   ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                       Row(children: [
                         icon(36),
-                        const SizedBox(width: 10),
-                        Expanded(child: titleW),
+                        if (!titleBelow) ...[const SizedBox(width: 10), Expanded(child: titleW)] else const Spacer(),
                         if (chevron != null) ...[const SizedBox(width: 4), chevron],
                       ]),
-                      const SizedBox(height: 6),
+                      if (titleBelow) ...[const SizedBox(height: 8), titleW],
+                      SizedBox(height: titleBelow ? 3 : 6),
                       subW,
                     ])
                   : Row(children: [
@@ -156,7 +165,12 @@ class HomeRecordRowV2 extends ConsumerWidget {
           final ts = MediaQuery.textScalerOf(context).scale(1);
           final iconOnly = c.maxWidth < 360 * ts;
           return Row(children: [
-            Expanded(child: LayoutBuilder(builder: (context, m) => main(needsNarrow(context, m.maxWidth)))),
+            Expanded(
+              child: LayoutBuilder(builder: (context, m) {
+                final narrow = needsNarrow(context, m.maxWidth);
+                return main(narrow, titleBelow: narrow && !titleBesideTile(context, m.maxWidth));
+              }),
+            ),
             if (live) RecPauseDiscV2(paused: rec.isManualPaused, dark: false, onTap: () => rideTogglePauseV2(context, ref)),
             if (manual) ...[
               const SizedBox(width: 6),

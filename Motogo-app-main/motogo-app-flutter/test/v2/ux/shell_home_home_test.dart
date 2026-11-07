@@ -3,8 +3,10 @@
 // SH-21 eyebrow, SH-22 offer copy, SH-23 skeleton, SH-24 record row,
 // SH-26 pills, SH-27 S8 ring, SH-30 count-up, SH-39 tier preview, SH-40.
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_count_up.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
@@ -64,15 +66,22 @@ void main() {
     expect(TkCountdownRing.fraction(p), closeTo(0.5, 0.01));
   });
 
-  testWidgets('SH-09 meta: branch · type, booking number only for screen readers', (tester) async {
+  testWidgets('SH-09 meta: branch · type; booking number VISIBLE on its own line (old Domů card parity)', (tester) async {
     await _home(tester, homeCases()['s6']!());
     expect(find.text('Velké Němčice · samoobsluha nonstop'), findsOneWidget);
-    expect(find.textContaining('#B6AAAAAA'), findsNothing);
-    expect(find.bySemanticsLabel(RegExp('#')), findsWidgets);
+    expect(find.descendant(of: find.byKey(const ValueKey('tk-short-id')), matching: find.text('#55556666')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('#55556666')), findsWidgets);
     await _home(tester, homeCases()['s4']!());
     expect(find.text('Mezná · s obsluhou'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tk-short-id')), findsOneWidget);
     await _home(tester, homeCases()['s5']!());
     expect(find.text('Masarykova 12, 602 00 Brno'), findsOneWidget);
+    // Never cut: the longest type name (uk) at 320 dp still shows the whole number.
+    await _home(tester, homeCases()['s6']!(), size: const Size(320, 690), lang: 'uk');
+    final id = tester.renderObject<RenderParagraph>(
+        find.descendant(of: find.byKey(const ValueKey('tk-short-id')), matching: find.byType(RichText)));
+    expect(id.didExceedMaxLines, isFalse);
+    expect(id.size.width, greaterThanOrEqualTo(id.textSize.width - 0.5));
   });
 
   testWidgets('SH-26 S6 "PŘIPRAVENO" + n/m hotovo; S7 "DNES · VÝDEJ OD 12:00"', (tester) async {
@@ -95,11 +104,20 @@ void main() {
     expect(find.textContaining('Záznam jízdy z výpůjčky běží ·'), findsOneWidget);
   });
 
-  testWidgets('SH-10 club: collapsed ≤ 300 px at 360, one summary row; tap opens perks + rail; reduced = instant', (tester) async {
+  testWidgets('SH-10 club: collapsed shows points total, app-only note, all ranks (old Domů card); tap opens perks + rail', (tester) async {
     await pumpV2(tester, const SingleChildScrollView(child: HomeClubCardV2()), overrides: homeOverrides(), reducedMotion: true);
     await tester.pump(const Duration(milliseconds: 300));
-    expect(tester.getSize(find.byType(HomeClubCardV2)).height, lessThanOrEqualTo(300));
+    expect(tester.getSize(find.byType(HomeClubCardV2)).height, lessThanOrEqualTo(380));
     expect(find.text('TVŮJ KLUB · LEVEL 3 Z 20'), findsOneWidget);
+    // Never behind the disclosure: total points, app-only rule, all ranks.
+    expect(find.text('5 b. · rezervace z appky i webu'), findsOneWidget);
+    final tr = AppTranslations.of('cs');
+    expect(find.text(tr.tr('loyaltyAppOnly')), findsOneWidget);
+    expect(find.text(tr.tr('v2HomeClubAll')), findsOneWidget);
+    for (final k in ['loyaltyAppOnly', 'v2HomeClubAll']) {
+      expect(find.descendant(of: find.byKey(const ValueKey('home-club-more')), matching: find.text(tr.tr(k))), findsNothing,
+          reason: '$k outside the disclosure');
+    }
     expect(find.text('na každou jízdu v appce'), findsNothing);
     await tester.tap(find.text('Výhody a ligy'));
     await tester.pump();

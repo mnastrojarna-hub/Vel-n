@@ -100,7 +100,9 @@ class PayMethodCardV2 extends StatelessWidget {
     final title = c == null ? tr.tr('paymentCard') : '${c.displayBrand} •••• ${c.last4}';
     final sub = c == null
         ? tr.trArgs('v2UxPsWalletToo', {'wallet': ios ? 'Apple Pay' : 'Google Pay'})
-        : tr.tr('v2UxPsDefaultCard');
+        // The old preview's expiry + holder: which card is charged.
+        : [tr.tr('v2UxPsDefaultCard'), c.displayExpiry, if ((c.holderName ?? '').trim().isNotEmpty) c.holderName!.trim()]
+            .join(' · ');
     return PayCardV2(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         PayEyebrowV2(tr.tr('v2UxPsMethod')),

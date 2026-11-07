@@ -8,6 +8,8 @@ import '../price_calculator.dart' show PriceCalculator;
 import '../../../core/booking_form_locked_option.dart';
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/address_option_v2.dart';
 
 /// Jednořádková adresa (`bookings.pickup_address`, `return_address`) →
 /// (ulice, obec): obec = text za POSLEDNÍ čárkou, ulice = vše před ní —
@@ -143,8 +145,10 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
     }
   }
 
-  String _deliveryTitle(BuildContext context) =>
-      t(context).tr(widget.isPickup ? 'deliveryToAddress' : 'returnFromAddress');
+  String _deliveryTitle(BuildContext context) => MgV2.on(context)
+      // v2: tytéž volby v tykání (klíče rezervačního formuláře v2).
+      ? t(context).tr(widget.isPickup ? 'v2BkDeliveryTo' : 'v2BkReturnFrom')
+      : t(context).tr(widget.isPickup ? 'deliveryToAddress' : 'returnFromAddress');
 
   void _onSaved(String city, String addr) {
     final initial = widget.initialAddress;
@@ -330,7 +334,10 @@ class _RadioOption extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
+  Widget build(BuildContext context) => MgV2.on(context)
+      // v2: volba jako MgChoiceCard s cenou vpravo, totéž klepnutí.
+      ? AddressOptionV2(label: label, sublabel: sublabel, price: price, selected: selected, onTap: onTap)
+      : GestureDetector(
       onTap: onTap,
       child: Container(
           padding: const EdgeInsets.all(10),

@@ -102,7 +102,8 @@ void main() {
     });
   });
 
-  testWidgets('RP-05 branches sheet: card expands to details, navigation and bikes', (t) async {
+  testWidgets('RP-05 branches sheet: card expands to details, navigation and bikes (the old card\'s launch targets)', (t) async {
+    final launched = <Uri>[];
     final branches = [
       {'id': 'b1', 'name': 'MotoGo24 Mezná', 'address': 'Mezná 9', 'city': 'Pelhřimov', 'type': 'obslužná', 'is_open': true,
         'phone': '+420774256271', 'gps_lat': 49.4, 'gps_lng': 15.2},
@@ -112,7 +113,7 @@ void main() {
         {'id': 'm1', 'model': 'BMW R 1200 GS Adventure', 'brand': 'BMW', 'engine_cc': 1170, 'power_kw': 92, 'license_required': 'A'},
       ],
     };
-    await pumpV2(t, SingleChildScrollView(child: BranchesSheetV2(branches: branches, motosByBranch: motos)));
+    await pumpV2(t, SingleChildScrollView(child: BranchesSheetV2(branches: branches, motosByBranch: motos, onLaunch: launched.add)));
     await t.pump(const Duration(milliseconds: 600));
     expect(find.text(_t('navigateToBranch')), findsNothing);
     await t.tap(find.text('MotoGo24 Mezná'));
@@ -120,6 +121,12 @@ void main() {
     await t.pump(const Duration(milliseconds: 400));
     expect(find.text(_t('navigateToBranch')), findsOneWidget);
     expect(find.byType(BranchMotoRowV2), findsOneWidget);
+    // Navigation = the same maps target as BranchDetailCard.
+    await t.ensureVisible(find.text(_t('navigateToBranch')));
+    await t.pump();
+    await t.tap(find.text(_t('navigateToBranch')));
+    await t.pump();
+    expect(launched.map((u) => u.toString()), contains('https://maps.google.com/?q=49.4,15.2'));
     expect(t.takeException(), isNull);
   });
 
@@ -165,7 +172,9 @@ void main() {
     ));
     await t.pump();
     expect(find.text('12 027 Kč'), findsOneWidget);
-    expect(find.text('ZF-2026-0142 · 30. 9. 2026'), findsOneWidget);
+    // Two pieces: the line breaks only between number and date.
+    expect(find.text('ZF-2026-0142 ·'), findsOneWidget);
+    expect(find.text('30. 9. 2026'), findsOneWidget);
   });
 
   group('RP-13 / RP-25 profile', () {

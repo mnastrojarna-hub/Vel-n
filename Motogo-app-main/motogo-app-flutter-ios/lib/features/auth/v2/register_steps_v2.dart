@@ -6,6 +6,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_choice_card.dart';
 import '../../../core/v2/widgets/mg_inputs.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import 'auth_parts_v2.dart';
 import 'register_view_v2.dart';
 
@@ -43,6 +44,24 @@ Widget _pair(Widget a, Widget b, {int flexA = 1, int flexB = 1}) => LayoutBuilde
               Expanded(flex: flexB, child: b),
             ]),
     );
+
+/// The two licence cards side by side only while every word of their
+/// title and sub fits half the width ("Leistungsbegrenzung",
+/// "vermogenslimiet" at 360 / 412 dp); otherwise stacked — never a word
+/// split inside a card.
+Widget _licPair(Widget a, Widget b, List<(String, String?)> texts) => LayoutBuilder(builder: (context, c) {
+      // Card: 14 + text + 12 + 24 (check) + 14, 1.5 px border.
+      final inner = (c.maxWidth - 10) / 2 - 14 - 12 - 24 - 14 - 3;
+      final title = MgType.body.copyWith(fontWeight: FontWeight.w800);
+      bool fits(String? txt, TextStyle st) => txt == null || mgWordsFit(context, txt, st, inner);
+      final side = c.maxWidth >= 270 && texts.every((x) => fits(x.$1, title) && fits(x.$2, MgType.small));
+      if (!side) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [a, const SizedBox(height: 10), b]);
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: a),
+        const SizedBox(width: 10),
+        Expanded(child: b),
+      ]);
+    });
 
 /// Date field + its inline error; clears the error when a value is picked.
 Widget _date(RegisterV2Model m, String field, String label, int first, int last, {bool desc = false}) {
@@ -148,7 +167,7 @@ class RegisterStep3V2 extends StatelessWidget {
       Semantics(
         container: true,
         label: tr.tr('licenseCategory'),
-        child: _pair(card('A2', a2), card('A', a)),
+        child: _licPair(card('A2', a2), card('A', a), [a2, a]),
       ),
       const Padding(
         padding: EdgeInsets.symmetric(vertical: 14),

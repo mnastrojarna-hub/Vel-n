@@ -36,7 +36,7 @@ class DetailHeroV2 extends StatelessWidget {
   /// CB-13: dates chosen → the availability pill speaks about THEM:
   /// [rangeFree] true = loaded and free ("● Volná v tvém termínu", the
   /// detail's one live indicator); false / null (busy / still loading) =
-  /// no pill. Without dates the old "Dnes volná" stays.
+  /// the old "Dnes volná" (when free today), as without dates.
   final bool hasDates;
   final bool? rangeFree;
 
@@ -182,7 +182,9 @@ class DetailHeroV2 extends StatelessWidget {
                 Row(children: [
                   if (hasDates && rangeFree == true)
                     _pill(tr.tr('v2CatFreeInRange'), live: true)
-                  else if (!hasDates && moto.availableToday == true)
+                  // Otherwise "Dnes volná" as the old hero always showed it
+                  // (no dates, availability still loading, or not free in range).
+                  else if (moto.availableToday == true)
                     _pill(tr.tr('v2CatFreeToday'), live: true),
                   const Spacer(),
                   if (images.isNotEmpty)

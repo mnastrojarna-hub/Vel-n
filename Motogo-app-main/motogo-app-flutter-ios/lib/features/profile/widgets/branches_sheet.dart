@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
@@ -58,7 +59,7 @@ Future<void> showBranchesSheet(BuildContext context) async {
       showMgSheet<void>(
         context,
         title: t(context).tr('branchesTitle'),
-        builder: (_) => BranchesSheetV2(branches: branches, motosByBranch: motosByBranch),
+        builder: (_) => BranchesSheetV2(branches: branches, motosByBranch: motosByBranch, onLaunch: launchUrl),
       );
       return;
     }

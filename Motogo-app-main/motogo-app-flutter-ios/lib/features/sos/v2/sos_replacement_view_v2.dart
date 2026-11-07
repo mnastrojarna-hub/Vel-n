@@ -10,7 +10,6 @@ import '../../../core/v2/states/mg_state_banner.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_photo.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
@@ -20,11 +19,8 @@ import 'sos_actions_v2.dart';
 import 'sos_header_v2.dart';
 import 'sos_widgets_v2.dart';
 
-/// Rows shown before "Zobrazit další (n)".
-const kSosReplacementFirst = 6;
-
 /// v2 "Náhradní motorka – zdarma" (SOS board): green bike header, free bikes
-/// as photo rows (first 6, then "Zobrazit další (n)"), delivery address
+/// as photo rows (ALL of them, as in the old list — owner "nic neomezit"), delivery address
 /// (the screen's own address widgets), night dock with the neon confirm
 /// above the nonstop line. Selection / confirm = the screen's own.
 class SosReplacementViewV2 extends StatefulWidget {
@@ -57,8 +53,6 @@ class SosReplacementViewV2 extends StatefulWidget {
 }
 
 class _SosReplacementViewV2State extends State<SosReplacementViewV2> {
-  bool _all = false;
-
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
@@ -72,29 +66,17 @@ class _SosReplacementViewV2State extends State<SosReplacementViewV2> {
             actions: [widget.callButton],
           );
         }
-        final shown = _all ? motos : motos.take(kSosReplacementFirst).toList();
-        final more = motos.length - shown.length;
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          MgAnimatedSize(
-            duration: MgMotion.of(context, MgMotion.sticky),
-            curve: MgMotion.emphasized,
-            alignment: Alignment.topCenter,
-            child: Column(children: [
-              for (final m in shown) ...[
-                _SosBikeRowV2(moto: m, selected: widget.selectedId == m.id, onTap: () => widget.onSelect(m)),
-                const SizedBox(height: 8),
-              ],
-            ]),
-          ),
-          if (more > 0)
-            Center(
-              child: MgBtnText(
-                label: tr.trArgs('v2UxAsmShowMore', {'n': more}),
-                icon: MgIcons.chevronDown,
-                onTap: () => setState(() => _all = true),
-              ),
-            ),
-        ]);
+        return MgAnimatedSize(
+          duration: MgMotion.of(context, MgMotion.sticky),
+          curve: MgMotion.emphasized,
+          alignment: Alignment.topCenter,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (final m in motos) ...[
+              _SosBikeRowV2(moto: m, selected: widget.selectedId == m.id, onTap: () => widget.onSelect(m)),
+              const SizedBox(height: 8),
+            ],
+          ]),
+        );
       },
       loading: () => const Column(children: [
         MgSkeletonRow(thumb: 64, lines: 2),

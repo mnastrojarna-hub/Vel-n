@@ -47,6 +47,25 @@ class ResFilterTabsV2 extends StatefulWidget {
 class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
   final _keys = {for (final k in kResFilterKeys) k: GlobalKey()};
   final _scroll = ScrollController();
+  final _rowKey = GlobalKey();
+
+  /// Measured tab boxes in the row (for the ONE sliding thumb).
+  List<Rect>? _rects;
+
+  void _measure() {
+    if (!mounted) return;
+    final row = _rowKey.currentContext?.findRenderObject() as RenderBox?;
+    if (row == null || !row.hasSize) return;
+    final out = <Rect>[];
+    for (final k in kResFilterKeys) {
+      final b = _keys[k]?.currentContext?.findRenderObject() as RenderBox?;
+      if (b == null || !b.hasSize) return;
+      out.add(b.localToGlobal(Offset.zero, ancestor: row) & b.size);
+    }
+    final old = _rects;
+    final same = old != null && old.length == out.length && [for (var i = 0; i < out.length; i++) old[i] == out[i]].every((x) => x);
+    if (!same) setState(() => _rects = out);
+  }
 
   /// Edge fades: a tab cut by the track edge reads as "more this way", not
   /// as a layout bug (V22 `.ls-seg`).
@@ -129,21 +148,58 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
           child: ValueListenableBuilder<double>(
             valueListenable: widget.dragProgress ?? _zero,
             builder: (context, p, _) {
-              // Výběr přechází s prstem na souseda ve směru tahu.
-              final target = idx + (p > 0 ? 1 : (p < 0 ? -1 : 0));
-              final t = p.abs().clamp(0.0, 1.0);
+              // JEDEN palec pod záložkami (jako MgSegmented): s prstem jede
+              // z aktuální záložky k sousední, po puštění dosedne (300,
+              // spring; reduced = hned). Popisek je bílý jen pod palcem.
+              final target = (idx + (p > 0 ? 1 : (p < 0 ? -1 : 0))).clamp(0, kResFilterKeys.length - 1);
+              final t = target == idx ? 0.0 : p.abs().clamp(0.0, 1.0);
               double fill(int i) => i == idx ? 1 - t : (i == target ? t : 0);
-              return Row(children: [
+              WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+              final r = _rects;
+              final dragging = p != 0;
+              final row = Row(key: _rowKey, children: [
                 for (var i = 0; i < kResFilterKeys.length; i++)
                   _Tab(
                     key: _keys[kResFilterKeys[i]],
                     label: tr.tr(kResFilterI18n[i]),
                     count: widget.counts?[kResFilterKeys[i]],
                     selected: kResFilterKeys[i] == widget.value,
-                    fill: fill(i),
-                    dragging: p != 0,
+                    on: i == idx ? t < 0.5 : (i == target && t >= 0.5),
+                    // Before the first measure: the old per-tab fill.
+                    fill: r == null ? fill(i) : 0,
+                    dragging: dragging,
                     onTap: () => widget.onSelect(kResFilterKeys[i]),
                   ),
+              ]);
+              if (r == null || idx < 0) return row;
+              final a = r[idx], b = r[target];
+              final at = Rect.lerp(a, b, t)!;
+              return Stack(children: [
+                AnimatedPositioned(
+                  key: const ValueKey('res-filter-thumb'),
+                  duration: dragging ? Duration.zero : MgMotion.of(context, MgMotion.thumb),
+                  curve: MgMotion.spring,
+                  left: at.left,
+                  top: at.top,
+                  width: at.width,
+                  height: at.height,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: MgColors.panel,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                              color: MgColors.panel.withValues(alpha: 0.5),
+                              blurRadius: 14,
+                              offset: const Offset(0, 6),
+                              spreadRadius: -6)
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                row,
               ]);
             },
           ),
@@ -185,6 +241,9 @@ class _Tab extends StatelessWidget {
 
   /// 0..1 share of the dark selection (1 = selected, between = mid-swipe).
   final double fill;
+
+  /// The thumb is under this tab (≥ half) → light label.
+  final bool on;
   final bool dragging;
   final VoidCallback onTap;
   const _Tab({
@@ -193,6 +252,7 @@ class _Tab extends StatelessWidget {
     required this.count,
     required this.selected,
     required this.fill,
+    required this.on,
     required this.dragging,
     required this.onTap,
   });
@@ -201,7 +261,6 @@ class _Tab extends StatelessWidget {
   Widget build(BuildContext context) {
     // Během tahu bez zpoždění (výběr drží prst), jinak plynulý přechod.
     final dur = dragging ? Duration.zero : MgMotion.of(context, MgMotion.tab);
-    final on = fill >= 0.5;
     return Semantics(
       button: true,
       selected: selected,
@@ -228,9 +287,14 @@ class _Tab extends StatelessWidget {
                 : null,
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(label,
-                style: MgType.small.copyWith(
-                    fontWeight: FontWeight.w800, color: Color.lerp(MgColors.meta, MgColors.onDark, fill))),
+            // Label colour switches (180 ms) only when the thumb is under it
+            // — never white on a half-faded panel.
+            AnimatedDefaultTextStyle(
+              duration: MgMotion.of(context, MgMotion.color),
+              style: DefaultTextStyle.of(context).style.merge(
+                  MgType.small.copyWith(fontWeight: FontWeight.w800, color: on ? MgColors.onDark : MgColors.meta)),
+              child: Text(label),
+            ),
             // Počet až s daty — při načítání žádná falešná „0".
             if (count != null) ...[
               const SizedBox(width: 6),

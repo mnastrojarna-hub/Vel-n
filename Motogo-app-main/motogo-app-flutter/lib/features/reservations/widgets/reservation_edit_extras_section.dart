@@ -9,6 +9,9 @@ import '../../../core/widgets/mg_nav_controls.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../v2/res_edit_gear_v2.dart';
 import '../v2/res_edit_sections_v2.dart';
+import '../../../core/v2/icons/mg_icon.dart';
+import '../../booking/v2/sizes_sheet_v2.dart' show showSingleSizeSheetV2;
+import '../v2/res_edit_sizes_v2.dart';
 
 /// Extras + gear size section for reservation edit.
 ///
@@ -90,6 +93,12 @@ class EditExtrasSection extends StatelessWidget {
     required VoidCallback onRemove,
   }) {
     final sizes = gearSizesFor('boots', kids: isKids, selfService: selfService);
+    // v2: tentýž sheet jako v rezervaci (CB-03) — výběr = zavřít, odebrat.
+    if (MgV2.on(context)) {
+      showSingleSizeSheetV2(context,
+          title: title, sub: null, sizes: sizes, current: null, last: null, onPick: onPick, onRemove: isSelected ? onRemove : null);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -130,6 +139,29 @@ class EditExtrasSection extends StatelessWidget {
   /// pants). Opened when the add-on is checked; the same sizes also stay
   /// expanded inline below the checkbox for free changes.
   void _showPassengerGearSheet(BuildContext context) {
+    // v2: světlý sheet, tytéž okamžité zápisy velikostí a totéž odebrání.
+    if (MgV2.on(context)) {
+      showEditPassengerSheetV2(
+        context,
+        title: '${t(context).tr('passengerGearLabel')} – ${t(context).tr('sizesLabel')}',
+        rows: [
+          (t(context).tr('helmet'), MgIcons.helmet, gearSizesFor('helmet', kids: false, selfService: selfService),
+              passengerHelmetSize, onPassengerHelmetSize),
+          (t(context).tr('jacket'), MgIcons.jacket, gearSizesFor('jacket', kids: false, selfService: selfService),
+              passengerJacketSize, onPassengerJacketSize),
+          (t(context).tr('pants'), MgIcons.pants, gearSizesFor('pants', kids: false, selfService: selfService),
+              passengerPantsSize, onPassengerPantsSize),
+        ],
+        onRemove: () {
+          _removeExtra('spolujezdec');
+          onPassengerHelmetSize(null);
+          onPassengerJacketSize(null);
+          onPassengerPantsSize(null);
+          onPassengerGlovesSize(null);
+        },
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

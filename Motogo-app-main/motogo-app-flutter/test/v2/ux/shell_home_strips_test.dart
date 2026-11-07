@@ -1,5 +1,6 @@
-// SH-05 strip ✕ confirm, SH-06 no duplicate strip on Domů, SH-07 one strip
-// + "+n" sheet, SH-13 tab fade-through, SH-14 push page on both platforms.
+// SH-05 strip ✕ confirm, SH-06 Domů leaves out only the payable strip (the
+// ticket S2 has both its actions), SH-07 every strip stacked with its own
+// tap / ✕ (owner parity rule), SH-13 tab fade-through, SH-14 push page.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -20,20 +21,28 @@ import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
 import 'package:motogo_app/core/v2/widgets/mg_dialog.dart';
-import 'package:motogo_app/core/v2/widgets/mg_sheet.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
+import 'package:motogo_app/features/documents/document_provider.dart' show DocsVerification;
 import 'package:motogo_app/features/messages/messages_provider.dart';
+import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:motogo_app/features/shop/shop_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/fakes_home.dart' show day, res;
 import '../support/shell_harness.dart' show kShellTestPaths;
 import '../support/v2_harness.dart';
 
 const _sos = PendingSosReplacement(id: 's1', type: 'breakdown_minor', status: 'reported');
+final _cs = AppTranslations.of('cs');
 
 Future<GoRouter> _shell(WidgetTester tester, String initial,
-    {PendingBooking? pending, PendingSosReplacement? sos, bool cart = false, bool reduced = false}) async {
+    {PendingBooking? pending,
+    PendingSosReplacement? sos,
+    bool cart = false,
+    bool reduced = false,
+    List<Reservation> reservations = const [],
+    bool? docsOk}) async {
   SharedPreferences.setMockInitialValues({'mg_v2_ai_coach_seen': true});
   tester.view.physicalSize = const Size(360, 780) * 2;
   tester.view.devicePixelRatio = 2;
@@ -42,7 +51,7 @@ Future<GoRouter> _shell(WidgetTester tester, String initial,
     ShellRoute(
       builder: (_, __, child) => AppShellV2(child: child),
       routes: [
-        for (final p in kShellTestPaths)
+        for (final p in [...kShellTestPaths, '/payment-result', '/docs'])
           GoRoute(path: p, builder: (_, s) => Scaffold(body: Center(child: Text('PAGE ${s.uri.path}')))),
       ],
     ),
@@ -57,8 +66,12 @@ Future<GoRouter> _shell(WidgetTester tester, String initial,
       pendingBookingFabProvider.overrideWith((ref) => Stream.value(pending)),
       pendingSosFabProvider.overrideWith((ref) => Stream.value(sos)),
       paidAfterRestartProvider.overrideWith((ref) async => null),
-      reservationsProvider.overrideWith((ref) => Stream.value(const [])),
-      docsFabStatusProvider.overrideWith((ref) => Completer<DocsScreenStatus>().future),
+      reservationsProvider.overrideWith((ref) => Stream.value(reservations)),
+      docsFabStatusProvider.overrideWith((ref) => docsOk == null
+          ? Completer<DocsScreenStatus>().future
+          : Future.value(DocsScreenStatus(
+              docsOk ? DocsVerification(idVerifiedAt: day(-30), licenseVerifiedAt: day(-30)) : const DocsVerification(),
+              null))),
       adminUnreadCountProvider.overrideWithValue(0),
       if (cart) cartProvider.overrideWith((ref) => CartNotifier()..addItem('p1', 'Tričko', 490)),
     ],
@@ -91,7 +104,7 @@ PendingBooking _pending() => PendingBooking(id: 'b1', totalPrice: 12027, created
 void main() {
   setUpAll(loadMontserrat);
 
-  testWidgets('SH-06 Domů: the pay strip is left out (the ticket S2 has it); /search shows it', (tester) async {
+  testWidgets('SH-06 Domů: the payable strip is left out (the ticket S2 has pay + cancel); /search shows it', (tester) async {
     final router = await _shell(tester, '/', pending: _pending());
     expect(find.byType(MgStatusStrip), findsNothing);
     router.go('/search');
@@ -101,41 +114,72 @@ void main() {
     expect(find.text('Dokončit rezervaci'), findsOneWidget);
   });
 
-  testWidgets('SH-07 three strips → ONE (SOS first) + "+2"; sheet lists all, a tap closes it and runs the action', (tester) async {
-    await _shell(tester, '/search', pending: _pending(), sos: _sos, cart: true, reduced: true);
-    expect(find.byType(MgStatusStrip), findsOneWidget);
-    expect(find.text('+2'), findsOneWidget);
-    final stripH = tester.getSize(find.byType(MgStatusStrip)).height;
-    await tester.tap(find.text('+2'));
+  testWidgets('Domů + payment being verified: the "Platba se ověřuje" strip stays and opens /payment-result', (tester) async {
+    final verifying = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now(), verifying: true);
+    await _shell(tester, '/', pending: verifying, reduced: true);
+    final strip = find.byType(MgStatusStrip);
+    expect(strip, findsOneWidget);
+    expect(find.text(_cs.tr('psFabVerifying')), findsOneWidget);
+    await tester.tap(strip);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(MgSheetFrame), findsOneWidget);
-    expect(find.descendant(of: find.byType(MgSheetFrame), matching: find.byType(MgStatusStrip)), findsNWidgets(3));
-    expect(find.text('+2'), findsOneWidget); // only the shell strip carries the chip
-    // Cart row → closes the sheet first, then its own action (push /cart).
-    await tester.tap(find.descendant(of: find.byKey(const ValueKey('sheet-strip-cart')), matching: find.byType(MgStatusStrip)));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(find.byType(MgSheetFrame), findsNothing);
-    expect(find.text('PAGE /cart'), findsOneWidget);
-    expect(stripH, lessThan(90));
+    expect(find.text('PAGE /payment-result'), findsOneWidget);
   });
 
-  testWidgets('SH-07 ✕ in the sheet keeps it open and the list follows; ≤ 1 left → it closes', (tester) async {
-    await _shell(tester, '/search', sos: _sos, cart: true, reduced: true);
-    expect(find.text('+1'), findsOneWidget);
-    await tester.tap(find.text('+1'));
+  testWidgets('Domů S1: the SOS strip stays with its ✕ (dismiss = the same dismissSosFab)', (tester) async {
+    await _shell(tester, '/', sos: _sos, reduced: true);
+    final strip = find.byType(MgStatusStrip);
+    expect(strip, findsOneWidget);
+    expect(find.text(_cs.tr('sosCompleteFab')), findsOneWidget);
+    await tester.tap(find.descendant(of: strip, matching: find.bySemanticsLabel('Zavřít')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    final cartRow = find.byKey(const ValueKey('sheet-strip-cart'));
-    expect(cartRow, findsOneWidget);
-    await tester.tap(find.descendant(of: cartRow, matching: find.bySemanticsLabel('Zavřít')));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect((await SharedPreferences.getInstance()).getInt('sos_fab_dismissed_s1'), isNotNull);
+  });
+
+  testWidgets('Domů S3: the docs strip stays with its tap (/docs) and ✕', (tester) async {
+    await _shell(tester, '/', reservations: [res('b6', status: 'reserved', from: 5, to: 7)], docsOk: false, reduced: true);
+    await tester.pump(const Duration(milliseconds: 100));
+    final strip = find.byType(MgStatusStrip);
+    expect(strip, findsOneWidget);
+    await tester.tap(find.descendant(of: strip, matching: find.bySemanticsLabel('Zavřít')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(MgStatusStrip), findsNothing);
+  });
+
+  testWidgets('SH-07 three strips → ALL stacked (SOS, pay, cart), no "+n"; each runs its own tap', (tester) async {
+    await _shell(tester, '/search', pending: _pending(), sos: _sos, cart: true, reduced: true);
+    final strips = find.byType(MgStatusStrip);
+    expect(strips, findsNWidgets(3));
+    expect(find.textContaining(RegExp(r'^\+\d')), findsNothing);
+    final ys = [for (final e in strips.evaluate()) tester.getTopLeft(find.byWidget(e.widget)).dy];
+    expect(ys[0] < ys[1] && ys[1] < ys[2], isTrue, reason: 'SOS above pay above cart');
+    expect(tester.getTopLeft(strips.at(1)).dy - tester.getBottomLeft(strips.at(0)).dy, moreOrLessEquals(8));
+    expect(tester.getSize(strips.at(0)).height, lessThan(90));
+    // Cart strip → its own action (push /cart) straight away.
+    await tester.tap(strips.at(2));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    // Cart dismissed (its own ✕) → one strip left → the sheet closed itself.
-    expect(find.byType(MgSheetFrame), findsNothing);
-    expect(find.text('+1'), findsNothing);
+    expect(find.text('PAGE /cart'), findsOneWidget);
   });
+
+  for (final reduced in [false, true]) {
+    testWidgets('SH-07 a dismissed strip slides out and gives its height back (reduced=$reduced → at once)', (tester) async {
+      await _shell(tester, '/search', sos: _sos, cart: true, reduced: reduced);
+      expect(find.byType(MgStatusStrip), findsNWidgets(2));
+      final cart = find.byKey(const ValueKey('strip-cart'));
+      await tester.tap(find.descendant(of: cart, matching: find.bySemanticsLabel('Zavřít')));
+      await tester.pump();
+      if (!reduced) {
+        await tester.pump(const Duration(milliseconds: 150));
+        expect(cart, findsOneWidget, reason: 'still animating out');
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      expect(cart, findsNothing, reason: 'reduced=$reduced');
+      expect(find.byType(MgStatusStrip), findsOneWidget);
+    });
+  }
 
   testWidgets('SH-05 strip ✕ → v2 T6 confirm; Zpět = nothing, Zrušit rezervaci = cancel runs once', (tester) async {
     await _shell(tester, '/search', pending: _pending(), reduced: true);

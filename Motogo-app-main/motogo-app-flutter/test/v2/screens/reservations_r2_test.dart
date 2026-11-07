@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/features/booking/v2/time_sheet_v2.dart';
 import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
@@ -141,12 +142,19 @@ void main() {
     });
   });
 
-  testWidgets('edit time dropdown: digits in the app font, not the platform one', (tester) async {
-    await pumpV2(tester, EditTimePickerV2(label: 'Čas', hour: '09', minute: '00', onHour: (_) {}, onMinute: (_) {}));
-    final f = find.byType(DropdownButton<String>).first;
-    final family = DefaultTextStyle.of(tester.element(f)).style.fontFamily;
-    expect(family, isNotNull);
-    expect(tester.widget<DropdownButton<String>>(f).style?.fontFamily, family);
+  testWidgets('edit time = the booking v2 time sheet (same values, same "HH:MM" onChanged)', (tester) async {
+    final got = <String>[];
+    await pumpV2(tester, EditTimePickerV2(label: 'Čas', hour: '09', minute: '00', onChanged: got.add), reducedMotion: true);
+    expect(find.byType(DropdownButton<String>), findsNothing);
+    expect(find.text('09:00'), findsOneWidget);
+    await tester.tap(find.byType(TimeFieldV2));
+    await tester.pumpAndSettle();
+    // Every quarter of every hour, the current one selected.
+    expect(find.text('23:45'), findsOneWidget);
+    await tester.tap(find.text('10:15'));
+    await tester.pumpAndSettle();
+    expect(got, ['10:15']);
+    expect(find.text('23:45'), findsNothing);
   });
 
   group('Znovu rezervovat', () {

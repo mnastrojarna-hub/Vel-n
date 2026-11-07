@@ -13,6 +13,7 @@ import 'package:motogo_app/core/i18n/translations.dart' show translations;
 import 'package:motogo_app/core/widgets/date_dropdown_field.dart';
 import 'package:motogo_app/features/booking/widgets/address_picker.dart';
 
+import 'package:motogo_app/features/auth/v2/date_field_v2.dart';
 import 'v2/support/v2_harness.dart';
 
 /// Old look: a plain MaterialApp without the v2 scope (= flag OFF).
@@ -23,8 +24,11 @@ Future<void> _pumpV1(WidgetTester t, Widget child) {
   ));
 }
 
-/// Values of the year dropdown (the last of day / month / year) in order.
+/// Values of the year dropdown (the last of day / month / year) in order —
+/// v2: the year list of the v2 date row (same values, shown in its sheet).
 List<int> _years(WidgetTester t) {
+  final v2 = find.byType(DateFieldRowV2);
+  if (v2.evaluate().isNotEmpty) return t.widgetList<DateFieldRowV2>(v2).last.years;
   final dd = t.widgetList<DropdownButton<int>>(find.byType(DropdownButton<int>)).last;
   return [for (final i in dd.items!) i.value!];
 }
@@ -108,10 +112,18 @@ void main() {
       await t.pump();
       expect(t.takeException(), isNull);
       expect(find.text('2030'), findsOneWidget);
-      final dds = t.widgetList<DropdownButton<int>>(find.byType(DropdownButton<int>)).toList();
-      expect(dds.length, 6);
-      for (final i in [2, 5]) {
-        expect([for (final it in dds[i].items!) it.value!], _range(2026, 2046));
+      if (v2) {
+        final rows = t.widgetList<DateFieldRowV2>(find.byType(DateFieldRowV2)).toList();
+        expect(rows.length, 2);
+        for (final r in rows) {
+          expect(r.years, _range(2026, 2046));
+        }
+      } else {
+        final dds = t.widgetList<DropdownButton<int>>(find.byType(DropdownButton<int>)).toList();
+        expect(dds.length, 6);
+        for (final i in [2, 5]) {
+          expect([for (final it in dds[i].items!) it.value!], _range(2026, 2046));
+        }
       }
     });
 
@@ -146,7 +158,8 @@ void main() {
       await t.pump();
       expect(t.takeException(), isNull);
       expect(find.text(translations[v2 ? 'cs' : 'en']!['atBranch']!), findsOneWidget);
-      expect(find.text(translations[v2 ? 'cs' : 'en']!['deliveryToAddress']!), findsOneWidget);
+      // v2: the same option in tykání (the v2 booking form's key).
+      expect(find.text(translations[v2 ? 'cs' : 'en']![v2 ? 'v2BkDeliveryTo' : 'deliveryToAddress']!), findsOneWidget);
       // Second layout (a resize) measures again — must not leak either.
       t.view.physicalSize = const Size(320, 690) * 2;
       await t.pump();

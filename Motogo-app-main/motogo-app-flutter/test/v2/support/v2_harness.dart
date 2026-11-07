@@ -2,16 +2,20 @@
 // language / phone size with the v2 scope ON, real Montserrat (when the
 // font is in the pub cache), rank overrides and optional reduced motion;
 // optional PNG shots for human review (MG_SHOTS_DIR).
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
+import 'package:motogo_app/core/theme.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
@@ -47,8 +51,39 @@ Future<void> loadMontserrat() async {
   montserratLoaded = true;
 }
 
-/// The app-like theme of the tests: Montserrat + the v2 overlay.
-ThemeData v2TestTheme() => MgThemeV2.overlay(ThemeData(
+final Map<TargetPlatform, ThemeData> _appBase = {};
+
+/// The app's own base theme (`MotoGoTheme.dark`, as main.dart gives it to
+/// `MgV2Gate`) with its text themes on the Montserrat family the tests
+/// load. GoogleFonts never fetches in tests (no network): runtime fetching
+/// is off, its "unable to load" errors / messages stay in this zone (the
+/// text themes are re-pointed to Montserrat anyway). Built once per target
+/// platform (ThemeData takes `defaultTargetPlatform` when created — iOS
+/// tests override it).
+ThemeData _appBaseTheme() => _appBase[defaultTargetPlatform] ??= runZonedGuarded<ThemeData>(
+      () {
+        GoogleFonts.config.allowRuntimeFetching = false;
+        final t = MotoGoTheme.dark;
+        return t.copyWith(
+          textTheme: t.textTheme.apply(fontFamily: 'Montserrat'),
+          primaryTextTheme: t.primaryTextTheme.apply(fontFamily: 'Montserrat'),
+        );
+      },
+      (_, __) {},
+      zoneSpecification: ZoneSpecification(print: (_, __, ___, ____) {}),
+    )!;
+
+/// The app's theme in the tests: `MgThemeV2.overlay(MotoGoTheme.dark)` —
+/// exactly what the phone shows with the flag ON (v2_gate.dart), so any
+/// leftover Material widget renders as on the phone — on Montserrat.
+ThemeData v2TestTheme() => MgThemeV2.overlay(_appBaseTheme());
+
+/// The former plain reference theme (M3 light + Montserrat + v2 overlay).
+/// NOT the phone's look: only for the flag-OFF old-screen regression guards
+/// that were measured against it (`pumpV2(v2: false)`, auth fit, old payment
+/// screen) — the old screens stay unchanged, so their guards keep their
+/// reference. Judge looks with [v2TestTheme].
+ThemeData legacyTestTheme() => MgThemeV2.overlay(ThemeData(
       fontFamily: 'Montserrat',
       useMaterial3: true,
       textTheme: ThemeData(fontFamily: 'Montserrat').textTheme,
@@ -89,7 +124,8 @@ Future<void> pumpV2(
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: v2TestTheme(),
+        // Flag OFF = the old screens' guards keep their reference theme.
+        theme: v2 ? v2TestTheme() : legacyTestTheme(),
         builder: (context, c) => MgV2Scope(
           enabled: v2,
           child: MediaQuery(

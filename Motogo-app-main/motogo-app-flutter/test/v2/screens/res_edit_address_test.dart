@@ -218,7 +218,7 @@ void main() {
 
   testWidgets('odvoz na adresu nabídne adresu přistavení jedním klepnutím', (t) => _offline(() async {
         final s = await _pump(t);
-        await t.tap(find.text(_tr('cs', 'returnFromAddress')));
+        await t.tap(find.text(_tr('cs', 'v2BkReturnFrom'))); // v2 option in tykání
         await t.pump(const Duration(milliseconds: 500));
         await t.tap(find.text(_tr('cs', 'v2BkEnterAddress')));
         await _settle(t);

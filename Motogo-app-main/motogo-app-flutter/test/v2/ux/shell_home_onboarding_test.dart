@@ -93,17 +93,45 @@ void main() {
     expect(allow, 1);
   });
 
-  testWidgets('SH-01 seam: Android PermissionOverlay v2 passes its callbacks; flag OFF old', (tester) async {
+  // The SAME test file runs in both trees (the iOS tree tests a copy of this
+  // folder): `PermissionOverlay` differs per platform (CLAUDE.md rule 2 —
+  // iOS App Store 5.1.1(iv) has only `onAllow`), so it is built by
+  // `Function.apply` and the test checks the variant that compiled.
+  testWidgets('SH-01 seam: PermissionOverlay v2 — Android allow/skip/back, iOS ONE "Pokračovat"; flag OFF old', (tester) async {
     final calls = <String>[];
-    Widget overlay() => PermissionOverlay(onAllow: () => calls.add('allow'), onSkip: () => calls.add('skip'), onBack: () => calls.add('back'));
-    await pumpV2(tester, overlay(), scaffold: false, reducedMotion: true);
+    Widget? build(Map<Symbol, Object?> args) {
+      try {
+        return Function.apply(PermissionOverlay.new, const [], args) as Widget;
+      } on NoSuchMethodError {
+        return null;
+      }
+    }
+
+    void allow() => calls.add('allow');
+    final android = build({#onAllow: allow, #onSkip: () => calls.add('skip'), #onBack: () => calls.add('back')});
+    final ios = android == null ? build({#onAllow: allow}) : null;
+    expect(android ?? ios, isNotNull, reason: 'PermissionOverlay matches neither platform variant');
+
+    await pumpV2(tester, (android ?? ios)!, scaffold: false, reducedMotion: true);
     expect(find.byType(OnboardingPermV2), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('onb-perm-skip')));
-    await tester.tap(find.byType(MgV2Back));
-    expect(calls, ['skip', 'back']);
-    await pumpV2(tester, overlay(), scaffold: false, v2: false);
+    expect(find.byType(MgCta), findsOneWidget);
+    if (android != null) {
+      await tester.tap(find.byKey(const ValueKey('onb-perm-skip')));
+      await tester.tap(find.byType(MgV2Back));
+      expect(calls, ['skip', 'back']);
+    } else {
+      // App Store 5.1.1(iv): no skip, no back, the wording of the old button.
+      expect(find.byType(MgBtnText), findsNothing);
+      expect(find.byKey(const ValueKey('onb-perm-skip')), findsNothing);
+      expect(find.byType(MgV2Back), findsNothing);
+      expect(find.text('POKRAČOVAT'), findsOneWidget);
+      expect(calls, isEmpty);
+    }
+
+    await pumpV2(tester, (android ?? ios)!, scaffold: false, v2: false);
     expect(find.byType(OnboardingPermV2), findsNothing);
     expect(find.byType(ElevatedButton), findsOneWidget);
+    expect(find.byType(TextButton), android != null ? findsOneWidget : findsNothing);
   });
 
   testWidgets('SH-41 intro: skip pill → onDone exactly once; plays 2.4 s otherwise', (tester) async {

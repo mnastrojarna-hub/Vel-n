@@ -155,13 +155,14 @@ class BookingReadyCardV2 extends StatelessWidget {
     }
     final extrasValue = extras.isEmpty
         ? Text(tr.tr('v2UxCbNoExtras'), style: MgType.body.copyWith(color: MgColors.lead))
-        : Text.rich(TextSpan(children: [
+        // Whole words only ("Beifahrerausrüstung" at 320 dp): scale ≤ 75 %.
+        : MgWordFit(minScale: 0.75, child: Text.rich(TextSpan(children: [
             TextSpan(text: extras.join(', '), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
             TextSpan(
               text: ' · ${bd.extrasTotal > 0 ? bkNb(bkMoney(bd.extrasTotal)) : tr.tr('free').toLowerCase()}',
               style: MgType.tab(MgType.small.copyWith(color: MgColors.meta)),
             ),
-          ]));
+          ])));
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       decoration: BoxDecoration(
@@ -219,7 +220,16 @@ class BookingReadyCardV2 extends StatelessWidget {
         ),
         _ReadyRow(label: tr.tr('v2UxCbGear'), ok: gearOk, value: gearValue, onTap: onToggle),
         const Divider(height: 1, thickness: 1, indent: MgSpace.card, endIndent: MgSpace.card, color: MgColors.line),
-        _ReadyRow(label: tr.tr('v2UxCbExtras'), ok: true, value: extrasValue, onTap: onToggle),
+        _ReadyRow(
+          label: tr.tr('v2UxCbExtras'),
+          ok: true,
+          value: extrasValue,
+          onTap: onToggle,
+          // A long extra name ("Beifahrerausrüstung") takes the full row
+          // width under the label instead of the 84 px label column.
+          valueWords: extras.isEmpty ? null : extras.join(' '),
+          valueStyle: MgType.body.copyWith(fontWeight: FontWeight.w800),
+        ),
         const SizedBox(height: 6),
       ]),
     );
@@ -231,7 +241,19 @@ class _ReadyRow extends StatelessWidget {
   final bool ok;
   final Widget value;
   final VoidCallback onTap;
-  const _ReadyRow({required this.label, required this.ok, required this.value, required this.onTap});
+
+  /// Words of the value (+ [valueStyle]): when the longest does not fit the
+  /// value column beside the label (even at 75 %), the value goes under it.
+  final String? valueWords;
+  final TextStyle? valueStyle;
+  const _ReadyRow({
+    required this.label,
+    required this.ok,
+    required this.value,
+    required this.onTap,
+    this.valueWords,
+    this.valueStyle,
+  });
 
   @override
   Widget build(BuildContext context) => MgPress(
@@ -240,12 +262,15 @@ class _ReadyRow extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 52),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: MgSpace.card, vertical: 10),
-            child: Builder(builder: (context) {
+            child: LayoutBuilder(builder: (context, c) {
               final style = MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead);
               final text = Text(label, style: style);
               // Label column beside the value while its word fits 84 px
               // (cs / en); longer words (de, fr, uk, large text) sit above.
-              final side = bkWordWidth(context, label, style) <= 84;
+              final room = c.maxWidth - 24 - 10 - 84 - 8 - 4 - 18;
+              final vw = valueWords;
+              final side = bkWordWidth(context, label, style) <= 84 &&
+                  (vw == null || !c.maxWidth.isFinite || bkWordWidth(context, vw, valueStyle ?? style) * 0.75 <= room);
               return Row(children: [
                 _StateDisc(ok: ok),
                 const SizedBox(width: 10),

@@ -34,25 +34,21 @@ int v2TabIndexFor(String location) {
 final RegExp _resEdit = RegExp(r'^/reservations/[^/]+/edit$');
 final RegExp _thread = RegExp(r'^/messages/[^/]+$');
 final RegExp _routeDetail = RegExp(r'^/routes/[^/]+$');
-final RegExp _shopItem = RegExp(r'^/shop/[^/]+$');
 
 /// Focused flows hide the nav (the screen's back control is the way out;
-/// system back is unchanged). SOS (the nonstop-line dock replaces the nav —
-/// V22 §2.4), cart, voucher and a product detail have their own docks.
+/// system back is unchanged). SOS, cart, voucher and a product detail KEEP
+/// the nav (owner rule "nothing harder to reach" over V22 §2.4 — the old
+/// shell shows it there): their docks sit above it.
 bool v2NavHiddenFor(String location) {
   final p = _path(location);
   return p.startsWith('/moto/') ||
       p == '/booking' ||
       p == '/payment' ||
-      p == '/sos' ||
-      p.startsWith('/sos/') ||
+      p == '/sos/payment' ||
       _resEdit.hasMatch(p) ||
       p == '/ai-agent' ||
       _thread.hasMatch(p) ||
-      p == '/checkout' ||
-      p == '/cart' ||
-      p == '/voucher' ||
-      _shopItem.hasMatch(p);
+      p == '/checkout';
 }
 
 /// Routes where the floating AI button is hidden (docked into the screen's

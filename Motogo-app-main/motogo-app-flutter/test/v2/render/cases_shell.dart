@@ -68,6 +68,16 @@ List<RenderCase> shellRenderCases() {
     _s('home_unpaid_strip', '/', () => [...home['s2']!(), _flag, _paid]),
     _s('home_sos_strip', '/', () => [...home['s1']!(), _flag, _paid]),
     _s('home_ticket', '/', () => [...home['s6']!(), _flag, _paid]),
+    _s('home_verifying_strip', '/', () => [...home['s2-verifying']!(), _flag, _paid]),
+    // Every active strip stacked (owner parity rule; SOS > platba).
+    _s('motorky_strips', '/search', () => [
+          ...catalogOverrides(),
+          ..._extras(booking: false, sos: false, banner: false),
+          pendingBookingFabProvider.overrideWith((ref) => Stream.value(
+              PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now().subtract(const Duration(minutes: 4))))),
+          pendingSosFabProvider.overrideWith((ref) => Stream.value(
+              const PendingSosReplacement(id: 's1', type: 'breakdown_minor', status: 'reported'))),
+        ]),
     _s('motorky', '/search', () => [...catalogOverrides(), ..._extras(banner: false)]),
     // Calculator with bike + dates: the sticky REZERVOVAT dock above the
     // nav, the AI button lifted above it (catalog r2).

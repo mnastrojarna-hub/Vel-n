@@ -125,6 +125,7 @@ import 'translations_ext_60_v2_ux_catalog_booking_a.dart';
 import 'translations_ext_60_v2_ux_catalog_booking_b.dart';
 import 'translations_ext_60_v2_ux_res_profile_a.dart';
 import 'translations_ext_60_v2_ux_res_profile_b.dart';
+import 'translations_ext_60_v2_ux_res_profile_c.dart';
 import 'translations_ext_60_v2_ux_pay_shop_a.dart';
 import 'translations_ext_60_v2_ux_pay_shop_b.dart';
 import 'translations_ext_60_v2_ux_auth_sos_misc_a.dart';
@@ -264,6 +265,7 @@ final translations = _mergeAll([
   translationsExt60V2UxCatalogBookingB,
   translationsExt60V2UxResProfileA,
   translationsExt60V2UxResProfileB,
+  translationsExt60V2UxResProfileC,
   translationsExt60V2UxPayShopA,
   translationsExt60V2UxPayShopB,
   translationsExt60V2UxAuthSosMiscA,

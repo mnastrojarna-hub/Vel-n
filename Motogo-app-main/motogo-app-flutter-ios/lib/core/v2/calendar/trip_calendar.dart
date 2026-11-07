@@ -23,9 +23,11 @@ export 'trip_day_state.dart';
 ///
 /// Motion / gestures (design G4 c, M1, V22 §3.6): a horizontal fling
 /// (≥ 450 px/s) over the weekdays + grid = the ‹ / › taps (← next, → previous;
-/// only when those callbacks exist — it beats an ancestor pager); the month
-/// grid slides in from the side it came from; the band grows 300 ms ease
-/// (20 ms per day, ≤ 200 ms). Reduced motion: everything instant.
+/// only when those callbacks exist and NOT inside a swipeable horizontal
+/// pager — there the swipe keeps paging as in the old look, e.g. to the
+/// next bike in the moto detail; months then via ‹ ›); the month grid
+/// slides in from the side it came from; the band grows 300 ms ease (20 ms
+/// per day, ≤ 200 ms). Reduced motion: everything instant.
 class TripCalendar extends StatelessWidget {
   final DateTime month;
   final TripDayState Function(DateTime day) dayStateOf;
@@ -140,16 +142,29 @@ class TripCalendar extends StatelessWidget {
   }
 }
 
-/// Fling ← = next month, → = previous (the same callbacks as ‹ / ›).
+/// Fling ← = next month, → = previous (the same callbacks as ‹ / ›). Off
+/// inside a user-swipeable horizontal scrollable (the moto detail's bike
+/// pager): its horizontal drags must keep reaching the pager (owner rule —
+/// the old calendar never took them).
 class _MonthFling extends StatelessWidget {
   final VoidCallback? onPrev;
   final VoidCallback? onNext;
   final Widget child;
   const _MonthFling({required this.onPrev, required this.onNext, required this.child});
 
+  static bool _insidePager(BuildContext context) {
+    final s = Scrollable.maybeOf(context, axis: Axis.horizontal);
+    if (s == null) return false;
+    for (ScrollPhysics? p = s.widget.physics; p != null; p = p.parent) {
+      if (p is NeverScrollableScrollPhysics) return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (onPrev == null && onNext == null) return child;
+    if (_insidePager(context)) return child;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onHorizontalDragEnd: (d) {

@@ -83,15 +83,16 @@ void main() {
     expect(tester.hasRunningAnimations, isFalse);
   });
 
-  testWidgets('thank-you: number, dates, "Zaplaceno" from the form, safety tips collapsed', (tester) async {
+  testWidgets('thank-you: number, dates, "Zaplaceno" from the form, safety tips OPEN (old look), foldable', (tester) async {
     await pumpV2(tester, psConfirm(), scaffold: false, reducedMotion: true);
     expect(find.textContaining('#8F3A2C1D'), findsOneWidget);
     expect(find.text('ZAPLACENO'), findsOneWidget);
-    expect(find.textContaining('Nikdy nenechávej'), findsNothing);
+    // Always visible at first, incl. the liability line (owner "nic neomezit").
+    expect(find.textContaining('Nikdy nenechávej', skipOffstage: false), findsOneWidget);
     await tester.ensureVisible(find.text('Bezpečnostní pokyny'));
     await tester.tap(find.text('Bezpečnostní pokyny'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Nikdy nenechávej'), findsOneWidget);
+    expect(find.textContaining('Nikdy nenechávej'), findsNothing);
   });
 
   testWidgets('thank-you: load failure = info + "Zkusit znovu" (the screen\'s retry)', (tester) async {

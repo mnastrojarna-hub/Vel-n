@@ -116,10 +116,10 @@ void main() {
     await _settle(t);
     expect(find.byType(BookingDebugWrapper), findsOneWidget);
     expect(find.descendant(of: find.byType(BookingRecapV2), matching: find.text(kBmw.model)), findsWidgets);
-    // CB-11 express: "Termín a předání" folded under the recap; opened,
-    // the date card is folded too ("Změnit").
-    expect(t.widget<BookingHandoverRowV2>(find.byType(BookingHandoverRowV2)).open, isFalse);
-    expect(find.byType(BookingDateCardV2), findsNothing);
+    // CB-11: "Termín a předání" starts OPEN (owner "nic neomezit"); the
+    // date card itself is folded ("Změnit").
+    expect(t.widget<BookingHandoverRowV2>(find.byType(BookingHandoverRowV2)).open, isTrue);
+    expect(find.byType(BookingDateCardV2), findsOneWidget);
     await openBookingExpress(t);
     expect(find.descendant(of: find.byType(BookingDateCardV2), matching: find.text('Změnit')), findsOneWidget);
     expect(find.byType(AvailabilityCalendar), findsNothing);

@@ -38,7 +38,8 @@ class FullscreenGallery extends StatefulWidget {
       transitionsBuilder: (_, anim, __, child) =>
           FadeTransition(opacity: anim, child: child),
       transitionDuration: fade,
-      reverseTransitionDuration: fade,
+      // Old look: the PageRouteBuilder default close (300 ms), unchanged.
+      reverseTransitionDuration: MgV2.on(context) ? fade : const Duration(milliseconds: 300),
     ));
   }
 

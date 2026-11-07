@@ -10,6 +10,11 @@ import '../../../core/theme.dart';
 import '../../payment/paid_change_outcomes.dart'
     show paidChangeFailureText, paidChangeFailureTitle, isTakenReason, swapPickRoute;
 import '../reservation_provider.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
+import '../../../core/v2/states/mg_tone.dart';
+import '../../../core/v2/widgets/mg_buttons.dart';
 
 /// Řádek v detailu rezervace, dokud se zaplacená výměna / úprava zapisuje
 /// (D6): „Výměna motorky se dokončuje…". Trvalé selhání ukáže jednou
@@ -65,7 +70,19 @@ class _PaidChangeBannerState extends ConsumerState<PaidChangeBanner> {
       }
       // Výměnu zmařila jiná rezervace (motorka mezitím obsazená) → vybrat jinou / ponechat.
       final offerOther = failed.isSwap && isTakenReason(reason);
+      Future<void> pickOther() async {
+        final router = GoRouter.of(context);
+        await ack();
+        router.push(swapPickRoute(widget.bookingId));
+      }
       return _box(
+        tone: MgTone.err,
+        v2Actions: offerOther
+            ? [
+                MgBtnInk(label: tr.tr('pdKeepCurrentMoto'), onTap: ack, expand: false, height: 44),
+                MgBtnGhostLight(label: tr.tr('pdPickOtherMoto'), icon: MgIcons.swap, onTap: pickOther, expand: false, height: 44),
+              ]
+            : [MgBtnText(label: tr.tr('pdUnderstood'), onTap: ack)],
         color: MotoGoColors.redBg,
         border: MotoGoColors.red,
         icon: '!',
@@ -78,11 +95,7 @@ class _PaidChangeBannerState extends ConsumerState<PaidChangeBanner> {
             ? Wrap(alignment: WrapAlignment.end, spacing: 4, children: [
                 TextButton(onPressed: ack, child: Text(tr.tr('pdKeepCurrentMoto'))),
                 TextButton(
-                  onPressed: () async {
-                    final router = GoRouter.of(context);
-                    await ack();
-                    router.push(swapPickRoute(widget.bookingId));
-                  },
+                  onPressed: pickOther,
                   child: Text(tr.tr('pdPickOtherMoto')),
                 ),
               ])
@@ -91,6 +104,7 @@ class _PaidChangeBannerState extends ConsumerState<PaidChangeBanner> {
     }
     final swap = _entries.first.isSwap;
     return _box(
+      tone: MgTone.pending,
       color: MotoGoColors.amberBg,
       border: MotoGoColors.amberBorder,
       icon: '⏳',
@@ -100,14 +114,22 @@ class _PaidChangeBannerState extends ConsumerState<PaidChangeBanner> {
   }
 
   Widget _box({
+    required MgTone tone,
     required Color color,
     required Color border,
     required String icon,
     required String title,
     required String text,
     Widget? action,
+    List<Widget> v2Actions = const [],
   }) =>
-      Container(
+      // v2: T3 banner (err = selhání, pending = dokončuje se), tytéž texty a akce.
+      MgV2.on(context)
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: MgStateBanner(tone: tone, title: title, text: text, actions: v2Actions),
+            )
+          : Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
