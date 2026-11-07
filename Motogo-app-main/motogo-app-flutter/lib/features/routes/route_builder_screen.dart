@@ -320,7 +320,8 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
           errorTileCallback: MapTileErrors.report,
           reset: MapTileErrors.reset,
         ),
-        const MapTileErrorChip(),
+        // v2: the strip goes under the top bar (title on 1–2 lines).
+        const MapTileErrorInset(child: MapTileErrorChip()),
         if (_geometry.length >= 2)
           PolylineLayer(polylines: [
             Polyline(points: _geometry, strokeWidth: 7, color: MotoGoColors.dark.withValues(alpha: 0.25)),
@@ -341,12 +342,15 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
             left: 0,
             right: 0,
             top: 0,
-            child: BuilderTopBarV2(
-              title: widget.route.name.isNotEmpty ? widget.route.name : t(context).tr('poiCustomRouteTitle'),
-              onBack: _leave,
-              computing: _computing,
-              editing: widget.route.id != 'custom',
-            ),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              BuilderTopBarV2(
+                title: widget.route.name.isNotEmpty ? widget.route.name : t(context).tr('poiCustomRouteTitle'),
+                onBack: _leave,
+                computing: _computing,
+                editing: widget.route.id != 'custom',
+              ),
+              const MapTileErrorStripV2(padding: EdgeInsets.symmetric(horizontal: 12)),
+            ]),
           ),
           Positioned(
             left: 12,

@@ -233,7 +233,8 @@ class _MapPickerState extends State<MapPickerScreen> {
                 errorTileCallback: MapTileErrors.report,
                 reset: MapTileErrors.reset,
               ),
-              const MapTileErrorChip(),
+              // v2: the strip under the picker's header (back 44 at top + 8).
+              MapTileErrorInset(top: MediaQuery.paddingOf(context).top + 60, child: const MapTileErrorChip()),
             ],
           ),
 

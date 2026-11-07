@@ -75,8 +75,14 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
     } else if (snap.hasTicket) {
       hero.add(HomeTicketV2(snap: snap));
       if (snap.moreCount > 0) {
+        // Old Home: the first 2 paid bookings, each one tap — a ticket that
+        // is not one of them (SOS / unpaid) leaves room for a second line.
+        final others = snap.active.where((r) => r.id != snap.res?.id).toList();
+        final ticketPaid = snap.active.any((r) => r.id == snap.res?.id);
         hero.add(HomeMoreBookingsRowV2(
-            count: snap.moreCount, next: snap.active.where((r) => r.id != snap.res?.id).firstOrNull));
+            count: snap.moreCount,
+            next: others.firstOrNull,
+            second: ticketPaid || others.length < 2 ? null : others[1]));
       }
       hero.add(const HomeNextPillV2());
     } else {

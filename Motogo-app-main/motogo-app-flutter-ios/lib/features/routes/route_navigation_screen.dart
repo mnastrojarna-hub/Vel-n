@@ -1546,7 +1546,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                 errorTileCallback: MapTileErrors.report,
                 reset: MapTileErrors.reset,
               ),
-              const MapTileErrorChip(),
+              // v2: the strip goes under the HUD, below the GPS banner.
+              const MapTileErrorInset(child: MapTileErrorChip()),
               // Projetá část — zešedne (vizuálně se „odečte").
               if (doneGeo.length >= 2)
                 PolylineLayer(
@@ -1696,7 +1697,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
             ),
           ),
         // Ztráta GPS / slabý signál / trasa bez silnic (offline) — nahoře.
-        if (!_denied && (_gpsLost || _weakGps || _straightLine))
+        if (!v2 && !_denied && (_gpsLost || _weakGps || _straightLine))
           Positioned(
             left: 16, right: 72, top: MediaQuery.of(context).padding.top + 64,
             child: NavStatusBanner(
@@ -1704,6 +1705,22 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                   ? NavStatus.gpsLost
                   : (_weakGps ? NavStatus.weakGps : NavStatus.straightLine),
             ),
+          ),
+        // v2: the same banner + under it the map-tiles strip (offline).
+        if (v2)
+          Positioned(
+            left: 16, right: 72, top: MediaQuery.of(context).padding.top + 64,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (!_denied && (_gpsLost || _weakGps || _straightLine)) ...[
+                NavStatusBanner(
+                  status: _gpsLost
+                      ? NavStatus.gpsLost
+                      : (_weakGps ? NavStatus.weakGps : NavStatus.straightLine),
+                ),
+                const MapTileErrorStripV2(padding: EdgeInsets.only(top: 8)),
+              ] else
+                const MapTileErrorStripV2(),
+            ]),
           ),
 
         // Potvrzovací karta dojezdu na bod / dokončení trasy — přednost před

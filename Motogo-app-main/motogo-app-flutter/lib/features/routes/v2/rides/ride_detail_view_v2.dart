@@ -9,6 +9,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
+import '../../../../core/widgets/map_tile_errors.dart';
 import '../../ride_map.dart';
 import '../../ride_model.dart';
 import '../../route_image.dart';
@@ -91,13 +92,17 @@ class RideDetailViewV2 extends StatelessWidget {
                     clipBehavior: Clip.antiAlias,
                     child: Stack(children: [
                       Positioned.fill(
-                        child: RideTrackMap(
-                          track: ride.track,
-                          segments: ride.segments,
-                          points: ride.points,
-                          interactive: true,
-                          onMapTap: onMapTap,
-                          onPointTap: onPointTap,
+                        // Map tiles failing: the strip under the hint pill.
+                        child: MapTileErrorInset(
+                          top: 48,
+                          child: RideTrackMap(
+                            track: ride.track,
+                            segments: ride.segments,
+                            points: ride.points,
+                            interactive: true,
+                            onMapTap: onMapTap,
+                            onPointTap: onPointTap,
+                          ),
                         ),
                       ),
                       Positioned(left: 10, top: 10, right: 10, child: _MapHint(text: tr.tr('v2RideMapHint'))),

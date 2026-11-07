@@ -16,6 +16,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
+import '../../../core/widgets/map_tile_errors.dart';
 import '../route_map.dart';
 import '../route_poi_sheet.dart' show openPoiImageViewer;
 import '../route_reviews.dart';
@@ -126,12 +127,16 @@ class RouteDetailViewV2 extends StatelessWidget {
           mapH: mapHeightFor(MediaQuery.sizeOf(context).height) + top,
           map: Stack(children: [
             Positioned.fill(
-              child: RouteMapView(
-                geometry: geometry,
-                start: start,
-                pois: poiMarkers,
-                activePoi: activePoi,
-                onPoiTap: onPoiTap,
+              // Map tiles failing: the strip under the back button.
+              child: MapTileErrorInset(
+                top: top + 62,
+                child: RouteMapView(
+                  geometry: geometry,
+                  start: start,
+                  pois: poiMarkers,
+                  activePoi: activePoi,
+                  onPoiTap: onPoiTap,
+                ),
               ),
             ),
             Positioned(top: top + 10, left: 12, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),

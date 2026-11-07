@@ -10,9 +10,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_chooser_v2.dart';
+import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_view_v2.dart';
+import 'package:motogo_app/features/reservations/v2/res_filter_tabs_v2.dart';
+import 'package:motogo_app/features/reservations/v2/reservations_screen_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/reservations_cases.dart';
@@ -21,12 +25,6 @@ import '../support/fakes_reservations.dart';
 import '../support/v2_harness.dart';
 
 String _t(String key, [String lang = 'cs']) => translations[lang]?[key] ?? key;
-
-Future<void> _settle(WidgetTester t) async {
-  for (var i = 0; i < 10; i++) {
-    await t.pump(const Duration(milliseconds: 100));
-  }
-}
 
 void main() {
   setUpAll(() async {
@@ -132,6 +130,60 @@ void main() {
       await pumpV2(t, edit(), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
       expect(find.byType(MgCta), findsNothing);
+    });
+  });
+
+  group('Rezervace filters: all 5 one tap away (old Wrap of chips)', () {
+    for (final lang in ['cs', 'de', 'fr', 'uk']) {
+      for (final w in [320.0, 360.0]) {
+        testWidgets('$lang ${w.toInt()} dp: every filter hit-testable without scrolling', (t) async {
+          await pumpV2(t, const ReservationsScreenV2(),
+              lang: lang, size: Size(w, 780), overrides: resOverrides(list: sampleList()), reducedMotion: true);
+          await t.pump(const Duration(milliseconds: 800));
+          expect(t.takeException(), isNull);
+          final tabs = find.byType(ResFilterTabsV2);
+          for (final k in kResFilterI18n) {
+            final f = find.descendant(of: tabs, matching: find.text(_t(k, lang)));
+            expect(f.hitTestable(), findsOneWidget, reason: '$lang $k');
+            final r = t.getRect(f);
+            expect(r.left, greaterThanOrEqualTo(0), reason: '$lang $k');
+            expect(r.right, lessThanOrEqualTo(w), reason: '$lang $k');
+          }
+          await t.tap(find.descendant(of: tabs, matching: find.text(_t('cancelled', lang))));
+          await t.pump(const Duration(milliseconds: 600));
+          final c = ProviderScope.containerOf(t.element(find.byType(ReservationsScreenV2)));
+          expect(c.read(resFilterProvider), 'cancelled');
+        });
+      }
+    }
+
+    testWidgets('wrapped tabs: mid-swipe exactly one light label, selection follows', (t) async {
+      final p = ValueNotifier<double>(0);
+      await pumpV2(
+          t,
+          ResFilterTabsV2(
+              value: 'all',
+              counts: const {'all': 4, 'aktivni': 1, 'nadchazejici': 1, 'dokoncene': 1, 'cancelled': 1},
+              onSelect: (_) {},
+              onStep: (_) {},
+              dragProgress: p),
+          size: const Size(320, 780),
+          reducedMotion: true);
+      await t.pump();
+      expect(find.byType(Wrap), findsOneWidget);
+      expect(find.byKey(const ValueKey('res-filter-thumb')), findsNothing);
+      List<AnimatedDefaultTextStyle> light() => t
+          .widgetList<AnimatedDefaultTextStyle>(
+              find.descendant(of: find.byType(ResFilterTabsV2), matching: find.byType(AnimatedDefaultTextStyle)))
+          .where((w) => w.style.color == MgColors.onDark)
+          .toList();
+      expect(light().length, 1);
+      p.value = 0.6;
+      await t.pump();
+      expect(light().length, 1);
+      p.value = 0;
+      await t.pump();
+      expect(light().length, 1);
     });
   });
 }

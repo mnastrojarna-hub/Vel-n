@@ -39,8 +39,9 @@ Future<void> showMgPhotoViewer(
 
 /// The viewer body (usable inside an existing route): swipe = next photo,
 /// pinch 1–4×, double-tap 1× ↔ 2.5× (300 ms), swipe-down closes (100 px /
-/// 800 px/s) — page swipe and swipe-down only at scale ≤ 1.01. ✕ top-left,
-/// counter "n / m" top-right, dots when 2–7 photos.
+/// 800 px/s) — page swipe and swipe-down only at scale ≤ 1.01 and with one
+/// finger: a second finger = pinch, even with the first one held still.
+/// ✕ top-left, counter "n / m" top-right, dots when 2–7 photos.
 class MgPhotoViewerView extends StatefulWidget {
   final List<String> urls;
   final int initial;
@@ -76,6 +77,33 @@ class _MgPhotoViewerViewState extends State<MgPhotoViewerView> with TickerProvid
   bool _closing = false;
   double _dy = 0;
   double _from = 0;
+
+  /// Fingers on the photo. From the second one on, the swipe-down and the
+  /// page drag step aside: their recognizers are removed (= rejected), so
+  /// the pinch wins even when one finger stays still (G6); back when all
+  /// fingers are up.
+  final Set<int> _pointers = {};
+  bool get _multi => _pointers.length >= 2;
+
+  void _pointerDown(PointerDownEvent e) {
+    _pointers.add(e.pointer);
+    if (_pointers.length != 2 || !mounted) return;
+    setState(() {
+      // A swipe-down already under way springs back (never left offset).
+      if (_dy == 0) return;
+      if (MgMotion.reduced(context)) {
+        _dy = 0;
+      } else {
+        _from = _dy;
+        _back.forward(from: 0);
+      }
+    });
+  }
+
+  void _pointerUp(PointerEvent e) {
+    if (!_pointers.remove(e.pointer)) return;
+    if (_pointers.isEmpty && mounted) setState(() {});
+  }
 
   @override
   void dispose() {
@@ -168,10 +196,10 @@ class _MgPhotoViewerViewState extends State<MgPhotoViewerView> with TickerProvid
     final bottom = MediaQuery.paddingOf(context).bottom;
     final reduced = MgMotion.reduced(context);
     final k = reduced ? 0.0 : (_dy.abs() / 400).clamp(0.0, 1.0);
-    final canDrag = !_zoomed;
+    final canDrag = !_zoomed && !_multi;
     final pager = PageView.builder(
       controller: _pc,
-      physics: _zoomed ? const NeverScrollableScrollPhysics() : null,
+      physics: canDrag ? null : const NeverScrollableScrollPhysics(),
       itemCount: n,
       onPageChanged: (p) {
         if (_page != p) _tc[_page].value = Matrix4.identity();
@@ -190,14 +218,19 @@ class _MgPhotoViewerViewState extends State<MgPhotoViewerView> with TickerProvid
         color: MgColors.black(1 - 0.6 * k),
         child: Stack(children: [
           Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onVerticalDragStart: canDrag ? (_) => _back.stop() : null,
-              onVerticalDragUpdate: canDrag ? (d) => setState(() => _dy += d.primaryDelta ?? 0) : null,
-              onVerticalDragEnd: canDrag ? _dragEnd : null,
-              child: Transform.translate(
-                offset: Offset(0, reduced ? 0 : _dy),
-                child: Transform.scale(scale: 1 - 0.1 * k, child: pager),
+            child: Listener(
+              onPointerDown: _pointerDown,
+              onPointerUp: _pointerUp,
+              onPointerCancel: _pointerUp,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onVerticalDragStart: canDrag ? (_) => _back.stop() : null,
+                onVerticalDragUpdate: canDrag ? (d) => setState(() => _dy += d.primaryDelta ?? 0) : null,
+                onVerticalDragEnd: canDrag ? _dragEnd : null,
+                child: Transform.translate(
+                  offset: Offset(0, reduced ? 0 : _dy),
+                  child: Transform.scale(scale: 1 - 0.1 * k, child: pager),
+                ),
               ),
             ),
           ),

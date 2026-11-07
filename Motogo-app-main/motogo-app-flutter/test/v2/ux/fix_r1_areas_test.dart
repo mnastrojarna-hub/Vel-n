@@ -299,6 +299,9 @@ void main() {
       t,
       ResFilterTabsV2(value: 'all', counts: const {'all': 3}, onSelect: (_) {}, onStep: (_) {}, dragProgress: p),
       reducedMotion: true,
+      // fix:r2 — the single-row track (with its thumb) only where all 5
+      // tabs fit; narrower phones wrap them (tested in fix_r2_areas_test).
+      size: const Size(600, 780),
     );
     await t.pump();
     final thumb = find.byKey(const ValueKey('res-filter-thumb'));
