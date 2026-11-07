@@ -23,7 +23,6 @@ import '../../core/v2/icons/mg_icon.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
 import '../../core/v2/widgets/mg_inputs.dart';
 import 'v2/routes_menu_v2.dart';
-import 'package:go_router/go_router.dart';
 import 'routes_model.dart' show RouteItem;
 import 'v2/submit_form_v2.dart';
 import 'v2/rides/ride_results_v2.dart';
@@ -85,14 +84,6 @@ void showCommunityAddMenu(BuildContext context) {
                       : (rec.isPaused && !rec.isArmed ? 'rpStopRowPaused' : 'rideManualRunning')),
                   danger: manual,
                 ),
-              // v2: prázdný plánovač (stejná akce jako „Vytvořit novou trasu"
-              // v Mých zážitcích) — nový vstup na existující akci.
-              if (MgV2.on(c))
-                _menuItem(c, Icons.alt_route, t(c).tr('v2RtCreateRoute'), () {
-                  Navigator.pop(c);
-                  context.push('/route-build',
-                      extra: const RouteItem(id: 'custom', name: '', routeType: 'poi'));
-                }),
               _menuItem(c, Icons.route, t(c).tr('routeSubmitTitle'), () {
                 Navigator.pop(c);
                 if (MotoGoSupabase.currentUser == null) {
