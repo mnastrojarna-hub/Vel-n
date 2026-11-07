@@ -22,6 +22,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Dokonči objednávku',
     'v2UxPsShipping': 'Doprava',
     'v2UxPsEnterCode': 'Zadej kód',
+    'v2UxPsVoucherInfo1': 'Otevřená hodnota – částku si zvolíš',
   },
   'en': {
     'v2UxPsStepEmail': 'The confirmation is in your email.',
@@ -44,6 +45,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Finish your order',
     'v2UxPsShipping': 'Shipping',
     'v2UxPsEnterCode': 'Enter code',
+    'v2UxPsVoucherInfo1': 'Open value – you choose the amount',
   },
   'de': {
     'v2UxPsStepEmail': 'Die Bestätigung hast du per E-Mail.',
@@ -66,6 +68,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Schließ deine Bestellung ab',
     'v2UxPsShipping': 'Versand',
     'v2UxPsEnterCode': 'Code eingeben',
+    'v2UxPsVoucherInfo1': 'Offener Wert – du wählst den Betrag',
   },
   'es': {
     'v2UxPsStepEmail': 'Tienes la confirmación en tu correo.',
@@ -88,6 +91,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Completa tu pedido',
     'v2UxPsShipping': 'Envío',
     'v2UxPsEnterCode': 'Introduce el código',
+    'v2UxPsVoucherInfo1': 'Valor abierto: tú eliges el importe',
   },
   'fr': {
     'v2UxPsStepEmail': 'Tu as la confirmation par e-mail.',
@@ -110,6 +114,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Termine ta commande',
     'v2UxPsShipping': 'Livraison',
     'v2UxPsEnterCode': 'Saisis le code',
+    'v2UxPsVoucherInfo1': 'Valeur libre – tu choisis le montant',
   },
   'nl': {
     'v2UxPsStepEmail': 'De bevestiging staat in je e-mail.',
@@ -132,6 +137,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Rond je bestelling af',
     'v2UxPsShipping': 'Verzending',
     'v2UxPsEnterCode': 'Voer de code in',
+    'v2UxPsVoucherInfo1': 'Open waarde – jij kiest het bedrag',
   },
   'pl': {
     'v2UxPsStepEmail': 'Potwierdzenie masz w e-mailu.',
@@ -154,6 +160,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Dokończ zamówienie',
     'v2UxPsShipping': 'Dostawa',
     'v2UxPsEnterCode': 'Wpisz kod',
+    'v2UxPsVoucherInfo1': 'Dowolna kwota do wyboru',
   },
   'uk': {
     'v2UxPsStepEmail': 'Підтвердження маєш в e-mail.',
@@ -176,5 +183,6 @@ const Map<String, Map<String, String>> translationsExt60V2UxPayShopB = {
     'v2UxPsCompleteOrder': 'Заверши замовлення',
     'v2UxPsShipping': 'Доставка',
     'v2UxPsEnterCode': 'Введи код',
+    'v2UxPsVoucherInfo1': 'Довільна сума на твій вибір',
   },
 };

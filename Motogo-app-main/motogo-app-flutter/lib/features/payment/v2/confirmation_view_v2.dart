@@ -80,9 +80,12 @@ class ConfirmationViewV2 extends StatelessWidget {
     final tr = t(context);
     final s = start, e = end;
     final range = s != null && e != null ? mgRange(s, e, tr.lang) : null;
-    final why = motoName != null && range != null
-        ? tr.trArgs('v2UxPsConfirmedWhy', {'bike': motoName!, 'range': range})
-        : tr.tr('v2UxPsHoldBike');
+    // "{bike} · {range}" on its own line: a date ending with "." must not
+    // run into the next sentence.
+    final why = [
+      if (motoName != null && range != null) '${motoName!} · $range',
+      tr.tr('v2UxPsHoldBike'),
+    ].join('\n');
     final missing = docs == PayDocsV2.missing;
     return MgStateScreen(
       tone: MgTone.ok,

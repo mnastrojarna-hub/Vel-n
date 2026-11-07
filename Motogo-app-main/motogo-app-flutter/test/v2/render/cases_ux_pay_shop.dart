@@ -49,7 +49,18 @@ const kPsProducts = [
 
 GoRouter Function() psRouter(Widget Function() screen) => () => GoRouter(routes: [
       GoRoute(path: '/', builder: (_, __) => Scaffold(body: screen())),
+      GoRoute(path: '/x', builder: (_, __) => const Scaffold(body: SizedBox.expand())),
     ]);
+
+/// The payment screen writes its providers one frame after dispose (the
+/// app's ProviderScope lives on) → leave the route before the test tears
+/// the scope down.
+Future<void> psLeave(WidgetTester w) async {
+  GoRouter.of(w.element(find.byType(Scaffold).first)).go('/x');
+  await w.pump();
+  await w.pump(const Duration(seconds: 1));
+  await w.pump(const Duration(milliseconds: 50));
+}
 
 List<Override> psPayOverrides({PaymentContext? ctx, List<SavedCard> cards = kPsCards}) => [
       ...bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw, pickupTime: '12:00')),
@@ -176,13 +187,13 @@ List<RenderCase> uxPayShopRenderCases() {
       flowType: PaymentFlowType.sos, amount: 4900, label: 'Náhradní motorka', sosDepositNote: 'Záloha je vratná po vyhodnocení škody.');
   return [
     RenderCase('pay', 'payment', 'new_booking', () => const PaymentScreen(), () => psPayOverrides(),
-        router: psRouter(() => const PaymentScreen()), scaffold: false),
+        router: psRouter(() => const PaymentScreen()), scaffold: false, end: psLeave),
     RenderCase('pay', 'payment', 'edit_surcharge', () => const PaymentScreen(), () => psPayOverrides(ctx: edit),
-        router: psRouter(() => const PaymentScreen()), scaffold: false),
+        router: psRouter(() => const PaymentScreen()), scaffold: false, end: psLeave),
     RenderCase('pay', 'payment', 'edit_round15', () => const PaymentScreen(), () => psPayOverrides(ctx: round),
-        router: psRouter(() => const PaymentScreen()), scaffold: false),
+        router: psRouter(() => const PaymentScreen()), scaffold: false, end: psLeave),
     RenderCase('pay', 'payment', 'sos', () => const PaymentScreen(), () => psPayOverrides(ctx: sos, cards: const []),
-        router: psRouter(() => const PaymentScreen()), scaffold: false),
+        router: psRouter(() => const PaymentScreen()), scaffold: false, end: psLeave),
     RenderCase('pay', 'success', 'verified', () => psConfirm(), () => const []),
     RenderCase('pay', 'success', 'docs_missing', () => psConfirm(docs: PayDocsV2.missing), () => const []),
     RenderCase('pay', 'success', 'load_fail', () => psConfirm(noDetails: true, failed: true, docs: PayDocsV2.unknown), () => const []),
@@ -208,7 +219,7 @@ List<RenderCase> uxPayShopRenderCases() {
     RenderCase('shop', 'cart', 'empty', () => const CartScreen(), () => psShopOverrides(),
         router: psRouter(() => const CartScreen()), scaffold: false),
     RenderCase('shop', 'checkout', 'post', () => const ShopCheckoutScreen(), () => psShopOverrides(cart: kPsCart),
-        router: psRouter(() => const ShopCheckoutScreen()), scaffold: false),
+        router: psRouter(() => const ShopCheckoutScreen()), scaffold: false, end: psLeave),
     RenderCase('shop', 'voucher', 'buy', () => const VoucherScreen(), () => psShopOverrides(),
         router: psRouter(() => const VoucherScreen()), scaffold: false),
     RenderCase('shop', 'voucher', 'custom', () => const VoucherScreen(), () => psShopOverrides(),

@@ -94,35 +94,28 @@ class VoucherViewV2 extends StatelessWidget {
         ],
         const SizedBox(height: MgSpace.s20),
         label(tr.tr('voucherTypeLabel')),
-        IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(
-              child: MgChoiceCard(
-                title: tr.tr('electronicVoucher'),
-                sub: 'Email · ${tr.free.toLowerCase()}',
-                icon: MgIcons.mail,
-                selected: !printed,
-                onTap: () => onPrinted(false),
-              ),
-            ),
-            const SizedBox(width: MgSpace.s8),
-            Expanded(
-              child: MgChoiceCard(
-                title: tr.tr('printedVoucher'),
-                sub: '+ ${Money.czk(printedVoucherShipping)}',
-                icon: MgIcons.gift,
-                selected: printed,
-                onTap: () => onPrinted(true),
-              ),
-            ),
-          ]),
+        // One option per row: two half-width cards split the words at 320–412.
+        MgChoiceCard(
+          title: tr.tr('electronicVoucher'),
+          sub: 'Email · ${tr.free.toLowerCase()}',
+          icon: MgIcons.mail,
+          selected: !printed,
+          onTap: () => onPrinted(false),
+        ),
+        const SizedBox(height: MgSpace.s8),
+        MgChoiceCard(
+          title: tr.tr('printedVoucher'),
+          sub: '+ ${Money.czk(printedVoucherShipping)}',
+          icon: MgIcons.gift,
+          selected: printed,
+          onTap: () => onPrinted(true),
         ),
       ]),
     );
     final how = PayCardV2(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         label(tr.tr('howItWorks')),
-        for (final k in const ['voucherInfo1', 'voucherInfo2', 'voucherInfo3', 'voucherInfo5'])
+        for (final k in const ['v2UxPsVoucherInfo1', 'voucherInfo2', 'voucherInfo3', 'voucherInfo5'])
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

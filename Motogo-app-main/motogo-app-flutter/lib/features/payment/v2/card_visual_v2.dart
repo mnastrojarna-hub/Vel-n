@@ -53,13 +53,16 @@ class SavedCardV2 extends StatelessWidget {
             ),
         ]),
         const SizedBox(height: 14),
-        Container(
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Container(
           width: 36,
           height: 26,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(5),
             gradient: const LinearGradient(colors: [MgColors.warnDark, MgColors.star]),
           ),
+        ),
         ),
         const SizedBox(height: 14),
         Text('•••• ${card.last4}', style: MgType.tab(MgType.h2.copyWith(letterSpacing: 2, color: fg))),
