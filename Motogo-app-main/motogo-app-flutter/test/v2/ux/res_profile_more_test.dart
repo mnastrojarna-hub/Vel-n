@@ -14,6 +14,7 @@ import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/branches/branches_info_provider.dart' show branchesInfoDefaults;
+import 'package:motogo_app/features/branches/branches_widgets.dart' show plainText;
 import 'package:motogo_app/features/branches/v2/branches_view_v2.dart';
 import 'package:motogo_app/features/messages/messages_provider.dart';
 import 'package:motogo_app/features/messages/v2/messages_view_v2.dart';
@@ -102,7 +103,7 @@ void main() {
     });
   });
 
-  testWidgets('RP-14 branch card: "Rezervovat zde" = onBook, the detail stays a ghost button', (t) async {
+  testWidgets('RP-14 branch card: "Detail" is the card primary (old tile), no per-card book; the CTA box books', (t) async {
     var books = 0;
     final opened = <int>[];
     await pumpV2(
@@ -118,20 +119,21 @@ void main() {
       reducedMotion: true,
     );
     await t.pump(const Duration(milliseconds: 600));
-    final book = find.widgetWithText(MgBtnInk, _t('v2UxRpBookHere'));
-    expect(book, findsNWidgets(2));
-    await t.ensureVisible(book.first);
-    await t.pump();
-    await t.tap(book.first);
-    await t.pump();
-    expect(books, 1);
-    expect(opened, isEmpty);
-    final detail = find.byType(MgBtnGhostLight);
+    // No "book here" that would not filter to the branch (parity fix).
+    expect(find.widgetWithText(MgBtnInk, _t('v2UxRpBookHere')), findsNothing);
+    final detail = find.widgetWithText(MgBtnInk, plainText(branchesInfoDefaults['detail_button'] ?? ''));
+    expect(detail, findsNWidgets(2));
     await t.ensureVisible(detail.first);
     await t.pump();
     await t.tap(detail.first);
     await t.pump();
     expect(opened, [0]);
+    expect(books, 0);
+    final cta = find.widgetWithText(MgCta, plainText(branchesInfoDefaults['cta.button'] ?? ''));
+    await t.ensureVisible(cta);
+    await t.pump();
+    await t.tap(cta);
+    await t.pump();
     expect(books, 1);
   });
 

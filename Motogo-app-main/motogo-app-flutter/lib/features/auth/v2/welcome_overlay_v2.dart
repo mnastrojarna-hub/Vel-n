@@ -135,7 +135,9 @@ class _RankCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
-    final s = ref.watch(loyaltyStatusProvider).valueOrNull;
+    // Never the first reader: no new backend read at sign-up time (old
+    // welcome had none) — the card shows only an already loaded status.
+    final s = ref.exists(loyaltyStatusProvider) ? ref.watch(loyaltyStatusProvider).valueOrNull : null;
     if (s == null) return const SizedBox.shrink();
     final name = RankCopy.name(tr, s.level, s.rankName);
     return Container(

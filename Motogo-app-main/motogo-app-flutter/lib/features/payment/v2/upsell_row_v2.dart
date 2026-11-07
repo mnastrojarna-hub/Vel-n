@@ -17,9 +17,10 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../shop/shop_models.dart';
 import 'pay_parts_v2.dart' show PayCardV2;
 
-/// v2 look of `UpsellSection` (PS-07, flag `reservation_upsell`): an
-/// optional extra → a collapsed card "Doporučujeme k rezervaci ▾" (opens by
-/// itself when something is already chosen); inside a row of product cards
+/// v2 look of `UpsellSection` (PS-07, flag `reservation_upsell`): a card
+/// "Doporučujeme k rezervaci ▾" that starts OPEN (sales offer visible at
+/// first glance, as in the old section; owner 2026-11-07 "nic neomezit") —
+/// the customer may fold it; inside a row of product cards
 /// that snaps to whole cards with a 24 px peek of the next one. Pure view —
 /// selection, sizes, add / remove are the section's own callbacks with the
 /// old tile's tap rules (row tap: chosen → remove, no size → add; size chip:
@@ -48,13 +49,12 @@ class UpsellRowV2 extends StatelessWidget {
     final tr = t(context);
     final list = products;
     if (list != null && list.isEmpty) return const SizedBox.shrink();
-    final chosen = list?.where((p) => isSelected(p.id)).length ?? 0;
     return PayCardV2(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: MgDisclosure(
         key: const ValueKey('upsell-v2'),
         label: tr.tr('v2UxPsUpsellTitle'),
-        initiallyExpanded: chosen > 0,
+        initiallyExpanded: true,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

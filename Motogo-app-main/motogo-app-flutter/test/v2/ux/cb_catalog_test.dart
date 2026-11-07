@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/friendly_error.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/calendar/trip_calendar.dart';
 import 'package:motogo_app/core/v2/icons/mg_icon.dart';
@@ -255,11 +256,15 @@ void main() {
     await _drain(t);
   });
 
-  testWidgets('CB-21: list error = Stavy 8.6 card; ZKUSIT ZNOVU = the reload; raw error only in Technické detaily', (t) async {
+  testWidgets('CB-21: list error = Stavy 8.6 card with the REAL reason + fix; ZKUSIT ZNOVU = the reload; raw error only in Technické detaily', (t) async {
     var retries = 0;
-    await pumpV2(t, SingleChildScrollView(child: MotorkyErrorV2(error: Exception('socket closed'), onRetry: () => retries++)));
+    final err = Exception('socket closed');
+    await pumpV2(t, SingleChildScrollView(child: MotorkyErrorV2(error: err, onRetry: () => retries++)));
     expect(find.text(_cs.tr('v2UxCbErrTitle')), findsOneWidget);
-    expect(find.text(_cs.tr('v2UxCbErrWhy')), findsOneWidget);
+    // Same reason / fix as the old MgErrorView (FriendlyError), not a fixed text.
+    final fe = FriendlyError.of(err);
+    expect(find.text(friendlyWhy(_cs, fe)), findsOneWidget);
+    expect(find.text(fe.body(_cs)), findsOneWidget);
     expect(find.textContaining('socket closed'), findsNothing);
     expect(find.byType(MgTechDetails), findsOneWidget);
     await t.tap(find.text(_cs.tr('eoRetry').toUpperCase()));

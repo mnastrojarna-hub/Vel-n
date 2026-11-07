@@ -146,8 +146,11 @@ Future<void> _openUpsell(WidgetTester t) async {
   // Upper part of the page: the dock covers the bottom.
   await Scrollable.ensureVisible(t.element(f), alignment: 0.2);
   await t.pumpAndSettle();
-  await t.tap(find.descendant(of: f, matching: find.byType(Text)).first);
-  await t.pumpAndSettle();
+  // The card starts open (owner "nic neomezit"); tap only if folded.
+  if (find.byKey(const ValueKey('upsell-v2-row')).evaluate().isEmpty) {
+    await t.tap(find.descendant(of: f, matching: find.byType(Text)).first);
+    await t.pumpAndSettle();
+  }
   await t.ensureVisible(find.byKey(const ValueKey('upsell-v2-row')));
   await t.pumpAndSettle();
 }

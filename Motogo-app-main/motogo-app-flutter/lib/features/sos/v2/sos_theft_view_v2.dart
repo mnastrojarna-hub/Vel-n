@@ -114,6 +114,10 @@ class SosTheftViewV2 extends StatelessWidget {
                     icon: MgIcons.bike,
                     onTap: onReplacement,
                   ),
+                  // The old card's subtitle (you pick a bike + the address).
+                  const SizedBox(height: 6),
+                  Text(tr.tr('selectMotoAndAddress'),
+                      textAlign: TextAlign.center, style: MgType.small.copyWith(color: MgColors.meta)),
                   const SizedBox(height: 4),
                   Center(child: MgBtnText(label: tr.tr('noReplacementEnd'), onTap: onNoReplacement)),
                 ]),

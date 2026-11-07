@@ -73,12 +73,15 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('returning customer, trip ready: both express sections folded, CTA live in the dock', (t) async {
+  testWidgets('returning customer, trip ready: both sections OPEN (owner "nic neomezit"), CTA live in the dock', (t) async {
     await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
-    expect(_open<BookingHandoverRowV2>(t), isFalse);
-    expect(_open<BookingReadyCardV2>(t), isFalse);
-    expect(find.byType(BookingDateCardV2), findsNothing);
-    expect(find.byType(BookingFormExtrasSection), findsNothing);
+    // Times, delivery choice, 12:00 tip and extras (free trailer…) stay
+    // visible at first glance, as in the old look.
+    expect(_open<BookingHandoverRowV2>(t), isTrue);
+    expect(_open<BookingReadyCardV2>(t), isTrue);
+    expect(find.byType(BookingDateCardV2), findsOneWidget);
+    expect(find.byType(BookingFormTimeSection), findsOneWidget);
+    expect(find.byType(BookingFormExtrasSection), findsOneWidget);
     // Key facts stay visible: the recap (dates), price, consents.
     expect(find.byType(BookingRecapV2), findsOneWidget);
     expect(find.byType(BookingConsentsV2), findsOneWidget);
@@ -110,6 +113,25 @@ void main() {
     await _done(t);
   });
 
+  testWidgets('a section the customer folded re-opens on its blocker fix (Doplnit → date card)', (t) async {
+    await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
+    final link = find.descendant(of: find.byType(BookingHandoverRowV2), matching: find.text(_cs.tr('v2BkChange')));
+    await Scrollable.ensureVisible(t.element(link), alignment: 0.4);
+    await t.pump();
+    await t.tap(link);
+    await t.pump(const Duration(milliseconds: 400));
+    expect(_open<BookingHandoverRowV2>(t), isFalse);
+    expect(find.byType(BookingDateCardV2), findsNothing);
+    // The recap's own "change dates" still opens it and brings the card in.
+    final recap = t.widget<BookingRecapV2>(find.byType(BookingRecapV2));
+    recap.onPickDates!();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
+    expect(_open<BookingHandoverRowV2>(t), isTrue);
+    _expectOnScreen(t, find.byType(BookingDateCardV2));
+    await _done(t);
+  });
+
   testWidgets('first-time customer (sizes missing): everything open, Doplnit → the size chips', (t) async {
     await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw, sizes: false)));
     expect(_open<BookingHandoverRowV2>(t), isTrue);
@@ -129,9 +151,9 @@ void main() {
     await _done(t);
   });
 
-  testWidgets('consents off: Doplnit → both consents on screen (express stays folded)', (t) async {
+  testWidgets('consents off: Doplnit → both consents on screen', (t) async {
     await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw, consents: false)));
-    expect(_open<BookingHandoverRowV2>(t), isFalse);
+    expect(_open<BookingHandoverRowV2>(t), isTrue);
     await _fix(t);
     _expectOnScreen(t, find.byType(BookingConsentsV2));
     await _done(t);
@@ -148,7 +170,7 @@ void main() {
         if (kind == 'licence') licenseValidationProvider.overrideWith((ref) => msg),
       ];
       await _form(t, o);
-      expect(_open<BookingHandoverRowV2>(t), kind != 'licence');
+      expect(_open<BookingHandoverRowV2>(t), isTrue);
       await _fix(t);
       final target = switch (kind) {
         'dates' => find.byType(BookingDateCardV2),

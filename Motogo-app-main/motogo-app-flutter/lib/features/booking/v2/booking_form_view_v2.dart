@@ -134,13 +134,15 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   final _warnKey = GlobalKey();
   final _timeKey = GlobalKey();
 
-  /// Express layout (CB-11, Booking board "Máme to připravené"): the
+  /// Express headers (CB-11, Booking board "Máme to připravené"): the
   /// "Termín a předání" cards (date, time, pickup, return) and the gear /
-  /// extras section start collapsed for a returning customer whose trip is
-  /// ready; a first-time customer (sizes missing) sees everything open. A
-  /// section holding a blocker is always open (and stays open).
-  late bool _handover;
-  late bool _ready;
+  /// extras section START OPEN for every customer (owner 2026-11-07
+  /// "nic neomezit": the times, the delivery choice, the 12:00 tip and the
+  /// extras incl. the free trailer stay visible at first glance, as in the
+  /// old look); the customer may fold a section with its header. A section
+  /// holding a blocker is always open (and stays open).
+  bool _handover = true;
+  bool _ready = true;
 
   static bool _handoverBlocked(BookingFormV2View w) {
     final d = w.draft;
@@ -156,14 +158,6 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   }
 
   static bool _readyBlocked(BookingFormV2View w) => w.missingSizes.isNotEmpty;
-
-  @override
-  void initState() {
-    super.initState();
-    final express = !_handoverBlocked(widget) && !_readyBlocked(widget);
-    _handover = !express;
-    _ready = !express;
-  }
 
   @override
   void didUpdateWidget(covariant BookingFormV2View oldWidget) {

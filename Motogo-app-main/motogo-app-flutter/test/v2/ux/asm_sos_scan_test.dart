@@ -163,7 +163,7 @@ void main() {
     expect(got, 'retry');
   });
 
-  testWidgets('replacement: first 6 bikes, "Zobrazit další (3)" shows the rest', (t) async {
+  testWidgets('replacement: ALL free bikes listed at once (old list, owner "nic neomezit")', (t) async {
     await pumpV2(
         t,
         SosReplacementViewV2(
@@ -181,12 +181,8 @@ void main() {
         overrides: asmBase(),
         reducedMotion: true);
     await t.pump();
-    expect(find.text('Zdarma', skipOffstage: false), findsNWidgets(6));
-    await t.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await t.pump();
-    await t.tap(find.text('Zobrazit další (3)'));
-    await t.pump();
     expect(find.text('Zdarma', skipOffstage: false), findsNWidgets(9));
+    expect(find.textContaining('Zobrazit další', skipOffstage: false), findsNothing);
   });
 
   testWidgets('scanner: choice rows run their action; loading = skeleton; result tiles + actions', (t) async {

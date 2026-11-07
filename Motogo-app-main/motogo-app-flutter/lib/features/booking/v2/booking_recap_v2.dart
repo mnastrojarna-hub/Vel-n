@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
@@ -36,6 +37,15 @@ class BookingRecapV2 extends StatelessWidget {
   final VoidCallback? onPickDates;
   final Widget? footer;
 
+  /// Optional: tap on the photo opens the bike's photos (the payment page's
+  /// old swipeable gallery); [photoCount] > 1 shows a small count pill.
+  final VoidCallback? onPhotoTap;
+  final int photoCount;
+
+  /// Branch place line with the city ("Mezná, Pelhřimov · s obsluhou"),
+  /// as the payment page's old gallery card showed it.
+  final bool withCity;
+
   const BookingRecapV2({
     super.key,
     required this.moto,
@@ -48,12 +58,64 @@ class BookingRecapV2 extends StatelessWidget {
     this.pickupDelivery = false,
     this.onPickDates,
     this.footer,
+    this.onPhotoTap,
+    this.photoCount = 0,
+    this.withCity = false,
   });
 
   String _place(AppTranslations tr) {
     if (pickupDelivery) return tr.tr('v2UxCbDelivery');
-    final b = catBranchLine(tr, moto);
+    var b = catBranchLine(tr, moto);
+    final city = (moto.branchCity ?? '').trim();
+    final name = (moto.branchName ?? '').trim();
+    if (b != null && withCity && name.isNotEmpty && city.isNotEmpty && !name.contains(city)) {
+      b = b.replaceFirst(name, '$name, $city');
+    }
     return b == null ? '' : tr.trArgs('v2UxCbAtBranch', {'branch': b});
+  }
+
+  Widget _photo(AppTranslations tr) {
+    final photo = MgPhoto(
+      url: moto.displayImage,
+      thumbWidth: 240,
+      width: 96,
+      height: 64,
+      glyph: MgIcons.moto,
+      borderRadius: BorderRadius.circular(MgRadius.thumb),
+    );
+    final tap = onPhotoTap;
+    if (tap == null) return photo;
+    return Semantics(
+      button: true,
+      label: tr.trArgs('v2DetGalleryAria', {'n': 1, 'total': photoCount < 1 ? 1 : photoCount}),
+      excludeSemantics: true,
+      child: MgPress(
+        key: const ValueKey('bk-recap-photo'),
+        onTap: tap,
+        child: Stack(children: [
+          photo,
+          if (photoCount > 1)
+            PositionedDirectional(
+              end: 4,
+              bottom: 4,
+              child: Container(
+                height: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: MgColors.nightA(0.8),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: MgColors.white(0.22)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const MgIcon(MgIcons.camera, size: 12, color: MgColors.onDark),
+                  const SizedBox(width: 3),
+                  Text('$photoCount', style: MgType.tab(MgType.micro.copyWith(color: MgColors.onDark, height: 1))),
+                ]),
+              ),
+            ),
+        ]),
+      ),
+    );
   }
 
   @override
@@ -78,14 +140,7 @@ class BookingRecapV2 extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          MgPhoto(
-            url: moto.displayImage,
-            thumbWidth: 240,
-            width: 96,
-            height: 64,
-            glyph: MgIcons.moto,
-            borderRadius: BorderRadius.circular(MgRadius.thumb),
-          ),
+          _photo(tr),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

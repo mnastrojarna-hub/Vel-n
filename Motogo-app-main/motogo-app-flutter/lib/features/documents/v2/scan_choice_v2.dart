@@ -81,6 +81,8 @@ class ScanChoiceV2 extends StatelessWidget {
           Wrap(spacing: 8, runSpacing: 8, children: [
             _Trust(icon: MgIcons.shield, text: tr.tr('secureRecognition')),
             _Trust(icon: MgIcons.lock, text: tr.tr('dataStoredLocally')),
+            // The old screen's third badge (same literal, all languages).
+            const _Trust(icon: MgIcons.checkCircle, text: 'EU GDPR compliant'),
           ]),
         ]),
       ),

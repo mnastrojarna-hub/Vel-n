@@ -61,11 +61,27 @@ class _AnimatedRouteIconState extends State<AnimatedRouteIcon>
       vsync: this,
       duration: Duration(milliseconds: _totalMs.round()),
     );
-    if (!widget.once) {
-      _c.repeat();
-    } else if (MgMotion.firstTime('trasy-route-icon')) {
-      _c.forward();
-    } else {
+    if (!widget.once) _c.repeat();
+  }
+
+  bool _started = false;
+
+  /// v2 `once`: started here (reduced motion needs MediaQuery) — reduced
+  /// motion = the end state at once (V2 motion rule), never a run.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.once) return;
+    final reduced = MgMotion.reduced(context);
+    if (!_started) {
+      _started = true;
+      final first = MgMotion.firstTime('trasy-route-icon');
+      if (first && !reduced) {
+        _c.forward();
+      } else {
+        _c.value = 1;
+      }
+    } else if (reduced && _c.isAnimating) {
       _c.value = 1;
     }
   }

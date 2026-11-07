@@ -47,7 +47,10 @@ class PaymentMethodsScreen extends ConsumerWidget {
         onSetDefault: (c) => _setDefault(context, ref, c),
         onAdd: null, // iOS: cards are saved at checkout — never manual entry (5.1.1)
         emptyNote: t(context).tr('cardsSavedAtCheckout'),
-        footNote: null,
+        // Old iOS list: with cards the "saved at checkout" note, always Stripe.
+        footNote: (cardsAsync.valueOrNull?.isNotEmpty ?? false)
+            ? '${t(context).tr('cardsSavedAtCheckout')}\n\n${t(context).tr('cardsSecuredByStripe')}'
+            : t(context).tr('cardsSecuredByStripe'),
       );
     }
 

@@ -1,4 +1,5 @@
-// pay_shop PS-07: the booking upsell in the v2 look — collapsed card, a
+// pay_shop PS-07: the booking upsell in the v2 look — card OPEN by default
+// (owner 2026-11-07 "nic neomezit": the offer is visible at once), a
 // product row that snaps to whole cards (24 px peek), the old tile's tap
 // rules on the same provider; flag OFF keeps the old section.
 import 'package:flutter/material.dart';
@@ -24,14 +25,14 @@ ScrollPosition _rowPos(WidgetTester t) =>
     t.state<ScrollableState>(find.descendant(of: find.byKey(const ValueKey('upsell-v2-row')), matching: find.byType(Scrollable))).position;
 
 void main() {
-  testWidgets('flag ON: collapsed card; one tap opens the row; flag OFF: the old section', (tester) async {
+  testWidgets('flag ON: card open, products visible at once; a tap folds it; flag OFF: the old section', (tester) async {
     await pumpPs(tester, _host(), overrides: psShopOverrides());
     await tester.pumpAndSettle();
     expect(find.byType(UpsellRowV2), findsOneWidget);
-    expect(find.byKey(const ValueKey('upsell-v2-row')), findsNothing);
+    expect(find.byKey(const ValueKey('upsell-v2-row')), findsOneWidget);
     await tester.tap(find.text('Doporučujeme k rezervaci'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('upsell-v2-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('upsell-v2-row')), findsNothing);
 
     await pumpPs(tester, _host(), overrides: psShopOverrides(), v2: false);
     await tester.pumpAndSettle();
@@ -40,8 +41,6 @@ void main() {
 
   testWidgets('same tap rules: Přidat adds / removes, a size chip replaces the size', (tester) async {
     await pumpPs(tester, _host(), overrides: psShopOverrides());
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Doporučujeme k rezervaci'));
     await tester.pumpAndSettle();
     // p1 needs a size: no add chip, sizes instead.
     expect(find.byKey(const ValueKey('upsell-v2-toggle-p1')), findsNothing);
@@ -68,8 +67,6 @@ void main() {
 
   testWidgets('swipe snaps to whole cards; a fling moves one card; something chosen = open', (tester) async {
     await pumpPs(tester, _host(), overrides: psShopOverrides(), reducedMotion: false);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Doporučujeme k rezervaci'));
     await tester.pumpAndSettle();
     final row = find.byKey(const ValueKey('upsell-v2-row'));
     final card = tester.getSize(find.descendant(of: row, matching: find.byType(SizedBox)).first).width;

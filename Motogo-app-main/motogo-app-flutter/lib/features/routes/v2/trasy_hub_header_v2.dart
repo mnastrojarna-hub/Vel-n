@@ -83,11 +83,12 @@ class TrasyHubHeaderV2 extends StatelessWidget {
             const SizedBox(width: 10),
           ],
           // F-14 (board TrasyHub): the logo in the rank ring with the level
-          // badge on every hub face; tap = the ranks screen (as on Domů).
+          // badge on every hub face — display only (the old hub had no
+          // ranks entry; a tap target would be new navigation → owner).
           // Next to a back disc only from 360 dp — at 320 the title keeps
           // its width (never "Itinéra…").
           if (onSegment != null && (onBack == null || MediaQuery.sizeOf(context).width >= 360)) ...[
-            MgLogoRing(size: onBack == null ? 48 : 40, onTap: () => context.push('/loyalty')),
+            MgLogoRing(size: onBack == null ? 48 : 40),
             const SizedBox(width: 10),
           ],
           Expanded(

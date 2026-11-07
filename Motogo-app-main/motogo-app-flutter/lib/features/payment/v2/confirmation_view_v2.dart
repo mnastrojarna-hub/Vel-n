@@ -102,8 +102,12 @@ class ConfirmationViewV2 extends StatelessWidget {
         PayStepsCardV2(title: tr.tr('v2UxPsNext'), steps: _steps(tr)),
         PayCardV2(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          // Open at first glance (old look always showed them, incl. the
+          // liability line); the customer may fold it.
           child: MgDisclosure(
+            key: const ValueKey('pay-v2-safety'),
             label: tr.tr('successSafetyTitle'),
+            initiallyExpanded: true,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(tr.tr('v2UxPsSafetyTips'), style: MgType.body.copyWith(color: MgColors.body2)),
