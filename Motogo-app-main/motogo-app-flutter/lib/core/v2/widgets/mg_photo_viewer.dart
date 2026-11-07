@@ -137,7 +137,7 @@ class _MgPhotoViewerViewState extends State<MgPhotoViewerView> with TickerProvid
   }
 
   Widget _photo(int i) {
-    final placeholder = const SizedBox.expand(child: MgSkeleton(dark: true, height: double.infinity, radius: 0));
+    const placeholder = SizedBox.expand(child: MgSkeleton(dark: true, height: double.infinity, radius: 0));
     final error = Center(child: MgIcon(MgIcons.image, size: 32, color: MgColors.white(0.24)));
     return GestureDetector(
       onDoubleTapDown: (d) => _tapAt = d.localPosition,

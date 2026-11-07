@@ -22,8 +22,8 @@ import 'package:motogo_app/core/i18n/translations_ext_60_v2_ux_routes_rides_b.da
 
 const _langs = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl', 'uk'];
 final _ph = RegExp(r'\{[a-zA-Z]+\}');
-final _emoji = RegExp(r'[\p{Extended_Pictographic}\u{FE0F}\u{200D}]', unicode: true);
-final _formal = RegExp(r'(?<![\p{L}])(Vyberte|Klikněte|Zadejte|Vaše|Vás|jste)(?![\p{L}])', unicode: true);
+final _emoji = RegExp(r'[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]', unicode: true);
+final _formal = RegExp(r'\b(Vyberte|Klikněte|Zadejte|Vaše|Vás|jste)\b');
 
 final _maps = <(String, String, Map<String, Map<String, String>>)>[
   ('translations_ext_60_v2_ux_core_a.dart', 'v2UxCore', translationsExt60V2UxCoreA),
