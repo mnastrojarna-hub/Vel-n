@@ -1,3 +1,10 @@
+# Handoff 2026-11-07 — pokyn majitele: „dále pokračuj na tom co začal fable dej si záležet na UI a Ux s ohledem na uživatelkou jednoduchost funkčnost a intuitivitu hlavně co si týče swipování robrazování a přehlednost super grafiku a animace“ + „cílem je prémiový zážitek a snadná konverze zákazník si musí přijít jako král“
+- #2222 (jiná session, jen řádek STATE_6) — konflikt s main vyřešen merge commitem 3b63223f ve větvi `claude/restore-orphan-doc-rows` (čistý proti main); totéž sloučeno do vývojové větve (922e0fad).
+- BĚŽÍ: **prémiová UX úloha** run `wf_7c8c6e5d-938` (skript `workflows/app-v2-premium-ux-wf_7c8c6e5d-938.js`): audit 4 oblastí (gesta/swipe, zobrazování/výkon, přehlednost, grafika/animace, král+konverze) → jednotný slovník gest a pohybu (`scratchpad/uxp/design.md`) → sdílené základy v `core/v2` → balíky oblastí → ověření (checks, vizuál z renderů, audit funkčnosti) → opravy. Oba stromy.
+- BĚŽÍ: **platby verify i3** (resume `wf_79d20dcc-a4f`).
+- Limit 7. 11. 09:16 UTC: okno `seven_day` 51 % (okno `seven_day_overage_included` z 5. 11. v hlášení chybí). Pravidlo 90 % platí.
+
+---
 # Handoff 2026-11-05 — pokyn majitele: „ok pokračuj a kompletně dodělej motogo 2 app pro obě platformy hlídej případný limit a stopni to až bude 90%“
 
 > Větev `claude/moto-go-mobile-conversion-gqg5qo`, PR #2214 je KONCEPT (draft) — nemergovat (majitel merguje bez čtení → až po „ověřeno, můžete mergovat“). Složku `.claude/handoff/` smazat před mergem.
