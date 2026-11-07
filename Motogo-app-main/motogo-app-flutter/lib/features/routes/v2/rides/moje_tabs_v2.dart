@@ -28,11 +28,35 @@ enum MojeSub { rides, saved, places, history }
 enum RideFilter { all, motogo, private }
 
 /// Horizontal chip row of the sub-screens with counts (null = unknown).
-class MojeSubChipsV2 extends StatelessWidget {
+class MojeSubChipsV2 extends StatefulWidget {
   final MojeSub value;
   final ValueChanged<MojeSub> onChanged;
   final Map<MojeSub, int?> counts;
   const MojeSubChipsV2({super.key, required this.value, required this.onChanged, required this.counts});
+
+  @override
+  State<MojeSubChipsV2> createState() => _MojeSubChipsV2State();
+}
+
+/// Sub-tabs as navigation (board Zazitky): the selected one is the dark
+/// pill with a neon count (`MgFilterChipStyle.tab`); a swipe / tap scrolls
+/// the rail so the selected chip is visible ("Historie navigace" sat off
+/// screen at 360 dp) — `MgMotion.tab` emphasized, instant when reduced.
+class _MojeSubChipsV2State extends State<MojeSubChipsV2> {
+  final _keys = {for (final s in MojeSub.values) s: GlobalKey()};
+
+  @override
+  void didUpdateWidget(MojeSubChipsV2 old) {
+    super.didUpdateWidget(old);
+    if (old.value != widget.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final c = _keys[widget.value]?.currentContext;
+        if (c == null || !mounted) return;
+        Scrollable.ensureVisible(c,
+            alignment: 0.5, duration: MgMotion.of(context, MgMotion.tab), curve: MgMotion.emphasized);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,11 +80,13 @@ class MojeSubChipsV2 extends StatelessWidget {
         for (final s in MojeSub.values) ...[
           if (s != MojeSub.rides) const SizedBox(width: 8),
           MgFilterChip(
+            key: _keys[s],
             label: tr.tr(keys[s]!),
             icon: icons[s],
-            count: counts[s],
-            selected: s == value,
-            onTap: () => onChanged(s),
+            count: widget.counts[s],
+            selected: s == widget.value,
+            style: MgFilterChipStyle.tab,
+            onTap: () => widget.onChanged(s),
           ),
         ],
       ]),

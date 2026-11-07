@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
+import '../rt_v2_text.dart';
+import '../../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../../core/v2/widgets/mg_row.dart';
+import '../../../../core/v2/gestures/mg_swipe_switcher.dart';
+import '../../../../core/v2/gestures/mg_swipe.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_segmented.dart';
@@ -38,6 +44,13 @@ class MojeListsV2 extends StatelessWidget {
   final VoidCallback onOpenRecorder;
   final VoidCallback onHistoryTab;
 
+  /// Last sub-tab change (−1 / +1) and the body swipe (F-15).
+  final int direction;
+  final ValueChanged<MojeSub>? onSwipe;
+
+  /// "Na mapě · 12 míst ›" (F-38) = the header's map action.
+  final VoidCallback? onPlacesMap;
+
   const MojeListsV2({
     super.key,
     required this.sub,
@@ -50,6 +63,9 @@ class MojeListsV2 extends StatelessWidget {
     required this.onHint,
     required this.onOpenRecorder,
     required this.onHistoryTab,
+    this.direction = 0,
+    this.onSwipe,
+    this.onPlacesMap,
   });
 
   @override
@@ -64,9 +80,19 @@ class MojeListsV2 extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: SliverList.list(
         children: [
-          KeyedSubtree(
-            key: ValueKey(sub),
-            child: MgEnter(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children)),
+          // F-15: the body follows the finger (×.35) and switches to the
+          // neighbour sub-tab (tap twin = the chips); the new content slides
+          // in from the side it came from.
+          MgSwipeSegments<MojeSub>(
+            values: MojeSub.values,
+            value: sub,
+            enabled: onSwipe != null,
+            onChanged: (s) => onSwipe?.call(s),
+            child: MgSwipeSwitcher(
+              switchKey: sub,
+              direction: direction,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+            ),
           ),
         ],
       ),
@@ -75,10 +101,13 @@ class MojeListsV2 extends StatelessWidget {
 
   static const _gap = SizedBox(height: 10);
 
+  // F-18: rows in the final geometry (thumb-left cards), not photo cards.
   List<Widget> _skeletons() => const [
-        MgSkeletonCard(imageHeight: 72),
-        SizedBox(height: 10),
-        MgSkeletonCard(imageHeight: 72),
+        MgSkeletonRow(thumb: 72),
+        SizedBox(height: 16),
+        MgSkeletonRow(thumb: 72),
+        SizedBox(height: 16),
+        MgSkeletonRow(thumb: 72),
       ];
 
   Widget _reveal(int i, String key, Widget child) =>
@@ -133,13 +162,17 @@ class MojeListsV2 extends StatelessWidget {
       else if (rides.isEmpty)
         MojeEmptyV2(icon: MgIcons.bike, title: tr.tr('v2RideEmptyTitle'), text: tr.tr('v2RideEmptySub'))
       else ...[
+        // F-16 (board): one line, dark thumb, inline neon count.
         MgSegmented<RideFilter>(
           value: filter,
           onChanged: onFilter,
+          inlineCount: true,
+          inkThumb: true,
+          counts: {RideFilter.all: items.length, RideFilter.motogo: mg.length, RideFilter.private: pv.length},
           segments: [
-            MgSegment(value: RideFilter.all, label: tr.tr('v2RideFilterAll'), sub: '${items.length}'),
-            MgSegment(value: RideFilter.motogo, label: tr.tr('v2RideFilterMg'), sub: '${mg.length}'),
-            MgSegment(value: RideFilter.private, label: tr.tr('v2RideFilterPriv'), sub: '${pv.length}'),
+            MgSegment(value: RideFilter.all, label: tr.tr('v2RideFilterAll')),
+            MgSegment(value: RideFilter.motogo, label: tr.tr('v2RideFilterMg')),
+            MgSegment(value: RideFilter.private, label: tr.tr('v2RideFilterPriv')),
           ],
         ),
         const SizedBox(height: 12),
@@ -154,7 +187,10 @@ class MojeListsV2 extends StatelessWidget {
             MojeMergeRowV2(onTap: () => openRideMergeV2(context)),
             const SizedBox(height: 12),
           ],
-          for (var i = 0; i < shown.length; i++)
+          for (var i = 0; i < shown.length; i++) ...[
+            // F-33 (board): month head "ŘÍJEN 2026 · 1 · 96 km" when the
+            // month changes (display only — from the items shown).
+            if (i == 0 || _monthOf(shown[i]) != _monthOf(shown[i - 1])) _monthHead(context, shown, i),
             _reveal(
               i,
               'ride-${_members(shown[i]).first.id}',
@@ -163,9 +199,41 @@ class MojeListsV2 extends StatelessWidget {
                 RideListItemTrip(:final trip) => RideTripCardV2(trip: trip, onTap: () => openTripDetailV2(context, trip)),
               },
             ),
+          ],
         ],
       ],
     ];
+  }
+
+  static DateTime _startOf(RideListItem i) => switch (i) {
+        RideListItemRide(:final ride) => ride.startedAt.toLocal(),
+        RideListItemTrip(:final trip) => trip.from.toLocal(),
+      };
+
+  static int _monthOf(RideListItem i) {
+    final d = _startOf(i);
+    return d.year * 12 + d.month;
+  }
+
+  Widget _monthHead(BuildContext context, List<RideListItem> shown, int at) {
+    final tr = t(context);
+    final m = _monthOf(shown[at]);
+    final group = [for (final i in shown) if (_monthOf(i) == m) i];
+    final km = group.fold<double>(0, (s, i) => s + _members(i).fold<double>(0, (a, r) => a + r.distanceKm));
+    final d = _startOf(shown[at]);
+    final label = '${tr.tr('v2CalMonth${d.month}')} ${d.year}'.toUpperCase();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(4, at == 0 ? 2 : 10, 4, 8),
+      child: Semantics(
+        header: true,
+        child: Row(children: [
+          Expanded(child: Text(label, style: MgType.eyebrow.copyWith(color: MgColors.meta))),
+          const MgIcon(MgIcons.bike, size: 14, color: MgColors.meta),
+          const SizedBox(width: 4),
+          Text('${group.length} · ${mgKm(km, tr.lang)}', style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
+        ]),
+      ),
+    );
   }
 
   List<Widget> _saved(BuildContext context) {
@@ -202,6 +270,19 @@ class MojeListsV2 extends StatelessWidget {
       data: (places) => places.isEmpty
           ? [MojeEmptyV2(icon: MgIcons.pin, title: tr.tr('myExpEmptyPlaces'), text: tr.tr('myExpEmptyPlacesSub'))]
           : [
+              if (onPlacesMap != null) ...[
+                MgCard(
+                  padding: EdgeInsets.zero,
+                  child: MgRow(
+                    icon: MgIcons.map,
+                    title: tr.tr('placesMapTitle'),
+                    trailingValue: rtPlural(tr, 'v2RtPlaces', places.length),
+                    chevron: true,
+                    onTap: onPlacesMap,
+                  ),
+                ),
+                _gap,
+              ],
               for (var i = 0; i < places.length; i++)
                 _reveal(
                   i,

@@ -81,7 +81,7 @@ class _SosReplacementViewV2State extends State<SosReplacementViewV2> {
             alignment: Alignment.topCenter,
             child: Column(children: [
               for (final m in shown) ...[
-                _Row(moto: m, selected: widget.selectedId == m.id, onTap: () => widget.onSelect(m)),
+                _SosBikeRowV2(moto: m, selected: widget.selectedId == m.id, onTap: () => widget.onSelect(m)),
                 const SizedBox(height: 8),
               ],
             ]),
@@ -140,11 +140,11 @@ class _SosReplacementViewV2State extends State<SosReplacementViewV2> {
   }
 }
 
-class _Row extends StatelessWidget {
+class _SosBikeRowV2 extends StatelessWidget {
   final Motorcycle moto;
   final bool selected;
   final VoidCallback onTap;
-  const _Row({required this.moto, required this.selected, required this.onTap});
+  const _SosBikeRowV2({required this.moto, required this.selected, required this.onTap});
 
   String _category(BuildContext context) {
     final cat = moto.category;

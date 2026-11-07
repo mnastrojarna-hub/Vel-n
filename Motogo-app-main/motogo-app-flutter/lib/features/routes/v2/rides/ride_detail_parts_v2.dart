@@ -120,7 +120,9 @@ class RideHeaderShellV2 extends StatelessWidget {
       ambientKey: 'ride',
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
       child: LayoutBuilder(builder: (context, c) {
-        final narrow = c.maxWidth < 380 * MediaQuery.textScalerOf(context).scale(1);
+        // The AI disc (F-30) needs 48 px more before the discs share the
+        // title row.
+        final narrow = c.maxWidth < (ai ? 430 : 380) * MediaQuery.textScalerOf(context).scale(1);
         final name = Semantics(
           button: true,
           label: '$title, ${tr.tr('v2RideEditA11y')}',

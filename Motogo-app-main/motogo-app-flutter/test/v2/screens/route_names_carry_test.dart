@@ -181,7 +181,8 @@ void main() {
     await _openSuggest(tester, true);
     expect(_field(tester, 0).controller!.text, '');
     await _fillAndSend(tester, 'poiSubmitSend', 'Pálava za soumraku', 'Vinné sklepy');
-    await tester.tap(find.widgetWithText(ElevatedButton, _tr('cs', 'submitSuccessOk')));
+    // F-11: "Odesláno" is the v2 dialog (MgBtnInk "Hotovo"), same close.
+    await tester.tap(find.text(_tr('cs', 'submitSuccessOk')));
     await _frames(tester);
     await _openSave(tester, true);
     expect(find.text(_tr('cs', 'routeSaveTitle')), findsWidgets);

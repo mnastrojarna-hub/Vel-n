@@ -15,6 +15,7 @@ import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/sos/sos_provider.dart';
 import 'package:motogo_app/features/sos/sos_replacement_motos.dart';
 import 'package:motogo_app/features/sos/sos_replacement_screen.dart';
+import 'package:motogo_app/features/sos/v2/sos_actions_v2.dart' show SosNeonButtonV2;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -120,7 +121,8 @@ void main() {
       await tester.pump();
       await tester.enterText(find.byType(TextField).first, 'Lidická 5, Brno');
       await tester.pump(const Duration(seconds: 1)); // address debounce
-      await tester.tap(find.byType(ElevatedButton).last);
+      // v2 look (ASM-25): the confirm sits in the night SOS dock.
+      await tester.tap(find.byType(SosNeonButtonV2));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump(const Duration(milliseconds: 300));
@@ -134,7 +136,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text(title), findsNothing);
       // Back on the list, nothing selected any more.
-      final opts = tester.widgetList(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_MotoOption'));
+      final opts = tester.widgetList(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_SosBikeRowV2'));
       expect(opts.length, 2);
       expect(opts.every((w) => (w as dynamic).selected == false), isTrue);
       expect(tester.takeException(), isNull);

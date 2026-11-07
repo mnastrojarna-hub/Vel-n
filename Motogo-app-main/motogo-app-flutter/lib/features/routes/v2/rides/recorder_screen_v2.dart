@@ -134,8 +134,10 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                   Expanded(
                     child: Semantics(
                       header: true,
+                      // The AI disc (F-30) takes 50 px: "Fahrtaufzeichnung"
+                      // scales down instead of splitting.
                       child: MgWordFit(
-                        minScale: 0.75,
+                        minScale: 0.6,
                         child: Text(tr.tr('rideRecordTitle'),
                             maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
                       ),

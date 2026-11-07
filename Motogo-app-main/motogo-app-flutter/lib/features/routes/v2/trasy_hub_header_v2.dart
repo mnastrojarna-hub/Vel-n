@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/rank/mg_logo_ring.dart';
 import '../../../core/v2/rank/rank_hero.dart';
 import '../../../core/v2/shell/mg_origin_chip.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -47,6 +49,10 @@ class TrasyHubHeaderV2 extends StatelessWidget {
   final String? title;
   final String? subtitle;
 
+  /// Board "↝ 1 100+ · ⌖ 49 000+" under the title (floored live counts;
+  /// null = not shown).
+  final (String?, String?)? stats;
+
   const TrasyHubHeaderV2({
     super.key,
     required this.seg,
@@ -58,6 +64,7 @@ class TrasyHubHeaderV2 extends StatelessWidget {
     this.onBack,
     this.title,
     this.subtitle,
+    this.stats,
   });
 
   @override
@@ -73,6 +80,14 @@ class TrasyHubHeaderV2 extends StatelessWidget {
         Row(children: [
           if (onBack != null) ...[
             MgV2Back(onTap: onBack, style: MgBackStyle.dark),
+            const SizedBox(width: 10),
+          ],
+          // F-14 (board TrasyHub): the logo in the rank ring with the level
+          // badge on every hub face; tap = the ranks screen (as on Domů).
+          // Next to a back disc only from 360 dp — at 320 the title keeps
+          // its width (never "Itinéra…").
+          if (onSegment != null && (onBack == null || MediaQuery.sizeOf(context).width >= 360)) ...[
+            MgLogoRing(size: onBack == null ? 48 : 40, onTap: () => context.push('/loyalty')),
             const SizedBox(width: 10),
           ],
           Expanded(
@@ -105,7 +120,7 @@ class TrasyHubHeaderV2 extends StatelessWidget {
                   ExcludeSemantics(
                     child: reduced
                         ? const MgIcon(MgIcons.route, size: 24, color: MgColors.neon)
-                        : const RepaintBoundary(child: AnimatedRouteIcon(size: 28)),
+                        : const RepaintBoundary(child: AnimatedRouteIcon(size: 28, once: true)),
                   ),
                 ],
               ]);
@@ -127,6 +142,10 @@ class TrasyHubHeaderV2 extends StatelessWidget {
             ),
           ],
         ]),
+        if (stats != null && (stats!.$1 != null || stats!.$2 != null)) ...[
+          const SizedBox(height: 4),
+          _StatsLine(routes: stats!.$1, places: stats!.$2),
+        ],
         if (subtitle != null && subtitle!.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(subtitle!, style: MgType.small.copyWith(color: MgColors.onDarkLead)),
@@ -151,6 +170,31 @@ class TrasyHubHeaderV2 extends StatelessWidget {
         ],
       ]),
     );
+  }
+}
+
+/// "↝ 1 100+  ⌖ 49 000+" — route + pin line icons, 12.5/800 white tabular.
+class _StatsLine extends StatelessWidget {
+  final String? routes;
+  final String? places;
+  const _StatsLine({required this.routes, required this.places});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    Widget bit(String icon, String v, String label) => Semantics(
+          label: '$v+ $label',
+          excludeSemantics: true,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            MgIcon(icon, size: 14, color: MgColors.neon),
+            const SizedBox(width: 4),
+            Text('$v+', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
+          ]),
+        );
+    return Wrap(spacing: 14, runSpacing: 4, children: [
+      if (routes != null) bit(MgIcons.route, routes!, tr.tr('v2RtStatRoutes')),
+      if (places != null) bit(MgIcons.pin, places!, tr.tr('v2RtStatPois')),
+    ]);
   }
 }
 

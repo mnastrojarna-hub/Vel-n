@@ -159,7 +159,6 @@ class _Emergency extends StatelessWidget {
               onTap: () => onDial(n),
               child: Container(
                 constraints: const BoxConstraints(minHeight: 96),
-                padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                       begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [MgColors.sos, MgColors.err]),
@@ -170,9 +169,13 @@ class _Emergency extends StatelessWidget {
                   Positioned(top: 8, right: 8, child: MgIcon(MgIcons.phone, size: 14, color: MgColors.white(0.85))),
                   Align(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      // Below the phone glyph (top-right), never under it.
+                      padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Text(n, style: MgType.tab(MgType.display.copyWith(fontSize: 30, color: MgColors.onDark))),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(n, style: MgType.tab(MgType.display.copyWith(fontSize: 30, color: MgColors.onDark))),
+                        ),
                         const SizedBox(height: 4),
                         FittedBox(
                           fit: BoxFit.scaleDown,

@@ -139,7 +139,7 @@ void main() {
       expect(find.text('v této cestě'), findsOneWidget);
       expect(find.text('3 jízdy'), findsWidgets);
       expect(find.text('jízd v cestě'), findsNothing);
-      expect(find.text('941 km'), findsWidgets);
+      expect(find.text('941\u00A0km'), findsWidgets); // F-21: locale format, NBSP
       await t.tap(find.byType(Switch));
       await _settle(t);
       expect(log.other, ['visibility:true:3']);

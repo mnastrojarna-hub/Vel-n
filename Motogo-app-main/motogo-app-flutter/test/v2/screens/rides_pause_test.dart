@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/core/v2/states/mg_state_sheet.dart';
 import 'package:motogo_app/features/home/v2/home_record_row_v2.dart';
 import 'package:motogo_app/features/routes/ride_recorder.dart';
 import 'package:motogo_app/features/routes/v2/record_dock_v2.dart';
@@ -151,7 +152,8 @@ void main() {
       await t.tap(find.text('Ukončit a uložit'));
       await _settle(t);
       expect(_rec(t).calls, ['stop']);
-      expect(find.text('Jízda uložena mezi projeté jízdy'), findsOneWidget);
+      // F-06: saved = the success sheet (was a snack).
+      expect(find.text('Jízda je uložená'), findsOneWidget);
     });
 
     testWidgets('resume failure shows what to fix (no permission)', (t) async {
@@ -160,7 +162,8 @@ void main() {
       await _settle(t);
       await t.tap(find.byType(RecorderPauseButtonV2));
       await _settle(t);
-      expect(find.byType(SnackBar), findsOneWidget);
+      // F-06: what to fix is a T2 sheet (was a snack) with the same action.
+      expect(find.byType(MgStateSheetBody), findsOneWidget);
       expect(find.text(_cs.tr('eoOpenSettings')), findsOneWidget);
     });
 

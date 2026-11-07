@@ -69,7 +69,13 @@ class SosDetailScreen extends ConsumerWidget {
       return SosDoneViewV2(
         title: config.title,
         subtitle: config.subtitle,
-        nextSteps: config.nextSteps,
+        // v2 tyká: tři texty „co bude dál“ ze starého vzhledu vykaly.
+        nextSteps: switch (type) {
+          SosDoneType.towOrdered => t(context).tr('v2UxAsmDoneTow'),
+          SosDoneType.theftReported => t(context).tr('v2UxAsmDoneTheft'),
+          SosDoneType.generic => t(context).tr('v2UxAsmDoneGeneric'),
+          _ => config.nextSteps,
+        },
         icon: switch (type) {
           SosDoneType.towOrdered || SosDoneType.towFree => MgIcons.truck,
           SosDoneType.replacementFree || SosDoneType.replacementPaid => MgIcons.bike,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -20,7 +21,8 @@ import 'trasy_hub_header_v2.dart';
 /// screen, so it keeps the old visible back (`backOr(Routes.routes)`).
 class RoutesHubHeaderV2 extends StatelessWidget {
   final Widget search;
-  const RoutesHubHeaderV2({super.key, required this.search});
+  final (String?, String?)? stats;
+  const RoutesHubHeaderV2({super.key, required this.search, this.stats});
 
   @override
   Widget build(BuildContext context) => TrasyHubHeaderV2(
@@ -31,6 +33,7 @@ class RoutesHubHeaderV2 extends StatelessWidget {
         onMap: () => context.push(Routes.routesMap),
         mapLabel: t(context).tr('routesMapTitle'),
         onAdd: () => showCommunityAddMenu(context),
+        stats: stats,
       );
 }
 
@@ -47,7 +50,8 @@ class RoutesStatePageV2 extends StatelessWidget {
         overlapHero: false,
         header: header,
         slivers: [
-          SliverToBoxAdapter(child: loading ? const PlacesLoadingV2() : child),
+          // F-18: the final geometry (photo-top route cards), not place rows.
+          SliverToBoxAdapter(child: loading ? const _RoutesLoadingV2() : child),
         ],
         dock: TrasyRecordDockV2(onOpenRecorder: () => openRideRecorderV2(context)),
       );
@@ -141,4 +145,20 @@ class RoutesToolbarV2 extends StatelessWidget {
         TrasyToolChipV2(label: tr.tr('routesFilterClear'), icon: MgIcons.close, danger: true, onTap: onClear),
     ]);
   }
+}
+
+/// Trasy loading: two photo-top route-card skeletons (photo 180, meta
+/// pills, two lines) — the list's final geometry, no layout jump.
+class _RoutesLoadingV2 extends StatelessWidget {
+  const _RoutesLoadingV2();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Column(children: [
+          MgSkeletonPhotoCard(photoHeight: 180, pills: [64, 72, 64]),
+          SizedBox(height: 12),
+          MgSkeletonPhotoCard(photoHeight: 180, pills: [64, 72, 64]),
+        ]),
+      );
 }

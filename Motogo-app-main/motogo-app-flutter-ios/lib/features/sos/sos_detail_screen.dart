@@ -15,6 +15,10 @@ import '../auth/widgets/toast_helper.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
 import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import 'v2/sos_done_view_v2.dart';
+import 'v2/sos_incident_view_v2.dart';
 
 /// SOS detail / done screen — mirrors s-sos-done from templates-res-sos3.js.
 /// Shows contextual done view based on SosDoneType, or full detail with timeline.
@@ -61,6 +65,29 @@ class SosDetailScreen extends ConsumerWidget {
         : null;
 
     final config = _doneConfig(context, type, model, paid);
+    if (MgV2.on(context)) {
+      return SosDoneViewV2(
+        title: config.title,
+        subtitle: config.subtitle,
+        // v2 tyká: tři texty „co bude dál“ ze starého vzhledu vykaly.
+        nextSteps: switch (type) {
+          SosDoneType.towOrdered => t(context).tr('v2UxAsmDoneTow'),
+          SosDoneType.theftReported => t(context).tr('v2UxAsmDoneTheft'),
+          SosDoneType.generic => t(context).tr('v2UxAsmDoneGeneric'),
+          _ => config.nextSteps,
+        },
+        icon: switch (type) {
+          SosDoneType.towOrdered || SosDoneType.towFree => MgIcons.truck,
+          SosDoneType.replacementFree || SosDoneType.replacementPaid => MgIcons.bike,
+          _ => null,
+        },
+        refLabel: refLabel,
+        onBack: () => context.backOr(Routes.home),
+        onReservations: () => context.go(Routes.reservations),
+        onMessages: () => context.push(Routes.messages),
+        onHome: () => context.go(Routes.home),
+      );
+    }
 
     return Scaffold(
       backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
@@ -286,6 +313,33 @@ class SosDetailScreen extends ConsumerWidget {
       'reported': t(context).tr('reported'), 'acknowledged': t(context).tr('accepted'),
       'in_progress': t(context).tr('inProgress'), 'resolved': t(context).tr('resolved'), 'closed': t(context).tr('closed'),
     };
+    if (MgV2.on(context)) {
+      final c = inc.createdAt;
+      return SosIncidentViewV2(
+        inc: inc,
+        status: statusLabels[inc.status] ?? inc.status,
+        rows: [
+          (t(context).tr('typeLabel'), _typeLabel(context, inc.type)),
+          (t(context).tr('reported'), '${c.day}. ${c.month}. ${c.year} ${c.hour}:${c.minute.toString().padLeft(2, '0')}'),
+          if (inc.motoRideable != null)
+            (t(context).tr('motoRideableLabel'), inc.motoRideable! ? t(context).tr('yes') : t(context).tr('no')),
+          if (inc.customerFault != null)
+            (t(context).tr('faultLabel'),
+                inc.customerFault! ? t(context).tr('customerFault') : t(context).tr('breakdownNotFault')),
+        ],
+        timeline: timelineAsync,
+        timelineError: (e) => MgErrorView(
+            compact: true,
+            error: e,
+            what: t(context).tr('eoSosTimelineFail'),
+            onRetry: () => ref.invalidate(sosTimelineProvider(inc.id)),
+            contact: false),
+        onBack: () => context.backOr(Routes.reservations),
+        onReplacement: inc.isActive && inc.offersReplacement ? () => context.push(Routes.sosReplacement) : null,
+        onContinue: inc.isActive && inc.isMinorContinue ? () => _continueRide(context, ref, inc) : null,
+        onMessages: () => context.push(Routes.messages),
+      );
+    }
 
     return Scaffold(
       backgroundColor: mgV1PageColor(context, MotoGoColors.bg),

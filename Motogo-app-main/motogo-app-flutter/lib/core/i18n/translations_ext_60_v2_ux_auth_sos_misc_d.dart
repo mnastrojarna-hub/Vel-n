@@ -31,6 +31,9 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'Kameru teď nejde spustit',
     'v2UxAsmHowToFix': 'Jak to vyřešit',
     'v2UxAsmVerifying': 'Ověřujeme doklady…',
+    'v2UxAsmDoneTow': 'MotoGo24 zařídí odtah motorky. Počkej, ozve se ti asistent.',
+    'v2UxAsmDoneTheft': 'Zavolej Policii ČR na 158. Asistent MotoGo24 se ti ozve.',
+    'v2UxAsmDoneGeneric': 'Asistent MotoGo24 se ti ozve.',
   },
   'en': {
     'v2UxAsmServiceInfo': 'We cover repairs of direct defects (not your fault). Follow the steps below.',
@@ -62,6 +65,9 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'The camera can\'t start',
     'v2UxAsmHowToFix': 'How to fix it',
     'v2UxAsmVerifying': 'Checking your documents…',
+    'v2UxAsmDoneTow': 'MotoGo24 will arrange the towing. Hold on — our assistant will contact you.',
+    'v2UxAsmDoneTheft': 'Call the Czech police on 158. A MotoGo24 assistant will contact you.',
+    'v2UxAsmDoneGeneric': 'A MotoGo24 assistant will contact you.',
   },
   'de': {
     'v2UxAsmServiceInfo': 'Reparaturen direkter Mängel (ohne deine Schuld) zahlen wir. Folge den Schritten unten.',
@@ -93,6 +99,9 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'Die Kamera startet nicht',
     'v2UxAsmHowToFix': 'So löst du es',
     'v2UxAsmVerifying': 'Wir prüfen deine Dokumente…',
+    'v2UxAsmDoneTow': 'MotoGo24 organisiert das Abschleppen. Warte, unser Assistent meldet sich bei dir.',
+    'v2UxAsmDoneTheft': 'Ruf die tschechische Polizei unter 158 an. Ein Assistent von MotoGo24 meldet sich bei dir.',
+    'v2UxAsmDoneGeneric': 'Ein Assistent von MotoGo24 meldet sich bei dir.',
   },
   'es': {
     'v2UxAsmServiceInfo': 'Pagamos la reparación de averías directas (sin culpa tuya). Sigue los pasos.',
@@ -124,6 +133,9 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'La cámara no arranca',
     'v2UxAsmHowToFix': 'Cómo solucionarlo',
     'v2UxAsmVerifying': 'Verificando tus documentos…',
+    'v2UxAsmDoneTow': 'MotoGo24 organiza la grúa. Espera, nuestro asistente te contactará.',
+    'v2UxAsmDoneTheft': 'Llama a la policía checa al 158. Un asistente de MotoGo24 te contactará.',
+    'v2UxAsmDoneGeneric': 'Un asistente de MotoGo24 te contactará.',
   },
   'fr': {
     'v2UxAsmServiceInfo': 'On rembourse les défauts directs (sans ta faute). Suis les étapes ci-dessous.',
@@ -155,6 +167,9 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'La caméra ne démarre pas',
     'v2UxAsmHowToFix': 'Comment régler ça',
     'v2UxAsmVerifying': 'On vérifie tes documents…',
+    'v2UxAsmDoneTow': 'MotoGo24 organise le remorquage. Patiente, notre assistant te contactera.',
+    'v2UxAsmDoneTheft': 'Appelle la police tchèque au 158. Un assistant MotoGo24 te contactera.',
+    'v2UxAsmDoneGeneric': 'Un assistant MotoGo24 te contactera.',
   },
   'nl': {
     'v2UxAsmServiceInfo': 'We betalen reparatie van directe gebreken (niet jouw schuld). Volg de stappen.',
@@ -186,6 +201,9 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'De camera start niet',
     'v2UxAsmHowToFix': 'Zo los je het op',
     'v2UxAsmVerifying': 'We controleren je documenten…',
+    'v2UxAsmDoneTow': 'MotoGo24 regelt het wegslepen. Wacht even, onze assistent neemt contact met je op.',
+    'v2UxAsmDoneTheft': 'Bel de Tsjechische politie op 158. Een assistent van MotoGo24 neemt contact met je op.',
+    'v2UxAsmDoneGeneric': 'Een assistent van MotoGo24 neemt contact met je op.',
   },
   'pl': {
     'v2UxAsmServiceInfo': 'Pokryjemy naprawę bezpośrednich usterek (bez twojej winy). Postępuj według kroków.',
@@ -217,6 +235,9 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'Nie da się uruchomić aparatu',
     'v2UxAsmHowToFix': 'Jak to naprawić',
     'v2UxAsmVerifying': 'Weryfikujemy dokumenty…',
+    'v2UxAsmDoneTow': 'MotoGo24 zorganizuje holowanie. Poczekaj, asystent się z tobą skontaktuje.',
+    'v2UxAsmDoneTheft': 'Zadzwoń na czeską policję pod 158. Asystent MotoGo24 się z tobą skontaktuje.',
+    'v2UxAsmDoneGeneric': 'Asystent MotoGo24 się z tobą skontaktuje.',
   },
   'uk': {
     'v2UxAsmServiceInfo': 'Ремонт прямих несправностей (не з твоєї вини) оплатимо. Дій за кроками нижче.',
@@ -248,5 +269,8 @@ const Map<String, Map<String, String>> translationsExt60V2UxAuthSosMiscD = {
     'v2UxAsmCamTitle': 'Камера не запускається',
     'v2UxAsmHowToFix': 'Як це виправити',
     'v2UxAsmVerifying': 'Перевіряємо документи…',
+    'v2UxAsmDoneTow': 'MotoGo24 організує евакуатор. Зачекай, асистент зв\'яжеться з тобою.',
+    'v2UxAsmDoneTheft': 'Подзвони в поліцію ЧР на 158. Асистент MotoGo24 зв\'яжеться з тобою.',
+    'v2UxAsmDoneGeneric': 'Асистент MotoGo24 зв\'яжеться з тобою.',
   },
 };

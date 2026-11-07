@@ -109,7 +109,7 @@ class _MojeViewV2State extends State<MojeViewV2> {
   bool _saved = false;
   RideFilter _filter = RideFilter.all;
   bool _hint = false;
-  double _dx = 0;
+  int _dir = 0; // směr posledního přepnutí podzáložky (animace obsahu)
 
   @override
   void dispose() {
@@ -127,7 +127,9 @@ class _MojeViewV2State extends State<MojeViewV2> {
       };
 
   void _select(MojeSub s, [RideFilter? f]) {
+    final d = MojeSub.values.indexOf(s) - MojeSub.values.indexOf(_sub);
     setState(() {
+      _dir = d.sign;
       if (s == MojeSub.rides || s == MojeSub.saved) _saved = s == MojeSub.saved;
       if (f != null) _filter = f;
     });
@@ -138,11 +140,6 @@ class _MojeViewV2State extends State<MojeViewV2> {
     });
   }
 
-  void _swipe(int delta) {
-    final i = MojeSub.values.indexOf(_sub) + delta;
-    if (i < 0 || i >= MojeSub.values.length) return;
-    _select(MojeSub.values[i]);
-  }
 
   void _segment(TrasySeg s) {
     // Moje leží mimo shell → na Místa / Trasy vždy `go` (ne pop do Domů).
@@ -167,6 +164,13 @@ class _MojeViewV2State extends State<MojeViewV2> {
       onHint: () => setState(() => _hint = !_hint),
       onOpenRecorder: () => openRideRecorderV2(context),
       onHistoryTab: () => _select(MojeSub.history),
+      direction: _dir,
+      onPlacesMap: () => context.pushOrGo(Routes.placesMap),
+      // Záložky šly i dřív přepínat swipem do stran (F-15: obsah teď jde
+      // za prstem a přijede ze strany, kam se přepnulo).
+      onSwipe: (s) {
+        if (mgIsTopmost(context)) _select(s);
+      },
     );
     final page = MgPage(
       overlapHero: false,
@@ -188,6 +192,7 @@ class _MojeViewV2State extends State<MojeViewV2> {
             rides: rides,
             savedCount: w.routes.valueOrNull?.length,
             placesCount: w.places.valueOrNull?.length,
+            ridesLoading: w.rides.isLoading && !w.rides.hasValue,
             onSub: _select,
             onCreateRoute: w.onCreateRoute,
             onLogin: w.onLogin,
@@ -215,18 +220,7 @@ class _MojeViewV2State extends State<MojeViewV2> {
         chrome: _chrome,
         navVisible: true,
         fabVisible: false,
-        child: GestureDetector(
-          // Záložky šly i dřív přepínat swipem do stran.
-          onHorizontalDragStart: (_) => _dx = 0,
-          onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
-          onHorizontalDragEnd: (d) {
-            final v = d.primaryVelocity ?? 0;
-            if (v.abs() < 300 && _dx.abs() < 80) return;
-            if (!mgIsTopmost(context)) return;
-            _swipe((v.abs() >= 300 ? v < 0 : _dx < 0) ? 1 : -1);
-          },
-          child: page,
-        ),
+        child: page,
       ),
       // Rezervace dot = the value the shell last computed (no polling here).
       bottomNavigationBar: Consumer(

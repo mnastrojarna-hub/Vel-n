@@ -166,14 +166,26 @@ class _DateDropdownFieldState extends State<DateDropdownField> {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 2, bottom: 6),
-            child: Text(
-              widget.label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: MotoGoColors.dark,
-              ),
-            ),
+            // v2: caps popisek nad polem (11.5/800 #55705F) jako ostatní pole.
+            child: MgV2.on(context)
+                ? Text(
+                    widget.label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                      height: 1.3,
+                      color: Color(0xFF55705F),
+                    ),
+                  )
+                : Text(
+                    widget.label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: MotoGoColors.dark,
+                    ),
+                  ),
           ),
           if (MgV2.on(context))
             _DateRowV2(

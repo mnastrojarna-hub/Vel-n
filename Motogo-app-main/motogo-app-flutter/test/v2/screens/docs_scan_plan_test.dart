@@ -90,9 +90,9 @@ void main() {
       testWidgets('$lang: missing ŘP back → camera straight on that one side (1/1)', (t) async {
         await _pumpScanner(t, 'missing', st(gate(idF: true, idB: true, dlF: true)), lang: lang);
         final tr = AppTranslations(lang);
-        expect(find.text('🏍️ ${tr.tr('driversLicense')}'), findsOneWidget);
-        expect(find.text('${tr.tr('backSide')}  1/1'), findsOneWidget);
-        expect(find.text(tr.tr('selectIdDocument')), findsNothing);
+        // v2 camera chip (ASM-23): "{document} · {side} n/m".
+        expect(find.text('${tr.tr('driversLicense')} · ${tr.tr('backSide')} 1/1'), findsOneWidget);
+        expect(find.text(tr.tr('v2UxAsmPickDoc')), findsNothing);
         expect(t.takeException(), isNull);
       });
     }
@@ -100,14 +100,13 @@ void main() {
     testWidgets('missing OP back + ŘP → 3 steps starting with the OP back', (t) async {
       await _pumpScanner(t, 'missing', st(gate(idF: true)));
       final tr = AppTranslations('cs');
-      expect(find.text('🪪 ${tr.tr('idCard')}'), findsOneWidget);
-      expect(find.text('${tr.tr('backSide')}  1/3'), findsOneWidget);
+      expect(find.text('${tr.tr('idCard')} · ${tr.tr('backSide')} 1/3'), findsOneWidget);
     });
 
     testWidgets('missing_id with no ID → OP / pas choice without "only ŘP"', (t) async {
       await _pumpScanner(t, 'missing_id', st(gate(dlF: true, dlB: true)));
       final tr = AppTranslations('cs');
-      expect(find.text(tr.tr('selectIdDocument')), findsOneWidget);
+      expect(find.text(tr.tr('v2UxAsmPickDoc')), findsOneWidget);
       expect(find.text(tr.tr('passport')), findsOneWidget);
       expect(find.text(tr.tr('dlOnly')), findsNothing);
     });
@@ -124,7 +123,8 @@ void main() {
 
     testWidgets('today\'s dl_only unchanged: both ŘP sides (1/2)', (t) async {
       await _pumpScanner(t, 'dl_only', st(gate(idF: true, idB: true, dlF: true)));
-      expect(find.text('${AppTranslations('cs').tr('frontSide')}  1/2'), findsOneWidget);
+      final tr = AppTranslations('cs');
+      expect(find.text('${tr.tr('driversLicense')} · ${tr.tr('frontSide')} 1/2'), findsOneWidget);
     });
   });
 }

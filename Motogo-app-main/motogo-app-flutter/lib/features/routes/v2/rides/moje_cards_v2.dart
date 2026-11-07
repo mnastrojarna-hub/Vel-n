@@ -138,9 +138,24 @@ class VisitedPlaceCardV2 extends StatelessWidget {
           child: SizedBox(
             width: 92,
             height: 92,
-            child: p.imageUrl != null
-                ? RouteImage(url: p.imageUrl!, targetWidth: 300, placeholder: fallback, error: fallback)
-                : fallback(context),
+            child: Stack(fit: StackFit.expand, children: [
+              p.imageUrl != null
+                  ? RouteImage(url: p.imageUrl!, targetWidth: 300, placeholder: fallback, error: fallback)
+                  : fallback(context),
+              // F-38 (board): "2×" visit badge on the photo.
+              if (p.visitCount > 1)
+                Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: ExcludeSemantics(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(color: MgColors.neon, borderRadius: BorderRadius.circular(999)),
+                      child: Text('${p.visitCount}×', style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon))),
+                    ),
+                  ),
+                ),
+            ]),
           ),
         ),
         const SizedBox(width: 12),
