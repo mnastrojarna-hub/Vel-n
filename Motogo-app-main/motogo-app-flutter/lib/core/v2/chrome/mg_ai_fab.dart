@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import '../rank/rank_frame.dart' show ringShader;
 import '../rank/rank_provider.dart';
 import '../rank/rank_tokens.dart';
 import '../tokens/mg_colors.dart';
+import 'mg_ai_coach.dart';
 import 'mg_chrome_metrics.dart';
 import 'mg_fab_avoid.dart';
 import 'mg_nav_helpers.dart';
@@ -141,9 +144,11 @@ class _AiRingPainter extends CustomPainter {
 /// The floating AI button of the v2 shell (bottom-right 16). [hidden]
 /// (route in the hidden set, keyboard open, payment on screen) fades it out
 /// (scale .8, 150 ms) with no hit / semantics. Otherwise, whenever the
-/// chrome changes or scrolling goes idle, it checks its slot against the
-/// `MgFabAvoid` zones: cta / sos under it → off, only tap zones → peek
-/// (+26 px aside, 85 %), else rest.
+/// chrome changes or scrolling goes idle (never mid-drag), it checks its
+/// slot against the `MgFabAvoid` zones (`mgFabPlacementFor`): free → rest;
+/// else lift above them (≤ 56 px, 300 ms spring) when that slot is free;
+/// else cta / sos → off; else peek (+26 px aside, 85 %). First run: the
+/// coach bubble left of the disc (`MgAiCoach`), never over a cta / sos.
 class MgAiFab extends StatefulWidget {
   final bool hidden;
   final VoidCallback? onTap;
@@ -157,6 +162,29 @@ class _MgAiFabState extends State<MgAiFab> {
   final GlobalKey _slotKey = GlobalKey();
   MgShellChrome? _chrome;
   MgFabState _state = MgFabState.rest;
+  double _lift = 0;
+  final GlobalKey _coachKey = GlobalKey();
+  bool _coachWanted = false;
+  bool _coachBlocked = false;
+
+  Timer? _coachTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    MgAiCoach.seen().then((seen) {
+      if (seen || !mounted) return;
+      _coachTimer = Timer(MgAiCoach.delay, () {
+        if (mounted) setState(() => _coachWanted = true);
+      });
+    });
+  }
+
+  void _dismissCoach() {
+    if (!_coachWanted) return;
+    setState(() => _coachWanted = false);
+    MgAiCoach.markSeen();
+  }
 
   @override
   void didChangeDependencies() {
@@ -180,6 +208,7 @@ class _MgAiFabState extends State<MgAiFab> {
 
   @override
   void dispose() {
+    _coachTimer?.cancel();
     _chrome?.removeListener(_schedule);
     _chrome?.scrollTick.removeListener(_schedule);
     super.dispose();
@@ -202,16 +231,34 @@ class _MgAiFabState extends State<MgAiFab> {
     final box = _slotKey.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return;
     final slot = box.localToGlobal(Offset.zero) & box.size;
-    final next = mgFabStateFor(slot, _chrome?.zoneRects() ?? const []);
-    if (next != _state) setState(() => _state = next);
+    final zones = _chrome?.zoneRects() ?? const <(Rect, MgAvoidKind)>[];
+    final (next, lift) = mgFabPlacementFor(slot, zones);
+    var blocked = false;
+    final cb = _coachKey.currentContext?.findRenderObject();
+    if (cb is RenderBox && cb.attached && cb.hasSize) {
+      // The bubble is already shifted by the lift applied now; move it to
+      // where the new lift will put it.
+      final applied = _state == MgFabState.lift ? _lift : 0.0;
+      final r = (cb.localToGlobal(Offset.zero) & cb.size).translate(0, applied - lift);
+      // Never over a CTA, SOS or key text (keep); tap targets are fine.
+      blocked = zones.any((z) => z.$2 != MgAvoidKind.tap && z.$1.overlaps(r));
+    }
+    if (next != _state || lift != _lift || blocked != _coachBlocked) {
+      setState(() {
+        _state = next;
+        _lift = lift;
+        _coachBlocked = blocked;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final off = widget.hidden || _state == MgFabState.off;
     final peek = !off && _state == MgFabState.peek;
+    final lift = !off && _state == MgFabState.lift ? _lift : 0.0;
     final d = MgMotion.of(context, MgMotion.fabState);
-    return SizedBox(
+    final disc = SizedBox(
       key: _slotKey,
       width: MgChrome.fab,
       height: MgChrome.fab,
@@ -220,21 +267,39 @@ class _MgAiFabState extends State<MgAiFab> {
         child: ExcludeSemantics(
           excluding: off,
           child: AnimatedSlide(
-            offset: Offset(peek ? 26 / MgChrome.fab : 0, 0),
-            duration: d,
-            curve: MgMotion.out,
+            offset: Offset(peek ? 26 / MgChrome.fab : 0, -lift / MgChrome.fab),
+            duration: lift > 0 || _state == MgFabState.lift ? MgMotion.of(context, MgMotion.sheet) : d,
+            curve: lift > 0 ? MgMotion.spring : MgMotion.out,
             child: AnimatedOpacity(
               opacity: off ? 0 : (peek ? 0.85 : 1),
               duration: d,
               child: AnimatedScale(
                 scale: off ? 0.8 : 1,
                 duration: d,
-                child: MgAiDisc(onTap: widget.onTap),
+                child: MgAiDisc(
+                  onTap: () {
+                    _dismissCoach();
+                    (widget.onTap ?? () => mgPushOrGo(context, kV2AiAgentRoute))();
+                  },
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+    final coach = _coachWanted && !widget.hidden && !off && !peek;
+    return Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+      if (coach)
+        Offstage(
+          offstage: _coachBlocked,
+          child: Transform.translate(
+            offset: Offset(0, -lift),
+            child: KeyedSubtree(key: _coachKey, child: MgAiCoachBubble(onClose: _dismissCoach)),
+          ),
+        ),
+      if (coach) const SizedBox(width: 8),
+      disc,
+    ]);
   }
 }

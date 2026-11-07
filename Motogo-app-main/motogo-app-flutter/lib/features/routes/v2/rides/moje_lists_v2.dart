@@ -9,14 +9,19 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_segmented.dart';
 import '../../../../core/v2/widgets/mg_skeleton.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/state_views.dart' show MgErrorView;
 import '../../active_ride_provider.dart' show ActiveRide;
 import '../../ride_model.dart';
+import '../../ride_trip.dart';
 import 'moje_cards_v2.dart';
 import 'moje_tabs_v2.dart';
 import 'moje_tracks_v2.dart';
 import 'moje_view_v2.dart' show MojeViewV2;
 import 'ride_card_v2.dart';
+import 'ride_merge_v2.dart' show openRideMergeV2;
+import 'ride_trip_card_v2.dart';
+import 'trip_detail_screen_v2.dart' show openTripDetailV2;
 
 /// The body of the selected Moje sub-screen as one sliver: the same lists,
 /// states and actions as the old tabs (login prompt for account data,
@@ -93,17 +98,26 @@ class MojeListsV2 extends StatelessWidget {
     );
   }
 
+  /// Rides of an item (a trip = its rides, newest first like the list).
+  static List<UserRide> _members(RideListItem i) => switch (i) {
+        RideListItemRide(:final ride) => [ride],
+        RideListItemTrip(:final trip) => trip.rides.reversed.toList(),
+      };
+
   List<Widget> _rides(BuildContext context) {
     final tr = t(context);
     final rec = data.rec;
-    final mg = rides.where((r) => r.bookingId != null).toList();
-    final pv = rides.where((r) => r.bookingId == null).toList();
+    // Jízdy seskupené do cest (sloučené jezdcem / jedna výpůjčka).
+    final items = groupRides(rides);
+    final mg = items.where((i) => _members(i).any((r) => r.bookingId != null)).toList();
+    final pv = items.where((i) => _members(i).any((r) => r.bookingId == null)).toList();
     final shown = switch (filter) {
-      RideFilter.all => rides,
+      RideFilter.all => items,
       RideFilter.motogo => mg,
       RideFilter.private => pv,
     };
-    final ids = [for (final r in shown) r.id];
+    final shownRides = [for (final i in shown) ..._members(i)];
+    final ids = [for (final r in shownRides) r.id];
     return [
       if (rec.recording && rec.gpsLost) ...[const MojeGpsLostV2(), _gap],
       MojeRecordRowV2(
@@ -123,7 +137,7 @@ class MojeListsV2 extends StatelessWidget {
           value: filter,
           onChanged: onFilter,
           segments: [
-            MgSegment(value: RideFilter.all, label: tr.tr('v2RideFilterAll'), sub: '${rides.length}'),
+            MgSegment(value: RideFilter.all, label: tr.tr('v2RideFilterAll'), sub: '${items.length}'),
             MgSegment(value: RideFilter.motogo, label: tr.tr('v2RideFilterMg'), sub: '${mg.length}'),
             MgSegment(value: RideFilter.private, label: tr.tr('v2RideFilterPriv'), sub: '${pv.length}'),
           ],
@@ -133,10 +147,22 @@ class MojeListsV2 extends StatelessWidget {
           MojeEmptyV2(icon: MgIcons.filter, title: tr.tr('v2RideEmptyFilter'))
         else ...[
           // Tmavý hrdina segmentu: všechny jízdy filtru na jedné mapě.
-          MojeTracksV2(rides: shown, siblingIds: ids),
+          MojeTracksV2(rides: shownRides, siblingIds: ids),
           const SizedBox(height: 12),
+          // Sloučit jízdy do cesty — jen když to server umí a je co slučovat.
+          if (rideTripsAvailable(rides, items)) ...[
+            MojeMergeRowV2(onTap: () => openRideMergeV2(context)),
+            const SizedBox(height: 12),
+          ],
           for (var i = 0; i < shown.length; i++)
-            _reveal(i, 'ride-${shown[i].id}', RideCardV2(ride: shown[i], siblingIds: ids)),
+            _reveal(
+              i,
+              'ride-${_members(shown[i]).first.id}',
+              switch (shown[i]) {
+                RideListItemRide(:final ride) => RideCardV2(ride: ride, siblingIds: ids),
+                RideListItemTrip(:final trip) => RideTripCardV2(trip: trip, onTap: () => openTripDetailV2(context, trip)),
+              },
+            ),
         ],
       ],
     ];
@@ -218,5 +244,52 @@ class MojeListsV2 extends StatelessWidget {
             ),
           ),
     ];
+  }
+}
+
+/// "Sloučit jízdy do cesty" (SPEC §9.2): one light row above the list —
+/// a 7-day trip split by nights (older app / server) becomes one trip again.
+class MojeMergeRowV2 extends StatelessWidget {
+  final VoidCallback onTap;
+  const MojeMergeRowV2({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    return Semantics(
+      button: true,
+      label: '${tr.tr('v2RpMergeRow')}. ${tr.tr('v2RpMergeRowSub')}',
+      excludeSemantics: true,
+      child: MgPress(
+        scale: 0.98,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+          decoration: BoxDecoration(
+            color: MgColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: MgColors.line),
+          ),
+          child: Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: MgColors.ink, borderRadius: BorderRadius.circular(12)),
+              child: const Center(child: MgIcon(MgIcons.route, size: 20, color: MgColors.neon)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                MgWordFit(minScale: 0.8, child: Text(tr.tr('v2RpMergeRow'), style: MgType.title.copyWith(color: MgColors.ink))),
+                const SizedBox(height: 2),
+                Text(tr.tr('v2RpMergeRowSub'), style: MgType.small.copyWith(color: MgColors.meta)),
+              ]),
+            ),
+            const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
+          ]),
+        ),
+      ),
+    );
   }
 }

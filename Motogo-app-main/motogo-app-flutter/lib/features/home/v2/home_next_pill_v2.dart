@@ -43,80 +43,83 @@ class HomeNextPillV2 extends ConsumerWidget {
         : tr.tr('v2HomePillTitle');
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      // Pilulka i kalkulačka = tap zóny (AI tlačítko nad nimi jen nakoukne).
-      child: MgFabAvoid(
-        kind: MgAvoidKind.tap,
-        child: Row(children: [
+      // Pilulka = tap zóna (AI tlačítko nad ní jen nakoukne); kalkulačka
+      // vpravo = samostatná CTA zóna — AI tlačítko ji nikdy nepřekryje.
+      child: Row(children: [
         Expanded(
-          child: Semantics(
-            button: true,
-            label: has ? '${tr.tr('v2HomePillTitle')} $title' : '$title ${tr.tr('v2HomePillSub')}',
-            excludeSemantics: true,
-            child: MgPress(
-              onTap: pick,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 48),
-                padding: EdgeInsets.only(left: 16, right: has ? 0 : 12, top: 6, bottom: 6),
-                decoration: BoxDecoration(
-                  color: MgColors.surface,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: has ? MgColors.link : MgColors.lineInput, width: 1.5),
-                  boxShadow: MgShadows.card,
-                ),
-                child: Row(children: [
-                  const MgIcon(MgIcons.calendarCheck, size: 20, color: MgColors.link),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      // Celé texty (bez limitu řádků — nic se neusekne).
-                      Text(title,
-                          style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25, color: MgColors.ink))),
-                      if (!has)
-                        Text(tr.tr('v2HomePillSub'), style: MgType.small.copyWith(height: 1.25, color: MgColors.lead)),
-                    ]),
+          child: MgFabAvoid(
+            kind: MgAvoidKind.tap,
+            child: Semantics(
+              button: true,
+              label: has ? '${tr.tr('v2HomePillTitle')} $title' : '$title ${tr.tr('v2HomePillSub')}',
+              excludeSemantics: true,
+              child: MgPress(
+                onTap: pick,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  padding: EdgeInsets.only(left: 16, right: has ? 0 : 12, top: 6, bottom: 6),
+                  decoration: BoxDecoration(
+                    color: MgColors.surface,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: has ? MgColors.link : MgColors.lineInput, width: 1.5),
+                    boxShadow: MgShadows.card,
                   ),
-                  if (has)
-                    Semantics(
-                      button: true,
-                      label: tr.tr('v2HomeDateClear'),
-                      child: MgPress(
-                        onTap: clear,
-                        child: const SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.ink)),
+                  child: Row(children: [
+                    const MgIcon(MgIcons.calendarCheck, size: 20, color: MgColors.link),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                        // Celé texty (bez limitu řádků — nic se neusekne).
+                        Text(title,
+                            style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25, color: MgColors.ink))),
+                        if (!has)
+                          Text(tr.tr('v2HomePillSub'), style: MgType.small.copyWith(height: 1.25, color: MgColors.lead)),
+                      ]),
+                    ),
+                    if (has)
+                      Semantics(
+                        button: true,
+                        label: tr.tr('v2HomeDateClear'),
+                        child: MgPress(
+                          onTap: clear,
+                          child: const SizedBox(
+                            width: 44,
+                            height: 44,
+                            child: Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.ink)),
+                          ),
                         ),
-                      ),
-                    )
-                  else
-                    const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
-                ]),
+                      )
+                    else
+                      const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
+                  ]),
+                ),
               ),
             ),
           ),
         ),
         const SizedBox(width: 8),
-        Semantics(
-          button: true,
-          label: tr.tr('v2HomeCalcA11y'),
-          excludeSemantics: true,
-          child: MgPress(
-            scale: 0.92,
-            onTap: () => homeOpenCalculator(context, ref, range: current),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: MgColors.ink,
-                boxShadow: [BoxShadow(color: MgColors.nightA(0.8), blurRadius: 18, offset: const Offset(0, 8), spreadRadius: -10)],
+        MgFabAvoid(
+          child: Semantics(
+            button: true,
+            label: tr.tr('v2HomeCalcA11y'),
+            excludeSemantics: true,
+            child: MgPress(
+              scale: 0.92,
+              onTap: () => homeOpenCalculator(context, ref, range: current),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: MgColors.ink,
+                  boxShadow: [BoxShadow(color: MgColors.nightA(0.8), blurRadius: 18, offset: const Offset(0, 8), spreadRadius: -10)],
+                ),
+                child: const Center(child: MgIcon(MgIcons.calc, size: 20, color: MgColors.neon)),
               ),
-              child: const Center(child: MgIcon(MgIcons.calc, size: 20, color: MgColors.neon)),
             ),
           ),
         ),
       ]),
-      ),
     );
   }
 }

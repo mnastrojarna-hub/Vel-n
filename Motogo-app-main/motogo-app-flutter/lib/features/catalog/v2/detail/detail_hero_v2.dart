@@ -4,6 +4,7 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/motion/mg_anim_loops.dart';
+import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
@@ -78,113 +79,117 @@ class DetailHeroV2 extends StatelessWidget {
     } else {
       photo = _fallback();
     }
-    return SizedBox(
-      height: height + top,
-      child: ColoredBox(
-        color: MgColors.night,
-        child: Stack(fit: StackFit.expand, children: [
-          if (images.isNotEmpty)
-            ExcludeSemantics(
-              child: Stack(fit: StackFit.expand, children: [
-                MgImage(images[idx], thumbWidth: 400, fit: BoxFit.cover, error: _fallback()),
-                ColoredBox(color: MgColors.nightA(0.62)),
-              ]),
+    return MgStatusBar(
+      dark: true,
+      extendAbove: MgStatusBar.bounce,
+      child: SizedBox(
+        height: height + top,
+        child: ColoredBox(
+          color: MgColors.night,
+          child: Stack(fit: StackFit.expand, children: [
+            if (images.isNotEmpty)
+              ExcludeSemantics(
+                child: Stack(fit: StackFit.expand, children: [
+                  MgImage(images[idx], thumbWidth: 400, fit: BoxFit.cover, error: _fallback()),
+                  ColoredBox(color: MgColors.nightA(0.62)),
+                ]),
+              ),
+            Padding(
+              padding: EdgeInsets.only(top: top),
+              child: Semantics(
+                button: onOpenGallery != null,
+                label: tr.trArgs('v2DetGalleryAria', {'n': idx + 1, 'total': images.length}),
+                child: GestureDetector(onTap: onOpenGallery, child: photo),
+              ),
             ),
-          Padding(
-            padding: EdgeInsets.only(top: top),
-            child: Semantics(
-              button: onOpenGallery != null,
-              label: tr.trArgs('v2DetGalleryAria', {'n': idx + 1, 'total': images.length}),
-              child: GestureDetector(onTap: onOpenGallery, child: photo),
-            ),
-          ),
-          IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [MgColors.nightA(0.66), MgColors.nightA(0), MgColors.nightA(0), MgColors.nightA(0.72), MgColors.nightA(0.97)],
-                  stops: const [0, 0.26, 0.48, 0.74, 1],
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [MgColors.nightA(0.66), MgColors.nightA(0), MgColors.nightA(0), MgColors.nightA(0.72), MgColors.nightA(0.97)],
+                    stops: const [0, 0.26, 0.48, 0.74, 1],
+                  ),
                 ),
               ),
             ),
-          ),
-          if (multi)
+            if (multi)
+              Positioned(
+                top: top + 4,
+                left: 16,
+                right: 16,
+                child: ExcludeSemantics(
+                  child: Row(children: [
+                    for (var i = 0; i < images.length; i++)
+                      Expanded(
+                        child: Container(
+                          height: 3,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: i == idx ? MgColors.onDark : MgColors.white(0.35),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                  ]),
+                ),
+              ),
+            if (onBack != null)
+              Positioned(top: top + 12, left: 16, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
             Positioned(
-              top: top + 4,
               left: 16,
               right: 16,
-              child: ExcludeSemantics(
-                child: Row(children: [
-                  for (var i = 0; i < images.length; i++)
-                    Expanded(
-                      child: Container(
-                        height: 3,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(
-                          color: i == idx ? MgColors.onDark : MgColors.white(0.35),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                ]),
-              ),
-            ),
-          if (onBack != null)
-            Positioned(top: top + 12, left: 16, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 40,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Row(children: [
-                if (moto.availableToday == true) _pill(tr.tr('v2CatFreeToday'), live: true),
-                const Spacer(),
-                if (images.isNotEmpty)
-                  Semantics(
-                    button: true,
-                    label: tr.trArgs('v2DetGalleryAria', {'n': idx + 1, 'total': images.length}),
-                    excludeSemantics: true,
-                    onTap: onOpenGallery,
-                    child: MgPress(
-                      onTap: onOpenGallery,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 44),
-                        child: Center(
-                          widthFactor: 1,
-                          child: _pill('${idx + 1} / ${images.length}', icon: MgIcons.camera),
-                        ),
-                      ),
-                    ),
-                  ),
-              ]),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 6, children: [
-                if (moto.category != null && moto.category!.isNotEmpty)
-                  _tag(catCategoryLabel(tr, moto.category!).toUpperCase(), neon: true),
-                if (lic.isNotEmpty) _tag(lic),
-              ]),
-              const SizedBox(height: 8),
-              Semantics(
-                header: true,
-                child: Text(moto.model,
-                    style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
-              ),
-              if (branchInfo.isNotEmpty) ...[
-                const SizedBox(height: 6),
+              bottom: 40,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 Row(children: [
-                  MgIcon(MgIcons.pin, size: 18, color: MgColors.neon),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text('${tr.tr('detailBranchLabel')}$branchInfo',
-                        style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
-                  ),
+                  if (moto.availableToday == true) _pill(tr.tr('v2CatFreeToday'), live: true),
+                  const Spacer(),
+                  if (images.isNotEmpty)
+                    Semantics(
+                      button: true,
+                      label: tr.trArgs('v2DetGalleryAria', {'n': idx + 1, 'total': images.length}),
+                      excludeSemantics: true,
+                      onTap: onOpenGallery,
+                      child: MgPress(
+                        onTap: onOpenGallery,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          child: Center(
+                            widthFactor: 1,
+                            child: _pill('${idx + 1} / ${images.length}', icon: MgIcons.camera),
+                          ),
+                        ),
+                      ),
+                    ),
                 ]),
-              ],
-            ]),
-          ),
-        ]),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 6, children: [
+                  if (moto.category != null && moto.category!.isNotEmpty)
+                    _tag(catCategoryLabel(tr, moto.category!).toUpperCase(), neon: true),
+                  if (lic.isNotEmpty) _tag(lic),
+                ]),
+                const SizedBox(height: 8),
+                Semantics(
+                  header: true,
+                  child: Text(moto.model,
+                      style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
+                ),
+                if (branchInfo.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    MgIcon(MgIcons.pin, size: 18, color: MgColors.neon),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text('${tr.tr('detailBranchLabel')}$branchInfo',
+                          style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
+                    ),
+                  ]),
+                ],
+              ]),
+            ),
+          ]),
+        ),
       ),
     );
   }

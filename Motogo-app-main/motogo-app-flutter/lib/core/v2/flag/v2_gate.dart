@@ -16,10 +16,10 @@ import 'v2_scope.dart';
 ///
 /// It is also the flag's safe point in BOTH looks (the old shell knows
 /// nothing about v2): after the cold-start fetch, on every resume (fresh
-/// fetch) and whenever [router] lands on a tab root, a pending value is
-/// applied — never inside a flow or a running payment
-/// (`applyPendingIfSafe`). So OFF reaches a customer sitting on Domů
-/// without a tab tap, and OFF → ON is symmetric.
+/// fetch) and whenever [router] lands on a tab root — as the ONLY page of
+/// the stack and without a query — a pending value is applied — never
+/// inside a flow or a running payment (`applyPendingIfSafe`). So OFF reaches
+/// a customer sitting on Domů without a tab tap, and OFF → ON is symmetric.
 class MgV2Gate extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -63,9 +63,31 @@ class _MgV2GateState extends ConsumerState<MgV2Gate> with WidgetsBindingObserver
     super.dispose();
   }
 
+  /// Location for the safe point. A page PUSHED over another (the booking
+  /// form's `/profile?edit=personal`, the old form's `/profile`: a tab-root
+  /// path, but the customer is mid-booking) → null = no safe point; else the
+  /// current location WITH its query (`applyPendingIfSafe` refuses `?edit=…`).
   String? _location() {
     final r = _router;
-    return r == null ? null : mgCurrentLocation(r);
+    if (r == null) return null;
+    final loc = mgCurrentLocation(r);
+    try {
+      final cfg = r.routerDelegate.currentConfiguration;
+      if (_hasPushedPage(cfg.matches)) return null;
+      return cfg.uri.hasQuery ? '$loc?${cfg.uri.query}' : loc;
+    } catch (_) {
+      return loc;
+    }
+  }
+
+  /// A `push` inside the shell lands as an [ImperativeRouteMatch] INSIDE the
+  /// [ShellRouteMatch] (`matches.length` stays 1) → walk the shells.
+  static bool _hasPushedPage(List<RouteMatchBase> matches) {
+    for (final m in matches) {
+      if (m is ImperativeRouteMatch) return true;
+      if (m is ShellRouteMatch && _hasPushedPage(m.matches)) return true;
+    }
+    return false;
   }
 
   void _apply() {
@@ -102,6 +124,7 @@ class _MgV2GateState extends ConsumerState<MgV2Gate> with WidgetsBindingObserver
   @override
   Widget build(BuildContext context) {
     final on = ref.watch(appV2UiProvider);
+    MgV2.markApplied(on);
     final base = Theme.of(context);
     return MgV2Scope(
       enabled: on,

@@ -9,6 +9,7 @@ import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/widgets/mg_word_fit.dart';
 import 'v2/branches_v2_parts.dart';
 
 /// „Fotky pobočky“ v detailu pobočky (výchozí zabalené): náhledy 2 vedle sebe
@@ -65,8 +66,12 @@ class BranchPhotosSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(t(context).tr(photos[i].captionKey),
-              style: const TextStyle(fontSize: 11, height: 1.3, fontWeight: FontWeight.w600, color: MotoGoColors.g600)),
+          _caption(context, Text(t(context).tr(photos[i].captionKey),
+              style: const TextStyle(fontSize: 11, height: 1.3, fontWeight: FontWeight.w600, color: MotoGoColors.g600))),
         ]),
       );
+
+  // v2: dlouhé slovo popisku (uk „самообслуговування“) se zmenší, nezlomí.
+  Widget _caption(BuildContext context, Text text) =>
+      MgV2.on(context) ? MgWordFit(minScale: 0.7, child: text) : text;
 }

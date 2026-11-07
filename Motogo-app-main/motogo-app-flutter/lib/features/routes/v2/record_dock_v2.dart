@@ -8,15 +8,19 @@ import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
-import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
-import '../../../core/v2/widgets/mg_dialog.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../ride_actions.dart';
 import '../ride_recorder.dart';
+import 'rides/rec_live_bar_v2.dart';
+import 'rides/rec_widgets_v2.dart';
+import 'rides/ride_pause_actions_v2.dart';
+import 'rides/ride_phase_v2.dart';
+
+export 'rides/ride_pause_actions_v2.dart' show trasyConfirmStop, trasyConfirmStopRide;
 
 /// Místa selection carried by the dock (priority ②): the SAME actions as
 /// the old selection bar (`_navigate` / `_clearSel`). [pick] = the place
@@ -29,22 +33,10 @@ class TrasySelection {
   const TrasySelection({required this.count, required this.onContinue, required this.onClear, this.pick = false});
 }
 
-/// Asks "Ukončit záznam?" (presentation only), then the existing stop
-/// (`toggleManualRide(running: true)`, PM-4 — same result messages).
-Future<void> trasyConfirmStopRide(BuildContext context, WidgetRef ref) async {
-  final tr = t(context);
-  final ok = await showMgConfirm(
-    context,
-    title: tr.tr('v2RtRecStopQ'),
-    body: tr.tr('v2RtRecStopBody'),
-    safeLabel: tr.tr('v2RtRecContinue'),
-    actionLabel: tr.tr('v2RtRecStopSave'),
-  );
-  if (ok == true && context.mounted) await toggleManualRide(context, ref, running: true);
-}
-
 /// The Trasy tab's record dock (DESIGN_V22 §4.2 A): ① live recording bar
-/// (red ping dot, mode line, "Ukončit" for a manual ride) → ② Místa
+/// (phase glyph — red ping only while riding, phase + km / "od HH:MM",
+/// ❚❚ / ▶ pause disc for every recording, "Ukončit" for a manual ride;
+/// `RecLiveBarV2`) → ② Místa
 /// selection ("VLASTNÍ VYJÍŽĎKA (n)" + ✕ + ⏺ disc) → ③ idle "ZAZNAMENAT
 /// JÍZDU" + docked AI disc (the floating AI button is hidden on Trasy).
 /// Start / stop go through `toggleManualRide` (same permission handling
@@ -72,11 +64,24 @@ class TrasyRecordDockV2 extends ConsumerWidget {
       row = _selectionRow(context, ref, sel, showRecord && !live);
       if (live) {
         context0 = _liveLine(tr, rec);
-        if (rec.manual) trailing = _StopButton(compact: true, onTap: () => trasyConfirmStopRide(context, ref));
+        trailing = Row(mainAxisSize: MainAxisSize.min, children: [
+          RecPauseDiscV2(paused: rec.isManualPaused, onTap: () => rideTogglePauseV2(context, ref)),
+          if (rec.canStop) ...[
+            const SizedBox(width: 6),
+            RecStopButtonV2(compact: true, onTap: () => trasyConfirmStopRide(context, ref)),
+          ],
+        ]);
       }
     } else if (live) {
       row = Row(children: [
-        Expanded(child: _LiveBar(rec: rec, onTap: onOpenRecorder, onStop: () => trasyConfirmStopRide(context, ref))),
+        Expanded(
+          child: RecLiveBarV2(
+            rec: rec,
+            onOpen: onOpenRecorder,
+            onPause: () => rideTogglePauseV2(context, ref),
+            onStop: () => trasyConfirmStopRide(context, ref),
+          ),
+        ),
         const SizedBox(width: 8),
         const MgAiDisc(size: 56),
       ]);
@@ -112,18 +117,30 @@ class TrasyRecordDockV2 extends ConsumerWidget {
     );
   }
 
-  Widget _liveLine(AppTranslations tr, RideRecorderState rec) => Row(children: [
-        _Dot(gpsLost: rec.gpsLost),
-        const SizedBox(width: 8),
-        Flexible(
+  /// Context line above the Místa selection: phase + km / since (short —
+  /// the full numbers are on the recorder screen); wraps, never cut.
+  Widget _liveLine(AppTranslations tr, RideRecorderState rec) {
+    final ph = RecPhaseV2.of(tr, rec);
+    final bit = switch (ph.tone) {
+      RecToneV2.rec => recLiveBitsV2(tr, rec, avg: false).first,
+      RecToneV2.paused => ph.since,
+      _ => null,
+    };
+    return Row(children: [
+      RecGlyphV2(tone: ph.tone, size: 16),
+      const SizedBox(width: 8),
+      Flexible(
+        child: MgWordFit(
+          minScale: 0.65,
           child: Text(
-            '${tr.tr('rideRecording')} · ${tr.tr(rec.gpsLost ? 'v2RtRecGps' : (rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto'))}',
-            maxLines: 2,
-            style: MgType.small.copyWith(
-                fontWeight: FontWeight.w800, color: rec.gpsLost ? MgColors.warnDark : MgColors.onDarkLead),
+            [ph.chip, if (bit != null) bit].join(' · '),
+            style: MgType.tab(MgType.small.copyWith(
+                fontWeight: FontWeight.w800, color: ph.tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead)),
           ),
         ),
-      ]);
+      ),
+    ]);
+  }
 
   Widget _selectionRow(BuildContext context, WidgetRef ref, TrasySelection sel, bool recordDisc) {
     final tr = t(context);
@@ -141,135 +158,6 @@ class TrasyRecordDockV2 extends ConsumerWidget {
         ),
       ),
     ]);
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final bool gpsLost;
-  const _Dot({required this.gpsLost});
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 18,
-        height: 18,
-        child: Center(
-          child: MgPing(
-            size: 10,
-            color: gpsLost ? MgColors.warnDark : MgColors.sosDot,
-            active: !gpsLost && !MgMotion.reduced(context),
-          ),
-        ),
-      );
-}
-
-class _LiveBar extends StatelessWidget {
-  final RideRecorderState rec;
-  final VoidCallback? onTap;
-  final VoidCallback onStop;
-  const _LiveBar({required this.rec, required this.onTap, required this.onStop});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final mode = tr.tr(rec.gpsLost ? 'v2RtRecGps' : (rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto'));
-    final edge = rec.gpsLost ? MgColors.warnDark.withValues(alpha: 0.6) : MgColors.sosDot.withValues(alpha: 0.55);
-    return LayoutBuilder(builder: (context, c) {
-    final narrow = c.maxWidth < 300;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 56),
-      decoration: BoxDecoration(
-        color: MgColors.white(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: edge, width: 1.5),
-      ),
-      child: Row(children: [
-        Expanded(
-          child: Semantics(
-            button: onTap != null,
-            liveRegion: true,
-            label: '${tr.tr('rideRecording')}, $mode',
-            excludeSemantics: true,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-                child: Row(children: [
-                  _Dot(gpsLost: rec.gpsLost),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    // Titul vždy na jeden řádek a celý („NAH|RÁV|ÁM" ne):
-                    // zmenší se, režim smí na 2 řádky bez dělení slov.
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      MgWordFit(
-                        minScale: 0.65,
-                        child: Text(tr.tr('rideRecording').toUpperCase(),
-                            maxLines: 1,
-                            softWrap: false,
-                            overflow: TextOverflow.ellipsis,
-                            style: MgType.ctaCompact.copyWith(color: MgColors.onDark, letterSpacing: 0.5)),
-                      ),
-                      const SizedBox(height: 2),
-                      MgWordFit(
-                        minScale: 0.8,
-                        child: Text(mode,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: MgType.small.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: rec.gpsLost ? MgColors.warnDark : MgColors.onDarkLead)),
-                      ),
-                    ]),
-                  ),
-                ]),
-              ),
-            ),
-          ),
-        ),
-        // Úzká lišta (< 300 dp): „Ukončit" jako 44px ikona (popisek zůstává
-        // v sémantice), ať má text záznamu dost místa.
-        if (rec.manual) Padding(padding: const EdgeInsets.only(right: 6), child: _StopButton(onTap: onStop, iconOnly: narrow)),
-      ]),
-    );
-    });
-  }
-}
-
-class _StopButton extends StatelessWidget {
-  final VoidCallback onTap;
-  final bool compact;
-
-  /// Just the ■ (44 × 44) — the label stays in semantics / tooltip.
-  final bool iconOnly;
-  const _StopButton({required this.onTap, this.compact = false, this.iconOnly = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    return Semantics(
-      button: true,
-      label: tr.tr('rideManualStop'),
-      excludeSemantics: true,
-      child: MgPress(
-        onTap: onTap,
-        child: Container(
-          constraints: BoxConstraints(minHeight: compact ? 36 : 44, minWidth: 44),
-          padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : 12),
-          decoration: BoxDecoration(
-            color: MgColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: MgColors.black(0.4), blurRadius: 14, offset: const Offset(0, 6), spreadRadius: -8)],
-          ),
-          child: iconOnly
-              ? const SizedBox(width: 44, height: 44, child: Center(child: MgIcon(MgIcons.stopFilled, size: 16, color: MgColors.err)))
-              : Row(mainAxisSize: MainAxisSize.min, children: [
-                  const MgIcon(MgIcons.stopFilled, size: 14, color: MgColors.err),
-                  const SizedBox(width: 6),
-                  Text(tr.tr('v2RtRecStop'), style: MgType.ctaCompact.copyWith(color: MgColors.err, letterSpacing: 0)),
-                ]),
-        ),
-      ),
-    );
   }
 }
 

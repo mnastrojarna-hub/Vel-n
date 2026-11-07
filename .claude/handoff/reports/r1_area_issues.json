@@ -1,0 +1,122 @@
+{
+ "catalog": [
+  {
+   "severity": "major",
+   "area": "catalog",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/v2/detail/detail_specs_v2.dart:46,63,123",
+   "problem": "The bike detail spec tiles throw a RenderFlex overflow (0.9–5.4px, right edge) at NORMAL size in en at 320, in every detail state (nodates, dates, dates_calendar, booked_loading, booked_error, loyalty_fail, guest_rank0, pager, more_open), and at x1.3 in en at 360. 'Hmotnost' breaks at x1.0 in cs at 360 (line 63). Labels 'RIJBEWIJSCATEGORIE', 'DREHMOMENT', 'КАТЕГОРІЯ ПОСВІДЧЕННЯ' break (line 123: nl at x1.0; de, nl, uk at x1.3).",
+   "fix": "Make the value and unit Row flexible (Flexible + FittedBox(scaleDown) for the value). Let the uppercase spec label use FittedBox or 2 lines instead of character wrapping.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "catalog",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/v2/catalog_mode_switch_v2.dart:133,138",
+   "problem": "The Motorky mode switch ('Najít motorku' / 'Spočítat cenu') splits mid-word or truncates: 'Розрахувати ціну' (x1.0 uk 320), 'Motorrad finden', 'Preis berechnen', 'Calculate price' (x1.3 de, en, fr, nl, pl, uk at 320 and 360). The sub 'Jours libres et prix' / 'Фільтр пропозиції' is truncated at x1.3 320. Affected: catalog motorky and calc states, shell/tab motorky.",
+   "fix": "Below about 360dp put the icon above the title, or drop the 28px icon tile. Use FittedBox(scaleDown) for single-word titles and allow 2 lines for the sub.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "catalog",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/v2/detail/detail_trip_card_v2.dart:106,108,206",
+   "problem": "In the trip card on bike detail, the uppercase eyebrows 'TERUGBRENGEN', 'ПОВЕРНЕННЯ', 'VYZVEDNUTÍ', 'RÜCKGABE' break mid-word (x1.0 nl and uk at 320; x1.3 cs, de, es, nl, uk). 'Wybierz' breaks (pl 320, x1.3). The loyalty-failure note 'Deinen Treuerabatt sehen wir gerade nicht' breaks (de, nl, uk x1.0).",
+   "fix": "Use FittedBox(scaleDown) or maxLines 1 with scale-down for the two-column eyebrows. Give the note full width (no side icon column below 340dp).",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "catalog",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/v2/moto_card_grid_v2.dart:94",
+   "problem": "In the Motorky grid view the 'Available on your dates' / 'Frei in deinem Zeitraum' badge is clipped by the card. x1.0: de, en, es, nl, pl, uk at 320 and 360. x1.3: all languages at all sizes. Also seen at x1.3 only: moto_card_full_v2.dart:189,193,270 (branch, name and category clipped at 320 in cs, nl, uk), :301 ('2 727 Kč /Tag' breaks, de 320), :316 (uk); motorky_header_v2.dart:230 ('Wanneer rijd je?', nl 320); mg_chips.dart:185 ('Мотоцикліст · −3 %'); mg_chips.dart:231 ('Ранг заощаджує тобі 368 Kč', uk x1.0); calc_total_v2.dart:106, calc_receipt_v2.dart:160 (weekday 'Mon' truncated), calc_step_moto_v2.dart:110.",
+   "fix": "Grid badge: allow 2 lines or a shorter label ('Volná'); never clip in a fixed height. Full card: wrap the price + '/Tag' row (Wrap) and let the badges wrap. Chips: Flexible + ellipsis-free wrap.",
+   "verifier": "render"
+  }
+ ],
+ "profile": [
+  {
+   "severity": "major",
+   "area": "profile",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/v2/profile_tiles_v2.dart:190,194 + profile_header_v2.dart:163 + profile_personal_v2.dart:81,199 + profile_v2_parts.dart:117,128",
+   "problem": "Profil hub:\n- Tile labels break mid-word ('Zahlungsmethoden', 'Betaalmethoden', 'Повідомлення', 'Documenten en contracten'). x1.0: de, nl, uk at 320 and 360. x1.3: all 8 languages at all sizes, 1120 failures.\n- Tile subs 'Zweryfikowano', 'Geverifieerd' break (194).\n- Rank eyebrow 'LOYALITEITSRANG', 'TREUERANG', 'RANG DE FI|DÉLIT|É' breaks (163; x1.0 nl, x1.3 7 languages).\n- Personal form labels 'Führerscheinnummer' (199, x1.0 de) and 'Persönliche Daten' (81) break.\n- Row titles 'Allgemeine Geschäftsbedingungen' break (117, de x1.0 in contracts).\nAffected: hub all states, rank profile_hub lvl0–20, shell/tab profile.",
+   "fix": "Tiles: icon above the label; when the grid cell is under 110dp, use 2 columns or full-width rows. Eyebrows: FittedBox(scaleDown). Long single words: allow scale-down to 0.85, and only then wrap.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "profile",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/core/widgets/date_dropdown_field.dart:132,170",
+   "problem": "In the v2 personal-data form (profile hub form_open) the date-of-birth / licence-expiry dropdowns cut their own digits ('05', '31', '1990', '2031' overflow the field box). Seen in all 8 languages at x1.0 (320 and 360) and x1.3.",
+   "fix": "Give the day, month and year dropdowns flex weights (e.g. 2:2:3) with isExpanded: true and FittedBox(scaleDown) on the selected value, or let the row wrap to two lines below 360dp.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "profile",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/v2/docs_parts_v2.dart:43,56,74 + invoices_view_v2.dart:162",
+   "problem": "In Moje doklady the two side-by-side document tiles are too narrow:\n- Badge 'Neověřeno', 'Zweryfikowano', 'Verifizi|ert' breaks (x1.0 cs, es, nl, pl, uk at 320 and 360).\n- Titles 'Personalausweis / Reisepass', 'Führersch|ein' (43) and actions 'Scanne|n', 'Skenovat', 'Verwijderen' (74) break.\n- Invoices 'Endrec|hnung', 'Konečná faktura' (invoices_view_v2.dart:162).\nAffected: profile/docs (id_only, missing_dl_back, nothing, verified) and invoices list.",
+   "fix": "Below about 360dp stack the doc tiles (one per row) or use a horizontal card. Let the badge text scale down or show an icon only with a Semantics label.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "profile",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/messages/v2/messages_parts_v2.dart:69",
+   "problem": "The Zprávy segments ('Oznámení | Konverzace') break single long words with maxLines 2: 'Benachrichti|gungen' (x1.0 de at 320 and 360), 'Conversation|s', 'Notificacione|s', 'Powiadomie|nia' (x1.3). Affected: all messages states.",
+   "fix": "Use FittedBox(fit: BoxFit.scaleDown) with maxLines 1 for the segment label, and fall back to shorter keys ('Hinweise', 'Chats') if it still does not fit.",
+   "verifier": "render"
+  }
+ ],
+ "reservations": [
+  {
+   "severity": "major",
+   "area": "reservations",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/v2/res_list_header_v2.dart:51 + reservation_card_v2.dart:164 + res_status_v2.dart:90",
+   "problem": "On the Rezervace tab root, the h2 title 'Meine Rese|rvierungen', 'Mes réser|vations', 'Мої брон|ювання' breaks mid-word. Seen at x1.0 in de, fr, nl, pl, uk at 320, and at x1.3 in all languages and sizes (list states plus shell tabs). The card info labels 'DURATION', 'DURACIÓN', 'ТРИВАЛІСТЬ' are ellipsized (164; x1.0 en, es, pl, uk at 320 and 360). The status pill 'BEVORSTEHEND' is truncated (90).",
+   "fix": "Title: FittedBox(scaleDown), or move the 'Živě' / live badge below the title. Card: give the 3 info columns flex based on content, or let labels wrap to 2 lines. Pill: minHeight plus scale-down.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "reservations",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/v2/res_timeline_v2.dart:168 + res_detail_view_v2.dart:183 + res_docs_v2.dart:94,145 + res_payment_details_v2.dart:107,110,141 + res_sections_v2.dart:120 + res_status_v2.dart:135",
+   "problem": "Reservation detail:\n- Timeline step labels break mid-word ('Повернення', 'Übergabe', 'Devolución', 'Zaplaceno'): x1.0 uk at 320; x1.3 cs, de, es, nl, pl, uk, all sizes, every detail state.\n- Action buttons 'Reservierung bearbeiten' / 'stornieren' break (183, x1.0 de, uk).\n- Doc titles 'Overdrachtsprotocol' and 'Boekingsgeschiedenis' break (94, 145).\n- Payment rows 'Reservierungsnummer', 'Zahlungsmethode' break, with a RenderFlex overflow of up to 33px (141, x1.3 de, es, nl, uk 320).\n- Sections overflow 3.7px (120, fr 320).\n- SOS status text truncated (135, x1.0 en, fr 320).\n- Old res_modification_history.dart:708 overflows 29px (fr 320, x1.3).",
+   "fix": "Timeline: put the date under the label and allow 2 lines with scale-down. Buttons: stack vertically below 360dp. Payment rows: Expanded label, Flexible value, and move the value under the label when narrow. Remove fixed widths in status rows.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "reservations",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/v2/res_edit_header_v2.dart:47,80 + res_edit_chooser_v2.dart:125,127 + res_edit_price_v2.dart:79 + res_edit_sections_v2.dart:192,239,242 + res_edit_view_v2.dart:224 + reservations/widgets/reservation_edit_widgets.dart:241,253 + reservation_edit_extras_section.dart:210",
+   "problem": "Reservation edit:\n- Header 'Bevorstehend · 3 Tage' breaks (x1.0 de at 320).\n- Chooser titles and subs 'Overdrachtsplek', 'Tage weg, Erstattung nach Stornobe|dingungen' break (x1.0 de, nl).\n- Price eyebrows 'RÜCKERSTATTUNG', 'REMBOURSEMENT' break (x1.0 de, fr, nl).\n- Section labels 'ПОВЕРНЕННЯ' break.\n- Gear section RenderFlex overflow of 4–73px (239, x1.0 de at 320; x1.3 de, fr, nl).\n- Bottom overflow 4.2px (224, es, fr 320).\n- Old edit widgets overflow 0.1–21px (241, x1.0 uk 320); 'GRATIS' is clipped (253).",
+   "fix": "Chooser tiles: icon above the text and 1 column below 360dp. Eyebrows: FittedBox(scaleDown). Gear rows: Expanded name, Flexible size chips (Wrap). Remove fixed heights in the edit dock.",
+   "verifier": "render"
+  }
+ ],
+ "routes": [
+  {
+   "severity": "major",
+   "area": "routes",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/v2/place_card_v2.dart:156,173 + places_parts_v2.dart:48,172",
+   "problem": "Místa list:\n- The place-card category subtitle ('Komunitní místo', 'Lieu de la communauté', 'Panoramas et sommets') is ellipsized in a 99px column. This happens in all 8 languages at x1.0 (320 and 360) and at x1.3 on all sizes, 334 and 466 failures. Affected: every places state, the picker and the shell routes tab.\n- The rating/distance Row inside the Wrap overflows by 16–17px at 320 in all languages (173, x1.3).\n- Tool chip labels 'Aussichtspunkte & Gipfel', 'Фільтри та сортування' are ellipsized (172).\n- The location prompt breaks (48).",
+   "fix": "Allow 2 lines for the subtitle. Make the thumbnail smaller below 360dp. In the distance Row use Flexible(child: Text(dist)) with mainAxisSize.min. Chips: raise the 210px max or allow 2 lines.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "routes",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/v2/route_detail_parts_v2.dart:86,156,157,303",
+   "problem": "In the route detail stat tiles, 'Schwierigkeit', 'Obtížnost', 'Difficulty', 'Moeilijkheid' and 'Makkelijk', 'Gemiddeld', 'Середній' break mid-word. That happens in all 8 languages at x1.0 (320 and 360) for detail states ok, no-pois and hard-abroad. There is a RenderFlex overflow of 1.8–6.9px (86, es, fr, nl, pl, uk 320, x1.3) and a POI description cut (303, x1.3 all languages).",
+   "fix": "Tiles: label above the value with FittedBox(scaleDown), and 2 columns instead of 4 below 380dp. Description: remove the fixed height or size it from the text scaler.",
+   "verifier": "render"
+  },
+  {
+   "severity": "major",
+   "area": "routes",
+   "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_builder_screen.dart:250,506,513 + routes/v2/builder_parts_v2.dart:83,191 + routes/poi_suggest.dart:167,271",
+   "problem": "Route builder (v2 look):\n- The bottom panel overflows by 13–58px at the bottom. Seen at x1.0 in all 8 languages at 320 (line 506, state 'route'), and at x1.3 at 360 too.\n- 'Mindestens 2 Stopps' overflows its box (513).\n- Hints are truncated (builder_parts 83, 191: 'Uit bezienswaardigheden').\n- POI-suggest header truncated (167, x1.0 de, en, es, fr, nl, pl, uk).\n- Km/category chips overflow their box (271, x1.3 all languages).",
+   "fix": "Make the builder bottom sheet scrollable (SingleChildScrollView / DraggableScrollableSheet) or size it from the content height. Allow 2 lines for the hints and chips.",
+   "verifier": "render"
+  }
+ ]
+}

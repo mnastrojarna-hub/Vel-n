@@ -9,6 +9,11 @@ import '../friendly_error.dart';
 import '../native/gps_service.dart' show GpsStatus;
 import '../i18n/i18n_provider.dart';
 import '../theme.dart';
+import '../v2/flag/v2_scope.dart';
+import '../v2/icons/mg_icon.dart';
+import '../v2/states/legacy_dialog_looks.dart';
+import '../v2/states/mg_tone.dart';
+import '../v2/widgets/mg_toast_rich.dart';
 
 /// Nonstop linka MotoGo24 (volání funguje i bez mobilních dat).
 const String kMotoGoPhone = '+420774256271';
@@ -59,6 +64,10 @@ void showErrorSnack(
   final fe = friendly ?? FriendlyError.of(error, perm: perm);
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
+  if (MgV2.peek(context)) {
+    _v2ErrorToast(context, tr, what, fe, onRetry: onRetry, contact: contact);
+    return;
+  }
   SnackBarAction? action;
   if (fe.needsSettings) {
     action = SnackBarAction(
@@ -81,6 +90,43 @@ void showErrorSnack(
     ));
 }
 
+/// v2 vzhled téhož toastu: titulek = co, zpráva = proč + jak (offline
+/// rodově neutrálně), stejná akce i délka 7 s.
+void _v2ErrorToast(BuildContext context, AppTranslations tr, String what, FriendlyError fe,
+    {VoidCallback? onRetry, bool contact = true}) {
+  String? label;
+  VoidCallback? act;
+  if (fe.needsSettings) {
+    label = tr.tr('eoOpenSettings');
+    act = () => openFixSettings(fe);
+  } else if (onRetry != null) {
+    label = tr.tr('eoRetry');
+    act = onRetry;
+  } else if (contact && fe.suggestContact) {
+    label = tr.tr('eoCall');
+    act = callMotoGo;
+  }
+  final String msg;
+  if (fe.kind == FriendlyKind.offline) {
+    msg = tr.tr('v2UxCoreOffline');
+  } else {
+    final r = fe.reason(tr);
+    final why = r.isEmpty ? r : '${r[0].toUpperCase()}${r.substring(1)}.';
+    msg = '$why ${fe.hint(tr, contact: contact)}'.trim();
+  }
+  final warn = fe.isNetwork || fe.needsSettings || fe.kind == FriendlyKind.rateLimit;
+  showMgToastRich(
+    context,
+    title: what,
+    message: msg,
+    tone: warn ? MgTone.warn : MgTone.err,
+    icon: fe.isNetwork ? MgIcons.wifiOff : null,
+    actionLabel: label,
+    onAction: act,
+    duration: const Duration(seconds: 7),
+  );
+}
+
 /// Dialog s chybou: titulek (co), tělo (proč + jak) a tlačítka, která něco
 /// dělají. [extra] = další akce (např. Zavolat). Vrací id zvolené akce.
 Future<String?> showErrorDialog(
@@ -93,7 +139,9 @@ Future<String?> showErrorDialog(
   final tr = t(context);
   return showDialog<String>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => MgV2.on(ctx)
+        ? v2ErrorDialogLook(ctx, title: title, body: body, actions: actions, showClose: showClose)
+        : AlertDialog(
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
       content: SingleChildScrollView(child: Text(body)),
       actions: [
@@ -159,7 +207,9 @@ Future<bool> confirmDiscard(BuildContext context,
   final tr = t(context);
   final r = await showDialog<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => MgV2.on(ctx)
+        ? v2DiscardDialogLook(ctx, title: title ?? tr.tr('eoDiscardTitle'), body: body ?? tr.tr('eoDiscardBody'))
+        : AlertDialog(
       title: Text(title ?? tr.tr('eoDiscardTitle'),
           style: const TextStyle(fontWeight: FontWeight.w800)),
       content: Text(body ?? tr.tr('eoDiscardBody')),
@@ -280,7 +330,10 @@ class _MgProgressDialogState extends State<_MgProgressDialog> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && widget.cancelAfter != null) widget.onCancel();
       },
-      child: AlertDialog(
+      child: MgV2.on(context)
+          ? v2ProgressDialogLook(context,
+              text: widget.text, slow: _canCancel, onCancel: _canCancel ? widget.onCancel : null)
+          : AlertDialog(
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
             const SizedBox(

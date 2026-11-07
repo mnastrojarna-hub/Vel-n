@@ -10,13 +10,16 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../booking/booking_entry.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
 import 'calc/calc_body_v2.dart';
+import 'calc/calc_sticky_v2.dart';
 import 'catalog_date_sheet_v2.dart';
 import 'catalog_filter_sheet_v2.dart';
 import 'catalog_mode.dart';
+import 'catalog_mode_sync.dart';
 import 'catalog_price.dart';
 import 'catalog_text.dart';
 import 'moto_card_full_v2.dart';
@@ -28,7 +31,9 @@ import 'motorky_header_v2.dart';
 /// availability), `catalogFilterProvider` (single source of the dates),
 /// `catalogSortProvider` — and the same card tap (sibling ids for the
 /// detail pager + `context.push('/moto/:id')`). Calculator mode =
-/// `CalcBodyV2`. The old screen stays for the kill-switch OFF.
+/// `CalcBodyV2` (+ its sticky REZERVOVAT dock). A trip that already started
+/// in the past (app alive across days) is dropped on mount and on resume.
+/// The old screen stays for the kill-switch OFF.
 class MotorkyScreenV2 extends ConsumerStatefulWidget {
   const MotorkyScreenV2({super.key});
 
@@ -36,7 +41,7 @@ class MotorkyScreenV2 extends ConsumerStatefulWidget {
   ConsumerState<MotorkyScreenV2> createState() => _MotorkyScreenV2State();
 }
 
-class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
+class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsBindingObserver {
   bool _grid = false;
 
   /// Mode of THIS mount: the calculator only on an explicit request (Home
@@ -48,17 +53,52 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
   void initState() {
     super.initState();
     _mode = ref.read(catalogCalcRequestProvider) ? CatalogMode.calc : CatalogMode.find;
+    WidgetsBinding.instance.addObserver(this);
     // Consume the request and align the shared mode (never during build).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(catalogCalcRequestProvider.notifier).state = false;
+      catDropPastDates(ref);
+      // Any tab tap remounts the tab in "Najít motorku": the calculator's
+      // range of the previous mount is not picked again.
+      if (ref.read(catalogModeProvider) == CatalogMode.calc && _mode == CatalogMode.find) {
+        catCarryCalcDatesOnRemount(ref);
+      }
       if (ref.read(catalogModeProvider) != _mode) ref.read(catalogModeProvider.notifier).state = _mode;
     });
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) catDropPastDates(ref);
+  }
+
   void _setMode(CatalogMode m) {
-    if (m != _mode) setState(() => _mode = m);
+    if (m != _mode) {
+      // One trip for both modes: carry the dates / branch of the mode the
+      // customer is leaving (owner 2026-10-22, nothing picked twice).
+      if (m == CatalogMode.calc) {
+        catCarryListToCalc(ref);
+      } else {
+        catCarryCalcToList(ref);
+      }
+      setState(() => _mode = m);
+    }
     if (ref.read(catalogModeProvider) != m) ref.read(catalogModeProvider.notifier).state = m;
+  }
+
+  /// Card CTA "REZERVOVAT" with dates set: straight into the booking form
+  /// with this bike and the list's dates (PM-3) — the list already shows
+  /// only bikes free in them; photo / name still open the detail.
+  void _book(List<Motorcycle> motos, Motorcycle m, DateTime s, DateTime e) {
+    ref.read(filteredMotoIdsProvider.notifier).state = motos.map((m) => m.id).toList();
+    startBookingFromSelection(context, ref, m, s, e);
   }
 
   /// Načíst katalog znovu (zdroj i odvozený filtrovaný seznam) — jako dřív.
@@ -88,12 +128,18 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
     ref.listen<CatalogMode>(catalogModeProvider, (_, next) {
       if (next != _mode) setState(() => _mode = next);
     });
+    // Dates picked elsewhere while the calculator is shown (its "Detail ›")
+    // are already answered there too.
+    ref.listen<CatalogFilter>(catalogFilterProvider, (prev, next) {
+      if (_mode == CatalogMode.calc) catCalcFollowFilter(ref, prev, next);
+    });
     final mode = _mode;
     final motosAsync = ref.watch(filteredMotorcyclesProvider);
     final filter = ref.watch(catalogFilterProvider);
     final sort = ref.watch(catalogSortProvider);
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
     final count = motosAsync.hasValue ? motosAsync.value!.length : null;
+    final sticky = mode == CatalogMode.calc ? ref.watch(calcStickyProvider) : null;
 
     final header = MotorkyHeaderV2(
       mode: mode,
@@ -126,12 +172,19 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
         ),
       ];
     }
-    return MgPage(header: header, slivers: slivers, overlapHero: false, tabIndex: 1);
+    return MgPage(
+      header: header,
+      slivers: slivers,
+      overlapHero: false,
+      tabIndex: 1,
+      dock: sticky == null ? null : CalcStickyV2(data: sticky),
+    );
   }
 
   Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty) {
+    // A past range (dropped right after this frame) never offers REZERVOVAT.
     final s = f.startDate, e = f.endDate;
-    final hasDates = s != null && e != null;
+    final hasDates = s != null && e != null && !catBeforeToday(s);
     if (motos.isEmpty) return SliverToBoxAdapter(child: _empty(tr, hasDates));
     final days = hasDates ? catDayCount(s, e) : 0;
     final countLine = hasDates
@@ -195,6 +248,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> {
               ctaLabel: cta,
               height: h,
               onOpen: () => _open(motos, motos[i]),
+              onCta: hasDates ? () => _book(motos, motos[i], s, e) : null,
             ),
           ),
           childCount: motos.length,

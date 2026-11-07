@@ -193,6 +193,16 @@ $confirmCmsKeys = [
     'pendingReason5'      => 'confirm.pending.reason5',
     'pendingReason6'      => 'confirm.pending.reason6',
     'retryPayment'        => 'confirm.pending.retry',
+    // 2026-11-05 (i2): pozdní platba zrušené rezervace (platba vrácena automaticky) — žádné „Opakovat platbu“
+    'cancelledRefundTitle' => 'confirm.cancelledRefund.title',
+    'cancelledRefundText'  => 'confirm.cancelledRefund.text',
+    'cancelledRefundCta'   => 'confirm.cancelledRefund.cta',
+    // 2026-11-07 (i4): s přibalenou objednávkou zboží / zrušená, výsledek platby se ještě ověřuje / běžné storno
+    'cancelledRefundTextBundled' => 'confirm.cancelledRefund.textBundled',
+    'cancelledVerifyTitle' => 'confirm.cancelledVerify.title',
+    'cancelledVerifyText'  => 'confirm.cancelledVerify.text',
+    'cancelledOtherTitle'  => 'confirm.cancelledOther.title',
+    'cancelledOtherText'   => 'confirm.cancelledOther.text',
     'errorTitle'          => 'confirm.error.title',
     'errorContactPrefix'  => 'confirm.error.contactPrefix',
     'errorContactPhone'   => 'confirm.error.contactPhone',

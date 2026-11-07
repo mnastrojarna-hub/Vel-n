@@ -17,6 +17,7 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import 'active_ride_provider.dart';
 import 'route_nav_status.dart';
+import 'ride_pause_sheet.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_nav_loop.dart';
@@ -27,6 +28,9 @@ import 'route_reviews.dart';
 import 'my_experiences_provider.dart';
 import 'ride_location.dart' show RideForeignStreams;
 import '../../core/widgets/map_tile_errors.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import 'v2/route_nav_skin_v2.dart';
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
 /// Mapy.com, živá poloha jezdce, sledování (follow) s otáčením mapy po směru
@@ -1347,15 +1351,17 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
       }
       final geometry = _navGeo ?? custom.geometry;
-      return Scaffold(
+      // Root route (nothing below it is painted): the dark gradient panel
+      // over the map lies under the status bar → light icons in v2.
+      return mgV1StatusBar(context, dark: true, child: Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: _content(context, custom, null, geometry, lang),
-      );
+      ));
     }
 
     final dataAsync = ref.watch(routesDataProvider);
 
-    return Scaffold(
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: dataAsync.when(
         // Načítání i chyba mají hlavičku se šipkou zpět (navigace je přes
@@ -1400,7 +1406,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
           return _content(context, route, branch, geometry, lang);
         },
       ),
-    );
+    ));
   }
 
   Widget _content(BuildContext context, RouteItem route, RouteBranch? branch,
@@ -1621,11 +1627,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     ],
                   ),
                 ),
+                if (MgV2.on(context)) const NavRecChipV2() else const RideNavRecChip(),
                 if (_stops.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _openStopsSheet(lang),
-                    child: Container(
+                    child: MgV2.on(context)
+                        ? NavStopsChipV2('$reachedCount/${_stops.length}')
+                        : Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -1809,7 +1818,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   // Zpět / ukončit jízdu: dotyková plocha 48 px + popisek pro čtečku.
   Widget _circleBtn(IconData icon, VoidCallback onTap, {Color? color}) =>
-      MgBackTap(
+      MgV2.on(context)
+          ? NavCircleV2(end: icon == Icons.close, onTap: onTap)
+          : MgBackTap(
         onTap: onTap,
         close: icon == Icons.close,
         label: icon == Icons.close ? t(context).tr('routeEndBtn') : null,

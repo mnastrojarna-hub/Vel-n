@@ -3,6 +3,10 @@
 // REZERVOVAT · price CTA ends above the bottom nav in all 8 languages —
 // compact header (one-line greeting / banner / note) + 150 px photo on
 // phones under 800 dp. Text scale = the app's (main.dart forces no scaling).
+// fix:home r3 — also on low phones (360×640, 375×667, 320×690) with a
+// 24 dp status bar, rank 6 and the rank derived from loyalty (level 3:
+// longer rank chip, gear motto): compact preset dates, one-line title,
+// discount-only sub line, greeting beside the chip.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -45,50 +49,64 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  for (final lang in kV2Langs) {
-    testWidgets('home funnel CTA above the nav · $lang 360x780', (tester) async {
-      tester.view.physicalSize = const Size(360, 780) * 2;
-      tester.view.devicePixelRatio = 2;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(ProviderScope(
-        overrides: [
-          ...homeCases()['s0']!(),
-          rankTokensProvider.overrideWithValue(RankTokens.forLevel(6)),
-          rankArcPctProvider.overrideWithValue(50),
-          appV2UiProvider.overrideWith((ref) => AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: true)),
-          paidAfterRestartProvider.overrideWith((ref) async => null),
-        ],
-        child: MaterialApp.router(
-          debugShowCheckedModeBanner: false,
-          routerConfig: _router(),
-          locale: Locale(lang),
-          supportedLocales: supportedLocales,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+  const cases = [
+    (Size(360, 780), 0.0, 6),
+    (Size(360, 640), 24.0, 6),
+    (Size(375, 667), 24.0, 6),
+    (Size(320, 690), 24.0, 6),
+    (Size(360, 640), 24.0, null),
+    (Size(375, 667), 24.0, null),
+    (Size(320, 690), 24.0, null),
+  ];
+  for (final (size, top, rank) in cases) {
+    for (final lang in kV2Langs) {
+      final w = size.width.toInt(), h = size.height.toInt();
+      testWidgets('home funnel CTA above the nav · $lang ${w}x$h top $top rank ${rank ?? 'real'}', (tester) async {
+        tester.view.physicalSize = size * 2;
+        tester.view.devicePixelRatio = 2;
+        tester.view.padding = FakeViewPadding(top: top * 2);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            ...homeCases()['s0']!(),
+            if (rank != null) rankTokensProvider.overrideWithValue(RankTokens.forLevel(rank)),
+            if (rank != null) rankArcPctProvider.overrideWithValue(50),
+            appV2UiProvider
+                .overrideWith((ref) => AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: true)),
+            paidAfterRestartProvider.overrideWith((ref) async => null),
           ],
-          theme: v2TestTheme(),
-          builder: (c, child) => MgV2Scope(
-            enabled: true,
-            child: MediaQuery(
-              data: MediaQuery.of(c).copyWith(textScaler: TextScaler.noScaling, disableAnimations: true),
-              child: child!,
+          child: MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            routerConfig: _router(),
+            locale: Locale(lang),
+            supportedLocales: supportedLocales,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            theme: v2TestTheme(),
+            builder: (c, child) => MgV2Scope(
+              enabled: true,
+              child: MediaQuery(
+                data: MediaQuery.of(c).copyWith(textScaler: TextScaler.noScaling, disableAnimations: true),
+                child: child!,
+              ),
             ),
           ),
-        ),
-      ));
-      for (var i = 0; i < 6; i++) {
-        await tester.pump(const Duration(milliseconds: 300));
-      }
-      final cta = find.byWidgetPredicate((w) => w is MgCta && w.size == MgCtaSize.lg60);
-      expect(cta, findsWidgets, reason: 'funnel CTA ($lang)');
-      final ctaBottom = tester.getRect(cta.first).bottom;
-      final navTop = tester.getRect(find.byType(V2NavBar)).top;
-      expect(ctaBottom, lessThanOrEqualTo(navTop), reason: 'REZERVOVAT under the nav in $lang');
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 1));
-    });
+        ));
+        for (var i = 0; i < 6; i++) {
+          await tester.pump(const Duration(milliseconds: 300));
+        }
+        final cta = find.byWidgetPredicate((w) => w is MgCta && w.size == MgCtaSize.lg60);
+        expect(cta, findsWidgets, reason: 'funnel CTA ($lang)');
+        final ctaBottom = tester.getRect(cta.first).bottom;
+        final navTop = tester.getRect(find.byType(V2NavBar)).top;
+        expect(ctaBottom, lessThanOrEqualTo(navTop), reason: 'REZERVOVAT under the nav in $lang ${w}x$h');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
+      });
+    }
   }
 }

@@ -175,6 +175,20 @@ export async function isTrustedCaller(req: Request, opts: { roles?: string[] } =
   }
 }
 
+/** Jako isTrustedCaller, ale řekne KDO volá: 'service' (klíč / service JWT) | 'admin' (aktivní admin) | null (nedůvěryhodný).
+ *  Oprava i3 (2026-11-07): send-cancellation-email rozlišuje Velín (admin rozhoduje o penězích sám) od serveru. */
+export async function trustedCallerKind(req: Request, opts: { roles?: string[] } = {}): Promise<'service' | 'admin' | null> {
+  try {
+    const c = await classifyCaller(req)
+    if (c.kind === 'service') return 'service'
+    if (c.kind !== 'user') return null
+    const ok = opts.roles ? !!c.adminRole && opts.roles.includes(c.adminRole) : c.activeAdmin
+    return ok ? 'admin' : null
+  } catch {
+    return null
+  }
+}
+
 /** Standardní 403 odpověď. */
 export function forbidden(corsHeaders: Record<string, string>, reason = 'forbidden'): Response {
   return new Response(JSON.stringify({ error: 'unauthorized', reason }), {

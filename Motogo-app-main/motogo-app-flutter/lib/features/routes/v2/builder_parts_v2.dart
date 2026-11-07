@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -26,41 +27,45 @@ class BuilderTopBarV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final top = MediaQuery.paddingOf(context).top;
-    return Container(
-      padding: EdgeInsets.fromLTRB(12, top + 8, 12, 22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [MgColors.nightA(0.92), MgColors.nightA(0.55), MgColors.nightA(0)],
-          stops: const [0, 0.65, 1],
+    // Night scrim under the status bar → light icons.
+    return MgStatusBar(
+      dark: true,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(12, top + 8, 12, 22),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [MgColors.nightA(0.92), MgColors.nightA(0.55), MgColors.nightA(0)],
+            stops: const [0, 0.65, 1],
+          ),
         ),
-      ),
-      child: Row(children: [
-        MgV2Back(onTap: onBack, style: MgBackStyle.photo),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(tr.tr('v2RtBuilderEyebrow').toUpperCase(),
-                style: MgType.eyebrow.copyWith(color: MgColors.neon)),
-            const SizedBox(height: 2),
-            Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.onDark)),
-          ]),
-        ),
-        if (computing)
-          Semantics(
-            label: tr.tr('routeNavComputing'),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(color: MgColors.nightA(0.8), shape: BoxShape.circle, border: Border.all(color: MgColors.white(0.25))),
-              child: const Padding(
-                padding: EdgeInsets.all(11),
-                child: CircularProgressIndicator(strokeWidth: 2, color: MgColors.neon),
+        child: Row(children: [
+          MgV2Back(onTap: onBack, style: MgBackStyle.photo),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text(tr.tr('v2RtBuilderEyebrow').toUpperCase(),
+                  style: MgType.eyebrow.copyWith(color: MgColors.neon)),
+              const SizedBox(height: 2),
+              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.onDark)),
+            ]),
+          ),
+          if (computing)
+            Semantics(
+              label: tr.tr('routeNavComputing'),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: MgColors.nightA(0.8), shape: BoxShape.circle, border: Border.all(color: MgColors.white(0.25))),
+                child: const Padding(
+                  padding: EdgeInsets.all(11),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: MgColors.neon),
+                ),
               ),
             ),
-          ),
-      ]),
+        ]),
+      ),
     );
   }
 }

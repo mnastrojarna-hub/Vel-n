@@ -159,6 +159,7 @@ class ResDetailV2View extends ConsumerWidget {
     return MgPage(
       overlapHero: false,
       pinnedBack: onBack,
+      pinnedTitle: res.motoName,
       sections: [
         ResDetailHeroV2(res: res, onBack: onBack),
         Transform.translate(offset: const Offset(0, -24), child: sheet),

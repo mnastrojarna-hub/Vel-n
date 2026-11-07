@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/date_days.dart' show nextCalendarDay;
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_calendar.dart';
+import '../moto_model.dart' show DayPrices;
 
 /// v2 look of `AvailabilityCalendar` (V-seam): the SAME State owns the
 /// month, the selection step and every tap (`_onDayTap` with its occupied-
@@ -23,7 +25,13 @@ class AvailabilityCalendarV2View extends StatelessWidget {
   final VoidCallback onPrevMonth;
   final VoidCallback onNextMonth;
 
+  /// Bike's list price per weekday (V22 §3.2: 10/700 under every free
+  /// day) — display only, the pricing engine is untouched. Null = no bike
+  /// (date filter of the list) → no prices.
+  final DayPrices? dayPrices;
+
   const AvailabilityCalendarV2View({
+    this.dayPrices,
     super.key,
     required this.year,
     required this.month,
@@ -41,7 +49,24 @@ class AvailabilityCalendarV2View extends StatelessWidget {
     required this.onNextMonth,
   });
 
-  TripDayState _state(DateTime d) {
+  /// V22 §3.3 "Range crosses a busy day": a range over a booked day (only a
+  /// CARRIED one — the detail / calculator opened with dates from the list,
+  /// Home or a draft; the State's own tap refuses it) draws NO band, so a
+  /// cell never reads "selected" and "busy" at once. Only the start stays
+  /// (pending-start capsule); the owner's amber note + "Změnit termín" say
+  /// why. Computed once per build.
+  bool get _crossesBusy {
+    if (start == null || end == null) return false;
+    var d = tripDay(start!);
+    final e = tripDay(end!);
+    while (!d.isAfter(e)) {
+      if (isOccupied(d)) return true;
+      d = nextCalendarDay(d);
+    }
+    return false;
+  }
+
+  TripDayState _state(DateTime d, bool crosses) {
     final past = isPast(d);
     final occupied = isOccupied(d);
     final kind = past
@@ -49,15 +74,33 @@ class AvailabilityCalendarV2View extends StatelessWidget {
         : occupied
             ? (isUnconfirmed(d) ? TripDayKind.pending : TripDayKind.busy)
             : (d.weekday >= 6 ? TripDayKind.freeWeekend : TripDayKind.free);
+    // A busy start stays a busy cell — nothing selected is drawn then.
+    final startOnly = crosses && !occupied && tripSameDay(d, start!);
     return TripDayState(
       date: d,
       kind: kind,
-      selected: tripSelOf(d, start, end),
+      price: _price(d),
+      selected: crosses ? (startOnly ? TripSel.single : TripSel.none) : tripSelOf(d, start, end),
       today: isToday(d),
-      pendingStart: step == 2 && end == null && start != null && tripSameDay(d, start!),
+      pendingStart: startOnly || (step == 2 && end == null && start != null && tripSameDay(d, start!)),
       enabled: !readOnly && !past && !occupied,
     );
   }
+
+  /// "3 514" (no-break group space; TripDayState hides it on non-free days).
+  String? _price(DateTime d) {
+    final v = dayPrices?.forWeekday(d.weekday) ?? 0;
+    if (v <= 0) return null;
+    final s = v.round().toString();
+    final b = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) b.write('\u00A0');
+      b.write(s[i]);
+    }
+    return b.toString();
+  }
+
+  bool get _hasPrices => dayPrices != null && dayPrices!.cheapest > 0;
 
   @override
   Widget build(BuildContext context) {
@@ -72,9 +115,10 @@ class AvailabilityCalendarV2View extends StatelessWidget {
                     ? tr.tr('calClickToReset')
                     : tr.tr('v2CalTapToChange')))
             : tr.tr('calSelectReturn'));
+    final crosses = _crossesBusy;
     return TripCalendar(
       month: DateTime(year, month),
-      dayStateOf: _state,
+      dayStateOf: (d) => _state(d, crosses),
       onTapDay: onDayTap,
       onPrevMonth: onPrevMonth,
       onNextMonth: onNextMonth,
@@ -87,7 +131,12 @@ class AvailabilityCalendarV2View extends StatelessWidget {
               TripLegendKind.pending,
             ])
           : null,
-      note: helper == null ? null : TripCalendarNote(helper),
+      note: !_hasPrices
+          ? (helper == null ? null : TripCalendarNote(helper))
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+              if (helper != null) ...[TripCalendarNote(helper), const SizedBox(height: 6)],
+              TripCalendarNote(tr.tr('v2CalPriceNote')),
+            ]),
     );
   }
 }

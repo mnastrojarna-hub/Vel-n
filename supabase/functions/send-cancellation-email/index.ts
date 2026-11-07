@@ -1,13 +1,15 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
+import { trustedCallerKind, forbidden } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { renderEmail, normalizeLang, helpCardLabels, type Lang } from './i18n.ts'
+import { renderEmail, normalizeLang, helpCardLabels, refundDeferredNote, type Lang } from './i18n.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
 import { buildGearVars, GEAR_DEFAULT_ATTACHMENTS, gearCancellationReason, gearSubjectVars, loadGearBooking } from '../_shared/email-gear.ts'
 import { gearFallbackLang, gearFallbackTemplate, gearFallbackVars, logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 import { gearTexts } from '../_shared/email-gear-blocks.ts'
 import { refundTierPercent } from './refund-tier.ts'
 import { isTriggerDispatch, resolveTriggerDispatch } from './trigger-dispatch.ts'
+// Oprava i3 (2026-11-07): vratka storna rozdělená na kartu a převod — odstavec z živých dobropisů storna (refund-split.ts).
+import { loadRefundSplit, refundSplitNote, type RefundSplit } from './refund-split.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -60,6 +62,12 @@ async function sendWithRetry(emailData: Record<string, unknown>, maxRetries = 3)
     await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)))
   }
   return { success: false, error: 'Resend retry exhausted' }
+}
+
+/** Oprava i1 (2026-11-05): odstavec DB šablony s {{refund_amount}} („byl zpracován a vrácen“) pryč, když vratka
+ *  nebyla potvrzena — místo něj jde dovětek o dokončení obsluhou. */
+export function stripRefundParagraph(raw: string): string {
+  return (raw || '').replace(/<p\b[^>]*>(?:(?!<\/p>)[\s\S])*?\{\{refund_amount\}\}[\s\S]*?<\/p>/gi, '')
 }
 
 /** Replace {{var}} placeholders; unknown vars -> empty string */
@@ -147,7 +155,8 @@ serve(async (req) => {
   // process-refund…, app_settings: DB cancel_booking_tracked / auto_cancel_expired_pending)
   // nebo aktivní admin (Velín). Dřív kdokoli bez přihlášení spustil reálný Stripe
   // refund libovolné zaplacené rezervace a poslal storno mail (s dobropisem) kamkoli.
-  if (!(await isTrustedCaller(req))) return forbidden(CORS, 'trusted_caller_only')
+  const callerKind = await trustedCallerKind(req)
+  if (!callerKind) return forbidden(CORS, 'trusted_caller_only')
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -189,6 +198,17 @@ serve(async (req) => {
       }
       if (td.action === 'adopt') { refund_amount = td.refund_amount; refund_percent = td.refund_percent }
       else triggerMailOnly = true
+    }
+
+    // Oprava i3 (2026-11-07, V3): Velín (admin) bez refund_amount / refund_percent = obsluha o vratce NEROZHODLA (starší
+    // Velín u rezervace 'partial_refund' / 'refund_pending' volbu vratky nenabízel) → jen mail, NIKDY dopočet z tabulky
+    // storna (dřív vrátil % × total_price přes process-refund, i když obsluha nic nezvolila; < 48 h tiše 0). O penězích
+    // rozhoduje Velín, ne tabulka (hotfix #2221); vratku obsluha dořeší „Potvrdit vrácení“.
+    let staffMailOnly = false
+    if (booking_id && callerKind === 'admin' && refund_amount == null && refund_percent == null && (reqBody as any).skip_refund !== true) {
+      staffMailOnly = true
+      await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'admin_without_refund_choice_mail_only', status: 'warning',
+        request_data: { booking_id }, error_message: 'Velín storno bez volby vratky — jen mail, vratku vyřiď „Potvrdit vrácení“.' }).then(() => {}, () => {})
     }
 
     // If no email provided but booking_id exists, look up from profile
@@ -278,7 +298,16 @@ serve(async (req) => {
     // attach loop níže používá reason 'cancellation_retry', který nový refund
     // nikdy nevytvoří). manual_refund: true = volající ví, že jde o vratku
     // převodem na účet → dovětek do mailu i bez interního volání process-refund.
-    const skipRefund = (reqBody as any).skip_refund === true || triggerMailOnly
+    const skipRefund = (reqBody as any).skip_refund === true || triggerMailOnly || staffMailOnly
+    // Oprava i1 (2026-11-05): process-refund vratku NEpotvrdil (chyba / výjimka / jen část / no_op) → mail nesmí
+    // tvrdit „vráceno“ (věta o dokončení obsluhou — refund_state 'deferred'). skip_refund (Velín „Potvrdit vrácení“,
+    // pojistný mail webhooku) beze změny — částka přichází z už provedené vratky.
+    let refundUnsure = false
+    let docsCheck = false // i2: po „už vráceno“ ověřit, že Σ živých dobropisů kryje částku (po attach smyčce)
+    let refundSplit: RefundSplit | null = null // i3: vratka storna část na kartu + část převodem (dobropisy storna)
+    // Oprava i2 (2026-11-05): pojistný mail webhooku (skip_refund) může říct, že zbytek storna ještě chybí
+    // (refund_deferred — process-refund/cancel-once.ts) → mail neslibuje vrácení celé částky.
+    if ((reqBody as any).refund_deferred === true) refundUnsure = true
 
     if (booking_id) {
       // Vratka bez Stripe platby (QR/převod/hotově) = manuální — mail dostane
@@ -323,7 +352,7 @@ serve(async (req) => {
 
           // Calculate refund based on storno policy if not provided
           // Pásmo = DB _refund_tier_pct (DESIGN-GEAR §1.11): do pražského času vyzvednutí, ≥168 h / ≥48 h.
-          if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null && !triggerMailOnly) {
+          if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null && !triggerMailOnly && !staffMailOnly) {
             refund_percent = refundTierPercent(booking.start_date, booking.pickup_time)
             refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
           }
@@ -350,8 +379,26 @@ serve(async (req) => {
                 // manual:true = bez Stripe platby → dobropis vystaven, peníze jdou
                 // PŘEVODEM NA ÚČET do 14 dnů — mail dostane dovětek (viz níže).
                 if (refundData.manual === true) manualRefund = true
-                console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, manual=${refundData.manual === true}, amount=${refund_amount})`)
+                // Oprava i1 (2026-11-05): mail uvádí SKUTEČNĚ vrácenou částku (strop zákazníka, zbytek z dalších plateb
+                // nižší než požadavek, mg_target snížen), ne požadavek z těla volání. already_refunded / manual = částka
+                // z odpovědi chybí → požadavek jako dosud.
+                const got = Number(refundData.amount_refunded)
+                const requested = Number(refund_amount) || 0
+                // i2: jen část (zbytek dokončuje obsluha) → mail nese POŽADOVANOU částku s větou o dokončení (ne vrácený díl)
+                if (!refundData.already_refunded && refundData.manual !== true && refundData.status !== 'no_op' && refundData.partial !== true
+                  && Number.isFinite(got) && got > 0 && got !== requested) {
+                  refund_amount = got
+                  refund_percent = Number(booking.total_price) > 0 ? Math.round(got / Number(booking.total_price) * 100) : refund_percent
+                  await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_amount_from_result', status: 'info',
+                    request_data: { booking_id, requested, refunded: got, partial: refundData.partial === true } }).then(() => {}, () => {})
+                }
+                if (refundData.partial === true || (refundData.status === 'no_op' && requested > 0)) refundUnsure = true
+                // Oprava i2 (2026-11-05): „už vráceno“ (idempotentní větev / existující storno vratka) → doklady musí
+                // vratku v této výši krýt — kontrola až PO attach smyčce (ta dobropis k vratce po pádu teprve dohraje).
+                if ((refundData.already_refunded === true || refundData.cancellation_refund_exists === true) && requested > 0 && refundData.manual !== true) docsCheck = true
+                console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, manual=${refundData.manual === true}, amount=${refund_amount}, unsure=${refundUnsure})`)
               } else {
+                refundUnsure = true
                 console.warn('process-refund returned error:', refundData.code || refundData.error)
                 await supabase.from('debug_log').insert({
                   source: 'send-cancellation-email',
@@ -363,6 +410,7 @@ serve(async (req) => {
                 }).then(() => {}, () => {})
               }
             } catch (e) {
+              refundUnsure = true
               console.warn('Auto Stripe refund failed:', e)
               await supabase.from('debug_log').insert({
                 source: 'send-cancellation-email',
@@ -430,6 +478,21 @@ serve(async (req) => {
                 }
               } catch (e) { console.warn('Credit note lookup attempt', attempt, 'failed:', (e as Error).message) }
             }
+            // Oprava i3 (2026-11-07): storno může mít víc dobropisů (karta + ruční část převodem, vratka z více plateb
+            // s ručním zbytkem) → přiložit VŠECHNY živé dobropisy tohoto storna, ne jen nejnovější.
+            if (attached) {
+              try {
+                const sp = await loadRefundSplit(supabase, booking_id)
+                if (sp && sp.cnIds.length > 1) {
+                  const { data: more } = await supabase.from('invoices').select('id, number, pdf_path').in('id', sp.cnIds).neq('status', 'cancelled')
+                  for (const c of (more || []) as Array<{ id: string; number: string | null; pdf_path: string | null }>) {
+                    if (!c.pdf_path || attachments.some((a) => a.storage_path === c.pdf_path)) continue
+                    const b64 = await downloadAsBase64(supabase, c.pdf_path)
+                    if (b64) attachments.push({ content: b64, filename: `Dobropis-${c.number || 'DB'}.${c.pdf_path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html'}`, storage_path: c.pdf_path })
+                  }
+                }
+              } catch { /* další dobropisy jen navíc */ }
+            }
             if (!attached) {
               await supabase.from('debug_log').insert({
                 source: 'send-cancellation-email',
@@ -438,6 +501,45 @@ serve(async (req) => {
                 error_message: 'Credit note attachment missing after 3 retries — mail goes without PDF',
                 request_data: { booking_id, refund_amount, refund_percent },
               }).then(() => {}, () => {})
+            }
+          }
+          // Oprava i2 (2026-11-05): „už vráceno“ → Σ živých dobropisů < částka (část ceny zaplacená převodem bez dobropisu,
+          // vratka jen z části plateb…) → mail neslibuje vrácení; totéž když obsluha teprve posílá ruční část převodem
+          // ('refund_pending' + živý ruční dobropis).
+          if (docsCheck && Number(refund_amount) > 0) {
+            try {
+              const requested = Number(refund_amount) || 0
+              const { data: invs } = await supabase.from('invoices').select('type, total, stripe_refund_id')
+                .eq('booking_id', booking_id).in('type', ['credit_note', 'payment_receipt']).neq('status', 'cancelled')
+              const cns = (invs || []).filter((c: any) => c.type === 'credit_note')
+              const docs = cns.reduce((t: number, c: any) => t + Math.abs(Number(c.total) || 0), 0)
+              const paidDocs = (invs || []).filter((c: any) => c.type === 'payment_receipt').reduce((t: number, c: any) => t + (Number(c.total) || 0), 0)
+              const manualLive = cns.some((c: any) => c.stripe_refund_id == null)
+              const { data: cur } = await supabase.from('bookings').select('payment_status').eq('id', booking_id).maybeSingle()
+              const manualPending = manualLive && cur?.payment_status === 'refund_pending'
+              if (!manualPending && docs + 1 < requested && paidDocs > 0 && docs + 1 >= paidDocs && requested > paidDocs + 1) {
+                // Oprava i4 (2026-11-07, S3b): částka nad doklady o platbě (nezaplacený doplatek úpravy je v total_price →
+                // Velín / tabulka storna) a vše zaplacené je vrácené (dobropisy ≥ DP) → mail nese skutečně vrácenou částku.
+                refund_amount = Math.round(docs * 100) / 100
+                refund_percent = Number(booking.total_price) > 0 ? Math.round(docs / Number(booking.total_price) * 100) : refund_percent
+                await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_amount_capped_to_paid', status: 'info',
+                  request_data: { booking_id, requested, credit_notes_total: docs, paid_docs: paidDocs } }).then(() => {}, () => {})
+              } else if (docs + 1 < requested || manualPending) {
+                refundUnsure = true
+                await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_docs_below_amount', status: 'warning',
+                  request_data: { booking_id, requested, credit_notes_total: docs, manual_pending: manualPending, payment_status: cur?.payment_status ?? null } }).then(() => {}, () => {})
+              }
+            } catch { /* bez údaje → jako dřív */ }
+          }
+          // Oprava i3 (2026-11-07): dobropisy tohoto storna jsou zčásti kartové a zčásti ruční (převodem) a kryjí částku →
+          // mail řekne přesně, co šlo na kartu a co převodem (místo „dokončuje obsluha“ / „vše na kartu“).
+          if (Number(refund_amount) > 0) {
+            const sp = await loadRefundSplit(supabase, booking_id)
+            if (sp && sp.cardCzk > 0 && sp.bankCzk > 0 && sp.cardCzk + sp.bankCzk + 1 >= Number(refund_amount)) {
+              refundSplit = sp
+              refundUnsure = false
+              await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_split_card_bank', status: 'info',
+                request_data: { booking_id, refund_amount, card_czk: sp.cardCzk, bank_czk: sp.bankCzk, bank_sent: sp.bankSent } }).then(() => {}, () => {})
             }
           }
         }
@@ -456,6 +558,11 @@ serve(async (req) => {
       refund_percent: refund_percent ? String(refund_percent) : '',
       // {{business_card}} placeholder se v DB šabloně auto-vyčistí — brand header/footer je v wrapInBrandedLayout
     }
+    // Oprava i1 (2026-11-05): vratka nepotvrzená → i18n šablona booking_cancelled větví na refund_state; DB šablona
+    // přijde o odstavec s {{refund_amount}} (stripRefundParagraph) a dostane dovětek o dokončení obsluhou.
+    const refundDeferred = refundUnsure && Number(refund_amount) > 0
+    if (refundDeferred) vars.refund_state = 'deferred'
+    else if (refundSplit) vars.refund_state = 'split'
 
     // i18n \u2014 detekce jazyka z\u00e1kazn\u00edka
     let custLang: Lang = normalizeLang(language)
@@ -471,6 +578,8 @@ serve(async (req) => {
     // {{site_url}} → doména zákazníka (.cz pro cs, .com jinak). Vars se sestavily
     // před detekcí jazyka, takže přepíšeme až teď.
     vars.site_url = siteForLang(custLang)
+    // i3: odstavec vratky karta + převod pro i18n šablonu (booking_cancelled refund_state 'split') v jazyce zákazníka
+    if (refundSplit) vars.refund_split = refundSplitNote(custLang, refundSplit)
 
     // Výpůjčka JEN výbavy (bookings.booking_kind='gear', 2026-10-23): šablona gear_booking_cancelled
     // (Velín) s proměnnými výbavy v jazyce zákazníka, nikdy motorkový text. Logovaný slug zůstává
@@ -509,7 +618,7 @@ serve(async (req) => {
       if (tpl?.body_html) {
         // Velín = jen CZ. Non-cz → dynamický překlad přes API (cache + hash).
         const resolved = await resolveTemplateForLang(supabase, tpl as any, custLang)
-        templateHtml = renderTemplate(resolved.body, vars)
+        templateHtml = renderTemplate((refundDeferred || refundSplit) ? stripRefundParagraph(resolved.body) : resolved.body, vars)
         subject = renderTemplate(resolved.subject, subjVars(vars))
         if (Array.isArray(tpl.attachments)) {
           dbAttachmentsList = tpl.attachments as string[]
@@ -524,7 +633,7 @@ serve(async (req) => {
       bodyLang = gearFallbackLang(custLang)
       Object.assign(vars, gearFallbackVars(custLang, vars, gearVarsFor!))
       const fb = gearFallbackTemplate('gear_booking_cancelled', bodyLang, vars)
-      templateHtml = renderTemplate(fb.body, vars)
+      templateHtml = renderTemplate((refundDeferred || refundSplit) ? stripRefundParagraph(fb.body) : fb.body, vars)
       subject = renderTemplate(fb.subject, subjVars(vars))
       dbAttachmentsList = [...GEAR_DEFAULT_ATTACHMENTS.gear_booking_cancelled]
       await logGearTemplateFallback(supabase, 'send-cancellation-email', { slug: 'gear_booking_cancelled', booking_id, source, language: custLang })
@@ -571,15 +680,26 @@ serve(async (req) => {
       templateHtml = `
         <p>Dobr\u00fd den,</p>
         <p>potvrzujeme, \u017ee va\u0161e rezervace \u010d. <strong>${vars.booking_number}</strong> motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na.</p>
-        <p>Pokud jste storno nahl\u00e1sili alespo\u0148 7 dn\u00ed p\u0159ed za\u010d\u00e1tkem n\u00e1jemn\u00ed doby, vr\u00e1tili jsme v\u00e1m platbu na p\u016fvodn\u00ed kartu \u2014 pen\u00edze obvykle doraz\u00ed do 5\u20137 pracovn\u00edch dn\u016f.</p>
+        <p>Pokud jste storno nahl\u00e1sili alespo\u0148 7 dn\u00ed p\u0159ed za\u010d\u00e1tkem n\u00e1jemn\u00ed doby, vr\u00e1tili jsme v\u00e1m platbu na p\u016fvodn\u00ed kartu \u2014 pen\u00edze obvykle doraz\u00ed do 5\u201310 pracovn\u00edch dn\u016f.</p>
         <p>V p\u0159\u00edpad\u011b dotaz\u016f n\u00e1s nev\u00e1hejte kontaktovat.</p>
         <p>D\u011bkujeme a t\u011b\u0161\u00edme se, \u017ee v\u00e1s p\u0159iv\u00edt\u00e1me p\u0159i dal\u0161\u00ed p\u0159\u00edle\u017eitosti.</p>
         <p>T\u00fdm MotoGo24</p>`
     }
 
+    // Oprava i1 (2026-11-05): vratka nepotvrzená → dovětek o dokončení obsluhou (i18n šablona už větu má v těle;
+    // DB šablona / gear fallback / legacy text ho dostanou tady). Výbava: tykání.
+    if (refundDeferred && templateHtml && !/dokončuje obsluha|completed by our staff|Team abgeschlossen|team afgerond|completando el reembolso|finalisé par notre équipe|finalizuje nasza|завершує наша/.test(templateHtml)) {
+      templateHtml += `<p><strong>${refundDeferredNote(gear ? bodyLang : custLang, vars.refund_amount, { informal: !!gear })}</strong></p>`
+    }
+    // i3: vratka rozdělená na kartu a převod → odstavec z dobropisů storna (i18n šablona ho má v těle — refund_split;
+    // DB šablona / gear fallback / legacy text ho dostanou tady, odstavec s {{refund_amount}} je pryč).
+    if (refundSplit && templateHtml) {
+      const note = refundSplitNote(gear ? bodyLang : custLang, refundSplit, { informal: !!gear })
+      if (!templateHtml.includes(note)) templateHtml += `<p>${note}</p>`
+    }
     // Manuální vratka: dovětek o převodu na účet (DB šablony i fallbacky mluví
-    // o vrácení na kartu do 5–7 dnů — u rezervace bez Stripe platby to neplatí).
-    if (manualRefund && Number(refund_amount) > 0 && templateHtml) {
+    // o vrácení na kartu do 5–10 dnů — u rezervace bez Stripe platby to neplatí).
+    if (manualRefund && !refundDeferred && !refundSplit && Number(refund_amount) > 0 && templateHtml) {
       const manualNotes: Record<string, string> = {
         cs: 'Částku vrátíme převodem na váš bankovní účet do 14 dnů (rezervace nebyla hrazena kartou).',
         en: 'The amount will be returned by bank transfer to your account within 14 days (the booking was not paid by card).',
@@ -617,7 +737,7 @@ serve(async (req) => {
         csTemplateHtml = renderTemplate(src.body, varsCs)
         csSubject = renderTemplate(src.subject, subjVars(varsCs))
       } else {
-        const csI18n = renderEmail('booking_cancelled', 'cs', vars)
+        const csI18n = renderEmail('booking_cancelled', 'cs', refundSplit ? { ...vars, refund_split: refundSplitNote('cs', refundSplit) } : vars)
         if (csI18n) { csSubject = csI18n.subject; csTemplateHtml = csI18n.body }
       }
       if (csTemplateHtml) {

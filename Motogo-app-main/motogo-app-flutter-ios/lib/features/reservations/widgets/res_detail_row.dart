@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_detail_bits_v2.dart';
 
 /// Label/value row used in reservation detail info cards.
 class ResDetailRow extends StatelessWidget {
@@ -19,6 +21,9 @@ class ResDetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return ResDetailRowV2(label: label, value: value, bold: bold, valueColor: valueColor, child: child);
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(

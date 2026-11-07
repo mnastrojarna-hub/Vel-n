@@ -29,5 +29,6 @@ Future<void> toggleManualRide(BuildContext context, WidgetRef ref, {required boo
   final tr = t(context);
   final r = await n.startManualResult();
   if (!context.mounted) return;
-  showRideStartResult(msg, tr, r);
+  // Záznam čeká na rozjezd (auto-pauza) → řekne to hláška.
+  showRideStartResult(msg, tr, r, armed: ref.read(rideRecorderProvider).isArmed);
 }

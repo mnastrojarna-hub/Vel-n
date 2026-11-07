@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../i18n/i18n_provider.dart';
+import '../gestures/mg_swipe.dart';
+import '../gestures/mg_swipe_switcher.dart';
+import '../motion/mg_haptic.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_space.dart';
 import 'trip_calendar_parts.dart';
@@ -17,6 +20,12 @@ export 'trip_day_state.dart';
 /// legend / note below. PRESENTATIONAL ONLY — selection rules stay with the
 /// existing logic owner, which maps its state through [dayStateOf] and
 /// handles [onTapDay] exactly as today.
+///
+/// Motion / gestures (design G4 c, M1, V22 §3.6): a horizontal fling
+/// (≥ 450 px/s) over the weekdays + grid = the ‹ / › taps (← next, → previous;
+/// only when those callbacks exist — it beats an ancestor pager); the month
+/// grid slides in from the side it came from; the band grows 300 ms ease
+/// (20 ms per day, ≤ 200 ms). Reduced motion: everything instant.
 class TripCalendar extends StatelessWidget {
   final DateTime month;
   final TripDayState Function(DateTime day) dayStateOf;
@@ -90,9 +99,15 @@ class TripCalendar extends StatelessWidget {
         if (banner != null) ...[const SizedBox(height: MgSpace.s8), banner!],
         if (helper != null) ...[const SizedBox(height: MgSpace.s8), helper!],
         const SizedBox(height: MgSpace.s12),
-        TripWeekdays(skin: skin),
-        const SizedBox(height: MgSpace.s6),
-        grid,
+        _MonthFling(
+          onPrev: onPrevMonth,
+          onNext: onNextMonth,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            TripWeekdays(skin: skin),
+            const SizedBox(height: MgSpace.s6),
+            _MonthSwitch(month: month, child: grid),
+          ]),
+        ),
         if (legend != null) ...[const SizedBox(height: MgSpace.s12), legend!],
         if (note != null) ...[const SizedBox(height: MgSpace.s8), note!],
       ],
@@ -123,4 +138,59 @@ class TripCalendar extends StatelessWidget {
       onTap: onTapDay == null ? null : () => onTapDay!(s.date),
     );
   }
+}
+
+/// Fling ← = next month, → = previous (the same callbacks as ‹ / ›).
+class _MonthFling extends StatelessWidget {
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  final Widget child;
+  const _MonthFling({required this.onPrev, required this.onNext, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (onPrev == null && onNext == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragEnd: (d) {
+        final v = d.primaryVelocity ?? 0;
+        if (v.abs() < MgSwipe.commitVelocity) return;
+        final cb = v < 0 ? onNext : onPrev;
+        if (cb == null) return;
+        MgHaptic.select();
+        cb();
+      },
+      child: child,
+    );
+  }
+}
+
+/// The grid of a new month slides in from the side it came from.
+class _MonthSwitch extends StatefulWidget {
+  final DateTime month;
+  final Widget child;
+  const _MonthSwitch({required this.month, required this.child});
+
+  @override
+  State<_MonthSwitch> createState() => _MonthSwitchState();
+}
+
+class _MonthSwitchState extends State<_MonthSwitch> {
+  int _dir = 0;
+
+  static int _index(DateTime m) => m.year * 12 + m.month;
+
+  @override
+  void didUpdateWidget(covariant _MonthSwitch oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final d = _index(widget.month) - _index(oldWidget.month);
+    if (d != 0) _dir = d.sign;
+  }
+
+  @override
+  Widget build(BuildContext context) => MgSwipeSwitcher(
+        switchKey: _index(widget.month),
+        direction: _dir,
+        child: widget.child,
+      );
 }

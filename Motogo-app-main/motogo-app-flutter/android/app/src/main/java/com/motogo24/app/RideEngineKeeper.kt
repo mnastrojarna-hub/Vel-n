@@ -1,7 +1,12 @@
 package com.motogo24.app
 
 import android.app.ActivityManager
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.os.BatteryManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import io.flutter.embedding.engine.FlutterEngine
@@ -58,20 +63,113 @@ internal object RideEngineKeeper {
         return engine to false
     }
 
-    /** Kanál pro Dart (`RideKeepAlive`). Nedrží odkaz na okno. */
-    fun register(engine: FlutterEngine) {
+    /** Kanál pro Dart (`RideKeepAlive`). Drží jen aplikační kontext, ne okno. */
+    fun register(engine: FlutterEngine, context: Context) {
+        val app = context.applicationContext
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                if (call.method != "keepAlive") {
-                    result.notImplemented()
-                    return@setMethodCallHandler
+                when (call.method) {
+                    "keepAlive" -> {
+                        val on = call.argument<Boolean>("on") == true
+                        if (on) keepAlive.add(engine) else keepAlive.remove(engine)
+                        result.success(null)
+                        if (!on && parked === engine) destroyLaterIfIdle(engine)
+                        // Služba už neběží → případná přepsaná notifikace nesmí zůstat viset.
+                        if (!on && !gpsServiceInForeground(app)) cancel(app, NOTIF_ID)
+                    }
+                    "notify" -> try {
+                        result.success(postServiceText(app, call.argument("title"), call.argument("text")))
+                    } catch (e: Exception) {
+                        result.error("notify_failed", e.toString(), null)
+                    }
+                    "notifyIdle" -> try {
+                        postIdle(app, call.argument("title"), call.argument("text"))
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("notify_failed", e.toString(), null)
+                    }
+                    "cancelIdle" -> {
+                        cancel(app, IDLE_ID)
+                        result.success(null)
+                    }
+                    "battery" -> result.success(battery(app))
+                    else -> result.notImplemented()
                 }
-                val on = call.argument<Boolean>("on") == true
-                if (on) keepAlive.add(engine) else keepAlive.remove(engine)
-                result.success(null)
-                if (!on && parked === engine) destroyLaterIfIdle(engine)
             }
     }
+
+    /**
+     * Text trvalé notifikace GPS služby podle stavu záznamu (nahrávám /
+     * připraveno / pozastaveno). geolocator text za běhu měnit neumí (jen
+     * novým spuštěním streamu, což z pozadí nejde) — přepíšeme proto jeho
+     * notifikaci (stejné id 75415 a kanál) a jen když jeho služba běží na
+     * popředí; jinak false (zůstává statický text).
+     */
+    private fun postServiceText(ctx: Context, title: String?, text: String?): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        if (title == null || text == null || !gpsServiceInForeground(ctx)) return false
+        val n = Notification.Builder(ctx, GEOLOCATOR_CHANNEL)
+            .setSmallIcon(icon(ctx))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(launch(ctx))
+            .build()
+        manager(ctx).notify(NOTIF_ID, n)
+        return true
+    }
+
+    /** „Záznam cesty čeká" — pojistka vypnula GPS; klepnutí otevře appku. */
+    private fun postIdle(ctx: Context, title: String?, text: String?) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        if (title == null || text == null) return
+        val n = Notification.Builder(ctx, GEOLOCATOR_CHANNEL)
+            .setSmallIcon(icon(ctx))
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .setContentIntent(launch(ctx))
+            .build()
+        manager(ctx).notify(IDLE_ID, n)
+    }
+
+    private fun cancel(ctx: Context, id: Int) {
+        try {
+            manager(ctx).cancel(id)
+        } catch (e: Exception) {
+        }
+    }
+
+    private fun battery(ctx: Context): Map<String, Any>? = try {
+        val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val pct = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val charging = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && bm.isCharging
+        mapOf("pct" to pct, "charging" to charging)
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun manager(ctx: Context) =
+        ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    private fun icon(ctx: Context): Int {
+        val id = ctx.resources.getIdentifier("ic_launcher", "mipmap", ctx.packageName)
+        return if (id != 0) id else android.R.drawable.ic_menu_mylocation
+    }
+
+    private fun launch(ctx: Context): PendingIntent? {
+        val intent = ctx.packageManager.getLaunchIntentForPackage(ctx.packageName) ?: return null
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        return PendingIntent.getActivity(ctx, 0, intent, flags)
+    }
+
+    /** Notifikace GPS služby geolocatoru (id a kanál z GeolocatorLocationService). */
+    private const val NOTIF_ID = 75415
+    private const val IDLE_ID = 75416
+    private const val GEOLOCATOR_CHANNEL = "geolocator_channel_01"
 
     /** Okno se zavírá: engine s běžícím záznamem zaparkovat, jinak zničit. */
     fun release(engine: FlutterEngine, context: Context) {

@@ -120,8 +120,14 @@ Deno.test('cancel-once: zámek storno vratky přes claim_email_send(refund_cance
 
 const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/stripe@14').startsWith('file:') } catch { return false } })()
 const CAN_RUN = (() => { try { return Deno.permissions.querySync({ name: 'run' }).state === 'granted' } catch { return false } })()
-const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_once_flow_test.ts', './storno_hotfix_r1_flow_test.ts']
-const FLOW_MIN = 7 + 10 + 7 // počet flow testů (ubyl-li by některý, spouštěč selže)
+const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_once_flow_test.ts', './storno_hotfix_r1_flow_test.ts',
+  './storno_multi_intent_flow_test.ts', // + vratka z více plateb (sloučení s dev f1–f3, 2026-11-05)
+  './storno_i1_flow_test.ts', './pp_web_checkout_flow_test.ts', // + oprava i1 (adversariální scénáře A1–A8, web checkout částky)
+  './pp_webhook_charge_flow_test.ts', // + verify:charges (2026-11-05): dorovnání a měna ve webhooku
+  './storno_i2_flow_test.ts', // + oprava i2 (2026-11-05): dedup vratek, převodem placená část, strop ruční vratky, duplicitní dobropis, recovery 2. vratky, pending vratka, pojistný mail
+  './storno_i3_flow_test.ts', './storno_i3_mail_flow_test.ts', // + oprava i3 (2026-11-07): dlužná částka dle DP, převodem placená část jen s dokladem, e-shop část, pojistný mail jen k tomuto stornu, externí vratka dle zůstatku rezervace
+  './storno_i4_flow_test.ts'] // + oprava i4 (2026-11-07): opakování selhané vratky, znovuotevření po selhání, vratky mimo cenu, pending dedup, požadavek nad zaplacené, ruční část vedle karty, spadlá 2. vratka úpravy, Adaptive Pricing
+const FLOW_MIN = 7 + 10 + 7 + 10 + 8 + 2 + 4 + 8 + 13 + 8 // počet flow testů (ubyl-li by některý, spouštěč selže)
 
 Deno.test({ name: 'storno hotfix: flow testy celých handlerů (podproces s import mapou storno-flow-map.json)', ignore: MAPPED || !CAN_RUN, fn: async () => {
   const p = (f: string) => new URL(f, import.meta.url).pathname

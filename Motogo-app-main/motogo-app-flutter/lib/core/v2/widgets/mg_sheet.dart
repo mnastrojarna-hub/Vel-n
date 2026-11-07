@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../gestures/mg_swipe.dart';
+import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_shadows.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 import 'mg_back_v2.dart';
+import 'mg_sheet_pull.dart';
 import 'mg_word_fit.dart';
 
 /// Opens a v2 bottom sheet (light by default, V22 R5.10): grabber 42×5,
 /// ✕ 44 top-right, r22 top, swipe-down + scrim tap close it, content
 /// scrolls, [footer] buttons stay pinned. [onClose] = what ✕ does (default
 /// `maybePop`, which respects the caller's `PopScope` — dirty forms keep
-/// their existing discard confirm).
+/// their existing discard confirm). Motion: in 300 emphasized / out 250,
+/// none under reduced motion (`MgMotion.sheetStyle`).
 Future<T?> showMgSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -34,6 +38,7 @@ Future<T?> showMgSheet<T>(
     backgroundColor: Colors.transparent,
     barrierColor: MgColors.nightA(0.55),
     elevation: 0,
+    sheetAnimationStyle: MgMotion.sheetStyle(context),
     builder: (ctx) => MgSheetFrame(
       title: title,
       light: light,
@@ -48,7 +53,14 @@ Future<T?> showMgSheet<T>(
 
 /// The v2 sheet chrome (usable inside an existing `showModalBottomSheet`
 /// builder, so old sheet logic keeps its own route / result handling).
-class MgSheetFrame extends StatelessWidget {
+///
+/// Swipe-down (design G3): the grabber / header drag is the route's own;
+/// with [dragToDismiss] a scrolling body pulled down at its scroll top moves
+/// the sheet too — release past 25 % of its height or faster than 700 px/s
+/// → `Navigator.maybePop` (a `PopScope` keeps it open → springs back), else
+/// it springs back over `MgMotion.sheet`. Reduced motion: no follow, same
+/// release rule.
+class MgSheetFrame extends StatefulWidget {
   final Widget child;
   final String? title;
   final Widget? footer;
@@ -58,6 +70,10 @@ class MgSheetFrame extends StatelessWidget {
   final bool showClose;
   final bool scrollable;
   final EdgeInsetsGeometry padding;
+
+  /// null = auto: on inside a dismissible `ModalBottomSheetRoute` with
+  /// `enableDrag` (non-dismissible sheets ignore body pulls, design G3).
+  final bool? dragToDismiss;
 
   const MgSheetFrame({
     super.key,
@@ -70,18 +86,94 @@ class MgSheetFrame extends StatelessWidget {
     this.showClose = true,
     this.scrollable = true,
     this.padding = const EdgeInsets.fromLTRB(16, 4, 16, 16),
+    this.dragToDismiss,
   });
 
   @override
+  State<MgSheetFrame> createState() => _MgSheetFrameState();
+}
+
+class _MgSheetFrameState extends State<MgSheetFrame> with SingleTickerProviderStateMixin {
+  late final MgSheetPull _pull = MgSheetPull(() {
+    if (mounted) setState(() {});
+  });
+  late final MgSheetPullPhysics _physics = MgSheetPullPhysics(_pull);
+  late final AnimationController _back = AnimationController(vsync: this, duration: MgMotion.sheet);
+  double _from = 0;
+  bool _closing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _back.addListener(() => _pull.reset(_from * (1 - MgMotion.emphasized.transform(_back.value))));
+  }
+
+  @override
+  void dispose() {
+    _back.dispose();
+    super.dispose();
+  }
+
+  bool _dragOn(BuildContext context) {
+    if (widget.dragToDismiss != null) return widget.dragToDismiss!;
+    final r = ModalRoute.of(context);
+    return r is ModalBottomSheetRoute && r.enableDrag && r.isDismissible;
+  }
+
+  void _springBack() {
+    if (_pull.dy <= 0) return;
+    if (MgMotion.reduced(context)) {
+      _pull.reset(0);
+      return;
+    }
+    _from = _pull.dy;
+    _back.forward(from: 0);
+  }
+
+  bool _onEnd(ScrollEndNotification n) {
+    if (n.depth != 0 || n.metrics.axis != Axis.vertical || _pull.dy <= 0 || _closing) return false;
+    final v = n.dragDetails?.primaryVelocity ?? 0;
+    final h = context.size?.height ?? double.infinity;
+    if (_pull.dy > h * MgSwipe.sheetDismissFraction || v > MgSwipe.sheetDismissVelocity) {
+      _closing = true;
+      final route = ModalRoute.of(context);
+      // maybePop is also true when a PopScope refused (it only asked):
+      // still the current route → spring back.
+      Navigator.of(context).maybePop().then((popped) {
+        if (!mounted) return;
+        _closing = false;
+        if (!popped || (route?.isCurrent ?? false)) _springBack();
+      });
+    } else {
+      _springBack();
+    }
+    return false;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final title = widget.title;
+    final footer = widget.footer;
+    final light = widget.light;
+    final padding = widget.padding;
+    final child = widget.child;
     final mq = MediaQuery.of(context);
-    final maxH = (mq.size.height - mq.padding.top) * maxHeightFactor;
+    final maxH = (mq.size.height - mq.padding.top) * widget.maxHeightFactor;
     final fg = light ? MgColors.ink : MgColors.onDark;
-    final close = onClose ?? () => Navigator.of(context).maybePop();
-    final body = scrollable
-        ? Flexible(child: SingleChildScrollView(padding: padding, child: child))
+    final close = widget.onClose ?? () => Navigator.of(context).maybePop();
+    final pull = widget.scrollable && _dragOn(context);
+    final body = widget.scrollable
+        ? Flexible(
+            child: pull
+                ? NotificationListener<ScrollEndNotification>(
+                    onNotification: _onEnd,
+                    child: SingleChildScrollView(physics: _physics, padding: padding, child: child),
+                  )
+                : SingleChildScrollView(padding: padding, child: child),
+          )
         : Flexible(child: Padding(padding: padding, child: child));
-    return Padding(
+    final dy = pull && !MgMotion.reduced(context) ? _pull.dy : 0.0;
+    final frame = Padding(
       padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxH),
@@ -121,10 +213,10 @@ class MgSheetFrame extends StatelessWidget {
                               ? const SizedBox(height: 44)
                               : Semantics(
                                   header: true,
-                                  child: MgWordFit(minScale: 0.75, child: Text(title!, style: MgType.h3.copyWith(color: fg))),
+                                  child: MgWordFit(minScale: 0.75, child: Text(title, style: MgType.h3.copyWith(color: fg))),
                                 ),
                         ),
-                        if (showClose) ...[
+                        if (widget.showClose) ...[
                           const SizedBox(width: 8),
                           MgV2Back(
                             close: true,
@@ -155,6 +247,8 @@ class MgSheetFrame extends StatelessWidget {
         ),
       ),
     );
+    // Always the same wrapper: re-parenting mid-drag would drop the scroll.
+    return Transform.translate(key: const ValueKey('mg-sheet-pull'), offset: Offset(0, dy), child: frame);
   }
 }
 

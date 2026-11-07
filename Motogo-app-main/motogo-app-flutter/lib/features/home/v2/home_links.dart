@@ -27,16 +27,21 @@ void homeOpenCalculator(BuildContext context, WidgetRef ref, {String? motoId, Fu
   _goSearch(context, ref);
 }
 
-/// "Všechny motorky ›" / "Kdy jedeš příště?": Motorky in find mode; a range
-/// is written exactly like the catalogue date picker does
-/// (`catalogFilterProvider.copyWith(startDate, endDate)`).
+/// The dates the customer gave on Domů, written exactly like the catalogue
+/// date picker (`catalogFilterProvider.copyWith(startDate, endDate)`; null
+/// = its "Bez termínu") — the ONE place Motorky, the bike detail, the pill
+/// and the funnel read them from, so they are never picked twice.
+void homeGiveDates(WidgetRef ref, FunnelRange? range) {
+  final f = ref.read(catalogFilterProvider);
+  ref.read(catalogFilterProvider.notifier).state =
+      f.copyWith(startDate: () => range?.start, endDate: () => range?.end);
+}
+
+/// "Všechny motorky ›" / "Kdy jedeš příště?": Motorky in find mode with
+/// the range (when given).
 void homeOpenBikes(BuildContext context, WidgetRef ref, {FunnelRange? range}) {
   ref.read(catalogModeProvider.notifier).state = CatalogMode.find;
   ref.read(catalogCalcRequestProvider.notifier).state = false;
-  if (range != null) {
-    final f = ref.read(catalogFilterProvider);
-    ref.read(catalogFilterProvider.notifier).state =
-        f.copyWith(startDate: () => range.start, endDate: () => range.end);
-  }
+  if (range != null) homeGiveDates(ref, range);
   _goSearch(context, ref);
 }

@@ -16,7 +16,7 @@ import '../booking_v2_parts.dart';
 /// Sub line of an extra row — the old tile's rule: chosen size, a missing
 /// size prompt, else the description (boots: informal copy).
 String? bkExtraSub(AppTranslations tr, ExtraCatalogItem item, {String? size, required bool needSize}) {
-  if (size != null) return '${tr.tr('sizeLabel')}: $size';
+  if (size != null) return '${tr.tr('sizeLabel')}: ${extraSizeLabel(tr.tr, size)}';
   if (needSize) return tr.tr('v2BkPickSize');
   if (extraDescKeys[item.id] == 'extraBootsDesc') return tr.tr('v2BkBootsDesc');
   return extraDescription(tr.tr, item.id, item.description);
@@ -69,6 +69,9 @@ class BookingGearRowV2 extends StatelessWidget {
 /// (size / "Vyber velikost" / description), price or "Zdarma" (+ struck
 /// list price when the rank made it free). [onTap] = the section's EXISTING
 /// tap closure (remove, passenger sheet, size dialog or add).
+/// [opensSheet] = an extra with sizes (passenger, boots): once chosen, a
+/// tap opens its sizes sheet ("Odebrat" inside) — no toggle, so screen
+/// readers hear "selected" + the change / remove hint instead of "checked".
 ///
 /// Layout never squeezes the text column under its longest word: the
 /// price column sits on the right only when the text keeps that width;
@@ -83,6 +86,7 @@ class BookingExtraRowV2 extends StatelessWidget {
   final String? struck;
   final bool freeWithRank;
   final bool selected;
+  final bool opensSheet;
   final VoidCallback onTap;
 
   const BookingExtraRowV2({
@@ -96,6 +100,7 @@ class BookingExtraRowV2 extends StatelessWidget {
     required this.onTap,
     this.struck,
     this.freeWithRank = false,
+    this.opensSheet = false,
   });
 
   @override
@@ -126,7 +131,9 @@ class BookingExtraRowV2 extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Semantics(
         button: true,
-        checked: selected,
+        checked: opensSheet && selected ? null : selected,
+        selected: opensSheet && selected ? true : null,
+        hint: opensSheet && selected ? '${tr.tr('v2BkChange')}, ${tr.tr('removeBtn')}' : null,
         label: [title, if (subText != null) subText, price].join(', '),
         excludeSemantics: true,
         onTap: onTap,

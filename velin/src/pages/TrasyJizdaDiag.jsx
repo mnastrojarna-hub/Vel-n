@@ -11,6 +11,10 @@ import { diagTimeline, diagVerdict, diagVersions } from '../lib/rideDiag'
 // a `app_installations` (zařízení a verze appky). Obojí admin čte přes RLS.
 
 const PAD_MS = 15 * 60 * 1000
+// Vícedenní cesta je jeden záznam → logů je víc; načítáme po stránkách
+// (PostgREST vrací max 1000 řádků), nejvýš tolik:
+const LOG_PAGE = 1000
+const LOG_MAX = 4000
 const fmtTime = (v) => v
   ? new Date(v).toLocaleString('cs-CZ', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })
   : '—'
@@ -48,15 +52,25 @@ export default function TrasyJizdaDiag({ ride, track }) {
     let alive = true
     const start = from
     const end = to
+    const loadLogs = async () => {
+      const rows = []
+      for (let from = 0; from < LOG_MAX; from += LOG_PAGE) {
+        const { data: page, error } = await supabase.from('app_debug_logs')
+          .select('created_at, category, action, detail, data, app_version, platform')
+          .eq('user_id', ride.user_id)
+          .in('category', ['lifecycle', 'ride'])
+          .gte('created_at', new Date(start - PAD_MS).toISOString())
+          .lte('created_at', new Date(end + PAD_MS).toISOString())
+          .order('created_at', { ascending: true }).order('id', { ascending: true })
+          .range(from, from + LOG_PAGE - 1)
+        if (error) return { data: rows.length ? rows : null, error }
+        rows.push(...(page || []))
+        if (!page || page.length < LOG_PAGE) return { data: rows, error: null, truncated: false }
+      }
+      return { data: rows, error: null, truncated: true }
+    }
     Promise.all([
-      supabase.from('app_debug_logs')
-        .select('created_at, category, action, detail, data, app_version, platform')
-        .eq('user_id', ride.user_id)
-        .in('category', ['lifecycle', 'ride'])
-        .gte('created_at', new Date(start - PAD_MS).toISOString())
-        .lte('created_at', new Date(end + PAD_MS).toISOString())
-        .order('created_at', { ascending: true })
-        .limit(500),
+      loadLogs(),
       supabase.from('app_installations')
         .select('platform, app_version, last_seen_at')
         .eq('user_id', ride.user_id)
@@ -67,6 +81,7 @@ export default function TrasyJizdaDiag({ ride, track }) {
       setData({
         key: winKey,
         rows: logs.data || [],
+        truncated: !!logs.truncated,
         installs: inst.data || [],
         // Nenačtené logy ≠ „appka žádné neposlala" — závěr se pak neukazuje.
         logsError: logs.error?.message || null,
@@ -108,6 +123,9 @@ export default function TrasyJizdaDiag({ ride, track }) {
               ).join(', ')}</>
             )}
           </p>
+          {loaded.truncated && (
+            <p style={{ color: '#6b8f7b' }}>Dlouhá cesta — zobrazeno prvních {LOG_MAX} záznamů logu.</p>
+          )}
           {verdict.map((v, i) => (
             <p key={i} className="rounded-card" style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', padding: '6px 8px' }}>
               {v}

@@ -5,6 +5,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
+import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -107,91 +108,95 @@ class RouteDetailViewV2 extends StatelessWidget {
       ]),
     );
 
-    return ColoredBox(
-      color: MgColors.canvas,
-      child: _DetailBody(
-        mapH: _mapH + top,
-        map: Stack(children: [
-          Positioned.fill(
-            child: RouteMapView(
-              geometry: geometry,
-              start: start,
-              pois: poiMarkers,
-              activePoi: activePoi,
-              onPoiTap: onPoiTap,
+    // The light (outdoor) map lies under the status bar → dark icons.
+    return MgStatusBar(
+      dark: false,
+      child: ColoredBox(
+        color: MgColors.canvas,
+        child: _DetailBody(
+          mapH: _mapH + top,
+          map: Stack(children: [
+            Positioned.fill(
+              child: RouteMapView(
+                geometry: geometry,
+                start: start,
+                pois: poiMarkers,
+                activePoi: activePoi,
+                onPoiTap: onPoiTap,
+              ),
             ),
-          ),
-          Positioned(top: top + 10, left: 12, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
-          if (computing)
+            Positioned(top: top + 10, left: 12, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
+            if (computing)
+              Positioned(
+                top: top + 14,
+                right: 12,
+                left: 72,
+                child: Align(alignment: Alignment.centerRight, child: _ComputingChip(label: tr.tr('routeNavComputing'))),
+              ),
             Positioned(
-              top: top + 14,
               right: 12,
-              left: 72,
-              child: Align(alignment: Alignment.centerRight, child: _ComputingChip(label: tr.tr('routeNavComputing'))),
+              bottom: 36,
+              child: _MapPill(label: tr.tr('routeShowOnMap'), onTap: onFullMap),
             ),
-          Positioned(
-            right: 12,
-            bottom: 36,
-            child: _MapPill(label: tr.tr('routeShowOnMap'), onTap: onFullMap),
-          ),
-        ]),
-        dock: dock,
-        children: [
-          RouteStatsCardV2(
-            route: route,
-            name: route.nameFor(lang),
-            startLine: branch != null && startNear ? '${tr.tr('routeStartsAt')} ${branch!.name}' : null,
-            km: distKm == null ? null : '${distKm.toStringAsFixed(0)} km',
-            time: route.durationMin == null ? null : rtDur(route.durationMin!),
-            fromMe: fromMe,
-            sibling: sibling,
-            onPrev: onPrev,
-            onNext: onNext,
-          ),
-          if (desc.isNotEmpty) RouteDescV2(desc),
-          if (pois.isNotEmpty) ...[
-            RtSectionV2(icon: MgIcons.pin, title: tr.tr('routePoisHeader'), count: pois.length),
-            SizedBox(
-              // Photo 112 + padding + name + 2 description lines — grows
-              // with large text so the 2nd line is not cut.
-              height: RoutePoiCardV2.heightFor(MediaQuery.textScalerOf(context)),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                clipBehavior: Clip.none,
-                itemCount: pois.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, i) => RoutePoiCardV2(
-                  poi: pois[i],
-                  number: i + 1,
-                  lang: lang,
-                  active: activePoi == i,
-                  onTap: () => onPoiTap(i),
+          ]),
+          dock: dock,
+          children: [
+            RouteStatsCardV2(
+              route: route,
+              name: route.nameFor(lang),
+              startLine: branch != null && startNear ? '${tr.tr('routeStartsAt')} ${branch!.name}' : null,
+              km: distKm == null ? null : '${distKm.toStringAsFixed(0)} km',
+              time: route.durationMin == null ? null : rtDur(route.durationMin!),
+              fromMe: fromMe,
+              sibling: sibling,
+              onPrev: onPrev,
+              onNext: onNext,
+            ),
+            if (desc.isNotEmpty) RouteDescV2(desc),
+            if (pois.isNotEmpty) ...[
+              RtSectionV2(icon: MgIcons.pin, title: tr.tr('routePoisHeader'), count: pois.length),
+              SizedBox(
+                // Photo 112 + padding + name + 2 description lines — grows
+                // with large text so the 2nd line is not cut.
+                height: RoutePoiCardV2.heightFor(MediaQuery.textScalerOf(context)),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  clipBehavior: Clip.none,
+                  itemCount: pois.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => RoutePoiCardV2(
+                    poi: pois[i],
+                    number: i + 1,
+                    lang: lang,
+                    active: activePoi == i,
+                    onTap: () => onPoiTap(i),
+                  ),
                 ),
               ),
-            ),
-          ],
-          if (route.images.isNotEmpty) ...[
-            RtSectionV2(icon: MgIcons.image, title: tr.tr('routeGalleryHeader'), count: route.images.length),
-            SizedBox(
-              height: 120,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: route.images.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, i) => RouteGalleryThumbV2(
-                  url: route.images[i],
-                  onTap: () => openPoiImageViewer(context, route.images, i, lang),
+            ],
+            if (route.images.isNotEmpty) ...[
+              RtSectionV2(icon: MgIcons.image, title: tr.tr('routeGalleryHeader'), count: route.images.length),
+              SizedBox(
+                height: 120,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: route.images.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (context, i) => RouteGalleryThumbV2(
+                    url: route.images[i],
+                    onTap: () => openPoiImageViewer(context, route.images, i, lang),
+                  ),
                 ),
               ),
+            ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+              child: RouteReviewsSection(routeId: route.id),
             ),
           ],
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-            child: RouteReviewsSection(routeId: route.id),
-          ),
-        ],
+        ),
       ),
     );
   }

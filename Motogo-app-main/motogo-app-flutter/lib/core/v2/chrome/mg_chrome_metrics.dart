@@ -2,8 +2,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 /// What a zone is to the AI button (DESIGN_V2 §4.2 FabAvoid): `cta` / `sos`
-/// must never be covered (button goes off), `tap` may be peeked over.
-enum MgAvoidKind { cta, sos, tap }
+/// must never be covered (button goes off), `tap` may be peeked over,
+/// `keep` = text the button must not be lifted onto (peeks like `tap`).
+enum MgAvoidKind { cta, sos, tap, keep }
 
 /// Live chrome state of the v2 shell: heights of the status strips and of
 /// a screen dock, and the avoid zones registered by `MgFabAvoid`. Provided

@@ -21,6 +21,17 @@ abstract final class MgV2 {
   /// Same as [on] without a dependency (callbacks, one-off checks).
   static bool peek(BuildContext context) =>
       context.getInheritedWidgetOfExactType<MgV2Scope>()?.enabled ?? false;
+
+  /// The value the gate last put into [MgV2Scope] — ONLY for context-less
+  /// callers (`ErrorWidget.builder`); everything with a context asks [on].
+  static bool get applied => _applied;
+  static bool _applied = false;
+
+  /// Written by the gate's build (same value as its scope).
+  static void markApplied(bool on) => _applied = on;
+
+  @visibleForTesting
+  static void debugSetApplied(bool on) => _applied = on;
 }
 
 /// `MgV2.on(context) ? v2 : v1` — used by the router for rebuilt screens and

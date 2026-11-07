@@ -7,6 +7,7 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../route_image.dart';
 import '../routes_model.dart';
@@ -82,6 +83,24 @@ class PlaceCardV2 extends StatelessWidget {
       if (dist != null) dist!,
       if (selected) tr.tr('v2RtSelected'),
     ].join(', ');
+    final subStyle = MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.link);
+    // Typ místa celý (smí na 2 řádky v mezeře; jedno dlouhé slovo jako
+    // „Bezienswaardigheden“ se zmenší nejvýš na 80 %), ne „…“.
+    final subLine = Row(children: [
+      subIcon,
+      const SizedBox(width: 5),
+      Flexible(
+        child: MgWordFit(
+          minScale: _minScale,
+          child: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: subStyle),
+        ),
+      ),
+    ]);
+    return LayoutBuilder(builder: (context, c) {
+    // Když se nejdelší slovo typu nevejde do sloupce ani na 80 % (úzký
+    // telefon + velké písmo), řádek typu jde pod fotku přes celou kartu.
+    final colW = c.maxWidth - 3 - 10 - 4 - thumb - (narrow ? 10 : 12) - 48 - 10;
+    final subInline = !c.maxWidth.isFinite || _wordFits(context, subtitle, subStyle, colW - 19);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: AnimatedContainer(
@@ -107,7 +126,7 @@ class PlaceCardV2 extends StatelessWidget {
                 onLongPress: onToggle,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
-                  child: Row(children: [
+                  child: _withSubBelow(subInline ? null : subLine, Row(children: [
                     SizedBox(
                       width: thumb,
                       height: thumb,
@@ -160,22 +179,7 @@ class PlaceCardV2 extends StatelessWidget {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                         Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
-                        const SizedBox(height: 4),
-                        Row(children: [
-                          subIcon,
-                          const SizedBox(width: 5),
-                          Flexible(
-                            // Typ místa celý (smí na 2 řádky; jedno dlouhé slovo
-                            // jako „Bezienswaardigheden“ se raději zmenší), ne „…".
-                            child: MgWordFit(
-                              minScale: 0.62,
-                              child: Text(subtitle,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.link)),
-                            ),
-                          ),
-                        ]),
+                        if (subInline) ...[const SizedBox(height: 4), subLine],
                         if (rated || dist != null) ...[
                           const SizedBox(height: 4),
                           Wrap(spacing: 10, runSpacing: 2, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -197,7 +201,7 @@ class PlaceCardV2 extends StatelessWidget {
                         ],
                       ]),
                     ),
-                  ]),
+                  ])),
                 ),
               ),
             ),
@@ -207,7 +211,21 @@ class PlaceCardV2 extends StatelessWidget {
         ]),
       ),
     );
+    });
   }
+
+  static const _minScale = 0.8;
+
+  static bool _wordFits(BuildContext context, String text, TextStyle style, double width) =>
+      mgWordsFit(context, text, style, width + 0.5, minScale: _minScale);
+
+  static Widget _withSubBelow(Widget? sub, Widget row) => sub == null
+      ? row
+      : Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          row,
+          const SizedBox(height: 8),
+          sub,
+        ]);
 }
 
 class _ToggleDisc extends StatelessWidget {

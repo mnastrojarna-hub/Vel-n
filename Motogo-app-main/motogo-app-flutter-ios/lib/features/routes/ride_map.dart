@@ -8,6 +8,27 @@ import 'ride_model.dart';
 import 'routes_provider.dart' show mapyApiKey;
 import '../../core/widgets/map_tile_errors.dart';
 
+/// Barva přesunu během pauzy (modrošedá, čárkovaně) — odlišná od mezery.
+const Color kRidePauseLineColor = Color(0xFF6E86A0);
+
+/// Pauza, během které se motorka přesunula (> 300 m — trajekt, přívěs).
+/// Krátký posun = stání, nekreslí se nic.
+bool rideIsMovedPause(RideGap g) => g.isPause && g.km > kRideStillKm;
+
+/// Má stopa aspoň jeden přesun během pauzy? (legenda pod mapou)
+bool rideHasMovedPause(List<RideSegment> segments) =>
+    segments.any((s) => s.gapBefore != null && rideIsMovedPause(s.gapBefore!));
+
+/// Čárkovaná spojnice [a] → [b] (flutter_map 6 umí jen tečky): [n] dílků,
+/// kreslí se každý druhý.
+List<List<LatLng>> rideDashes(LatLng a, LatLng b, {int n = 15}) {
+  LatLng at(double f) => LatLng(
+      a.latitude + (b.latitude - a.latitude) * f, a.longitude + (b.longitude - a.longitude) * f);
+  return [
+    for (var i = 0; i < n; i += 2) [at(i / n), at((i + 1) / n)],
+  ];
+}
+
 /// Mapa projeté jízdy — stopa GPS + značky start / cíl / zastávky.
 /// Používá se jako náhled v kartě jízdy (neinteraktivní) i jako velká mapa
 /// v detailu jízdy (interaktivní, klepnutí do mapy přidá zastávku).
@@ -59,10 +80,19 @@ class _RideTrackMapState extends State<RideTrackMap> {
     ];
   }
 
-  /// Mezery mezi úseky (tečkovaná spojnice).
+  /// Mezery mezi úseky (bez signálu — šedá tečkovaná spojnice). Pauzy sem
+  /// nepatří: stání se nekreslí vůbec, přesun během pauzy (trajekt,
+  /// přívěs) čárkovaně modrošedě — viz [_pauseDashes].
   List<RideGap> get _gaps => [
         for (final s in widget.segments)
-          if (s.gapBefore != null) s.gapBefore!,
+          if (s.gapBefore != null && !s.gapBefore!.isPause) s.gapBefore!,
+      ];
+
+  /// Čárky přesunů během pauzy (posun > 300 m).
+  List<List<LatLng>> get _pauseDashes => [
+        for (final s in widget.segments)
+          if (s.gapBefore != null && rideIsMovedPause(s.gapBefore!))
+            ...rideDashes(s.gapBefore!.from, s.gapBefore!.to),
       ];
 
   /// Body start / cíl. Vznikají až ukončením jízdy, takže u PRÁVĚ NAHRÁVANÉ
@@ -171,6 +201,8 @@ class _RideTrackMapState extends State<RideTrackMap> {
                   color: MotoGoColors.g400,
                   isDotted: true,
                 ),
+              for (final d in _pauseDashes)
+                Polyline(points: d, strokeWidth: 3, color: kRidePauseLineColor),
             ],
           ),
         MarkerLayer(

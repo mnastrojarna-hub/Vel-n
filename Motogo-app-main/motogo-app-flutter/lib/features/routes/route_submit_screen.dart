@@ -342,9 +342,11 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
         onToggleHelp: () => setState(() => _showHelp = !_showHelp),
         helpTitle: tr.tr('routeSubmitLinkHelpTitle'),
         helpLines: [tr.tr('routeSubmitLinkHelpMapy'), tr.tr('routeSubmitLinkHelpGoogle')],
+        // Příklady formátů jako nápověda POD polem (na 3 řádky) — v poli by
+        // se v úzkém displeji / velkém písmu zkrátily (verify:render).
         input: TextField(
           controller: _linkCtrl,
-          decoration: mgInputDecoration(context, hint: tr.tr('routeSubmitLinkHint')),
+          decoration: mgInputDecoration(context, hint: 'https://…', helper: tr.tr('routeSubmitLinkHint')),
         ),
         decoding: _decoding,
         loadLabel: _decoding ? tr.tr('routeSubmitLoading') : tr.tr('routeSubmitLoad'),

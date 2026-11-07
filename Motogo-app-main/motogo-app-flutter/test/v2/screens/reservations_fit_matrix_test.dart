@@ -8,7 +8,8 @@
 // clipped. Covered (r1_area_issues.json → reservations):
 //  1. list: "Moje rezervace" header + Živě pill, cards of every status
 //     (Termín · Délka · Celkem labels, status pill next to Nezaplaceno /
-//     ověřování, Detail · Upravit · Obnovit · Hodnotit · SOS actions);
+//     ověřování, Detail · Upravit · Obnovit · Hodnotit · SOS actions) on
+//     the dark strip of the list's one primary card and on the white one;
 //  2. detail: journey timeline, Upravit / Zrušit tiles, documents, history,
 //     payment rows + copy rows, gear chips, SOS photo chip, door-code
 //     labels, the old modification history, the cancel dialog;
@@ -151,12 +152,15 @@ Future<void> _tapText(WidgetTester t, String lang, String key) async {
   await t.pump(const Duration(milliseconds: 600));
 }
 
-Widget _cards() {
+/// Every card kind; [primary] false = the white strip of the list's other
+/// cards (btnGhostLight + btnText, R5.2).
+Widget _cards({bool primary = true}) {
   final unpaid = resv('u1', status: 'pending', pay: 'unpaid', from: 9, to: 11, bike: 'BMW R 1200 GS Adventure');
   final sos = resv('s1', status: 'active', from: -1, to: 2, sosReplacement: true, handedOver: rday(-1));
   Widget card(Reservation r, {ResPayFlag flag = ResPayFlag.none}) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: ReservationCardV2(reservation: r, payFlag: flag, onTap: () {}, onEdit: () {}, onRestore: () {}),
+        child: ReservationCardV2(
+            reservation: r, payFlag: flag, primary: primary, onTap: () {}, onEdit: () {}, onRestore: () {}),
       );
   return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
     for (final r in sampleList()) card(r),
@@ -183,7 +187,8 @@ void main() {
     if (!_realFonts) return;
     _expectClean([
       ...await _matrix(tester, _Part('list-header', () => const ResListHeaderV2(), () => resOverrides(), pad: 0)),
-      ...await _matrix(tester, const _Part('cards', _cards, resOverrides)),
+      ...await _matrix(tester, const _Part('cards', _cards, resOverrides, height: 3200)),
+      ...await _matrix(tester, _Part('cards-light', () => _cards(primary: false), resOverrides, height: 3200)),
     ]);
   });
 

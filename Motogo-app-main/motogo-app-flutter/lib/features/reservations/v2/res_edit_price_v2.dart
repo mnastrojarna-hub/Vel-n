@@ -6,12 +6,12 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../payment/widgets/card_rounding_note.dart';
 import '../reservation_edit_price_calc.dart';
 import '../reservation_models.dart';
 import 'res_fit_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// "Rozdíl ceny" of the edit (V22 `.ed-rc`): the SAME lines under the SAME
 /// conditions as today's price overview, fed by the screen's
@@ -60,7 +60,7 @@ class ResEditPriceV2 extends StatelessWidget {
         boxShadow: MgShadows.card,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        MgEyebrow(tr.tr('differenceLabel'), dark: false),
+        ResSectionEyebrowV2(tr.tr('differenceLabel')),
         const SizedBox(height: 4),
         for (final r in rows)
           Container(

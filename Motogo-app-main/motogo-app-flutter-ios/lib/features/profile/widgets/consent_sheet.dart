@@ -11,6 +11,8 @@ import '../../auth/auth_provider.dart';
 import '../../auth/widgets/toast_helper.dart';
 import '../../reservations/reservation_provider.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/sheets/consent_sheet_v2.dart';
 
 /// Bottom sheet for managing notification and privacy consents.
 class ConsentSheet extends ConsumerStatefulWidget {
@@ -147,9 +149,34 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
     }
   }
 
+  /// Klepnutí na souhlas (sdílené starým i v2 vzhledem) — tělo beze změny.
+  void _toggle(String key) {
+                      if (_locked) {
+                        showMotoGoToast(context, icon: '🔒', title: t(context).tr('notifications'), message: t(context).tr('consentsLockedActive'));
+                        return;
+                      }
+                      setState(() => _consents[key] = !(_consents[key] ?? false));
+  }
+
   @override
   Widget build(BuildContext context) {
     final keys = widget.section == 'notif' ? _notifKeys : _privKeys;
+    // v2 vzhled (kill-switch app_v2_ui): stejný stav i akce, jen jiný strom.
+    if (MgV2.on(context)) {
+      return ConsentSheetV2View(
+        title: widget.section == 'notif' ? t(context).tr('notificationsSection') : t(context).tr('privacySection'),
+        locked: _locked,
+        loading: _loading,
+        loadError: _loadError,
+        saving: _saving,
+        saveError: _saveError,
+        items: [for (final e in keys.entries) (e.key, t(context).tr(e.value), _consents[e.key] ?? false)],
+        onToggle: _toggle,
+        onSave: _save,
+        onRetry: _load,
+        onClose: () => Navigator.pop(context),
+      );
+    }
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -200,13 +227,7 @@ class _ConsentSheetState extends ConsumerState<ConsentSheet> {
             ...keys.entries.map((e) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: GestureDetector(
-                    onTap: () {
-                      if (_locked) {
-                        showMotoGoToast(context, icon: '🔒', title: t(context).tr('notifications'), message: t(context).tr('consentsLockedActive'));
-                        return;
-                      }
-                      setState(() => _consents[e.key] = !(_consents[e.key] ?? false));
-                    },
+                    onTap: () => _toggle(e.key),
                     child: Row(children: [
                       Expanded(
                         child: Text(

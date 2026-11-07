@@ -13,6 +13,7 @@ import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
@@ -30,10 +31,12 @@ import 'profile_fit.dart';
 /// (→ the existing nickname dialog), glass rank strip (→ ranks, ⓘ program
 /// sheet) and, while documents are incomplete, the screen's ONE looping
 /// CTA "NAHRÁT DOKLADY" as the last row (rank CTA on a dark carrier).
+/// [onBack] (Profil pushed from the booking form) = a back disc first.
 class ProfileHeaderV2 extends ConsumerWidget {
   final Map<String, dynamic>? profile;
   final VoidCallback onSettings;
-  const ProfileHeaderV2({super.key, required this.profile, required this.onSettings});
+  final VoidCallback? onBack;
+  const ProfileHeaderV2({super.key, required this.profile, required this.onSettings, this.onBack});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -62,6 +65,7 @@ class ProfileHeaderV2 extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
+          if (onBack != null) MgV2Back(onTap: onBack, style: MgBackStyle.dark),
           Padding(padding: const EdgeInsets.all(8), child: avatar),
           const Spacer(),
           MgIconButton(icon: MgIcons.gear, semanticLabel: tr.tr('settings'), onTap: onSettings),

@@ -7,6 +7,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../active_ride_provider.dart' show ActiveRide;
 import '../../my_experiences_provider.dart';
 import '../../ride_card.dart' show rideDate;
@@ -234,27 +235,31 @@ class HistoryCardV2 extends StatelessWidget {
       onTap: onOpen,
       semanticLabel: name,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // r1: název má celou šířku (stav jde pod něj), slovo se nedělí.
         Row(children: [
           Expanded(
-            child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
-          ),
-          if (chip != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: isActive ? MgColors.neon : MgColors.tintOk,
-                borderRadius: BorderRadius.circular(999),
-                border: isActive ? null : Border.all(color: MgColors.tintOkBorder),
-              ),
-              child: Text(chip,
-                  style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: isActive ? MgColors.onNeon : MgColors.onTintOk)),
+            child: MgWordFit(
+              minScale: 0.8,
+              child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
             ),
+          ),
           MojeDeleteButton(onTap: onDelete, label: '${tr.tr('myExpDelete')}: $name'),
         ]),
         Padding(
           padding: const EdgeInsets.only(right: 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Wrap(spacing: 12, runSpacing: 4, children: [
+            Wrap(spacing: 12, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              if (chip != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isActive ? MgColors.neon : MgColors.tintOk,
+                    borderRadius: BorderRadius.circular(999),
+                    border: isActive ? null : Border.all(color: MgColors.tintOkBorder),
+                  ),
+                  child: Text(chip,
+                      style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: isActive ? MgColors.onNeon : MgColors.onTintOk)),
+                ),
               RideMetaV2(MgIcons.calendarCheck, rideDate(r.updatedAt)),
               if (r.totalStops > 0) RideMetaV2(MgIcons.pin, '${r.reached.length}/${r.totalStops}'),
             ]),

@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../chrome/mg_dock.dart';
+import '../chrome/mg_status_bar.dart';
 import '../motion/mg_anim.dart';
 import '../rank/rank_hero.dart';
 import '../tokens/mg_colors.dart';
@@ -24,6 +27,9 @@ export 'mg_tone.dart' show MgTone;
 /// −24 + dark dock with the rank CTA; warn / error / info = canvas, tone
 /// disc 72, ink title, white dock with `btnInk` + `btnText`. Texts and
 /// actions are the caller's EXISTING ones; nothing here decides anything.
+/// Status bar: canvas → dark icons (`MgStatusBar`); the dark hero of
+/// success / pending declares light icons itself while it lies under the
+/// status bar (scrolled away → canvas again).
 class MgStateScreen extends StatelessWidget {
   final MgTone tone;
   final String title;
@@ -46,6 +52,11 @@ class MgStateScreen extends StatelessWidget {
   /// The primary rank CTA loops (success / pending only).
   final bool loop;
 
+  /// false = the success / pending hero is plain dark (neon ✓, no rank
+  /// aura) and the dock light with an ink button — the SOS system never
+  /// carries the rank (V22 §2.4, §1.4).
+  final bool rankAura;
+
   const MgStateScreen({
     super.key,
     required this.tone,
@@ -64,6 +75,7 @@ class MgStateScreen extends StatelessWidget {
     this.icon,
     this.children = const [],
     this.loop = true,
+    this.rankAura = true,
   });
 
   bool get _darkHero => tone == MgTone.ok || tone == MgTone.pending;
@@ -104,12 +116,20 @@ class MgStateScreen extends StatelessWidget {
       ),
     ]);
     final dock = _dock();
-    return Material(
-      color: MgColors.canvas,
-      child: Column(children: [
-        Expanded(child: SingleChildScrollView(child: body)),
-        if (dock != null) dock,
-      ]),
+    // No dock → the scroll content itself clears the bottom safe area (home
+    // indicator / gesture bar) and an open keyboard; a dock pads for them.
+    final EdgeInsets? pad = dock == null
+        ? EdgeInsets.only(bottom: math.max(MediaQuery.paddingOf(context).bottom, MediaQuery.viewInsetsOf(context).bottom))
+        : null;
+    return MgStatusBar(
+      dark: false,
+      child: Material(
+        color: MgColors.canvas,
+        child: Column(children: [
+          Expanded(child: SingleChildScrollView(padding: pad, child: body)),
+          if (dock != null) dock,
+        ]),
+      ),
     );
   }
 
@@ -122,10 +142,28 @@ class MgStateScreen extends StatelessWidget {
         );
 
   Widget _heroHeader(BuildContext context) {
-    return MgRankHero(
-      ambientKey: 'state',
-      padding: EdgeInsets.fromLTRB(16, 8, 16, summary != null ? 48 : 28),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    final pad = EdgeInsets.fromLTRB(16, 8, 16, summary != null ? 48 : 28);
+    final content = _heroContent(context);
+    if (!rankAura) {
+      return MgStatusBar(
+        dark: true,
+        extendAbove: MgStatusBar.bounce,
+        child: Container(
+          key: const ValueKey('mg-state-plain-hero'),
+          decoration: const BoxDecoration(
+            gradient: MgGradients.dark,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top).add(pad),
+          child: content,
+        ),
+      );
+    }
+    return MgRankHero(ambientKey: 'state', padding: pad, child: content);
+  }
+
+  Widget _heroContent(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Align(alignment: Alignment.centerLeft, child: _close(context, true)),
         const SizedBox(height: 12),
         Center(child: MgToneDisc(tone: tone, size: 88, dark: true, icon: icon)),
@@ -139,8 +177,7 @@ class MgStateScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Text(why!, textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.onDarkLead)),
         ],
-      ]),
-    );
+      ]);
   }
 
   Widget _lightHeader(BuildContext context) {
@@ -169,7 +206,7 @@ class MgStateScreen extends StatelessWidget {
     if (primary == null && secondary == null) return null;
     final p = primary;
     final s = secondary;
-    if (_darkHero) {
+    if (_darkHero && rankAura) {
       return MgDock(
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (p != null) MgCta(label: p.label, onTap: p.onTap, busy: p.busy, loop: loop, size: MgCtaSize.md56),

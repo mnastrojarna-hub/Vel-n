@@ -20,7 +20,7 @@ import BookingCancelModal from './booking/BookingCancelModal'
 import BranchChips from './booking/BranchChips'
 import { CheckboxFilterGroup, FilterSelect } from './booking/BookingsFilters'
 import { CANCEL_REASONS, PAYMENT_STATUS_FILTER_OPTIONS } from './booking/bookingConstants'
-import { cancelBookingFromVelin } from './booking/bookingMessageHelpers'
+import { cancelBookingFromVelin, paidForRefund } from './booking/bookingMessageHelpers'
 import BookingsToolbarPhone from './booking/BookingsToolbarPhone'
 import { autoCancelStale, autoActivateReserved, autoFixPendingPaid, autoGenerateKF } from './booking/bookingsAutoFix'
 import { branchOrFilter } from '../lib/bookingBranch'
@@ -406,7 +406,7 @@ export default function Bookings() {
         cancelReason={cancelReason} setCancelReason={setCancelReason}
         cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom}
         onCancel={handleConfirmCancel} saving={cancelSaving} error={cancelError}
-        paid={cancelTarget?.payment_status === 'paid'} totalPrice={cancelTarget?.total_price}
+        paid={paidForRefund(cancelTarget?.payment_status)} totalPrice={cancelTarget?.total_price}
       />
     </div>
   )

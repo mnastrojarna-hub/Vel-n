@@ -50,6 +50,8 @@ return ['pages' => ['gear_rental' => [
     'res_pay' => 'Zapłać {amount}',
     'res_nf' => 'Nie znaleźliśmy rezerwacji albo już się zakończyła. Utwórz proszę nową.',
     'res_cancelled' => 'Ta rezerwacja została anulowana. Utwórz proszę nową.',
+    'res_cancelled_refund' => 'Rezerwacja została w międzyczasie anulowana (upłynął termin płatności), więc płatności nie udało się przypisać. Zwracamy ją automatycznie na Twoją kartę (zwykle w ciągu 5–10 dni roboczych) – nie płać nic więcej.',
+    'res_cancelled_verify' => 'Wciąż weryfikujemy płatność – rezerwacja została w międzyczasie anulowana (upłynął termin płatności). Albo ją potwierdzimy, albo automatycznie zwrócimy płatność na Twoją kartę. Nie płać nic więcej; wynik pojawi się tu za chwilę.',
     'res_completed' => 'To wypożyczenie już się zakończyło. Dzięki, że wypożyczyłeś(-aś) wyposażenie u nas!',
     'res_new' => 'Nowa rezerwacja wyposażenia',
     'ok_manage' => 'Edytuj rezerwację',

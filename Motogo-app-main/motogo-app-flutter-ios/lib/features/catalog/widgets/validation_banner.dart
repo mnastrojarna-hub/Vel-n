@@ -7,6 +7,9 @@ import '../../booking/booking_validator.dart';
 import '../../reservations/reservation_provider.dart';
 import '../moto_model.dart';
 import '../../../core/date_days.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
+import '../../../core/v2/states/mg_tone.dart';
 
 /// Red warning banner shown when license or overlap validation fails.
 class ValidationBanner extends ConsumerWidget {
@@ -36,6 +39,7 @@ class ValidationBanner extends ConsumerWidget {
     final licenseErr = BookingValidator.checkLicense(
       userLicenseGroups: userGroups,
       motoLicenseGroups: moto.licenseGroupsOrFallback,
+      lang: t(context).lang,
     );
 
     // Overlap check
@@ -45,6 +49,7 @@ class ValidationBanner extends ConsumerWidget {
       startDate: startDate,
       endDate: endDate,
       isChildrensMoto: moto.licenseRequired == 'N',
+      lang: t(context).lang,
     );
 
     // Délka pronájmu (min/max z DB) — vynucováno na CTA rezervace, tady jen
@@ -65,6 +70,19 @@ class ValidationBanner extends ConsumerWidget {
       if (lengthErr != null) lengthErr,
     ];
     if (errors.isEmpty) return const SizedBox.shrink();
+
+    // v2 vzhled (kill-switch app_v2_ui): stejné chyby, stejné pořadí — jen
+    // jantarový T3 banner (V22 §5) místo červeného boxu.
+    if (MgV2.on(context)) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: MgStateBanner(
+          tone: MgTone.warn,
+          title: errors.first,
+          text: errors.length > 1 ? errors.skip(1).join('\n') : null,
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

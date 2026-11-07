@@ -52,7 +52,7 @@ class PriceSummaryCard extends StatelessWidget {
           for (final extra in extras)
             _PriceRow(
               label: '${extraLabel(tr.tr, extra.id, extra.name)}'
-                  '${extra.size != null ? ' (${tr.tr('sizeAbbr')} ${extra.size})' : ''}',
+                  '${extra.size != null ? ' (${tr.tr('sizeAbbr')} ${extraSizeLabel(tr.tr, extra.size!)})' : ''}',
               // Od [loyaltyFreeGearLevel] je gear za 0 Kč → „Zdarma".
               value: extra.price == 0
                   ? t(context).tr('gearFree')

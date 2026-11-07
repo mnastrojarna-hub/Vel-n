@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_chrome_metrics.dart';
+import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/rank/rank_copy.dart';
@@ -108,11 +109,15 @@ class LoyaltyScreenV2 extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: MgColors.night,
-      body: DecoratedBox(
-        decoration: BoxDecoration(gradient: MgGradients.hero(rank.aura)),
-        child: ListView(
-          padding: EdgeInsets.only(bottom: MgChrome.bottomObstruction(context)),
-          children: [top, ...body],
+      // Night screen → light status-bar icons.
+      body: MgStatusBar(
+        dark: true,
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: MgGradients.hero(rank.aura)),
+          child: ListView(
+            padding: EdgeInsets.only(bottom: MgChrome.bottomObstruction(context)),
+            children: [top, ...body],
+          ),
         ),
       ),
     );
@@ -142,13 +147,16 @@ class _Hero extends ConsumerWidget {
           border: Border.all(color: MgColors.neonA(0.2)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(children: [
-            Expanded(
-              child: MgWordFit(
-                minScale: 0.7,
-                child: Text((s == null ? tr.tr('loyaltyInfoTitle') : tr.tr('loyaltyMyRank')).toUpperCase(),
-                    style: MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary)),
-              ),
+          // Wrap: když se nadpis a „O programu“ nevejdou vedle sebe (de/fr/nl,
+          // velké písmo), tlačítko jde pod nadpis — nadpis se nikdy neláme ve slově.
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+            MgWordFit(
+              minScale: 0.7,
+              child: Text((s == null ? tr.tr('loyaltyInfoTitle') : tr.tr('loyaltyMyRank')).toUpperCase(),
+                  style: MgType.eyebrow.copyWith(color: MgColors.onDarkSecondary)),
             ),
             Semantics(
               button: true,

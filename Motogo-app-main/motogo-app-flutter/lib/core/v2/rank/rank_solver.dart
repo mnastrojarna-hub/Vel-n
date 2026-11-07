@@ -1,116 +1,26 @@
 // Dart port of appdesign/research/rankTheme.js (+ the gen/gen.js post-
 // processing) — computes the rank token row for ANY colour, so a level whose
 // colour the owner edits in Velín stays contrast-safe and never turns pink /
-// violet. For the 20 ramp colours it reproduces `kRankRampTable` (unit test).
+// violet. For the 20 ramp colours it reproduces `kRankRampTable` (unit test),
+// incl. the painted-token distinctness picks (rank_seeds.dart, r2 2026-10-29).
 import 'dart:math' as math;
 
+import 'rank_color_math.dart';
+import 'rank_palette.dart' show kRankRampHex;
 import 'rank_row.dart';
+import 'rank_seeds.dart';
+
+export 'rank_color_math.dart'
+    show rankLum, rankContrast, rankMix, rankHsl, rankFit, rankLiftL, rankOffHue;
 
 const _neon = '#74FB71', _neonHi = '#8DFF86', _neonLo = '#37CF63';
 const _onNeon = '#08230F', _night = '#0A1F14', _panel = '#0E2A1C';
 const _glowStop = '#24563B', _inkDark = '#1A2E22', _page = '#DFF0EC';
-const _card = '#FFFFFF', _white = '#FFFFFF', _black = '#000000';
+const _card = '#FFFFFF', _white = kRankWhite, _black = kRankBlack;
 const _trim = '#F3D27E';
 const _legend = ['#FFE27A', '#FFD700', '#FF9A1F', '#FF6B00'];
 const _inkWarm = '#1A1405', _inkCool = '#0B1512', _inkLegend = '#241A06';
 const _inkNavy = '#0A1F33', _inkOnyx = '#14100A';
-
-List<int> _rgb(String h) =>
-    [1, 3, 5].map((i) => int.parse(h.substring(i, i + 2), radix: 16)).toList();
-
-String _hex(List<double> c) =>
-    '#${c.map((v) => v.round().clamp(0, 255).toRadixString(16).padLeft(2, '0')).join().toUpperCase()}';
-
-double _lin(int v) {
-  final x = v / 255;
-  return x <= 0.04045 ? x / 12.92 : math.pow((x + 0.055) / 1.055, 2.4).toDouble();
-}
-
-/// WCAG relative luminance of a `#RRGGBB` colour.
-double rankLum(String h) {
-  final c = _rgb(h).map(_lin).toList();
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-}
-
-/// WCAG contrast ratio of two `#RRGGBB` colours.
-double rankContrast(String a, String b) {
-  final x = rankLum(a), y = rankLum(b);
-  return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05);
-}
-
-/// Linear sRGB mix (same rounding as the JS source).
-String rankMix(String a, String b, double t) {
-  final aa = _rgb(a), bb = _rgb(b);
-  return _hex(List.generate(3, (i) => aa[i] + (bb[i] - aa[i]) * t));
-}
-
-/// HSL of a `#RRGGBB` colour: [hue 0–360, saturation 0–1, lightness 0–1].
-List<double> rankHsl(String h) {
-  final c = _rgb(h).map((v) => v / 255).toList();
-  final r = c[0], g = c[1], b = c[2];
-  final mx = math.max(r, math.max(g, b)), mn = math.min(r, math.min(g, b));
-  final l = (mx + mn) / 2, d = mx - mn;
-  if (d == 0) return [0, 0, l];
-  final s = d / (1 - (2 * l - 1).abs());
-  final hh = mx == r ? ((g - b) / d) % 6 : (mx == g ? (b - r) / d + 2 : (r - g) / d + 4);
-  return [(hh * 60 + 360) % 360, s, l];
-}
-
-String _fromHsl(double h, double s, double l) {
-  final c = (1 - (2 * l - 1).abs()) * s;
-  final x = c * (1 - ((h / 60) % 2 - 1).abs());
-  final m = l - c / 2;
-  final List<double> p = h < 60
-      ? [c, x, 0]
-      : h < 120
-          ? [x, c, 0]
-          : h < 180
-              ? [0, c, x]
-              : h < 240
-                  ? [0, x, c]
-                  : h < 300
-                      ? [x, 0, c]
-                      : [c, 0, x];
-  return _hex(p.map((v) => (v + m) * 255).toList());
-}
-
-String _spin(String h, double deg) {
-  final v = rankHsl(h);
-  return _fromHsl((v[0] + deg + 360) % 360, v[1], v[2]);
-}
-
-bool _offHue(String x) {
-  final v = rankHsl(x);
-  final hh = v[0], s = v[1], l = v[2];
-  return (hh >= 235 && hh < 345) ||
-      ((hh >= 345 || hh < 22) && s < 0.5 && l > 0.5) ||
-      (hh >= 85 && hh < 160 && s > 0.12);
-}
-
-String _spinSafe(String h, double deg) {
-  for (final d in [deg, -deg, deg / 2, -deg / 2]) {
-    final x = _spin(h, d);
-    if (!_offHue(x)) return x;
-  }
-  return h;
-}
-
-/// Moves [h] toward [to] in 2 % steps until contrast vs every bg ≥ target.
-String rankFit(String h, List<String> bgs, double target, String to) {
-  for (double t = 0; t <= 1.0001; t += 0.02) {
-    final c = rankMix(h, to, t);
-    if (bgs.every((bg) => rankContrast(c, bg) >= target)) return c;
-  }
-  return to;
-}
-
-String _matchLum(String h, double y) {
-  var n = 0;
-  while ((rankLum(h) - y).abs() > 0.1 * y && n++ < 40) {
-    h = rankMix(h, rankLum(h) > y ? _black : _white, 0.04);
-  }
-  return h;
-}
 
 double _minCr(List<String> stops, String text) =>
     stops.map((s) => rankContrast(s, text)).reduce(math.min);
@@ -134,6 +44,8 @@ List<String> _norm4(List<String> s) {
   return [s[0], s[0], s[0], s[0]];
 }
 
+bool _passes(String c, List<String> bgs, double t) => bgs.every((bg) => rankContrast(c, bg) >= t);
+
 /// Tier of a level (0 = guest / brand → road).
 RankTier rankTierOf(int level) {
   if (level >= 20) return RankTier.legend;
@@ -151,48 +63,62 @@ RankRow solveRankRow(int level, String colorHex) {
   final c = colorHex.toUpperCase();
   final tier = rankTierOf(lv);
   final ti = tier.index;
-  final rr = _rgb(c);
-  final chroma = (rr.reduce(math.max) - rr.reduce(math.min)) / 255;
-  final grey = chroma < 0.12;
+  final seeded = lv >= 1 && c == kRankRampHex[lv - 1];
+  final rr = rankRgb(c);
+  final grey = (rr.reduce(math.max) - rr.reduce(math.min)) / 255 < 0.12;
   final hue = rankHsl(c)[0];
   final red = (hue < 20 || hue > 340) && !grey;
   final up = red ? '#FFCF99' : _white;
   String lift(String h, List<String> bgs, double target) =>
       (red && bgs.any((bg) => rankContrast(h, bg) < target)) ? _trim : rankFit(h, bgs, target, up);
-  final accentDark = lift(c, [_panel, _inkDark], 4.5);
+  final pickDark = seeded ? kRankAccDark[lv] : null;
+  final accentDark = (pickDark != null && _passes(pickDark, [_panel, _inkDark], 4.5))
+      ? pickDark
+      : lift(c, [_panel, _inkDark], 4.5);
   final accentLight = rankFit(c, [_page, _card], 4.55, _black);
   final uiLight = rankFit(c, [_card], 3.0, _black);
   final uiDark = rankFit(c, [_panel], 3.0, up);
 
-  final glowHex = (lv <= 1)
-      ? _neon
-      : lv == 20
-          ? '#FF8C00'
-          : grey
-              ? rankMix(c, '#BFD9FF', 0.35)
-              : rankLum(c) < 0.2
-                  ? rankMix(c, red ? '#FF7A45' : '#9FD0FF', 0.3)
-                  : c;
+  final glowHex = (seeded && kRankGlow[lv] != null)
+      ? kRankGlow[lv]!
+      : (lv <= 1)
+          ? _neon
+          : lv == 20
+              ? '#FF8C00'
+              : grey
+                  ? rankMix(c, '#BFD9FF', 0.35)
+                  : rankLum(c) < 0.2
+                      ? rankMix(c, red ? '#FF7A45' : '#9FD0FF', 0.3)
+                      : c;
   const alphas = [0.50, 0.55, 0.58, 0.62, 0.66];
   const blurs = [22.0, 26.0, 28.0, 30.0, 34.0];
   const haloA = [0.0, 0.12, 0.16, 0.20, 0.24];
   const haloB = [0.0, 40.0, 44.0, 48.0, 56.0];
   const pulse = [7.0, 8.0, 9.0, 9.0, 10.0];
 
+  // primary CTA (always on a dark surface) — label ≥ 4.5 : 1 on every stop
   List<String> stops;
   String label;
   List<String>? edge;
   double angle = 135;
   if (lv == 0 || tier == RankTier.road) {
+    // brand neon only tints the first third, RANK colour carries the rest
     label = _onNeon;
-    stops = _solve([_neonHi, lv > 1 ? rankMix(_neonLo, c, 0.5) : _neonLo], label, _white);
+    stops = lv == 0
+        ? _solve([_neonHi, _neonLo], label, _white)
+        : _solve(List.generate(4, (i) => rankMix(i < 2 ? _neonHi : _neonLo, c, kRankRoadW[i])), label, _white);
+    if (lv > 0) edge = [rankMix(c, _white, 0.5), c, c, rankMix(c, _black, 0.15)];
   } else if (tier == RankTier.metal) {
     label = grey ? _inkCool : _inkWarm;
     angle = 115;
-    stops = _solve([rankMix(c, _white, 0.55), rankMix(c, _white, 0.18), c, rankMix(c, _black, 0.10)], label, _white);
+    final fixed = seeded ? kRankCtaStops[lv] : null;
+    stops = _solve(
+        fixed ?? [rankMix(c, _white, 0.55), rankMix(c, _white, 0.18), c, rankMix(c, _black, 0.10)], label, _white);
     edge = [rankMix(c, _white, 0.75), rankMix(c, _black, 0.20)];
   } else if (tier == RankTier.jewel) {
-    final base = [c, _matchLum(_spinSafe(c, 24), rankLum(c))];
+    final spinBy = seeded ? kRankCtaSpin[lv] : null;
+    final sp = (spinBy != null && !rankOffHue(rankSpin(c, spinBy))) ? rankSpin(c, spinBy) : rankSpinSafe(c, 24);
+    final base = [c, rankMatchLum(sp, rankLum(c))];
     final ink = rankHsl(c)[0] < 100 ? _inkWarm : _inkNavy;
     final ice = rankContrast(c, ink) >= rankContrast(c, _white);
     label = ice ? ink : _white;
@@ -203,12 +129,12 @@ RankRow solveRankRow(int level, String colorHex) {
     ];
   } else if (tier == RankTier.vip) {
     if (lv == 17) {
-      label = '#7F1D1D';
-      stops = _solve(['#FFFBF2', '#FBEEDB', '#F3DEC0'], label, _white);
-      edge = ['#EF4444', '#FDE68A', '#B91C1C'];
+      label = '#7F1D1D'; // ivory-champagne foil + crimson label, crimson–gold frame
+      stops = _solve(kRankCtaStops[17]!, label, _white);
+      edge = ['#D42020', '#FDE68A', '#B91C1C'];
     } else if (lv == 18) {
       label = _inkOnyx;
-      stops = _solve(['#F7E9B8', '#E6C869', c, '#B8932A'], label, _white);
+      stops = _solve(kRankCtaStops[18]!, label, _white);
       edge = ['#FFF6D6', '#8C6A12'];
     } else {
       label = _inkOnyx;
@@ -223,31 +149,56 @@ RankRow solveRankRow(int level, String colorHex) {
   final b = _norm4(stops);
   final e = _norm4(edge ?? [rankMix(b[0], _white, 0.5), b[0], b[3], b[3]]);
 
+  // ring around logo / avatar / PROFIL tab (drawn on dark)
   RankRingKind kind;
   List<String> ring;
   String? ring2;
+  final ringStops = seeded ? kRankRingStops[lv] : null;
   if (lv == 0 || tier == RankTier.road) {
     kind = RankRingKind.solid;
     ring = [c];
   } else if (tier == RankTier.metal) {
     kind = RankRingKind.metal;
-    ring = [rankMix(c, _white, 0.6), c, rankMix(c, _black, 0.25), rankMix(c, _white, 0.6)];
+    ring = ringStops != null
+        ? [...ringStops, ringStops[0]]
+        : [rankMix(c, _white, 0.6), c, rankMix(c, _black, 0.25), rankMix(c, _white, 0.6)];
   } else if (tier == RankTier.jewel) {
+    // every segment ≥ 3.2 : 1 on the dark header; partners = hue shifts at the same luminance
     kind = RankRingKind.jewel;
-    ring = [c, _spinSafe(c, 24), c, _spinSafe(c, -18), c];
+    final u = rankFit(uiDark, [_panel], 3.2, up), y = rankLum(u);
+    final p = (seeded ? kRankRingSpin[lv] : null) ?? const [24.0, -18.0];
+    final q = p.map((d) {
+      var x = rankSpin(u, d);
+      if (rankOffHue(x)) x = rankSpinSafe(u, d);
+      return rankFit(rankMatchLum(x, y), [_panel], 3.2, _white);
+    }).toList();
+    ring = [u, q[0], u, q[1], u];
   } else if (tier == RankTier.vip) {
     kind = RankRingKind.vip;
-    final h0 = rankHsl(c)[0];
-    final hi = (h0 < 20 || h0 > 340) ? '#FFE08A' : _white;
-    ring = [c, rankMix(c, hi, 0.3), c];
-    ring2 = lv == 18 ? '#FFF1C2' : '#D4AF37';
+    if (ringStops != null) {
+      ring = [...ringStops]; // VIP Gold: flat brushed gold
+      ring2 = '#FFF1C2';
+    } else {
+      final d0 = rankContrast(c, _panel) >= 3.2 ? c : rankFit(c, [_panel], 3.2, up);
+      final h0 = rankHsl(d0)[0];
+      final hi = (h0 < 20 || h0 > 340) ? '#FFE08A' : _white;
+      ring = [d0, rankMix(d0, hi, 0.3), d0];
+      ring2 = lv == 18 ? '#FFF1C2' : '#D4AF37';
+    }
   } else {
     kind = RankRingKind.legend;
     ring = [..._legend, _legend[0]];
   }
 
   final chipBg = rankMix(_panel, c, 0.16);
-  final chipText = lift(c, [chipBg, _inkDark], 4.5);
+  final pickChip = seeded ? kRankChipText[lv] : null;
+  final chipText = (pickChip != null && _passes(pickChip, [chipBg, _inkDark], 4.5))
+      ? pickChip
+      : _passes(accentDark, [chipBg, _inkDark], 4.5)
+          ? accentDark
+          : red
+              ? lift(accentDark, [chipBg, _inkDark], 4.5)
+              : rankLiftL(accentDark, [chipBg, _inkDark], 4.5);
   const auraMix = [0.25, 0.32, 0.38, 0.42, 0.50];
   final aura = rankFit(rankMix(_glowStop, glowHex, auraMix[ti]), [_white], 4.6, _night);
 
@@ -259,9 +210,12 @@ RankRow solveRankRow(int level, String colorHex) {
     return (v[0] < 20 || v[0] > 340) && v[1] > 0.25;
   }
 
-  final accG = rankContrast(accentDark, glass) >= 4.6
-      ? accentDark
-      : (isRed(accentDark) ? _trim : rankFit(accentDark, [glass], 4.6, _white));
+  final pickGlass = seeded ? kRankAccGlass[lv] : null;
+  final accG = (pickGlass != null && rankContrast(pickGlass, glass) >= 4.6)
+      ? pickGlass
+      : rankContrast(accentDark, glass) >= 4.6
+          ? accentDark
+          : (isRed(accentDark) ? _trim : rankLiftL(accentDark, [glass], 4.6));
   String? arc;
   if (lv > 0 && lv < 20) {
     final a0 = rankMix(uiDark, up, 0.2);

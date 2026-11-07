@@ -9,6 +9,10 @@ import 'package:motogo_app/features/home/v2/home_club_parts.dart';
 import 'package:motogo_app/features/home/v2/home_fit.dart';
 import 'package:motogo_app/features/home/v2/home_routes_v2.dart' show homeRouteChipH, homeRouteTitleH;
 import 'package:motogo_app/features/home/v2/home_ticket_parts.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
+import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
+
+import 'support/v2_harness.dart';
 
 Widget _host(Widget child, {double scale = 1}) => Directionality(
       textDirection: TextDirection.ltr,
@@ -71,4 +75,43 @@ void main() {
     expect(h13, greaterThanOrEqualTo(2 * 15 * 1.3 * 1.3));
     expect(c13, greaterThan(24));
   });
+
+  // fix:shared r4 — the funnel CTA at 320 dp (card margin 16 + padding 16 →
+  // 256 px wide): the amount never loses its currency to a second line
+  // ("ЗАБРОНЮВАТИ · 11 893" / "Kč"); it shrinks a little onto one line or
+  // breaks only after the "·".
+  setUpAll(loadMontserrat);
+  for (final lang in ['uk', 'pl', 'de', 'cs', 'nl']) {
+    testWidgets('funnel CTA $lang 320: amount stays with its currency', (t) async {
+      const price = '11 893 Kč';
+      await pumpV2(
+          t,
+          Center(
+            child: SizedBox(
+              width: 256,
+              child: Builder(
+                builder: (c) => MgCta(
+                    label: t_(c).tr('v2HomeCtaReserve'), price: price, size: MgCtaSize.lg60, onTap: () {}),
+              ),
+            ),
+          ),
+          lang: lang,
+          size: const Size(320, 640),
+          dpr: 1,
+          reducedMotion: true);
+      await t.pump();
+      final p = t.renderObject<RenderParagraph>(find.byType(RichText).first);
+      final plain = p.text.toPlainText();
+      final start = plain.indexOf(price.replaceAll(' ', '\u00a0'));
+      expect(start, greaterThan(0), reason: 'price span is one unbreakable word');
+      final y0 = p.getOffsetForCaret(TextPosition(offset: start), Rect.zero).dy;
+      final y1 = p.getOffsetForCaret(TextPosition(offset: plain.length - 1), Rect.zero).dy;
+      expect(y1, closeTo(y0, 0.5), reason: 'currency on the same line as the amount ($lang)');
+      expect(p.didExceedMaxLines, isFalse);
+      expect(p.textSize.width, lessThanOrEqualTo(p.size.width + 0.5));
+      expect(t.takeException(), isNull);
+    });
+  }
 }
+
+AppTranslations t_(BuildContext c) => t(c);

@@ -8,10 +8,14 @@ import 'mg_motion.dart';
 /// ticker, so a CTA is one loop). Paused by `TickerMode` (off-screen, covered
 /// route, closed sheet); never ticks under reduced motion or when [active]
 /// is false — the builder then gets `null` (draw the static end state).
+/// [pauseOffscreen] (default): the clock also stops while its box is
+/// scrolled out of the viewport of its scrollables (design M6) and resumes
+/// when it comes back (the builder keeps getting the listenable).
 class MgLoopClock extends StatefulWidget {
   final bool active;
+  final bool pauseOffscreen;
   final Widget Function(BuildContext context, ValueListenable<double>? seconds) builder;
-  const MgLoopClock({super.key, required this.active, required this.builder});
+  const MgLoopClock({super.key, required this.active, required this.builder, this.pauseOffscreen = true});
 
   @override
   State<MgLoopClock> createState() => _MgLoopClockState();
@@ -21,21 +25,73 @@ class _MgLoopClockState extends State<MgLoopClock> with SingleTickerProviderStat
   final ValueNotifier<double> _t = ValueNotifier(0);
   Ticker? _ticker;
   bool _run = false;
+  bool _visible = true;
+  bool _checkQueued = false;
+  final List<ScrollableState> _scrollables = [];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _watchScrollables();
     _sync();
   }
 
   @override
   void didUpdateWidget(covariant MgLoopClock oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.pauseOffscreen != widget.pauseOffscreen) _watchScrollables();
     _sync();
   }
 
+  /// Listens to up to 3 enclosing scrollables (a carousel inside a list).
+  void _watchScrollables() {
+    for (final s in _scrollables) {
+      s.position.removeListener(_queueCheck);
+    }
+    _scrollables.clear();
+    if (!widget.pauseOffscreen) {
+      _visible = true;
+      return;
+    }
+    var s = Scrollable.maybeOf(context);
+    while (s != null && _scrollables.length < 3) {
+      _scrollables.add(s);
+      s.position.addListener(_queueCheck);
+      s = Scrollable.maybeOf(s.context);
+    }
+    _queueCheck();
+  }
+
+  void _queueCheck() {
+    if (_checkQueued || _scrollables.isEmpty) return;
+    _checkQueued = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _checkQueued = false;
+      if (!mounted) return;
+      final v = _isVisible();
+      if (v != _visible) {
+        _visible = v;
+        _sync();
+      }
+    });
+    SchedulerBinding.instance.ensureVisualUpdate();
+  }
+
+  bool _isVisible() {
+    final me = context.findRenderObject();
+    if (me is! RenderBox || !me.attached || !me.hasSize) return true;
+    final rect = me.localToGlobal(Offset.zero) & me.size;
+    for (final s in _scrollables) {
+      final vp = s.context.findRenderObject();
+      if (vp is! RenderBox || !vp.attached || !vp.hasSize) continue;
+      final r = vp.localToGlobal(Offset.zero) & vp.size;
+      if (!r.overlaps(rect)) return false;
+    }
+    return true;
+  }
+
   void _sync() {
-    final run = widget.active && !MgMotion.reduced(context);
+    final run = widget.active && _visible && !MgMotion.reduced(context);
     if (run == _run) return;
     _run = run;
     if (run) {
@@ -43,20 +99,25 @@ class _MgLoopClockState extends State<MgLoopClock> with SingleTickerProviderStat
       _ticker!.start();
     } else {
       _ticker?.stop();
-      _t.value = 0;
+      if (_visible) _t.value = 0;
     }
   }
 
   @override
   void dispose() {
+    for (final s in _scrollables) {
+      s.position.removeListener(_queueCheck);
+    }
     _ticker?.dispose();
     _t.dispose();
     super.dispose();
   }
 
+  /// While paused off-screen the builder keeps the listenable (frozen),
+  /// so the subtree does not swap to the static look and back.
   @override
-  Widget build(BuildContext context) =>
-      RepaintBoundary(child: widget.builder(context, _run ? _t : null));
+  Widget build(BuildContext context) => RepaintBoundary(
+      child: widget.builder(context, _run || (widget.active && !_visible && !MgMotion.reduced(context)) ? _t : null));
 }
 
 /// Live indicator ping: a ring grows 0 → [spread] while fading .7 → 0

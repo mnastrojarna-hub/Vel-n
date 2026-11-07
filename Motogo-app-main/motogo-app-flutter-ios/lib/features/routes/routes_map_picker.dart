@@ -7,6 +7,8 @@ import '../../core/widgets/moto_fx.dart';
 import 'routes_map_provider.dart' show fmtRideMinutes;
 import 'routes_model.dart';
 import 'routes_provider.dart' show polylineLengthM;
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
 
 /// Výška spodního panelu s kartami tras — mapa tras podle ní posouvá kulatá
 /// tlačítka a čip „Tvoje trasa", aby je panel nepřekryl.
@@ -22,8 +24,11 @@ const List<Color> kRoutesMapPalette = [
   Color(0xFF7C3AED), // fialová
 ];
 
-Color routesMapColor(int index) =>
-    kRoutesMapPalette[index % kRoutesMapPalette.length];
+/// [v2] = v2 vzhled: fialová → petrolejová (bez fialové v appce, V22).
+Color routesMapColor(int index, {bool v2 = false}) {
+  final c = kRoutesMapPalette[index % kRoutesMapPalette.length];
+  return v2 && c == const Color(0xFF7C3AED) ? MgColors.petrol : c;
+}
 
 /// Šířka karty + mezera — podle toho se panel doscrolluje na zvolenou kartu.
 const double _kCardW = 250;
@@ -167,7 +172,7 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
   }
 
   Widget _card(BuildContext context, RouteItem r, int i) {
-    final color = routesMapColor(i);
+    final color = routesMapColor(i, v2: MgV2.on(context));
     final active = r.id == widget.activeId;
     final line = widget.lines[r.id];
     final busy = widget.computing.contains(r.id);

@@ -4,6 +4,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/supabase_client.dart';
 import 'ride_model.dart';
+import 'ride_server_api.dart';
+
+export 'ride_server_api.dart' show RideAppendOutcome, RideAppendResult;
 
 /// Datová vrstva „Mých jízd" — všechno jde přes SECURITY DEFINER RPC
 /// (server si sám ověří vlastníka jízdy i rezervaci, klient nic nepodvrhne).
@@ -77,34 +80,31 @@ Future<RideStart?> startUserRide({String? bookingId, double? lat, double? lng}) 
   return null;
 }
 
-/// Výsledek odeslání dávky bodů.
-///   [ok]       – uloženo, dávku můžeme zahodit
-///   [retry]    – výpadek sítě / serveru, body si necháme na příště
-///   [finished] – server jízdu mezitím uzavřel (noční úklid zatuhlých
-///                nahrávek). Do hotové jízdy se už nepřidává, takže má
-///                smysl lokální záznam zapomenout a začít nový.
-enum RideAppendResult { ok, retry, finished }
+/// Nejdéle se čeká na odpověď dávky / ukončení jízdy. Viselé mobilní
+/// spojení jinak drželo GPS i ukončení (pauza, stop) do pádu socketu.
+/// Opakování je bezpečné — server opakovanou dávku pozná (duplicity).
+const Duration kRideRpcTimeout = Duration(seconds: 30);
 
 /// Pošle dávku GPS bodů `[[lat,lng,ts,kmh,alt],…]` do rozjeté jízdy.
-Future<RideAppendResult> appendRideTrack(String rideId, List<List<double>> points,
+/// `kmh = −1` = značka pauzy (viz `ride_motion.dart`). Výsledek a živé
+/// součty serveru viz [RideAppendOutcome]; síťová chyba / timeout = `retry`.
+Future<RideAppendOutcome> appendRideTrack(String rideId, List<List<double>> points,
     {double? maxSpeedKmh}) async {
-  if (points.isEmpty) return RideAppendResult.ok;
+  if (points.isEmpty) return const RideAppendOutcome(RideAppendResult.ok);
   try {
     final res = await MotoGoSupabase.client.rpc('append_ride_track', params: {
       'p_ride_id': rideId,
       'p_points': points,
       'p_max_speed_kmh': maxSpeedKmh,
-    });
-    if (res is Map && res['success'] == true) return RideAppendResult.ok;
-    final err = res is Map ? res['error']?.toString() : null;
-    if (err == 'ride_finished' || err == 'ride_not_found') {
-      debugPrint('[rides] append_ride_track: jízda už není rozjetá ($err)');
-      return RideAppendResult.finished;
+    }).timeout(kRideRpcTimeout);
+    final out = RideAppendOutcome.fromResponse(res);
+    if (out.result == RideAppendResult.closed || out.result == RideAppendResult.gone) {
+      debugPrint('[rides] append_ride_track: jízda už není rozjetá (${out.result.name})');
     }
-    return RideAppendResult.retry;
+    return out;
   } catch (e) {
     debugPrint('[rides] append_ride_track selhalo: $e');
-    return RideAppendResult.retry;
+    return RideAppendOutcome.retry;
   }
 }
 
@@ -122,7 +122,7 @@ Future<RideFinish?> finishUserRide(String rideId,
       'p_ride_id': rideId,
       'p_points': points,
       'p_name': name,
-    });
+    }).timeout(kRideRpcTimeout);
     if (res is Map && res['success'] == true) {
       return RideFinish(
         discarded: res['discarded'] == true,

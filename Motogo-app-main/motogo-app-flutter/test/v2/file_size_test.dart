@@ -19,7 +19,7 @@ void main() {
       ...Directory('lib/core/i18n')
           .listSync()
           .whereType<File>()
-          .where((f) => RegExp(r'translations_ext_5\d_[^/]*\.dart$').hasMatch(f.path)),
+          .where((f) => RegExp(r'translations_ext_(5\d|60)_v2[^/]*\.dart$').hasMatch(f.path)),
     ];
     expect(files, isNotEmpty);
     for (final f in files) {

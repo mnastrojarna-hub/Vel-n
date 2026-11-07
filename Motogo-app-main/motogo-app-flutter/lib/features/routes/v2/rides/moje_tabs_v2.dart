@@ -4,7 +4,6 @@ import '../../../../core/friendly_error.dart';
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
-import '../../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../../core/v2/motion/mg_animated_size.dart';
 import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/states/mg_state_banner.dart';
@@ -16,6 +15,9 @@ import '../../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/error_feedback.dart' show openFixSettings;
 import '../../ride_recorder.dart' show RideRecorderState;
+import 'rec_live_bar_v2.dart' show recBarLineV2;
+import 'rec_widgets_v2.dart';
+import 'ride_phase_v2.dart';
 
 /// The four Moje sub-screens (V22 Zazitky): Jízdy and Uložené trasy share
 /// the old first tab, Objevená místa = old tab 1, Historie = old tab 2.
@@ -86,12 +88,20 @@ class MojeRecordRowV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    final ph = RecPhaseV2.of(tr, rec);
+    // Záznam běží: režim + stav (km · v sedle / od HH:MM / čeká na rozjezd).
     final sub = rec.recording
-        ? tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto')
+        ? '${tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto')} · ${ph.tone == RecToneV2.armed ? ph.title : recBarLineV2(tr, rec, ph)}'
         : tr.tr(rec.enabled ? 'v2RideAutoOn' : 'v2RideAutoOff');
+    final (badgeBg, badgeFg) = switch (ph.tone) {
+      RecToneV2.rec => (MgColors.errBg, MgColors.err),
+      RecToneV2.warn => (MgColors.warnBg, MgColors.warn),
+      RecToneV2.armed => (MgColors.tintOk, MgColors.onTintOk),
+      RecToneV2.paused => (MgColors.well, MgColors.ink),
+    };
     final tile = Semantics(
       button: true,
-      label: '${tr.tr('rideRecordTitle')}, $sub',
+      label: '${tr.tr('rideRecordTitle')}, ${rec.recording ? '${ph.chip}, ' : ''}$sub',
       hint: tr.tr('v2RideRecOpenA11y'),
       excludeSemantics: true,
       child: MgPress(
@@ -106,7 +116,7 @@ class MojeRecordRowV2 extends StatelessWidget {
               decoration: BoxDecoration(color: MgColors.panel, borderRadius: BorderRadius.circular(12)),
               child: Center(
                 child: rec.recording
-                    ? MgPing(size: 10, color: MgColors.sosDot, active: !MgMotion.reduced(context))
+                    ? RecGlyphV2(tone: ph.tone, size: 18)
                     : const MgIcon(MgIcons.recordDot, size: 22, color: MgColors.neon),
               ),
             ),
@@ -118,12 +128,11 @@ class MojeRecordRowV2 extends StatelessWidget {
                   if (rec.recording)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(color: MgColors.errBg, borderRadius: BorderRadius.circular(999)),
-                      child: Text(tr.tr('rideRecording'),
-                          style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.err)),
+                      decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(999)),
+                      child: Text(ph.chip, style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: badgeFg)),
                     ),
                 ]),
-                MgWordFit(minScale: 0.85, child: Text(sub, style: MgType.small.copyWith(color: MgColors.meta))),
+                MgWordFit(minScale: 0.85, child: Text(sub, style: MgType.tab(MgType.small.copyWith(color: MgColors.meta)))),
               ]),
             ),
           ]),

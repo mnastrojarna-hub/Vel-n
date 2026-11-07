@@ -14,6 +14,11 @@ import 'route_poi_sheet.dart';
 import 'routes_map_provider.dart';
 import 'routes_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_back_v2.dart';
+import '../../core/v2/widgets/mg_word_fit.dart';
+import 'v2/map_controls_v2.dart';
+import 'v2/record_dock_v2.dart';
 
 /// Celoobrazovková mapa MÍST — trasy z katalogu se sem NEKRESLÍ.
 ///
@@ -281,6 +286,9 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
         ),
         child: Row(
           children: [
+            if (MgV2.on(context))
+              MgV2Back(onTap: () => context.backOr(Routes.routes))
+            else
             MgBackTap(
               onTap: () => context.backOr(Routes.routes),
               child: const Padding(
@@ -289,6 +297,9 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               ),
             ),
             const SizedBox(width: 6),
+            if (MgV2.on(context))
+              const MapTitleGlyphV2()
+            else
             const Text('🧭', style: TextStyle(fontSize: 18)),
             const SizedBox(width: 8),
             Expanded(
@@ -296,15 +307,19 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    t(context).tr('placesMapTitle'),
-                    style: const TextStyle(
-                      fontSize: MotoGoTypo.sizeLg,
-                      fontWeight: MotoGoTypo.w900,
-                      color: Colors.white,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
+                  Builder(builder: (context) {
+                    final title = Text(
+                      t(context).tr('placesMapTitle'),
+                      style: const TextStyle(
+                        fontSize: MotoGoTypo.sizeLg,
+                        fontWeight: MotoGoTypo.w900,
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
+                      ),
+                    );
+                    // v2: dlouhé slovo („lugares") se zmenší, nerozdělí.
+                    return MgV2.on(context) ? MgWordFit(minScale: 0.75, fitLines: 2, child: title) : title;
+                  }),
                   Text(
                     _subtitle(context, places, loading, chips, selectedCount,
                         sel, computing),
@@ -321,29 +336,37 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
               ),
             ),
             // Přepnutí na mapu TRAS (jen body tras + trasa po klepnutí).
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => context.pushReplacement(Routes.routesMap),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.alt_route, size: 16, color: MotoGoColors.green),
-                    const SizedBox(width: 4),
-                    Text(
-                      t(context).tr('routesMapBtn'),
-                      style: const TextStyle(
-                        fontSize: MotoGoTypo.sizeSm,
-                        fontWeight: MotoGoTypo.w800,
-                        color: MotoGoColors.green,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ],
+            // v2: tlačítko má strop šířky a popisek smí na 2 řádky — jinak
+            // „Carte des itinéraires" vzalo titulku skoro celý řádek.
+            Builder(builder: (context) {
+              final v2 = MgV2.on(context);
+              final label = Text(
+                t(context).tr('routesMapBtn'),
+                maxLines: v2 ? 2 : null,
+                style: const TextStyle(
+                  fontSize: MotoGoTypo.sizeSm,
+                  fontWeight: MotoGoTypo.w800,
+                  color: MotoGoColors.green,
+                  decoration: TextDecoration.none,
                 ),
-              ),
-            ),
+              );
+              final btn = GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => context.pushReplacement(Routes.routesMap),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.alt_route, size: 16, color: MotoGoColors.green),
+                      const SizedBox(width: 4),
+                      if (v2) Flexible(child: MgWordFit(minScale: 0.8, child: label)) else label,
+                    ],
+                  ),
+                ),
+              );
+              return v2 ? ConstrainedBox(constraints: const BoxConstraints(maxWidth: 112), child: btn) : btn;
+            }),
             // Zrušit filtr přímo z mapy — jinak by se uživatel musel vracet
             // do seznamu, aby zase viděl všechna místa.
             if (chips.isNotEmpty)
@@ -367,6 +390,16 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
 
   Widget _selectionBar(BuildContext context) {
     final n = ref.watch(placesSelectionProvider).length;
+    if (MgV2.on(context)) {
+      return TrasyRecordDockV2(
+        showRecord: false,
+        selection: TrasySelection(
+          count: n,
+          onContinue: _buildRoute,
+          onClear: ref.read(placesSelectionProvider.notifier).clear,
+        ),
+      );
+    }
     return Container(
       padding: EdgeInsets.fromLTRB(
           16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
@@ -434,6 +467,7 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
   }
 
   Widget _round(IconData icon, VoidCallback onTap, {bool primary = false}) {
+    if (MgV2.on(context)) return MapRoundV2(icon: icon, onTap: onTap);
     return PressableScale(
       pressedScale: 0.92,
       onTap: onTap,

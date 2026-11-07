@@ -12,6 +12,9 @@ import 'branch_motos_section.dart';
 import 'branch_photos_section.dart';
 import 'branches_info_provider.dart';
 import 'branches_widgets.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/shell/shell_nav_map.dart' show V2TabOrigin, v2SetTabOrigin;
+import 'v2/branch_detail_view_v2.dart';
 
 /// Detail pobočky (`/pobocky/<index>`) — obdoba webu /pobocky/<slug>: texty
 /// z Velína (`web.pobocky.branches.<i>.*`), video (nahrané ve Velínu nebo
@@ -31,6 +34,30 @@ class BranchDetailScreen extends ConsumerWidget {
     final stepsTitle = plainText(v('steps_title') ?? '');
     final photos = i < branchesInfoGallery.length ? branchesInfoGallery[i] : const <BranchPhoto>[];
     final branchId = i < branchesInfoBranchIds.length ? branchesInfoBranchIds[i] : null;
+
+    void onNavigate() => launchUrl(
+                    Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(branchesInfoMapQueries[i])}'),
+                    mode: LaunchMode.externalApplication,
+                  );
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejné texty i akce.
+    if (MgV2.on(context)) {
+      return BranchDetailViewV2(
+        tx: tx,
+        index: i,
+        video: video,
+        stepsTitle: stepsTitle,
+        photos: photos,
+        branchId: branchId,
+        onBack: () => branchesBack(context),
+        onNavigate: onNavigate,
+        onBook: () {
+          // Motorky ukáže „‹ Pobočka" zpět sem (V22 §6.2).
+          v2SetTabOrigin(ref, V2TabOrigin(tab: 1, route: '/pobocky/$i', labelKey: 'v2OriginBranch'));
+          _bookHere(context, ref, i);
+        },
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -62,10 +89,7 @@ class BranchDetailScreen extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(branchesInfoMapQueries[i])}'),
-                    mode: LaunchMode.externalApplication,
-                  ),
+                  onPressed: onNavigate,
                   icon: const Icon(Icons.navigation_outlined, size: 18),
                   label: Text(t(context).tr('branchesNavigate')),
                   style: OutlinedButton.styleFrom(

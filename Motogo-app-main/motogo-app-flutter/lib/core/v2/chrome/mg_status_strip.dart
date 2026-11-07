@@ -23,6 +23,11 @@ class MgStatusStrip extends StatelessWidget {
   final VoidCallback? onDismiss;
   final String? dismissLabel;
 
+  /// Further active strips (v1 C2, V2 §4.4: ONE strip + "+n"): a chip left
+  /// of the chevron; [onMore] opens the rest (null = the strip's own tap).
+  final int more;
+  final VoidCallback? onMore;
+
   const MgStatusStrip({
     super.key,
     required this.kind,
@@ -31,7 +36,35 @@ class MgStatusStrip extends StatelessWidget {
     this.sub,
     this.onDismiss,
     this.dismissLabel,
+    this.more = 0,
+    this.onMore,
   });
+
+  Widget _moreChip(BuildContext context) {
+    final label = t(context).tr('v2UxCoreMore').replaceAll('{n}', '$more');
+    final chip = Container(
+      height: 32,
+      constraints: const BoxConstraints(minWidth: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(color: MgColors.neonA(0.16), borderRadius: BorderRadius.circular(16)),
+      child: Center(
+        widthFactor: 1,
+        child: Text('+$more',
+            maxLines: 1,
+            softWrap: false,
+            style: MgType.tab(MgType.small.copyWith(fontSize: 12, fontWeight: FontWeight.w800, color: MgColors.neonText))),
+      ),
+    );
+    return Semantics(
+      button: onMore != null,
+      label: label,
+      excludeSemantics: true,
+      onTap: onMore,
+      child: onMore == null
+          ? chip
+          : MgPress(scale: 0.92, onTap: onMore, child: SizedBox(height: 44, child: Center(child: chip))),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +123,7 @@ class MgStatusStrip extends StatelessWidget {
                     ),
                 ]),
               ),
+              if (more > 0) ...[_moreChip(context), const SizedBox(width: 6)],
               const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.neonText),
             ]),
           ),
@@ -100,7 +134,9 @@ class MgStatusStrip extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 52),
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
       decoration: BoxDecoration(
-        color: MgColors.night.withValues(alpha: 0.95),
+        // Solid like MgDock (r2): a 95 % fill without a backdrop blur let the
+        // page text underneath ghost through the strip.
+        color: MgColors.night,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: MgColors.neonA(0.3)),
         boxShadow: [BoxShadow(color: MgColors.black(0.28), blurRadius: 18, spreadRadius: -6, offset: const Offset(0, 8))],

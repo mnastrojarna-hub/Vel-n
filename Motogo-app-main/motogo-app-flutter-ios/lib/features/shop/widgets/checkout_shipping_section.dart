@@ -25,12 +25,33 @@ class CheckoutShippingSection extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<CheckoutShippingSection> createState() =>
-      _CheckoutShippingSectionState();
+      CheckoutShippingSectionState();
 }
 
-class _CheckoutShippingSectionState
+class CheckoutShippingSectionState
     extends ConsumerState<CheckoutShippingSection> {
   bool _addressOpen = false;
+
+  /// Pokladna nahlásila chybějící údaje → rozbalit adresu a ukázat ji.
+  void reveal() {
+    if (!mounted) return;
+    setState(() => _addressOpen = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scrollable.ensureVisible(context,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          alignment: 0.1);
+    });
+  }
+
+  /// Sbalená hlavička: „jméno · ulice, obec“ (dřív jen jméno).
+  String _summary() => [
+        widget.nameCtrl.text.trim(),
+        [widget.streetCtrl.text.trim(), widget.cityCtrl.text.trim()]
+            .where((x) => x.isNotEmpty)
+            .join(', '),
+      ].where((x) => x.isNotEmpty).join(' · ');
 
   @override
   Widget build(BuildContext context) {
@@ -93,24 +114,32 @@ class _CheckoutShippingSectionState
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Row(children: [
-                      Text('📋 ${t(context).tr('deliveryDetails')}',
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w700)),
-                      if (widget.nameCtrl.text.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            '· ${widget.nameCtrl.text}',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: MotoGoColors.g400),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ]),
+                    // Poslouchá pole (i doplnění z profilu po načtení).
+                    child: ListenableBuilder(
+                      listenable: Listenable.merge(
+                          [widget.nameCtrl, widget.streetCtrl, widget.cityCtrl]),
+                      builder: (context, _) {
+                        final summary = _summary();
+                        return Row(children: [
+                          Text('📋 ${t(context).tr('deliveryDetails')}',
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w700)),
+                          if (summary.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '· $summary',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: MotoGoColors.g400),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ]);
+                      },
+                    ),
                   ),
                   AnimatedRotation(
                     turns: _addressOpen ? 0.25 : 0,

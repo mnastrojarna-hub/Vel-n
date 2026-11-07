@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 
-import '../motion/mg_anim.dart';
-import '../motion/mg_motion.dart';
+import '../motion/mg_ken_burns.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_back_v2.dart';
+import 'mg_status_bar.dart';
 
 /// Full-bleed photo / map hero (Detail motorky, rezervace, trasy): bottom
 /// scrim, glass controls (`MgV2Back` photo style top-left, [topRight]
 /// controls), status pill + tags + H1 + meta on the scrim. Ken Burns one
 /// shot 8 s (none under reduced motion). [image] is the caller's image
 /// widget (existing `NetImage` / gallery pager) — this never loads images.
+/// Declares light status-bar icons (`MgStatusBar`) while it lies under the
+/// status bar.
 class MgPhotoHero extends StatelessWidget {
   final Widget image;
   final double height;
@@ -42,63 +44,60 @@ class MgPhotoHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    Widget img = image;
-    if (kenBurns && !MgMotion.reduced(context)) {
-      img = MgProgressOnce(
-        duration: MgMotion.kenBurns,
-        curve: Curves.easeOut,
-        builder: (_, t) => Transform.scale(scale: 1.06 - 0.06 * t, child: image),
-      );
-    }
-    return SizedBox(
-      height: height + top,
-      child: Stack(fit: StackFit.expand, children: [
-        ClipRect(child: img),
-        IgnorePointer(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [MgColors.nightA(0.35), MgColors.nightA(0), MgColors.nightA(0.55), MgColors.nightA(0.9)],
-                stops: const [0, 0.3, 0.65, 1],
+    final img = kenBurns ? MgKenBurns(child: image) : image;
+    return MgStatusBar(
+      dark: true,
+      extendAbove: MgStatusBar.bounce,
+      child: SizedBox(
+        height: height + top,
+        child: Stack(fit: StackFit.expand, children: [
+          ClipRect(child: img),
+          IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [MgColors.nightA(0.35), MgColors.nightA(0), MgColors.nightA(0.55), MgColors.nightA(0.9)],
+                  stops: const [0, 0.3, 0.65, 1],
+                ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          top: top + 8,
-          left: 16,
-          right: 16,
-          child: Row(children: [
-            if (onBack != null) MgV2Back(onTap: onBack, close: backIsClose, style: MgBackStyle.photo),
-            const Spacer(),
-            for (final w in topRight) ...[const SizedBox(width: 8), w],
-          ]),
-        ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: 16,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            if (statusPill != null || tags.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Wrap(spacing: 6, runSpacing: 6, children: [if (statusPill != null) statusPill!, ...tags]),
-              ),
-            if (title != null)
-              Semantics(
-                header: true,
-                child: Text(title!, style: MgType.h1.copyWith(color: MgColors.onDark, fontWeight: FontWeight.w800)),
-              ),
-            if (meta != null) ...[
-              const SizedBox(height: 4),
-              Text(meta!, style: MgType.small.copyWith(color: MgColors.onDarkLead)),
-            ],
-            if (bottom != null) ...[const SizedBox(height: 8), bottom!],
-          ]),
-        ),
-      ]),
+          Positioned(
+            top: top + 8,
+            left: 16,
+            right: 16,
+            child: Row(children: [
+              if (onBack != null) MgV2Back(onTap: onBack, close: backIsClose, style: MgBackStyle.photo),
+              const Spacer(),
+              for (final w in topRight) ...[const SizedBox(width: 8), w],
+            ]),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 16,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              if (statusPill != null || tags.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Wrap(spacing: 6, runSpacing: 6, children: [if (statusPill != null) statusPill!, ...tags]),
+                ),
+              if (title != null)
+                Semantics(
+                  header: true,
+                  child: Text(title!, style: MgType.h1.copyWith(color: MgColors.onDark, fontWeight: FontWeight.w800)),
+                ),
+              if (meta != null) ...[
+                const SizedBox(height: 4),
+                Text(meta!, style: MgType.small.copyWith(color: MgColors.onDarkLead)),
+              ],
+              if (bottom != null) ...[const SizedBox(height: 8), bottom!],
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 }

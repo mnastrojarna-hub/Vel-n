@@ -7,6 +7,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/paid_change_queue.dart';
 import '../../../core/payment_pending_marker.dart';
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_states_v2.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
 import '../../payment/net_error.dart';
 import '../../payment/widgets/payment_error_sheet.dart';
@@ -24,6 +26,8 @@ class EditStateScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    // v2 vzhled (kill-switch app_v2_ui): stejné zpět, chyba i Zkusit znovu.
+    if (MgV2.on(context)) return EditStateV2(onBack: onBack, error: error, onRetry: onRetry);
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: Column(children: [
@@ -129,6 +133,19 @@ void showEditUncertain(BuildContext context, {required VoidCallback onReload}) {
     buttonLabel: tr.tr('psReload'),
     onButton: onReload,
   );
+}
+
+/// Vratka za zkrácení / levnější motorku (`process-refund`) proběhla jen
+/// ČÁSTEČNĚ: server vrací `partial: true` nebo `amount_refunded` menší než
+/// požadovaná částka (zákazníkovi se automaticky vrací jen ověřený přeplatek,
+/// zbytek dokončí obsluha — oprava 2026-10-22). Pak se celá částka neslibuje
+/// (`pdRefundManual`). Rozdíl do 1 Kč = zaokrouhlení ceny na haléře — server
+/// ho obsluze nehlásí (stejná tolerance jako `partial` na serveru).
+bool refundFellShort(Object? data, num requested) {
+  if (data is! Map) return false;
+  if (data['partial'] == true) return true;
+  final got = data['amount_refunded'];
+  return got is num && got + 1.005 < requested;
 }
 
 /// Předchozí doplatek této rezervace se ještě ověřuje (značka „platba

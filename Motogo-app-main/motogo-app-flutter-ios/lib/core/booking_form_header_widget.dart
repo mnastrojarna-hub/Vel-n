@@ -6,6 +6,19 @@ import '../features/catalog/moto_model.dart';
 import 'i18n/i18n_provider.dart';
 import 'widgets/mg_nav_controls.dart';
 
+/// Zpět z rezervačního formuláře (sdílí starý i v2 vzhled; tělo beze změny,
+/// vytažené z hlavičky): o krok zpět, jinak na detail vybrané motorky /
+/// do nabídky.
+void bookingFormBack(BuildContext context, BookingDraft draft) {
+  if (context.canPop()) {
+    context.pop();
+  } else {
+    GoRouter.of(context).go(
+      draft.motoId != null ? '/moto/${draft.motoId}' : '/search',
+    );
+  }
+}
+
 /// Top header bar for the booking form screen.
 class BookingFormHeader extends StatelessWidget {
   const BookingFormHeader({
@@ -28,15 +41,7 @@ class BookingFormHeader extends StatelessWidget {
       ),
       child: Row(children: [
         MgBackTap(
-          onTap: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              GoRouter.of(context).go(
-                draft.motoId != null ? '/moto/${draft.motoId}' : '/search',
-              );
-            }
-          },
+          onTap: () => bookingFormBack(context, draft),
           child: Container(
             width: 38,
             height: 38,

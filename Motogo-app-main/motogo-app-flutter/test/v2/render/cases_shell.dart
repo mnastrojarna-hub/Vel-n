@@ -13,6 +13,8 @@ import 'package:motogo_app/core/feature_flags.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/pending_sos_fab_provider.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
+import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
+import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
@@ -23,7 +25,7 @@ import 'package:motogo_app/features/reservations/v2/reservations_screen_v2.dart'
 import 'package:motogo_app/features/routes/all_pois_screen.dart';
 
 import '../screens/home_test.dart' show homeCases;
-import '../support/fakes_catalog.dart' show catalogOverrides;
+import '../support/fakes_catalog.dart' show catalogOverrides, futureWeekend;
 import '../support/fakes_profile.dart' show profileOverrides;
 import '../support/fakes_reservations.dart';
 import '../support/fakes_routes.dart' show routesOverrides, rtEnd;
@@ -67,6 +69,16 @@ List<RenderCase> shellRenderCases() {
     _s('home_sos_strip', '/', () => [...home['s1']!(), _flag, _paid]),
     _s('home_ticket', '/', () => [...home['s6']!(), _flag, _paid]),
     _s('motorky', '/search', () => [...catalogOverrides(), ..._extras(banner: false)]),
+    // Calculator with bike + dates: the sticky REZERVOVAT dock above the
+    // nav, the AI button lifted above it (catalog r2).
+    _s('motorky_calc_sticky', '/search', () {
+      final (ws, we) = futureWeekend();
+      return [
+        ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we)),
+        catalogCalcRequestProvider.overrideWith((ref) => true),
+        ..._extras(banner: false),
+      ];
+    }),
     _s('reservations', '/reservations', () => [...resOverrides(list: sampleList()), ..._extras(booking: false)]),
     _s('reservations_unpaid', '/reservations', () => [
           ...resOverrides(list: [unpaid, ...sampleList()], pending: PendingBooking(id: unpaid.id, totalPrice: 12027, createdAt: unpaid.createdAt)),

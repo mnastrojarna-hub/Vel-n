@@ -3,6 +3,20 @@ import 'package:flutter/material.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_icon_tile.dart';
+
+/// Section eyebrow of the Rezervace detail / edit on light (V22 §2.1
+/// `eyebrowDark`: dark pill, neon caps — the board's `.eyb` / `.kt`) at its
+/// own width, start-aligned, also inside stretched columns. Small
+/// sub-labels inside a card stay plain caps.
+class ResSectionEyebrowV2 extends StatelessWidget {
+  final String text;
+  const ResSectionEyebrowV2(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      Align(alignment: AlignmentDirectional.centerStart, child: MgEyebrowDark(text));
+}
 
 /// v2 look of `ResDetailCard` (white card, 1 px line, r16) — used by the
 /// leaf widgets that still build their own cards (history, codes in v1…).

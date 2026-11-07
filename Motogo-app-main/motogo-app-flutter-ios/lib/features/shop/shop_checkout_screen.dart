@@ -47,6 +47,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
   final _streetCtrl = TextEditingController();
   final _zipCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
+  final _shipKey = GlobalKey<CheckoutShippingSectionState>();
   final _promoCtrl = TextEditingController();
   bool _processing = false;
   bool _promoExpanded = false;
@@ -115,6 +116,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       _streetCtrl.text = profile['street'] ?? '';
       _zipCtrl.text = profile['zip'] ?? '';
       _cityCtrl.text = profile['city'] ?? '';
+      if (mounted) setState(() {});
     } catch (_) {}
   }
 
@@ -422,14 +424,20 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     }
 
     if (!digitalOnly && shipMode == ShipMode.post) {
-      if (_nameCtrl.text.trim().isEmpty ||
-          _streetCtrl.text.trim().isEmpty ||
-          _cityCtrl.text.trim().isEmpty ||
-          _zipCtrl.text.trim().isEmpty) {
+      // Co chybí, jmenovitě — a sekce adresy se rozbalí přímo u pole.
+      final tr = t(context);
+      final missing = [
+        if (_nameCtrl.text.trim().isEmpty) tr.tr('fullNameLabel'),
+        if (_streetCtrl.text.trim().isEmpty) tr.tr('streetShort'),
+        if (_cityCtrl.text.trim().isEmpty) tr.tr('city'),
+        if (_zipCtrl.text.trim().isEmpty) tr.tr('zip'),
+      ];
+      if (missing.isNotEmpty) {
+        _shipKey.currentState?.reveal();
         showMotoGoToast(context,
             icon: '⚠️',
-            title: t(context).tr('deliveryDetails'),
-            message: t(context).tr('deliveryDetails'));
+            title: tr.tr('shopFillDeliveryTitle'),
+            message: tr.trArgs('shopMissingFields', {'fields': missing.join(', ')}));
         return;
       }
     }
@@ -720,6 +728,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                     // Shipping method card (hide for digital)
                     if (!digitalOnly)
                       CheckoutShippingSection(
+                        key: _shipKey,
                         nameCtrl: _nameCtrl,
                         streetCtrl: _streetCtrl,
                         zipCtrl: _zipCtrl,

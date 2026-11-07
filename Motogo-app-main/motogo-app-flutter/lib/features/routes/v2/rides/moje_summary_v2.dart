@@ -15,6 +15,7 @@ import '../../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../loyalty/loyalty_provider.dart';
 import '../../../loyalty/loyalty_ranks_screen.dart' show openLoyaltyRanks;
 import '../../ride_model.dart';
+import '../../ride_trip.dart' show groupRides;
 import '../rt_v2_text.dart' show rtThousands;
 import 'moje_tabs_v2.dart';
 
@@ -104,7 +105,9 @@ class MojeSummaryV2 extends ConsumerWidget {
         // Count pills (→ sub-screen): sized by their content, so long words
         // (de "Gespeicherte", fr "enregistrés") never break mid-word.
         Wrap(spacing: 8, runSpacing: 8, children: [
-          _CountPill(icon: MgIcons.bike, value: '${rides.length}', label: tr.tr('v2RideSubRides'), onTap: () => onSub(MojeSub.rides, RideFilter.all)),
+          // Počet položek seznamu: cesta (sloučené jízdy / jedna výpůjčka) = 1.
+          _CountPill(
+              icon: MgIcons.bike, value: '${groupRides(rides).length}', label: tr.tr('v2RideSubRides'), onTap: () => onSub(MojeSub.rides, RideFilter.all)),
           _CountPill(icon: MgIcons.bookmark, value: savedCount == null ? '—' : '$savedCount', label: tr.tr('v2RideSubSaved'), onTap: () => onSub(MojeSub.saved, null)),
           _CountPill(icon: MgIcons.pin, value: placesCount == null ? '—' : '$placesCount', label: tr.tr('v2RideSubPlaces'), onTap: () => onSub(MojeSub.places, null)),
         ]),

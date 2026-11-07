@@ -112,6 +112,9 @@ class Reservation {
   final String? cancelledBySource; // 'admin', 'customer', 'system'
   final String? replacementForBookingId;
   final DateTime? actualReturnDate;
+  /// `bookings.booking_kind`: 'moto' | 'gear' (výpůjčka JEN výbavy). Gear se
+  /// pozná VÝHRADNĚ podle tohohle, nikdy z `moto_id == null`.
+  final String bookingKind;
 
   const Reservation({
     required this.id,
@@ -186,6 +189,7 @@ class Reservation {
     this.cancelledBySource,
     this.replacementForBookingId,
     this.actualReturnDate,
+    this.bookingKind = 'moto',
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) {
@@ -273,8 +277,12 @@ class Reservation {
       actualReturnDate: json['actual_return_date'] != null
           ? DateTime.tryParse(json['actual_return_date'] as String)
           : null,
+      bookingKind: json['booking_kind'] as String? ?? 'moto',
     );
   }
+
+  /// Výpůjčka jen výbavy (bez motorky) — žádný záznam jízdy, SOS ani motorka.
+  bool get isGearOnly => bookingKind == 'gear';
 
   /// Tolerantní timestamp — chybějící/nestandardní hodnota nesmí shodit seznam.
   static DateTime? _ts(dynamic v) =>

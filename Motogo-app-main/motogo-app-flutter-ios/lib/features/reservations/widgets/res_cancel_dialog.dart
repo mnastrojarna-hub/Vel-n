@@ -4,6 +4,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'cancel_result_dialog.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_cancel_v2.dart';
 
 /// Cancel reservation confirmation dialog with storno policy info.
 class ResCancelDialog extends StatefulWidget {
@@ -30,6 +32,23 @@ class _ResCancelDialogState extends State<ResCancelDialog> {
           wasPaid: widget.reservation.paymentStatus == 'paid',
           onClose: () => Navigator.pop(context),
           onRetry: _doCancel);
+    }
+
+    // v2 vzhled (kill-switch app_v2_ui): stejné podmínky, důvod i storno.
+    if (MgV2.on(context)) {
+      return PopScope(
+        canPop: !_loading,
+        child: ResCancelConfirmV2(
+          motoName: widget.reservation.motoName,
+          dateRange: widget.reservation.dateRange,
+          pct: pct,
+          refundLine: t(context).tr('currentlyRefund').replaceAll('{pct}', '$pct').replaceAll('{amount}', refund.toStringAsFixed(0)),
+          loading: _loading,
+          onReason: (v) => _reason = v,
+          onKeep: () => Navigator.pop(context),
+          onCancel: _doCancel,
+        ),
+      );
     }
 
     // Během storna dialog nejde zavřít (výsledek by se ztratil).

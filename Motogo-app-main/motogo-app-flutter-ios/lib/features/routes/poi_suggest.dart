@@ -11,6 +11,10 @@ import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_image.dart';
 import 'route_poi_sheet.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import '../../core/v2/tokens/mg_shadows.dart';
+import '../../core/v2/widgets/mg_word_fit.dart';
 
 /// Návrhy bodů zájmu v okolí právě skládané trasy (editor trasy).
 /// Jakmile má trasa aspoň jednu zastávku, nabídne další body do X km
@@ -97,8 +101,19 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
     final cards =
         filtered.length > _maxCards ? filtered.sublist(0, _maxCards) : filtered;
 
+    final v2 = MgV2.on(context);
     return Container(
-      color: Colors.white,
+      color: v2 ? null : Colors.white,
+      margin: v2 ? const EdgeInsets.fromLTRB(16, 12, 16, 0) : null,
+      decoration: v2
+          ? BoxDecoration(
+              color: MgColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: MgColors.line),
+              boxShadow: MgShadows.card,
+            )
+          : null,
+      clipBehavior: v2 ? Clip.antiAlias : Clip.none,
       padding: const EdgeInsets.only(top: 2, bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,6 +155,8 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
   }
 
   Widget _headerRow(BuildContext context, int count) {
+    // v2: celý nadpis (zalomí se), ne „…" — dlouhé jazyky / velké písmo.
+    final v2 = MgV2.on(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => setState(() => _expanded = !_expanded),
@@ -150,15 +167,18 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
             const Icon(Icons.radar, size: 16, color: MotoGoColors.greenDark),
             const SizedBox(width: 6),
             Expanded(
-              child: Text(
-                t(context).tr('builderNearbyTitle'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: MotoGoTypo.sizeLg,
-                  fontWeight: MotoGoTypo.w800,
-                  color: MotoGoColors.black,
-                  decoration: TextDecoration.none,
+              child: _v2WordFit(
+                v2,
+                Text(
+                  t(context).tr('builderNearbyTitle'),
+                  maxLines: v2 ? null : 1,
+                  overflow: v2 ? null : TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: MotoGoTypo.sizeLg,
+                    fontWeight: MotoGoTypo.w800,
+                    color: MotoGoColors.black,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
             ),
@@ -189,10 +209,15 @@ class _NearbyPoiPanelState extends ConsumerState<NearbyPoiPanel> {
     );
   }
 
+  // v2: slovo delší než sloupec („Sehenswürdigkeiten“) se zmenší, nerozdělí.
+  static Widget _v2WordFit(bool v2, Widget text) => v2 ? MgWordFit(child: text) : text;
+
   // Jeden řádek chipů: okruh (5/10/25/50 km) + kategorie s počty.
   Widget _chipsRow(BuildContext context, Map<String, int> catCounts) {
+    // v2: řádek čipů roste s velikostí písma (text čipu se nesmí oříznout).
+    final ts = MediaQuery.textScalerOf(context);
     return SizedBox(
-      height: 38,
+      height: MgV2.on(context) ? 38 + ts.scale(17) - 17 : 38,
       child: ListView(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,

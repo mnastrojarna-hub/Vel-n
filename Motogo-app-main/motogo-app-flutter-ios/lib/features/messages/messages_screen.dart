@@ -11,6 +11,9 @@ import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 import '../auth/widgets/toast_helper.dart';
 import 'messages_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/messages_view_v2.dart';
+import 'v2/new_thread_sheet_v2.dart';
 
 /// Messages screen — mirrors s-messages from templates-done-pages.js.
 /// Two tabs: Oznámení (admin_messages) + Konverzace (threads).
@@ -37,10 +40,36 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
     }
   }
 
+  /// Klepnutí na oznámení (sdílené starým i v2 vzhledem) — tělo beze změny.
+  void _toggleNote(AdminMessage m) {
+    final expanded = _expanded.contains(m.id);
+                setState(() => expanded ? _expanded.remove(m.id) : _expanded.add(m.id));
+                if (!m.read) markAdminMessageRead(m.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final adminAsync = ref.watch(adminMessagesProvider);
     final threadsAsync = ref.watch(threadsProvider);
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejný stav i akce.
+    if (MgV2.on(context)) {
+      return MessagesViewV2(
+        adminAsync: adminAsync,
+        threadsAsync: threadsAsync,
+        chatTab: _chatTab,
+        expanded: _expanded,
+        unread: ref.watch(adminUnreadCountProvider),
+        onBack: () => context.backOr(Routes.profile),
+        onTab: (chat) => setState(() => _chatTab = chat),
+        onToggleNote: _toggleNote,
+        onMarkAll: markAllAdminMessagesRead,
+        onNewThread: () => _newThread(context),
+        onOpenThread: (t) => context.push('/messages/${t.id}'),
+        onRetryAdmin: () => ref.invalidate(adminMessagesProvider),
+        onRetryThreads: () => ref.invalidate(threadsProvider),
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -107,10 +136,7 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
             final date = '${m.createdAt.day}. ${m.createdAt.month}. ${m.createdAt.hour}:${m.createdAt.minute.toString().padLeft(2, '0')}';
             final expanded = _expanded.contains(m.id);
             return GestureDetector(
-              onTap: () {
-                setState(() => expanded ? _expanded.remove(m.id) : _expanded.add(m.id));
-                if (!m.read) markAdminMessageRead(m.id);
-              },
+              onTap: () => _toggleNote(m),
               child: Container(
                 padding: const EdgeInsets.all(12), margin: const EdgeInsets.only(bottom: 6),
                 // Nepřečtená: zelený pruh vlevo (jako vlákno v Konverzacích) + červená tečka
@@ -213,7 +239,37 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => Padding(
+      builder: (ctx) {
+        // Odeslání sdílené starým i v2 vzhledem (kill-switch) — těla beze změny.
+        Future<void> onSubmitted(String value) async {
+                final subject = value.trim();
+                if (subject.isEmpty) {
+                  showMotoGoToast(context, icon: '⚠️', title: t(context).tr('newConversation'), message: t(context).tr('enterSubject'));
+                  return;
+                }
+                Navigator.pop(ctx);
+                await _createAndOpen(context, subject);
+        }
+        Future<void> onSend() async {
+                  final subject = controller.text.trim();
+                  if (subject.isEmpty) {
+                    // Zavři klávesnici (jako Enter) — jinak toast zůstane pod ní.
+                    FocusScope.of(ctx).unfocus();
+                    showMotoGoToast(context, icon: '⚠️', title: t(context).tr('newConversation'), message: t(context).tr('enterSubject'));
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                  await _createAndOpen(context, subject);
+        }
+        if (MgV2.on(ctx)) {
+          return NewThreadSheetV2View(
+            controller: controller,
+            onSubmitted: onSubmitted,
+            onSend: onSend,
+            onClose: () => Navigator.pop(ctx),
+          );
+        }
+        return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SafeArea(child: SingleChildScrollView(child: Padding(
           padding: const EdgeInsets.all(20),
@@ -236,31 +292,13 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
               style: const TextStyle(fontSize: 14, color: MotoGoColors.black),
-              onSubmitted: (value) async {
-                final subject = value.trim();
-                if (subject.isEmpty) {
-                  showMotoGoToast(context, icon: '⚠️', title: t(context).tr('newConversation'), message: t(context).tr('enterSubject'));
-                  return;
-                }
-                Navigator.pop(ctx);
-                await _createAndOpen(context, subject);
-              },
+              onSubmitted: onSubmitted,
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: GestureDetector(
-                onTap: () async {
-                  final subject = controller.text.trim();
-                  if (subject.isEmpty) {
-                    // Zavři klávesnici (jako Enter) — jinak toast zůstane pod ní.
-                    FocusScope.of(ctx).unfocus();
-                    showMotoGoToast(context, icon: '⚠️', title: t(context).tr('newConversation'), message: t(context).tr('enterSubject'));
-                    return;
-                  }
-                  Navigator.pop(ctx);
-                  await _createAndOpen(context, subject);
-                },
+                onTap: onSend,
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(50)),
@@ -270,7 +308,8 @@ class _MessagesState extends ConsumerState<MessagesScreen> {
             ),
           ]),
         ))),
-      ),
+      );
+      },
     );
   }
 

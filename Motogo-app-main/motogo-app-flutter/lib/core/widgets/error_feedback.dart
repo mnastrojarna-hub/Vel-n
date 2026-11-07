@@ -10,7 +10,10 @@ import '../native/gps_service.dart' show GpsStatus;
 import '../i18n/i18n_provider.dart';
 import '../theme.dart';
 import '../v2/flag/v2_scope.dart';
+import '../v2/icons/mg_icon.dart';
 import '../v2/states/legacy_dialog_looks.dart';
+import '../v2/states/mg_tone.dart';
+import '../v2/widgets/mg_toast_rich.dart';
 
 /// Nonstop linka MotoGo24 (volání funguje i bez mobilních dat).
 const String kMotoGoPhone = '+420774256271';
@@ -61,6 +64,10 @@ void showErrorSnack(
   final fe = friendly ?? FriendlyError.of(error, perm: perm);
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
+  if (MgV2.peek(context)) {
+    _v2ErrorToast(context, tr, what, fe, onRetry: onRetry, contact: contact);
+    return;
+  }
   SnackBarAction? action;
   if (fe.needsSettings) {
     action = SnackBarAction(
@@ -81,6 +88,43 @@ void showErrorSnack(
       duration: const Duration(seconds: 7),
       action: action,
     ));
+}
+
+/// v2 vzhled téhož toastu: titulek = co, zpráva = proč + jak (offline
+/// rodově neutrálně), stejná akce i délka 7 s.
+void _v2ErrorToast(BuildContext context, AppTranslations tr, String what, FriendlyError fe,
+    {VoidCallback? onRetry, bool contact = true}) {
+  String? label;
+  VoidCallback? act;
+  if (fe.needsSettings) {
+    label = tr.tr('eoOpenSettings');
+    act = () => openFixSettings(fe);
+  } else if (onRetry != null) {
+    label = tr.tr('eoRetry');
+    act = onRetry;
+  } else if (contact && fe.suggestContact) {
+    label = tr.tr('eoCall');
+    act = callMotoGo;
+  }
+  final String msg;
+  if (fe.kind == FriendlyKind.offline) {
+    msg = tr.tr('v2UxCoreOffline');
+  } else {
+    final r = fe.reason(tr);
+    final why = r.isEmpty ? r : '${r[0].toUpperCase()}${r.substring(1)}.';
+    msg = '$why ${fe.hint(tr, contact: contact)}'.trim();
+  }
+  final warn = fe.isNetwork || fe.needsSettings || fe.kind == FriendlyKind.rateLimit;
+  showMgToastRich(
+    context,
+    title: what,
+    message: msg,
+    tone: warn ? MgTone.warn : MgTone.err,
+    icon: fe.isNetwork ? MgIcons.wifiOff : null,
+    actionLabel: label,
+    onAction: act,
+    duration: const Duration(seconds: 7),
+  );
 }
 
 /// Dialog s chybou: titulek (co), tělo (proč + jak) a tlačítka, která něco

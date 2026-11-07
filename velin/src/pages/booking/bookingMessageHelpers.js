@@ -57,12 +57,17 @@ export async function sendBookingMessage(status, bk) {
 // (peníze zůstávají u nás, refund/dobropis se přeskočí, payment_status zůstává
 // 'paid'), jinak ČÁSTEČNÁ vratka (clamp 0..total_price) — process-refund umí
 // partial Stripe refund i manuální dobropis na částku (QR/převod/hotově).
+// Oprava i3 (2026-11-07): „zaplacená“ = i 'partial_refund' / 'refund_pending' (po vratce zkrácení / úpravy) — dřív
+// storno takové rezervace volbu vratky nenabídlo, nezapsalo booking_cancellations, process-refund nezavolalo a mail
+// nenesl částku → send-cancellation-email vrátil % z tabulky storna, i když obsluha nic nezvolila.
+export const PAID_FOR_REFUND = ['paid', 'partial_refund', 'refund_pending']
+export function paidForRefund(paymentStatus) { return PAID_FOR_REFUND.includes(paymentStatus) }
 export async function cancelBookingFromVelin(booking, reasonText, sourceCode, opts = {}) {
   if (!booking?.id) return { error: 'Chybí ID rezervace' }
   if (!reasonText) return { error: 'Vyplňte důvod zrušení' }
 
   const { data: { user } } = await supabase.auth.getUser()
-  const wasPaid = booking.payment_status === 'paid'
+  const wasPaid = paidForRefund(booking.payment_status)
   const total = Math.max(0, Math.round(Number(booking.total_price) || 0))
   let refundAmount = wasPaid ? total : 0
   if (wasPaid && opts.refundAmount != null && Number.isFinite(Number(opts.refundAmount))) {
@@ -145,7 +150,8 @@ export async function cancelBookingFromVelin(booking, reasonText, sourceCode, op
           cancellation_reason: reasonText,
           cancelled_by_source: sourceCode,
           source: booking.booking_source || 'app',
-          ...(wasPaid ? { refund_amount: refundAmount, refund_percent: refundPercent } : {}),
+          // i3: vždy volba obsluhy (0 = bez vratky / nezaplaceno) — server bez ní jen pošle mail, tabulku storna nepoužije
+          refund_amount: wasPaid ? refundAmount : 0, refund_percent: wasPaid ? refundPercent : 0,
         },
       })
       await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', booking.id)
