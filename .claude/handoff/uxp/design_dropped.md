@@ -1,0 +1,94 @@
+# 6 · DROPPED
+
+## (a) Rejected / deferred (not built in this run)
+- **SH-31** Home sections as a lazy SliverList — deferred: changes FabAvoid zone registration and breaks many existing off-screen finders; the jank cause is fixed by FND-17 (marquee RepaintBoundary + off-screen pause).
+- **SH-27 ghost-button row** (Prodloužit / Navigovat / Kódy on the S8 ticket) — moved to owner decision OD-3 (new Home entry points); the day ring + recorder line of S8 are kept.
+- **F-09 draggable map sheet (MgMapSheet)** — not on the TrasaDetail board (its grabbers are only on modal sheets) and fights the interactive map pan; replaced by the map-height clamp F-09′.
+- **F-29 MgSharedAxisPage + body fling between Trasy segments** — the segments are separate routes; a body fling would collide with the iOS edge-back and the horizontal rails; push transitions are unified by SH-14 instead; the in-shell PageView hub stays OD-01.
+- **F-14 hiding ‹ on `/routes-list`** — contradicts owner R6 ("always a visible back").
+- **F-36, PS-16 success haptic, RP-29 lightImpact, ASM-23 mediumImpact shutter** — haptic types beyond the spec (G8 = selectionClick + SOS heavy only).
+- **CB-27 draggable segmented thumb** — gimmick, spec silent, tap is enough (content cross-fade kept).
+- **CB-14 Hero into the booking recap** and **PS-22 product-card Hero** — spec lists Hero only card → bike detail and ticket / list → reservation detail; shop is hidden live.
+- **ASM-20 global flip of the `MgBackArrow` dark mapping** — would turn 5 dark-bar back discs white-on-white (onboarding, both viewers, booking header, shop header); replaced by the additive `v2Style` param (FND-20).
+- **RP-20 rewrite of `gateCodeHint` / `procStep*`** — protected 1:1 texts (v1 §0.8).
+- **RP-30 "⋯" menu for secondary list actions** — hides existing actions; moved to owner decisions.
+- **v1 `push` token "slide-up 24 px + fade" for focused flows** — would disable the iOS edge-back (R6 wins); platform push used (M1).
+- **T5 "toast paused while touched"** — SnackBar platform timing kept (4 s with action); low value vs. a custom timer in every toast.
+- **F-41 "Mapa | Fotky n" hero toggle** — restructures an interactive map hero; low value → owner decision.
+- **SH-32 places row** — only built if the places list is already in a synchronous cache; otherwise skipped (no new request).
+- **F-37 share brand glyphs** — only if the paths already exist (no new icon assets).
+
+## (b) Owner decisions (ideas beyond the approved design or functional) — one line + why it could help
+- **Shell / Home**
+  - OD-SH-1 Offline full-screen overlay → T4 banner + "Co funguje bez signálu" sheet (V22 §9 #10) — safer at a branch with no signal; behaviour change.
+  - OD-SH-2 Door-code block in the Home ticket on pickup day (Main S7 masked codes + "Kódy na celou obrazovku") — the disclosure rule wants codes visible that day; Home would start fetching codes.
+  - OD-SH-3 Ticket "⋯" Více sheet, "Upravit" pill on the photo (S6), S8 "Prodloužit / Navigovat / Kódy" row — one tap to the most-wanted actions; new Home entry points.
+  - OD-SH-4 Keep per-tab state (scroll, nested stack) — returning to a tab where you left off feels premium; navigation semantics change.
+  - OD-SH-5 Header marquee is a 3rd infinite loop on Home S0 (spec max 2): one pass then static (tap = full text)? — battery + calm.
+  - OD-SH-6 AI FAB container-transform into the chat panel (V2 §4.2) — signature motion; route push → overlay changes navigation.
+  - OD-SH-7 Trust facts on Home (bez kauce, výbava v ceně, nonstop) like the web — conversion; not on the Main board.
+  - OD-SH-8 "Omezit animace" app switch (V2 §2.6 / v1 §13) — accessibility beyond the OS setting; new setting.
+- **Catalog / booking**
+  - OD-CB-1 Favourites heart on card + detail — returning customers find their bike; new feature.
+  - OD-CB-2 Hero branch-line chevron → branch detail, and a "navigate" disc on the branch row — faster orientation; new navigation.
+  - OD-CB-3 Booking express rows Ty / Platba / Doklady (data from other flows, "Změnit" leaves booking) — complete "nothing twice" picture; leaves the flow.
+  - OD-CB-4 Detail preset "už jedeš" amber conflict with own bookings — prevents double booking; needs own-bookings logic on detail.
+  - OD-CB-5 One consent checkbox instead of two — fewer taps; two consents are stored separately (legal).
+  - OD-CB-6 Card "Rozpis ▴" receipt sheet next to the card CTA — price transparency; second tap target competes with the CTA.
+- **Reservations / profile**
+  - OD-RP-1 Codes full-screen view (new route) — readable at the kiosk in sunlight.
+  - OD-RP-2 Board filter set "Aktuální / Dokončené / Zrušené / Vše" — clearer list; changes filter semantics.
+  - OD-RP-3 Branch stat tiles + feature chips (not in the CMS) — richer branch cards; new data.
+  - OD-RP-4 Branch preselection on "Rezervovat zde" — one step less; new parameter into booking.
+  - OD-RP-5 Profile tile counts / default card on the hub — status at a glance; new fetches.
+  - OD-RP-6 Branch CMS texts in tykání — consistent voice; CMS content change.
+  - OD-RP-7 "Kontakt" row in Profil — one more help entry; new row.
+  - OD-RP-8 Výbava "Upravit" deep link into the gear intent — fewer taps; new deep link.
+  - OD-RP-9 "Zahodit rozdělané změny?" guard when leaving reservation edit — prevents lost edits; new guard logic.
+  - OD-RP-10 Scanner badge "Data uložena v telefonu" is inaccurate (photos go to storage, OCR on the server) — honesty; needs new wording.
+  - OD-RP-11 Cancel success "Rezervovat jiný termín" — keeps the customer; new action on the result.
+  - OD-RP-12 List card "⋯" menu for secondary actions — calmer cards; hides actions.
+- **Payments / shop**
+  - OD-PS-01 Support row ("Zavolat · Napsat nám") in payment errors (design) vs owner rule D5 (none) — kept D5; please confirm.
+  - OD-PS-02 Amounts 1–15 Kč: board / spec recommend waiving (V22 §9 #8 A), app keeps rounding up to 15 Kč (D1).
+  - OD-PS-03 Thank-you CTA → reservation detail (board) vs today's list; "Přidat do kalendáře" (V22 §9 #15) — fewer taps / reminder.
+  - OD-PS-04 Surcharge rows "Termín teď / Nový termín / Cena teď / Nová cena" on the payment page — clarity; data not on that page.
+  - OD-PS-05 Countdown for edit / shop payments (spec says none; app logic expires all) — kept visible.
+  - OD-PS-06 Error-sheet chips "Pokus n z max" / "Nic jsme nestrhli" — reassurance; needs verified facts from the payment code.
+  - OD-PS-07 Confirm before "Vyprázdnit" cart — prevents accidental loss; new dialog.
+  - OD-PS-08 Voucher image has Czech text baked in for all 8 languages — needs localized assets.
+  - OD-PS-09 Product page / checkout as sheets (Profil board) — kept pages to avoid navigation change.
+  - OD-PS-10 "Změnit" card before paying — no such action exists today.
+  - OD-PS-11 Pending page stops checking after 3 min (spec 10 min "Platbu pořád nevidíme", V22 §9 #17) — logic follow-up.
+  - OD-PS-12 Informal register in all 8 languages for new v2 strings (V22 §9 #13) — implemented informal as V22 §5.3 prescribes; owner may veto.
+  - OD-PS-13 Default card dark, others white on payment methods (V22 §9 #16) — implemented as the board draws it; owner may veto.
+- **Auth / SOS / scanner**
+  - OD-ASM-1 "Vítej zpátky!" with the remembered rank on login — king feeling; needs the last level stored at sign-out.
+  - OD-ASM-2 Confirmation sheet before "Ukončit jízdu – zavolat odtah" — prevents an accidental end of rental; new step.
+  - OD-ASM-3 Merge the SOS done screen and the live incident detail — one place for the incident; restructure.
+  - OD-ASM-4 Tappable 155 / 158 inside the accident guide, SMS fallback (Stavy 14.3), map picker for the replacement address — faster help; new call / SMS / map entries.
+  - OD-ASM-5 Welcome overlay 2.8 s is too short for the rank card — extend to ~5 s?
+  - OD-ASM-6 Gendered "nejsi připojený k internetu" in the OLD look too (v2 uses the neutral key).
+  - OD-ASM-7 Board extras: "Zapomenuté heslo" in the register dialog, "Všechna oprávnění" + gallery on the scanner camera error, retry on a partial scan — new navigation.
+  - OD-ASM-8 Public AI assistant before login — help before signing up; new access.
+  - OD-ASM-9 Level-up timing during SOS (V22 §9 #18) — keep today's trigger or wait until SOS closes.
+  - OD-ASM-10 Fix the 320 dp overflows also in the OLD look (v2 fixes them only in v2).
+- **Routes / rides**
+  - OD-RR-1 One in-shell PageView hub so the Trasy segment indicator follows the finger — swipe between segments; routing change.
+  - OD-RR-2 "Půjč si motorku na tuhle trasu" CTA card on route detail (board "návrh", V22 §2.4) — strongest conversion hook of the tab.
+  - OD-RR-3 Live trace map on the recorder (V22 §4.2 D) — the recorder state does not expose live points.
+  - OD-RR-4 Ride detail link "Rezervace #ID ›" — context; new navigation.
+  - OD-RR-5 "Navigovat sem" in the Místa place sheet — new action.
+  - OD-RR-6 Reverse-geocoded names for unnamed planner stops — new requests.
+  - OD-RR-7 "ZOBRAZIT JÍZDU" in the saved sheet (V22 §4.4 #14) — needs the ride id after stop.
+  - OD-RR-8 AI disc in the navigation top bar (V22 §6.4 yes, V21 T11 no) — kept off.
+  - OD-RR-9 Route-detail hero toggle "Mapa | Fotky n" (board) — photos first; restructures the interactive hero.
+
+## (c) Design vs owner rule — the owner rule wins (noted, implemented the owner way)
+- Detail ② / ③ and Kalkulačka ④ "Změnit ▾" for handover / extras stay information only (chosen once, in booking — "nothing twice").
+- Booking dock "ZAPLATIT" stays "POKRAČOVAT K PLATBĚ" (payment is the next screen).
+- 12:00 pickup = information, never a toggle (owner 2026-10-22), boards show a toggle.
+- Two consent checkboxes stay; no favourites → "oblíbené" removed from copy.
+- No support row in payment errors (D5); 15 Kč rounding (D1) kept.
+- Push transitions = platform (iOS edge-back) instead of v1 slide-up.
+- Header marquee kept as spec'd but flagged (OD-SH-5) against the 2-loop rule.
