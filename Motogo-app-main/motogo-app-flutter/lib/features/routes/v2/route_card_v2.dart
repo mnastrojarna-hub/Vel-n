@@ -4,6 +4,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
@@ -91,7 +92,7 @@ class RouteCardV2 extends StatelessWidget {
     final sketch = route.geometry.length >= 2 ? route.geometry : route.waypoints;
     final name = route.nameFor(lang);
     final meta = <(String, String)>[
-      if (route.distanceKm != null) (MgIcons.ruler, '${route.distanceKm!.toStringAsFixed(0)} km'),
+      if (route.distanceKm != null) (MgIcons.ruler, '${mgNum(route.distanceKm!, tr.lang)}\u00A0km'),
       if (route.durationMin != null) (MgIcons.clock, rtDur(route.durationMin!)),
       if (route.pois.isNotEmpty) (MgIcons.pin, '${route.pois.length} ${tr.tr('routePoiShort')}'),
     ];
@@ -99,7 +100,7 @@ class RouteCardV2 extends StatelessWidget {
         ? null
         : '${tr.tr('routeFromMe')} ~${approach!.km.round()} km · ~${rtDur(approach!.min)}';
     final rating = route.reviewCount > 0
-        ? '${(route.reviewAvg ?? 0).toStringAsFixed(1)} (${route.reviewCount})'
+        ? '${mgRating(route.reviewAvg ?? 0, tr.lang)} (${route.reviewCount})'
         : '(0)';
     return Container(
       decoration: BoxDecoration(

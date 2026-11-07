@@ -20,6 +20,10 @@ import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/widgets/mg_back_v2.dart';
 import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import 'v2/scan_camera_v2.dart';
+import 'v2/scan_choice_v2.dart';
+import 'v2/scan_states_v2.dart';
 
 // Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
 const String _kSupportPhone = '+420 774 256 271';
@@ -717,7 +721,34 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
       // icons in v2 (fix:statusbar r1); old look unchanged.
       mgV1StatusBar(context, dark: true, child: _screen());
 
+  /// Počet stran k naskenování pro volbu [type] (stejný filtr jako [_sequence]).
+  int _countFor(String type) {
+    final all = _stepsFor(type);
+    final only = _only;
+    if (only == null) return all.length;
+    final some = all.where((s) => only.contains(s.key)).length;
+    return some == 0 ? all.length : some;
+  }
+
+  /// v2 obrazovky mimo kameru (volba dokladu, načítání plánu, ověřování).
+  Widget? _screenV2() {
+    if (!MgV2.on(context)) return null;
+    if (_planLoading) return ScanChoiceV2(onBack: _safePop, choices: const [], loading: true);
+    if (_idType == null) {
+      return ScanChoiceV2(onBack: _safePop, choices: [
+        (icon: MgIcons.idCard, label: t(context).tr('idCard'), steps: _countFor('op'), onTap: () => _selectIdType('op')),
+        (icon: MgIcons.doc, label: t(context).tr('passport'), steps: _countFor('passport'), onTap: () => _selectIdType('passport')),
+        if (_offerDlOnly)
+          (icon: MgIcons.bike, label: t(context).tr('dlOnly'), steps: _countFor('dl_only'), onTap: () => _selectIdType('dl_only')),
+      ]);
+    }
+    if (_stepIdx >= _sequence.length) return ScanVerifyingV2(onBack: _safePop);
+    return null;
+  }
+
   Widget _screen() {
+    final v2 = _screenV2();
+    if (v2 != null) return v2;
     if (_planLoading) return _loadingScreen();
     if (_idType == null) return _idChoiceScreen();
     if (_stepIdx >= _sequence.length) return _doneScreen();
@@ -826,21 +857,12 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
               ),
             OutlinedButton(
               style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-              onPressed: () {
-                setState(() {
-                  _camError = null;
-                  _camFe = null;
-                });
-                _initCamera();
-              },
+              onPressed: _retryCamera,
               child: Text(tr.tr('eoRetry')),
             ),
             OutlinedButton(
               style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-              onPressed: () async {
-                await _disposeCamera();
-                if (mounted) _safePop();
-              },
+              onPressed: _closeScanner,
               child: Text(tr.tr('eoBack')),
             ),
           ]),
@@ -849,10 +871,39 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     );
   }
 
+  void _retryCamera() {
+    setState(() {
+      _camError = null;
+      _camFe = null;
+    });
+    _initCamera();
+  }
+
+  Future<void> _closeScanner() async {
+    await _disposeCamera();
+    if (mounted) _safePop();
+  }
+
+  String _guideTextV2(_ScanStep step) {
+    if (step.docType == ScanDocType.passport) return t(context).tr('v2UxAsmPlacePassport');
+    if (step.docType == ScanDocType.driversLicense) return t(context).tr('v2UxAsmPlaceLicense');
+    return t(context).tr('v2UxAsmPlaceId');
+  }
+
   Widget _cameraStepScreen() {
     final step = _sequence[_stepIdx];
     final mq = MediaQuery.of(context);
     final bottomPad = mq.padding.bottom;
+    final v2 = MgV2.on(context);
+    if (v2 && _camError != null) {
+      final fe = _camFe;
+      return ScanCameraErrorV2(
+        message: _camError!,
+        onSettings: fe != null && fe.needsSettings ? () => openFixSettings(fe) : null,
+        onRetry: _retryCamera,
+        onBack: _closeScanner,
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -867,8 +918,14 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
 
         // Document frame
         if (_camReady)
-          CustomPaint(painter: DocumentFramePainter(
-              isPassport: step.docType == ScanDocType.passport)),
+          CustomPaint(painter: v2
+              ? DocumentFramePainter(
+                  isPassport: step.docType == ScanDocType.passport,
+                  scrim: kScanScrimV2,
+                  border: kScanBorderV2,
+                  corner: kScanCornerV2)
+              : DocumentFramePainter(
+                  isPassport: step.docType == ScanDocType.passport)),
 
         // Processing overlay
         if (_scanning)
@@ -887,12 +944,15 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
         // vidět a funguje i během nahrávání (systémové zpět funguje vždy).
         Positioned(
           top: mq.padding.top + 8, left: 16, right: 16,
-          child: Column(children: [
+          child: v2
+              ? ScanTopV2(
+                  onBack: _closeScanner,
+                  step: '${step.title} · ${step.side}',
+                  index: _stepIdx,
+                  total: _sequence.length)
+              : Column(children: [
             Row(children: [
-              _backBtn(() async {
-                await _disposeCamera();
-                if (mounted) _safePop();
-              }),
+              _backBtn(_closeScanner),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${step.icon} ${step.title}',
@@ -915,7 +975,13 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
         if (!_scanning && _resultKind == _ResultKind.none)
           Positioned(
             bottom: bottomPad + 24, left: 0, right: 0,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
+            child: v2
+                ? ScanControlsV2(
+                    guide: _guideTextV2(step),
+                    capturing: _isCapturing,
+                    onCapture: _capture,
+                    onSkip: _skip)
+                : Column(mainAxisSize: MainAxisSize.min, children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Container(
@@ -958,7 +1024,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
 
         // ── RESULT OVERLAY ──
         if (_resultKind != _ResultKind.none)
-          _resultOverlay(),
+          v2 ? _resultOverlayV2() : _resultOverlay(),
       ]),
     );
   }
@@ -1039,6 +1105,44 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     );
   }
 
+  void _tryAgainAnyway() => setState(() {
+        _attempts[_sequence[_stepIdx].key] = 0;
+        _resultAttempt = 0;
+        _resultKind = _ResultKind.none;
+      });
+
+  void _callSupport() => _launchExternal('tel:${_kSupportPhone.replaceAll(' ', '')}');
+
+  // Předmět pro obsluhu (Velín) zůstává česky.
+  void _writeSupport() => _launchExternal('mailto:$_kSupportEmail?subject='
+      '${Uri.encodeComponent('Ověření dokladů — $_resultTitle')}');
+
+  /// v2: výsledek strany / pomoc po chybách jako světlý panel nad kamerou.
+  Widget _resultOverlayV2() {
+    if (_resultKind == _ResultKind.contactFallback) {
+      return ScanHelpV2(
+        attempts: _kMaxAttemptsPerStep,
+        side: _resultTitle,
+        guidance: _resultGuidance,
+        phone: _kSupportPhone,
+        onCall: _callSupport,
+        onWrite: _writeSupport,
+        onTryAgain: _tryAgainAnyway,
+        onClose: _closeScanner,
+      );
+    }
+    return ScanResultV2(
+      ok: _resultKind == _ResultKind.success,
+      side: _resultTitle,
+      message: _resultMsg,
+      guidance: _resultGuidance,
+      remaining: _kMaxAttemptsPerStep - _resultAttempt,
+      onContinue: _onContinue,
+      onRetry: _onRetry,
+      onSkip: _skip,
+    );
+  }
+
   // Zobrazí se po _kMaxAttemptsPerStep nezdařených pokusech na jednom kroku.
   // Nabídne volání a email s předvyplněným subjektem.
   Widget _contactFallbackOverlay() {
@@ -1082,36 +1186,25 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           _contactBtn(
             icon: '📞',
             label: '${t(context).tr('callLabel')} $_kSupportPhone',
-            onTap: () => _launchExternal(
-              'tel:${_kSupportPhone.replaceAll(' ', '')}'),
+            onTap: _callSupport,
             primary: true,
           ),
           const SizedBox(height: 10),
           _contactBtn(
             icon: '✉️',
             label: '${t(context).tr('scanWriteBtn')} $_kSupportEmail',
-            // Předmět pro obsluhu (Velín) zůstává česky.
-            onTap: () => _launchExternal(
-              'mailto:$_kSupportEmail?subject='
-              '${Uri.encodeComponent('Ověření dokladů — $_resultTitle')}'),
+            onTap: _writeSupport,
             primary: false,
           ),
           const SizedBox(height: 18),
           // Možnost znovu — třeba zákazník chce po konzultaci zkusit znovu
           TextButton(
-            onPressed: () => setState(() {
-              _attempts[_sequence[_stepIdx].key] = 0;
-              _resultAttempt = 0;
-              _resultKind = _ResultKind.none;
-            }),
+            onPressed: _tryAgainAnyway,
             child: Text(t(context).tr('scanTryAgainAnyway'),
               style: const TextStyle(color: Colors.white54, fontSize: 13)),
           ),
           TextButton(
-            onPressed: () async {
-              await _disposeCamera();
-              if (mounted) _safePop();
-            },
+            onPressed: _closeScanner,
             child: Text(t(context).tr('scanCloseScanner'),
               style: const TextStyle(color: Colors.white38, fontSize: 13)),
           ),

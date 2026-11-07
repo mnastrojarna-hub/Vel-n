@@ -26,6 +26,7 @@ import 'v2/routes_menu_v2.dart';
 import 'package:go_router/go_router.dart';
 import 'routes_model.dart' show RouteItem;
 import 'v2/submit_form_v2.dart';
+import 'v2/rides/ride_results_v2.dart';
 
 /// Menu „Přidat" (z FAB v Trasách) — jezdec si zaznamená vlastní jízdu,
 /// navrhne trasu (odkaz z Mapy.com) nebo přidá místo. Návrhy jdou do moderace
@@ -130,6 +131,11 @@ Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running
   final tr = t(context);
   if (running) {
     final kept = await n.stop();
+    // v2 (F-06): výsledek jako sheet (uloženo = úspěch), stejný výsledek.
+    if (context.mounted && MgV2.peek(context)) {
+      await showRideStopResultV2(context, kept);
+      return;
+    }
     // null = server jízdu nevzal (offline) → zkusí se to znovu, NENÍ „krátká".
     msg.showSnackBar(SnackBar(content: Text(tr.tr(kept == null
         ? 'rideManualStopFailed'
@@ -137,8 +143,20 @@ Future<void> _toggleManualRide(BuildContext context, WidgetRef ref, bool running
     return;
   }
   final r = await n.startManualResult();
+  if (context.mounted && MgV2.peek(context)) {
+    await _startResultV2(context, c, r);
+    return;
+  }
   showRideStartResult(msg, tr, r, armed: c.read(rideRecorderProvider).isArmed);
 }
+
+/// v2 (F-06): the start result as a T2 sheet; "Zkusit znovu" = the same
+/// manual start again (through the container — the menu's ref is gone).
+Future<void> _startResultV2(BuildContext context, ProviderContainer c, RideStartResult r) =>
+    showRideStartResultV2(context, r, armed: c.read(rideRecorderProvider).isArmed, onRetry: () async {
+      final again = await c.read(rideRecorderProvider.notifier).startManualResult();
+      if (context.mounted) await _startResultV2(context, c, again);
+    });
 
 Widget _menuItem(BuildContext c, IconData icon, String label, VoidCallback onTap,
         {String? subtitle, bool danger = false}) =>

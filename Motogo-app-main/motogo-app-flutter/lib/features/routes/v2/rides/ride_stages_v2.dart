@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
-import '../../ride_card.dart' show rideDuration, rideKm, rideSpeed;
+import '../../ride_card.dart' show rideDuration, rideSpeed;
 import '../../ride_model.dart';
 import 'ride_track_sketch_v2.dart' show RideMetaV2;
 
@@ -55,7 +56,7 @@ class _StageCard extends StatelessWidget {
     final s = stage;
     final day = tr.trArgs('v2RpStageDay', {'n': n});
     final metas = <Widget>[
-      RideMetaV2(MgIcons.ruler, rideKm(s.km), strong: true),
+      RideMetaV2(MgIcons.ruler, mgKm(s.km, tr.lang), strong: true),
       if (s.movingSec > 0) RideMetaV2(MgIcons.ride, tr.trArgs('v2RpChipRiding', {'time': rideDuration((s.movingSec / 60).round())})),
       if (s.avgKmh != null) RideMetaV2(MgIcons.speed, rideSpeed(s.avgKmh)),
       if ((s.max ?? 0) > 0) RideMetaV2(MgIcons.gauge, rideSpeed(s.max)),

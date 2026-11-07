@@ -7,8 +7,10 @@ import '../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/gestures/mg_swipe_switcher.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
@@ -41,6 +43,10 @@ class RouteDetailViewV2 extends StatelessWidget {
   final double? realKm;
   final ({double km, int min, bool exact})? approach;
   final (int, int)? sibling;
+
+  /// Last sibling swipe (−1 / +1, 0 = none) — the content below the map
+  /// slides in from that side (MgSwipeSwitcher, F-08).
+  final int direction;
   final VoidCallback onBack;
   final ValueChanged<int> onPoiTap;
   final VoidCallback onFullMap;
@@ -65,6 +71,7 @@ class RouteDetailViewV2 extends StatelessWidget {
     required this.realKm,
     required this.approach,
     required this.sibling,
+    this.direction = 0,
     required this.onBack,
     required this.onPoiTap,
     required this.onFullMap,
@@ -75,7 +82,9 @@ class RouteDetailViewV2 extends StatelessWidget {
     required this.onExternal,
   });
 
-  static const double _mapH = 280;
+  /// Map hero height (F-09′): 30 % of the screen, 200–280 — at 320 × 690
+  /// the stats card and the first section head stay in the first window.
+  static double mapHeightFor(double screenH) => (screenH * 0.30).clamp(200.0, 280.0);
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +123,7 @@ class RouteDetailViewV2 extends StatelessWidget {
       child: ColoredBox(
         color: MgColors.canvas,
         child: _DetailBody(
-          mapH: _mapH + top,
+          mapH: mapHeightFor(MediaQuery.sizeOf(context).height) + top,
           map: Stack(children: [
             Positioned.fill(
               child: RouteMapView(
@@ -140,12 +149,14 @@ class RouteDetailViewV2 extends StatelessWidget {
             ),
           ]),
           dock: dock,
+          switchKey: route.id,
+          direction: direction,
           children: [
             RouteStatsCardV2(
               route: route,
               name: route.nameFor(lang),
               startLine: branch != null && startNear ? '${tr.tr('routeStartsAt')} ${branch!.name}' : null,
-              km: distKm == null ? null : '${distKm.toStringAsFixed(0)} km',
+              km: distKm == null ? null : '${mgNum(distKm, lang)}\u00A0km',
               time: route.durationMin == null ? null : rtDur(route.durationMin!),
               fromMe: fromMe,
               sibling: sibling,
@@ -191,10 +202,8 @@ class RouteDetailViewV2 extends StatelessWidget {
                 ),
               ),
             ],
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-              child: RouteReviewsSection(routeId: route.id),
-            ),
+            // v2 section brings its own head + gutters (F-01).
+            RouteReviewsSection(routeId: route.id),
           ],
         ),
       ),
@@ -208,8 +217,17 @@ class _DetailBody extends StatefulWidget {
   final double mapH;
   final Widget map;
   final Widget dock;
+  final Object switchKey;
+  final int direction;
   final List<Widget> children;
-  const _DetailBody({required this.mapH, required this.map, required this.dock, required this.children});
+  const _DetailBody({
+    required this.mapH,
+    required this.map,
+    required this.dock,
+    required this.switchKey,
+    required this.direction,
+    required this.children,
+  });
 
   @override
   State<_DetailBody> createState() => _DetailBodyState();
@@ -224,9 +242,13 @@ class _DetailBodyState extends State<_DetailBody> {
       Positioned(left: 0, right: 0, top: 0, height: widget.mapH, child: widget.map),
       Positioned.fill(
         top: widget.mapH - 24,
-        child: ListView(
-          padding: EdgeInsets.only(bottom: _dockH + 16),
-          children: widget.children,
+        child: MgSwipeSwitcher(
+          switchKey: widget.switchKey,
+          direction: widget.direction,
+          child: ListView(
+            padding: EdgeInsets.only(bottom: _dockH + 16),
+            children: widget.children,
+          ),
         ),
       ),
       Positioned(

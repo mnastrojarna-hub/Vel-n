@@ -5,6 +5,10 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/native/gps_service.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/error_feedback.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/states/mg_tone.dart';
+import 'v2/nav/nav_sheets_v2.dart';
 
 /// Stav polohy / výpočtu trasy v navigaci (2026-10-16): dřív navigace při
 /// ztrátě GPS tiše zamrzla na poslední poloze a bez internetu potichu kreslila
@@ -37,6 +41,30 @@ class NavStatusBanner extends StatelessWidget {
     final settings = status == NavStatus.denied ||
         status == NavStatus.serviceOff ||
         status == NavStatus.gpsLost;
+    if (MgV2.on(context)) {
+      // v2 (Stavy 16.22–16.24): T3 banner, stejná věta i akce.
+      final allow = status == NavStatus.denied && onRequest != null;
+      return NavStatusBannerV2(
+        sentence: tr.tr(key),
+        tone: switch (status) {
+          NavStatus.denied || NavStatus.serviceOff || NavStatus.gpsLost => MgTone.warn,
+          NavStatus.weakGps => MgTone.pending,
+          NavStatus.straightLine => MgTone.info,
+        },
+        icon: switch (status) {
+          NavStatus.denied || NavStatus.serviceOff => MgIcons.gps,
+          NavStatus.gpsLost || NavStatus.weakGps => MgIcons.satellite,
+          NavStatus.straightLine => MgIcons.wifiOff,
+        },
+        actionLabel: allow ? tr.tr('eoNavAllow') : (settings ? tr.tr('eoOpenSettings') : null),
+        onAction: allow
+            ? onRequest
+            : (settings
+                ? () => openFixSettings(FriendlyError(
+                    status == NavStatus.denied ? FriendlyKind.permission : FriendlyKind.locationOff))
+                : null),
+      );
+    }
     return Material(
       color: Colors.white,
       elevation: 3,

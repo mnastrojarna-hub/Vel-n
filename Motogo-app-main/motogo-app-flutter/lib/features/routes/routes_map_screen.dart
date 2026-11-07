@@ -18,6 +18,10 @@ import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/widgets/mg_back_v2.dart';
 import 'v2/map_controls_v2.dart';
+import 'v2/routes_map_panel_v2.dart' show MapToolChipV2;
+import '../../core/v2/chrome/mg_ai_fab.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/tokens/mg_colors.dart';
 import 'v2/record_dock_v2.dart';
 
 /// MAPA TRAS — na rozdíl od mapy míst ukazuje jen body, které leží na nějaké
@@ -60,8 +64,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
       // 104) — dole se nechá místo na panel s kartami i lištu výběru, nahoře
       // na hlavičku.
       _mapKey.currentState?.fitTo(pts,
-          padding: const EdgeInsets.fromLTRB(
-              36, 130, 36, kRoutesMapPickerHeight + 110));
+          padding: EdgeInsets.fromLTRB(
+              36, 130, 36, routesMapPickerHeight(context) + 110));
     }
   }
 
@@ -185,7 +189,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
     // Panel s kartami tras zabírá dole místo — tlačítka a čip nad něj.
     final bottomPad = selected.isEmpty
         ? 24.0
-        : (matched.isEmpty ? 104.0 : 104.0 + kRoutesMapPickerHeight);
+        : (matched.isEmpty ? 104.0 : 104.0 + routesMapPickerHeight(context));
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -333,10 +337,11 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                                 '${t(context).tr('routesMapCount')} · $count'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: MotoGoTypo.sizeSm,
                           fontWeight: MotoGoTypo.w600,
-                          color: Color(0xFF8AAB99),
+                          // v2: meta na tmavé = #9FC4B1 (V22 §2.2).
+                          color: MgV2.on(context) ? MgColors.onDarkMeta : const Color(0xFF8AAB99),
                           decoration: TextDecoration.none,
                         ),
                       ),
@@ -368,6 +373,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                     ),
                   ),
                 ),
+                // v2 (F-30, V22 §6.4): AI 44 jako poslední prvek horní lišty.
+                if (MgV2.on(context)) ...[const SizedBox(width: 4), const MgAiDisc(size: 44)],
               ],
             ),
             const SizedBox(height: 6),
@@ -395,7 +402,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                     style: const TextStyle(
                       fontSize: MotoGoTypo.sizeSm,
                       fontWeight: MotoGoTypo.w600,
-                      color: Color(0xFF8AAB99),
+                      // v2: meta na tmavé = #9FC4B1 (V22 §2.2; #8AAB99 zakázaná).
+                      color: MgColors.onDarkMeta,
                       decoration: TextDecoration.none,
                     ),
                   ),
@@ -441,6 +449,11 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   }
 
   Widget _miniBtn(IconData icon, String label, VoidCallback onTap) {
+    if (MgV2.on(context)) {
+      final glyph = icon == Icons.alt_route ? MgIcons.route : (icon == Icons.layers_clear ? MgIcons.close : MgIcons.plus);
+      // „+ ostatní místa": plus je ikona, ne znak v textu.
+      return MapToolChipV2(icon: glyph, label: label.replaceFirst(RegExp(r'^\+\s*'), ''), onTap: onTap);
+    }
     return PressableScale(
       pressedScale: 0.95,
       onTap: onTap,

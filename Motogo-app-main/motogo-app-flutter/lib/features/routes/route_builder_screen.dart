@@ -24,6 +24,7 @@ import 'my_experiences_provider.dart';
 import '../../core/widgets/map_tile_errors.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/tokens/mg_colors.dart';
+import '../../core/v2/tokens/mg_format.dart';
 import 'v2/builder_parts_v2.dart';
 
 /// Jedna zastávka editoru trasy.
@@ -344,6 +345,7 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
               title: widget.route.name.isNotEmpty ? widget.route.name : t(context).tr('poiCustomRouteTitle'),
               onBack: _leave,
               computing: _computing,
+              editing: widget.route.id != 'custom',
             ),
           ),
           Positioned(
@@ -435,7 +437,7 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     }
     if (MgV2.on(context)) {
       return BuilderStatsV2(
-        km: km,
+        km: _distanceM == null ? km : mgKm(_distanceM! / 1000, t(context).lang),
         time: tmin,
         stops: '${_stops.length} × ${t(context).tr('routeBuilderStop').toLowerCase()}',
         profile: _profile,
@@ -632,7 +634,10 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
         child: BuilderStopTileV2(
           number: i + 1,
           label: label,
-          sub: '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
+          // F-27: pojmenovaná zastávka ukáže „Zastávka N", ne souřadnice.
+          sub: s.name != null
+              ? '${t(context).tr('routeBuilderStop')} ${i + 1}'
+              : '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
           onRemove: () => _removeAt(i),
           wrapHandle: (h) => ReorderableDragStartListener(index: i, child: h),
         ),

@@ -20,6 +20,8 @@ import 'sos_replacement_motos.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
 import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/sos_replacement_view_v2.dart';
 
 /// Adresa přistavení náhrady = text, který zákazník v poli vidí (i ručně
 /// doplněné číslo domu nebo opravená GPS ulice); null = pole je prázdné.
@@ -168,6 +170,32 @@ class _SosReplacementState extends ConsumerState<SosReplacementScreen> {
   Widget build(BuildContext context) {
     // Jen motorky volné do konce pronájmu (server by ostatní odmítl).
     final motosAsync = ref.watch(sosReplacementMotosProvider);
+    if (MgV2.on(context)) {
+      return SosReplacementViewV2(
+        motos: motosAsync,
+        selectedId: _selectedMoto?.id,
+        onSelect: (m) => setState(() => _selectedMoto = m),
+        loading: _loading,
+        onConfirm: _confirm,
+        onBack: () => context.backOr(Routes.home),
+        hereAddress: SosHereAddress(key: _hereKey, onPick: _onHerePicked),
+        addressField: AddressAutocompleteField(
+          key: _addrKey,
+          onSelected: _onAddressSelected,
+          onChanged: _onAddressEdited,
+          onCleared: _onAddressCleared,
+          hint: t(context).tr('v2UxAsmEnterCity'),
+        ),
+        error: (e) => MgErrorView(
+            compact: true,
+            error: e,
+            what: t(context).tr('errorLoadingMotos'),
+            onRetry: () => ref.invalidate(sosReplacementMotosProvider),
+            contact: false,
+            extra: const [SosCallButton()]),
+        callButton: const SosCallButton(),
+      );
+    }
 
     return Scaffold(
       backgroundColor: mgV1PageColor(context, MotoGoColors.bg),

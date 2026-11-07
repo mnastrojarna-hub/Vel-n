@@ -6,6 +6,7 @@ import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/states/mg_state_screen.dart';
 import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
@@ -14,7 +15,7 @@ import '../../../../core/v2/widgets/mg_sheet.dart';
 import '../../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../../core/v2/widgets/mg_toast.dart';
 import '../../../../core/widgets/state_views.dart' show MgErrorView;
-import '../../ride_card.dart' show rideDuration, rideKm;
+import '../../ride_card.dart' show rideDuration;
 import '../../ride_provider.dart' show myRidesProvider;
 import '../../ride_recorder.dart' show rideRecorderProvider;
 import '../../ride_share.dart' show rideShareWaypoints;
@@ -160,7 +161,7 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
       [
         rideDateRange(trip.from, trip.to),
         if (trip.days >= 2) recDaysV2(tr, trip.days),
-        rideKm(a.distanceKm),
+        mgKm(a.distanceKm, tr.lang),
         if (a.movingSec > 0) tr.trArgs('v2RpChipRiding', {'time': rideDuration(a.movingMin)}),
       ].join(' · '),
       if (link.isNotEmpty) link,

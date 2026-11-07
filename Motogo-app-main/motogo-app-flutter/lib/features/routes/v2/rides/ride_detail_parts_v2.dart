@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
+import '../../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/rank/rank_hero.dart';
@@ -26,6 +27,9 @@ class RideDetailHeaderV2 extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onShare;
   final VoidCallback onDelete;
+
+  /// "‹ 3 / 7 ›" of the list the detail was opened from (F-08).
+  final Widget? pager;
   const RideDetailHeaderV2({
     super.key,
     required this.ride,
@@ -33,6 +37,7 @@ class RideDetailHeaderV2 extends StatelessWidget {
     required this.onEdit,
     required this.onShare,
     required this.onDelete,
+    this.pager,
   });
 
   @override
@@ -52,6 +57,8 @@ class RideDetailHeaderV2 extends StatelessWidget {
       deleteLabel: tr.tr('v2RideDelete'),
       onShare: onShare,
       onDelete: onDelete,
+      pager: pager,
+      ai: true,
       badges: [
         if (ride.isRecording) RideLiveBadgeV2(rideId: ride.id, dark: true),
         RideBadgeV2(
@@ -80,6 +87,11 @@ class RideHeaderShellV2 extends StatelessWidget {
   final VoidCallback onDelete;
   final String shareLabel;
   final String deleteLabel;
+
+  /// Sibling pager on the tags row (right) and the 44 AI disc as the last
+  /// top-bar item (V22 §6.4) — ride detail only.
+  final Widget? pager;
+  final bool ai;
   const RideHeaderShellV2({
     super.key,
     required this.title,
@@ -91,6 +103,8 @@ class RideHeaderShellV2 extends StatelessWidget {
     required this.onDelete,
     required this.shareLabel,
     required this.deleteLabel,
+    this.pager,
+    this.ai = false,
   });
 
   @override
@@ -100,6 +114,7 @@ class RideHeaderShellV2 extends StatelessWidget {
       MgIconButton(icon: MgIcons.share, semanticLabel: shareLabel, onTap: onShare),
       const SizedBox(width: 4),
       MgIconButton(icon: MgIcons.trash, semanticLabel: deleteLabel, iconColor: MgColors.errDark, onTap: onDelete),
+      if (ai) ...[const SizedBox(width: 4), const MgAiDisc(size: 44)],
     ];
     return MgRankHero(
       ambientKey: 'ride',
@@ -133,7 +148,10 @@ class RideHeaderShellV2 extends StatelessWidget {
             ),
           ),
         );
-        final tags = Wrap(spacing: 6, runSpacing: 6, children: badges);
+        final wrap = Wrap(spacing: 6, runSpacing: 6, children: badges);
+        final tags = pager == null
+            ? wrap
+            : Row(crossAxisAlignment: CrossAxisAlignment.center, children: [Expanded(child: wrap), const SizedBox(width: 8), pager!]);
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             MgV2Back(onTap: onBack, style: MgBackStyle.dark),
@@ -146,9 +164,10 @@ class RideHeaderShellV2 extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.tab(MgType.small.copyWith(color: MgColors.onDarkLead))),
               const SizedBox(height: 8),
-              if (narrow)
-                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [Expanded(child: tags), ...actions])
-              else
+              if (narrow) ...[
+                Row(crossAxisAlignment: CrossAxisAlignment.center, children: [Expanded(child: wrap), ...actions]),
+                if (pager != null) ...[const SizedBox(height: 8), Align(alignment: AlignmentDirectional.centerEnd, child: pager!)],
+              ] else
                 tags,
             ]),
           ),
@@ -225,3 +244,31 @@ class RideVisibilityCardV2 extends StatelessWidget {
   }
 }
 
+
+/// "‹ 3 / 7 ›" of the ride list (board Zazitky "Detail jízdy"): two white
+/// 44 discs + the position — the same step as the sibling swipe; disabled
+/// at the ends.
+class RidePagerV2 extends StatelessWidget {
+  final int at;
+  final int of;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  const RidePagerV2({super.key, required this.at, required this.of, required this.onPrev, required this.onNext});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    Widget disc(String icon, VoidCallback? tap, String label) => Opacity(
+          opacity: tap == null ? 0.45 : 1,
+          child: MgIconButton(icon: icon, onTap: tap, semanticLabel: label, style: MgIconButtonStyle.light),
+        );
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      disc(MgIcons.chevronLeft, at > 1 ? onPrev : null, tr.tr('v2RtPrev')),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Text('$at / $of', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
+      ),
+      disc(MgIcons.chevronRight, at < of ? onNext : null, tr.tr('v2RtNext')),
+    ]);
+  }
+}

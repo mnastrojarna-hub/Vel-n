@@ -34,6 +34,11 @@ class RideDetailViewV2 extends StatelessWidget {
   final ValueChanged<RidePoint> onEditPoint;
   final ValueChanged<bool> onVisibility;
 
+  /// Position in the list the detail was opened from + its pager (F-08).
+  final (int, int)? sibling;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+
   const RideDetailViewV2({
     super.key,
     required this.ride,
@@ -46,18 +51,31 @@ class RideDetailViewV2 extends StatelessWidget {
     required this.onPointTap,
     required this.onEditPoint,
     required this.onVisibility,
+    this.sibling,
+    this.onPrev,
+    this.onNext,
   });
 
-  static const double _mapH = 260;
+  /// Map height (F-09′): 30 % of the screen, 200–260 — the stats card and
+  /// the trip row stay in the first window on small phones.
+  static double mapHeightFor(double screenH) => (screenH * 0.30).clamp(200.0, 260.0);
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final mapH = mapHeightFor(MediaQuery.sizeOf(context).height);
     return Scaffold(
       backgroundColor: MgColors.canvas,
       body: Column(children: [
-        RideDetailHeaderV2(ride: ride, onBack: onBack, onEdit: onEdit, onShare: onShare, onDelete: onDelete),
+        RideDetailHeaderV2(
+          ride: ride,
+          onBack: onBack,
+          onEdit: onEdit,
+          onShare: onShare,
+          onDelete: onDelete,
+          pager: sibling == null ? null : RidePagerV2(at: sibling!.$1, of: sibling!.$2, onPrev: onPrev, onNext: onNext),
+        ),
         Expanded(
           child: ListView(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottom),
@@ -67,7 +85,7 @@ class RideDetailViewV2 extends StatelessWidget {
                   left: 0,
                   right: 0,
                   top: 0,
-                  height: _mapH,
+                  height: mapH,
                   child: Container(
                     decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: MgShadows.card),
                     clipBehavior: Clip.antiAlias,
@@ -87,7 +105,7 @@ class RideDetailViewV2 extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(top: _mapH - 24),
+                  padding: EdgeInsets.only(top: mapH - 24),
                   child: MgReveal(sessionKey: 'ride-stats-${ride.id}', child: RideStatsCardV2(ride: ride)),
                 ),
               ]),

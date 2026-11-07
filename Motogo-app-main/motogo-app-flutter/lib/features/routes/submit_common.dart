@@ -10,6 +10,7 @@ import '../../core/friendly_error.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/submit_form_v2.dart';
+import 'v2/submit_success_v2.dart';
 
 /// Sdílené kousky pro komunitní návrhy (trasa / bod zájmu):
 /// info banner o moderaci, výběr fotek s náhledy, upload a success sheet.
@@ -259,6 +260,7 @@ Future<List<String>> uploadSubmitPhotos(String uid, List<XFile> photos) async {
 /// Success sheet po odeslání návrhu — velká fajfka + vysvětlení moderace.
 /// Zavře se tlačítkem; poté volající obvykle popne submit obrazovku.
 Future<void> showSubmitSuccess(BuildContext context) {
+  if (MgV2.on(context)) return showSubmitSuccessV2(context);
   return showModalBottomSheet(
     context: context,
     backgroundColor: Colors.white,

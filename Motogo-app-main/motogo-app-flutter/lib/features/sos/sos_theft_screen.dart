@@ -13,6 +13,8 @@ import 'sos_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
 import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/sos_theft_view_v2.dart';
 
 /// Theft screen — mirrors s-sos-kradez from templates-res-sos.js.
 /// 4-step instructions + secured/unsecured decision + report + replacement.
@@ -71,8 +73,27 @@ class _SosTheftState extends ConsumerState<SosTheftScreen> {
     context.push(Routes.sosReplacement);
   }
 
+  /// „Nechci náhradu — ukončit" (stejná akce v obou vzhledech).
+  void _noReplacement() {
+    ref.read(sosDoneTypeProvider.notifier).state = SosDoneType.theftReported;
+    context.go(Routes.sosDone);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return SosTheftViewV2(
+        reported: _reported,
+        submitting: _submitting,
+        secured: _secured,
+        onSecured: (v) => setState(() => _secured = v),
+        onBack: () => context.backOr(Routes.sos),
+        onCallPolice: () => launchUrl(Uri.parse('tel:158')),
+        onReport: _reportTheft,
+        onReplacement: _requestReplacement,
+        onNoReplacement: _noReplacement,
+      );
+    }
     return Scaffold(
       backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
@@ -188,10 +209,7 @@ class _SosTheftState extends ConsumerState<SosTheftScreen> {
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () {
-                    ref.read(sosDoneTypeProvider.notifier).state = SosDoneType.theftReported;
-                    context.go(Routes.sosDone);
-                  },
+                  onPressed: _noReplacement,
                   child: Text(t(context).tr('noReplacementEnd'),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
                 ),

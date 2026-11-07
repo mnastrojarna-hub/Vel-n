@@ -20,6 +20,8 @@ import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/states/mg_state_screen.dart';
 import 'v2/route_detail_view_v2.dart';
+import 'v2/route_detail_skeleton_v2.dart';
+import 'v2/route_map_full_v2.dart';
 
 class RouteDetailScreen extends ConsumerStatefulWidget {
   final String routeId;
@@ -63,6 +65,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   /// Aktuálně zobrazená trasa — mění se swipem, výchozí je ta otevřená.
   late String _id = widget.routeId;
   double _dx = 0; // ušlá vzdálenost tažení
+  int _dir = 0; // v2: směr posledního listování (animace obsahu)
 
   void _swipe(int delta) {
     final ids = widget.siblingIds;
@@ -74,6 +77,7 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     setState(() {
       _id = ids[next];
       _activePoi = null;
+      _dir = delta;
     });
     ref.read(lastOpenedRouteProvider.notifier).state = _id;
   }
@@ -104,7 +108,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         // Načítání i chyba mají šipku zpět; chyba řekne důvod a „Zkusit znovu"
         // opravdu načítá znovu (dřív vedlo zpět a chyba se tvářila jako
         // „Trasa nenalezena").
-        loading: () => MgStateScaffold(
+        loading: () => MgV2.on(context)
+            ? RouteDetailSkeletonV2(
+                onBack: () => context.backOr('/routes'), onRetry: () => ref.invalidate(routesDataProvider))
+            : MgStateScaffold(
             onBack: () => context.backOr('/routes'),
             child: MgLoadingView(
                 color: MotoGoColors.greenDark,
@@ -195,9 +202,11 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
         realKm: ref.watch(routeRealLengthKmProvider(route.id)).valueOrNull,
         approach: ref.watch(routeApproachProvider(route.id)).valueOrNull,
         sibling: ids.length > 1 && at >= 0 ? (at + 1, ids.length) : null,
+        direction: _dir,
         onBack: () => context.backOr('/routes'),
         onPoiTap: openPoi,
-        onFullMap: () => _openFullMap(context, geometry, mapStart, poiMarkers, pois, lang),
+        onFullMap: () => _openFullMap(context, geometry, mapStart, poiMarkers, pois, lang,
+            title: route.nameFor(lang), sub: rtRouteLine(t(context), route, ref.read(routeRealLengthKmProvider(route.id)).valueOrNull)),
         onPrev: () => _swipe(-1),
         onNext: () => _swipe(1),
         onNavigate: () => context.push('/route-nav/${route.id}'),
@@ -659,13 +668,26 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
   }
 
   void _openFullMap(BuildContext context, List<LatLng> geometry, LatLng? start,
-      List<({LatLng point, int index})> poiMarkers, List<RoutePoi> pois, String lang) {
+      List<({LatLng point, int index})> poiMarkers, List<RoutePoi> pois, String lang,
+      {String? title, String? sub}) {
     Navigator.of(context).push(MaterialPageRoute(
       // Používej VLASTNÍ kontext route builderu (ctx), NE zachycený vnější
       // `context`. Vnější kontext může být po uspání/obnovení appky neplatný
       // (bez MediaQuery předka) → MediaQuery.of hodil „Null check operator used
       // on a null value" a shodil appku (crash v2.0.9). ctx je vždy pod MaterialApp.
-      builder: (ctx) => Scaffold(
+      builder: (ctx) => MgV2.on(ctx)
+          ? RouteFullMapV2(
+              title: title ?? '',
+              sub: sub,
+              onClose: () => Navigator.of(ctx).pop(),
+              map: RouteMapView(
+                geometry: geometry,
+                start: start,
+                pois: poiMarkers,
+                onPoiTap: (i) => showRoutePoiSheet(ctx, pois[i], lang, index: i, siblings: pois),
+              ),
+            )
+          : Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: Stack(
           children: [
@@ -706,6 +728,10 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     final userPos = ref.read(currentLocationProvider).valueOrNull;
     final points = rotateLoopPointsForPosition(
         orderedRoutePoints(route, branch), userPos);
+    if (MgV2.on(context)) {
+      _openExportSheetV2(context, route, points, userPos != null);
+      return;
+    }
     if (points.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(t(context).tr('routeNoNavData'))),
@@ -773,6 +799,31 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// v2 (F-12): the same targets and the same open / failure snack in the
+  /// "Otevřít v jiné aplikaci" sheet; < 2 points = T3 note inside it.
+  void _openExportSheetV2(BuildContext context, RouteItem route, List<LatLng> points, bool fromMe) {
+    final tr = t(context);
+    final km = ref.read(routeRealLengthKmProvider(route.id)).valueOrNull;
+    rtShowExportSheetV2(
+      context,
+      sub: rtRouteLine(tr, route, km),
+      rowSub: points.length < 2 ? null : rtExportRowSub(tr, route.isLoop && fromMe, points.length),
+      error: points.length < 2 ? tr.tr('routeNoNavData') : null,
+      targets: [
+        if (points.length >= 2)
+          for (final tg in RouteExport.targets())
+            RtExportTargetV2(tg.label, rtExportIcon(tg), dark: tg == RouteExportTarget.mapy, () async {
+              final ok = await RouteExport.open(tg, points);
+              if (!ok && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(t(context).tr('routeOpenFailed'))),
+                );
+              }
+            }),
+      ],
     );
   }
 

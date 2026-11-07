@@ -14,6 +14,10 @@ import 'ride_rec_phase.dart' show rideChipKey;
 import 'ride_recorder.dart';
 import 'ride_trip.dart';
 import 'ride_trip_detail_screen.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_merge_v2.dart' show openRideMergeV2;
+import 'v2/rides/ride_trip_card_v2.dart';
+import 'v2/rides/trip_detail_screen_v2.dart' show openTripDetailV2;
 
 /// Seznam „Mých jízd" seskupený do cest (SPEC §8.2, §9.1): samostatná jízda
 /// = [RideCard], cesta (sloučené jízdy / jízdy jedné výpůjčky) = [RideTripCard].
@@ -29,13 +33,18 @@ List<Widget> rideListWidgets(List<UserRide> rides, {List<RideListItem>? items}) 
   ];
 }
 
-/// Otevře detail cesty (podle kterékoli její jízdy).
-Future<void> openRideTrip(BuildContext context, RideTrip trip) => Navigator.of(context)
-    .push(MaterialPageRoute<void>(builder: (_) => RideTripDetailScreen(rideId: trip.leader.id)));
+/// Otevře detail cesty (podle kterékoli její jízdy). v2 (F-10): v2 detail.
+Future<void> openRideTrip(BuildContext context, RideTrip trip) => MgV2.on(context)
+    ? openTripDetailV2(context, trip)
+    : Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => RideTripDetailScreen(rideId: trip.leader.id)));
 
 /// Otevře výběr jízd ke sloučení ([preselectRideId] = předvybraná jízda).
-Future<void> openRideMerge(BuildContext context, {String? preselectRideId}) => Navigator.of(context)
-    .push(MaterialPageRoute<void>(builder: (_) => RideMergeScreen(preselectRideId: preselectRideId)));
+/// v2 (F-10): v2 výběr.
+Future<void> openRideMerge(BuildContext context, {String? preselectRideId}) => MgV2.on(context)
+    ? openRideMergeV2(context, preselectRideId: preselectRideId)
+    : Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => RideMergeScreen(preselectRideId: preselectRideId)));
 
 /// Karta cesty: náhled celé trasy, název, rozsah dat a součty.
 class RideTripCard extends ConsumerWidget {
@@ -45,6 +54,8 @@ class RideTripCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // v2 (F-10): karta cesty v novém vzhledu, stejný tap (detail cesty).
+    if (MgV2.on(context)) return RideTripCardV2(trip: trip, onTap: () => openRideTrip(context, trip));
     final tr = t(context);
     // Cesta s právě nahrávanou jízdou: štítek podle fáze záznamu (stejně
     // jako karta jízdy) — „Auto-pauza" / „Pozastaveno", ne pořád „Nahrávám".

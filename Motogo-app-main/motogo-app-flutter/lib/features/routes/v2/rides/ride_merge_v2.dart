@@ -9,13 +9,13 @@ import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/states/mg_state_banner.dart';
 import '../../../../core/v2/states/mg_tone.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../../core/v2/widgets/mg_cta.dart';
 import '../../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/state_views.dart' show MgErrorView;
-import '../../ride_card.dart' show rideKm;
 import '../../ride_model.dart';
 import '../../ride_provider.dart' show myRidesProvider;
 import '../../ride_trip.dart';
@@ -191,7 +191,7 @@ class _MergeTile extends StatelessWidget {
       child: Semantics(
         button: true,
         checked: selected,
-        label: '$name, $range, ${rideKm(r.distanceKm)}',
+        label: '$name, $range, ${mgKm(r.distanceKm, tr.lang)}',
         excludeSemantics: true,
         child: MgPress(
           scale: 0.98,
@@ -218,7 +218,7 @@ class _MergeTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    [range, rideKm(r.distanceKm), if (item case RideListItemTrip(:final trip)) recRidesV2(tr, trip.rides.length)].join(' · '),
+                    [range, mgKm(r.distanceKm, tr.lang), if (item case RideListItemTrip(:final trip)) recRidesV2(tr, trip.rides.length)].join(' · '),
                     style: MgType.tab(MgType.small.copyWith(color: MgColors.meta)),
                   ),
                 ]),

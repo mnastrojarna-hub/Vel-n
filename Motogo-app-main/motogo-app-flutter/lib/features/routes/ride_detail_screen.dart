@@ -22,6 +22,7 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/gestures/mg_swipe_switcher.dart';
 import 'v2/rides/ride_detail_view_v2.dart';
 import 'v2/rides/ride_dialogs_v2.dart';
 
@@ -46,6 +47,7 @@ class RideDetailScreen extends ConsumerStatefulWidget {
 class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
   late String _id = widget.rideId;
   double _dx = 0; // ušlá vzdálenost tažení
+  int _dir = 0; // v2: směr posledního listování (animace obsahu)
 
   void _swipe(int delta) {
     final ids = widget.siblingIds;
@@ -54,7 +56,10 @@ class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
     if (cur < 0) return;
     final next = cur + delta;
     if (next < 0 || next >= ids.length) return;
-    setState(() => _id = ids[next]);
+    setState(() {
+      _id = ids[next];
+      _dir = delta;
+    });
   }
 
   @override
@@ -97,6 +102,23 @@ class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
           if (r.id == _id) ride = r;
         }
         if (ride == null) return _missing(context);
+        if (MgV2.on(context)) {
+          // v2 (F-08): pager „‹ 3 / 7 ›" v hlavičce = stejné listování jako
+          // swipe; obsah přijede ze strany, kam se listovalo.
+          final ids = widget.siblingIds;
+          final at = ids.indexOf(ride.id);
+          return MgSwipeSwitcher(
+            switchKey: ride.id,
+            direction: _dir,
+            child: _RideDetailBody(
+              key: ValueKey(ride.id),
+              ride: ride,
+              sibling: ids.length > 1 && at >= 0 ? (at + 1, ids.length) : null,
+              onPrev: () => _swipe(-1),
+              onNext: () => _swipe(1),
+            ),
+          );
+        }
         return _RideDetailBody(key: ValueKey(ride.id), ride: ride);
       },
       ),
@@ -151,7 +173,11 @@ class _RideDetailScreenState extends ConsumerState<RideDetailScreen> {
 
 class _RideDetailBody extends ConsumerStatefulWidget {
   final UserRide ride;
-  const _RideDetailBody({super.key, required this.ride});
+  // v2 (F-08): pozice v seznamu + listování (null = bez pageru).
+  final (int, int)? sibling;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  const _RideDetailBody({super.key, required this.ride, this.sibling, this.onPrev, this.onNext});
 
   @override
   ConsumerState<_RideDetailBody> createState() => _RideDetailBodyState();
@@ -302,6 +328,9 @@ class _RideDetailBodyState extends ConsumerState<_RideDetailBody> {
         onPointTap: (i) => _editPoint(ride.points[i]),
         onEditPoint: _editPoint,
         onVisibility: _toggleVisibility,
+        sibling: widget.sibling,
+        onPrev: widget.onPrev,
+        onNext: widget.onNext,
       );
     }
     return Scaffold(

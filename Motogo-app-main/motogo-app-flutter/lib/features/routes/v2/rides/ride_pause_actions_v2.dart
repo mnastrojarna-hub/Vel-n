@@ -4,11 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
-import '../../../../core/v2/widgets/mg_dialog.dart';
+import '../../../../core/v2/states/mg_state_sheet.dart';
+import '../../../../core/v2/states/mg_tone.dart';
+import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_buttons.dart';
+import '../../../../core/v2/widgets/mg_sheet.dart';
 import '../../../../core/v2/widgets/mg_toast.dart';
 import '../../ride_actions.dart';
 import '../../ride_recorder.dart';
-import '../../ride_start_feedback.dart' show showRideStartResult;
+import 'ride_results_v2.dart';
+import 'ride_phase_v2.dart' show recLiveLineV2;
 
 /// Manual pause / resume from any v2 surface (dock, recorder, Domů row,
 /// nav chip, pause sheet) — SPEC §5.2 / §9.2. Pause is local and cannot
@@ -33,7 +39,8 @@ Future<void> rideTogglePauseV2(BuildContext context, WidgetRef ref) async {
       showMgToast(context, tr.tr(armed ? 'v2RpToastResumed' : 'v2RpToastResumedNow'),
           icon: MgIcons.playFilled, lift: rideToastLiftV2(context));
     } else if (msg != null) {
-      showRideStartResult(msg, tr, r);
+      // v2 (F-06): what · why · fix as a T2 sheet; retry = resume again.
+      await showRideStartResultV2(context, r, onRetry: () => rideTogglePauseV2(context, ref));
     }
     return;
   }
@@ -45,17 +52,34 @@ Future<void> rideTogglePauseV2(BuildContext context, WidgetRef ref) async {
 /// v2 chrome — e.g. the recorder screen, whose dock is the bottom bar).
 double rideToastLiftV2(BuildContext context) => MgChromeScope.chromeOf(context)?.dockHeight ?? 0;
 
-/// "Ukončit záznam?" (presentation only) → true = end and save. While the
-/// trip is paused the body adds where it will be saved (`v2RpStopBody2`).
+/// "Ukončit záznam?" (presentation only) → true = end and save. Light T2
+/// sheet (DESIGN_V22 §4.4 #13, board Zazitky stav 13 — thumb reach with
+/// gloves): stop disc, what is being saved ("38,2 km · 1 h 12 min v
+/// sedle"), the existing body (+ `v2RpStopBody2` while paused); primary
+/// UKONČIT A ULOŽIT (ink) over POKRAČOVAT V JÍZDĚ (ghost). ✕ / scrim /
+/// swipe-down = continue (false), as the old dialog's barrier.
 Future<bool> trasyConfirmStop(BuildContext context, {bool paused = false}) async {
   final tr = t(context);
   final body = tr.tr('v2RtRecStopBody');
-  final ok = await showMgConfirm(
+  final rec = ProviderScope.containerOf(context, listen: false).read(rideRecorderProvider);
+  final ok = await showMgSheet<bool>(
     context,
-    title: tr.tr('v2RtRecStopQ'),
-    body: paused ? '$body\n\n${tr.tr('v2RpStopBody2')}' : body,
-    safeLabel: tr.tr('v2RtRecContinue'),
-    actionLabel: tr.tr('v2RtRecStopSave'),
+    builder: (_) => MgStateSheetBody(
+      tone: MgTone.info,
+      icon: MgIcons.stop,
+      title: tr.tr('v2RtRecStopQ'),
+      why: rec.recording ? recLiveLineV2(tr, rec) : null,
+      support: false,
+      children: [
+        Text(paused ? '$body\n\n${tr.tr('v2RpStopBody2')}' : body, style: MgType.small.copyWith(color: MgColors.meta)),
+      ],
+    ),
+    footer: Builder(
+      builder: (c) => MgSheetButtons(
+        primary: MgBtnInk(label: tr.tr('v2RtRecStopSave'), onTap: () => Navigator.of(c).pop(true)),
+        secondary: MgBtnGhostLight(label: tr.tr('v2RtRecContinue'), onTap: () => Navigator.of(c).pop(false)),
+      ),
+    ),
   );
   return ok == true;
 }

@@ -6,6 +6,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
@@ -135,7 +136,7 @@ class RouteStatsCardV2 extends StatelessWidget {
             _GlassChip(
               icon: MgIcons.starFilled,
               iconColor: MgColors.star,
-              label: '${(route.reviewAvg ?? 0).toStringAsFixed(1)} (${route.reviewCount})',
+              label: '${mgRating(route.reviewAvg ?? 0, tr.lang)} (${route.reviewCount})',
             ),
         ]),
       ]),

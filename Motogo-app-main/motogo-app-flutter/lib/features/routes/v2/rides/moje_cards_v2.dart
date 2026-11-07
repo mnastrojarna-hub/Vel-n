@@ -4,6 +4,7 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
@@ -60,7 +61,7 @@ class SavedRouteCardV2 extends StatelessWidget {
     final tr = t(context);
     final r = route;
     final meta = [
-      if (r.distanceKm != null) '${r.distanceKm!.toStringAsFixed(0)} km',
+      if (r.distanceKm != null) '${mgNum(r.distanceKm!, t(context).lang)}\u00A0km',
       if (r.durationMin != null) rtDur(r.durationMin!),
       '${r.waypoints.length}× ${tr.tr('routeBuilderStop').toLowerCase()}',
       if (r.createdAt != null) rideDate(r.createdAt!),

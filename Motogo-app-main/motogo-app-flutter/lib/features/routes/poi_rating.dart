@@ -7,6 +7,8 @@ import '../../core/supabase_client.dart';
 import '../../core/debug_logger.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/review_editor_v2.dart' show PoiRatingV2;
 
 /// Hvězdičkové hodnocení bodu zájmu. Každý přihlášený uživatel může dát právě
 /// jedno hodnocení (1–5), které lze kdykoli změnit. Ukazuje průměr + počet
@@ -123,6 +125,9 @@ class _PoiRatingBarState extends ConsumerState<PoiRatingBar> {
   Widget build(BuildContext context) {
     // Hodnota pro vykreslení hvězd: moje hodnocení má přednost, jinak průměr.
     final shown = (_mine ?? _avg ?? 0).toDouble();
+    if (MgV2.on(context)) {
+      return PoiRatingV2(shown: shown, avg: _avg, count: _count, mine: _mine, busy: _busy, onRate: _rate);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

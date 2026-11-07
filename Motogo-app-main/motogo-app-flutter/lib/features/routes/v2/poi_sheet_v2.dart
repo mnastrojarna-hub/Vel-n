@@ -7,6 +7,7 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
+import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_sheet.dart';
 import 'poi_cat_icon_v2.dart';
 
@@ -77,21 +78,58 @@ class PoiSheetCounterV2 extends StatelessWidget {
       );
 }
 
-/// "Přidat do mé cesty" / "Odebrat z mé cesty" — the same toggle.
+/// "Přidat do mé cesty" / "Odebrat z mé cesty" — the same toggle. Not yet
+/// added = the sheet's one primary: rank CTA in a dark dock (board TrasyHub
+/// "Detail místa", V21 T4); added = light ghost "✓ Odebrat z mé cesty".
 class PoiTripButtonV2 extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   const PoiTripButtonV2({super.key, required this.selected, required this.onTap});
 
+  /// Height the sheet content keeps free under its last line.
+  static const double inset = 92;
+
   @override
   Widget build(BuildContext context) {
     final label = t(context).tr(selected ? 'poiRemoveFromTrip' : 'poiAddToTrip');
-    return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), boxShadow: MgShadows.sticky),
-      child: selected
-          ? MgBtnGhostLight(label: label, icon: MgIcons.checkCircle, onTap: onTap, height: 52)
-          : MgBtnInk(label: label, icon: MgIcons.pinPlus, neonLabel: true, onTap: onTap),
+    if (selected) {
+      return DecoratedBox(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), boxShadow: MgShadows.sticky),
+        child: MgBtnGhostLight(label: label, icon: MgIcons.checkCircle, onTap: onTap, height: 52),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        gradient: MgGradients.dark,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: MgShadows.sticky,
+      ),
+      child: MgCta(label: label, leadingIcon: MgIcons.pinPlus, onTap: onTap),
     );
+  }
+}
+
+/// ‹ › 44 discs of the sibling swipe (board "1 / 12 ‹ ›") — the same `_go`
+/// as the swipe; disabled at the ends.
+class PoiSheetNavV2 extends StatelessWidget {
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+  const PoiSheetNavV2({super.key, required this.onPrev, required this.onNext});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    Widget disc(String icon, VoidCallback? tap, String label) => Opacity(
+          opacity: tap == null ? 0.45 : 1,
+          child: MgIconButton(icon: icon, onTap: tap, semanticLabel: label, style: MgIconButtonStyle.photo),
+        );
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      disc(MgIcons.chevronLeft, onPrev, tr.tr('v2RtPrev')),
+      const SizedBox(width: 8),
+      disc(MgIcons.chevronRight, onNext, tr.tr('v2RtNext')),
+      const SizedBox(width: 8),
+    ]);
   }
 }
 

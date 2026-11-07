@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/chrome/mg_status_bar.dart';
@@ -21,7 +22,11 @@ class BuilderTopBarV2 extends StatelessWidget {
   final String title;
   final VoidCallback onBack;
   final bool computing;
-  const BuilderTopBarV2({super.key, required this.title, required this.onBack, required this.computing});
+
+  /// Opened from an existing route → eyebrow "UPRAVIT TRASU" (board), a
+  /// new one keeps "PLÁNOVAČ TRASY" (F-40).
+  final bool editing;
+  const BuilderTopBarV2({super.key, required this.title, required this.onBack, required this.computing, this.editing = false});
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +50,7 @@ class BuilderTopBarV2 extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Text(tr.tr('v2RtBuilderEyebrow').toUpperCase(),
+              Text(tr.tr(editing ? 'v2UxRrEditRoute' : 'v2RtBuilderEyebrow').toUpperCase(),
                   style: MgType.eyebrow.copyWith(color: MgColors.neon)),
               const SizedBox(height: 2),
               Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.onDark)),
@@ -64,6 +69,9 @@ class BuilderTopBarV2 extends StatelessWidget {
                 ),
               ),
             ),
+          // V22 §6.4 (F-30): AI 44 as the last top-bar item.
+          const SizedBox(width: 8),
+          const MgAiDisc(size: 44),
         ]),
       ),
     );
@@ -151,6 +159,7 @@ class BuilderStatsV2 extends StatelessWidget {
         MgSegmented<RouteProfile>(
           value: profile,
           onChanged: onProfile,
+          inkThumb: true,
           segments: [
             MgSegment(value: RouteProfile.recommended, label: tr.tr('routeProfileRecommended')),
             MgSegment(value: RouteProfile.fastest, label: tr.tr('routeProfileFastest')),
@@ -298,7 +307,8 @@ class BuilderDockV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    Widget ghost({required String icon, String? label, required String sem, required VoidCallback onTap}) => Semantics(
+    // F-28 (V21 T12): icon 20 above its label 10.5/800 — no guessing.
+    Widget ghost({required String icon, required String label, required String sem, required VoidCallback onTap}) => Semantics(
           button: true,
           enabled: canSave,
           label: sem,
@@ -312,19 +322,22 @@ class BuilderDockV2 extends StatelessWidget {
             child: Opacity(
               opacity: canSave ? 1 : 0.45,
               child: Container(
-                constraints: const BoxConstraints(minHeight: 56, minWidth: 52),
-                padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 12),
+                width: 68,
+                constraints: const BoxConstraints(minHeight: 56),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 decoration: BoxDecoration(
                   color: MgColors.white(0.08),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: MgColors.white(0.25)),
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-                  MgIcon(icon, size: 22, color: MgColors.onDark),
-                  if (label != null) ...[
-                    const SizedBox(width: 6),
-                    Text(label, style: MgType.ctaCompact.copyWith(color: MgColors.onDark, letterSpacing: 0)),
-                  ],
+                child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+                  MgIcon(icon, size: 20, color: MgColors.onDark),
+                  const SizedBox(height: 3),
+                  MgWordFit(
+                    minScale: 0.7,
+                    alignment: Alignment.center,
+                    child: Text(label, maxLines: 1, softWrap: false, style: MgType.micro.copyWith(fontSize: 10.5, fontWeight: FontWeight.w800, color: MgColors.onDark)),
+                  ),
                 ]),
               ),
             ),
@@ -333,9 +346,9 @@ class BuilderDockV2 extends StatelessWidget {
         );
     return MgDock(
       child: Row(children: [
-        ghost(icon: MgIcons.bookmark, sem: tr.tr('routeSaveTitle'), onTap: onSave),
+        ghost(icon: MgIcons.bookmark, label: tr.tr('save'), sem: tr.tr('routeSaveTitle'), onTap: onSave),
         const SizedBox(width: 8),
-        ghost(icon: MgIcons.send, sem: tr.tr('routeSuggestBtn'), onTap: onSuggest),
+        ghost(icon: MgIcons.send, label: tr.tr('routeSuggestBtn'), sem: tr.tr('routeSuggestBtn'), onTap: onSuggest),
         const SizedBox(width: 8),
         Expanded(
           child: MgFabAvoid(
