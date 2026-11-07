@@ -8,6 +8,7 @@ import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../catalog/moto_model.dart';
@@ -136,17 +137,17 @@ class FunnelBikeCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                Text(priceLabel, style: MgType.micro.copyWith(color: MgColors.neonText)),
+                Text(mgNbsp(priceLabel), style: MgType.micro.copyWith(color: MgColors.neonText)),
                 MgBump(
                   trigger: price,
-                  child: Text(price,
+                  child: Text(mgNbsp(price),
                       style: MgType.tab(MgType.h2.copyWith(
                           fontWeight: FontWeight.w900,
                           color: MgColors.neon,
                           shadows: [Shadow(color: MgColors.neonA(0.35), blurRadius: 14)]))),
                 ),
                 if (listPrice != null)
-                  Text(listPrice!,
+                  Text(mgNbsp(listPrice!),
                       style: MgType.tab(MgType.meta.copyWith(
                           fontWeight: FontWeight.w600,
                           color: MgColors.white(0.62),

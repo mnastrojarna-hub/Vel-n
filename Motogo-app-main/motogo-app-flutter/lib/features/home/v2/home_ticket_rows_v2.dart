@@ -69,7 +69,7 @@ class TkDatesRow extends StatelessWidget {
         const MgIcon(MgIcons.calendarCheck, size: 16, color: MgColors.neon),
         const SizedBox(width: 8),
         Expanded(
-          child: Text('$start → $end · $days ${tr.daysWord(days)}',
+          child: Text(mgNbsp('$start → $end · $days ${tr.daysWord(days)}'),
               style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDark))),
         ),
       ]),
