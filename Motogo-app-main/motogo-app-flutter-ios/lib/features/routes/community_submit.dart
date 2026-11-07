@@ -23,7 +23,6 @@ import '../../core/v2/icons/mg_icon.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
 import '../../core/v2/widgets/mg_inputs.dart';
 import 'v2/routes_menu_v2.dart';
-import 'routes_model.dart' show RouteItem;
 import 'v2/submit_form_v2.dart';
 import 'v2/rides/ride_results_v2.dart';
 
