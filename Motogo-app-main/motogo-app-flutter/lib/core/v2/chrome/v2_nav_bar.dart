@@ -372,6 +372,9 @@ class _NudgeState extends State<_Nudge> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) => AnimatedBuilder(
         animation: _c,
         child: widget.child,
-        builder: (_, child) => Transform.translate(offset: Offset(0, -3 * math.sin(math.pi * _c.value)), child: child),
+        builder: (_, child) => Transform.translate(
+          offset: Offset(0, _c.isAnimating ? -3 * math.sin(math.pi * _c.value) : 0),
+          child: child,
+        ),
       );
 }

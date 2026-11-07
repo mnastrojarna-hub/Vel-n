@@ -43,6 +43,9 @@ void main() {
   testWidgets('coach: shown once, ✕ hides it for good (also after a restart)', (tester) async {
     await pumpShellV2(tester, '/');
     await tester.pump(const Duration(milliseconds: 600));
+    expect(find.text(_coach), findsNothing, reason: 'never together with the first paint');
+    await tester.pump(MgAiCoach.delay);
+    await tester.pump();
     expect(find.text(_coach), findsOneWidget);
     final close = find.descendant(of: find.byType(MgAiCoachBubble), matching: find.bySemanticsLabel('Zavřít'));
     await tester.tap(close.evaluate().isEmpty ? find.text(_coach) : close);
@@ -51,13 +54,13 @@ void main() {
     expect((await SharedPreferences.getInstance()).getBool(MgAiCoach.prefKey), isTrue);
     MgAiCoach.debugReset();
     await pumpShellV2(tester, '/', prefs: const {MgAiCoach.prefKey: true});
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 1600));
     expect(find.text(_coach), findsNothing);
   });
 
   testWidgets('coach never on routes where the AI button is hidden', (tester) async {
     await pumpShellV2(tester, '/sos');
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 1600));
     expect(find.text(_coach), findsNothing);
   });
 

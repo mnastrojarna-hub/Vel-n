@@ -71,7 +71,8 @@ class MgSheetFrame extends StatefulWidget {
   final bool scrollable;
   final EdgeInsetsGeometry padding;
 
-  /// null = auto: on inside a `ModalBottomSheetRoute` with `enableDrag`.
+  /// null = auto: on inside a dismissible `ModalBottomSheetRoute` with
+  /// `enableDrag` (non-dismissible sheets ignore body pulls, design G3).
   final bool? dragToDismiss;
 
   const MgSheetFrame({
@@ -116,7 +117,7 @@ class _MgSheetFrameState extends State<MgSheetFrame> with SingleTickerProviderSt
   bool _dragOn(BuildContext context) {
     if (widget.dragToDismiss != null) return widget.dragToDismiss!;
     final r = ModalRoute.of(context);
-    return r is ModalBottomSheetRoute && r.enableDrag;
+    return r is ModalBottomSheetRoute && r.enableDrag && r.isDismissible;
   }
 
   void _springBack() {
