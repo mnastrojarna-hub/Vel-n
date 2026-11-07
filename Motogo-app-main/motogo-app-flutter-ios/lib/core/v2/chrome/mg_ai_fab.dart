@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -165,11 +167,16 @@ class _MgAiFabState extends State<MgAiFab> {
   bool _coachWanted = false;
   bool _coachBlocked = false;
 
+  Timer? _coachTimer;
+
   @override
   void initState() {
     super.initState();
     MgAiCoach.seen().then((seen) {
-      if (!seen && mounted) setState(() => _coachWanted = true);
+      if (seen || !mounted) return;
+      _coachTimer = Timer(MgAiCoach.delay, () {
+        if (mounted) setState(() => _coachWanted = true);
+      });
     });
   }
 
@@ -201,6 +208,7 @@ class _MgAiFabState extends State<MgAiFab> {
 
   @override
   void dispose() {
+    _coachTimer?.cancel();
     _chrome?.removeListener(_schedule);
     _chrome?.scrollTick.removeListener(_schedule);
     super.dispose();
@@ -228,8 +236,12 @@ class _MgAiFabState extends State<MgAiFab> {
     var blocked = false;
     final cb = _coachKey.currentContext?.findRenderObject();
     if (cb is RenderBox && cb.attached && cb.hasSize) {
-      final r = (cb.localToGlobal(Offset.zero) & cb.size).translate(0, -lift);
-      blocked = zones.any((z) => (z.$2 == MgAvoidKind.cta || z.$2 == MgAvoidKind.sos) && z.$1.overlaps(r));
+      // The bubble is already shifted by the lift applied now; move it to
+      // where the new lift will put it.
+      final applied = _state == MgFabState.lift ? _lift : 0.0;
+      final r = (cb.localToGlobal(Offset.zero) & cb.size).translate(0, applied - lift);
+      // Never over a CTA, SOS or key text (keep); tap targets are fine.
+      blocked = zones.any((z) => z.$2 != MgAvoidKind.tap && z.$1.overlaps(r));
     }
     if (next != _state || lift != _lift || blocked != _coachBlocked) {
       setState(() {

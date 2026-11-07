@@ -12,6 +12,9 @@ import '../tokens/mg_type.dart';
 /// (shared_preferences [prefKey]).
 abstract final class MgAiCoach {
   static const prefKey = 'mg_v2_ai_coach_seen';
+
+  /// The bubble comes after the first screen has settled, never with it.
+  static const delay = Duration(milliseconds: 1200);
   static bool? _seen;
 
   /// Whether the bubble was already dismissed (cached for the process).
