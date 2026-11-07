@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../motion/mg_pages.dart';
 import 'mg_colors.dart';
 import 'mg_space.dart';
 import 'mg_type.dart';
 
 /// Theme overlay applied on top of the app theme while the v2 look is ON
 /// (main.dart integration). It changes ONLY the shapes of snackbars, dialogs,
-/// bottom sheets and progress indicators, so snackbars / dialogs raised by
+/// bottom sheets and progress indicators (+ the push transitions:
+/// `MgPageTransitions`), so snackbars / dialogs raised by
 /// unchanged logic code get the v2 look; buttons of old screens keep theirs.
 /// Old text fields / selects inside v2 flows get the §2.1 `lineInput` look
 /// (white fill, 1.5 px `#7C958A`, focus 2 px `#0D6E0D`, error `#B42318`, r12)
@@ -53,6 +55,7 @@ abstract final class MgThemeV2 {
         surfaceTintColor: Colors.transparent,
       ),
       progressIndicatorTheme: base.progressIndicatorTheme.copyWith(color: MgColors.neon),
+      pageTransitionsTheme: MgPageTransitions.theme(),
       inputDecorationTheme: _inputs(base),
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: MgColors.ink,

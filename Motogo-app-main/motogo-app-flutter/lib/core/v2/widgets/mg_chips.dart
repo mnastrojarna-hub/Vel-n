@@ -80,12 +80,18 @@ class MgChoiceChip extends StatelessWidget {
 }
 
 /// Filter chip on light: white + line, optional count in a well pill.
+/// Look of [MgFilterChip]: [chip] = today's filter pill; [tab] = sub-tab
+/// pill (Moje): selected `#0E2A1C` with white 13/800 and a neon count,
+/// unselected on the well.
+enum MgFilterChipStyle { chip, tab }
+
 class MgFilterChip extends StatelessWidget {
   final String label;
   final int? count;
   final bool selected;
   final VoidCallback? onTap;
   final String? icon;
+  final MgFilterChipStyle style;
   const MgFilterChip({
     super.key,
     required this.label,
@@ -93,10 +99,48 @@ class MgFilterChip extends StatelessWidget {
     this.count,
     this.selected = false,
     this.icon,
+    this.style = MgFilterChipStyle.chip,
   });
+
+  Widget _tab(BuildContext context) {
+    final fg = selected ? MgColors.onDark : MgColors.ink;
+    return Container(
+      constraints: const BoxConstraints(minHeight: MgSize.chip),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: selected ? MgColors.panel : MgColors.well,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: selected ? MgColors.panel : MgColors.line),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (icon != null) ...[MgIcon(icon!, size: 16, color: selected ? MgColors.neon : MgColors.link), const SizedBox(width: 6)],
+        Flexible(
+          child: Text(label, style: MgType.small.copyWith(fontSize: 13, fontWeight: FontWeight.w800, color: fg)),
+        ),
+        if (count != null) ...[
+          const SizedBox(width: 6),
+          Text('$count',
+              maxLines: 1,
+              softWrap: false,
+              style: MgType.tab(MgType.small.copyWith(
+                  fontSize: 12, fontWeight: FontWeight.w800, color: selected ? MgColors.neon : MgColors.link))),
+        ],
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (style == MgFilterChipStyle.tab) {
+      return Semantics(
+        button: true,
+        selected: selected,
+        label: count == null ? label : '$label, $count',
+        excludeSemantics: true,
+        onTap: onTap,
+        child: MgPress(onTap: onTap, child: _tab(context)),
+      );
+    }
     return Semantics(
       button: true,
       selected: selected,

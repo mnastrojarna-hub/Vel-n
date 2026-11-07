@@ -70,3 +70,110 @@ class MgSkeletonCard extends StatelessWidget {
     );
   }
 }
+
+/// List-row skeleton in the final row geometry (thumb + [lines] text lines
+/// + optional [trailing] block of that width) — no jump when data arrives.
+class MgSkeletonRow extends StatelessWidget {
+  final double thumb;
+  final double thumbRadius;
+  final int lines;
+  final bool dark;
+  final double? trailing;
+  const MgSkeletonRow({
+    super.key,
+    this.thumb = 56,
+    this.thumbRadius = 12,
+    this.lines = 2,
+    this.dark = false,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: t(context).loading,
+      child: Row(children: [
+        if (thumb > 0) ...[
+          MgSkeleton(width: thumb, height: thumb, radius: thumbRadius, dark: dark),
+          const SizedBox(width: MgSpace.s12),
+        ],
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            for (var i = 0; i < lines; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              FractionallySizedBox(
+                widthFactor: i == 0 ? 0.7 : 0.45,
+                child: MgSkeleton(height: i == 0 ? 15 : 11, dark: dark),
+              ),
+            ],
+          ]),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: MgSpace.s12),
+          MgSkeleton(width: trailing, height: 20, dark: dark),
+        ],
+      ]),
+    );
+  }
+}
+
+/// Photo-card skeleton (catalog / route / product cards): photo band of
+/// [photoHeight], optional rows of [pills] (their widths), [lines] text
+/// lines and an optional CTA block of [ctaHeight].
+class MgSkeletonPhotoCard extends StatelessWidget {
+  final double photoHeight;
+  final int lines;
+  final bool dark;
+  final double? ctaHeight;
+  final double radius;
+  final List<double> pills;
+  const MgSkeletonPhotoCard({
+    super.key,
+    required this.photoHeight,
+    this.lines = 2,
+    this.dark = false,
+    this.ctaHeight,
+    this.radius = 16,
+    this.pills = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: t(context).loading,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: dark ? MgColors.white(0.04) : MgColors.surface,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: dark ? MgColors.white(0.08) : MgColors.line),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+          MgSkeleton(height: photoHeight, radius: 0, dark: dark),
+          Padding(
+            padding: const EdgeInsets.all(MgSpace.s12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              if (pills.isNotEmpty) ...[
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (final w in pills) MgSkeleton(width: w, height: 24, radius: 999, dark: dark),
+                ]),
+                const SizedBox(height: 10),
+              ],
+              for (var i = 0; i < lines; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                FractionallySizedBox(
+                  widthFactor: i == 0 ? 0.65 : 0.4,
+                  child: MgSkeleton(height: i == 0 ? 16 : 12, dark: dark),
+                ),
+              ],
+              if (ctaHeight != null) ...[
+                const SizedBox(height: MgSpace.s12),
+                MgSkeleton(height: ctaHeight!, radius: 14, dark: dark),
+              ],
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}

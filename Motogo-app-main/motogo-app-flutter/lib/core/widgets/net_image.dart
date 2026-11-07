@@ -42,6 +42,10 @@ class MgImage extends StatelessWidget {
   final Widget? placeholder;
   final Widget? error;
 
+  /// Prolnutí po načtení (v2: 0 při omezeném pohybu).
+  final Duration fadeIn;
+  final Alignment alignment;
+
   const MgImage(
     this.url, {
     super.key,
@@ -51,6 +55,8 @@ class MgImage extends StatelessWidget {
     this.height,
     this.placeholder,
     this.error,
+    this.fadeIn = const Duration(milliseconds: 150),
+    this.alignment = Alignment.center,
   });
 
   @override
@@ -67,7 +73,8 @@ class MgImage extends StatelessWidget {
           height: height,
           fit: fit,
           memCacheWidth: memW,
-          fadeInDuration: const Duration(milliseconds: 150),
+          fadeInDuration: fadeIn,
+          alignment: alignment,
           placeholder: (_, __) => ph,
           errorWidget: (_, __, ___) => err,
         );
@@ -79,7 +86,8 @@ class MgImage extends StatelessWidget {
       height: height,
       fit: fit,
       memCacheWidth: memW,
-      fadeInDuration: const Duration(milliseconds: 150),
+      fadeInDuration: fadeIn,
+      alignment: alignment,
       placeholder: (_, __) => ph,
       // Transformace nedostupná/selhala → plynulý fallback na originál.
       errorWidget: (_, __, ___) => original(),

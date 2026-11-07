@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../i18n/i18n_provider.dart';
 import '../icons/mg_icon.dart';
+import '../motion/mg_anim_loops.dart';
 import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
@@ -47,7 +48,7 @@ class MgTopBanner extends StatelessWidget {
           child: Row(children: [
             const MgIcon(MgIcons.info, size: 16, color: MgColors.neon),
             const SizedBox(width: 8),
-            Expanded(child: _Marquee(text: text.trim())),
+            Expanded(child: RepaintBoundary(child: _Marquee(text: text.trim()))),
           ]),
         ),
       ),
@@ -65,38 +66,14 @@ class MgTopBanner extends StatelessWidget {
   }
 }
 
-class _Marquee extends StatefulWidget {
+/// Slow marquee driven by the shared loop clock: paused by `TickerMode`
+/// and while scrolled off-screen (design M6), static under reduced motion.
+class _Marquee extends StatelessWidget {
   final String text;
   const _Marquee({required this.text});
 
-  @override
-  State<_Marquee> createState() => _MarqueeState();
-}
-
-class _MarqueeState extends State<_Marquee> with SingleTickerProviderStateMixin {
   static const double _gap = 48;
   static const double _speed = 40; // px / s — calm, readable
-  late final AnimationController _ctrl = AnimationController(vsync: this);
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _run(bool on, double distance) {
-    if (!on) {
-      if (_ctrl.isAnimating) _ctrl.stop();
-      return;
-    }
-    final d = Duration(milliseconds: (distance / _speed * 1000).round());
-    if (_ctrl.duration != d) {
-      _ctrl.duration = d;
-      _ctrl.repeat();
-    } else if (!_ctrl.isAnimating) {
-      _ctrl.repeat();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +81,7 @@ class _MarqueeState extends State<_Marquee> with SingleTickerProviderStateMixin 
     final reduced = MgMotion.reduced(context);
     return LayoutBuilder(builder: (context, c) {
       final tp = TextPainter(
-        text: TextSpan(text: widget.text, style: style),
+        text: TextSpan(text: text, style: style),
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
         maxLines: 1,
@@ -112,24 +89,28 @@ class _MarqueeState extends State<_Marquee> with SingleTickerProviderStateMixin 
       final w = tp.width;
       tp.dispose();
       final moves = !reduced && w > c.maxWidth;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _run(moves, w + _gap);
-      });
-      final single = Text(widget.text, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: style);
+      final single = Text(text, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: style);
       if (!moves) return Align(alignment: AlignmentDirectional.centerStart, child: single);
       final row = Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(widget.text, maxLines: 1, softWrap: false, style: style),
+        Text(text, maxLines: 1, softWrap: false, style: style),
         const SizedBox(width: _gap),
-        Text(widget.text, maxLines: 1, softWrap: false, style: style),
+        Text(text, maxLines: 1, softWrap: false, style: style),
       ]);
+      final loop = w + _gap;
       return ClipRect(
         child: OverflowBox(
           maxWidth: double.infinity,
           alignment: AlignmentDirectional.centerStart,
-          child: AnimatedBuilder(
-            animation: _ctrl,
-            builder: (_, child) => Transform.translate(offset: Offset(-_ctrl.value * (w + _gap), 0), child: child),
-            child: row,
+          child: MgLoopClock(
+            active: true,
+            builder: (_, t) => t == null
+                ? row
+                : ValueListenableBuilder<double>(
+                    valueListenable: t,
+                    child: row,
+                    builder: (_, sec, child) =>
+                        Transform.translate(offset: Offset(-((sec * _speed) % loop), 0), child: child),
+                  ),
           ),
         ),
       );

@@ -117,6 +117,20 @@ import 'translations_ext_57_v2_rides_g.dart';
 import 'translations_ext_58_v2_fix_a.dart';
 import 'translations_ext_58_v2_fix_b.dart';
 import 'translations_ext_59_v2_late_info.dart';
+import 'translations_ext_60_v2_ux_core_a.dart';
+import 'translations_ext_60_v2_ux_core_b.dart';
+import 'translations_ext_60_v2_ux_shell_home_a.dart';
+import 'translations_ext_60_v2_ux_shell_home_b.dart';
+import 'translations_ext_60_v2_ux_catalog_booking_a.dart';
+import 'translations_ext_60_v2_ux_catalog_booking_b.dart';
+import 'translations_ext_60_v2_ux_res_profile_a.dart';
+import 'translations_ext_60_v2_ux_res_profile_b.dart';
+import 'translations_ext_60_v2_ux_pay_shop_a.dart';
+import 'translations_ext_60_v2_ux_pay_shop_b.dart';
+import 'translations_ext_60_v2_ux_auth_sos_misc_a.dart';
+import 'translations_ext_60_v2_ux_auth_sos_misc_b.dart';
+import 'translations_ext_60_v2_ux_routes_rides_a.dart';
+import 'translations_ext_60_v2_ux_routes_rides_b.dart';
 import 'translations_ext_58_v2_booking_r2.dart';
 import 'translations_ext_58_v2_addr_sheet.dart';
 import 'translations_ext_55_v2_profile_docscan.dart';
@@ -240,6 +254,20 @@ final translations = _mergeAll([
   translationsExt58V2FixA,
   translationsExt58V2FixB,
   translationsExt59V2LateInfo,
+  translationsExt60V2UxCoreA,
+  translationsExt60V2UxCoreB,
+  translationsExt60V2UxShellHomeA,
+  translationsExt60V2UxShellHomeB,
+  translationsExt60V2UxCatalogBookingA,
+  translationsExt60V2UxCatalogBookingB,
+  translationsExt60V2UxResProfileA,
+  translationsExt60V2UxResProfileB,
+  translationsExt60V2UxPayShopA,
+  translationsExt60V2UxPayShopB,
+  translationsExt60V2UxAuthSosMiscA,
+  translationsExt60V2UxAuthSosMiscB,
+  translationsExt60V2UxRoutesRidesA,
+  translationsExt60V2UxRoutesRidesB,
   translationsExt58V2BookingR2,
   translationsExt58V2AddrSheet,
   translationsExt55V2ProfileDocscan,
