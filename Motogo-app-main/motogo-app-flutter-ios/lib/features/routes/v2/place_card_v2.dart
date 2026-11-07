@@ -5,6 +5,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_text_fit.dart';
@@ -79,7 +80,7 @@ class PlaceCardV2 extends StatelessWidget {
     final sem = [
       name,
       subtitle,
-      if (rated) '${(poi.avgRating ?? 0).toStringAsFixed(1)} (${poi.ratingCount})',
+      if (rated) '${mgRating(poi.avgRating ?? 0, t(context).lang)} (${poi.ratingCount})',
       if (dist != null) dist!,
       if (selected) tr.tr('v2RtSelected'),
     ].join(', ');
@@ -187,7 +188,7 @@ class PlaceCardV2 extends StatelessWidget {
                               Row(mainAxisSize: MainAxisSize.min, children: [
                                 const MgIcon(MgIcons.starFilled, size: 13, color: MgColors.star),
                                 const SizedBox(width: 3),
-                                Text('${(poi.avgRating ?? 0).toStringAsFixed(1)} (${poi.ratingCount})',
+                                Text('${mgRating(poi.avgRating ?? 0, t(context).lang)} (${poi.ratingCount})',
                                     style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
                               ]),
                             if (dist != null)

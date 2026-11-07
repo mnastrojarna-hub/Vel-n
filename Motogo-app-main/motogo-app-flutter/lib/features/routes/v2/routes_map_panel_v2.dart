@@ -7,11 +7,12 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 
-/// Height of the v2 point panel (the map moves its round buttons above it).
-const double kRoutesMapPanelV2Height = 196;
+/// Height of the v2 point panel (the map moves its round buttons above it):
+/// 196 at text scale 1, growing with large text so nothing is cut.
+double routesMapPanelV2Height(BuildContext context) =>
+    196 + 140 * (MediaQuery.textScalerOf(context).scale(1) - 1).clamp(0.0, 1.0);
 
 /// Card extent of the v2 panel (card 240 + gap 10) — snap + scroll-to.
 const double kRoutesMapCardV2Extent = 250;
@@ -49,7 +50,7 @@ class RoutesMapPanelV2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        height: kRoutesMapPanelV2Height,
+        height: routesMapPanelV2Height(context),
         child: DecoratedBox(
           decoration: const BoxDecoration(
             color: MgColors.surface,
@@ -118,9 +119,26 @@ class _Card extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(d.meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.meta))),
                     const Spacer(),
+                    // "Detail ›" (board: chevron after the word), 44 px hit.
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
-                      child: MgBtnText(label: t(context).tr('routesMapDetail'), icon: MgIcons.chevronRight, onTap: d.onOpen),
+                      child: Semantics(
+                        button: true,
+                        label: t(context).tr('routesMapDetail'),
+                        excludeSemantics: true,
+                        child: MgPress(
+                          onTap: d.onOpen,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Text(t(context).tr('routesMapDetail'),
+                                  style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
+                              const SizedBox(width: 2),
+                              const MgIcon(MgIcons.chevronRight, size: 16, color: MgColors.link),
+                            ]),
+                          ),
+                        ),
+                      ),
                     ),
                   ]),
                 ),

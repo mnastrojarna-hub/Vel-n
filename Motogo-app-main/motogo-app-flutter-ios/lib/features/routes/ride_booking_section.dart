@@ -8,6 +8,11 @@ import 'ride_live_stats.dart' show rideRidesLabel;
 import 'ride_provider.dart';
 import 'ride_trip.dart';
 import 'ride_trip_card.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import '../../core/v2/tokens/mg_format.dart';
+import '../../core/v2/tokens/mg_type.dart';
+import 'v2/rides/ride_trip_card_v2.dart' show RideBookingHeadV2;
 
 /// Projeté jízdy k jedné výpůjčce — zobrazuje se v detailu rezervace
 /// (historie zákazníka). Jízdy vznikly automaticky během půjčení, když měl
@@ -33,6 +38,10 @@ class BookingRidesSection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
+        // v2 (F-10): hlavička sekce jako ostatní sekce detailu rezervace.
+        if (MgV2.on(context))
+          RideBookingHeadV2(title: tr.tr('rideBookingSection'))
+        else
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
@@ -51,15 +60,17 @@ class BookingRidesSection extends ConsumerWidget {
             child: Text(
               tr.trArgs('rpBookingTotal', {
                 'rides': rideRidesLabel(rides.length, tr),
-                'km': rideKm(km),
+                'km': MgV2.on(context) ? mgKm(km, tr.lang) : rideKm(km),
                 'time': rideDuration((moving / 60).round()),
               }),
-              style: const TextStyle(
-                fontSize: MotoGoTypo.sizeBase,
-                fontWeight: MotoGoTypo.w800,
-                color: MotoGoColors.g600,
-                height: 1.35,
-              ),
+              style: MgV2.on(context)
+                  ? MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.body2)
+                  : const TextStyle(
+                      fontSize: MotoGoTypo.sizeBase,
+                      fontWeight: MotoGoTypo.w800,
+                      color: MotoGoColors.g600,
+                      height: 1.35,
+                    ),
             ),
           ),
         for (final i in groupRides(rides))

@@ -6,10 +6,11 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
-import '../../ride_card.dart' show rideDuration, rideKm, rideSpeed;
+import '../../ride_card.dart' show rideDuration, rideSpeed;
 import '../../ride_model.dart';
 import '../../ride_recorder.dart';
 import '../../ride_trip.dart' show rideDateRange;
@@ -51,7 +52,7 @@ class RideCardV2 extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Semantics(
         button: true,
-        label: '$name, $range, ${rideKm(ride.distanceKm)}${days >= 2 ? ', ${recDaysV2(tr, days)}' : ''}',
+        label: '$name, $range, ${mgKm(ride.distanceKm, tr.lang)}${days >= 2 ? ', ${recDaysV2(tr, days)}' : ''}',
         child: MgPress(
           scale: 0.98,
           onTap: open,
@@ -90,7 +91,7 @@ class RideCardV2 extends StatelessWidget {
                   Text(range, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
                   const SizedBox(height: 6),
                   Wrap(spacing: 10, runSpacing: 4, children: [
-                    RideMetaV2(MgIcons.ruler, rideKm(ride.distanceKm), strong: true),
+                    RideMetaV2(MgIcons.ruler, mgKm(ride.distanceKm, tr.lang), strong: true),
                     // Čas v sedle — ne celkový čas (u vícedenní cesty i s nocemi).
                     if (ride.movingSec > 0)
                       RideMetaV2(MgIcons.ride, tr.trArgs('v2RpChipRiding', {'time': rideDuration(ride.movingMin)}))

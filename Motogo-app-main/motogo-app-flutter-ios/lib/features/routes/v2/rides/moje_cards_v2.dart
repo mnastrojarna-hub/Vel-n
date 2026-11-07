@@ -4,6 +4,7 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
@@ -60,7 +61,7 @@ class SavedRouteCardV2 extends StatelessWidget {
     final tr = t(context);
     final r = route;
     final meta = [
-      if (r.distanceKm != null) '${r.distanceKm!.toStringAsFixed(0)} km',
+      if (r.distanceKm != null) '${mgNum(r.distanceKm!, t(context).lang)}\u00A0km',
       if (r.durationMin != null) rtDur(r.durationMin!),
       '${r.waypoints.length}× ${tr.tr('routeBuilderStop').toLowerCase()}',
       if (r.createdAt != null) rideDate(r.createdAt!),
@@ -137,9 +138,24 @@ class VisitedPlaceCardV2 extends StatelessWidget {
           child: SizedBox(
             width: 92,
             height: 92,
-            child: p.imageUrl != null
-                ? RouteImage(url: p.imageUrl!, targetWidth: 300, placeholder: fallback, error: fallback)
-                : fallback(context),
+            child: Stack(fit: StackFit.expand, children: [
+              p.imageUrl != null
+                  ? RouteImage(url: p.imageUrl!, targetWidth: 300, placeholder: fallback, error: fallback)
+                  : fallback(context),
+              // F-38 (board): "2×" visit badge on the photo.
+              if (p.visitCount > 1)
+                Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: ExcludeSemantics(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(color: MgColors.neon, borderRadius: BorderRadius.circular(999)),
+                      child: Text('${p.visitCount}×', style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon))),
+                    ),
+                  ),
+                ),
+            ]),
           ),
         ),
         const SizedBox(width: 12),

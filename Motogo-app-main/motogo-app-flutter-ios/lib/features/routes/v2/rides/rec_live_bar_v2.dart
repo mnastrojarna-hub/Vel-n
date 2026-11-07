@@ -36,11 +36,12 @@ class RecLiveBarV2 extends StatelessWidget {
       // Když na stav nezbude aspoň ~120 px (úzký telefon, velké písmo),
       // ovládání jde do druhého řádku a text má celou šířku.
       final ts = MediaQuery.textScalerOf(context).scale(1);
-      final avail = c.maxWidth - 44 - 50 - (rec.canStop ? 50 : 0);
+      // F-23: „■ Ukončit" vždy s popiskem (destruktivní akce nesmí být
+      // tajemný čtvereček) — vedle textu, když po 96px tlačítku zbyde na
+      // stav aspoň ~120 px, jinak ovládání do druhého řádku (jako na 320).
+      final avail = c.maxWidth - 44 - 50 - (rec.canStop ? 96 : 0);
       final stacked = avail < 120 * ts;
-      // „Ukončit" s popiskem v druhém řádku, nebo vedle textu na lištách od
-      // 300 dp při běžném písmu (jinak jen 44px ikona, popisek v sémantice).
-      final stopLabel = rec.canStop && (stacked || (c.maxWidth >= 300 && ts <= 1.05));
+      final stopLabel = rec.canStop;
       final text = Semantics(
         button: onOpen != null,
         liveRegion: true,

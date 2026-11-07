@@ -385,8 +385,12 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
                       color: MotoGoColors.green, size: 20),
                 ),
               ),
-            // v2 (F-30, V22 §6.4): AI 44 jako poslední prvek horní lišty.
-            if (MgV2.on(context)) ...[const SizedBox(width: 4), const MgAiDisc(size: 44)],
+            // v2 (F-30, V22 §6.4): AI 44 jako poslední prvek horní lišty —
+            // od 400 dp (užší telefon: titulek by se dělil uprostřed slova).
+            if (MgV2.on(context) && MediaQuery.sizeOf(context).width >= 400) ...[
+              const SizedBox(width: 4),
+              const MgAiDisc(size: 44),
+            ],
           ],
         ),
       ),

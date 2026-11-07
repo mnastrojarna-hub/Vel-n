@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/chrome/mg_status_bar.dart';
@@ -21,7 +22,12 @@ class BuilderTopBarV2 extends StatelessWidget {
   final String title;
   final VoidCallback onBack;
   final bool computing;
-  const BuilderTopBarV2({super.key, required this.title, required this.onBack, required this.computing});
+
+  /// Opened from an existing route → eyebrow "UPRAVIT TRASU" (board), a
+  /// new one keeps "PLÁNOVAČ TRASY" (F-40).
+  final bool editing;
+  const BuilderTopBarV2(
+      {super.key, required this.title, required this.onBack, required this.computing, this.editing = false});
 
   @override
   Widget build(BuildContext context) {
@@ -45,10 +51,11 @@ class BuilderTopBarV2 extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-              Text(tr.tr('v2RtBuilderEyebrow').toUpperCase(),
+              Text(tr.tr(editing ? 'v2UxRrEditRoute' : 'v2RtBuilderEyebrow').toUpperCase(),
                   style: MgType.eyebrow.copyWith(color: MgColors.neon)),
               const SizedBox(height: 2),
-              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.onDark)),
+              Text(title,
+                  maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.onDark)),
             ]),
           ),
           if (computing)
@@ -57,13 +64,19 @@ class BuilderTopBarV2 extends StatelessWidget {
               child: Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(color: MgColors.nightA(0.8), shape: BoxShape.circle, border: Border.all(color: MgColors.white(0.25))),
+                decoration: BoxDecoration(
+                    color: MgColors.nightA(0.8),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: MgColors.white(0.25))),
                 child: const Padding(
                   padding: EdgeInsets.all(11),
                   child: CircularProgressIndicator(strokeWidth: 2, color: MgColors.neon),
                 ),
               ),
             ),
+          // V22 §6.4 (F-30): AI 44 as the last top-bar item.
+          const SizedBox(width: 8),
+          const MgAiDisc(size: 44),
         ]),
       ),
     );
@@ -110,7 +123,8 @@ class BuilderPinV2 extends StatelessWidget {
           boxShadow: [BoxShadow(color: MgColors.black(0.3), blurRadius: 6, offset: const Offset(0, 2))],
         ),
         child: Center(
-          child: Text('$n', style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.neon, height: 1))),
+          child: Text('$n',
+              style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.neon, height: 1))),
         ),
       );
 }
@@ -122,7 +136,13 @@ class BuilderStatsV2 extends StatelessWidget {
   final String stops;
   final RouteProfile profile;
   final ValueChanged<RouteProfile> onProfile;
-  const BuilderStatsV2({super.key, required this.km, required this.time, required this.stops, required this.profile, required this.onProfile});
+  const BuilderStatsV2(
+      {super.key,
+      required this.km,
+      required this.time,
+      required this.stops,
+      required this.profile,
+      required this.onProfile});
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +171,7 @@ class BuilderStatsV2 extends StatelessWidget {
         MgSegmented<RouteProfile>(
           value: profile,
           onChanged: onProfile,
+          inkThumb: true,
           segments: [
             MgSegment(value: RouteProfile.recommended, label: tr.tr('routeProfileRecommended')),
             MgSegment(value: RouteProfile.fastest, label: tr.tr('routeProfileFastest')),
@@ -175,41 +196,47 @@ class BuilderStopsHeaderV2 extends StatelessWidget {
     // its own line under the title (320 dp, large text, long languages).
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 12, 8),
-      child: Wrap(alignment: WrapAlignment.spaceBetween, crossAxisAlignment: WrapCrossAlignment.center, spacing: 12, runSpacing: 8, children: [
-        Text('${tr.tr('routePoisHeader')} · $count', style: MgType.tab(MgType.section.copyWith(color: MgColors.ink))),
-        Semantics(
-          button: true,
-          label: tr.tr('routeBuilderAddPoi'),
-          excludeSemantics: true,
-          child: MgPress(
-            onTap: onAdd,
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 44, maxWidth: 220),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: MgColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: MgColors.link, width: 1.5),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const MgIcon(MgIcons.pinPlus, size: 18, color: MgColors.link),
-                const SizedBox(width: 6),
-                // „Uit bezienswaardigheden“: wraps at the space; a word wider
-                // than the button shrinks a little instead of splitting.
-                Flexible(
-                  child: MgWordFit(
-                    minScale: 0.75,
-                    child: Text(tr.tr('routeBuilderAddPoi'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
+      child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            Text('${tr.tr('routePoisHeader')} · $count',
+                style: MgType.tab(MgType.section.copyWith(color: MgColors.ink))),
+            Semantics(
+              button: true,
+              label: tr.tr('routeBuilderAddPoi'),
+              excludeSemantics: true,
+              child: MgPress(
+                onTap: onAdd,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 44, maxWidth: 220),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: MgColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: MgColors.link, width: 1.5),
                   ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const MgIcon(MgIcons.pinPlus, size: 18, color: MgColors.link),
+                    const SizedBox(width: 6),
+                    // „Uit bezienswaardigheden“: wraps at the space; a word wider
+                    // than the button shrinks a little instead of splitting.
+                    Flexible(
+                      child: MgWordFit(
+                        minScale: 0.75,
+                        child: Text(tr.tr('routeBuilderAddPoi'),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
+                      ),
+                    ),
+                  ]),
                 ),
-              ]),
+              ),
             ),
-          ),
-        ),
-      ]),
+          ]),
     );
   }
 }
@@ -248,7 +275,8 @@ class BuilderStopTileV2 extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
+            Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
             if (sub != null) Text(sub!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
           ]),
         ),
@@ -270,7 +298,10 @@ class BuilderStopTileV2 extends StatelessWidget {
           child: Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: MgColors.well, borderRadius: BorderRadius.circular(12), border: Border.all(color: MgColors.line)),
+            decoration: BoxDecoration(
+                color: MgColors.well,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: MgColors.line)),
             child: const Center(child: MgIcon(MgIcons.selector, size: 22, color: MgColors.lead)),
           ),
         )),
@@ -298,7 +329,9 @@ class BuilderDockV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    Widget ghost({required String icon, String? label, required String sem, required VoidCallback onTap}) => Semantics(
+    // F-28 (V21 T12): icon 20 above its label 10.5/800 — no guessing.
+    Widget ghost({required String icon, required String? label, required String sem, required VoidCallback onTap}) =>
+        Semantics(
           button: true,
           enabled: canSave,
           label: sem,
@@ -308,41 +341,75 @@ class BuilderDockV2 extends StatelessWidget {
             triggerMode: TooltipTriggerMode.longPress,
             excludeFromSemantics: true,
             child: MgPress(
-            onTap: onTap,
-            child: Opacity(
-              opacity: canSave ? 1 : 0.45,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 56, minWidth: 52),
-                padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 12),
-                decoration: BoxDecoration(
-                  color: MgColors.white(0.08),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: MgColors.white(0.25)),
+              onTap: onTap,
+              child: Opacity(
+                opacity: canSave ? 1 : 0.45,
+                child: Container(
+                  width: label == null ? 52 : 68,
+                  constraints: const BoxConstraints(minHeight: 56),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: MgColors.white(0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: MgColors.white(0.25)),
+                  ),
+                  child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    MgIcon(icon, size: label == null ? 22 : 20, color: MgColors.onDark),
+                    if (label != null) ...[
+                      const SizedBox(height: 3),
+                      MgWordFit(
+                        minScale: 0.6,
+                        alignment: Alignment.center,
+                        child: Text(label,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: MgType.micro
+                                .copyWith(fontSize: 10.5, fontWeight: FontWeight.w800, color: MgColors.onDark)),
+                      ),
+                    ],
+                  ]),
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-                  MgIcon(icon, size: 22, color: MgColors.onDark),
-                  if (label != null) ...[
-                    const SizedBox(width: 6),
-                    Text(label, style: MgType.ctaCompact.copyWith(color: MgColors.onDark, letterSpacing: 0)),
-                  ],
-                ]),
               ),
             ),
           ),
-          ),
         );
     return MgDock(
-      child: Row(children: [
-        ghost(icon: MgIcons.bookmark, sem: tr.tr('routeSaveTitle'), onTap: onSave),
-        const SizedBox(width: 8),
-        ghost(icon: MgIcons.send, sem: tr.tr('routeSuggestBtn'), onTap: onSuggest),
-        const SizedBox(width: 8),
-        Expanded(
-          child: MgFabAvoid(
-            child: MgCta(label: tr.tr('routeBuilderNavigate'), loop: true, enabled: canNav, onTap: onNavigate),
+      child: LayoutBuilder(builder: (context, c) {
+        // Labels under the icons while the CTA keeps ≥ 170 px (× text
+        // scale); else icon-only 52 tiles (labels in semantics / tooltip).
+        final scaler = MediaQuery.textScalerOf(context);
+        final style = DefaultTextStyle.of(context).style.merge(MgType.micro.copyWith(fontSize: 10.5, fontWeight: FontWeight.w800));
+        bool fits(String l) {
+          final tp = TextPainter(text: TextSpan(text: l, style: style), textDirection: Directionality.of(context), textScaler: scaler)
+            ..layout();
+          final w = tp.width;
+          tp.dispose();
+          return w * 0.6 <= 60; // 68 tile − padding, MgWordFit down to .6
+        }
+
+        final labels = c.maxWidth - 2 * 68 - 16 >= 170 * scaler.scale(1) &&
+            fits(tr.tr('save')) &&
+            fits(tr.tr('routeSuggestBtn'));
+        return Row(children: [
+          ghost(
+              icon: MgIcons.bookmark,
+              label: labels ? tr.tr('save') : null,
+              sem: tr.tr('routeSaveTitle'),
+              onTap: onSave),
+          const SizedBox(width: 8),
+          ghost(
+              icon: MgIcons.send,
+              label: labels ? tr.tr('routeSuggestBtn') : null,
+              sem: tr.tr('routeSuggestBtn'),
+              onTap: onSuggest),
+          const SizedBox(width: 8),
+          Expanded(
+            child: MgFabAvoid(
+              child: MgCta(label: tr.tr('routeBuilderNavigate'), loop: true, enabled: canNav, onTap: onNavigate),
+            ),
           ),
-        ),
-      ]),
+        ]);
+      }),
     );
   }
 }

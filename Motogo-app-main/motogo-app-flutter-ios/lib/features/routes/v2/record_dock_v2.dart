@@ -91,6 +91,7 @@ class TrasyRecordDockV2 extends ConsumerWidget {
           child: MgFabAvoid(
             child: MgCta(
               label: tr.tr('v2RtRecShort'),
+              leadingIcon: MgIcons.recordDot,
               loop: true,
               semanticLabel: tr.tr('v2RtRecA11y'),
               onTap: () => toggleManualRide(context, ref, running: false),

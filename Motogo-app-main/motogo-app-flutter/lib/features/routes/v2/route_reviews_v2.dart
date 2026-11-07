@@ -107,7 +107,7 @@ class RtReviewCardV2 extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(author,
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+                maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
           ),
         ]),
         if (txt.isNotEmpty) ...[

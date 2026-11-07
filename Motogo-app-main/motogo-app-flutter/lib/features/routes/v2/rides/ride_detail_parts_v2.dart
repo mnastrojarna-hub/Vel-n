@@ -265,12 +265,12 @@ class RidePagerV2 extends StatelessWidget {
           child: MgIconButton(icon: icon, onTap: tap, semanticLabel: label, style: MgIconButtonStyle.light),
         );
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      disc(MgIcons.chevronLeft, at > 1 ? onPrev : null, tr.tr('v2RtPrev')),
+      disc(MgIcons.chevronLeft, at > 1 ? onPrev : null, tr.tr('v2UxRrPrevRide')),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Text('$at / $of', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
       ),
-      disc(MgIcons.chevronRight, at < of ? onNext : null, tr.tr('v2RtNext')),
+      disc(MgIcons.chevronRight, at < of ? onNext : null, tr.tr('v2UxRrNextRide')),
     ]);
   }
 }

@@ -143,7 +143,7 @@ class NavNextStopPillV2 extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
             decoration: BoxDecoration(
               color: MgColors.surface,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: MgColors.line),
               boxShadow: MgShadows.icon,
             ),
@@ -151,8 +151,8 @@ class NavNextStopPillV2 extends StatelessWidget {
               const MgIcon(MgIcons.pin, size: 16, color: MgColors.link),
               const SizedBox(width: 6),
               Flexible(
-                child: Text(text,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: MgType.tab(MgType.small.copyWith(fontSize: 13, fontWeight: FontWeight.w800, color: MgColors.ink))),
+                // Whole, on 2 lines if needed (never "…" on where to go next).
+                child: Text(text, style: MgType.tab(MgType.small.copyWith(fontSize: 13, fontWeight: FontWeight.w800, color: MgColors.ink))),
               ),
               if (progress != null) ...[
                 const SizedBox(width: 8),

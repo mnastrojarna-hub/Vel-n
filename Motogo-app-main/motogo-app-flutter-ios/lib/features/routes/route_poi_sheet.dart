@@ -12,6 +12,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/poi_sheet_v2.dart';
+import 'v2/rt_photo_viewer_v2.dart';
 
 /// Nadpis sekce v detailu bodu zájmu — výrazný, prominentní.
 Widget _poiSectionTitle(String s) => Padding(
@@ -163,7 +164,7 @@ class _PoiPagerState extends State<_PoiPager> {
               key: ValueKey(poi.id),
               poi: poi,
               lang: widget.lang,
-              bottomInset: widget.onToggleSelect == null ? 0 : 72,
+              bottomInset: widget.onToggleSelect == null ? 0 : (MgV2.on(context) ? PoiTripButtonV2.inset : 72),
               // Číslo zastávky patří jen bodům NA TRASE — volající ho
               // pošle jen odtud. V katalogu míst by z pozice v seznamu
               // vzniklo nesmyslné pořadí („4238").
@@ -191,7 +192,12 @@ class _PoiPagerState extends State<_PoiPager> {
           Positioned(
             top: 8,
             right: 10,
-            child: MgV2.on(context) ? const PoiSheetCloseV2() : const MgSheetClose(overlay: true),
+            child: MgV2.on(context)
+                ? Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (many) PoiSheetNavV2(onPrev: _at > 0 ? () => _go(-1) : null, onNext: _at < _items.length - 1 ? () => _go(1) : null),
+                    const PoiSheetCloseV2(),
+                  ])
+                : const MgSheetClose(overlay: true),
           ),
           if (many)
             Positioned(
@@ -591,6 +597,10 @@ class _AddToTripButton extends StatelessWidget {
 /// Fullscreen prohlížeč fotek s kreditem — sdílený: POI sheet i galerie
 /// v detailu trasy.
 void openPoiImageViewer(BuildContext context, List<String> imgs, int start, String lang) {
+  if (MgV2.on(context)) {
+    showRtPhotoViewerV2(context, urls: imgs, initial: start, credit: (c, i) => _showPhotoCredit(c, imgs[i], lang));
+    return;
+  }
   showDialog(
     context: context,
     barrierColor: Colors.black,

@@ -18,7 +18,7 @@ const double kRoutesMapPickerHeight = 150;
 
 /// Panel height in the current look (v2 sheet is taller, F-13).
 double routesMapPickerHeight(BuildContext context) =>
-    MgV2.on(context) ? kRoutesMapPanelV2Height : kRoutesMapPickerHeight;
+    MgV2.on(context) ? routesMapPanelV2Height(context) : kRoutesMapPickerHeight;
 
 /// Barvy tras na mapě tras — každá trasa vybraného bodu má svou, karta dole
 /// nese stejnou, takže je jasné, která čára je která.

@@ -7,11 +7,10 @@ import '../../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../../core/v2/motion/mg_animated_size.dart';
 import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
-import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
-import '../../ride_live_stats.dart' show rideLiveDuration;
+import '../../ride_live_stats.dart' show rideLiveDuration, rideLiveKm;
 import '../../ride_recorder.dart' show RideRecorderState;
 import 'ride_phase_v2.dart';
 
@@ -122,7 +121,8 @@ class _Live extends StatelessWidget {
         child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Expanded(
             child: _Tile(
-              value: mgKm(rec.liveKm, tr.lang),
+              // Live km keep one decimal under 100 km (the recorder's rule).
+              value: '${rideLiveKm(rec.liveKm, tr.lang)}\u00A0km',
               label: tr.tr('rideStatDistance'),
               style: MgType.tab(MgType.display.copyWith(color: MgColors.neon)),
             ),

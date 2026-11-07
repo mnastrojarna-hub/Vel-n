@@ -31,6 +31,10 @@ import '../../core/widgets/map_tile_errors.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/widgets/mg_v1_pass.dart';
 import 'v2/route_nav_skin_v2.dart';
+import 'v2/nav/nav_hud_v2.dart' show NavMapButtonV2;
+import 'v2/nav/nav_sheets_v2.dart' show navEndDialogV2, navSaveDialogV2;
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/tokens/mg_colors.dart';
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
 /// Mapy.com, živá poloha jezdce, sledování (follow) s otáčením mapy po směru
@@ -1122,7 +1126,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   Future<void> _endRide() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dc) => AlertDialog(
+      builder: (dc) => MgV2.on(dc) ? navEndDialogV2(dc) : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(dc).tr('routeEndConfirmTitle'),
             style: const TextStyle(
@@ -1189,7 +1193,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         text: route.name.isNotEmpty ? route.name : '');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dc) => AlertDialog(
+      builder: (dc) => MgV2.on(dc) ? navSaveDialogV2(dc, nameCtrl) : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(dc).tr('routeSaveTitle'),
             style: const TextStyle(
@@ -1512,6 +1516,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
     final showDoneCard = _routeDone && !_doneCardDismissed;
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final v2 = MgV2.on(context);
 
     return Stack(
       children: [
@@ -1546,15 +1551,17 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
               if (doneGeo.length >= 2)
                 PolylineLayer(
                   polylines: [
-                    Polyline(points: doneGeo, strokeWidth: 3.5, color: MotoGoColors.g400.withValues(alpha: 0.5)),
+                    Polyline(points: doneGeo, strokeWidth: 3.5,
+                        color: v2 ? MgColors.disabled.withValues(alpha: 0.6) : MotoGoColors.g400.withValues(alpha: 0.5)),
                   ],
                 ),
               // Zbývající část — výrazná zelená s jemným tmavým podkladem.
               if (aheadGeo.length >= 2)
                 PolylineLayer(
                   polylines: [
-                    Polyline(points: aheadGeo, strokeWidth: 6, color: MotoGoColors.dark.withValues(alpha: 0.22)),
-                    Polyline(points: aheadGeo, strokeWidth: 4, color: MotoGoColors.greenDark),
+                    Polyline(points: aheadGeo, strokeWidth: 6,
+                        color: v2 ? MgColors.nightA(0.22) : MotoGoColors.dark.withValues(alpha: 0.22)),
+                    Polyline(points: aheadGeo, strokeWidth: 4, color: v2 ? MgColors.link : MotoGoColors.greenDark),
                   ],
                 ),
               MarkerLayer(markers: [
@@ -1780,6 +1787,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
               const SizedBox(height: 8),
               _mapBtn(Icons.remove, () => _zoomBy(-0.8)),
               const SizedBox(height: 14),
+              if (MgV2.on(context))
+                NavMapButtonV2(
+                  icon: MgIcons.target,
+                  label: t(context).tr('v2RtMyLocation'),
+                  ink: _follow,
+                  onTap: _recenter,
+                )
+              else
               FloatingActionButton(
                 heroTag: 'route-nav-recenter',
                 mini: true,
@@ -1835,7 +1850,13 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         ),
       );
 
-  Widget _mapBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+  Widget _mapBtn(IconData icon, VoidCallback onTap) => MgV2.on(context)
+      ? NavMapButtonV2(
+          icon: MgIcons.plus,
+          minus: icon == Icons.remove,
+          label: t(context).tr(icon == Icons.remove ? 'v2UxRrZoomOut' : 'v2UxRrZoomIn'),
+          onTap: onTap)
+      : GestureDetector(
         onTap: onTap,
         child: Container(
           width: 40, height: 40,

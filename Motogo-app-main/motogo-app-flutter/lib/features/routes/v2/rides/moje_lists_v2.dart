@@ -276,7 +276,7 @@ class MojeListsV2 extends StatelessWidget {
                   child: MgRow(
                     icon: MgIcons.map,
                     title: tr.tr('placesMapTitle'),
-                    trailingValue: rtPlural(tr, 'v2RtPlaces', places.length),
+                    sub: rtPlural(tr, 'v2RtPlaces', places.length),
                     chevron: true,
                     onTap: onPlacesMap,
                   ),

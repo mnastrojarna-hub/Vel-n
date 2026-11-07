@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/friendly_error.dart';
 import '../../../../core/i18n/i18n_provider.dart';
+import '../../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../../core/v2/chrome/mg_dock.dart';
 import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
@@ -70,6 +71,7 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
     if (!rec.recording) {
       return MgCta(
         label: tr.tr('v2RideRecStart'),
+        leadingIcon: MgIcons.recordDot,
         loop: !_busy,
         busy: _busy,
         semanticLabel: tr.tr('v2RtRecA11y'),
@@ -132,8 +134,10 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                   Expanded(
                     child: Semantics(
                       header: true,
+                      // The AI disc (F-30) takes 50 px: "Fahrtaufzeichnung"
+                      // scales down instead of splitting.
                       child: MgWordFit(
-                        minScale: 0.75,
+                        minScale: 0.6,
                         child: Text(tr.tr('rideRecordTitle'),
                             maxLines: 2, style: MgType.section.copyWith(color: MgColors.onDark)),
                       ),
@@ -144,6 +148,9 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                     semanticLabel: tr.tr('v2RideRecInfoA11y'),
                     onTap: () => setState(() => _hint = !_hint),
                   ),
+                  // V22 §6.4 (F-30): AI 44 as the last top-bar item.
+                  const SizedBox(width: 6),
+                  const MgAiDisc(size: 44),
                 ]),
               ),
               Expanded(

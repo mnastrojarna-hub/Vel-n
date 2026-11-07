@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
-import '../../ride_card.dart' show rideDateTime, rideDuration, rideKm, rideSpeed;
+import '../../ride_card.dart' show rideDateTime, rideDuration, rideSpeed;
 import '../../ride_model.dart';
 import 'ride_phase_v2.dart' show recDaysV2, recRidesV2;
 import 'ride_track_sketch_v2.dart' show kRidePauseLink;
@@ -36,11 +37,11 @@ class RideStatsCardV2 extends StatelessWidget {
     final nDays = days ?? r.days;
     final pauses = r.pauseCount;
     final stats = <_Stat>[
-      (MgIcons.ruler, rideKm(r.distanceKm), tr.tr('rideStatDistance')),
+      (MgIcons.ruler, mgKm(r.distanceKm, tr.lang), tr.tr('rideStatDistance')),
       (MgIcons.ride, r.movingSec > 0 ? rideDuration(r.movingMin) : '—', tr.tr('v2RpStatMoving')),
       (MgIcons.speed, rideSpeed(r.avgSpeedKmh ?? r.avgOverallKmh), tr.tr('rideStatAvg')),
       (MgIcons.gauge, rideSpeed(r.maxSpeedKmh), tr.tr('rideStatMax')),
-      (MgIcons.up, r.elevationGainM > 0 ? '${r.elevationGainM} m' : '—', tr.tr('rideStatClimb')),
+      (MgIcons.up, r.elevationGainM > 0 ? mgMeters(r.elevationGainM, tr.lang) : '—', tr.tr('rideStatClimb')),
       (MgIcons.clock, r.totalMin > 0 ? rideDuration(r.totalMin) : '—', tr.tr(v2 ? 'v2RpStatOnRoad' : 'rideStatDuration')),
       (MgIcons.parking, r.idleSec > 0 ? rideDuration(r.idleMin) : '—', tr.tr(v2 ? 'v2RpStatIdle' : 'rideStatIdle')),
       if (r.pauseSec > 0)

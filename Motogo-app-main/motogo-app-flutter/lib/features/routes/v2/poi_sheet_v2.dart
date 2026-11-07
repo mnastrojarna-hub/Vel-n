@@ -125,9 +125,9 @@ class PoiSheetNavV2 extends StatelessWidget {
           child: MgIconButton(icon: icon, onTap: tap, semanticLabel: label, style: MgIconButtonStyle.photo),
         );
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      disc(MgIcons.chevronLeft, onPrev, tr.tr('v2RtPrev')),
+      disc(MgIcons.chevronLeft, onPrev, tr.tr('v2UxRrPrevPlace')),
       const SizedBox(width: 8),
-      disc(MgIcons.chevronRight, onNext, tr.tr('v2RtNext')),
+      disc(MgIcons.chevronRight, onNext, tr.tr('v2UxRrNextPlace')),
       const SizedBox(width: 8),
     ]);
   }

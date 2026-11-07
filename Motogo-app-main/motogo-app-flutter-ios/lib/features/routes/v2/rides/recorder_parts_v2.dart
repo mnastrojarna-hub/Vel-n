@@ -14,12 +14,15 @@ import '../../ride_live_stats.dart' show rideLiveDuration, rideLiveKm;
 import '../../ride_recorder.dart' show RideRecorderState;
 import 'ride_phase_v2.dart';
 
-/// The recorder's live card (DESIGN_V22 §4.2 D, dark) by phase (SPEC §9.2):
-/// NAHRÁVÁM (red ping) / ČEKÁM NA ROZJEZD (neon ring) / STOJÍŠ · AUTO-PAUZA
-/// or POZASTAVENO (static ❚❚, "od HH:MM") / ZPĚT NA STARTU · GPS VYPNUTÉ
-/// (guards) / POLOHA NEDOSTUPNÁ (warn); one sentence of
-/// what is happening; chips km · v sedle · Ø (≥ 5 min) · N. den (≥ 2) ·
-/// mode · GPS. Idle: "Připraveno" + the manual-start hint.
+/// The recorder's live card (DESIGN_V22 §4.2 D, board Zazitky "Záznam
+/// jízdy · obrazovka", dark) by phase (SPEC §9.2). Live: phase disc 56
+/// inline with the status (NAHRÁVÁM red ping / ČEKÁM NA ROZJEZD / STOJÍŠ ·
+/// AUTO-PAUZA or POZASTAVENO / guards / POLOHA NEDOSTUPNÁ) + one sentence
+/// and "od HH:MM"; then the numbers a rider reads at arm's length (F-04):
+/// time in the saddle 48/900 white tabular (h + min — values come per
+/// batch, ticking seconds would lie), distance 32/900 neon, Ø 20/800 (≥ 5
+/// min); chips GPS · mode · day · "od HH:MM · start". No count-up (spec).
+/// Idle: "Připraveno" + the manual-start hint.
 class RecorderLiveCardV2 extends StatelessWidget {
   final RideRecorderState rec;
   const RecorderLiveCardV2({super.key, required this.rec});
@@ -40,7 +43,7 @@ class RecorderLiveCardV2 extends StatelessWidget {
       liveRegion: true,
       container: true,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
+        padding: EdgeInsets.fromLTRB(16, live ? 18 : 24, 16, 20),
         decoration: BoxDecoration(
           gradient: const RadialGradient(
             center: Alignment.topRight,
@@ -52,58 +55,132 @@ class RecorderLiveCardV2 extends StatelessWidget {
           border: Border.all(color: edge, width: live ? 1.5 : 1),
           boxShadow: MgShadows.dark,
         ),
-        child: Column(children: [
-          _Disc(tone: tone),
+        child: live ? _Live(rec: rec, ph: ph, tone: tone) : Column(children: [
+          const _Disc(tone: null),
           const SizedBox(height: 14),
-          // Stav celý, nikdy „ENREGISTREME|NT": nejdřív zmenšit.
           MgWordFit(
             minScale: 0.6,
             alignment: Alignment.center,
-            child: Text(live ? ph.status : tr.tr('v2RideRecReady'),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                style: MgType.h2.copyWith(color: MgColors.onDark, letterSpacing: live ? 1 : 0)),
+            child: Text(tr.tr('v2RideRecReady'),
+                textAlign: TextAlign.center, maxLines: 2, style: MgType.h2.copyWith(color: MgColors.onDark)),
           ),
           const SizedBox(height: 6),
-          if (live) ...[
-            MgWordFit(
-              minScale: 0.85,
-              alignment: Alignment.center,
-              child: Text(ph.title,
-                  textAlign: TextAlign.center,
-                  style: MgType.body.copyWith(color: tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead)),
-            ),
-            if (ph.since != null) ...[
-              const SizedBox(height: 2),
-              Text(ph.since!,
-                  textAlign: TextAlign.center,
-                  style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDarkBody))),
-            ],
-            const SizedBox(height: 12),
-            Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [
-              _Chip(icon: MgIcons.ruler, label: '${rideLiveKm(rec.liveKm, tr.lang)} km', strong: true),
-              _Chip(icon: MgIcons.ride, label: tr.trArgs('v2RpChipRiding', {'time': rideLiveDuration(rec.liveMovingSec)})),
-              if (recAvgV2(rec) case final a?) _Chip(icon: MgIcons.speed, label: tr.trArgs('v2RpChipAvg', {'v': a})),
-              if (rec.liveStages >= 2) _Chip(icon: MgIcons.moon, label: tr.trArgs('v2RpChipDay', {'n': rec.liveStages})),
-              _Chip(icon: rec.manual ? MgIcons.bike : MgIcons.key, label: tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto')),
-              _Chip(
-                icon: rec.gpsLost ? MgIcons.signalOff : MgIcons.gps,
-                label: tr.tr(recGpsChipKeyV2(rec)),
-                warn: rec.gpsLost,
-              ),
-            ]),
-          ] else
-            Text(tr.tr('rideManualHint'),
-                textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.onDarkLead)),
+          Text(tr.tr('rideManualHint'), textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.onDarkLead)),
         ]),
       ),
     );
   }
 }
 
+class _Live extends StatelessWidget {
+  final RideRecorderState rec;
+  final RecPhaseV2 ph;
+  final RecToneV2? tone;
+  const _Live({required this.rec, required this.ph, required this.tone});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    final avg = recAvgV2(rec);
+    final start = rec.tripStartedAt;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        _Disc(tone: tone, size: 56),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Stav celý, nikdy „ENREGISTREME|NT": nejdřív zmenšit.
+            MgWordFit(
+              minScale: 0.6,
+              child: Text(ph.status, maxLines: 2, style: MgType.h3.copyWith(color: MgColors.onDark, letterSpacing: 1)),
+            ),
+            const SizedBox(height: 2),
+            MgWordFit(
+              minScale: 0.85,
+              child: Text(ph.title,
+                  style: MgType.small.copyWith(color: tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead)),
+            ),
+            if (ph.since != null)
+              Text(ph.since!, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDarkBody))),
+          ]),
+        ),
+      ]),
+      const SizedBox(height: 18),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(rideLiveDuration(rec.liveMovingSec),
+            key: const ValueKey('rec-live-time'),
+            style: MgType.tab(MgType.display.copyWith(fontSize: 48, color: MgColors.onDark))),
+      ),
+      const SizedBox(height: 4),
+      Text(tr.tr('v2UxRrInSaddle').toUpperCase(),
+          textAlign: TextAlign.center,
+          style: MgType.meta.copyWith(fontSize: 12, letterSpacing: 0.8, color: MgColors.onDarkMeta)),
+      const SizedBox(height: 16),
+      IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(
+            child: _Tile(
+              // Live km keep one decimal under 100 km (the recorder's rule).
+              value: '${rideLiveKm(rec.liveKm, tr.lang)}\u00A0km',
+              label: tr.tr('rideStatDistance'),
+              style: MgType.tab(MgType.display.copyWith(color: MgColors.neon)),
+            ),
+          ),
+          if (avg != null) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: _Tile(
+                value: tr.trArgs('v2RpChipAvg', {'v': avg}),
+                label: tr.tr('rideStatAvg'),
+                style: MgType.tab(MgType.h3.copyWith(color: MgColors.onDark)),
+              ),
+            ),
+          ],
+        ]),
+      ),
+      const SizedBox(height: 12),
+      Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [
+        _Chip(
+          icon: rec.gpsLost ? MgIcons.signalOff : MgIcons.gps,
+          label: tr.tr(recGpsChipKeyV2(rec)),
+          warn: rec.gpsLost,
+        ),
+        _Chip(icon: rec.manual ? MgIcons.bike : MgIcons.key, label: tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto')),
+        if (rec.liveStages >= 2) _Chip(icon: MgIcons.moon, label: tr.trArgs('v2RpChipDay', {'n': rec.liveStages})),
+        if (start != null) _Chip(icon: MgIcons.flag, label: tr.trArgs('v2UxRrSinceStart', {'time': recSinceV2(start)})),
+      ]),
+    ]);
+  }
+}
+
+/// Number tile on the dark card (white@.06, 1 px white@.10, r16).
+class _Tile extends StatelessWidget {
+  final String value;
+  final String label;
+  final TextStyle style;
+  const _Tile({required this.value, required this.label, required this.style});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: MgColors.white(0.06),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: MgColors.white(0.10)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, maxLines: 1, style: style)),
+          const SizedBox(height: 2),
+          MgWordFit(child: Text(label, style: MgType.meta.copyWith(color: MgColors.onDarkMeta))),
+        ]),
+      );
+}
+
 class _Disc extends StatelessWidget {
   final RecToneV2? tone;
-  const _Disc({required this.tone});
+  final double size;
+  const _Disc({required this.tone, this.size = 88});
 
   @override
   Widget build(BuildContext context) {
@@ -114,16 +191,17 @@ class _Disc extends StatelessWidget {
       RecToneV2.paused => (MgColors.white(0.08), MgColors.white(0.35)),
       _ => (MgColors.neonA(0.10), MgColors.neonA(0.35)),
     };
+    final k = size / 88;
     final Widget inner = switch (tone) {
-      RecToneV2.rec => MgPing(size: 22, spread: 14, color: MgColors.sosDot, active: !reduced),
-      RecToneV2.warn => const MgIcon(MgIcons.signalOff, size: 34, color: MgColors.warnDark),
-      RecToneV2.paused => const MgIcon(MgIcons.pause, size: 36, color: MgColors.onDark, stroke: 2.6),
-      RecToneV2.armed => const MgIcon(MgIcons.recordDot, size: 40, color: MgColors.neon),
-      null => MgPop(playOnMount: true, child: const MgIcon(MgIcons.recordDot, size: 40, color: MgColors.neon)),
+      RecToneV2.rec => MgPing(size: 22 * k, spread: 14 * k, color: MgColors.sosDot, active: !reduced),
+      RecToneV2.warn => MgIcon(MgIcons.signalOff, size: 34 * k, color: MgColors.warnDark),
+      RecToneV2.paused => MgIcon(MgIcons.pause, size: 36 * k, color: MgColors.onDark, stroke: 2.6),
+      RecToneV2.armed => MgIcon(MgIcons.recordDot, size: 40 * k, color: MgColors.neon),
+      null => MgPop(playOnMount: true, child: MgIcon(MgIcons.recordDot, size: 40 * k, color: MgColors.neon)),
     };
     return Container(
-      width: 88,
-      height: 88,
+      width: size,
+      height: size,
       decoration: BoxDecoration(shape: BoxShape.circle, color: bg, border: Border.all(color: border, width: 2)),
       child: Center(child: inner),
     );
@@ -134,15 +212,14 @@ class _Chip extends StatelessWidget {
   final String icon;
   final String label;
   final bool warn;
-  final bool strong;
-  const _Chip({required this.icon, required this.label, this.warn = false, this.strong = false});
+  const _Chip({required this.icon, required this.label, this.warn = false});
 
   @override
   Widget build(BuildContext context) => Container(
         constraints: const BoxConstraints(minHeight: 32),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: warn ? MgColors.warnDarkBg : MgColors.white(strong ? 0.12 : 0.08),
+          color: warn ? MgColors.warnDarkBg : MgColors.white(0.08),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: warn ? MgColors.warnDark.withValues(alpha: 0.6) : MgColors.white(0.18)),
         ),
@@ -152,7 +229,7 @@ class _Chip extends StatelessWidget {
           Flexible(
             child: Text(label,
                 style: MgType.tab(MgType.small.copyWith(
-                    fontWeight: FontWeight.w800, color: warn ? MgColors.warnDark : (strong ? MgColors.onDark : MgColors.onDarkBody)))),
+                    fontWeight: FontWeight.w800, color: warn ? MgColors.warnDark : MgColors.onDarkBody))),
           ),
         ]),
       );

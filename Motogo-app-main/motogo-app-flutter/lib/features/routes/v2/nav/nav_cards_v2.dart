@@ -72,20 +72,29 @@ class StopReachedCardV2 extends StatelessWidget {
           _DiscoveredChip(text: visitLine!, ring: firstVisit),
         ],
         const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-            child: MgCta(
-              label: nextLabel != null ? tr.tr('navNextStopBtn').replaceFirst('{name}', nextLabel!) : mgNavNoEmoji(tr.tr('routeNavArrived')),
-              size: MgCtaSize.xs44,
-              leadingIcon: MgIcons.navigate,
-              showMarks: false,
-              onTap: onNext,
-            ),
-          ),
-          if (onRate != null) ...[const SizedBox(width: 8), navDiscV2(MgIcons.starFilled, tr.tr('routeReviewAdd'), onRate, color: MgColors.star)],
-          const SizedBox(width: 8),
-          navDiscV2(MgIcons.list, tr.tr('navStopsTitle'), onChoose),
-        ]),
+        LayoutBuilder(builder: (context, c) {
+          final cta = MgCta(
+            label: nextLabel != null ? tr.tr('navNextStopBtn').replaceFirst('{name}', nextLabel!) : mgNavNoEmoji(tr.tr('routeNavArrived')),
+            size: MgCtaSize.xs44,
+            leadingIcon: MgIcons.navigate,
+            showMarks: false,
+            onTap: onNext,
+          );
+          final discs = [
+            if (onRate != null) ...[navDiscV2(MgIcons.starFilled, tr.tr('routeReviewAdd'), onRate, color: MgColors.star), const SizedBox(width: 8)],
+            navDiscV2(MgIcons.list, tr.tr('navStopsTitle'), onChoose),
+          ];
+          // Narrow card (320 dp / large text): the CTA gets the whole row,
+          // the ★ / ☰ discs go under it — never "BLUČIN|A".
+          if (c.maxWidth - 104 < 200 * MediaQuery.textScalerOf(context).scale(1)) {
+            return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              cta,
+              const SizedBox(height: 8),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: discs),
+            ]);
+          }
+          return Row(children: [Expanded(child: cta), const SizedBox(width: 8), ...discs]);
+        }),
       ]),
     );
   }
@@ -161,7 +170,9 @@ class RouteDoneCardV2 extends StatelessWidget {
             child: Semantics(
               header: true,
               liveRegion: true,
-              child: MgWordFit(child: Text(tr.tr('navRouteDone'), style: MgType.section.copyWith(fontWeight: FontWeight.w900, color: MgColors.ink))),
+              child: MgWordFit(
+                  minScale: 0.6,
+                  child: Text(tr.tr('navRouteDone'), maxLines: 2, style: MgType.section.copyWith(fontWeight: FontWeight.w900, color: MgColors.ink))),
             ),
           ),
           navDiscV2(MgIcons.close, tr.tr('close'), onClose, close: true),
@@ -206,7 +217,7 @@ class NavForkHintV2 extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg)),
-                if (next) Text(tr.tr('routeNavNext'), style: MgType.meta.copyWith(color: MgColors.neon)),
+                if (next) MgWordFit(minScale: 0.6, child: Text(tr.tr('routeNavNext'), style: MgType.meta.copyWith(color: MgColors.neon))),
               ]),
             ),
             if (!left) ...[const SizedBox(width: 6), arrow],

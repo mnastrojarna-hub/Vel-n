@@ -115,12 +115,15 @@ void main() {
     expect(find.text('ZAZNAMENAT JÍZDU'), findsNothing);
     await rtEnd(tester);
   });
-  testWidgets('dock: narrow phone keeps the stop as a 44 px icon (label in semantics)', (tester) async {
+  // F-23: "■ Ukončit" always keeps its label (the controls stack under
+  // the status on a narrow bar) — a destructive action is never a mystery
+  // square.
+  testWidgets('dock: narrow phone keeps the stop LABELLED (controls stack)', (tester) async {
     final handle = tester.ensureSemantics();
     await pumpV2(tester, placesCases()['list']!.$1(),
         overrides: routesOverrides(recorder: const RideRecorderState(recording: true, manual: true, rideId: 'x')));
     await _settleClean(tester);
-    expect(find.text('Ukončit'), findsNothing);
+    expect(find.text('Ukončit'), findsOneWidget);
     expect(find.bySemanticsLabel('Ukončit záznam jízdy'), findsWidgets);
     expect(find.text('ZAZNAMENAT JÍZDU'), findsNothing);
     await rtEnd(tester);

@@ -5,6 +5,7 @@
 // cases_rides.dart / cases_routes.dart.
 import 'package:flutter/material.dart';
 import 'package:motogo_app/features/routes/route_export.dart';
+import 'package:motogo_app/features/routes/routes_map_picker.dart';
 import 'package:motogo_app/features/routes/v2/poi_reviews_v2.dart';
 import 'package:motogo_app/features/routes/v2/review_editor_v2.dart';
 import 'package:motogo_app/features/routes/v2/route_detail_skeleton_v2.dart';
@@ -16,6 +17,7 @@ import 'package:motogo_app/features/routes/v2/submit_success_v2.dart';
 import 'package:motogo_app/features/routes/ride_recorder.dart' show RideStartResult;
 
 import '../support/fakes_rides.dart';
+import '../support/fakes_routes.dart' show kRtRoutes;
 import 'cases_core.dart' show launcher, tapOpen;
 import 'render_harness.dart';
 
@@ -107,6 +109,24 @@ List<RenderCase> routesRidesUxCases() => [
           scaffold: false),
       RenderCase('rrux', 'sheet', 'export', _export, () => ridesOverrides()),
       RenderCase('rrux', 'sheet', 'export-error', () => _export(error: true), () => ridesOverrides()),
+      RenderCase(
+          'rrux',
+          'map',
+          'panel',
+          () => Align(
+                alignment: Alignment.bottomCenter,
+                child: RoutesMapPicker(
+                  routes: kRtRoutes.take(3).toList(),
+                  branches: const {},
+                  lang: 'cs',
+                  activeId: kRtRoutes.first.id,
+                  lines: const {},
+                  computing: const {},
+                  onPick: (_) {},
+                  onOpen: (_) {},
+                ),
+              ),
+          () => ridesOverrides()),
       RenderCase('rrux', 'detail', 'skeleton', () => RouteDetailSkeletonV2(onBack: () {}, onRetry: () {}),
           () => ridesOverrides(),
           scaffold: false, loading: true),

@@ -4,10 +4,12 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
-import '../../ride_card.dart' show rideDuration, rideKm, rideSpeed;
+import '../../ride_card.dart' show rideDuration, rideSpeed;
 import '../../ride_trip.dart';
 import 'ride_card_v2.dart' show RideLiveBadgeV2;
 import 'ride_phase_v2.dart';
@@ -45,7 +47,7 @@ class RideTripCardV2 extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Semantics(
         button: true,
-        label: '$name, ${tr.trArgs('v2RpTripCard', {'days': recDaysV2(tr, days)})}, $range, $rides, ${rideKm(a.distanceKm)}',
+        label: '$name, ${tr.trArgs('v2RpTripCard', {'days': recDaysV2(tr, days)})}, $range, $rides, ${mgKm(a.distanceKm, tr.lang)}',
         excludeSemantics: true,
         child: MgPress(
           scale: 0.98,
@@ -81,7 +83,7 @@ class RideTripCardV2 extends StatelessWidget {
                   Text(range, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
                   const SizedBox(height: 6),
                   Wrap(spacing: 10, runSpacing: 4, children: [
-                    RideMetaV2(MgIcons.ruler, rideKm(a.distanceKm), strong: true),
+                    RideMetaV2(MgIcons.ruler, mgKm(a.distanceKm, tr.lang), strong: true),
                     if (a.movingSec > 0) RideMetaV2(MgIcons.ride, tr.trArgs('v2RpChipRiding', {'time': rideDuration(a.movingMin)})),
                     if (a.avgSpeedKmh != null) RideMetaV2(MgIcons.speed, rideSpeed(a.avgSpeedKmh)),
                     RideMetaV2(MgIcons.list, rides),
@@ -111,4 +113,26 @@ class RideTripCardV2 extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Jízdy z výpůjčky" head in the reservation detail (F-10): dark icon
+/// tile 36 + title 17/800 ink — like the other v2 section heads.
+class RideBookingHeadV2 extends StatelessWidget {
+  final String title;
+  const RideBookingHeadV2({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(children: [
+          const MgIconTileDark(MgIcons.bike, size: 36),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: MgWordFit(child: Text(title, style: MgType.section.copyWith(color: MgColors.ink))),
+            ),
+          ),
+        ]),
+      );
 }

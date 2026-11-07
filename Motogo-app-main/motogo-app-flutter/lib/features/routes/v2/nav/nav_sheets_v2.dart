@@ -10,6 +10,7 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_dialog.dart';
 import '../../../../core/v2/widgets/mg_inputs.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../rt_sheet_v2.dart';
 
 /// One row of the stops sheet (the old `NavStopView` + branch row).
@@ -79,7 +80,7 @@ class _Row extends StatelessWidget {
                 margin: const EdgeInsets.only(top: 3),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                 decoration: BoxDecoration(color: MgColors.tintOk, borderRadius: BorderRadius.circular(999)),
-                child: Text(tr.tr('routeNavNext'), style: MgType.meta.copyWith(color: MgColors.onTintOk)),
+                child: MgWordFit(minScale: 0.7, child: Text(tr.tr('routeNavNext'), style: MgType.meta.copyWith(color: MgColors.onTintOk))),
               ),
             if (r.sub != null) Text(r.sub!, style: MgType.meta.copyWith(color: MgColors.meta)),
           ]),
