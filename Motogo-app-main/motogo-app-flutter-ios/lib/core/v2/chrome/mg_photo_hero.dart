@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../motion/mg_anim.dart';
-import '../motion/mg_motion.dart';
+import '../motion/mg_ken_burns.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_back_v2.dart';
@@ -45,14 +44,7 @@ class MgPhotoHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    Widget img = image;
-    if (kenBurns && !MgMotion.reduced(context)) {
-      img = MgProgressOnce(
-        duration: MgMotion.kenBurns,
-        curve: Curves.easeOut,
-        builder: (_, t) => Transform.scale(scale: 1.06 - 0.06 * t, child: image),
-      );
-    }
+    final img = kenBurns ? MgKenBurns(child: image) : image;
     return MgStatusBar(
       dark: true,
       extendAbove: MgStatusBar.bounce,

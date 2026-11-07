@@ -36,7 +36,13 @@ class _MgEdgeBackState extends State<MgEdgeBack> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  double get _width => (context.size?.width ?? 0) > 0 ? context.size!.width : 360;
+  /// Width of the box, read when a drag starts (never during build).
+  double _width = 360;
+
+  void _measure() {
+    final w = context.size?.width ?? 0;
+    if (w > 0) _width = w;
+  }
 
   void _end(double v) {
     final commit = _dx >= _width * MgSwipe.edgeCommitFraction || v >= MgSwipe.edgeCommitVelocity;
@@ -75,7 +81,10 @@ class _MgEdgeBackState extends State<MgEdgeBack> with SingleTickerProviderStateM
         width: MgSwipe.edgeWidth,
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
-          onHorizontalDragStart: (_) => _back.stop(),
+          onHorizontalDragStart: (_) {
+            _measure();
+            _back.stop();
+          },
           onHorizontalDragUpdate: (d) => setState(() => _dx = (_dx + (d.primaryDelta ?? 0)).clamp(0.0, _width)),
           onHorizontalDragEnd: (d) => _end(d.primaryVelocity ?? 0),
           onHorizontalDragCancel: () => _end(0),

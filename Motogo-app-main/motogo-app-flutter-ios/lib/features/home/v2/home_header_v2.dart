@@ -8,8 +8,8 @@ import '../../../core/v2/chrome/mg_nav_helpers.dart';
 import '../../../core/v2/chrome/mg_top_banner.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/rank/mg_logo_ring.dart';
 import '../../../core/v2/rank/rank_copy.dart';
-import '../../../core/v2/rank/rank_frame.dart';
 import '../../../core/v2/rank/rank_hero.dart';
 import '../../../core/v2/rank/rank_marks.dart';
 import '../../../core/v2/rank/rank_provider.dart';
@@ -17,6 +17,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
+import '../../../core/v2/widgets/mg_sos_pill.dart';
 import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
@@ -64,7 +65,7 @@ class HomeHeaderV2 extends ConsumerWidget {
           return Row(children: [
             Expanded(child: _LogoRow(narrow: c.maxWidth < 323)),
             if (sos) ...[
-              _SosPill(compact: narrow, label: tr.tr('homeSosTitle')),
+              MgSosPill(compact: narrow, label: tr.tr('homeSosTitle'), onTap: () => mgPushOrGo(context, Routes.sos)),
               const SizedBox(width: 8),
             ],
             MgIconButton(
@@ -220,21 +221,7 @@ class _LogoRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final status = ref.watch(loyaltyStatusProvider).valueOrNull;
-    Widget frame = RankFrame(
-      size: 56,
-      semanticLabel: status == null
-          ? null
-          : RankCopy.aria(tr, status.level, RankCopy.name(tr, status.level, status.rankName), status.percent),
-      child: Image.asset(
-        'assets/logo.webp',
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => const ColoredBox(
-          color: MgColors.neon,
-          child: Center(child: MgIcon(MgIcons.moto, size: 28, color: MgColors.onNeon)),
-        ),
-      ),
-    );
-    if (status != null) frame = MgPress(onTap: () => openLoyaltyRanks(context), child: frame);
+    final frame = MgLogoRing(size: 56, onTap: status == null ? null : () => openLoyaltyRanks(context));
     return Row(children: [
       // 6 nahoře = místo pro korunu VIP rangů; dole jen 2 (značky ringu).
       Padding(padding: const EdgeInsets.fromLTRB(6, 6, 6, 2), child: frame),
@@ -266,43 +253,5 @@ class _LogoRow extends ConsumerWidget {
         ]),
       ),
     ]);
-  }
-}
-
-/// Red SOS pill (V22 Main `.sos`; round 44 when the row is narrow).
-class _SosPill extends StatelessWidget {
-  final bool compact;
-  final String label;
-  const _SosPill({required this.compact, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: MgPress(
-        onTap: () => mgPushOrGo(context, Routes.sos),
-        child: Container(
-          width: compact ? 44 : 76,
-          height: 44,
-          decoration: BoxDecoration(
-            color: MgColors.sos,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: MgColors.white(0.18)),
-            boxShadow: [BoxShadow(color: MgColors.sos.withValues(alpha: 0.6), blurRadius: 22, offset: const Offset(0, 8), spreadRadius: -8)],
-          ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            if (!compact) ...[
-              const MgIcon(MgIcons.sos, size: 16, color: MgColors.onDark, stroke: 2.4),
-              const SizedBox(width: 6),
-            ],
-            Text('SOS',
-                style: (compact ? MgType.micro : MgType.ctaCompact)
-                    .copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.8, color: MgColors.onDark)),
-          ]),
-        ),
-      ),
-    );
   }
 }

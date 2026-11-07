@@ -20,6 +20,8 @@
 // vratka z platby v ceně rezervace (mainSource jako u obsluhy), zbytek do ověřeného přeplatku
 // (customerCapHaleru — jen platby v ceně) z ostatních plateb; co nejde automaticky → obsluha.
 import { otherRefundableIntents, outsidePrice, type BookingIntentsStripe, type IntentLike, type Outside, type RefundLike } from '../_shared/booking-intents.ts'
+// Oprava i4 (2026-11-07): klíč zbytku se po SELHANÉ vratce mění (jinak Stripe přehraje selhanou) — retry-key.ts
+import { isReplayOfFailed, REPLAYED_FAILED, retrySuffix } from './retry-key.ts'
 
 // deno-lint-ignore no-explicit-any
 type Sb = any
@@ -57,7 +59,9 @@ export async function refundRemainder(stripe: OtherIntentsStripe, sb: Sb, a: {
       const r = await stripe.refunds.create({
         payment_intent: c.id, amount: amt, reason: 'requested_by_customer',
         metadata: { ...(a.metadata || {}), mg_source: 'process-refund', mg_reason: a.reason || '', mg_booking_id: a.bookingId, mg_part: 'remainder', mg_main_refund: a.mainRefundId },
-      }, { idempotencyKey: `refund-rest:${a.mainRefundId}:${c.id}:${amt}` })
+      }, { idempotencyKey: `refund-rest:${a.mainRefundId}:${c.id}:${amt}${retrySuffix(c.failedRefunds)}` })
+      // i4: Stripe přehrál už SELHANOU vratku (klíč z doby před pádem) → nic se nevrátilo, nepočítat jako vrácené
+      if (isReplayOfFailed(r.id, c.failedRefunds)) throw new Error(`${REPLAYED_FAILED} ${r.id} (${c.id})`)
       refunds.push({ piId: c.id, refundId: r.id, amountHaleru: Number(r.amount ?? amt), status: String(r.status || 'succeeded') })
       remaining -= amt
       left += c.refundableHaleru - amt
@@ -199,9 +203,13 @@ export function refundedStatus(a: {
   /** f3: vratka celého zůstatku v ceně (staffFullBalanceHaleru) — částečná jen když na platbách
    *  rezervace něco zůstalo (ne kvůli přibalené e-shop části hlavní platby) */
   fullBalance?: boolean
+  /** i4: stavy vratek zbytku z ostatních plateb (ExtraRefund.status) — čeká-li některá ('pending'), peníze ještě
+   *  neodešly celé → 'refund_pending' (selže-li, refund.updated rezervaci znovu otevře — webhook refund-updated.ts) */
+  extraStatuses?: Array<string | null | undefined>
 }): 'refund_pending' | 'partial_refund' | 'refunded' {
   const isPartial = a.fullBalance ? a.leftHaleru > 0 : ((a.isCustomer && (a.bookingTotalPrice > 0 || (a.shortHaleru || 0) > 0)) ||
     (!!a.amount && a.refundableHaleru != null && a.effectiveAmountHaleru != null && a.effectiveAmountHaleru < a.refundableHaleru) ||
     a.leftHaleru > 0)
-  return a.refundStatus === 'pending' ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
+  const pending = a.refundStatus === 'pending' || (a.extraStatuses || []).some((x) => x === 'pending')
+  return pending ? 'refund_pending' : (isPartial ? 'partial_refund' : 'refunded')
 }

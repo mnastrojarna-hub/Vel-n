@@ -185,10 +185,17 @@ export function statusLags(cur: Record<string, any>, prior: StripeRefundLike, re
   manualPending = false): boolean {
   if (!['paid', 'refund_pending', 'partial_refund'].includes(cur.payment_status)) return false
   const stored = cur.stripe_refund_id || null
+  // i4: čekající zbytek z jiné platby (mg_main_refund) → 'refund_pending' je správně, dokud ho Stripe nedokončí
   if (stored === prior.id) return cur.payment_status === 'refund_pending' && prior.status === 'succeeded' && !manualPending
+    && !remainderPending(prior, refunds)
   if (!stored) return true
   const s = (refunds || []).find((r) => r.id === stored)
   return !!s && Number(s.created) <= Number(prior.created)
+}
+
+/** Oprava i4 (2026-11-07): zbytek storna z jiné platby (mg_main_refund = hlavní vratka) Stripe ještě nedokončil. */
+export function remainderPending(main: StripeRefundLike, refunds: StripeRefundLike[] | null | undefined): boolean {
+  return (refunds || []).some((r) => r.id !== main.id && r.status === 'pending' && r.metadata?.mg_main_refund === main.id)
 }
 
 /** Živý ruční dobropis rezervace (bez Stripe vratky) = část vratky posílá obsluha převodem (i2). Chyba → false. */
@@ -270,7 +277,7 @@ export async function respondExistingCancelRefund(o: {
     // process-refund spadl po refunds.create a před zápisem stavu → dopsat, co by zapsal sám.
     const left = o.remaining ? await o.remaining().catch(() => null) : o.refundableHaleru
     const patch: Record<string, unknown> = { stripe_refund_id: prior.id,
-      payment_status: prior.status === 'pending' ? 'refund_pending' : (left === 0 ? 'refunded' : 'partial_refund') }
+      payment_status: prior.status === 'pending' || remainderPending(prior, o.refunds) ? 'refund_pending' : (left === 0 ? 'refunded' : 'partial_refund') }
     if (!card.brand || !card.last4) {
       const c = await o.cardOf(prior).catch(() => null)
       if (c?.brand && !card.brand) patch.card_brand = card.brand = c.brand

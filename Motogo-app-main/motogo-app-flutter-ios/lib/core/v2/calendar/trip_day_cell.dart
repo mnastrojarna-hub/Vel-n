@@ -22,7 +22,8 @@ class TripDayCell extends StatelessWidget {
   final VoidCallback? onTap;
   final String? semanticLabel;
 
-  /// Order of this day inside the band (grow-in delay, 20 ms each, ≤ 200).
+  /// Order of this day inside the band (grow-in delay, 20 ms each, ≤ 200 —
+  /// DESIGN_V22 §3.6: the band grows 300 ms ease from start to end).
   final int bandOrder;
 
   const TripDayCell({
@@ -37,6 +38,12 @@ class TripDayCell extends StatelessWidget {
   });
 
   static const double height = 46;
+
+  /// Grow-in delay of the [order]-th band day: 20 ms per cell, capped 200.
+  static Duration bandDelay(int order) {
+    final d = MgMotion.bandCell * order;
+    return d > MgMotion.bandCap ? MgMotion.bandCap : d;
+  }
 
   bool get _dark => skin == TripSkin.dark;
 
@@ -125,9 +132,9 @@ class TripDayCell extends StatelessWidget {
     if (s.isSelected && !reduced) {
       cell = MgProgressOnce(
         key: ValueKey('band-${s.selected}-${s.date.millisecondsSinceEpoch}'),
-        duration: const Duration(milliseconds: 140),
-        delay: Duration(milliseconds: (bandOrder * 20).clamp(0, 200)),
-        curve: Curves.easeOut,
+        duration: MgMotion.sheet,
+        delay: bandDelay(bandOrder),
+        curve: Curves.ease,
         builder: (_, t) => painted(t),
       );
     } else {

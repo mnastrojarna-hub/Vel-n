@@ -18,6 +18,8 @@ import '../chrome/mg_chrome_metrics.dart';
 import '../chrome/mg_status_bar.dart';
 import '../chrome/mg_top_banner.dart';
 import '../chrome/v2_nav_bar.dart';
+import '../motion/mg_motion.dart';
+import '../motion/mg_sticky_slide.dart';
 import '../tokens/mg_colors.dart';
 import 'shell_nav_map.dart';
 
@@ -42,6 +44,9 @@ class AppShellV2 extends ConsumerStatefulWidget {
 
 class _AppShellV2State extends ConsumerState<AppShellV2> {
   final MgShellChrome _chrome = MgShellChrome();
+
+  /// The nav as last shown — kept while it slides out (no tab jump).
+  Widget? _lastNav;
   GoRouter? _router;
   String _location = '/';
 
@@ -151,6 +156,17 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
       });
     }
 
+    if (!navHidden) {
+      _lastNav = V2NavBar(
+        activeIndex: v2TabIndexFor(path),
+        onTap: _onTab,
+        profileBadge: unread,
+        bookingsNeedAction: needsAction,
+      );
+    }
+    final outer = MediaQuery.of(context);
+    final sticky = MgMotion.of(context, MgMotion.sticky);
+
     return ShellPaidListener(
       child: Scaffold(
         backgroundColor: MgColors.canvas,
@@ -172,7 +188,15 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
                     removeTop: topBanner,
                     child: NotificationListener<ScrollEndNotification>(
                       onNotification: _onScroll,
-                      child: MgBackGuard(shell: true, child: widget.child),
+                      // The nav slot stays in the Scaffold while the nav
+                      // slides out (collapsed to 0), which strips the body's
+                      // bottom safe area → give it back while the nav is off.
+                      child: _BottomInset(
+                        restore: navHidden,
+                        padding: outer.padding.bottom,
+                        viewPadding: outer.viewPadding.bottom,
+                        child: MgBackGuard(shell: true, child: widget.child),
+                      ),
                     ),
                   ),
                 ),
@@ -198,7 +222,9 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
               ListenableBuilder(
                 listenable: _chrome,
                 // Above a visible dock AND the strips (strips sit on the dock).
-                builder: (_, __) => Positioned(
+                builder: (_, __) => AnimatedPositioned(
+                  duration: sticky,
+                  curve: MgMotion.emphasized,
                   right: 16,
                   bottom: 12 + _chrome.dockHeight + _chrome.stripsHeight,
                   child: MgAiFab(hidden: fabHidden),
@@ -207,15 +233,36 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
             ]),
           ),
         ),
-        bottomNavigationBar: navHidden
+        bottomNavigationBar: _lastNav == null
             ? null
-            : V2NavBar(
-                activeIndex: v2TabIndexFor(path),
-                onTap: _onTab,
-                profileBadge: unread,
-                bookingsNeedAction: needsAction,
-              ),
+            : MgStickySlide(visible: !navHidden, collapse: true, child: _lastNav!),
       ),
+    );
+  }
+}
+
+/// Puts the screen's bottom safe area back into the shell body's
+/// MediaQuery while the (collapsed) nav is off.
+class _BottomInset extends StatelessWidget {
+  final bool restore;
+  final double padding;
+  final double viewPadding;
+  final Widget child;
+  const _BottomInset({required this.restore, required this.padding, required this.viewPadding, required this.child});
+
+  /// Always the same widget type above [child] — the shell's navigator
+  /// must never be re-parented when the nav comes and goes.
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return MediaQuery(
+      data: restore
+          ? mq.copyWith(
+              padding: mq.padding.copyWith(bottom: padding),
+              viewPadding: mq.viewPadding.copyWith(bottom: viewPadding),
+            )
+          : mq,
+      child: child,
     );
   }
 }

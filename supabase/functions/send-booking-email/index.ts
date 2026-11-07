@@ -10,7 +10,7 @@ import { gearFallbackRender, prepareGearMail, type GearMail } from './gear-booki
 import { GEAR_DEFAULT_ATTACHMENTS } from '../_shared/email-gear.ts'
 import { logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 // Oprava i3 (2026-11-07): mail úpravy s vratkou bez dobropisu neslibuje přílohu ani kartu + mail obsluze (modified-refund.ts).
-import { DEFERRED_MARK, modifiedRefundCovered, modifiedRefundDeferredNote, modifiedRefundMissingMail } from './modified-refund.ts'
+import { DEFERRED_MARK, modifiedRefundCovered, modifiedRefundDeferredNote, modifiedRefundMissingMail, newestModificationMs } from './modified-refund.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
@@ -966,7 +966,14 @@ serve(async (req) => {
     if (type === 'booking_modified' && Number(price_difference || 0) < 0 && booking_id) {
       const refundCzk = Math.abs(Number(price_difference))
       const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+      // i4 (S6): jen dobropis k TÉTO úpravě (vzniklý po jejím zápisu) — ne dobropis dřívější úpravy do 6 h
+      let sinceMs: number | null = null
+      try {
+        const { data: mh } = await supabase.from('bookings').select('modification_history').eq('id', booking_id).maybeSingle()
+        sinceMs = newestModificationMs(mh?.modification_history)
+      } catch { /* neznámý okamžik → jen dobropis na tutéž částku */ }
       const covered = await modifiedRefundCovered(supabase, booking_id, refundCzk, {
+        sinceMs,
         recover: async () => { await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, { method: 'POST', headers: hdrs,
           body: JSON.stringify({ booking_id, amount: refundCzk, reason: 'booking_modified_retry' }) }).catch(() => null) },
       })

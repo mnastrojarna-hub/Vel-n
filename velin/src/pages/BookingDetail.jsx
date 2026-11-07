@@ -19,6 +19,7 @@ import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/book
 import { sendBookingMessage, logAudit, cancelBookingFromVelin, edgeErrorDetail, paidForRefund } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 import RefundConfirmModal from './booking/RefundConfirmModal'
+import { manualRefundOpen, manualRefundSentStatus } from './booking/manualRefundState'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import BookingDamagePanel from './booking/BookingDamagePanel'
@@ -412,10 +413,8 @@ export default function BookingDetail() {
     try {
       const cn = creditNotes.find(c => !c.stripe_refund_id)
       const amount = cn ? Math.abs(Number(cn.total) || 0) : null
-      // Částečná manuální vratka (dobropis < celková cena) → 'partial_refund',
-      // plná → 'refunded'.
-      const newStatus = amount != null && Number(booking.total_price) > 0 && amount < Number(booking.total_price)
-        ? 'partial_refund' : 'refunded'
+      // Částečná vratka (živé dobropisy — karta i převod — < celková cena) → 'partial_refund', plná → 'refunded' (i4).
+      const newStatus = manualRefundSentStatus(booking, creditNotes)
       const res = await debugAction('booking.manual_refund_sent', 'BookingDetail', () =>
         supabase.from('bookings').update({ payment_status: newStatus }).eq('id', id)
       , { booking_id: id, amount, new_status: newStatus })
@@ -435,8 +434,8 @@ export default function BookingDetail() {
     setSaving(true); setError(null)
     try {
       const total = Math.max(0, Math.round(Number(booking.total_price) || 0))
-      const amt = Math.min(total, Math.max(0, Math.round(Number(refund?.amount) || 0)))
-      const pct = total > 0 ? Math.round(amt / total * 100) : 0
+      let amt = Math.min(total, Math.max(0, Math.round(Number(refund?.amount) || 0)))
+      let pct = total > 0 ? Math.round(amt / total * 100) : 0
 
       // 1) Vratka/dobropis přes process-refund (idempotentní). Přeskočí se, když
       //    už existuje nezrušený dobropis PŘESNĚ na tuto částku — potvrzení
@@ -449,6 +448,10 @@ export default function BookingDetail() {
         , { booking_id: id, amount: amt })
         if (res?.error) { setError('Vratka selhala: ' + await edgeErrorDetail(res.error)); setSaving(false); return }
         if (res?.data && res.data.success === false) { setError('Vratka selhala: ' + (res.data.error || res.data.code || 'neznámá chyba')); setSaving(false); return }
+        // i4 (S2): po dřívější storno vratce vrátí process-refund zvolenou částku NAVÍC → záznam storna i mail nesou
+        // skutečně vrácený součet k tomuto stornu (cancel_refunded_total), ne zvolenou částku.
+        const sum = Math.round(Number(res?.data?.cancel_refunded_total))
+        if (Number.isFinite(sum) && sum > amt) { amt = Math.min(total, sum); pct = total > 0 ? Math.round(amt / total * 100) : 0 }
       }
 
       // 2) Záznam storna nese skutečně potvrzenou výši vratky (badge „bez vratky"
@@ -660,8 +663,8 @@ export default function BookingDetail() {
     : actionsWithSurcharge
   // Manuální vratka (bez Stripe platby): refund_pending bez stripe_refund_id +
   // dobropis bez Stripe refund id = peníze se vrací PŘEVODEM NA ÚČET zákazníka.
-  const manualRefundCn = (booking.payment_status === 'refund_pending' && !booking.stripe_refund_id)
-    ? creditNotes.find(c => !c.stripe_refund_id) : null
+  // i4: i vedle vratky kartou (doplatek převodem u kartové rezervace) — manualRefundState.js
+  const manualRefundCn = manualRefundOpen(booking, creditNotes)
   const manualRefundDue = manualRefundCn ? Math.abs(Number(manualRefundCn.total) || 0) : 0
   const actionsWithRefund = manualRefundDue > 0
     ? [{ label: `Vratka odeslána (${manualRefundDue.toLocaleString('cs-CZ')} Kč)`, status: 'confirm_manual_refund', green: true, refund: true }, ...actionsWithPayment]
@@ -674,7 +677,7 @@ export default function BookingDetail() {
   const payKey = paymentStatusInfo(booking).key
   const canConfirmRefund = booking.status === 'cancelled' && ['refund_pending', 'partial_refund'].includes(payKey)
   const actionsAll = canConfirmRefund
-    ? [{ label: booking.payment_status === 'partial_refund' ? 'Potvrdit částečné vrácení' : 'Potvrdit vrácení', status: 'confirm_cancelled_refund', green: true, cancelledRefund: true }, ...actionsWithRefund.filter(a => !a.refund)]
+    ? [{ label: booking.payment_status === 'partial_refund' ? 'Potvrdit částečné vrácení' : 'Potvrdit vrácení', status: 'confirm_cancelled_refund', green: true, cancelledRefund: true }, ...actionsWithRefund.filter(a => !a.refund || booking.stripe_refund_id)]
     : actionsWithRefund
 
   return (
@@ -791,7 +794,7 @@ export default function BookingDetail() {
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error}
         paid={paidForRefund(booking.payment_status)} totalPrice={booking.total_price} />
       <RefundConfirmModal open={showRefundModal} onClose={() => { setShowRefundModal(false); setError(null) }}
-        totalPrice={booking.total_price} defaultAmount={manualRefundDue > 0 ? manualRefundDue : booking.total_price}
+        totalPrice={booking.total_price} defaultAmount={manualRefundDue > 0 && !booking.stripe_refund_id ? manualRefundDue : booking.total_price}
         saving={saving} error={error} onConfirm={confirmCancelledRefund} />
       <PaymentConfirmModal open={showPaymentModal} onClose={() => { setShowPaymentModal(false); setSurchargeMode(false); setError(null) }}
         onConfirm={surchargeMode ? confirmSurchargePayment : confirmManualPayment} saving={saving} error={error}

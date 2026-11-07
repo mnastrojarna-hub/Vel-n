@@ -22,7 +22,7 @@ import { cancellationMailRefundCzk, partOfLargerRefund } from './cancel-mail-amo
 import { onRefundUpdated } from './refund-updated.ts'
 import { freeVerifyCheck } from '../_shared/free-verify.ts'
 // Měna (oprava 2026-11-05): potvrzuje se jen platba v CZK (_shared/currency.ts).
-import { paymentCurrencyOk } from '../_shared/currency.ts'
+import { checkoutCzk, paymentCurrencyOk, type CheckoutLike } from '../_shared/currency.ts'
 // Oprava i3 (2026-11-07): pojistný storno mail jen k vratce TOHOTO storna, rezervace i podle metadat / historie platby,
 // externí vratka rozhoduje podle zůstatku V CENĚ rezervace (refund-scope.ts).
 import { bookingRefundedInPriceHaleru, externalBookingBalanceHaleru, resolveRefundBooking, stornoMailEligible } from './refund-scope.ts'
@@ -207,6 +207,16 @@ async function nonCzkIgnored(supabase: any, eventType: string, id: string, curre
   return new Response(JSON.stringify({ received: true, ignored: 'non_czk' }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } })
 }
 
+/** i4: PaymentIntent patří Checkout Session s cenou v CZK převedenou do měny zákazníka (Adaptive Pricing)? Chyba → false. */
+// deno-lint-ignore no-explicit-any
+async function adaptiveCzkSession(stripe: any, piId: string): Promise<boolean> {
+  try {
+    const list = await stripe.checkout.sessions.list({ payment_intent: piId, limit: 1 })
+    const s = list?.data?.[0]
+    return !!s && checkoutCzk(s).converted
+  } catch { return false }
+}
+
 /** Byl řádek zaplacený už PŘED touto událostí? (pak jde o druhou událost téže platby,
  *  nebo o druhou platbu — refundDuplicateCharges rozliší podle Stripe). */
 // deno-lint-ignore no-explicit-any
@@ -282,9 +292,17 @@ Deno.serve(async (req: Request) => {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session
       const metadata = session.metadata || {}
-      // Platba v jiné měně než CZK → nepotvrzovat (setup session bez platby měnu nemá).
-      if (session.mode !== 'setup' && !paymentCurrencyOk(session.currency)) {
+      // Platba v jiné měně než CZK → nepotvrzovat (setup session bez platby měnu nemá). i4: cena v CZK převedená Stripem
+      // do měny zákazníka (Adaptive Pricing — currency_conversion.source_currency 'czk') JE platba v CZK (checkoutCzk).
+      const sessCzk = checkoutCzk(session as unknown as CheckoutLike)
+      if (session.mode !== 'setup' && !sessCzk.ok) {
         return await nonCzkIgnored(supabase, event.type, session.id, session.currency, session.amount_total, metadata as Record<string, string>)
+      }
+      if (sessCzk.converted) {
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'checkout_adaptive_pricing', component: 'stripe', status: 'warning',
+            request_data: { session_id: session.id, currency: session.currency, amount_total: session.amount_total, czk_haleru: sessCzk.amountTotalH, metadata } })
+        } catch { /* ignore */ }
       }
       let paymentType = metadata.type || 'booking'
       let resolvedOrderId: string | null = metadata.order_id || null
@@ -382,12 +400,13 @@ Deno.serve(async (req: Request) => {
           }
           if (await finishPaidChange(supabase, {
             bookingId: resolvedBookingId, chg: chgFromMetadata(metadata), srv: metadata.srv,
-            paidCzk: (!bundled && session.amount_total != null) ? session.amount_total / 100 : null,
+            paidCzk: (!bundled && sessCzk.amountTotalH != null) ? sessCzk.amountTotalH / 100 : null,
             payRef: stripePaymentIntentId || session.id, rounding: Number(metadata.card_rounding || 0) || 0,
             eventCreated: event.created, autoRefund: !bundled,
             // s přibalenou e-shop objednávkou částka změny z platby nejde oddělit → vratku řeší obsluha
-            failCzk: session.amount_total != null ? session.amount_total / 100 : 0,
-            pi: piObj, since: new Date((session.created || event.created) * 1000).toISOString(), closed: ext === 'closed',
+            failCzk: sessCzk.amountTotalH != null ? sessCzk.amountTotalH / 100 : 0,
+            // i4: Adaptive Pricing — PaymentIntent je v měně zákazníka, cena (session) v CZK → strážce měny nesmí doplatek odmítnout
+            pi: piObj && sessCzk.converted ? { ...piObj, currency: 'czk' } as PiLike : piObj, since: new Date((session.created || event.created) * 1000).toISOString(), closed: ext === 'closed',
           })) retryNeeded = true
         }
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
@@ -434,6 +453,15 @@ Deno.serve(async (req: Request) => {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       const metadata = paymentIntent.metadata || {}
       // Platba v jiné měně než CZK → nepotvrzovat (částka by se vzala jako Kč).
+      // i4: PaymentIntent Checkoutu s Adaptive Pricing (cena v CZK, strženo v měně zákazníka) potvrzuje checkout.session.completed
+      // (s částkou v CZK) → tady jen tiše přeskočit, žádný mail „vraťte“.
+      if (!paymentCurrencyOk(paymentIntent.currency) && await adaptiveCzkSession(stripe, paymentIntent.id)) {
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'pi_adaptive_pricing_skipped', component: 'stripe', status: 'info',
+            request_data: { payment_intent_id: paymentIntent.id, currency: paymentIntent.currency, amount: paymentIntent.amount } })
+        } catch { /* ignore */ }
+        return new Response(JSON.stringify({ received: true, ignored: 'adaptive_pricing_session' }), { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
       if (!paymentCurrencyOk(paymentIntent.currency)) {
         return await nonCzkIgnored(supabase, event.type, paymentIntent.id, paymentIntent.currency, paymentIntent.amount, metadata as Record<string, string>)
       }

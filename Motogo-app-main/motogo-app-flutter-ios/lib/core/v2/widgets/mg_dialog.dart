@@ -1,10 +1,44 @@
 import 'package:flutter/material.dart';
 
+import '../../i18n/i18n_provider.dart';
+import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 import 'mg_buttons.dart';
+import 'mg_text_fit.dart';
 import 'mg_word_fit.dart';
+
+/// Opens a v2 dialog (design M1 / V22 §5.2): scrim night .55, fade + scale
+/// .96 → 1 over `MgMotion.dialog` (180, out); none under reduced motion.
+/// Themes of [context] are carried into the dialog like `showDialog`.
+Future<T?> showMgDialog<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+  bool useRootNavigator = true,
+}) {
+  final nav = Navigator.of(context, rootNavigator: useRootNavigator);
+  final themes = InheritedTheme.capture(from: context, to: nav.context);
+  final d = MgMotion.of(context, MgMotion.dialog);
+  return showGeneralDialog<T>(
+    context: context,
+    useRootNavigator: useRootNavigator,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: t(context).tr('close'),
+    barrierColor: MgColors.nightA(0.55),
+    transitionDuration: d,
+    pageBuilder: (ctx, _, __) => themes.wrap(SafeArea(child: Builder(builder: builder))),
+    transitionBuilder: (ctx, a, _, child) {
+      if (MgMotion.reduced(ctx)) return child;
+      final c = CurvedAnimation(parent: a, curve: MgMotion.out);
+      return FadeTransition(
+        opacity: c,
+        child: ScaleTransition(scale: Tween<double>(begin: 0.96, end: 1).animate(c), child: child),
+      );
+    },
+  );
+}
 
 /// T6 confirmation of an irreversible step (storno, end recording, delete):
 /// r22, title 20/800, body 14/600, SAFE button left (ghost), ACTION right
@@ -19,11 +53,10 @@ Future<bool?> showMgConfirm(
   bool barrierDismissible = true,
   bool useRootNavigator = true,
 }) {
-  return showDialog<bool>(
-    context: context,
+  return showMgDialog<bool>(
+    context,
     barrierDismissible: barrierDismissible,
     useRootNavigator: useRootNavigator,
-    barrierColor: MgColors.nightA(0.55),
     builder: (ctx) => MgDialogFrame(
       title: title,
       body: body,
@@ -66,19 +99,14 @@ class MgDialogFrame extends StatelessWidget {
     this.extra = const [],
   });
 
+  /// Both labels fit ONE line in half the width (minus the button padding)
+  /// — otherwise the buttons stack, action on top.
   bool _fitsSideBySide(BuildContext context, double width) {
     final half = (width - MgSpace.s8) / 2 - 32;
+    final style = DefaultTextStyle.of(context).style.merge(MgType.button);
     for (final l in [safeLabel, actionLabel]) {
       if (l == null) continue;
-      final tp = TextPainter(
-        text: TextSpan(text: l, style: DefaultTextStyle.of(context).style.merge(MgType.button)),
-        textDirection: Directionality.of(context),
-        maxLines: 1,
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout();
-      final w = tp.width;
-      tp.dispose();
-      if (w > half) return false;
+      if (!mgLineFits(context, l, style, half)) return false;
     }
     return true;
   }

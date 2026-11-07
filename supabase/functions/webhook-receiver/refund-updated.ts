@@ -9,6 +9,15 @@
 //    Živý RUČNÍ dobropis (část ceny placená převodem — obsluha ji teprve posílá) → stav nechat, jen záznam.
 //  • status 'failed' / 'canceled' → peníze NEodešly: debug_log error + mail obsluze (dobropis je třeba zrušit,
 //    vratku zopakovat); stav rezervace se nemění (zůstává „Čeká na vrácení“).
+// Oprava i4 (2026-11-07, verify:refunds S1c / S5):
+//  • selhaná / zrušená NAŠE vratka v ceně rezervace (mg_source process-refund, i zbytek z jiné platby) → rezervaci
+//    znovu otevřít: compare-and-set 'refunded' / 'partial_refund' → 'refund_pending' (Velín „Potvrdit vrácení“,
+//    recovery i další volání pak vratku zopakují — klíč se po pádu mění, process-refund/retry-key.ts),
+//  • rezervace i podle metadata.booking_id (automatické vratky MIMO cenu: duplicitní platba, nezapsaná změna / obsazená
+//    motorka při výměně, pozdní platba zrušené rezervace) — stav rezervace se jimi NEmění (peníze mimo cenu),
+//  • mail obsluze při selhání VŽDY (i bez nalezené rezervace; 1× na vratku): částka, platba, zdroj, dobropis k vratce
+//    a skutečný stav rezervace. Vratky mimo cenu mají pevný klíč (mg-dup- / mg-pcf- / mg-late-cancelled-) → samy se
+//    nezopakují: vrátit ručně ve Stripe dashboardu.
 // Stripe endpoint musí události `charge.refund.updated` (případně `refund.updated`) odesílat — STATE_5.
 import { staffFullBalanceHaleru, type OtherIntentsStripe } from '../process-refund/other-intents.ts'
 
@@ -34,31 +43,88 @@ async function opsMail(subject: string, html: string) {
   } catch { /* ignore */ }
 }
 
-/** Rezervace, ke které vratka patří (uložená vratka, nebo metadata naší vratky). */
+const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/** Vratky MIMO cenu rezervace (vlastní flow s pevným idempotency klíčem, bez dobropisu) — jako _shared/booking-intents.ts. */
+const OUTSIDE_SOURCES: Record<string, string> = {
+  duplicate_payment: 'duplicitní platba', unapplied_change: 'doplatek nezapsané změny', late_payment: 'pozdní platba zrušené rezervace',
+}
+
+/** Rezervace, ke které vratka patří (uložená vratka, metadata naší vratky, i4: metadata.booking_id vratek mimo cenu). */
 async function bookingOfRefund(sb: Sb, r: RefundObj): Promise<Record<string, any> | null> {
-  const cols = 'id, payment_status, stripe_refund_id, stripe_payment_intent_id'
+  const cols = 'id, status, payment_status, stripe_refund_id, stripe_payment_intent_id'
   const { data: byId } = await sb.from('bookings').select(cols).eq('stripe_refund_id', r.id).maybeSingle()
   if (byId) return byId
-  const bid = (r.metadata || {}).mg_booking_id
-  if (bid) {
+  const md = r.metadata || {}
+  for (const bid of [md.mg_booking_id, md.booking_id]) {
+    if (!bid || !UUID_RX.test(bid)) continue
     const { data: byMd } = await sb.from('bookings').select(cols).eq('id', bid).maybeSingle()
     if (byMd) return byMd
   }
   return null
 }
 
+const PAY_LABEL: Record<string, string> = { paid: 'Zaplaceno', refund_pending: 'Čeká na vrácení', partial_refund: 'Částečně vráceno', refunded: 'Vráceno', unpaid: 'Nezaplaceno' }
+
+/** Oprava i4: selhaná / zrušená vratka — znovu otevřít rezervaci (jen naše vratka v ceně) a VŽDY mail obsluze (1× na vratku). */
+async function onRefundFailed(sb: Sb, r: RefundObj, status: string, bk: Record<string, any> | null): Promise<void> {
+  const md = r.metadata || {}
+  const src = String(md.mg_source || '')
+  const ours = src === 'process-refund'
+  const outside = OUTSIDE_SOURCES[src] || null
+  const amt = Number(r.amount || 0) / 100
+  const pi = typeof r.payment_intent === 'string' ? r.payment_intent : ((r.payment_intent as { id?: string } | null)?.id ?? null)
+  let payment = bk?.payment_status ?? null
+  let reopened = false
+  if (bk && ours) {
+    try {
+      const { data: upd, error } = await sb.from('bookings').update({ payment_status: 'refund_pending' })
+        .eq('id', bk.id).in('payment_status', ['refunded', 'partial_refund']).select('id')
+      reopened = !error && Array.isArray(upd) && upd.length > 0
+      if (reopened) payment = 'refund_pending'
+    } catch { /* stav beze změny */ }
+  }
+  // dobropis k vratce (zbytek z jiné platby patří k hlavní vratce — mg_main_refund)
+  let cn: { number?: string | null } | null = null
+  if (bk) {
+    try {
+      const ids = [r.id, md.mg_main_refund].filter((x): x is string => !!x)
+      const { data } = await sb.from('invoices').select('id, number, total').eq('booking_id', bk.id).eq('type', 'credit_note')
+        .neq('status', 'cancelled').in('stripe_refund_id', ids).limit(1)
+      cn = data?.[0] || null
+    } catch { /* bez údaje */ }
+  }
+  let dup = false
+  try {
+    const { data: prev } = await sb.from('debug_log').select('id').eq('source', 'webhook-receiver').eq('action', 'refund_updated_failed')
+      .eq('request_data->>refund_id', r.id).limit(1)
+    dup = !!prev?.length
+  } catch { /* bez dedupu */ }
+  await log(sb, 'refund_updated_failed', 'error', { booking_id: bk?.id ?? null, refund_id: r.id, status, amount: r.amount ?? null, payment_intent: pi,
+    mg_source: src || null, payment_status: payment, reopened, credit_note: cn?.number ?? null }, `Stripe vratka ${r.id} skončila '${status}' — peníze zákazníkovi NEODEŠLY.`)
+  if (dup) return
+  const num = bk ? String(bk.id).slice(-8).toUpperCase() : null
+  const what = `Stripe vratka <code>${r.id}</code> (${amt} Kč, platba <code>${pi || '?'}</code>, zdroj ${src || 'Stripe dashboard / neznámý'}${outside ? ` — ${outside}` : ''})`
+  let todo: string
+  if (outside || !ours) {
+    todo = `<p>${outside ? 'Jde o automatickou vratku MIMO cenu rezervace s pevným klíčem — sama se NEzopakuje.' : 'Vratka nevznikla ve Velínu / aplikaci.'} `
+      + 'Vraťte částku ručně ve Stripe dashboardu (platba výše → Refund).</p>'
+  } else {
+    todo = `<p>Rezervace je teď ve stavu <strong>„${PAY_LABEL[String(payment)] || payment || '?'}“</strong>${reopened ? ' (znovu otevřena — dřív vypadala jako vrácená)' : ''}. `
+      + (cn?.number ? `Zrušte dobropis <strong>${cn.number}</strong> (vystavený k této vratce) ` : 'Zkontrolujte dobropis k této vratce ')
+      + 'a vratku zopakujte ve Velíně („Potvrdit vrácení“ u zrušené rezervace) nebo ve Stripe dashboardu.</p>'
+  }
+  await opsMail(`⚠️ Vratka ${amt} Kč${num ? ` k rezervaci #${num}` : ''} ve Stripe SELHALA (${status})`,
+    `<p>${what}${bk ? ` k rezervaci <strong>#${num}</strong> (${bk.id})` : ' — rezervaci se nepodařilo dohledat'} skončila stavem <strong>${status}</strong> — peníze zákazníkovi neodešly.</p>${todo}`)
+}
+
 export async function onRefundUpdated(sb: Sb, stripe: OtherIntentsStripe, r: RefundObj): Promise<void> {
   const status = String(r.status || '')
   const bk = await bookingOfRefund(sb, r)
+  if (status === 'failed' || status === 'canceled') return await onRefundFailed(sb, r, status, bk)
   if (!bk) { await log(sb, 'refund_updated_no_booking', 'info', { refund_id: r.id, status }); return }
-  const num = String(bk.id).slice(-8).toUpperCase()
-  if (status === 'failed' || status === 'canceled') {
-    await log(sb, 'refund_updated_failed', 'error', { booking_id: bk.id, refund_id: r.id, status, amount: r.amount ?? null, payment_status: bk.payment_status },
-      `Stripe vratka ${r.id} skončila '${status}' — peníze zákazníkovi NEODEŠLY.`)
-    await opsMail(`⚠️ Vratka ${Number(r.amount || 0) / 100} Kč k rezervaci #${num} ve Stripe SELHALA (${status})`,
-      `<p>Stripe vratka <code>${r.id}</code> (${Number(r.amount || 0) / 100} Kč) k rezervaci <strong>#${num}</strong> (${bk.id}) skončila stavem <strong>${status}</strong> — peníze zákazníkovi neodešly.</p>`
-      + '<p>Rezervace zůstává ve stavu „Čeká na vrácení“. Zrušte dobropis k této vratce ve Velíně a vratku zopakujte (Stripe / převodem).</p>')
-    return
+  // i4: rezervace dohledaná jen přes metadata.booking_id (vratka MIMO cenu) stav platby rezervace nedorovnává
+  if (bk.stripe_refund_id !== r.id && !(r.metadata || {}).mg_booking_id) {
+    await log(sb, 'refund_updated_outside_price', 'info', { booking_id: bk.id, refund_id: r.id, status, mg_source: (r.metadata || {}).mg_source ?? null }); return
   }
   if (status !== 'succeeded') { await log(sb, 'refund_updated_ignored', 'info', { booking_id: bk.id, refund_id: r.id, status }); return }
   if (bk.payment_status !== 'refund_pending') {

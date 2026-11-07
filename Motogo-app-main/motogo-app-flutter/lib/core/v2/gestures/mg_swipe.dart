@@ -84,7 +84,13 @@ class _MgSwipeSegmentsState<T> extends State<MgSwipeSegments<T>> with SingleTick
     return widget.values[j];
   }
 
-  double get _width => (context.size?.width ?? 0) > 0 ? context.size!.width : 360;
+  /// Width of the box, read when a drag starts (never during build).
+  double _width = 360;
+
+  void _measure() {
+    final w = context.size?.width ?? 0;
+    if (w > 0) _width = w;
+  }
 
   void _set(double dx) {
     if (!mounted) return;
@@ -133,7 +139,10 @@ class _MgSwipeSegmentsState<T> extends State<MgSwipeSegments<T>> with SingleTick
     final fade = reduced ? 1.0 : 1 - 0.15 * (_dx.abs() / (_width / 2)).clamp(0.0, 1.0);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onHorizontalDragStart: (_) => _back.stop(),
+      onHorizontalDragStart: (_) {
+        _measure();
+        _back.stop();
+      },
       onHorizontalDragUpdate: (d) => _set(_dx + (d.primaryDelta ?? 0)),
       onHorizontalDragEnd: _end,
       onHorizontalDragCancel: _springBack,

@@ -62,6 +62,8 @@ function gearRentalFlowDefaults() {
         'res_pay' => 'Zaplatit {amount}',
         'res_nf' => 'Rezervaci jsme nenašli, nebo už skončila. Vytvoř si prosím novou.',
         'res_cancelled' => 'Tahle rezervace je zrušená. Vytvoř si prosím novou.',
+        'res_cancelled_refund' => 'Rezervace se mezitím zrušila (vypršel čas na zaplacení), takže platbu nešlo přiřadit. Platbu ti automaticky vracíme na kartu (obvykle do 5–10 pracovních dnů) – nic dalšího neplať.',
+        'res_cancelled_verify' => 'Platbu ještě ověřujeme – rezervace se mezitím zrušila (vypršel čas na zaplacení). Buď ji potvrdíme, nebo ti platbu automaticky vrátíme na kartu. Nic dalšího neplať; výsledek se tu za chvíli ukáže.',
         'res_completed' => 'Tahle výpůjčka je už ukončená. Díky, že sis výbavu půjčil(a) u nás!',
         'res_new' => 'Nová rezervace výbavy',
         'ok_manage' => 'Upravit rezervaci',

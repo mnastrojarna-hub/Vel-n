@@ -509,13 +509,22 @@ serve(async (req) => {
           if (docsCheck && Number(refund_amount) > 0) {
             try {
               const requested = Number(refund_amount) || 0
-              const { data: cns } = await supabase.from('invoices').select('total, stripe_refund_id')
-                .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
-              const docs = (cns || []).reduce((t: number, c: any) => t + Math.abs(Number(c.total) || 0), 0)
-              const manualLive = (cns || []).some((c: any) => c.stripe_refund_id == null)
+              const { data: invs } = await supabase.from('invoices').select('type, total, stripe_refund_id')
+                .eq('booking_id', booking_id).in('type', ['credit_note', 'payment_receipt']).neq('status', 'cancelled')
+              const cns = (invs || []).filter((c: any) => c.type === 'credit_note')
+              const docs = cns.reduce((t: number, c: any) => t + Math.abs(Number(c.total) || 0), 0)
+              const paidDocs = (invs || []).filter((c: any) => c.type === 'payment_receipt').reduce((t: number, c: any) => t + (Number(c.total) || 0), 0)
+              const manualLive = cns.some((c: any) => c.stripe_refund_id == null)
               const { data: cur } = await supabase.from('bookings').select('payment_status').eq('id', booking_id).maybeSingle()
               const manualPending = manualLive && cur?.payment_status === 'refund_pending'
-              if (docs + 1 < requested || manualPending) {
+              if (!manualPending && docs + 1 < requested && paidDocs > 0 && docs + 1 >= paidDocs && requested > paidDocs + 1) {
+                // Oprava i4 (2026-11-07, S3b): částka nad doklady o platbě (nezaplacený doplatek úpravy je v total_price →
+                // Velín / tabulka storna) a vše zaplacené je vrácené (dobropisy ≥ DP) → mail nese skutečně vrácenou částku.
+                refund_amount = Math.round(docs * 100) / 100
+                refund_percent = Number(booking.total_price) > 0 ? Math.round(docs / Number(booking.total_price) * 100) : refund_percent
+                await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_amount_capped_to_paid', status: 'info',
+                  request_data: { booking_id, requested, credit_notes_total: docs, paid_docs: paidDocs } }).then(() => {}, () => {})
+              } else if (docs + 1 < requested || manualPending) {
                 refundUnsure = true
                 await supabase.from('debug_log').insert({ source: 'send-cancellation-email', action: 'refund_docs_below_amount', status: 'warning',
                   request_data: { booking_id, requested, credit_notes_total: docs, manual_pending: manualPending, payment_status: cur?.payment_status ?? null } }).then(() => {}, () => {})

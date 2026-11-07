@@ -15,7 +15,10 @@ import 'error_feedback.dart';
 class MgBackArrow extends StatelessWidget {
   final VoidCallback onTap;
   final bool dark;
-  const MgBackArrow({super.key, required this.onTap, this.dark = false});
+
+  /// v2 look: the surface the disc sits on (null = today's mapping).
+  final MgBackStyle? v2Style;
+  const MgBackArrow({super.key, required this.onTap, this.dark = false, this.v2Style});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +27,7 @@ class MgBackArrow extends StatelessWidget {
       return MgV2Back(
         onTap: onTap,
         label: t(context).tr('eoBack'),
-        style: dark ? MgBackStyle.light : MgBackStyle.dark,
+        style: v2Style ?? (dark ? MgBackStyle.light : MgBackStyle.dark),
       );
     }
     return Semantics(

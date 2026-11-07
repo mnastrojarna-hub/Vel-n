@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../motion/mg_motion.dart';
+import '../motion/mg_sticky_slide.dart';
 import '../shell/shell_nav_map.dart';
 import '../tokens/mg_colors.dart';
 import 'mg_chrome_metrics.dart';
@@ -25,6 +26,15 @@ export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 /// declares its [background] through `MgStatusBar`; a dark header / hero and
 /// the collapsed pinned bar declare themselves and win while they lie under
 /// the status bar, so the icons follow the surface as the page scrolls.
+///
+/// Pull-to-refresh (design G5): Android neon disc, iOS the adaptive
+/// Cupertino spinner in neon. [overscrollColor] (dark-header pages pass
+/// `MgColors.night`): what shows above a dark header while iOS rubber-bands
+/// — the backdrop follows the header's visible extent, light sections keep
+/// the canvas. [pinnedBar] (dark, e.g. a compact title + action bar) slides
+/// down from the top once the scroll passes [pinnedBarAfter] (default: the
+/// measured header height − 8) and declares light status-bar icons; not
+/// together with [pinnedBack].
 class MgPage extends ConsumerStatefulWidget {
   final Widget? header;
   final List<Widget> sections;
@@ -45,6 +55,10 @@ class MgPage extends ConsumerStatefulWidget {
   /// Title of the collapsed bar around the pinned back (optional).
   final String? pinnedTitle;
 
+  final Color? overscrollColor;
+  final Widget? pinnedBar;
+  final double? pinnedBarAfter;
+
   const MgPage({
     super.key,
     this.header,
@@ -61,7 +75,10 @@ class MgPage extends ConsumerStatefulWidget {
     this.pinnedBack,
     this.pinnedClose = false,
     this.pinnedTitle,
-  });
+    this.overscrollColor,
+    this.pinnedBar,
+    this.pinnedBarAfter,
+  }) : assert(pinnedBar == null || pinnedBack == null, 'pinnedBar and pinnedBack exclude each other');
 
   @override
   ConsumerState<MgPage> createState() => _MgPageState();
@@ -120,7 +137,8 @@ class _MgPageState extends ConsumerState<MgPage> {
           ),
         );
     Widget? header = widget.header;
-    if (header != null && widget.pinnedBack != null) {
+    final measure = widget.pinnedBack != null || widget.overscrollColor != null || widget.pinnedBar != null;
+    if (header != null && measure) {
       header = MgSizeReporter(
         onSize: (s) {
           if (mounted && (s.height - _headerH).abs() > 0.5) setState(() => _headerH = s.height);
@@ -153,12 +171,14 @@ class _MgPageState extends ConsumerState<MgPage> {
       slivers: content,
     );
     if (widget.onRefresh != null) {
-      scroll = RefreshIndicator(
-        onRefresh: widget.onRefresh!,
-        color: MgColors.onNeon,
-        backgroundColor: MgColors.neon,
-        child: scroll,
-      );
+      scroll = Theme.of(context).platform == TargetPlatform.iOS
+          ? RefreshIndicator.adaptive(onRefresh: widget.onRefresh!, color: MgColors.neon, child: scroll)
+          : RefreshIndicator(
+              onRefresh: widget.onRefresh!,
+              color: MgColors.onNeon,
+              backgroundColor: MgColors.neon,
+              child: scroll,
+            );
     }
     return MgStatusBar.forColor(
       widget.background,
@@ -167,6 +187,8 @@ class _MgPageState extends ConsumerState<MgPage> {
         child: Material(
           color: widget.background,
           child: Stack(children: [
+            if (widget.overscrollColor != null && widget.header != null)
+              _OverscrollBackdrop(controller: _ctrl, extent: _headerH, color: widget.overscrollColor!),
             Positioned.fill(child: scroll),
             if (widget.dock != null)
               Positioned(
@@ -197,9 +219,100 @@ class _MgPageState extends ConsumerState<MgPage> {
                   title: widget.pinnedTitle,
                 ),
               ),
+            if (widget.pinnedBar != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: _PinnedBarHost(
+                  controller: _ctrl,
+                  after: widget.pinnedBarAfter ?? (_headerH > 0 ? _headerH - 8 : 120),
+                  child: widget.pinnedBar!,
+                ),
+              ),
           ]),
         ),
       ),
     );
   }
+}
+
+/// The header colour behind the scroll view, as tall as the header's
+/// visible part (+ the iOS rubber-band gap above it).
+class _OverscrollBackdrop extends StatelessWidget {
+  final ScrollController controller;
+  final double extent;
+  final Color color;
+  const _OverscrollBackdrop({required this.controller, required this.extent, required this.color});
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: controller,
+        builder: (_, __) {
+          final off = controller.hasClients && controller.positions.length == 1 ? controller.offset : 0.0;
+          final h = (extent - off).clamp(0.0, double.infinity);
+          return Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: h,
+            child: ColoredBox(key: const ValueKey('mg-page-overscroll'), color: color),
+          );
+        },
+      );
+}
+
+/// Shows [child] (sliding down from the top) once the scroll passes [after].
+class _PinnedBarHost extends StatefulWidget {
+  final ScrollController controller;
+  final double after;
+  final Widget child;
+  const _PinnedBarHost({required this.controller, required this.after, required this.child});
+
+  @override
+  State<_PinnedBarHost> createState() => _PinnedBarHostState();
+}
+
+class _PinnedBarHostState extends State<_PinnedBarHost> {
+  bool _on = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_check);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PinnedBarHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_check);
+      widget.controller.addListener(_check);
+    }
+    _on = _visible();
+  }
+
+  bool _visible() {
+    final c = widget.controller;
+    return c.hasClients && c.positions.length == 1 && c.offset > widget.after;
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_check);
+    super.dispose();
+  }
+
+  void _check() {
+    final on = _visible();
+    if (on != _on && mounted) setState(() => _on = on);
+  }
+
+  /// The status-bar region slides with the bar: off-screen it stops counting.
+  @override
+  Widget build(BuildContext context) => MgStickySlide(
+        visible: _on,
+        from: AxisDirection.up,
+        child: MgStatusBar(dark: true, child: widget.child),
+      );
 }

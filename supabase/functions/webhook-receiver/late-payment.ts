@@ -54,6 +54,14 @@ export async function refundLatePaymentOnCancelled(sb: Sb, stripe: Stripe, booki
     }
     refunded = true
   } catch (e) { errMsg = (e as Error).message }
+  // Oprava i4 (2026-11-07, verify:ux): výsledek vratky tam, kde ho vidí /potvrzeni (get_web_booking_confirmation) —
+  // dřív zůstalo 'unpaid' a stránka po ~28 s HÁDALA „platbu vracíme“ i u pomalého webhooku (rezervace se pak oživila).
+  // Compare-and-set jen ze 'unpaid' u zrušené rezervace (bez dokladu / dobropisu: k platbě doklad nevznikl).
+  if (refunded && !nothing) {
+    try {
+      await sb.from('bookings').update({ payment_status: 'refunded' }).eq('id', bookingId).eq('status', 'cancelled').eq('payment_status', 'unpaid')
+    } catch { /* stránka pak ukáže neutrální „platbu ověřujeme“ */ }
+  }
   try {
     await sb.from('debug_log').insert({
       source: 'webhook-receiver', action: refunded ? 'late_payment_refunded' : 'late_payment_refund_failed',

@@ -15,10 +15,14 @@
 // část ceny, doplatek se pak kvůli „už vracené" platbě nezapsal ani nevrátil — zákazník přišel
 // o doplatek), platba jiné rezervace. Viz `outsidePrice`.
 
+import { paymentCurrencyOk } from './currency.ts'
+
 // deno-lint-ignore no-explicit-any
 type Sb = any
 export type IntentLike = {
   id: string; status?: string; amount_received?: number | null; created?: number | null; metadata?: Record<string, string> | null
+  /** i4: měna platby (Adaptive Pricing → měna zákazníka); chybí = CZK */
+  currency?: string | null
 }
 export type RefundLike = { id?: string; amount: number; status?: string | null; metadata?: Record<string, string> | null }
 export type BookingIntentsStripe = {
@@ -32,7 +36,8 @@ export type BookingIntentsStripe = {
   }
   checkout?: { sessions: { retrieve: (id: string) => Promise<{ payment_intent?: string | { id?: string } | null; metadata?: Record<string, string> | null }> } }
 }
-export type Candidate = { id: string; refundableHaleru: number; created: number; refundsForMain: number }
+/** `failedRefunds` = id selhaných / zrušených vratek platby (i4: sekvenční složka idempotency klíče zbytku — process-refund/retry-key.ts) */
+export type Candidate = { id: string; refundableHaleru: number; created: number; refundsForMain: number; failedRefunds?: string[] }
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -128,9 +133,11 @@ export async function bookingIntents(stripe: BookingIntentsStripe, sb: Sb, booki
   const fromHistory = await historyIntents(stripe, sb, bookingId, known, refs)
   all.push(...fromHistory)
   const history = [...refs, ...fromHistory.map((p) => p.id)] // i PI webové session (cs_) z historie = zapsaná platba
+  // i4: platba v jiné měně (Adaptive Pricing — strženo v měně zákazníka) se automaticky nevrací (částky v haléřích by
+  // neseděly) → mezi ostatní platby nepatří; co z ní zbývá, hlásí process-refund obsluze jako nevrácený zbytek.
   const rows = all.filter((p) => p.id !== mainPi && p.status === 'succeeded'
     && (p.metadata || {}).booking_id === bookingId && ((p.metadata || {}).type || 'booking') !== 'shop'
-    && !(p.metadata || {}).duplicate_of)
+    && !(p.metadata || {}).duplicate_of && paymentCurrencyOk(p.currency))
   rows.sort((a, b) => (Number(a.created || 0) - Number(b.created || 0)) || (a.id < b.id ? -1 : 1))
   return { rows, history }
 }
@@ -149,8 +156,10 @@ export async function otherRefundableIntents(stripe: BookingIntentsStripe, sb: S
     if (!(received > 0)) continue
     let refunded = 0
     let forMain = 0
+    const failedRefunds: string[] = []
     const rl = await stripe.refunds.list({ payment_intent: p.id, limit: 100 })
     for (const r of rl?.data || []) {
+      if ((r.status === 'failed' || r.status === 'canceled') && r.id) failedRefunds.push(String(r.id))
       if (r.status !== 'succeeded' && r.status !== 'pending') continue
       refunded += Number(r.amount || 0)
       if (mainRefundId && (r.metadata || {}).mg_main_refund === mainRefundId) forMain += Number(r.amount || 0)
@@ -162,7 +171,7 @@ export async function otherRefundableIntents(stripe: BookingIntentsStripe, sb: S
       shopPart = Math.round((Number(so?.total) || 0) * 100)
     }
     const left = received - refunded - shopPart
-    if (left > 0 || forMain > 0) out.push({ id: p.id, refundableHaleru: Math.max(0, left), created: Number(p.created || 0), refundsForMain: forMain })
+    if (left > 0 || forMain > 0) out.push({ id: p.id, refundableHaleru: Math.max(0, left), created: Number(p.created || 0), refundsForMain: forMain, failedRefunds })
   }
   return out
 }

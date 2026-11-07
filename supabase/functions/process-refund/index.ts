@@ -13,12 +13,15 @@ import { isRecoveryOnlyReason, WEBHOOK_REFUND_RECOVERY_REASON } from '../_shared
 // Výpůjčka výbavy (2026-10-23): text dobropisu „výpůjčka výbavy“ + spodní mez ceny výbavy (gear.ts).
 import { gearPriceFloorCzk, loadGearRefundRow, noMotoRefundSubject } from './gear.ts'
 // HOTFIX storno 2026-10-29: storno vratka nejvýš jednou za storno (cancel-once.ts).
-import { acquireCancelLock, cancelBusy, cancelToken, cancelTargetHaleru, cancellationRefundedHaleru, duplicateAdminRefunds, logicalRefundHaleru, openCancelMains, priorCancellationRefunds, releaseCancelLock, respondExistingCancelRefund, type CancelLock, type StripeRefundLike } from './cancel-once.ts'
+import { acquireCancelLock, cancelBusy, hasLiveManualCreditNote, cancelToken, cancelTargetHaleru, cancellationRefundedHaleru, duplicateAdminRefunds, logicalRefundHaleru, openCancelMains, priorCancellationRefunds, releaseCancelLock, respondExistingCancelRefund, type CancelLock, type StripeRefundLike } from './cancel-once.ts'
 // Sloučení hotfixu s vratkou z více plateb (dev f1–f3, 2026-11-05): kontrola nad vratkami VŠECH plateb
 // rezervace + dovrácení zbytku téhož storna po pádu (cancel-once-pool.ts).
 import { cancellationRefundPool, closeStaleCancelMains, completeCancelRemainder, type PoolStripe } from './cancel-once-pool.ts'
 // Oprava i3 (2026-11-07): dlužná částka dle dokladů jako DB trigger _cap_refund_to_paid, převodem placená část (doc-owed.ts).
 import { bankPaidCzk, docSums, docsOwedCzk, shopPartHaleru, stripeRefundsWithoutCnHaleru } from './doc-owed.ts'
+// Oprava i4 (2026-11-07): idempotency klíč vratky po SELHANÉ vratce nový (Stripe by přehrál selhanou) — retry-key.ts
+import { failedRefundIds, isReplayOfFailed, REPLAYED_FAILED, retrySuffix } from './retry-key.ts'
+import { paymentCurrencyOk } from '../_shared/currency.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -490,6 +493,10 @@ async function opsMailOnce(supabase: any, bookingId: string, action: string, sub
   return true
 }
 const bookingNum = (id: string) => String(id).slice(-8).toUpperCase()
+/** Oprava i4 (2026-11-07): skutečný postup vratky u NEzrušené rezervace (Velín ji z detailu rezervace vrátit neumí —
+ *  „Potvrdit vrácení“ je jen u zrušených): vratka ve Stripe dashboardu (webhook stav dorovná), dobropis v Účetnictví. */
+const STAFF_REFUND_HOWTO = 'Zkontrolujte platby; částku vraťte ve Stripe dashboardu (platba rezervace → Refund — stav rezervace se pak dorovná sám), '
+  + 'dobropis vystavte ve Velíně (Finance → Dobropisy) a pošlete ho zákazníkovi e-mailem.'
 
 async function tryFioRefund(
   supabase: any,
@@ -714,12 +721,13 @@ async function customerRefundNeedsStaff(
       `⚠️ Vratku za úpravu rezervace #${num} vyřiďte ručně`,
       `<p>Zákazník v aplikaci upravil rezervaci <strong>#${num}</strong> (${reasonTextFor(reason)}) a požádal o vrácení <strong>${amt} Kč</strong>.</p>`
       + '<p>Automatická vratka NEPROBĚHLA — k rezervaci se nenašel ověřený přeplatek (platby Stripe / Fio − vrácené − aktuální cena). '
-      + 'Zkontrolujte platby a případně vraťte ručně z detailu rezervace ve Velíně.</p>',
+      + `${STAFF_REFUND_HOWTO}</p>`,
     )
   }
   return new Response(
-    // D5: bez „ozveme se“ (nic to neautomatizuje) — stejný slib jako nová appka (pdRefundManual); 4.1.3 text zobrazí doslova.
-    JSON.stringify({ success: false, code: 'refund_needs_staff', error: 'Změna je uložená. Vratku dokončí obsluha do 2 pracovních dnů – nemusíš nic dělat, potvrzení a dobropis přijdou e-mailem.' }),
+    // D5: bez „ozveme se“ (nic to neautomatizuje); 4.1.3 text zobrazí doslova. i4 (2026-11-07): bez slibu „potvrzení a dobropis
+    // přijdou e-mailem“ — vratku obsluha dělá ve Stripe dashboardu a mail zákazníkovi nic automaticky neposílá.
+    JSON.stringify({ success: false, code: 'refund_needs_staff', error: 'Změna je uložená. Vratku dokončí obsluha do 2 pracovních dnů – nemusíš nic dělat; vrácenou částku pak uvidíš v detailu rezervace.' }),
     { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
   )
 }
@@ -1421,7 +1429,12 @@ Deno.serve(async (req: Request) => {
       // Oprava i1 (2026-11-05): storno NE — „jen jednou“ u storna hlídá zámek + kontrola vratek všech plateb
       // (cancel-once). Dřív čerstvý dobropis zkrácení na STEJNOU částku (zkrátit → do 15 min stornovat) storno vratku
       // tiše přeskočil a mail zákazníkovi tvrdil vrácení.
-      if (wantsNewPartial && reason !== 'cancellation') {
+      // Oprava i4 (2026-11-07, S10): i u 'paid' / 'refund_pending' — vratka zkrácení / úpravy / výměny vrácená Stripem
+      // jako „pending“ nechá rezervaci 'refund_pending' (webhook f3 ji už nepřepisuje) a klíč se změnil (pending vratka
+      // snížila refundable) → stejné volání znovu (retry Velínu, druhý pg_net dispatch) vrátilo podruhé.
+      const dedupCandidate = reason !== 'cancellation' && Number.isFinite(Number(amount)) && Number(amount) > 0
+        && (wantsNewPartial || data.payment_status === 'paid' || data.payment_status === 'refund_pending')
+      if (dedupCandidate) {
         const { data: freshCn } = await supabase.from('invoices')
           .select('id, number, pdf_path')
           .eq('booking_id', booking_id).eq('type', 'credit_note').neq('status', 'cancelled')
@@ -1637,6 +1650,25 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       console.warn('[process-refund] PI lookup failed:', (e as Error).message)
     }
+    // Oprava i4 (2026-11-07, verify:charges): uložená platba v jiné měně než CZK (Stripe Checkout s Adaptive Pricing — strženo
+    // v měně zákazníka) → žádná automatická vratka (částky rezervace jsou v haléřích CZK; ořez na „refundable“ v eurocentech
+    // by u částečné vratky vrátil celou platbu). Obsluha vrátí ručně ve Stripe dashboardu.
+    if (storedPi && !paymentCurrencyOk(storedPi.currency)) {
+      const id = booking_id || order_id || ''
+      await dlog('refund_foreign_currency', 'error', { payment_intent_id: stripePaymentIntentId, currency: storedPi.currency })
+      if (booking_id) {
+        await opsMailOnce(supabase, booking_id, 'refund_foreign_currency_mail',
+          `⚠️ Vratka #${bookingNum(booking_id)}: platba v cizí měně (${String(storedPi.currency).toUpperCase()}) — vraťte ručně ve Stripe`,
+          `<p>Rezervace <strong>#${bookingNum(booking_id)}</strong> (${booking_id}, ${reasonTextFor(reason)}${Number(amount) > 0 ? `, ${Number(amount)} Kč` : ', celý zůstatek'}): `
+          + `platba <code>${stripePaymentIntentId}</code> byla stržena v měně <strong>${String(storedPi.currency).toUpperCase()}</strong> (Stripe Adaptive Pricing — má být vypnuté). `
+          + 'Automatická vratka se NEprovedla. Vraťte odpovídající část ručně ve Stripe dashboardu a dobropis vystavte ve Velíně (Finance → Dobropisy).</p>',
+          { payment_intent_id: stripePaymentIntentId, currency: storedPi.currency })
+      }
+      if (isCustomer && booking_id) return await customerRefundNeedsStaff(supabase, booking_id, amount, reason, dlog)
+      return new Response(JSON.stringify({ success: false, code: 'foreign_currency_payment', entity: id,
+        error: `Platba byla stržena v měně ${String(storedPi.currency).toUpperCase()} — vratku proveďte ručně ve Stripe dashboardu.` }),
+        { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    }
     // Oprava i3 (2026-11-07, V7): přibalená e-shop část hlavní platby (web checkout s doprodejem, metadata.shop_order_id)
     // do ceny rezervace nepatří — vratka rezervace ji nesmí vrátit a stav 'refunded' se počítá bez ní.
     let mainShopH = booking_id && storedPi ? await shopPartHaleru(supabase, (storedPi.metadata || {}).shop_order_id, storedRefunds) : 0
@@ -1822,9 +1854,12 @@ Deno.serve(async (req: Request) => {
         // doplatek úpravy (původní platba rezervace mohla zůstat nevrácená) — jinak 'partial_refund' (Velín „Potvrdit
         // vrácení“ i další storno volání zůstanou možné; nic se nevrací).
         const closeIt = balanceZero || !(reason === 'cancellation' && (!othersKnown || (storedPi?.metadata || {}).type === 'extension'))
-        await dlog('refund_noop', 'info', { payment_status: closeIt ? 'refunded' : 'partial_refund', others_known: othersKnown,
-          stored_type: (storedPi?.metadata || {}).type || null })
-        await supabase.from('bookings').update({ payment_status: closeIt ? 'refunded' : 'partial_refund' }).eq('id', booking_id)
+        // Oprava i4 (2026-11-07, S7): „Čeká na vrácení“ s živým RUČNÍM dobropisem (část ceny placená převodem — obsluha ji
+        // teprve posílá, potvrdí „Vratka odeslána“) se no_op na kartě neuzavírá — dřív 'refunded', i když převod neodešel.
+        const keepManual = closeIt && cancelBk?.payment_status === 'refund_pending' && await hasLiveManualCreditNote(supabase, booking_id)
+        await dlog('refund_noop', 'info', { payment_status: keepManual ? 'refund_pending' : closeIt ? 'refunded' : 'partial_refund', others_known: othersKnown,
+          stored_type: (storedPi?.metadata || {}).type || null, manual_pending: keepManual })
+        if (!keepManual) await supabase.from('bookings').update({ payment_status: closeIt ? 'refunded' : 'partial_refund' }).eq('id', booking_id)
       } else if (order_id) {
         await supabase.from('shop_orders').update({ payment_status: 'refunded' }).eq('id', order_id)
       }
@@ -1896,10 +1931,23 @@ Deno.serve(async (req: Request) => {
         seqPart = `cn${count || 0}`
       } catch { seqPart = 'na' }
     }
-    const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${seqPart}`
+    // Oprava i4 (2026-11-07, S1a–S1c): selhaná vratka refundable nesníží → po pádu by klíč byl stejný a Stripe by do 24 h
+    // přehrál selhanou vratku místo nové. Přípona = počet selhaných / zrušených vratek platby, ze které se vrací (retry-key.ts).
+    let mainFailed: string[] = []
+    try {
+      const listFor = stripePaymentIntentId && stripePaymentIntentId === (storedPi?.id || null) ? storedRefunds
+        : (await stripe.refunds.list({ payment_intent: stripePaymentIntentId, limit: 100 })).data
+      mainFailed = failedRefundIds(listFor as unknown as Array<{ id?: string; status?: string }>)
+    } catch (e) { console.warn('[process-refund] failed-refund lookup for key failed:', (e as Error).message) }
+    const idempotencyKey = `refund:${booking_id || order_id}:${effectiveAmountHaleru ?? 'full'}:${seqPart}${retrySuffix(mainFailed)}`
 
     await dlog('stripe_refund_create_pre', 'info', { effectiveAmountHaleru, refundableHaleru, idempotency_key: idempotencyKey })
     const refund = await stripe.refunds.create(refundParams, { idempotencyKey })
+    if (isReplayOfFailed(refund.id, mainFailed)) {
+      // Stripe přehrál vratku, která už selhala (klíč staré verze / souběh) → peníze neodešly: bez zápisu stavu, dobropisu i zbytku.
+      await dlog('stripe_refund_replayed_failed', 'error', { refund_id: refund.id, idempotency_key: idempotencyKey })
+      throw new Error(`${REPLAYED_FAILED} ${refund.id}`)
+    }
     await dlog('stripe_refund_create_ok', 'info', { refund_id: refund.id, refund_status: refund.status, refund_amount: refund.amount })
 
     // Vratka větší, než zbývá na hlavní platbě (doplatky úprav a výměn vč. dorovnání na 15 Kč
@@ -1926,8 +1974,28 @@ Deno.serve(async (req: Request) => {
     // do 1 Kč = zaokrouhlení ceny na haléře → jen záznam (CUSTOMER_SHORT_TOLERANCE_HALERU).
     const shortRaw = booking_id && requestedHaleru != null && effectiveAmountHaleru != null
       ? Math.max(0, requestedHaleru - effectiveAmountHaleru - extra.refundedHaleru) : 0
-    const shortHaleru = isCustomer && shortRaw <= CUSTOMER_SHORT_TOLERANCE_HALERU ? 0 : shortRaw
+    let shortHaleru = isCustomer && shortRaw <= CUSTOMER_SHORT_TOLERANCE_HALERU ? 0 : shortRaw
     if (shortRaw > 0 && !shortHaleru) await dlog('refund_short_rounding', 'info', { short_haleru: shortRaw })
+    // Oprava i4 (2026-11-07, S2 / S3): obsluha / služba žádá víc, než rezervace dle dokladů zaplatila (nezaplacený doplatek
+    // úpravy „Zákazník doplatí“ je v total_price → storno % × cena; „Potvrdit vrácení“ jiné částky po stornu) a po této
+    // vratce už dle dokladů (DP − dobropisy, jako _cap_refund_to_paid) nic nedlužíme → nic nechybí: bez mailu obsluze
+    // „vraťte ručně“, odpověď partial:false s vrácenou částkou, stav dle skutečnosti. Zbývá-li dle dokladů méně, než
+    // požadavek přesahuje, hlásí se jen to (např. část zaplacená převodem). Bez DP / chyba čtení → jako dřív.
+    if (booking_id && !isCustomer && shortHaleru > 0 && !extra.error) {
+      try {
+        const owed = docsOwedCzk(await docSums(supabase, booking_id))
+        if (owed != null) {
+          const owedAfterH = Math.max(0, Math.round(owed * 100) - Number(refund.amount || 0) - extra.refunds.reduce((t, x) => t + x.amountHaleru, 0))
+          const cut = owedAfterH <= 100 ? shortHaleru : Math.max(0, shortHaleru - owedAfterH)
+          if (cut > 0) {
+            const { data: sur } = await supabase.from('bookings').select('mod_surcharge_due, mod_surcharge_paid_at').eq('id', booking_id).maybeSingle()
+            await dlog('refund_request_above_paid', 'info', { requested_haleru: requestedHaleru, short_haleru: shortHaleru, docs_owed_after_haleru: owedAfterH,
+              not_owed_haleru: cut, unpaid_surcharge: sur && !sur.mod_surcharge_paid_at ? Number(sur.mod_surcharge_due) || null : null })
+            shortHaleru -= cut
+          }
+        }
+      } catch (e) { await dlog('refund_short_docs_failed', 'warning', { error: (e as Error).message }) }
+    }
     // Zbytek nad možnosti plateb rezervace BEZ chyby = trvale → cíl na hlavní vratce (mg_target, mg_cancel_total)
     // snížit na skutečně vrácené, ať recovery (cancel-once-pool.ts) vratku nepovažuje za nedokončenou.
     // Chyba vratky z dalších plateb = přechodné → cíl zůstává, dovrátí další volání / recovery.
@@ -1953,7 +2021,7 @@ Deno.serve(async (req: Request) => {
         + (isCustomer
           ? `<p>Úprava v aplikaci je uložená. Automaticky se vrací jen ověřený přeplatek (platby kartou v ceně rezervace − vrácené − aktuální cena = ${(customerCapH ?? 0) / 100} Kč)${extra.error ? ' a vratka z dalších plateb selhala (debug log stripe_refund_remainder_partial)' : ''}. Zákazník v aplikaci vidí, že zbytek vratky dokončí obsluha.</p>`
           : (extra.error ? '<p>Vratka z dalších plateb selhala (debug log stripe_refund_remainder_partial).</p>' : ''))
-        + '<p>Zbytek zkontrolujte a případně vraťte ručně ve Velíně.</p>',
+        + (isCustomer || reason !== 'cancellation' ? `<p>Zbytek: ${STAFF_REFUND_HOWTO}</p>` : '<p>Zbytek zkontrolujte a případně vraťte ručně ve Velíně („Potvrdit vrácení“ u zrušené rezervace).</p>'),
       )
     }
 
@@ -1982,7 +2050,8 @@ Deno.serve(async (req: Request) => {
       // (i když se tím vyčerpá aktuální PI, např. doplatkový).
       // i3: zbytek hlavní platby V CENĚ (bez přibalené e-shop části) — 100% storno 3000 z platby 3000 + zboží 500 = 'refunded'
       let newStatus = refundedStatus({ refundStatus: refund.status, isCustomer, bookingTotalPrice, amount: reqAmount,
-        refundableHaleru: inPriceRefundableH, effectiveAmountHaleru, leftHaleru: extra.leftHaleru, shortHaleru, fullBalance })
+        refundableHaleru: inPriceRefundableH, effectiveAmountHaleru, leftHaleru: extra.leftHaleru, shortHaleru, fullBalance,
+        extraStatuses: extra.refunds.map((x) => x.status) })
       // Více plateb (2026-11-05): 'refunded' = na žádné platbě V CENĚ rezervace nic nezbývá (idempotentní větev
       // „už vráceno“ pak storno odmítne). Vratka s částkou, která přesně vyčerpala hlavní platbu (např. vrácení
       // doplatku 115 Kč z uložené platby doplatku), dřív rezervaci uzavřela, i když na původní platbě zbývalo vše.
@@ -2262,6 +2331,9 @@ Deno.serve(async (req: Request) => {
         partial: shortHaleru > 0 || (!!manualPart && !manualPart.fio_sent),
         requested_amount: requestedHaleru != null ? (requestedHaleru + nonStripeOwedH) / 100 : null,
         ...(manualPart ? { manual_part: manualPart } : {}),
+        // i4 (S2): storno — vráceno k TOMUTO stornu celkem (dřívější vratky + tato; Velín „Potvrdit vrácení“ jiné částky
+        // po stornu vrací rozdíl navíc → mail a booking_cancellations nesou skutečný součet, ne zvolenou částku)
+        ...(booking_id && reason === 'cancellation' && poolComplete ? { cancel_refunded_total: (cancelDoneHaleru + Number(refund.amount || 0) + extra.refundedHaleru) / 100 } : {}),
       }),
       { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
@@ -2286,8 +2358,18 @@ Deno.serve(async (req: Request) => {
         `⚠️ Vratka za úpravu rezervace #${num} selhala — vyřiďte ručně`,
         `<p>Zákazník v aplikaci upravil rezervaci <strong>#${num}</strong> (${ctx.bookingId}, ${reasonTextFor(typeof ctx.reason === 'string' ? ctx.reason : null)}) `
         + `a požádal o vrácení <strong>${Number(ctx.amount) || 0} Kč</strong>, ale vratka spadla chybou: ${(err as Error).message}.</p>`
-        + '<p>Zákazník v aplikaci vidí, že vratku dokončí obsluha — zkontrolujte platby a vraťte ručně z detailu rezervace ve Velíně.</p>',
+        + `<p>Zákazník v aplikaci vidí, že vratku dokončí obsluha. ${STAFF_REFUND_HOWTO}</p>`,
         { error: (err as Error).message }).catch(() => {})
+    } else if (ctx.bookingId) {
+      // Oprava i4 (2026-11-07, S6): vratka z webu (RPC zkrácení / výbava přes pg_net), Velínu i služby spadla → obsluha
+      // to musí vědět (dřív jen debug_log; mail úpravy zákazníkovi pak zprávu o vratce převzal od dřívějšího dobropisu).
+      const num = bookingNum(ctx.bookingId)
+      await opsMailOnce(supabase, ctx.bookingId, 'refund_failed_mail',
+        `⚠️ Vratka k rezervaci #${num} selhala — zkontrolujte`,
+        `<p>Rezervace <strong>#${num}</strong> (${ctx.bookingId}, ${reasonTextFor(typeof ctx.reason === 'string' ? ctx.reason : null)}): vratka `
+        + `<strong>${Number(ctx.amount) > 0 ? `${Number(ctx.amount)} Kč` : 'celého zůstatku'}</strong> spadla chybou: ${(err as Error).message}.</p>`
+        + `<p>Nic se nevrátilo (nebo jen část — viz Stripe). Storno: zopakujte „Potvrdit vrácení“ ve Velíně. Úprava / zkrácení: ${STAFF_REFUND_HOWTO}</p>`,
+        { error: (err as Error).message, caller: caller.kind }).catch(() => {})
     }
 
     return new Response(

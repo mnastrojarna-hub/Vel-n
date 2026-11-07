@@ -86,7 +86,7 @@ void main() {
     final keyRe = RegExp(r"^\s+'([A-Za-z0-9_]+)':\s", multiLine: true);
     for (final f in Directory('lib/core/i18n').listSync().whereType<File>()) {
       final name = f.uri.pathSegments.last;
-      if (name.startsWith('translations_ext_60_')) continue;
+      if (name.startsWith('translations_ext_60_v2_ux_')) continue;
       for (final x in keyRe.allMatches(f.readAsStringSync())) {
         expect(mine.containsKey(x.group(1)), isFalse, reason: '${x.group(1)} also in $name');
       }

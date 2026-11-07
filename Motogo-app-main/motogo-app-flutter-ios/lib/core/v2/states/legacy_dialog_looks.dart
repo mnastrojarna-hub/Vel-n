@@ -6,13 +6,16 @@ import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_buttons.dart';
 import '../widgets/mg_dialog.dart';
+import '../widgets/mg_emoji_map.dart';
 
 /// v2 (T6) looks of the EXISTING dialogs in `core/widgets/error_feedback.dart`
 /// (V-seams inside their builders, PLAN §1.8). Same texts, same return
 /// values — `Navigator.pop` results are identical to the old dialogs.
 
-/// `showErrorDialog`: close (safe, returns null) + the caller's actions
-/// (each returns its id).
+/// `showErrorDialog`: the caller's actions (each returns its id) + close
+/// (returns null). ONE primary (design D3): the first action ink, further
+/// actions ghost, close a text button (the only button → ink). Labels
+/// without emoji.
 Widget v2ErrorDialogLook(
   BuildContext ctx, {
   required String title,
@@ -21,26 +24,18 @@ Widget v2ErrorDialogLook(
   required bool showClose,
 }) {
   final tr = t(ctx);
-  final close = showClose
-      ? MgBtnGhostLight(label: tr.tr('eoClose'), onTap: () => Navigator.pop(ctx))
-      : null;
-  if (actions.length <= 1) {
-    final a = actions.isEmpty ? null : actions.first;
-    return MgDialogFrame(
-      title: title,
-      body: body,
-      safe: close,
-      action: a == null ? null : MgBtnInk(label: a.$2, onTap: () => Navigator.pop(ctx, a.$1)),
-      safeLabel: showClose ? tr.tr('eoClose') : null,
-      actionLabel: a?.$2,
-    );
-  }
+  void close() => Navigator.pop(ctx);
+  final Widget? primary = actions.isNotEmpty
+      ? MgBtnInk(label: mgStripEmoji(actions.first.$2), onTap: () => Navigator.pop(ctx, actions.first.$1))
+      : (showClose ? MgBtnInk(label: tr.tr('eoClose'), onTap: close) : null);
   return MgDialogFrame(
-    title: title,
-    body: body,
+    title: mgStripEmoji(title),
+    body: mgStripEmoji(body),
+    action: primary,
     extra: [
-      for (final a in actions) MgBtnInk(label: a.$2, onTap: () => Navigator.pop(ctx, a.$1)),
-      if (close != null) close,
+      for (final a in actions.skip(1))
+        MgBtnGhostLight(label: mgStripEmoji(a.$2), onTap: () => Navigator.pop(ctx, a.$1)),
+      if (showClose && actions.isNotEmpty) Center(child: MgBtnText(label: tr.tr('eoClose'), onTap: close)),
     ],
   );
 }

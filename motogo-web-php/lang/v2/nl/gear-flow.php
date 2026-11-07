@@ -50,6 +50,8 @@ return ['pages' => ['gear_rental' => [
     'res_pay' => '{amount} betalen',
     'res_nf' => 'We hebben de reservering niet gevonden of ze is al afgelopen. Maak een nieuwe aan.',
     'res_cancelled' => 'Deze reservering is geannuleerd. Maak een nieuwe aan.',
+    'res_cancelled_refund' => 'De reservering is intussen geannuleerd (de betaaltermijn is verstreken), waardoor de betaling niet kon worden toegewezen. We storten die automatisch terug op je kaart (meestal binnen 5–10 werkdagen) – betaal niets meer.',
+    'res_cancelled_verify' => 'We controleren je betaling nog – de reservering is intussen geannuleerd (de betaaltermijn is verstreken). We bevestigen haar of storten de betaling automatisch terug op je kaart. Betaal niets meer; het resultaat verschijnt hier zo meteen.',
     'res_completed' => 'Deze huur is al afgelopen. Bedankt dat je je uitrusting bij ons hebt gehuurd!',
     'res_new' => 'Nieuwe reservering uitrusting',
     'ok_manage' => 'Reservering bewerken',

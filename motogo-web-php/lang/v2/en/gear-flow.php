@@ -50,6 +50,8 @@ return ['pages' => ['gear_rental' => [
     'res_pay' => 'Pay {amount}',
     'res_nf' => 'We couldn\'t find the booking, or it has already ended. Please create a new one.',
     'res_cancelled' => 'This booking has been cancelled. Please create a new one.',
+    'res_cancelled_refund' => 'The booking was cancelled in the meantime (the payment deadline passed), so the payment couldn\'t be assigned. We\'re refunding it to your card automatically (usually within 5–10 business days) – don\'t pay anything else.',
+    'res_cancelled_verify' => 'We\'re still verifying your payment – the booking was cancelled in the meantime (the payment deadline passed). We\'ll either confirm it or refund the payment to your card automatically. Don\'t pay anything else; the result will appear here shortly.',
     'res_completed' => 'This rental has already ended. Thanks for renting your gear with us!',
     'res_new' => 'New gear booking',
     'ok_manage' => 'Edit reservation',

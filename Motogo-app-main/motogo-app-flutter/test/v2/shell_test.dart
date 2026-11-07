@@ -18,6 +18,7 @@ import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/chrome/mg_status_strip.dart';
 import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
+import 'package:motogo_app/core/v2/motion/mg_sticky_slide.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
@@ -90,6 +91,16 @@ Future<GoRouter> _pump(WidgetTester tester, String initial,
   return router;
 }
 
+/// The nav slides out (FND-15) instead of vanishing: hidden = its slot is
+/// collapsed to 0 and it takes no taps / semantics.
+bool _navShown(WidgetTester tester) {
+  final f = find.ancestor(of: find.byType(V2NavBar), matching: find.byType(MgStickySlide));
+  if (f.evaluate().isEmpty) return false;
+  final shown = tester.widget<MgStickySlide>(f.first).visible;
+  if (!shown) expect(tester.getSize(f.first).height, 0);
+  return shown;
+}
+
 void main() {
   setUpAll(loadMontserrat);
 
@@ -144,11 +155,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('MOTO abc'), findsOneWidget);
-    expect(find.byType(V2NavBar), findsNothing);
+    expect(_navShown(tester), isFalse);
     router.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(V2NavBar), findsOneWidget);
+    expect(_navShown(tester), isTrue);
   });
 
   testWidgets('pending booking → v2 payment strip + Rezervace dot; same countdown text', (tester) async {
@@ -171,7 +182,7 @@ void main() {
     unawaited(router.push('/moto/abc'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(V2NavBar), findsNothing);
+    expect(_navShown(tester), isFalse);
     expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy, moreOrLessEquals(780 - 34 - 8));
     expect(tester.takeException(), isNull);
   });

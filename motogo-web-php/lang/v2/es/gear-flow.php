@@ -50,6 +50,8 @@ return ['pages' => ['gear_rental' => [
     'res_pay' => 'Pagar {amount}',
     'res_nf' => 'No hemos encontrado la reserva o ya ha terminado. Crea una nueva, por favor.',
     'res_cancelled' => 'Esta reserva está cancelada. Crea una nueva, por favor.',
+    'res_cancelled_refund' => 'La reserva se canceló mientras tanto (venció el plazo de pago), así que no se pudo asignar el pago. Te lo devolvemos automáticamente a tu tarjeta (normalmente en 5–10 días laborables): no pagues nada más.',
+    'res_cancelled_verify' => 'Todavía estamos verificando tu pago: la reserva se canceló mientras tanto (venció el plazo de pago). La confirmaremos o te devolveremos el pago a tu tarjeta automáticamente. No pagues nada más; el resultado aparecerá aquí en breve.',
     'res_completed' => 'Este alquiler ya ha terminado. ¡Gracias por alquilar tu equipo con nosotros!',
     'res_new' => 'Nueva reserva de equipo',
     'ok_manage' => 'Editar reserva',

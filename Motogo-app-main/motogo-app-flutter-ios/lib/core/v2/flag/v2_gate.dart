@@ -124,6 +124,7 @@ class _MgV2GateState extends ConsumerState<MgV2Gate> with WidgetsBindingObserver
   @override
   Widget build(BuildContext context) {
     final on = ref.watch(appV2UiProvider);
+    MgV2.markApplied(on);
     final base = Theme.of(context);
     return MgV2Scope(
       enabled: on,

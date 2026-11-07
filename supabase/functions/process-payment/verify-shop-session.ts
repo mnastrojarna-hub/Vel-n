@@ -18,7 +18,7 @@
 import { respond } from './refusals.ts'
 import { applyChargeRounding } from '../_shared/charge-rounding.ts'
 // Měna (oprava 2026-11-05): potvrdit jen platbu v CZK (_shared/currency.ts).
-import { paymentCurrencyOk } from '../_shared/currency.ts'
+import { checkoutCzk, type CheckoutLike } from '../_shared/currency.ts'
 
 // deno-lint-ignore no-explicit-any
 type Sb = any
@@ -74,7 +74,8 @@ export async function verifyShopSession(body: Record<string, unknown>, deps: Ver
       return respond(200, { success: false, payment_status: session.payment_status, status: session.status })
     }
     // Platba v jiné měně než CZK se nepotvrzuje (částka by se vzala jako Kč) — jen záznam; webhook ji také odmítne.
-    if (!freeSession && !paymentCurrencyOk(session.currency)) {
+    // i4: cena v CZK převedená do měny zákazníka (Stripe Adaptive Pricing — currency_conversion) je platba v CZK.
+    if (!freeSession && !checkoutCzk(session as unknown as CheckoutLike).ok) {
       try {
         await sb.from('debug_log').insert({ source: 'process-payment', action: 'non_czk_payment_ignored', component: 'voucher_checkout', status: 'error',
           error_message: `Platba v měně ${String(session.currency)} — nepotvrzeno, prověřte ve Stripe (vratka).`,

@@ -135,10 +135,13 @@ class _MgSheetFrameState extends State<MgSheetFrame> with SingleTickerProviderSt
     final h = context.size?.height ?? double.infinity;
     if (_pull.dy > h * MgSwipe.sheetDismissFraction || v > MgSwipe.sheetDismissVelocity) {
       _closing = true;
+      final route = ModalRoute.of(context);
+      // maybePop is also true when a PopScope refused (it only asked):
+      // still the current route → spring back.
       Navigator.of(context).maybePop().then((popped) {
         if (!mounted) return;
         _closing = false;
-        if (!popped) _springBack();
+        if (!popped || (route?.isCurrent ?? false)) _springBack();
       });
     } else {
       _springBack();
@@ -243,7 +246,8 @@ class _MgSheetFrameState extends State<MgSheetFrame> with SingleTickerProviderSt
         ),
       ),
     );
-    return dy == 0 ? frame : Transform.translate(offset: Offset(0, dy), child: frame);
+    // Always the same wrapper: re-parenting mid-drag would drop the scroll.
+    return Transform.translate(key: const ValueKey('mg-sheet-pull'), offset: Offset(0, dy), child: frame);
   }
 }
 

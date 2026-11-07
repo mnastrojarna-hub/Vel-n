@@ -43,6 +43,11 @@ class MgCta extends ConsumerWidget {
   final bool showMarks;
   final String? semanticLabel;
 
+  /// Leading line icon (20 + 8 gap) before the label, e.g. ⏺ of
+  /// "ZAZNAMENAT JÍZDU"; it takes the place of the rank glyph and counts in
+  /// the label fit.
+  final String? leadingIcon;
+
   const MgCta({
     super.key,
     required this.label,
@@ -57,6 +62,7 @@ class MgCta extends ConsumerWidget {
     this.expand = true,
     this.showMarks = true,
     this.semanticLabel,
+    this.leadingIcon,
   });
 
   double get _height => switch (size) {
@@ -108,7 +114,7 @@ class MgCta extends ConsumerWidget {
       style: base,
       softWrap: true,
     );
-    final glyph = !active || !showMarks
+    final glyph = !active || !showMarks || leadingIcon != null
         ? null
         : switch (r.glyph) {
             RankGlyph.crown => MgIcons.crown,
@@ -119,6 +125,7 @@ class MgCta extends ConsumerWidget {
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        if (leadingIcon != null) ...[MgIcon(leadingIcon!, size: 20, color: labelColor), const SizedBox(width: 8)],
         if (glyph != null) ...[MgIcon(glyph, size: 18, color: labelColor), const SizedBox(width: 8)],
         // Slovo se nikdy nezalomí uprostřed: nejdřív zmenšit, pak zalomit v mezeře.
         // S cenou nejdřív o kousek menší na JEDEN řádek (ЗАБРОНЮВАТИ · 11 893 Kč

@@ -50,6 +50,8 @@ return ['pages' => ['gear_rental' => [
     'res_pay' => '{amount} bezahlen',
     'res_nf' => 'Wir haben die Reservierung nicht gefunden oder sie ist bereits beendet. Leg bitte eine neue an.',
     'res_cancelled' => 'Diese Reservierung wurde storniert. Leg bitte eine neue an.',
+    'res_cancelled_refund' => 'Die Reservierung wurde inzwischen storniert (die Zahlungsfrist ist abgelaufen), daher konnte die Zahlung nicht zugeordnet werden. Wir erstatten sie automatisch auf deine Karte (in der Regel innerhalb von 5–10 Werktagen) – zahl bitte nichts weiter.',
+    'res_cancelled_verify' => 'Wir prüfen deine Zahlung noch – die Reservierung wurde inzwischen storniert (die Zahlungsfrist ist abgelaufen). Entweder bestätigen wir sie oder erstatten die Zahlung automatisch auf deine Karte. Zahl bitte nichts weiter; das Ergebnis erscheint hier in Kürze.',
     'res_completed' => 'Diese Ausleihe ist bereits beendet. Danke, dass du deine Ausrüstung bei uns gemietet hast!',
     'res_new' => 'Neue Ausrüstungsreservierung',
     'ok_manage' => 'Reservierung bearbeiten',

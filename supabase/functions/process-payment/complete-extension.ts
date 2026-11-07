@@ -26,6 +26,8 @@
 //   {success:false, state:'not_paid', code:'not_paid'}
 //   chyby: 401 auth_required · 403 forbidden · 404 not_found · 409 not_extension · 503 stripe_unavailable
 import { stripe as stripeLive } from './stripe-customer.ts'
+// i4 (2026-11-07): cena v CZK převedená Stripem do měny zákazníka (Adaptive Pricing)
+import { checkoutCzk, type CheckoutLike } from '../_shared/currency.ts'
 import { authClassify } from '../_shared/auth.ts'
 import { applyPaidExtension, chgFromMetadata } from '../_shared/extension-apply.ts'
 import { handlePaidChangeFailure, TAKEN_REASONS, changeKindOf } from '../_shared/paid-change-failure.ts'
@@ -61,7 +63,7 @@ export function changeKind(md: Record<string, string | undefined>): 'swap' | 'mo
 
 /** Web: Checkout Session doplatku → {piId, metadata, paidCzk} nebo hotová odpověď (nezaplaceno / cizí). */
 export async function resolveWebSession(stripe: StripeAny, sessionId: string):
-  Promise<{ piId: string; md: Record<string, string>; paidCzk: number | null } | { response: Response }> {
+  Promise<{ piId: string; md: Record<string, string>; paidCzk: number | null; converted?: boolean } | { response: Response }> {
   let sess
   try {
     sess = await stripe.checkout.sessions.retrieve(sessionId)
@@ -79,7 +81,9 @@ export async function resolveWebSession(stripe: StripeAny, sessionId: string):
       ? respond(202, { success: false, state: 'pending', code: 'payment_processing', error: CS.payment_processing, booking_id: md.booking_id })
       : respond(200, { success: false, state: 'not_paid', code: 'not_paid', error: CS.payment_not_paid, booking_id: md.booking_id }) }
   }
-  return { piId, md, paidCzk: sess.amount_total != null ? Number(sess.amount_total) / 100 : null }
+  // i4: Adaptive Pricing — amount_total je v měně zákazníka, cena v CZK je v currency_conversion (checkoutCzk)
+  const cz = checkoutCzk(sess as unknown as CheckoutLike)
+  return { piId, md, paidCzk: cz.ok && cz.amountTotalH != null ? cz.amountTotalH / 100 : null, converted: cz.converted }
 }
 
 export async function handleCompleteExtension(req: Request, body: Record<string, unknown>, sb: Sb, deps: CompleteDeps = {}): Promise<Response> {
@@ -88,12 +92,12 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   if (who.kind === 'none') return refuse(401, 'auth_required')
   let piId = String(body.payment_intent_id || '')
   const sessionId = String(body.session_id || '')
-  let web: { md: Record<string, string>; paidCzk: number | null } | null = null
+  let web: { md: Record<string, string>; paidCzk: number | null; converted?: boolean } | null = null
   if (!piId && /^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
     const ws = await resolveWebSession(stripe, sessionId)
     if ('response' in ws) return ws.response
     piId = ws.piId
-    web = { md: ws.md, paidCzk: ws.paidCzk }
+    web = { md: ws.md, paidCzk: ws.paidCzk, converted: ws.converted }
   }
   if (!/^pi_[A-Za-z0-9_]+$/.test(piId)) return refuse(404, 'not_found', {}, CS.payment_not_found)
 
@@ -134,7 +138,8 @@ export async function handleCompleteExtension(req: Request, body: Record<string,
   const kind = changeKind(md)
   const kindField = kind ? { change_kind: kind } : {}
   // Web Checkout nenese attempt_id / chg_hash (ty má jen PaymentIntent z appky) → lhůta 72 h.
-  const el = await paidChangeEligibility(sb, { ...pi, metadata: md }, { bookingId, requireNewCode: !web,
+  // i4: web Checkout s Adaptive Pricing — PaymentIntent v měně zákazníka, cena (session) v CZK → strážce měny neodmítne
+  const el = await paidChangeEligibility(sb, { ...pi, metadata: md, ...(web?.converted ? { currency: 'czk' } : {}) }, { bookingId, requireNewCode: !web,
     maxAgeH: web ? PREVIOUS_MAX_AGE_H : QUEUE_MAX_AGE_H, stripe })
   if (!el.ok) {
     if (el.kind === 'applied') {

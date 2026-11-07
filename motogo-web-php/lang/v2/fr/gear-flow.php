@@ -50,6 +50,8 @@ return ['pages' => ['gear_rental' => [
     'res_pay' => 'Payer {amount}',
     'res_nf' => 'Nous n\'avons pas trouvé la réservation, ou elle est déjà terminée. Crée-en une nouvelle.',
     'res_cancelled' => 'Cette réservation est annulée. Crée-en une nouvelle.',
+    'res_cancelled_refund' => 'La réservation a été annulée entre-temps (le délai de paiement a expiré), le paiement n\'a donc pas pu être affecté. Nous te le remboursons automatiquement sur ta carte (généralement sous 5 à 10 jours ouvrés) – ne paie rien d\'autre.',
+    'res_cancelled_verify' => 'Nous vérifions encore ton paiement – la réservation a été annulée entre-temps (le délai de paiement a expiré). Soit nous la confirmons, soit nous te remboursons automatiquement sur ta carte. Ne paie rien d\'autre ; le résultat s\'affichera ici sous peu.',
     'res_completed' => 'Cette location est déjà terminée. Merci d\'avoir loué ton équipement chez nous !',
     'res_new' => 'Nouvelle réservation d\'équipement',
     'ok_manage' => 'Modifier la réservation',

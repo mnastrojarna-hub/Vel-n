@@ -88,8 +88,24 @@ export async function confirmBookingPayment(
   transactionId: string,
   stripePaymentIntentId?: string | null,
   suppressMail = false
-): Promise<'ok' | 'duplicate' | 'revive_failed' | 'error'> {
+): Promise<'ok' | 'duplicate' | 'revive_failed' | 'error' | 'skipped'> {
   try {
+    // Oprava i4 (2026-11-07): zrušená rezervace, jejíž platba se už vrací / vrátila (pozdní platba vrácená automaticky —
+    // late-payment.ts zapíše 'refunded'; storno s vratkou), se událostí platby NIKDY neoživuje (confirm_payment oživí
+    // každou zrušenou s payment_status <> 'paid' — znovu doručená / druhá událost téže platby by vrátila rezervaci
+    // zákazníkovi, jehož peníze už odešly zpět). Bez vratky, bez dokladů, bez mailu.
+    try {
+      const { data: pre } = await supabase.from('bookings').select('status, payment_status').eq('id', bookingId).maybeSingle()
+      const p = pre as { status?: string; payment_status?: string } | null
+      if (p?.status === 'cancelled' && ['refunded', 'partial_refund', 'refund_pending'].includes(String(p.payment_status))) {
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'confirm_booking_skip_cancelled_refunded', component: 'stripe',
+            status: 'warning', request_data: { booking_id: bookingId, transaction_id: transactionId, payment_intent_id: stripePaymentIntentId || null,
+              payment_status: p.payment_status } } as never)
+        } catch { /* ignore */ }
+        return 'skipped'
+      }
+    } catch { /* bez údaje → jako dřív */ }
     // ── ATOMIC dedup: confirm_payment RPC interně dělá UPDATE WHERE payment_status != 'paid'
     //    RETURNING — jen JEDNA paralelní Stripe webhook session získá was_already_paid=false,
     //    druhý event (checkout.session.completed vs payment_intent.succeeded přicházejí <1 s

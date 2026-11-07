@@ -86,11 +86,14 @@ export async function bulkCancel(withTrigger: boolean) {
 /** Velín „Potvrdit (částečné) vrácení“ u zrušené rezervace (BookingDetail confirmCancelledRefund). */
 export async function velinConfirm(amt: number) {
   const total = Math.max(0, Math.round(Number(bk().total_price) || 0))
-  const pct = total > 0 ? Math.round(amt / total * 100) : 0
+  let pct = total > 0 ? Math.round(amt / total * 100) : 0
   if (amt > 0 && !creditNotes().find((c) => Math.abs(Number(c.total) || 0) === amt)) {
     const res = await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) }, 'admin')
     // BookingDetail: vratka selhala (ne-2xx / success:false) → chyba v UI, bez záznamu i mailu (i1)
     if (!res || typeof res !== 'object' || res.success === false) return { failed: true, res }
+    // i4 (S2): skutečně vrácený součet k tomuto stornu (cancel_refunded_total) místo zvolené částky
+    const sum = Math.round(Number(res.cancel_refunded_total))
+    if (Number.isFinite(sum) && sum > amt) { amt = Math.min(total, sum); pct = total > 0 ? Math.round(amt / total * 100) : 0 }
   }
   const last = rows('booking_cancellations').at(-1)
   if (last) Object.assign(last, { refund_amount: amt, refund_percent: pct })
