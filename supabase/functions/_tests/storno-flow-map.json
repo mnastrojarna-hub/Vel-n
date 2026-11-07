@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "https://deno.land/std@0.177.0/http/server.ts": "./storno-stubs.ts",
+    "https://esm.sh/@supabase/supabase-js@2": "./storno-stubs.ts",
+    "https://esm.sh/stripe@14": "./storno-stubs.ts"
+  }
+}

@@ -7,6 +7,7 @@ import { buildGearVars, GEAR_DEFAULT_ATTACHMENTS, gearCancellationReason, gearSu
 import { gearFallbackLang, gearFallbackTemplate, gearFallbackVars, logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 import { gearTexts } from '../_shared/email-gear-blocks.ts'
 import { refundTierPercent } from './refund-tier.ts'
+import { isTriggerDispatch, resolveTriggerDispatch } from './trigger-dispatch.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -167,6 +168,29 @@ serve(async (req) => {
       language,  // i18n: cs/en/de/nl/es/fr/pl, default 'cs'
     } = reqBody
 
+    // HOTFIX storno 2026-10-29 (trigger-dispatch.ts): volání z DB triggeru (bez e-mailu a bez
+    // vratky v těle) si vratku NIKDY nepočítá — převezme rozhodnutí cancel_booking_tracked
+    // z téže transakce, u zaplacené rezervace jinak nedělá nic, u nezaplacené jen mail.
+    let triggerMailOnly = false
+    if (booking_id && isTriggerDispatch(reqBody)) {
+      const td = await resolveTriggerDispatch(supabase, booking_id)
+      // Zaplacené storno bez vratky i mailu (hromadné storno / AI copilot) → 'warning': obsluha ho uvidí
+      // ve Velínu → Debug log a vratku/mail vyřídí ručně (dřív je trigger poslal sám — i chybně).
+      const warn = td.action === 'skip' && td.staff === true
+      await supabase.from('debug_log').insert({
+        source: 'send-cancellation-email', action: warn ? 'trigger_paid_cancel_needs_staff' : 'trigger_dispatch',
+        status: warn ? 'warning' : 'info', request_data: { booking_id, decision: td },
+        ...(warn ? { error_message: 'Zaplacená rezervace zrušena bez vratky a bez storno mailu (hromadné storno / AI copilot) — vyřiď ručně ve Velínu.' } : {}),
+      }).then(() => {}, () => {})
+      if (td.action === 'skip') {
+        return new Response(JSON.stringify({ success: true, skipped: 'trigger_dispatch', why: td.why }), {
+          status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+      if (td.action === 'adopt') { refund_amount = td.refund_amount; refund_percent = td.refund_percent }
+      else triggerMailOnly = true
+    }
+
     // If no email provided but booking_id exists, look up from profile
     if (!customer_email && booking_id) {
       try {
@@ -254,7 +278,7 @@ serve(async (req) => {
     // attach loop níže používá reason 'cancellation_retry', který nový refund
     // nikdy nevytvoří). manual_refund: true = volající ví, že jde o vratku
     // převodem na účet → dovětek do mailu i bez interního volání process-refund.
-    const skipRefund = (reqBody as any).skip_refund === true
+    const skipRefund = (reqBody as any).skip_refund === true || triggerMailOnly
 
     if (booking_id) {
       // Vratka bez Stripe platby (QR/převod/hotově) = manuální — mail dostane
@@ -299,7 +323,7 @@ serve(async (req) => {
 
           // Calculate refund based on storno policy if not provided
           // Pásmo = DB _refund_tier_pct (DESIGN-GEAR §1.11): do pražského času vyzvednutí, ≥168 h / ≥48 h.
-          if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null) {
+          if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null && !triggerMailOnly) {
             refund_percent = refundTierPercent(booking.start_date, booking.pickup_time)
             refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
           }
