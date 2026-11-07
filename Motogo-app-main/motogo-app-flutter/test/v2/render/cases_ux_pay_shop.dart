@@ -62,10 +62,10 @@ Future<void> psLeave(WidgetTester w) async {
   await w.pump(const Duration(milliseconds: 50));
 }
 
-List<Override> psPayOverrides({PaymentContext? ctx, List<SavedCard> cards = kPsCards}) => [
+List<Override> psPayOverrides({PaymentContext? ctx, List<SavedCard> cards = kPsCards, bool upsell = false}) => [
       ...bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw, pickupTime: '12:00')),
       paymentMethodsProvider.overrideWith((ref) async => cards),
-      reservationUpsellEnabledProvider.overrideWith((ref) async => false),
+      reservationUpsellEnabledProvider.overrideWith((ref) async => upsell),
       productsProvider.overrideWith((ref) async => kPsProducts),
       if (ctx != null) paymentContextProvider.overrideWith((ref) => ctx),
     ];
@@ -140,6 +140,18 @@ Future<void> _openErrorSheet(WidgetTester t) async {
   await t.pump(const Duration(milliseconds: 500));
 }
 
+Future<void> _openUpsell(WidgetTester t) async {
+  final f = find.byKey(const ValueKey('upsell-v2'));
+  if (f.evaluate().isEmpty) return;
+  // Upper part of the page: the dock covers the bottom.
+  await Scrollable.ensureVisible(t.element(f), alignment: 0.2);
+  await t.pumpAndSettle();
+  await t.tap(find.descendant(of: f, matching: find.byType(Text)).first);
+  await t.pumpAndSettle();
+  await t.ensureVisible(find.byKey(const ValueKey('upsell-v2-row')));
+  await t.pumpAndSettle();
+}
+
 Future<void> _openLeave(WidgetTester t) async {
   confirmLeaveRunningPayment(t.element(find.byType(Scaffold).first));
   await t.pump();
@@ -171,6 +183,7 @@ Widget _cardSheet({bool processing = false, String? note}) => Material(
           cardField: const Align(alignment: Alignment.centerLeft, child: Text('Číslo karty      MM / RR   CVC')),
           helper: 'Celý rámeček je klikací · vložení čísla funguje',
           payLabel: 'Zaplatit 10 189 Kč →',
+          payAmount: '10 189 Kč',
           onPay: () {},
           note: note,
           noteIsStatus: processing,
@@ -188,6 +201,8 @@ List<RenderCase> uxPayShopRenderCases() {
   return [
     RenderCase('pay', 'payment', 'new_booking', () => const PaymentScreen(), () => psPayOverrides(),
         router: psRouter(() => const PaymentScreen()), scaffold: false, end: psLeave),
+    RenderCase('pay', 'payment', 'new_booking_upsell', () => const PaymentScreen(), () => psPayOverrides(upsell: true),
+        router: psRouter(() => const PaymentScreen()), scaffold: false, end: psLeave, after: _openUpsell),
     RenderCase('pay', 'payment', 'edit_surcharge', () => const PaymentScreen(), () => psPayOverrides(ctx: edit),
         router: psRouter(() => const PaymentScreen()), scaffold: false, end: psLeave),
     RenderCase('pay', 'payment', 'edit_round15', () => const PaymentScreen(), () => psPayOverrides(ctx: round),

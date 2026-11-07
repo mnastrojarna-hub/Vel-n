@@ -62,7 +62,9 @@ class VoucherViewV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final cur = tr.lang == 'cs' ? 'Kč' : 'CZK';
-    String preset(int a) => '${mgNum(a, tr.lang)}\u00A0$cur';
+    // A plain space: a narrow segment (de / uk 320) wraps between the
+    // number and the currency, never inside "CZK" (an NBSP forced that).
+    String preset(int a) => '${mgNum(a, tr.lang)} $cur';
     final value = customMode ? kVoucherCustomV2 : amount;
     Widget label(String s) => Padding(
           padding: const EdgeInsets.only(bottom: MgSpace.s8),
@@ -141,7 +143,15 @@ class VoucherViewV2 extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(MgRadius.card),
-              child: Image.asset('assets/darkovy-poukaz.webp', fit: BoxFit.cover, excludeFromSemantics: true),
+              // Fixed box (1280 × 603) on the dark panel: no layout jump, no
+              // light flash while the asset decodes (D6).
+              child: AspectRatio(
+                aspectRatio: 1280 / 603,
+                child: ColoredBox(
+                  color: MgColors.panel,
+                  child: Image.asset('assets/darkovy-poukaz.webp', fit: BoxFit.cover, excludeFromSemantics: true),
+                ),
+              ),
             ),
             const SizedBox(height: MgSpace.s12),
             card,

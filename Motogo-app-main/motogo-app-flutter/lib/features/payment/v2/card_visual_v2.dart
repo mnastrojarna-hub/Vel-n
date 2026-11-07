@@ -72,9 +72,10 @@ class SavedCardV2 extends StatelessWidget {
             Text(tr.tr('validUntil').toUpperCase(), style: MgType.micro.copyWith(color: meta)),
             Text(card.displayExpiry, style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: fg))),
           ]),
-          const Spacer(),
+          const SizedBox(width: 12),
+          // The name takes all the rest (a Spacer would halve it).
           if (holder != null && holder.isNotEmpty)
-            Flexible(
+            Expanded(
               child: Text(holder.toUpperCase(),
                   textAlign: TextAlign.end, maxLines: 2, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg)),
             ),

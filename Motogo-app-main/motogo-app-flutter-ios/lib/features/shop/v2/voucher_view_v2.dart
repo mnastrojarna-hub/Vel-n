@@ -16,6 +16,7 @@ import '../../../core/v2/widgets/mg_inputs.dart';
 import '../../../core/v2/widgets/mg_segmented.dart';
 import '../../payment/v2/pay_parts_v2.dart' show PayCardV2;
 import '../shop_models.dart' show printedVoucherShipping;
+import 'checkout_view_v2.dart' show CheckoutFocusScrollV2;
 
 /// "Jiná" segment of the amount control.
 const int kVoucherCustomV2 = -1;
@@ -61,7 +62,9 @@ class VoucherViewV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final cur = tr.lang == 'cs' ? 'Kč' : 'CZK';
-    String preset(int a) => '${mgNum(a, tr.lang)}\u00A0$cur';
+    // A plain space: a narrow segment (de / uk 320) wraps between the
+    // number and the currency, never inside "CZK" (an NBSP forced that).
+    String preset(int a) => '${mgNum(a, tr.lang)} $cur';
     final value = customMode ? kVoucherCustomV2 : amount;
     Widget label(String s) => Padding(
           padding: const EdgeInsets.only(bottom: MgSpace.s8),
@@ -94,35 +97,28 @@ class VoucherViewV2 extends StatelessWidget {
         ],
         const SizedBox(height: MgSpace.s20),
         label(tr.tr('voucherTypeLabel')),
-        IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(
-              child: MgChoiceCard(
-                title: tr.tr('electronicVoucher'),
-                sub: 'Email · ${tr.free.toLowerCase()}',
-                icon: MgIcons.mail,
-                selected: !printed,
-                onTap: () => onPrinted(false),
-              ),
-            ),
-            const SizedBox(width: MgSpace.s8),
-            Expanded(
-              child: MgChoiceCard(
-                title: tr.tr('printedVoucher'),
-                sub: '+ ${Money.czk(printedVoucherShipping)}',
-                icon: MgIcons.gift,
-                selected: printed,
-                onTap: () => onPrinted(true),
-              ),
-            ),
-          ]),
+        // One option per row: two half-width cards split the words at 320–412.
+        MgChoiceCard(
+          title: tr.tr('electronicVoucher'),
+          sub: 'Email · ${tr.free.toLowerCase()}',
+          icon: MgIcons.mail,
+          selected: !printed,
+          onTap: () => onPrinted(false),
+        ),
+        const SizedBox(height: MgSpace.s8),
+        MgChoiceCard(
+          title: tr.tr('printedVoucher'),
+          sub: '+ ${Money.czk(printedVoucherShipping)}',
+          icon: MgIcons.gift,
+          selected: printed,
+          onTap: () => onPrinted(true),
         ),
       ]),
     );
     final how = PayCardV2(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         label(tr.tr('howItWorks')),
-        for (final k in const ['voucherInfo1', 'voucherInfo2', 'voucherInfo3', 'voucherInfo5'])
+        for (final k in const ['v2UxPsVoucherInfo1', 'voucherInfo2', 'voucherInfo3', 'voucherInfo5'])
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -134,7 +130,10 @@ class VoucherViewV2 extends StatelessWidget {
       ]),
     );
     final blocked = onBuy == null;
-    return MgPage(
+    // The shell does not resize for the keyboard: keep the amount field
+    // above it (same helper as the checkout).
+    return CheckoutFocusScrollV2(
+        child: MgPage(
       header: MgAppBar(title: tr.tr('giftVoucher'), onBack: onBack),
       overlapHero: false,
       overscrollColor: MgColors.night,
@@ -144,7 +143,15 @@ class VoucherViewV2 extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(MgRadius.card),
-              child: Image.asset('assets/darkovy-poukaz.webp', fit: BoxFit.cover, excludeFromSemantics: true),
+              // Fixed box (1280 × 603) on the dark panel: no layout jump, no
+              // light flash while the asset decodes (D6).
+              child: AspectRatio(
+                aspectRatio: 1280 / 603,
+                child: ColoredBox(
+                  color: MgColors.panel,
+                  child: Image.asset('assets/darkovy-poukaz.webp', fit: BoxFit.cover, excludeFromSemantics: true),
+                ),
+              ),
             ),
             const SizedBox(height: MgSpace.s12),
             card,
@@ -172,6 +179,6 @@ class VoucherViewV2 extends StatelessWidget {
           size: MgCtaSize.md56,
         ),
       ),
-    );
+    ));
   }
 }

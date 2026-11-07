@@ -15,7 +15,10 @@ class PfHubHarness extends ConsumerStatefulWidget {
   /// Pushed from the booking form (profile r3): back + `?edit=personal`.
   final VoidCallback? onBack;
   final bool bookingFix;
-  const PfHubHarness({super.key, this.expanded = false, this.onBack, this.bookingFix = false});
+
+  /// The screen's retry (= pull-to-refresh on the hub, RP-19).
+  final VoidCallback? onRetry;
+  const PfHubHarness({super.key, this.expanded = false, this.onBack, this.bookingFix = false, this.onRetry});
 
   @override
   ConsumerState<PfHubHarness> createState() => _PfHubHarnessState();
@@ -66,7 +69,7 @@ class _PfHubHarnessState extends ConsumerState<PfHubHarness> {
       error: error,
       ready: ready,
       personalExpanded: open,
-      onRetry: noop,
+      onRetry: widget.onRetry ?? noop,
       onTogglePersonal: () => setState(() => open = !open),
       onPaymentMethods: noop,
       version: 'v4.2.0',

@@ -5,6 +5,7 @@
 // on iOS, delete confirm in the v2 dialog).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/core/v2/widgets/mg_dialog.dart';
 import 'package:motogo_app/features/payment/payment_methods_screen.dart';
 import 'package:motogo_app/features/payment/payment_ui_helpers.dart';
@@ -26,6 +27,7 @@ class _Host extends StatefulWidget {
 class _HostState extends State<_Host> {
   bool busy = false;
   int paid = 0;
+  void setBusy(bool v) => setState(() => busy = v);
   @override
   Widget build(BuildContext context) => Align(
         alignment: Alignment.bottomCenter,
@@ -35,6 +37,7 @@ class _HostState extends State<_Host> {
           onClose: () {},
           cardField: const SizedBox(key: ValueKey('fake-card-field'), height: 40),
           payLabel: 'Zaplatit 100 Kč →',
+          payAmount: '100 Kč',
           onPay: busy ? null : () => setState(() => paid++),
           note: busy ? 'Platba probíhá' : null,
           noteIsStatus: busy,
@@ -49,11 +52,16 @@ void main() {
     await tester.tap(find.text('Zaplatit 100 Kč →'));
     final host = tester.state<_HostState>(find.byType(_Host));
     expect(host.paid, 1);
-    host.setState(() => host.busy = true);
+    // Board: only the amount is neon inside the ink button.
+    final rich = tester.widget<Text>(find.text('Zaplatit 100 Kč →'));
+    final spans = (rich.textSpan! as TextSpan).children!.cast<TextSpan>();
+    expect(spans.map((s) => s.text), ['Zaplatit ', '100 Kč', ' →']);
+    expect(spans[1].style!.color, MgColors.neon);
+    host.setBusy(true);
     await tester.pump();
     expect(tester.element(find.byKey(const ValueKey('fake-card-field'))), same(before));
     expect(find.text('Platba probíhá'), findsOneWidget);
-    host.setState(() => host.busy = false);
+    host.setBusy(false);
     await tester.pump();
     expect(tester.element(find.byKey(const ValueKey('fake-card-field'))), same(before));
   });

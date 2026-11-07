@@ -160,9 +160,11 @@ class ProductViewV2 extends StatelessWidget {
         ],
         if (product.inStock) ...[
           const SizedBox(height: MgSpace.s16),
+          // Label above the stepper like "Velikost" above the chips: a long
+          // word ("Кількість", "Cantidad") never splits at 320 dp / 1.3×.
+          Text(tr.tr('quantityLabel'), style: MgType.title.copyWith(color: MgColors.ink)),
+          const SizedBox(height: MgSpace.s8),
           Row(children: [
-            Flexible(child: MgWordFit(minScale: 0.8, child: Text(tr.tr('quantityLabel'), style: MgType.title.copyWith(color: MgColors.ink)))),
-            const SizedBox(width: MgSpace.s12),
             QtyStepperV2(qty: qty, onMinus: onMinus, onPlus: onPlus),
             const SizedBox(width: MgSpace.s8),
             Expanded(

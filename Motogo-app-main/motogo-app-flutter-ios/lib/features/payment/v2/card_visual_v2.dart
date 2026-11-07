@@ -53,13 +53,16 @@ class SavedCardV2 extends StatelessWidget {
             ),
         ]),
         const SizedBox(height: 14),
-        Container(
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Container(
           width: 36,
           height: 26,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(5),
             gradient: const LinearGradient(colors: [MgColors.warnDark, MgColors.star]),
           ),
+        ),
         ),
         const SizedBox(height: 14),
         Text('•••• ${card.last4}', style: MgType.tab(MgType.h2.copyWith(letterSpacing: 2, color: fg))),
@@ -69,9 +72,10 @@ class SavedCardV2 extends StatelessWidget {
             Text(tr.tr('validUntil').toUpperCase(), style: MgType.micro.copyWith(color: meta)),
             Text(card.displayExpiry, style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: fg))),
           ]),
-          const Spacer(),
+          const SizedBox(width: 12),
+          // The name takes all the rest (a Spacer would halve it).
           if (holder != null && holder.isNotEmpty)
-            Flexible(
+            Expanded(
               child: Text(holder.toUpperCase(),
                   textAlign: TextAlign.end, maxLines: 2, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg)),
             ),

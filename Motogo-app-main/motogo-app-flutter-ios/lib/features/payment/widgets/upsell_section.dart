@@ -8,6 +8,8 @@ import '../../shop/shop_models.dart';
 import '../../shop/shop_provider.dart';
 import '../booking_upsell_provider.dart';
 import '../../../core/currency.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/upsell_row_v2.dart';
 
 /// Upsell/cross-sell section for the payment summary screen.
 /// Shows featured shop products.
@@ -28,6 +30,18 @@ class UpsellSection extends ConsumerWidget {
     final upsellItems = ref.watch(bookingUpsellProvider);
     // Když je doprodej vypnutý, sekci vůbec nevykreslíme.
     if (!showProducts) return const SizedBox.shrink();
+    // v2 (PS-07): collapsed card + snapping product row, same callbacks.
+    if (MgV2.on(context)) {
+      final n = ref.read(bookingUpsellProvider.notifier);
+      return UpsellRowV2(
+        products: productsAsync.when(
+            data: (p) => p.take(3).toList(), loading: () => null, error: (_, __) => const []),
+        isSelected: (id) => upsellItems.isNotEmpty && n.isProductSelected(id),
+        sizeOf: n.selectedSize,
+        onToggle: (p, size) => ref.read(bookingUpsellProvider.notifier).toggle(p.id, p.name, p.price, size: size),
+        onRemove: (p) => ref.read(bookingUpsellProvider.notifier).removeProduct(p.id),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(14),

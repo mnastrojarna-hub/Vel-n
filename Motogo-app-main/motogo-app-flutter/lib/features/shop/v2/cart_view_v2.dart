@@ -80,7 +80,7 @@ class CartViewV2 extends StatelessWidget {
               plain: true,
               title: tr.tr('cartEmpty'),
               text: tr.tr('v2UxPsCartEmptyText'),
-              actions: [MgBtnInk(label: tr.tr('backToShop'), icon: MgIcons.bag, expand: false, height: 44, onTap: onShop)],
+              actions: [MgBtnInk(label: tr.tr('v2UxPsToShop'), icon: MgIcons.bag, expand: false, height: 44, onTap: onShop)],
             ),
           ),
         ],

@@ -78,6 +78,9 @@ class PaymentViewV2 extends StatelessWidget {
   /// e-shop: "bez kauce" and "termín ti držíme" are true only there.
   bool get _booking => ctx == null || ctx!.flowType == PaymentFlowType.booking || ctx!.flowType == PaymentFlowType.extension;
 
+  /// SOS payment: the SOS system never carries the rank (V22 §1.4).
+  bool get _sos => ctx?.flowType == PaymentFlowType.sos;
+
   /// The unpaid booking itself is released at the deadline.
   bool get _holds => ctx == null || ctx!.flowType == PaymentFlowType.booking;
 
@@ -106,7 +109,10 @@ class PaymentViewV2 extends StatelessWidget {
       onBack: onBack,
       steps: _isNew,
       chip: chip,
+      rank: !_sos,
     );
+    final cc = cardCharge(amount, forceMin: forceMin);
+    final round = cc.isRound || cc.isWaive;
     final sections = <Widget>[
       if (_isNew && m != null)
         RepaintBoundary(
@@ -139,9 +145,14 @@ class PaymentViewV2 extends StatelessWidget {
               )
             else if (verified != null)
               PayVerifiedLineV2(verified),
-            const SizedBox(height: MgSpace.s12),
-            PayRoundingNoteV2(due: amount, forceMin: forceMin),
-            if (_isNew && m != null) UpsellSection(showProducts: upsellProducts),
+            if (round) ...[
+              const SizedBox(height: MgSpace.s12),
+              PayRoundingNoteV2(due: amount, forceMin: forceMin),
+            ],
+            if (_isNew && m != null && upsellProducts) ...[
+              const SizedBox(height: MgSpace.s12),
+              UpsellSection(showProducts: upsellProducts),
+            ],
             if (!charge.noCharge) ...[
               const SizedBox(height: MgSpace.s12),
               PayMethodCardV2(card: defaultCard),
@@ -175,6 +186,7 @@ class PaymentViewV2 extends StatelessWidget {
       onTrailing: _isNew
           ? () => showPayBreakdownV2(context, draft: draft, breakdown: breakdown, extras: extras, upsell: bundledUpsell)
           : null,
+      rank: !_sos,
     );
     return MgPage(
       header: header,

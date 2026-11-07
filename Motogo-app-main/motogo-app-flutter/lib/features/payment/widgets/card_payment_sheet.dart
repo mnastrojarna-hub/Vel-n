@@ -327,6 +327,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
         cardField: cardField,
         helper: tt.tr('v2UxPsCardHelper'),
         payLabel: '${tt.tr('payBtn')} ${Money.czk(widget.amount)} →',
+        payAmount: Money.czk(widget.amount),
         onPay: (_processing || !_cardComplete) ? null : _payWithCard,
         note: _processing ? tt.tr('psSheetProcessing') : _note,
         noteIsStatus: _processing,

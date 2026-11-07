@@ -66,7 +66,7 @@ void main() {
     expect(find.text('Do košíku'), findsOneWidget, reason: 'toast action to the cart');
   });
 
-  testWidgets('cart: + / − / trash / Vyprázdnit act on the provider; empty = state with "Zpět do obchodu"', (tester) async {
+  testWidgets('cart: + / − / trash / Vyprázdnit act on the provider; empty = Stavy 13.1 with "Do e-shopu"', (tester) async {
     await pumpPs(tester, const CartScreen(), overrides: psShopOverrides(cart: kPsCart));
     expect(find.byType(CartViewV2), findsOneWidget);
     final c = _c(tester, CartScreen);
@@ -83,14 +83,14 @@ void main() {
     await tester.pump();
     expect(c.read(cartProvider), isEmpty);
     expect(find.text('Košík je prázdný'), findsOneWidget);
-    await tester.tap(find.text('Zpět do obchodu'));
+    await tester.tap(find.text('Do e-shopu'));
     await tester.pumpAndSettle();
     expect(find.text('route:/shop'), findsOneWidget);
   });
 
   testWidgets('voucher: 2 000 + printed reach the same purchase; custom < 100 locks the CTA', (tester) async {
     await pumpPs(tester, const VoucherScreen(), overrides: psShopOverrides());
-    await tester.tap(find.text('${mgNum(2000, 'cs')}\u00A0Kč'));
+    await tester.tap(find.text('${mgNum(2000, 'cs')} Kč'));
     await tester.pump();
     await tester.tap(find.text('Tištěný'));
     await tester.pump();

@@ -57,28 +57,21 @@ class CheckoutShippingV2 extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           PayEyebrowV2(tr.tr('v2UxPsShipping')),
           const SizedBox(height: MgSpace.s10),
-          IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Expanded(
-                child: MgChoiceCard(
-                  title: tr.tr('shippingByPost'),
-                  sub: tr.tr('shippingPostInfo'),
-                  icon: MgIcons.truck,
-                  selected: mode == ShipMode.post,
-                  onTap: onPost,
-                ),
-              ),
-              const SizedBox(width: MgSpace.s8),
-              Expanded(
-                child: MgChoiceCard(
-                  title: tr.tr('personalPickup'),
-                  sub: tr.tr('personalPickupInfo'),
-                  icon: MgIcons.pin,
-                  selected: mode == ShipMode.pickup,
-                  onTap: onPickup,
-                ),
-              ),
-            ]),
+          // One option per row: two half-width cards split the words.
+          MgChoiceCard(
+            title: tr.tr('shippingByPost'),
+            sub: tr.tr('shippingPostInfo'),
+            icon: MgIcons.truck,
+            selected: mode == ShipMode.post,
+            onTap: onPost,
+          ),
+          const SizedBox(height: MgSpace.s8),
+          MgChoiceCard(
+            title: tr.tr('personalPickup'),
+            sub: tr.tr('personalPickupInfo'),
+            icon: MgIcons.pin,
+            selected: mode == ShipMode.pickup,
+            onTap: onPickup,
           ),
           if (mode == ShipMode.post) ...[
             const SizedBox(height: MgSpace.s10),
@@ -98,7 +91,7 @@ class CheckoutShippingV2 extends StatelessWidget {
                         builder: (context, _) {
                           final s = summary();
                           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(tr.tr('deliveryDetails'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+                            MgWordFit(minScale: 0.8, child: Text(tr.tr('deliveryDetails'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
                             if (s.isNotEmpty) Text(s, style: MgType.small.copyWith(color: MgColors.meta)),
                           ]);
                         },

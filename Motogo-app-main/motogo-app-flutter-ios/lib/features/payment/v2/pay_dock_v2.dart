@@ -6,6 +6,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 
@@ -30,6 +31,9 @@ class PayDockV2 extends StatelessWidget {
   final String? trailingLabel;
   final VoidCallback? onTrailing;
 
+  /// false = light dock with the ink button (SOS: no rank, no loop).
+  final bool rank;
+
   const PayDockV2({
     super.key,
     required this.contextLine,
@@ -43,6 +47,7 @@ class PayDockV2 extends StatelessWidget {
     this.statusNote,
     this.trailingLabel,
     this.onTrailing,
+    this.rank = true,
   });
 
   @override
@@ -72,6 +77,18 @@ class PayDockV2 extends StatelessWidget {
             ),
           );
     final noteStyle = MgType.small.copyWith(color: MgColors.onDarkLead);
+    if (!rank) {
+      return MgDock(
+        light: true,
+        contextLine: MgWordFit(child: Text(contextLine, maxLines: 2, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700)))),
+        child: MgBtnInk(
+          key: const ValueKey('pay-v2-cta'),
+          label: price == null ? label : '$label · $price',
+          busy: busy,
+          onTap: enabled ? onPay : null,
+        ),
+      );
+    }
     return DecoratedBox(
       // Opaque backing: the night dock would let page text ghost through.
       decoration: const BoxDecoration(

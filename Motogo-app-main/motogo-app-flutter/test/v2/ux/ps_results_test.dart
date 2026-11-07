@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/motion/mg_anim_loops.dart';
 import 'package:motogo_app/core/v2/states/mg_state_screen.dart';
-import 'package:motogo_app/core/v2/states/mg_tone.dart';
 import 'package:motogo_app/features/payment/payment_provider.dart';
 import 'package:motogo_app/features/payment/payment_result_screen.dart';
 import 'package:motogo_app/features/payment/v2/confirmation_view_v2.dart';

@@ -8,8 +8,8 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'pay_ink_button_v2.dart';
 
 /// Shape of the v2 card sheets (light, r22 top — V22 R5.10).
 const ShapeBorder kCardSheetShapeV2 = RoundedRectangleBorder(
@@ -58,6 +58,9 @@ class CardSheetV2 extends StatelessWidget {
   final Widget cardField;
   final String? helper;
   final String payLabel;
+
+  /// The amount inside [payLabel] — drawn in neon as on the board.
+  final String? payAmount;
   final VoidCallback? onPay;
   final String? note;
 
@@ -76,6 +79,7 @@ class CardSheetV2 extends StatelessWidget {
     required this.cardField,
     this.helper,
     required this.payLabel,
+    this.payAmount,
     required this.onPay,
     this.note,
     this.noteIsStatus = false,
@@ -138,7 +142,7 @@ class CardSheetV2 extends StatelessWidget {
               CardFieldFrameV2(key: const ValueKey('card-field-frame-v2'), child: cardField),
               if (helper != null) ...[const SizedBox(height: 6), Text(helper!, style: metaStyle)],
               const SizedBox(height: MgSpace.s16),
-              MgBtnInk(label: payLabel, onTap: onPay, busy: processing),
+              PayInkButtonV2(label: payLabel, amount: payAmount, onTap: onPay, busy: processing),
               if (note != null) ...[
                 const SizedBox(height: MgSpace.s8),
                 MgStateBanner(tone: noteIsStatus ? MgTone.pending : MgTone.warn, title: note!),
