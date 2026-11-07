@@ -25,6 +25,7 @@ import 'package:motogo_app/features/booking/v2/sections/extras_rows_v2.dart';
 import 'package:motogo_app/features/booking/v2/sections/promo_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/v2_harness.dart';
 
@@ -71,6 +72,8 @@ Future<ProviderContainer> _pumpRouted(WidgetTester tester, List<Override> overri
   ));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
+  // CB-11: the parity checks drive controls inside the express sections.
+  if (v2) await openBookingExpress(tester);
   return container;
 }
 
@@ -183,7 +186,8 @@ void main() {
   testWidgets('note toggles open and writes notes', (t) async {
     final c = await _pumpRouted(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
     expect(find.byType(TextField), findsNothing);
-    await _tap(t, find.text('Poznámka k rezervaci (nepovinné)'));
+    // CB-11 express: the note starts as the "Poznámka" pill (same toggle).
+    await _tap(t, find.text('Poznámka'));
     expect(find.byType(TextField), findsOneWidget);
     await t.enterText(find.byType(TextField), '  Přijedu autem  ');
     await t.pump();
@@ -202,7 +206,8 @@ void main() {
 
   testWidgets('back without history → bike detail (old target)', (t) async {
     await _pumpRouted(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
-    await _tap(t, find.byType(MgV2Back));
+    // Header disc or the pinned one (scrolled by the express opener): same back.
+    await _tap(t, find.byType(MgV2Back).first);
     expect(find.text('MOTO m-bmw'), findsOneWidget);
   });
 }

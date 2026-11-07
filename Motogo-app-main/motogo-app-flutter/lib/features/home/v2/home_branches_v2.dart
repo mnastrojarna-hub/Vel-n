@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_nav_helpers.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -190,7 +191,10 @@ class _BranchCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   const SizedBox(height: 10),
-                  Container(
+                  // Tlačítko „Detail" = tap zóna pro AI tlačítko (SH-12).
+                  MgFabAvoid(
+                    kind: MgAvoidKind.tap,
+                    child: Container(
                     constraints: const BoxConstraints(minHeight: 44),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     decoration: BoxDecoration(
@@ -209,6 +213,7 @@ class _BranchCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       const MgIcon(MgIcons.chevronRight, size: 16, color: MgColors.neon),
                     ]),
+                  ),
                   ),
                 ]),
               ),

@@ -24,6 +24,7 @@ import '../../core/date_days.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/states/mg_state_screen.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
 import 'v2/detail/detail_dates_carry_v2.dart';
 import 'v2/detail/detail_states_v2.dart';
@@ -185,7 +186,20 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
               onBack: _back,
             )),
       // Důvod + Zkusit znovu / Zpět, nikdy syrová výjimka (v2: jedna motorka).
-      error: (e, _) => _stateFrame(MgErrorView(
+      // v2 (CB-21): T1 světlá stránka, dok „Zkusit znovu" / „Zpět na
+      // Motorky" (stejné akce), syrová chyba jen v Technických detailech.
+      error: (e, _) => MgV2.on(context)
+          ? MgStateScreen(
+              tone: MgTone.err,
+              title: t(context).tr('v2DetLoadFail'),
+              why: t(context).tr('v2UxCbErrWhyDetail'),
+              tech: '$e',
+              primary: MgStateAction(t(context).tr('eoRetry'), () => ref.invalidate(motorcyclesProvider)),
+              secondary: MgStateAction(t(context).tr('v2UxCbBackToMotos'), _back),
+              onClose: widget.showBackButton ? _back : null,
+              closeIsBack: true,
+            )
+          : _stateFrame(MgErrorView(
         error: e,
         what: t(context).tr(MgV2.on(context) ? 'v2DetLoadFail' : 'eoMotosLoadFail'),
         onRetry: () => ref.invalidate(motorcyclesProvider),

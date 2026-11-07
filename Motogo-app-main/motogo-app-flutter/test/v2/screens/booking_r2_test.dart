@@ -21,6 +21,8 @@ import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
+import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/v2_harness.dart';
 
@@ -30,6 +32,7 @@ Future<ProviderContainer> _form(WidgetTester t, List<Override> o, {String lang =
   await pumpV2(t, const BookingDebugWrapper(), lang: lang, size: const Size(412, 915), overrides: o);
   await t.pump();
   await t.pump(const Duration(milliseconds: 600));
+  await openBookingExpress(t); // CB-11 express sections
   return ProviderScope.containerOf(t.element(find.byType(BookingDebugWrapper)));
 }
 
@@ -109,7 +112,8 @@ void main() {
   testWidgets('"Změnit" → "Ponechat termín" folds the calendar, dates unchanged', (t) async {
     final c = await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
     expect(find.byType(AvailabilityCalendar), findsNothing);
-    await _tap(t, find.text(_tr('v2BkChange')).first);
+    // The date card's own "Změnit" (the express row above has one too).
+    await _tap(t, find.descendant(of: find.byType(BookingDateCardV2), matching: find.text(_tr('v2BkChange'))).first);
     expect(find.byType(AvailabilityCalendar), findsOneWidget);
     await _tap(t, find.text(_tr('v2BkKeepDates')));
     expect(find.byType(AvailabilityCalendar), findsNothing);
@@ -146,15 +150,17 @@ void main() {
     final c = await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)), lang: 'en');
     await _tap(t, find.text(_tr('passengerGearLabel', 'en')).first);
     expect(find.text('${_tr('sizesLabel', 'en')} – ${_tr('passengerGearLabel', 'en')}'), findsOneWidget);
+    // v2 sheet (CB-03): group labels are the form's caps labels.
     for (final k in ['helmet', 'gloves', 'jacket', 'pants']) {
-      expect(find.text(_tr(k, 'en')), findsWidgets);
+      expect(find.text(_tr(k, 'en').toUpperCase()), findsWidgets);
     }
     expect(find.text('Rukavice'), findsNothing);
+    expect(find.text('RUKAVICE'), findsNothing);
     for (var i = 0; i < 4; i++) {
       await t.pump(const Duration(milliseconds: 300));
     }
     await _tap(t, find.descendant(of: find.byType(BottomSheet), matching: find.text('L')).first);
-    await _tap(t, find.text(_tr('confirm', 'en').toUpperCase()));
+    await _tap(t, find.text(_tr('v2UxCbConfirmSizes', 'en')));
     final x = c.read(bookingDraftProvider).extras.firstWhere((x) => x.id == 'extra-spolujezdec');
     expect(x.size, 'Helma: L');
     expect(extraSizeLabel((k) => _tr(k, 'en'), x.size!), '${_tr('helmet', 'en')}: L');

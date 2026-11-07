@@ -75,7 +75,8 @@ class FunnelTopRow extends ConsumerWidget {
       height: 36,
       child: LayoutBuilder(builder: (context, c) {
         if (!pager) return Row(children: [Flexible(child: eyebrow(true))]);
-        final need = mgLineWidth(context, label.toUpperCase(), labelStyle) * 0.85 + _ebChrome + _gap + _pagerW;
+        // Eyebrow smí na 70 % (jako jeho MgWordFit), než se schová do ikony (SH-21).
+        final need = mgLineWidth(context, label.toUpperCase(), labelStyle) * 0.7 + _ebChrome + _gap + _pagerW;
         final full = need <= c.maxWidth;
         return Row(children: [
           if (full) Flexible(child: Align(alignment: AlignmentDirectional.centerStart, child: eyebrow(true))) else eyebrow(false),

@@ -13,6 +13,8 @@ import { handlePaidChangeFailure, changeKindOf } from '../_shared/paid-change-fa
 import { paidChangeEligibility, markApplied, failureRow, type PiLike } from '../_shared/paid-change-guard.ts'
 import { applyChargeRounding } from '../_shared/charge-rounding.ts'
 import { refundLatePaymentOnCancelled } from './late-payment.ts'
+// Oprava i5 (2026-11-07, V6 / R1): nová platba zrušené a už vracené rezervace → vratka / mail obsluze (ne tiché ponechání)
+import { handleCancelledPayment } from './cancelled-payment.ts'
 import { refundDuplicatePayment, type StripeDupLike } from '../_shared/duplicate-payment.ts'
 import { prepareExtensionPayment, refundDuplicateCharges, markPaidAfterChange } from './extension-payment.ts'
 import { syncRefundBooking, webhookRecoveryBody } from '../_shared/refund-recovery.ts'
@@ -383,7 +385,9 @@ Deno.serve(async (req: Request) => {
         const ext = paymentType === 'extension'
           ? await prepareExtensionPayment(supabase, resolvedBookingId, stripePaymentIntentId, session.id) : null
         const cb = ext ? null : await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
-        if (cb === 'revive_failed' && stripePaymentIntentId) await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, stripePaymentIntentId, { shopOrderId: metadata.shop_order_id || null })
+        // i5: přijato v Kč ze session (Adaptive Pricing — PaymentIntent v měně zákazníka) pro dělení s přibalenou objednávkou / mail
+        if (cb === 'revive_failed' && stripePaymentIntentId) await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, stripePaymentIntentId, { shopOrderId: metadata.shop_order_id || null, czkReceivedH: sessCzk.amountTotalH })
+        if (cb === 'skipped' && await handleCancelledPayment(supabase, stripe, resolvedBookingId, stripePaymentIntentId, { shopOrderId: metadata.shop_order_id || null, czkReceivedH: sessCzk.amountTotalH })) retryNeeded = true
         // Druhá platba za tutéž rezervaci (dvě záložky / starší Checkout Session) → vrátit.
         if (cb === 'duplicate' && stripePaymentIntentId) {
           await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: stripePaymentIntentId,
@@ -500,6 +504,7 @@ Deno.serve(async (req: Request) => {
           ? await prepareExtensionPayment(supabase, resolvedBookingId, paymentIntent.id, null) : null
         const cb = ext ? null : await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id, null)
         if (cb === 'revive_failed') await refundLatePaymentOnCancelled(supabase, stripe, resolvedBookingId, paymentIntent.id, { shopOrderId: metadata.shop_order_id || null })
+        if (cb === 'skipped' && await handleCancelledPayment(supabase, stripe, resolvedBookingId, paymentIntent.id, { shopOrderId: metadata.shop_order_id || null })) retryNeeded = true
         if (cb === 'duplicate') {
           await refundDuplicateCharges(supabase, stripe as unknown as StripeDupLike, { piId: paymentIntent.id, customer: piCustomer,
             table: 'bookings', refId: resolvedBookingId, type: 'booking' })

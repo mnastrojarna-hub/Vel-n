@@ -164,7 +164,9 @@ void main() {
 
   testWidgets('pending booking → v2 payment strip + Rezervace dot; same countdown text', (tester) async {
     final pending = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now());
-    await _pump(tester, '/', pending: pending, unread: 2);
+    // On Domů the Home ticket S2 carries the payment (SH-06, v1 C2) → the
+    // strip shows on the other screens.
+    await _pump(tester, '/search', pending: pending, unread: 2);
     expect(find.byType(MgStatusStrip), findsOneWidget);
     expect(find.text('Dokončit rezervaci'), findsOneWidget);
     expect(find.text('2'), findsOneWidget); // Profil badge

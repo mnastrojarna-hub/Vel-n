@@ -6,6 +6,7 @@ import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/chrome/mg_nav_helpers.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_count_up.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
@@ -190,7 +191,16 @@ class _Tile extends StatelessWidget {
               if (value == null)
                 const MgSkeleton(width: 60, height: 22, radius: 6)
               else
-                Text(value!, style: MgType.tab(MgType.h2.copyWith(fontWeight: FontWeight.w900, color: MgColors.ink))),
+                // Osobní počty (ne ceny) jednou za relaci napočítají (700, SH-30).
+                if (int.tryParse(value!) case final n?)
+                  MgCountUp(
+                    value: n,
+                    format: (v) => '${v.round()}',
+                    sessionKey: 'home-exp-$i',
+                    style: MgType.h2.copyWith(fontWeight: FontWeight.w900, color: MgColors.ink),
+                  )
+                else
+                  Text(value!, style: MgType.tab(MgType.h2.copyWith(fontWeight: FontWeight.w900, color: MgColors.ink))),
               if (meta != null) Text(meta!, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
             ]),
           ),

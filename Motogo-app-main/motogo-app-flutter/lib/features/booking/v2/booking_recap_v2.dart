@@ -6,27 +6,67 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/widgets/net_image.dart';
+import '../../../core/v2/widgets/mg_photo.dart';
+import '../../../core/v2/widgets/mg_section.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../catalog/moto_model.dart';
+import '../../catalog/v2/catalog_text.dart';
+import 'booking_v2_parts.dart';
 
-/// Recap ticket of the chosen bike (board `.tk`, replaces the old
-/// `BookingFormMotoCard`): photo, model, "od X/den · záloha neúčtována",
-/// branch. Overlaps the dark header by 24 px (MgPage).
+/// Recap ticket = the trip (Booking board `.tk`, CB-10): photo 96×64,
+/// model 15/800, "pá 23. 10. → ne 25. 10." 14/800 + "3 dny" chip, then
+/// "12:00 ½ → 19:00 · pobočka Mezná · s obsluhou" (delivery → "přistavení").
+/// Without dates it offers "Vyber termín" ([onPickDates] = the form's own
+/// date-card opener). Every value is the form's; nothing is computed here
+/// except the labels. [footer] = a row drawn inside the card under a
+/// divider (the express layout's "Termín a předání"). Only [moto] is
+/// required (older callers stay source-compatible).
 class BookingRecapV2 extends StatelessWidget {
   final Motorcycle moto;
-  const BookingRecapV2({super.key, required this.moto});
+  final DateTime? start;
+  final DateTime? end;
+  final int dayCount;
+  final String? pickupTime;
+  final String? returnTime;
+
+  /// The first day is half price (the price breakdown's late-pickup
+  /// discount is applied) → "½" after the pickup time.
+  final bool half;
+  final bool pickupDelivery;
+  final VoidCallback? onPickDates;
+  final Widget? footer;
+
+  const BookingRecapV2({
+    super.key,
+    required this.moto,
+    this.start,
+    this.end,
+    this.dayCount = 0,
+    this.pickupTime,
+    this.returnTime,
+    this.half = false,
+    this.pickupDelivery = false,
+    this.onPickDates,
+    this.footer,
+  });
+
+  String _place(AppTranslations tr) {
+    if (pickupDelivery) return tr.tr('v2UxCbDelivery');
+    final b = catBranchLine(tr, moto);
+    return b == null ? '' : tr.trArgs('v2UxCbAtBranch', {'branch': b});
+  }
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final branch = moto.branchName == null
-        ? null
-        : '${tr.tr('branchPrefix')}: ${moto.branchName}${moto.branchCity != null ? ", ${moto.branchCity}" : ""}';
-    Widget fallback() => Container(
-          color: MgColors.well,
-          alignment: Alignment.center,
-          child: MgIcon(MgIcons.moto, size: 24, color: MgColors.meta),
-        );
+    final s = start, e = end;
+    final hasDates = s != null && e != null;
+    final times = [
+      if (pickupTime != null) '${pickupTime!}${half ? ' ½' : ''}',
+      if (returnTime != null) returnTime!,
+    ].join(' → ');
+    final place = _place(tr);
+    final line = [if (times.isNotEmpty) times, if (place.isNotEmpty) place].join(' · ');
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(12),
@@ -36,43 +76,50 @@ class BookingRecapV2 extends StatelessWidget {
         border: Border.all(color: MgColors.line),
         boxShadow: MgShadows.card,
       ),
-      child: Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(MgRadius.thumb),
-          child: SizedBox(
-            width: 84,
-            height: 63,
-            child: MgImage(
-              moto.displayImage,
-              thumbWidth: 240,
-              width: 84,
-              height: 63,
-              fit: BoxFit.cover,
-              placeholder: fallback(),
-              error: fallback(),
-            ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          MgPhoto(
+            url: moto.displayImage,
+            thumbWidth: 240,
+            width: 96,
+            height: 64,
+            glyph: MgIcons.moto,
+            borderRadius: BorderRadius.circular(MgRadius.thumb),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(moto.model, style: MgType.title.copyWith(color: MgColors.ink)),
-            const SizedBox(height: 2),
-            Text(tr.tr('motoFromPrice').replaceAll('{price}', moto.priceLabel),
-                style: MgType.tab(MgType.small.copyWith(color: MgColors.lead))),
-            if (branch != null) ...[
-              const SizedBox(height: 4),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: MgIcon(MgIcons.pin, size: 14, color: MgColors.link),
-                ),
-                const SizedBox(width: 4),
-                Expanded(child: Text(branch, style: MgType.meta.copyWith(color: MgColors.meta))),
-              ]),
-            ],
-          ]),
-        ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              MgWordFit(minScale: 0.8, child: Text(moto.model, style: MgType.title.copyWith(color: MgColors.ink))),
+              const SizedBox(height: 2),
+              if (hasDates) ...[
+                Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                  Text(catRange(tr, s, e).replaceAll(' ', ' ').replaceAll(' → ', ' → '),
+                      style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
+                  if (dayCount > 0) BkDaysChip(dayCount),
+                ]),
+                if (line.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(line, style: MgType.tab(MgType.small.copyWith(color: MgColors.lead))),
+                ],
+              ] else ...[
+                Text(tr.tr('motoFromPrice').replaceAll('{price}', moto.priceLabel),
+                    style: MgType.tab(MgType.small.copyWith(color: MgColors.lead))),
+                if (place.isNotEmpty)
+                  Text(place, style: MgType.small.copyWith(color: MgColors.lead)),
+                if (onPickDates != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: MgTextLink(label: tr.tr('v2UxCbPickDates'), onTap: onPickDates),
+                  ),
+              ],
+            ]),
+          ),
+        ]),
+        if (footer != null) ...[
+          const SizedBox(height: MgSpace.s12),
+          const Divider(height: 1, thickness: 1, color: MgColors.line),
+          footer!,
+        ],
       ]),
     );
   }

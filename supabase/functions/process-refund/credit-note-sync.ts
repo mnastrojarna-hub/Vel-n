@@ -9,7 +9,8 @@
 //  • recovery přičte zbytek, který už k téže hlavní vratce proběhl (metadata mg_main_refund),
 //  • process-refund dobropis k refund.id s nižší částkou, než skutečně vrátil, dorovná (položka,
 //    základ, celkem, poznámka + účetní záznam) — se stejným stropem jako DB trigger
-//    _cap_refund_to_paid při vložení (zaplacené DP − ostatní dobropisy). Nikdy nesnižuje.
+//    _cap_refund_to_paid při vložení (zaplacené DP − ostatní dobropisy). Nikdy nesnižuje — snížení po selhané
+//    vratce dělá shrinkCreditNote (oprava i5).
 import { otherRefundableIntents, type BookingIntentsStripe } from '../_shared/booking-intents.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -70,6 +71,31 @@ export async function reconcileCreditNote(sb: Sb, a: {
       type: 'expense', amount: -czk, description: `Dobropis ${a.cnNumber} – ${a.reasonText}`,
       category: 'refund', date: a.issueDate, booking_id: a.bookingId, invoice_id: a.cnId,
     }).then(() => {}, () => {})
+  }
+  return czk
+}
+
+/** Oprava i5 (2026-11-07, verify:refunds V2/V9): dobropis k vratce, jejíž část (nebo celá) ve Stripe SELHALA
+ *  (webhook refund-updated.ts) → dorovnat DOLŮ na skutečně živou částku `targetCzk` (hlavní vratka + živé zbytky);
+ *  0 → dobropis zrušit (status 'cancelled'). Účetní záznam stejně jako reconcileCreditNote. PDF se přegeneruje
+ *  (pdf_path null → ensureCreditNotePdf). Vrací novou částku (Kč, kladně; 0 = zrušen), nebo null beze změny. */
+export async function shrinkCreditNote(sb: Sb, a: {
+  cnId: string; cnNumber: string; bookingId: string; currentTotal: number; targetCzk: number; description: string; note: string
+}): Promise<number | null> {
+  const curH = Math.round(Math.abs(Number(a.currentTotal) || 0) * 100)
+  const newH = Math.max(0, Math.round(Math.abs(Number(a.targetCzk) || 0) * 100))
+  if (newH >= curH) return null
+  const czk = newH / 100
+  const { data: old } = await sb.from('invoices').select('notes').eq('id', a.cnId).maybeSingle()
+  const notes = `${old?.notes || ''} ${a.note}`.trim()
+  const patch = newH === 0 ? { status: 'cancelled', notes }
+    : { items: [{ description: a.description, qty: 1, unit_price: -czk }], subtotal: -czk, total: -czk, notes, pdf_path: null }
+  const { error } = await sb.from('invoices').update(patch).eq('id', a.cnId).neq('status', 'cancelled')
+  if (error) throw new Error(`credit note shrink failed: ${error.message}`)
+  const byInvoice = await sb.from('accounting_entries').update({ amount: -czk }).eq('invoice_id', a.cnId).select('id')
+  if (!(Array.isArray(byInvoice?.data) && byInvoice.data.length > 0)) {
+    await sb.from('accounting_entries').update({ amount: -czk })
+      .eq('booking_id', a.bookingId).eq('category', 'refund').like('description', `Dobropis ${a.cnNumber} %`)
   }
   return czk
 }

@@ -13,6 +13,8 @@ import 'v2/chrome/mg_chrome_metrics.dart' show MgSizeReporter;
 import 'v2/chrome/mg_status_strip.dart';
 import 'widgets/moto_fx.dart';
 import '../features/documents/docs_gate_provider.dart';
+import '../features/home/v2/home_state.dart' show HomeTicket, deriveHomeState;
+import '../features/shell/v2/strip_stack_v2.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
 import '../features/routes/active_ride_provider.dart';
@@ -118,36 +120,7 @@ class ShellFabLayer extends ConsumerWidget {
     const double fabBottomUpper = 25;
 
     if (v2) {
-      final booking = showBookingFabZone
-          ? pendingBooking.when(
-              data: (b) => (b == null || b.isExpired) ? null : b,
-              loading: () => null,
-              error: (_, __) => null,
-            )
-          : null;
-      final sos = showSosFabZone
-          ? pendingSos.when(data: (s) => s, loading: () => null, error: (_, __) => null)
-          : null;
-      // Priorita: SOS > platba > doklady > trasa > košík (V22 T4).
-      final strips = <Widget>[
-        if (sos != null) ShellSosFab(incident: sos, v2: true),
-        if (booking != null) ShellBookingFab(booking: booking, v2: true),
-        if (showDocsFab)
-          ShellDocsFab(
-            v2: true,
-            onTap: () => context.push(Routes.docs),
-            onDismiss: () => ref.read(_docsFabDismissedProvider.notifier).state = true,
-          ),
-        if (showRouteFab) ShellRouteFab(ride: activeRide, v2: true),
-        if (showCartFab)
-          MgStatusStrip(
-            kind: MgStripKind.cart,
-            title: t(context).tr('cartFab').replaceAll('{count}', '$cartCount').replaceAll('{total}', cartTotal.toStringAsFixed(0)),
-            sub: t(context).tr('v2StripCartSub'),
-            onTap: () => context.push(Routes.cart),
-            onDismiss: () => ref.read(cartFabDismissedProvider.notifier).state = true,
-          ),
-      ];
+      List<ShellStripEntry> entriesOf(WidgetRef r) => _v2Strips(context, r, location);
       return Stack(children: [
         Positioned(
           left: 16,
@@ -155,12 +128,10 @@ class ShellFabLayer extends ConsumerWidget {
           bottom: bottomBase,
           child: MgSizeReporter(
             onSize: (s) => onStripsHeight?.call(s.height),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              for (var i = 0; i < strips.length; i++) ...[
-                if (i > 0) const SizedBox(height: 8),
-                strips[i],
-              ],
-            ]),
+            child: ShellStripHostV2(
+              entries: entriesOf(ref),
+              onMore: () => showShellStripsSheet(context, entriesOf),
+            ),
           ),
         ),
       ]);
@@ -279,4 +250,99 @@ class ShellFabLayer extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// v2 status strips in the existing priority (V22 T4): SOS > platba >
+/// doklady > trasa > košík — same visibility rules and closures as the
+/// pills above. On Domů the strip the Home ticket already shows is left out
+/// (v1 C2 "whenever the same item is already the hero on screen": S1 = SOS,
+/// S2 = platba, S3 = doklady; same providers and derivation as the ticket).
+List<ShellStripEntry> _v2Strips(BuildContext context, WidgetRef ref, String location) {
+  final onPaymentScreen = ref.watch(paymentScreenActiveProvider) ||
+      location == Routes.payment ||
+      location == Routes.sosPayment;
+  final cart = ref.watch(cartProvider);
+  final cartCount = cart.fold<int>(0, (sum, item) => sum + item.qty);
+  final cartTotal = cart.fold<double>(0, (sum, item) => sum + item.price * item.qty);
+  final onShopFlow = location.startsWith('/shop') ||
+      location == Routes.cart || location == Routes.checkout ||
+      location == Routes.voucher;
+  final showCartFab = cartCount > 0 && !onShopFlow && !onPaymentScreen && !ref.watch(cartFabDismissedProvider);
+  const hideBookingFabOn = [Routes.login, Routes.register, Routes.docScan, Routes.payment, Routes.success];
+  final showBookingFabZone = !hideBookingFabOn.contains(location) && !onPaymentScreen;
+  final pendingBooking = ref.watch(pendingBookingFabProvider);
+  final activeRide = ref.watch(activeRideProvider).active;
+  final showRouteFab = activeRide != null && !onPaymentScreen && !hideBookingFabOn.contains(location);
+  final hideSosFabOn = [
+    Routes.login, Routes.register, Routes.docs,
+    Routes.sos, Routes.sosAccident, Routes.sosBreakdown,
+    Routes.sosTheft, Routes.sosService,
+    Routes.sosReplacement, Routes.sosPayment, Routes.sosDone,
+  ];
+  final showSosFabZone = !hideSosFabOn.contains(location) && !onPaymentScreen;
+  final pendingSos = ref.watch(pendingSosFabProvider);
+  final reservations = ref.watch(reservationsProvider);
+  final hasActiveBooking = reservations.valueOrNull?.any((r) {
+        final s = r.displayStatus;
+        return (s == ResStatus.aktivni || s == ResStatus.nadchazejici) && r.paymentStatus == 'paid';
+      }) ?? false;
+  final docsComplete = ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
+  final showDocsFab = hasActiveBooking && !docsComplete &&
+      ![Routes.docs, Routes.docScan].contains(location) &&
+      !ref.watch(_docsFabDismissedProvider) && !onPaymentScreen;
+
+  final booking = showBookingFabZone
+      ? pendingBooking.when(
+          data: (b) => (b == null || b.isExpired) ? null : b,
+          loading: () => null,
+          error: (_, __) => null,
+        )
+      : null;
+  final sos = showSosFabZone
+      ? pendingSos.when(data: (s) => s, loading: () => null, error: (_, __) => null)
+      : null;
+  final hero = location == Routes.home
+      ? deriveHomeState(
+          reservations: reservations.valueOrNull ?? const <Reservation>[],
+          sos: pendingSos.valueOrNull,
+          pending: pendingBooking.valueOrNull,
+          docsComplete: ref.watch(docsFabStatusProvider).valueOrNull?.isComplete,
+        ).ticket
+      : null;
+  final tr = t(context);
+  return [
+    if (sos != null && hero != HomeTicket.s1)
+      ShellStripEntry('sos', ({int more = 0, VoidCallback? onMore, VoidCallback? beforeTap}) =>
+          ShellSosFab(incident: sos, v2: true, more: more, onMore: onMore, beforeTap: beforeTap)),
+    if (booking != null && hero != HomeTicket.s2)
+      ShellStripEntry('pay', ({int more = 0, VoidCallback? onMore, VoidCallback? beforeTap}) =>
+          ShellBookingFab(booking: booking, v2: true, more: more, onMore: onMore, beforeTap: beforeTap)),
+    if (showDocsFab && hero != HomeTicket.s3)
+      ShellStripEntry('docs', ({int more = 0, VoidCallback? onMore, VoidCallback? beforeTap}) => ShellDocsFab(
+            v2: true,
+            more: more,
+            onMore: onMore,
+            onTap: () {
+              beforeTap?.call();
+              context.push(Routes.docs);
+            },
+            onDismiss: () => ref.read(_docsFabDismissedProvider.notifier).state = true,
+          )),
+    if (showRouteFab)
+      ShellStripEntry('route', ({int more = 0, VoidCallback? onMore, VoidCallback? beforeTap}) =>
+          ShellRouteFab(ride: activeRide, v2: true, more: more, onMore: onMore, beforeTap: beforeTap)),
+    if (showCartFab)
+      ShellStripEntry('cart', ({int more = 0, VoidCallback? onMore, VoidCallback? beforeTap}) => MgStatusStrip(
+            kind: MgStripKind.cart,
+            title: tr.tr('cartFab').replaceAll('{count}', '$cartCount').replaceAll('{total}', cartTotal.toStringAsFixed(0)),
+            sub: tr.tr('v2StripCartSub'),
+            onTap: () {
+              beforeTap?.call();
+              context.push(Routes.cart);
+            },
+            onDismiss: () => ref.read(cartFabDismissedProvider.notifier).state = true,
+            more: more,
+            onMore: onMore,
+          )),
+  ];
 }

@@ -18,6 +18,7 @@ import 'package:motogo_app/core/feature_flags.dart';
 import 'package:motogo_app/features/auth/auth_provider.dart' show profileProvider;
 import 'package:motogo_app/features/booking/booking_provider.dart';
 import 'package:motogo_app/features/booking/my_vouchers.dart';
+import 'package:motogo_app/features/booking/v2/booking_express_v2.dart';
 import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
 import 'package:motogo_app/features/booking/v2/booking_recap_v2.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
@@ -26,6 +27,7 @@ import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/fakes_catalog.dart' show catalogOverrides;
 import '../support/v2_harness.dart';
@@ -114,6 +116,11 @@ void main() {
     await _settle(t);
     expect(find.byType(BookingDebugWrapper), findsOneWidget);
     expect(find.descendant(of: find.byType(BookingRecapV2), matching: find.text(kBmw.model)), findsWidgets);
+    // CB-11 express: "Termín a předání" folded under the recap; opened,
+    // the date card is folded too ("Změnit").
+    expect(t.widget<BookingHandoverRowV2>(find.byType(BookingHandoverRowV2)).open, isFalse);
+    expect(find.byType(BookingDateCardV2), findsNothing);
+    await openBookingExpress(t);
     expect(find.descendant(of: find.byType(BookingDateCardV2), matching: find.text('Změnit')), findsOneWidget);
     expect(find.byType(AvailabilityCalendar), findsNothing);
     final d = c.read(bookingDraftProvider);

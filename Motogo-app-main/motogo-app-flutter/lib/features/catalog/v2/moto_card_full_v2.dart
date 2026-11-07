@@ -97,7 +97,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final multi = imgs.length > 1;
     final specs = m.shortDescItems(tr.tr).take(4).map((e) => e.card).toList();
     final lic = catLicenseLabel(tr, m);
-    final branch = m.branchName ?? m.branchCity;
+    final branch = catBranchLine(tr, m);
     // [height] is the MINIMUM: with large text / long words the card grows
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).

@@ -175,13 +175,14 @@ class DetailHeroV2 extends StatelessWidget {
                   child: Text(moto.model,
                       style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
                 ),
-                if (branchInfo.isNotEmpty) ...[
+                if ((catBranchLine(tr, moto) ?? branchInfo).isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Row(children: [
                     MgIcon(MgIcons.pin, size: 18, color: MgColors.neon),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text('${tr.tr('detailBranchLabel')}$branchInfo',
+                      // CB-06: "MotoGo24 Mezná · s obsluhou".
+                      child: Text(catBranchLine(tr, moto) ?? branchInfo,
                           style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
                     ),
                   ]),

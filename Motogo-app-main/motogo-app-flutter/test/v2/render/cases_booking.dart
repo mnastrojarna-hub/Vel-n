@@ -10,10 +10,12 @@ import 'package:motogo_app/core/v2/motion/mg_anim.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
 import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
 
+import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import 'render_harness.dart';
 
 Future<void> _openCalendar(WidgetTester t) async {
+  await openBookingExpress(t); // CB-11: the date card sits in "Termín a předání"
   final change = find.descendant(of: find.byType(BookingDateCardV2), matching: find.byType(MgPress)).first;
   await t.ensureVisible(change);
   await t.pump();

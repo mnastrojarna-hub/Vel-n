@@ -8,6 +8,8 @@ import 'i18n/i18n_provider.dart';
 import 'currency.dart';
 import 'v2/flag/v2_scope.dart';
 import '../features/booking/v2/sections/promo_v2.dart';
+import '../features/booking/v2/promo_sheet_v2.dart';
+import '../features/booking/v2/booking_express_v2.dart';
 
 /// Promo/discount-code entry section inside the booking form.
 /// NO TextField in main tree — uses showDialog (AlertDialog has own Material).
@@ -16,10 +18,18 @@ class BookingFormPromoSection extends StatelessWidget {
     super.key,
     required this.draft,
     required this.onUpd,
+    this.express = false,
+    this.expressNote,
   });
 
   final BookingDraft draft;
   final void Function(BookingDraft Function(BookingDraft) fn) onUpd;
+
+  /// v2 expresní rozložení (CB-11): bez uplatněného kódu a bez vlastních
+  /// poukazů jen tlačítko „Kód nebo poukaz" (stejný dialog), vedle něj
+  /// [expressNote] (tlačítko poznámky); jinak celá karta jako dřív.
+  final bool express;
+  final Widget? expressNote;
 
   /// Dialog slevového kódu. [prefill] = poukaz zvolený klepnutím (v2 karta)
   /// → kód je v poli a uplatní ho až „Použít“ (r2: dárkový poukaz koupený
@@ -58,6 +68,33 @@ class BookingFormPromoSection extends StatelessWidget {
       }
     }
 
+    // Poukazy klepnutím (sdílí starý dialog i v2 list).
+    Widget voucherChips(StateSetter ss) => Consumer(
+          builder: (_, ref, __) => MyVoucherChips(
+            vouchers: unusedVouchers(ref.watch(myVouchersProvider).valueOrNull,
+                draft.discounts.map((d) => d.code)),
+            busy: loading,
+            onUse: (code) => ss(() {
+              ctrl.text = code;
+              error = null;
+            }),
+          ),
+        );
+
+    // v2 (CB-04): stejný ovladač, stejné `apply`, stejné poukazy — list.
+    if (MgV2.peek(context)) {
+      showPromoSheetV2(
+        context,
+        ctrl: ctrl,
+        autofocus: prefill == null,
+        error: () => error,
+        loading: () => loading,
+        apply: apply,
+        voucherChips: voucherChips,
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -72,17 +109,7 @@ class BookingFormPromoSection extends StatelessWidget {
             children: [
               // Vlastní dárkové poukazy bez opisování (2026-10-22): klepnutí
               // kód vloží do pole, uplatní ho „Použít“ (r2).
-              Consumer(
-                builder: (_, ref, __) => MyVoucherChips(
-                  vouchers: unusedVouchers(ref.watch(myVouchersProvider).valueOrNull,
-                      draft.discounts.map((d) => d.code)),
-                  busy: loading,
-                  onUse: (code) => ss(() {
-                    ctrl.text = code;
-                    error = null;
-                  }),
-                ),
-              ),
+              voucherChips(ss),
               TextField(
                 controller: ctrl,
                 autofocus: prefill == null,
@@ -141,14 +168,28 @@ class BookingFormPromoSection extends StatelessWidget {
     // v2 vzhled (kill-switch app_v2_ui): stejný dialog i odebrání kódu.
     if (MgV2.on(context)) {
       return Consumer(
-        builder: (context, ref, _) => BookingPromoV2(
-          discounts: draft.discounts,
-          onOpen: () => _openPromoDialog(context),
-          onRemove: _removeCode,
-          vouchers: unusedVouchers(ref.watch(myVouchersProvider).valueOrNull,
-              draft.discounts.map((d) => d.code)),
-          onVoucher: (code) => _openPromoDialog(context, prefill: code),
-        ),
+        builder: (context, ref, _) {
+          final vouchers = unusedVouchers(ref.watch(myVouchersProvider).valueOrNull,
+              draft.discounts.map((d) => d.code));
+          if (express && draft.discounts.isEmpty && vouchers.isEmpty) {
+            return BookingExpressChipsV2(
+              onPromo: () => _openPromoDialog(context),
+              note: expressNote,
+            );
+          }
+          final card = BookingPromoV2(
+            discounts: draft.discounts,
+            onOpen: () => _openPromoDialog(context),
+            onRemove: _removeCode,
+            vouchers: vouchers,
+            onVoucher: (code) => _openPromoDialog(context, prefill: code),
+          );
+          if (!express || expressNote == null) return card;
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            card,
+            Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: expressNote!),
+          ]);
+        },
       );
     }
     return Padding(

@@ -7,6 +7,8 @@
 // webhook objednávku dál potvrzuje (doklad, mail, expedice), takže se vrací JEN část za rezervaci (zboží + doprava
 // + jejich podíl na dorovnání na 15 Kč zůstávají); dřív vratka celé platby a zboží odešlo zdarma. Vlastní
 // idempotency klíč (…-booking), mail obsluze uvádí částku i ponechanou objednávku.
+// Oprava i5 (2026-11-07, verify:charges R2): přibalená objednávka + platba v měně zákazníka (Adaptive Pricing) → žádné
+// automatické dělení (haléře CZK vs. eurocenty); mail „VRAŤTE RUČNĚ“ s částkou v Kč z ceny v CZK (session).
 import type Stripe from 'https://esm.sh/stripe@14'
 
 // deno-lint-ignore no-explicit-any
@@ -16,10 +18,14 @@ const OPS_EMAIL = 'info@motogo24.cz'
 
 /** Část platby za REZERVACI (haléře) u platby s přibalenou objednávkou: přijato − zboží (Σ položek s cenou > 0) − doprava
  *  − podíl zboží na dorovnání (metadata.card_rounding, poměrně k ceně před dorovnáním). null = nelze spočítat. */
-export async function lateBookingPartHaleru(sb: Sb, stripe: Stripe, piId: string, shopOrderId: string): Promise<{ bookingH: number; shopH: number; orderNumber: string | null } | null> {
+export async function lateBookingPartHaleru(sb: Sb, stripe: Stripe, piId: string, shopOrderId: string,
+  /** i5: přijato v haléřích CZK ze session (Adaptive Pricing — PaymentIntent je v měně zákazníka); jinak amount_received */
+  czkReceivedH?: number | null): Promise<{ bookingH: number; shopH: number; orderNumber: string | null; currency: string; czkKnown: boolean } | null> {
   try {
     const pi = await stripe.paymentIntents.retrieve(piId)
-    const received = Number(pi?.amount_received || 0)
+    const currency = String(pi?.currency || 'czk').toLowerCase()
+    const czkKnown = currency === 'czk' || czkReceivedH != null
+    const received = currency !== 'czk' && czkReceivedH != null ? Number(czkReceivedH) : Number(pi?.amount_received || 0)
     const { data: so, error: e1 } = await sb.from('shop_orders').select('order_number, shipping_cost').eq('id', shopOrderId).maybeSingle()
     const { data: items, error: e2 } = await sb.from('shop_order_items').select('quantity, unit_price').eq('order_id', shopOrderId)
     if (e1 || e2 || !so || !(received > 0)) return null
@@ -30,19 +36,24 @@ export async function lateBookingPartHaleru(sb: Sb, stripe: Stripe, piId: string
     const dueH = received - roundH
     const shareH = roundH > 0 && dueH > 0 ? Math.round(roundH * Math.min(shopBaseH, dueH) / dueH) : 0
     const shopH = Math.min(received, shopBaseH + shareH)
-    return { bookingH: Math.max(0, received - shopH), shopH, orderNumber: (so.order_number as string) || null }
+    return { bookingH: Math.max(0, received - shopH), shopH, orderNumber: (so.order_number as string) || null, currency, czkKnown }
   } catch { return null }
 }
 
 export async function refundLatePaymentOnCancelled(sb: Sb, stripe: Stripe, bookingId: string, piId: string,
-  o: { shopOrderId?: string | null } = {}): Promise<boolean> {
+  /** i5: `afterRefund` = nová platba zrušené rezervace, jejíž platba se už vrací / vrátila (cancelled-payment.ts) — jen text mailu */
+  o: { shopOrderId?: string | null; afterRefund?: boolean; czkReceivedH?: number | null } = {}): Promise<boolean> {
   let refunded = false
   let errMsg: string | null = null
-  const part = o.shopOrderId ? await lateBookingPartHaleru(sb, stripe, piId, o.shopOrderId) : null
+  const part = o.shopOrderId ? await lateBookingPartHaleru(sb, stripe, piId, o.shopOrderId, o.czkReceivedH) : null
   const bundled = !!o.shopOrderId
-  const nothing = bundled && part != null && part.bookingH <= 0
+  // i5 (verify:charges R2): přibalená objednávka + platba v cizí měně (Adaptive Pricing) → část za rezervaci se v té měně
+  // spočítat nedá (haléře CZK ≠ eurocenty / forinty) → nic automaticky, obsluha vrátí ručně (částka v Kč z ceny v CZK).
+  const foreign = bundled && part != null && part.currency !== 'czk'
+  const nothing = bundled && part != null && !foreign && part.bookingH <= 0
   try {
     if (bundled && part == null) throw new Error('část platby za rezervaci nejde spočítat (objednávka e-shopu nečitelná)')
+    if (foreign) throw new Error(`platba stržena v měně ${part!.currency.toUpperCase()} (Stripe Adaptive Pricing) — část za rezervaci nejde vrátit automaticky`)
     if (!nothing) {
       await stripe.refunds.create(
         // mg_source: charge.refunded ji pozná jako NAŠI vratku (ne „storno přes Stripe portál") —
@@ -67,7 +78,7 @@ export async function refundLatePaymentOnCancelled(sb: Sb, stripe: Stripe, booki
       source: 'webhook-receiver', action: refunded ? 'late_payment_refunded' : 'late_payment_refund_failed',
       component: 'stripe', status: refunded ? 'warning' : 'error', error_message: errMsg,
       request_data: { booking_id: bookingId, payment_intent_id: piId, shop_order_id: o.shopOrderId || null,
-        refund_haleru: bundled ? (part?.bookingH ?? null) : 'full', shop_kept_haleru: part?.shopH ?? null },
+        refund_haleru: bundled ? (part?.bookingH ?? null) : 'full', shop_kept_haleru: part?.shopH ?? null, currency: part?.currency ?? null },
     })
   } catch { /* ignore */ }
   try {
@@ -81,13 +92,13 @@ export async function refundLatePaymentOnCancelled(sb: Sb, stripe: Stripe, booki
         to: OPS_EMAIL,
         subject: `⚠️ Platba zrušené rezervace #${num} — ${refunded ? 'automaticky vrácena' : 'VRAŤTE RUČNĚ'}`,
         raw_html: `<h2 style="margin:0 0 8px;font-size:18px">Platba dorazila k už zrušené rezervaci #${num}</h2>`
-          + `<p style="margin:0 0 8px">Rezervaci zrušil automat (nezaplaceno včas) a motorku si mezitím zarezervoval někdo jiný, takže ji nešlo obnovit.</p>`
+          + `<p style="margin:0 0 8px">${o.afterRefund ? 'Rezervace je zrušená a její platba se už vrací / vrátila — tahle platba přišla až po stornu (druhá záložka platby / nová platba), proto se nepotvrzuje.' : 'Rezervaci zrušil automat (nezaplaceno včas) a motorku si mezitím zarezervoval někdo jiný, takže ji nešlo obnovit.'}</p>`
           + `<p style="margin:0 0 8px">${!refunded
-            ? `Automatická vratka platby ${piId} selhala (${errMsg || 'neznámá chyba'}) — vraťte ${bundled ? 'část za rezervaci (bez zboží e-shopu a dopravy)' : 'ji'} prosím ručně ve Stripe.`
+            ? `Automatická vratka platby ${piId} selhala (${errMsg || 'neznámá chyba'}) — vraťte ${bundled ? `část za rezervaci (bez zboží e-shopu a dopravy${part?.czkKnown ? `: <strong>${part.bookingH / 100} Kč</strong> z ceny v CZK` : ''})` : 'ji'} prosím ručně ve Stripe.`
             : !bundled ? `Platba ${piId} byla zákazníkovi automaticky vrácena v plné výši.`
             : nothing ? `Platba ${piId} byla jen za zboží e-shopu — za rezervaci se nic nevracelo.`
             : `Z platby ${piId} se zákazníkovi automaticky vrátila jen část za rezervaci: <strong>${part!.bookingH / 100} Kč</strong>.`}</p>`
-          + (bundled ? `<p style="margin:0 0 8px">Přibalená objednávka e-shopu${part?.orderNumber ? ` ${part.orderNumber}` : ''} (${part ? `${part.shopH / 100} Kč vč. dopravy` : 'částka nezjištěna'}) zůstává zaplacená a vyřizuje se běžně (doklad, expedice). Pokud ji zákazník nechce, stornujte ji ve Velíně.</p>` : '')
+          + (bundled ? `<p style="margin:0 0 8px">Přibalená objednávka e-shopu${part?.orderNumber ? ` ${part.orderNumber}` : ''} (${part?.czkKnown ? `${part.shopH / 100} Kč vč. dopravy` : 'částka nezjištěna'}) zůstává zaplacená a vyřizuje se běžně (doklad, expedice). Pokud ji zákazník nechce, stornujte ji ve Velíně.</p>` : '')
           + `<p style="margin:0;color:#6b7280;font-size:12px">Detail: Velín → Debug log, akce late_payment_refunded.</p>`,
       }),
     })

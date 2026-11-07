@@ -44,7 +44,10 @@ class MgStickySlide extends StatelessWidget {
       ),
     );
     if (collapse) {
+      // Clip only on the collapsing side: the nav's shadow above its top edge
+      // (or a top bar's below its bottom) stays visible.
       out = ClipRect(
+        clipper: _OpenEdgeClip(from),
         child: AnimatedAlign(
           alignment: from == AxisDirection.up ? Alignment.bottomCenter : Alignment.topCenter,
           heightFactor: visible ? 1 : 0,
@@ -59,4 +62,24 @@ class MgStickySlide extends StatelessWidget {
       child: ExcludeSemantics(excluding: !visible, child: out),
     );
   }
+}
+
+/// Clips the side the child slides out to; the opposite edge and the sides
+/// stay open (shadows).
+class _OpenEdgeClip extends CustomClipper<Rect> {
+  final AxisDirection from;
+  const _OpenEdgeClip(this.from);
+
+  static const double _open = 1000;
+
+  @override
+  Rect getClip(Size size) => switch (from) {
+        AxisDirection.down => Rect.fromLTRB(-_open, -_open, size.width + _open, size.height),
+        AxisDirection.up => Rect.fromLTRB(-_open, 0, size.width + _open, size.height + _open),
+        AxisDirection.left => Rect.fromLTRB(0, -_open, size.width + _open, size.height + _open),
+        AxisDirection.right => Rect.fromLTRB(-_open, -_open, size.width, size.height + _open),
+      };
+
+  @override
+  bool shouldReclip(_OpenEdgeClip oldClipper) => oldClipper.from != from;
 }

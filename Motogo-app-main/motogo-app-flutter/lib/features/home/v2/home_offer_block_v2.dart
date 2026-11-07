@@ -6,6 +6,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
@@ -28,6 +29,7 @@ class HomeOfferBlockV2 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
+    final lang = Localizations.localeOf(context).languageCode;
     final range = ref.watch(funnelRangeProvider);
     final list = ref.watch(funnelCandidatesProvider(range)).valueOrNull ?? const [];
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
@@ -45,7 +47,10 @@ class HomeOfferBlockV2 extends ConsumerWidget {
         HomeReveal(
           index: 1,
           sessionKey: 'home-offer',
-          child: MgTintFeature(
+          // Nabídka ½ (peníze) — AI tlačítko ji nikdy nezakryje (SH-12).
+          child: MgFabAvoid(
+            kind: MgAvoidKind.tap,
+            child: MgTintFeature(
             offer: true,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             child: Row(children: [
@@ -67,6 +72,7 @@ class HomeOfferBlockV2 extends ConsumerWidget {
               ),
             ]),
           ),
+          ),
         ),
         const SizedBox(height: 12),
         HomeReveal(
@@ -78,14 +84,15 @@ class HomeOfferBlockV2 extends ConsumerWidget {
               HomeLinkRow(
                 icon: MgIcons.calc,
                 title: tr.tr('v2HomeRowCalcTitle'),
-                sub: tr.tr('v2HomeRowCalcSub'),
+                // Board Main: „{motorka} · {od} → {do}" (vybraný termín).
+                sub: moto == null ? tr.tr('v2HomeRowCalcSub') : '${moto.model} · ${mgRange(range.start, range.end, lang)}',
                 onTap: () => homeOpenCalculator(context, ref, motoId: moto?.id, range: range),
               ),
               const Divider(height: 1, thickness: 1, color: MgColors.line),
               HomeLinkRow(
                 icon: MgIcons.moto,
                 title: tr.tr('v2HomeRowAllTitle'),
-                sub: tr.tr('v2HomeRowAllSub'),
+                sub: tr.tr('v2UxShAllBikesSub'),
                 onTap: () => homeOpenBikes(context, ref, range: range),
               ),
             ]),

@@ -21,6 +21,8 @@ import { cancellationRefundPool, closeStaleCancelMains, completeCancelRemainder,
 import { bankPaidCzk, docSums, docsOwedCzk, shopPartHaleru, stripeRefundsWithoutCnHaleru } from './doc-owed.ts'
 // Oprava i4 (2026-11-07): idempotency klíč vratky po SELHANÉ vratce nový (Stripe by přehrál selhanou) — retry-key.ts
 import { failedRefundIds, isReplayOfFailed, REPLAYED_FAILED, retrySuffix } from './retry-key.ts'
+// Oprava i5 (2026-11-07, V1): osiřelé zbytky storna (hlavní vratka selhala, zbytek z jiné platby odešel)
+import { orphanCoverHaleru, respondOrphanCancelRefund } from './cancel-orphans.ts'
 import { paymentCurrencyOk } from '../_shared/currency.ts'
 
 const CORS = {
@@ -1683,6 +1685,7 @@ Deno.serve(async (req: Request) => {
     // ruční vratkou ani vratkou z další platby.
     let cancelDoneHaleru = 0 // už vráceno k TOMUTO stornu (všechny platby) → metadata mg_cancel_total (mail webhooku)
     let poolComplete = true // false = ostatní platby nečitelné (mg_cancel_total jen z uložené platby → mail webhooku ho nepoužije)
+    let orphanCutH = 0 // i5: část požadavku služby, kterou už vrátily osiřelé zbytky tohoto storna (cancel-orphans.ts)
     if (cancelOnce && cancelBk && storedRefunds) {
       const ois = stripe as unknown as OtherIntentsStripe
       const pool = await cancellationRefundPool(ois, supabase, { bookingId: booking_id!, storedPiId: stripePaymentIntentId,
@@ -1716,6 +1719,22 @@ Deno.serve(async (req: Request) => {
           headers: { ...CORS, 'Content-Type': 'application/json' },
         })
       }
+      // Oprava i5 (2026-11-07, V1): hlavní vratka storna selhala, ale její zbytek z jiné platby odešel → služba vrací jen
+      // nepokrytý rozdíl požadavku (dřív celé storno znovu → zbytek podruhé); pokryto celé → žádná nová vratka.
+      // Obsluha dál vrací zvolenou částku navíc (P2), cancel_refunded_total už osiřelé zbytky obsahuje.
+      if (caller.kind === 'service' && Number(amount) > 0) {
+        const oc = orphanCoverHaleru(pool.refunds, booking_id!, cancelTok)
+        if (oc.sumHaleru > 0) {
+          const leftH = Math.round(Number(amount) * 100) - oc.sumHaleru
+          await dlog('cancellation_orphan_remainders', 'info', { orphan_haleru: oc.sumHaleru, left_haleru: leftH, refunds: oc.orphans.map((r) => r.id) })
+          if (leftH <= 0) {
+            return await respondOrphanCancelRefund({ supabase, bookingId: booking_id!, token: cancelTok, refunds: pool.refunds, orphans: oc.orphans,
+              remaining: () => staffFullBalanceHaleru(ois, supabase, { bookingId: booking_id!, storedPi, storedRefunds: null }), dlog,
+              headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+          orphanCutH = oc.sumHaleru
+        }
+      }
       // Obsluha vědomě vrací další částku téhož storna → starší hlavní vratky s nedokončeným zbytkem uzavřít
       // (recovery by jejich zbytek dovrátila vedle této vratky — oprava i1 2026-11-05).
       if (caller.kind === 'admin') await closeStaleCancelMains(ois as PoolStripe, { bookingId: booking_id!, pool: pool.refunds, token: cancelTok, dlog })
@@ -1731,6 +1750,7 @@ Deno.serve(async (req: Request) => {
     // výměně (uložený vrácený doplatek) no_op → 'refunded' a 0 Kč. Recovery (`_retry`) a idempotentní
     // větev výše se nemění; zákazník částku posílá vždy. Nelze zjistit → dosavadní chování.
     let reqAmount: number | undefined = amount
+    if (orphanCutH > 0 && Number(reqAmount) > 0) reqAmount = Math.max(0, Math.round(Number(reqAmount) * 100) - orphanCutH) / 100
     let fullBalance = false
     let nonStripeOwedH = 0 // i2: část ceny zaplacená mimo Stripe (převod / QR doplatek) → ruční dobropis po vratce kartou
     // Oprava i1 (2026-11-05): ostatní platby rezervace se podařilo přečíst (search / historie) — bez toho nelze říct,
@@ -2322,14 +2342,15 @@ Deno.serve(async (req: Request) => {
         refund_id: refund.id,
         status: refund.status,
         // i2: část zaplacená převodem se počítá jako vrácená jen po odeslání Fio příkazu
-        amount_refunded: refundedAmountCZK + (manualPart?.fio_sent ? manualPart.amount : 0),
+        // i5: vč. osiřelých zbytků tohoto storna, které pokryly část požadavku služby (mail storna = celý požadavek)
+        amount_refunded: refundedAmountCZK + orphanCutH / 100 + (manualPart?.fio_sent ? manualPart.amount : 0),
         currency: refund.currency,
         credit_note_id: creditNoteId,
         card_brand: cardBrand,
         card_last4: cardLast4,
         // f2: automaticky se nevrátila celá požadovaná částka (zbytek vyřídí obsluha); i2: část převodem čeká na obsluhu
         partial: shortHaleru > 0 || (!!manualPart && !manualPart.fio_sent),
-        requested_amount: requestedHaleru != null ? (requestedHaleru + nonStripeOwedH) / 100 : null,
+        requested_amount: requestedHaleru != null ? (requestedHaleru + nonStripeOwedH + orphanCutH) / 100 : null,
         ...(manualPart ? { manual_part: manualPart } : {}),
         // i4 (S2): storno — vráceno k TOMUTO stornu celkem (dřívější vratky + tato; Velín „Potvrdit vrácení“ jiné částky
         // po stornu vrací rozdíl navíc → mail a booking_cancellations nesou skutečný součet, ne zvolenou částku)

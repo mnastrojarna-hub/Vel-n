@@ -20,6 +20,7 @@ import 'package:motogo_app/features/booking/booking_entry.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
 import 'package:motogo_app/features/booking/booking_provider.dart';
 import 'package:motogo_app/features/booking/my_vouchers.dart';
+import 'package:motogo_app/features/booking/v2/booking_express_v2.dart';
 import 'package:motogo_app/features/booking/v2/booking_carry_v2.dart' show bookingDraftOwnerProvider;
 import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
 import 'package:motogo_app/features/booking/v2/booking_recap_v2.dart';
@@ -33,6 +34,7 @@ import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/payment/payment_provider.dart' show lastConfirmedBookingProvider;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/fakes_catalog.dart' show catalogOverrides;
 import '../support/v2_harness.dart';
@@ -163,6 +165,9 @@ void main() {
     await _tapCta(t);
     expect(find.byType(BookingDebugWrapper), findsOneWidget);
     expect(find.descendant(of: find.byType(BookingRecapV2), matching: find.text(kBmw.model)), findsWidgets);
+    // CB-11 express: folded under the recap until opened.
+    expect(t.widget<BookingHandoverRowV2>(find.byType(BookingHandoverRowV2)).open, isFalse);
+    await openBookingExpress(t);
     final dateCard = find.byType(BookingDateCardV2);
     expect(find.descendant(of: dateCard, matching: find.text('Změnit')), findsOneWidget);
     expect(find.byType(AvailabilityCalendar), findsNothing);
@@ -192,6 +197,8 @@ void main() {
     await _tapCta(t);
     final s2 = DateTime(ws.year, ws.month, ws.day + 7), e2 = DateTime(we.year, we.month, we.day + 7);
     c.read(bookingDraftProvider.notifier).state = _fill(c.read(bookingDraftProvider));
+    await t.pump();
+    await openBookingExpress(t);
     t.widget<BookingDateCardV2>(find.byType(BookingDateCardV2)).onRangeSelected(s2, e2);
     await t.pump();
     final st = c.read(calcStateProvider);

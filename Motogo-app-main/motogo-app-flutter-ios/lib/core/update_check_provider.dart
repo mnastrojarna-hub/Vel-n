@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'supabase_client.dart';
 import 'theme.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/shell/v2/update_dialog_v2.dart';
 import 'i18n/i18n_provider.dart';
 import 'widgets/error_feedback.dart' show call112, callMotoGo;
 
@@ -109,8 +111,29 @@ class UpdateChecker {
       barrierDismissible: false,
       builder: (ctx) => PopScope(
         canPop: false,
-        child: StatefulBuilder(
-          builder: (ctx, setSt) => AlertDialog(
+        child: StatefulBuilder(builder: (ctx, setSt) {
+          Future<void> openStore() async {
+            var ok = false;
+            try {
+              ok = await launchUrl(
+                Uri.parse(_storeUrl),
+                mode: LaunchMode.externalApplication,
+              );
+            } catch (_) {}
+            if (!ok) setSt(() => storeFailed = true);
+          }
+
+          // v2 vzhled (Stavy 19.2): tentýž blokující dialog a tytéž akce.
+          if (MgV2.on(ctx)) {
+            return UpdateForceDialogV2(
+              version: minVersion,
+              storeFailed: storeFailed,
+              onUpdate: openStore,
+              onCall: callMotoGo,
+              onCall112: call112,
+            );
+          }
+          return AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(MotoGoRadius.lg),
             ),
@@ -164,16 +187,7 @@ class UpdateChecker {
                       borderRadius: BorderRadius.circular(MotoGoRadius.pill),
                     ),
                   ),
-                  onPressed: () async {
-                    var ok = false;
-                    try {
-                      ok = await launchUrl(
-                        Uri.parse(_storeUrl),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } catch (_) {}
-                    if (!ok) setSt(() => storeFailed = true);
-                  },
+                  onPressed: openStore,
                   child: Text(
                     t(context).tr('updateNow'),
                     style: const TextStyle(
@@ -200,8 +214,8 @@ class UpdateChecker {
                 ],
               ),
             ],
-          ),
-        ),
+          );
+        }),
       ),
     );
   }

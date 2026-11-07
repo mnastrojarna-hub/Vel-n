@@ -36,10 +36,9 @@ class MotoCardGridV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final m = moto;
-    final meta = [
-      if (m.category != null && m.category!.isNotEmpty) catCategoryLabel(tr, m.category!),
-      if ((m.branchName ?? m.branchCity) != null) (m.branchName ?? m.branchCity)!,
-    ].join(' · ');
+    // CB-06: category on line 1, "branch · type" on line 2 (never cut).
+    final cat = m.category != null && m.category!.isNotEmpty ? catCategoryLabel(tr, m.category!) : null;
+    final branch = catBranchLine(tr, m);
     final img = m.displayImage;
     return Semantics(
       button: true,
@@ -116,11 +115,10 @@ class MotoCardGridV2 extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  if (meta.isNotEmpty)
-                    Text(meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: MgType.micro.copyWith(color: MgColors.meta)),
+                  if (cat != null)
+                    MgWordFit(minScale: 0.8, child: Text(cat, style: MgType.micro.copyWith(color: MgColors.meta))),
+                  if (branch != null)
+                    MgWordFit(minScale: 0.8, child: Text(branch, style: MgType.micro.copyWith(color: MgColors.meta))),
                   const SizedBox(height: 4),
                   // Large text in the narrow column: scale before a word
                   // ("Husqvarna") would split in half.

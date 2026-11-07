@@ -153,31 +153,53 @@ class HomeHeroStack extends StatelessWidget {
 }
 
 /// Dark hero placeholder while the bookings load (never the funnel first —
-/// it would flash before a ticket).
+/// it would flash before a ticket), in the funnel's own geometry (SH-23,
+/// design M5): photo of the same height, top row, title, sub line, the two
+/// date chips + calendar, the 60 px CTA — no jump when the content lands.
 class _HeroSkeleton extends StatelessWidget {
   const _HeroSkeleton();
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        height: 360,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: MgColors.panel,
-        ),
-        child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          MgSkeleton(height: 200, radius: 0, dark: true),
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              MgSkeleton(width: 140, height: 24, dark: true, radius: 999),
-              SizedBox(height: 12),
-              MgSkeleton(width: 240, height: 22, dark: true),
-              SizedBox(height: 12),
-              MgSkeleton(height: 52, dark: true, radius: 14),
+  Widget build(BuildContext context) {
+    final screenH = MediaQuery.sizeOf(context).height;
+    final short = screenH < 700;
+    final bigText = MediaQuery.textScalerOf(context).scale(10) > 10.5;
+    final photoH = screenH >= 800 ? 200.0 : (short && !bigText ? 124.0 : 150.0);
+    final chipH = short ? 52.0 : 56.0;
+    return Container(
+      key: const ValueKey('home-hero-skeleton'),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: MgColors.panel,
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        MgSkeleton(height: photoH, radius: 0, dark: true),
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, short ? 8 : 14, 16, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const SizedBox(
+              height: 36,
+              child: Align(alignment: Alignment.centerLeft, child: MgSkeleton(width: 150, height: 28, dark: true, radius: 999)),
+            ),
+            SizedBox(height: short ? 2 : 6),
+            const MgSkeleton(width: 230, height: 26, dark: true),
+            const SizedBox(height: 8),
+            const MgSkeleton(width: 190, height: 14, dark: true),
+            SizedBox(height: short ? 10 : 14),
+            Row(children: [
+              Expanded(child: MgSkeleton(height: chipH * 1.2, dark: true, radius: 14)),
+              const SizedBox(width: 8),
+              Expanded(child: MgSkeleton(height: chipH * 1.2, dark: true, radius: 14)),
+              const SizedBox(width: 8),
+              MgSkeleton(width: 52, height: chipH * 1.2, dark: true, radius: 14),
             ]),
-          ),
-        ]),
-      );
+            SizedBox(height: short ? 6 : 10),
+            const MgSkeleton(height: 60, dark: true, radius: 16),
+          ]),
+        ),
+      ]),
+    );
+  }
 }

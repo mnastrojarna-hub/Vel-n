@@ -19,6 +19,8 @@
 //    též mg_cancel_at). Hlavní vratka může jít z JINÉ platby než z uložené (mainSource), proto se kontrola
 //    dělá nad vratkami VŠECH plateb rezervace (cancel-once-pool.ts) a „vratka tohoto storna" = hlavní vratka;
 //    opakované volání nevrácený zbytek TÉHOŽ storna jen dovrátí do mg_target (idempotentně) — žádná nová vratka.
+//  • Oprava i5 (2026-11-07): ZBYTEK, jehož hlavní vratka selhala (osiřelý — orphanCancelRemainders), se počítá do
+//    vráceného k tomuto stornu (mg_cancel_total, cancel_refunded_total); služba vrací jen nepokrytou část (cancel-orphans.ts).
 
 type Md = Record<string, string | undefined>
 export type StripeRefundLike = { id: string; amount: number; status: string; created: number; metadata?: Md | null; charge?: unknown; payment_intent?: unknown }
@@ -75,9 +77,20 @@ export function cancelTargetHaleru(main: StripeRefundLike): number | null {
   return Number.isFinite(t) && t > 0 ? Math.round(t) : null
 }
 
-/** Už vráceno k TOMUTO stornu (haléře): hlavní vratky storna + jejich zbytky z ostatních plateb. */
+/** Už vráceno k TOMUTO stornu (haléře): hlavní vratky storna + jejich zbytky z ostatních plateb + (i5) osiřelé zbytky
+ *  (hlavní vratka selhala, zbytek z jiné platby odešel — orphanCancelRemainders). */
 export function cancellationRefundedHaleru(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): number {
   return priorCancellationRefunds(refunds, bookingId, token).reduce((s, m) => s + logicalRefundHaleru(m, refunds), 0)
+    + orphanCancelRemainders(refunds, bookingId, token).reduce((s, r) => s + Number(r.amount || 0), 0)
+}
+
+/** Oprava i5 (2026-11-07, verify:refunds V1): živé ZBYTKY tohoto storna (mg_part 'remainder'), jejichž hlavní vratka
+ *  mezi živými hlavními vratkami storna není (selhala / zrušena / nečitelná). Peníze odešly k TOMUTO stornu — dřív je
+ *  nepočítala kontrola „už vráceno“, mg_cancel_total ani cancel_refunded_total → opakování je vrátilo podruhé. */
+export function orphanCancelRemainders(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): StripeRefundLike[] {
+  const mains = new Set(priorCancellationRefunds(refunds, bookingId, token).map((m) => m.id))
+  return (refunds || []).filter((r) => oursAny(r, bookingId) && r.metadata?.mg_part === 'remainder' && ofCancel(r, token)
+    && !mains.has(String(r.metadata?.mg_main_refund || '')))
 }
 
 /** Cíl celého storna (haléře) = mg_cancel_total NEJNOVĚJŠÍ hlavní vratky tohoto storna (poslední rozhodnutí —
@@ -110,13 +123,15 @@ export function cancelBusy(prior: StripeRefundLike, lockHeld: boolean, nowMs = D
 
 /** Naše HLAVNÍ vratky TOHOTO storna (succeeded/pending), v pořadí ze Stripe (nejnovější první). */
 export function priorCancellationRefunds(refunds: StripeRefundLike[] | null | undefined, bookingId: string, token: string): StripeRefundLike[] {
-  const t = Date.parse(token), key = instantKey(token)
-  return (refunds || []).filter((r) => {
-    if (!ours(r, bookingId)) return false
-    const at = r.metadata?.mg_cancel_at
-    if (typeof at === 'string') return at === token || (key != null && instantKey(at) === key)
-    return !token || !Number.isFinite(t) || Number(r.created) * 1000 >= t - LEGACY_SLACK_MS
-  })
+  return (refunds || []).filter((r) => ours(r, bookingId) && ofCancel(r, token))
+}
+
+/** Vratka patří k TOMUTO stornu (mg_cancel_at = okamžik storna; starší vratka bez značky dle času vzniku). */
+function ofCancel(r: StripeRefundLike, token: string): boolean {
+  const at = r.metadata?.mg_cancel_at
+  if (typeof at === 'string') { const key = instantKey(token); return at === token || (key != null && instantKey(at) === key) }
+  const t = Date.parse(token)
+  return !token || !Number.isFinite(t) || Number(r.created) * 1000 >= t - LEGACY_SLACK_MS
 }
 
 /** Obsluha: duplicita téhož požadavku — stejná částka ≤ 3 min, nebo (bez částky) vratka vzniklá při čekání na zámek. */

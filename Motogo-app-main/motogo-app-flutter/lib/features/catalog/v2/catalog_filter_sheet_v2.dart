@@ -6,6 +6,7 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_sheet.dart';
 import '../catalog_provider.dart';
 import '../widgets/moto_filter_panel.dart';
+import 'catalog_text.dart';
 
 /// "Filtry" light sheet of the v2 Motorky tab (PLAN §2.2.1): hosts the
 /// UNCHANGED shared `MotoFilterPanel` (category, ŘP, branch, kW / sedlo /
@@ -27,7 +28,10 @@ class _ResultsButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final n = ref.watch(filteredMotorcyclesProvider).valueOrNull?.length;
-    final label = n == null ? tr.tr('v2CatShowResults') : '${tr.tr('v2CatShowResults')} · $n';
-    return MgBtnInk(label: label, onTap: () => Navigator.of(context).maybePop());
+    // Board: "ZOBRAZIT 22 MOTOREK" (caps, neon label on ink).
+    final label = n == null
+        ? tr.tr('v2CatShowResults')
+        : tr.trArgs('v2UxCbShowN', {'count': catCount(tr, n)});
+    return MgBtnInk(label: label.toUpperCase(), neonLabel: true, onTap: () => Navigator.of(context).maybePop());
   }
 }

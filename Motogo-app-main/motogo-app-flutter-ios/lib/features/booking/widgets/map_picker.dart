@@ -9,7 +9,9 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/map_tile_errors.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/widgets/mg_v1_pass.dart';
+import '../v2/map_picker_chrome_v2.dart';
 
 /// Fullscreen map picker — mirrors openMapPicker() from cart-address-geo.js.
 /// Uses flutter_map + OpenStreetMap tiles + CARTO Voyager (no API key).
@@ -235,6 +237,21 @@ class _MapPickerState extends State<MapPickerScreen> {
             ],
           ),
 
+          // v2 (CB-05): pin, back, result card + ONE „Potvrdit adresu"
+          // over the same map; same geocoding, same `_confirm` result.
+          if (MgV2.on(context))
+            Positioned.fill(
+              child: MapPickerChromeV2(
+                loading: _loading,
+                street: _street,
+                cityLine: [if (_city.isNotEmpty) _city, if (_zip.isNotEmpty) _zip].join(', '),
+                fullAddress: _address,
+                onBack: () => Navigator.of(context).pop(),
+                onConfirm: _loading ? null : _confirm,
+              ),
+            )
+          else ...[
+
           // Center crosshair
           const Center(
             child: Text('📍', style: TextStyle(fontSize: 32)),
@@ -352,6 +369,7 @@ class _MapPickerState extends State<MapPickerScreen> {
               ),
             ),
           ),
+          ],
         ],
       ),
     );

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/net_image.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/widgets/mg_photo_viewer.dart';
 import '../../../core/v2/widgets/mg_v1_pass.dart';
 
 /// Fullscreen zoomable image gallery.
@@ -23,6 +26,8 @@ class FullscreenGallery extends StatefulWidget {
     required List<String> images,
     int initialIndex = 0,
   }) {
+    // v2: viewer fade 180 (none under reduced motion); old look 200.
+    final fade = MgV2.on(context) ? MgMotion.of(context, MgMotion.dialog) : const Duration(milliseconds: 200);
     Navigator.of(context).push(PageRouteBuilder(
       opaque: false,
       barrierColor: Colors.black,
@@ -32,7 +37,8 @@ class FullscreenGallery extends StatefulWidget {
       ),
       transitionsBuilder: (_, anim, __, child) =>
           FadeTransition(opacity: anim, child: child),
-      transitionDuration: const Duration(milliseconds: 200),
+      transitionDuration: fade,
+      reverseTransitionDuration: fade,
     ));
   }
 
@@ -76,6 +82,16 @@ class _FullscreenGalleryState extends State<FullscreenGallery> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 (CB-02): the shared photo viewer — same route, same pop, same
+    // page index; zoom pans instead of closing, double-tap zoom.
+    if (MgV2.on(context)) {
+      return MgPhotoViewerView(
+        urls: widget.images,
+        initial: widget.initialIndex,
+        onClose: () => Navigator.of(context).pop(),
+        onPage: (i) => _current = i,
+      );
+    }
     final topPad = MediaQuery.of(context).padding.top;
     final opacity = (1.0 - (_dragY.abs() / 300)).clamp(0.4, 1.0);
 

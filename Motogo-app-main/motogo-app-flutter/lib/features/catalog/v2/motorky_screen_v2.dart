@@ -9,7 +9,6 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
-import '../../../core/widgets/state_views.dart';
 import '../../booking/booking_entry.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
@@ -24,7 +23,10 @@ import 'catalog_price.dart';
 import 'catalog_text.dart';
 import 'moto_card_full_v2.dart';
 import 'moto_card_grid_v2.dart';
+import 'motorky_compact_bar_v2.dart';
+import 'motorky_error_v2.dart';
 import 'motorky_header_v2.dart';
+import 'motorky_loading_v2.dart';
 
 /// v2 Motorky tab (`/search`, PLAN §2.2.1, technique R): the SAME providers
 /// as `MotoSearchScreen` — `filteredMotorcyclesProvider` (filter + date
@@ -107,6 +109,20 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
     ref.invalidate(filteredMotorcyclesProvider);
   }
 
+  /// Pull-to-refresh (CB-18): the SAME reload as "Zkusit znovu", waiting
+  /// for the new list so the spinner ends with it.
+  Future<void> _refresh() async {
+    _reloadMotos();
+    try {
+      await ref.read(filteredMotorcyclesProvider.future);
+    } catch (_) {
+      // The error state of the list says what happened.
+    }
+  }
+
+  /// Full card height (the skeleton uses the same geometry).
+  double _cardHeight(BuildContext context) => (MediaQuery.sizeOf(context).height * 0.72).clamp(460.0, 600.0);
+
   /// Same as the old card `onTap`: order for swiping in the detail pager =
   /// the shown (sorted) list, then open the detail.
   void _open(List<Motorcycle> motos, Motorcycle m) {
@@ -162,13 +178,13 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
           // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
           skipLoadingOnReload: true,
           data: (all) => _list(tr, sortMotorcycles(all, sort), filter, loyalty),
-          // Nikdy holý spinner: po 15 s „trvá to déle" + Zkusit znovu.
-          loading: () => SliverFillRemaining(hasScrollBody: false, child: MgLoadingView(onRetry: _reloadMotos)),
-          // Co se stalo, proč a jak to opravit + akce.
-          error: (e, _) => SliverFillRemaining(
-            hasScrollBody: false,
-            child: MgErrorView(error: e, what: tr.tr('fxMotosLoadFail'), onRetry: _reloadMotos),
+          // Kostry ve tvaru karet (CB-08); po 15 s „trvá to déle" + Zkusit znovu.
+          loading: () => SliverToBoxAdapter(
+            child: MotorkyLoadingV2(grid: _grid, cardHeight: _cardHeight(context), onRetry: _reloadMotos),
           ),
+          // Co se stalo, proč a jak to opravit + akce.
+          // Stavy 8.6 (CB-21): karta pod hlavičkou, termín a filtry zůstanou.
+          error: (e, _) => SliverToBoxAdapter(child: MotorkyErrorV2(error: e, onRetry: _reloadMotos)),
         ),
       ];
     }
@@ -178,6 +194,17 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
       overlapHero: false,
       tabIndex: 1,
       dock: sticky == null ? null : CalcStickyV2(data: sticky),
+      // CB-18: pull-to-refresh only where "Zkusit znovu" exists (the list).
+      onRefresh: mode == CatalogMode.find ? _refresh : null,
+      overscrollColor: MgColors.night,
+      // CB-07: compact night bar once the header has scrolled away.
+      pinnedBar: mode == CatalogMode.find
+          ? MotorkyCompactBarV2(
+              onOpenDates: () => showCatalogDateSheet(context),
+              onOpenFilters: () => showCatalogFilterSheet(context),
+              onCalc: () => _setMode(CatalogMode.calc),
+            )
+          : null,
     );
   }
 
@@ -232,7 +259,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2> with WidgetsB
         SliverToBoxAdapter(child: foot),
       ]);
     }
-    final h = (MediaQuery.sizeOf(context).height * 0.72).clamp(460.0, 600.0);
+    final h = _cardHeight(context);
     return SliverMainAxisGroup(slivers: [
       SliverToBoxAdapter(child: head),
       SliverList(

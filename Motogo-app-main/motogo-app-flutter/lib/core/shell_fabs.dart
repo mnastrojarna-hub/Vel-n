@@ -9,6 +9,8 @@ import 'pending_booking_fab_provider.dart';
 import 'pending_sos_fab_provider.dart';
 import 'shell_actions.dart';
 import 'v2/chrome/mg_status_strip.dart';
+import 'v2/flag/v2_scope.dart';
+import 'v2/widgets/mg_dialog.dart';
 import 'widgets/error_feedback.dart' show showErrorSnack;
 import 'widgets/moto_fx.dart';
 import '../features/payment/payment_provider.dart';
@@ -28,62 +30,89 @@ const kShellFabShadow = [
   BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 6)),
 ];
 
+/// Zrušení rozdělané (nezaplacené) rezervace — PŘESUNUTO beze změny z
+/// `ShellBookingFab` (potvrzení → `cancelPendingBooking` → obnova FABu, při
+/// chybě „Zkusit znovu"); volá ho proužek i odkaz v lístku Domů (S2).
+Future<void> cancelPendingBookingFlow(BuildContext context, WidgetRef ref, PendingBooking booking) async {
+  // Tlačítko sedí hned vedle „zaplatit" a zrušení je nevratné —
+  // bez potvrzení stačil překlep a rozdělaná rezervace byla pryč.
+  // v2: T6 potvrzení (bezpečné vlevo, červená akce vpravo) — týž výsledek.
+  final ok = await (MgV2.peek(context)
+          ? showMgConfirm(
+              context,
+              title: t(context).tr('cancelReservationQ'),
+              safeLabel: t(context).tr('back'),
+              actionLabel: t(context).tr('cancelReservationBtn'),
+              destructive: true,
+            )
+          : showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(t(ctx).tr('cancelReservationQ')),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(t(ctx).tr('back')),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(t(ctx).tr('cancelReservationBtn'),
+                  style: const TextStyle(color: MotoGoColors.red)),
+            ),
+          ],
+        ),
+      )) ??
+      false;
+  if (!ok || !context.mounted) return;
+  // Selhání (offline / timeout) → CO, PROČ a JAK + „Zkusit znovu"
+  // (dřív holé „Chyba storna").
+  Future<void> doCancel() async {
+    try {
+      await cancelPendingBooking(booking.id);
+      ref.invalidate(pendingBookingFabProvider);
+    } catch (e) {
+      if (context.mounted) {
+        showErrorSnack(context, t(context).tr('psCancelFailTitle'), e,
+            where: 'fab_cancel_pending', onRetry: doCancel, contact: false);
+      }
+    }
+  }
+  await doCancel();
+}
+
 /// Booking FAB — "Dokončit rezervaci · M:SS" with countdown.
 class ShellBookingFab extends ConsumerWidget {
   final PendingBooking booking;
   final bool v2;
-  const ShellBookingFab({super.key, required this.booking, this.v2 = false});
+  /// v2 „+n" (v1 C2): čip dalších proužků + akce; [beforeTap] = zavřít
+  /// seznam dalších proužků těsně před vlastní akcí proužku.
+  final int more;
+  final VoidCallback? onMore;
+  final VoidCallback? beforeTap;
+  const ShellBookingFab({super.key, required this.booking, this.v2 = false, this.more = 0, this.onMore, this.beforeTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (booking.verifying) return ShellVerifyingFab(booking: booking, v2: v2);
-    // Hoisted beze změny (stejné tělo pro starou pilulku i v2 proužek).
-    Future<void> onCancel() async {
-      // Tlačítko sedí hned vedle „zaplatit" a zrušení je nevratné —
-      // bez potvrzení stačil překlep a rozdělaná rezervace byla pryč.
-      final ok = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: Text(t(ctx).tr('cancelReservationQ')),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(t(ctx).tr('back')),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: Text(t(ctx).tr('cancelReservationBtn'),
-                      style: const TextStyle(color: MotoGoColors.red)),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-      if (!ok || !context.mounted) return;
-      // Selhání (offline / timeout) → CO, PROČ a JAK + „Zkusit znovu"
-      // (dřív holé „Chyba storna").
-      Future<void> doCancel() async {
-        try {
-          await cancelPendingBooking(booking.id);
-          ref.invalidate(pendingBookingFabProvider);
-        } catch (e) {
-          if (context.mounted) {
-            showErrorSnack(context, t(context).tr('psCancelFailTitle'), e,
-                where: 'fab_cancel_pending', onRetry: doCancel, contact: false);
-          }
-        }
-      }
-      await doCancel();
+    if (booking.verifying) {
+      return ShellVerifyingFab(booking: booking, v2: v2, more: more, onMore: onMore, beforeTap: beforeTap);
     }
+    // Hoisted beze změny (stejné tělo pro starou pilulku, v2 proužek i
+    // odkaz v lístku Domů — `cancelPendingBookingFlow`).
+    Future<void> onCancel() => cancelPendingBookingFlow(context, ref, booking);
 
     if (v2) {
       return MgStatusStrip(
         kind: MgStripKind.pay,
         title: t(context).tr('completeBookingFab'),
         sub: t(context).trArgs('v2StripTimeLeft', {'t': booking.timeLabel}),
-        onTap: () => openPendingPayment(context, ref, booking),
+        onTap: () {
+          beforeTap?.call();
+          openPendingPayment(context, ref, booking);
+        },
         onDismiss: onCancel,
         dismissLabel: t(context).tr('cancelReservationBtn'),
+        more: more,
+        onMore: onMore,
       );
     }
     return Row(
@@ -155,7 +184,12 @@ class ShellBookingFab extends ConsumerWidget {
 class ShellVerifyingFab extends ConsumerWidget {
   final PendingBooking booking;
   final bool v2;
-  const ShellVerifyingFab({super.key, required this.booking, this.v2 = false});
+  /// v2 „+n" (v1 C2): čip dalších proužků + akce; [beforeTap] = zavřít
+  /// seznam dalších proužků těsně před vlastní akcí proužku.
+  final int more;
+  final VoidCallback? onMore;
+  final VoidCallback? beforeTap;
+  const ShellVerifyingFab({super.key, required this.booking, this.v2 = false, this.more = 0, this.onMore, this.beforeTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -175,7 +209,12 @@ class ShellVerifyingFab extends ConsumerWidget {
         kind: MgStripKind.verifying,
         title: tr.tr('psFabVerifying'),
         sub: tr.tr('v2StripVerifyingSub'),
-        onTap: open,
+        onTap: () {
+          beforeTap?.call();
+          open();
+        },
+        more: more,
+        onMore: onMore,
       );
     }
     return Center(
@@ -207,7 +246,12 @@ class ShellVerifyingFab extends ConsumerWidget {
 class ShellSosFab extends ConsumerWidget {
   final PendingSosReplacement incident;
   final bool v2;
-  const ShellSosFab({super.key, required this.incident, this.v2 = false});
+  /// v2 „+n" (v1 C2): čip dalších proužků + akce; [beforeTap] = zavřít
+  /// seznam dalších proužků těsně před vlastní akcí proužku.
+  final int more;
+  final VoidCallback? onMore;
+  final VoidCallback? beforeTap;
+  const ShellSosFab({super.key, required this.incident, this.v2 = false, this.more = 0, this.onMore, this.beforeTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -222,8 +266,13 @@ class ShellSosFab extends ConsumerWidget {
         kind: MgStripKind.sos,
         title: t(context).tr('sosCompleteFab'),
         sub: t(context).tr('v2StripSosSub'),
-        onTap: () => openPendingSos(context, ref, incident),
+        onTap: () {
+          beforeTap?.call();
+          openPendingSos(context, ref, incident);
+        },
         onDismiss: onDismiss,
+        more: more,
+        onMore: onMore,
       );
     }
     return Row(

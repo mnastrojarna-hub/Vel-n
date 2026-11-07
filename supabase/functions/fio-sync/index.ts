@@ -220,13 +220,22 @@ serve(async (req) => {
         // ── Match 2: doplatek za úpravu (bookings.mod_surcharge_vs) ──
         if (!booking && vsDigits) {
           const { data: sur } = await sb.from('bookings')
-            .select('id, mod_surcharge_due, mod_surcharge_vs')
+            .select('id, status, mod_surcharge_due, mod_surcharge_vs')
             .eq('mod_surcharge_vs', vsDigits).maybeSingle()
           if (sur) {
             const due = Number((sur as { mod_surcharge_due: unknown }).mod_surcharge_due) || 0
             const surId = String((sur as { id: unknown }).id)
             if (due <= 0) {
               await finish('already_paid', surId, 'doplatek už potvrzen')
+              continue
+            }
+            // Oprava i5 (2026-11-07, verify:refunds): doplatek úpravy dorazil až po stornu → nepotvrzovat (confirm_booking_surcharge
+            // stav rezervace nekontroluje a storno mod_surcharge_due nemaže — obsluha dřív dostala „Doplatek potvrzen … Není
+            // potřeba nic dělat“ a peníze zůstaly); kartový doplatek zrušené rezervace se vrací sám (D4) — tady obsluha.
+            if (String((sur as { status?: unknown }).status || '') === 'cancelled') {
+              await finish('needs_review', surId, 'doplatek ke zrušené rezervaci')
+              summary.review++
+              await notifyUnmatched(p, `Doplatek ${fmtAmount(p.amount)} Kč dorazil k ZRUŠENÉ rezervaci #${surId.slice(-8).toUpperCase()} — nepotvrdil se. Vraťte ho převodem a vystavte dobropis (Velín → Finance → Dobropisy).`)
               continue
             }
             if (p.amount + 0.01 < due) {

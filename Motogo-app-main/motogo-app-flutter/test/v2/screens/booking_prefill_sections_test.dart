@@ -22,8 +22,12 @@ import 'package:motogo_app/features/booking/v2/booking_v2_parts.dart';
 import 'package:motogo_app/features/booking/v2/sections/extras_rows_v2.dart';
 import 'package:motogo_app/features/booking/v2/sections/promo_v2.dart';
 import 'package:motogo_app/features/booking/v2/addr_sheet_v2.dart';
+import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
+import 'package:motogo_app/features/booking/v2/sections/handover_v2.dart';
+import 'package:motogo_app/core/v2/widgets/mg_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/v2_harness.dart';
 
@@ -70,6 +74,7 @@ Future<ProviderContainer> _pump(WidgetTester t, List<Override> overrides, {List<
   ));
   await t.pump();
   await t.pump(const Duration(milliseconds: 500));
+  await openBookingExpress(t); // CB-11 express sections
   return c;
 }
 
@@ -105,7 +110,9 @@ void main() {
     expect([d.returnMethod, d.returnCity, d.returnAddress], ['delivery', 'Jihlava', 'Masarykovo náměstí 1']);
     expect([c.read(returnDelivFeeProvider), c.read(returnDistKmProvider)], [1200, 25]);
     expect(find.text('Stejná jako u přistavení'), findsOneWidget);
-    expect(find.text('Změnit'), findsNWidgets(3)); // dates + both addresses
+    // dates + both addresses (+ the two express rows of CB-11)
+    expect(find.descendant(of: find.byType(BookingHandoverV2), matching: find.text('Změnit')), findsNWidgets(2));
+    expect(find.descendant(of: find.byType(BookingDateCardV2), matching: find.text('Změnit')), findsOneWidget);
   });
 
   testWidgets('address sheet: other side + profile address in one tap', (t) async {
@@ -132,13 +139,14 @@ void main() {
     await _tap(t, _extraRow(0));
     expect(find.textContaining('Velikosti jsme předvyplnili'), findsOneWidget);
     expect(find.text('Odebrat'), findsNothing);
-    await _tap(t, find.text('POTVRDIT'));
+    // v2 sheet (CB-03): "Potvrdit velikosti" = the old POTVRDIT.
+    await _tap(t, find.text('Potvrdit velikosti'));
     var p = _d(c).extras.singleWhere((e) => e.id == 'extra-spolujezdec');
     expect(p.size, 'Helma: L, Rukavice: M, Bunda: XL, Kalhoty: L');
     // Tap the chosen extra: same sizes come back (not removed any more).
     await _tap(t, _extraRow(0));
     expect(find.textContaining('Velikosti jsme předvyplnili'), findsNothing);
-    await _tap(t, find.text('POTVRDIT'));
+    await _tap(t, find.text('Potvrdit velikosti'));
     p = _d(c).extras.singleWhere((e) => e.id == 'extra-spolujezdec');
     expect(p.size, 'Helma: L, Rukavice: M, Bunda: XL, Kalhoty: L');
     await _tap(t, _extraRow(0));
@@ -149,12 +157,13 @@ void main() {
   testWidgets('boots: last size marked "naposledy" but never chosen without a tap', (t) async {
     final c = await _pump(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw), profile: _gear));
     await _tap(t, _extraRow(1));
-    expect(find.text('naposledy'), findsOneWidget);
+    // v2 sheet (CB-03): the last size is a "Z minula" note, never preselected.
+    expect(find.text('Minulá velikost: 43'), findsOneWidget);
     expect(_d(c).extras, isEmpty);
     await _tap(t, find.text('43'));
     expect(_d(c).extras.single.size, '43');
     await _tap(t, _extraRow(1));
-    expect(find.text('naposledy'), findsNothing);
+    expect(find.text('Minulá velikost: 43'), findsNothing);
     await _tap(t, find.text('Odebrat'));
     expect(_d(c).extras, isEmpty);
   });
@@ -168,11 +177,13 @@ void main() {
     expect(find.descendant(of: card, matching: find.textContaining('DAR500 ·')), findsNothing);
     await _tap(t, find.descendant(of: card, matching: find.textContaining('DAR1000')));
     await t.pump(const Duration(seconds: 1));
-    expect(find.byType(AlertDialog), findsOneWidget);
-    final field = t.widget<TextField>(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)));
+    // v2 (CB-04): the same entry as a light sheet.
+    final sheet = find.byType(MgSheetFrame);
+    expect(sheet, findsOneWidget);
+    final field = t.widget<TextField>(find.descendant(of: sheet, matching: find.byType(TextField)));
     expect(field.controller!.text, 'DAR1000');
     // No backend in tests → the existing check answers with its reason.
-    expect(find.descendant(of: find.byType(AlertDialog), matching: find.byType(CircularProgressIndicator)), findsNothing);
-    expect(find.descendant(of: find.byType(AlertDialog), matching: find.byType(MyVoucherChips)), findsOneWidget);
+    expect(find.descendant(of: sheet, matching: find.byType(CircularProgressIndicator)), findsNothing);
+    expect(find.descendant(of: sheet, matching: find.byType(MyVoucherChips)), findsOneWidget);
   });
 }

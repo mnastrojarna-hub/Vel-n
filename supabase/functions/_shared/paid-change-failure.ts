@@ -104,6 +104,16 @@ async function intentOf(stripe: StripeRefundLike | null | undefined, payRef: str
   } catch { return null }
 }
 
+/** i5: PaymentIntent stržený v jiné měně než CZK (Adaptive Pricing) → { přijato v nejmenších jednotkách té měny }; CZK / nevím → null. */
+async function foreignIntent(stripe: StripeRefundLike, piId: string): Promise<{ currency: string; receivedMinor: number } | null> {
+  if (!stripe.paymentIntents?.retrieve) return null
+  try {
+    const p = await stripe.paymentIntents.retrieve(piId)
+    const cur = String(p?.currency || 'czk').toLowerCase()
+    return cur === 'czk' ? null : { currency: cur, receivedMinor: Number(p?.amount_received || 0) }
+  } catch { return null }
+}
+
 export async function handlePaidChangeFailure(sb: Sb, a: {
   bookingId: string; payRef: string; paidCzk: number; code: string; reason: string; via: string; autoRefund?: boolean; review?: boolean
   /** Stripe klient — doplatek se vrací přímo z PaymentIntentu této platby */
@@ -145,9 +155,14 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
     if (a.autoRefund !== false && !a.review && a.stripe) {
       piId = await intentOf(a.stripe, a.payRef)
       if (piId) {
+        // Oprava i5 (2026-11-07, verify:charges R3): platba v měně zákazníka (Stripe Adaptive Pricing — cena v CZK, strženo
+        // v EUR / HUF …) → částka v haléřích CZK by Stripe vzal v nejmenších jednotkách cizí měny (HUF: vráceno ~6 %
+        // platby s hlášením „vrácen“). Doplatek nezapsané změny je vždy CELÁ tato platba (přibalená e-shop objednávka →
+        // autoRefund false) → vratka bez částky. Měnu nelze zjistit → jako dřív (Adaptive Pricing má být vypnuté).
+        const foreign = await foreignIntent(a.stripe, piId)
         try {
           const r = await a.stripe.refunds.create({
-            payment_intent: piId, amount: Math.round(a.paidCzk * 100), reason: 'requested_by_customer',
+            payment_intent: piId, ...(foreign ? {} : { amount: Math.round(a.paidCzk * 100) }), reason: 'requested_by_customer',
             metadata: { mg_source: 'unapplied_change', booking_id: a.bookingId, mg_reason: a.reason },
           }, { idempotencyKey: `mg-pcf-${piId}` })
           refundId = r?.id ?? null
@@ -157,7 +172,7 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
           try {
             const rl = a.stripe.refunds.list ? await a.stripe.refunds.list({ payment_intent: piId, limit: 100 }) : null
             const back = (rl?.data || []).filter((x) => x.status === 'succeeded' || x.status === 'pending').reduce((s2, x) => s2 + Number(x.amount || 0), 0)
-            if (back >= Math.round(a.paidCzk * 100)) mode = 'auto'
+            if (back >= (foreign ? foreign.receivedMinor : Math.round(a.paidCzk * 100))) mode = 'auto'
           } catch { /* zůstává 'staff' */ }
         }
       }

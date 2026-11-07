@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'pending_booking_fab_provider.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/shell/v2/paid_toast_v2.dart';
 import '../features/payment/paid_change_outcomes.dart' show paidAfterRestartSnackBar;
 
 /// Oznámení „platba se mezitím potvrdila" po restartu appky (PM-2,
@@ -20,7 +22,10 @@ class ShellPaidListener extends ConsumerWidget {
     ref.listen<AsyncValue<PaidAfterRestart?>>(paidAfterRestartProvider, (_, next) {
       final paid = next.valueOrNull;
       if (paid == null) return;
-      ScaffoldMessenger.of(context).showSnackBar(paidAfterRestartSnackBar(context, paid));
+      final bar = paidAfterRestartSnackBar(context, paid);
+      // v2 vzhled (T5): tytéž texty, akce i délka ze stejného SnackBaru.
+      if (MgV2.peek(context) && showPaidToastV2(context, bar, failed: paid.failed)) return;
+      ScaffoldMessenger.of(context).showSnackBar(bar);
     });
     return child;
   }

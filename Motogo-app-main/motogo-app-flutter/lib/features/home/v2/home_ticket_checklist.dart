@@ -86,14 +86,26 @@ class HomeTicketChecklist extends ConsumerWidget {
 
     final autoRec = rec.recording && !rec.manual;
     final running = snap.ticket == HomeTicket.s8 || snap.ticket == HomeTicket.s9;
+    final built = [for (var i = 0; i < rows.length; i++) rows[i](i == rows.length - 1)];
+    // Board Main S6: „3/4 hotovo" vedle nadpisu — z uzlů seznamu (jen fakta).
+    final done = built.where((w) => w.node == TkNode.done).length;
+    final progress = done > 0 && built.length > 1;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Semantics(
-        header: true,
-        child: Text(tr.tr('v2HomeTeam').toUpperCase(),
-            style: MgType.eyebrow.copyWith(color: rank.accentOnDark)),
-      ),
+      Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(tr.tr('v2HomeTeam').toUpperCase(),
+                style: MgType.eyebrow.copyWith(color: rank.accentOnDark)),
+          ),
+        ),
+        if (progress)
+          Text(tr.trArgs('v2UxShDoneOf', {'n': done, 'm': built.length}),
+              key: const ValueKey('tk-done-of'),
+              style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDarkMeta))),
+      ]),
       const SizedBox(height: 8),
-      for (var i = 0; i < rows.length; i++) rows[i](i == rows.length - 1),
+      ...built,
       if (running && autoRec) ...[
         const SizedBox(height: 10),
         Row(children: [
