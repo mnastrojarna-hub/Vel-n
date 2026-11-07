@@ -16,7 +16,7 @@ import BookingModifyModal from './booking/BookingModifyModal'
 import DetailTab from './booking/DetailTab'
 import ComplaintsTab from './booking/ComplaintsTab'
 import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/bookingConstants'
-import { sendBookingMessage, logAudit, cancelBookingFromVelin, edgeErrorDetail } from './booking/bookingMessageHelpers'
+import { sendBookingMessage, logAudit, cancelBookingFromVelin, edgeErrorDetail, paidForRefund } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 import RefundConfirmModal from './booking/RefundConfirmModal'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
@@ -789,7 +789,7 @@ export default function BookingDetail() {
         onConfirm={() => confirm.refund ? confirmManualRefundSent() : confirm.restore ? handleRestore() : changeStatus(confirm.status)}
         onCancel={() => setConfirm(null)} />}
       <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error}
-        paid={booking.payment_status === 'paid'} totalPrice={booking.total_price} />
+        paid={paidForRefund(booking.payment_status)} totalPrice={booking.total_price} />
       <RefundConfirmModal open={showRefundModal} onClose={() => { setShowRefundModal(false); setError(null) }}
         totalPrice={booking.total_price} defaultAmount={manualRefundDue > 0 ? manualRefundDue : booking.total_price}
         saving={saving} error={error} onConfirm={confirmCancelledRefund} />

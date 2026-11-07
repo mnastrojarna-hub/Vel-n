@@ -77,7 +77,14 @@ Deno.test({ name: 'i2 B2: karta 3000 + doplatek 500 převodem, plné storno z Ve
   if (bk().payment_status !== 'refund_pending') throw new Error(`stav ${bk().payment_status} (čekáno refund_pending — převodem placená část čeká na obsluhu)`)
   if (!opsMails.some((m) => /zaplaceno převodem/.test(m.subject))) throw new Error(`mail obsluze ${JSON.stringify(opsMails.map((m) => m.subject))}`)
   const cm = custMails()
-  if (cm.length !== 1 || !deferredMail(cm[0])) throw new Error(`mail zákazníkovi ${cm.map((m) => m.html.slice(0, 500))}`)
+  // i3 (2026-11-07): mail řekne přesně, co šlo na kartu a co převodem, a přiloží OBA dobropisy (dřív „Vratku 3 500 Kč
+  // dokončuje obsluha – potvrzení pošleme zvlášť“ s jediným — nejnovějším — dobropisem)
+  const nb = (s: string) => s.replace(/[\u00A0\u202F]/g, ' ')
+  if (cm.length !== 1 || !/<strong>3 000 Kč<\/strong> jsme vrátili na vaši platební kartu/.test(nb(cm[0].html))
+    || !/<strong>500 Kč<\/strong> vám pošleme převodem na bankovní účet do 14 dnů/.test(nb(cm[0].html)) || /dokončuje obsluha|zvlášť|byl zpracován a vrácen/.test(cm[0].html)) {
+    throw new Error(`mail zákazníkovi ${cm.map((m) => m.html.slice(m.html.indexOf('stornována'), m.html.indexOf('stornována') + 700))}`)
+  }
+  if ((cm[0].attachments || []).filter((f) => /^Dobropis-/.test(f)).length !== 2) throw new Error(`přílohy ${JSON.stringify(cm[0].attachments)} (čekány 2 dobropisy)`)
   // další volání ze serveru / obsluhy (mail, retry) nic nevrací podruhé a stav nechá obsluze
   await pr(3500, 'service'); await pr(3500, 'admin'); await deliver()
   money('B2 opakování', 3000, 3500)

@@ -781,7 +781,7 @@ async function verifiedOverpaymentHaleru(supabase: any, bookingId: string, data:
  *  Vrací haléře k ručnímu dobropisu; 0 = nic. */
 async function nonStripeOwedHaleru(supabase: any, bookingId: string, stripeBalanceH: number,
   dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
-  stored: { piId: string | null; refunds: any[] | null }): Promise<number> {
+  stored: { piId: string | null; refunds: any[] | null }, totalPrice = 0): Promise<number> {
   const num = bookingNum(bookingId)
   const staffMail = (action: string, gapH: number, why: string) => opsMailOnce(supabase, bookingId, action,
     `⚠️ Storno #${num}: ${gapH / 100} Kč dle dokladů nejde vrátit automaticky — zkontrolujte`,
@@ -793,7 +793,16 @@ async function nonStripeOwedHaleru(supabase: any, bookingId: string, stripeBalan
     const docs = await docSums(supabase, bookingId)
     const owed = docsOwedCzk(docs)
     if (owed == null) {
+      // Bez DP nelze dle dokladů nic ověřit → automaticky nic (jen Stripe); je-li doložená platba převodem a cena
+      // převyšuje zůstatek Stripe, ať o tom obsluha ví.
       await dlog('full_refund_docs_no_dp', 'info', { stripe_balance_haleru: stripeBalanceH })
+      const legacyGapH = Math.round((Number(totalPrice) || 0) * 100) - Math.round(docs.cnCzk * 100) - Math.max(0, stripeBalanceH)
+      if (legacyGapH > 100) {
+        const bank = await bankPaidCzk(supabase, bookingId).catch(() => null)
+        if (bank && (bank.rows || bank.modSurchargePaidAt)) {
+          await staffMail('full_refund_non_stripe_no_dp_mail', legacyGapH, 'Rezervace nemá žádný doklad o platbě (DP), takže část zaplacenou mimo kartu nejde ověřit dle dokladů.')
+        }
+      }
       return 0
     }
     const docH = Math.round(owed * 100)
@@ -1709,7 +1718,7 @@ Deno.serve(async (req: Request) => {
       }
       othersKnown = true
       if (balH > 0) { reqAmount = balH / 100; fullBalance = true }
-      nonStripeOwedH = await nonStripeOwedHaleru(supabase, booking_id, balH, dlog, { piId: stripePaymentIntentId, refunds: storedRefunds })
+      nonStripeOwedH = await nonStripeOwedHaleru(supabase, booking_id, balH, dlog, { piId: stripePaymentIntentId, refunds: storedRefunds }, bookingTotalPrice)
       if (balH === 0 && nonStripeOwedH > 0) {
         // Na Stripe nic nezbývá, dle dokladů dlužíme část zaplacenou převodem → jen ruční dobropis (+ Fio / refund_pending).
         await dlog('full_refund_non_stripe_only', 'info', { non_stripe_haleru: nonStripeOwedH })

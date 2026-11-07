@@ -9,6 +9,8 @@ import { loadGearRentalVars, renderGearRentalEmail } from './gear-rental.ts'
 import { gearFallbackRender, prepareGearMail, type GearMail } from './gear-booking.ts'
 import { GEAR_DEFAULT_ATTACHMENTS } from '../_shared/email-gear.ts'
 import { logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
+// Oprava i3 (2026-11-07): mail úpravy s vratkou bez dobropisu neslibuje přílohu ani kartu + mail obsluze (modified-refund.ts).
+import { DEFERRED_MARK, modifiedRefundCovered, modifiedRefundDeferredNote, modifiedRefundMissingMail } from './modified-refund.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
@@ -357,7 +359,9 @@ async function autoGenerateAttachments(
   type: string,
   booking_id: string,
   supabase: any,
-  opts: { priceDifference?: number; orderId?: string; lang?: string; gear?: boolean } = {}
+  opts: { priceDifference?: number; orderId?: string; lang?: string; gear?: boolean
+    /** i3: dobropis k vratce úpravy už ověřeně chybí (modifiedRefundCovered) → bez další čekací smyčky */
+    refundMissing?: boolean } = {}
 ): Promise<SentAttachment[]> {
   // i18n — jazyk zákazníka pro přeložené dokumenty (smlouva, VOP). Default cs.
   const docLang = opts.lang || 'cs'
@@ -694,7 +698,7 @@ async function autoGenerateAttachments(
       // (stejná logika jako v send-cancellation-email od 2026-05-10).
       const refundAmt = Math.abs(priceDifference)
       let attached = false
-      for (let attempt = 0; attempt < 3 && !attached; attempt++) {
+      for (let attempt = 0; attempt < (opts.refundMissing ? 1 : 3) && !attached; attempt++) {
         try {
           const { data: cn } = await supabase.from('invoices')
             .select('id, number, pdf_path')
@@ -712,7 +716,7 @@ async function autoGenerateAttachments(
             }
           }
           // Recovery — vystavit / dovystavit PDF dobropisu přes process-refund (idempotentní)
-          if (attempt < 2) {
+          if (attempt < 2 && !opts.refundMissing) {
             try {
               await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
                 method: 'POST', headers,
@@ -954,6 +958,23 @@ serve(async (req) => {
           vars.refund_manual = 'true'
         }
       } catch { /* ignore — zůstane kartová formulace */ }
+    }
+    // Oprava i3 (2026-11-07, verify:ux): vratka úpravy bez dobropisu (vratka se neprovedla / jen zčásti / čeká na obsluhu)
+    // → text „vratku dokončuje obsluha“ (i18n refund_state 'deferred'; DB šablona dostane větu na konec) + mail obsluze.
+    // Ověření stejnou čekací / recovery smyčkou jako příloha dobropisu (process-refund booking_modified_retry).
+    let modRefundMissing = false
+    if (type === 'booking_modified' && Number(price_difference || 0) < 0 && booking_id) {
+      const refundCzk = Math.abs(Number(price_difference))
+      const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+      const covered = await modifiedRefundCovered(supabase, booking_id, refundCzk, {
+        recover: async () => { await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, { method: 'POST', headers: hdrs,
+          body: JSON.stringify({ booking_id, amount: refundCzk, reason: 'booking_modified_retry' }) }).catch(() => null) },
+      })
+      if (!covered) {
+        modRefundMissing = true
+        vars.refund_state = 'deferred'
+        await modifiedRefundMissingMail(supabase, booking_id, refundCzk)
+      }
     }
 
     // Load active door codes for this booking. Buffer raw rows — vlastní render
@@ -1349,6 +1370,7 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
         const pd = Number((price_difference || 0).toString().replace(/\s/g, '').replace(',', '.')) || 0
         let priceMessage = ''
         if (pd > 0)      priceMessage = `<p>K úpravě se vztahuje <strong>doplatek ${vars.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.</p>`
+        else if (pd < 0 && modRefundMissing) priceMessage = `<p>${modifiedRefundDeferredNote('cs', vars.price_difference)}</p>`
         else if (pd < 0) priceMessage = `<p>K úpravě se vztahuje <strong>vrácení ${vars.price_difference}</strong> formou dobropisu, který najdete v příloze. ${vars.refund_manual === 'true' ? 'Částku vrátíme převodem na váš účet do 14 dnů.' : 'Refund jde zpět na původní platební kartu.'}</p>`
 
         templateHtml = `<p>Dobrý den,</p>
@@ -1421,6 +1443,10 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       templateHtml += vars.door_codes_block
     }
 
+    // i3: vratka úpravy bez dobropisu — DB šablona / výbava větu o dokončení obsluhou nemají → na konec (i18n i CZ fallback ji mají).
+    if (modRefundMissing && templateHtml && !templateHtml.includes(DEFERRED_MARK)) {
+      templateHtml += `<p><strong>${modifiedRefundDeferredNote(custLang, vars.price_difference, { informal: !!gearMail })}</strong></p>`
+    }
     // Zdoménuj odkazy v těle mailu na zákazníkovu doménu (jen non-cs; e-mail
     // info@motogo24.cz se nemění). Pokrývá DB šablonu, i18n překlad i CZ fallback.
     templateHtml = localizeBodyLinks(templateHtml, custLang)
@@ -1524,6 +1550,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
           orderId: order_id || undefined,
           lang: custLang,
           gear: !!gearMail,
+          refundMissing: modRefundMissing,
         })
         for (const a of autoAtts) addAttachmentUnique(a)
       } catch { /* ignore */ }

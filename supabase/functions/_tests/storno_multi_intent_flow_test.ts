@@ -155,7 +155,13 @@ Deno.test({ name: 'více plateb: po stornu 50 % ruční vratka 500 Kč v dashboa
   const bad: string[] = []
   fresh(10, { extra: TWO }); await velinCancel(1558); const ev = world().takeEvents(); await deliver(ev)
   advance(60); await world().dashboardRefund('pi_orig', 50000); await deliver(); await deliver(ev)
-  try { money('dashboard +500', 2058, 1558); mailsSay('dashboard +500', 1558, 1) } catch (e) { bad.push((e as Error).message) }
+  // i3 (2026-11-07): externí vratka PŮVODNÍ (neuložené) platby se dohledá podle metadat (dřív ignorována) → pojistný storno
+  // mail jako u jedné platby (vratka po stornu, skip_refund), částka = vráceno k rezervaci celkem přes všechny platby
+  try {
+    money('dashboard +500', 2058, 1558)
+    const ms = customerMails()
+    if (ms.length !== 2 || ms[0].amount !== 1558 || ms[1].amount !== 2058) throw new Error(`dashboard +500: maily ${JSON.stringify(ms)}, čekáno 1558, 2058`)
+  } catch (e) { bad.push((e as Error).message) }
   fresh(10, { extra: THREE }); await velinCancel(0, 'concurrent'); await deliver(); advance(40); await trigger(); await deliver()
   try { money('Velín 0 %', 0); mailsSay('Velín 0 %', null, 1) } catch (e) { bad.push((e as Error).message) }
   done(bad)

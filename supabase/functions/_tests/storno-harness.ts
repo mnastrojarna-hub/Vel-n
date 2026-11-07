@@ -33,7 +33,7 @@ export const TOTAL = 3000
 const g = globalThis as any
 type Handler = (req: Request) => Promise<Response>
 const handlers: Record<string, Handler> = {}
-export const mails: Array<{ to: string; html: string }> = []
+export const mails: Array<{ to: string; html: string; attachments?: string[] }> = []
 /** interní maily obsluze (process-refund sendOpsMail → send-email; i1) */
 export const opsMails: Array<{ to: string; subject: string; html: string }> = []
 /** HTTP stavy odpovědí webhook-receiver z deliver() (i1: 500 = Stripe doručí znovu) */
@@ -53,7 +53,8 @@ g.fetch = async (input: any, init?: any) => {
     return new Response(txt, { status: res.status })
   }
   if (url.startsWith('https://api.resend.com')) {
-    const b = JSON.parse(String(init?.body || '{}')); mails.push({ to: String(b.to), html: String(b.html || '') })
+    const b = JSON.parse(String(init?.body || '{}'))
+    mails.push({ to: String(b.to), html: String(b.html || ''), attachments: (Array.isArray(b.attachments) ? b.attachments : []).map((a: any) => String(a?.filename || '')) })
     return new Response('{"id":"em_1"}', { status: 200 })
   }
   return new Response('{}', { status: 200 })
@@ -69,6 +70,8 @@ async function load(name: string) {
 }
 const tier = await import(`${FN}send-cancellation-email/refund-tier.ts`)
 export async function boot() { if (!handlers['process-refund']) for (const n of ['process-refund', 'webhook-receiver', 'send-cancellation-email']) await load(n) }
+/** i3: další handler do téhož světa (např. send-booking-email — mail úpravy s vratkou) */
+export async function loadFn(name: string) { if (!handlers[name]) await load(name) }
 
 export let skew = 0 // virtuální posun hodin (okna claimů a 15min dedup dobropisů)
 const db = (): Db => g.__STORNO_DB

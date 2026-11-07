@@ -124,8 +124,9 @@ const FLOW_FILES = ['./storno_hotfix_trigger_flow_test.ts', './storno_hotfix_onc
   './storno_multi_intent_flow_test.ts', // + vratka z více plateb (sloučení s dev f1–f3, 2026-11-05)
   './storno_i1_flow_test.ts', './pp_web_checkout_flow_test.ts', // + oprava i1 (adversariální scénáře A1–A8, web checkout částky)
   './pp_webhook_charge_flow_test.ts', // + verify:charges (2026-11-05): dorovnání a měna ve webhooku
-  './storno_i2_flow_test.ts'] // + oprava i2 (2026-11-05): dedup vratek, převodem placená část, strop ruční vratky, duplicitní dobropis, recovery 2. vratky, pending vratka, pojistný mail
-const FLOW_MIN = 7 + 10 + 7 + 10 + 8 + 2 + 4 + 8 // počet flow testů (ubyl-li by některý, spouštěč selže)
+  './storno_i2_flow_test.ts', // + oprava i2 (2026-11-05): dedup vratek, převodem placená část, strop ruční vratky, duplicitní dobropis, recovery 2. vratky, pending vratka, pojistný mail
+  './storno_i3_flow_test.ts'] // + oprava i3 (2026-11-07): dlužná částka dle DP, převodem placená část jen s dokladem, e-shop část, pojistný mail jen k tomuto stornu, externí vratka dle zůstatku rezervace
+const FLOW_MIN = 7 + 10 + 7 + 10 + 8 + 2 + 4 + 8 + 13 // počet flow testů (ubyl-li by některý, spouštěč selže)
 
 Deno.test({ name: 'storno hotfix: flow testy celých handlerů (podproces s import mapou storno-flow-map.json)', ignore: MAPPED || !CAN_RUN, fn: async () => {
   const p = (f: string) => new URL(f, import.meta.url).pathname

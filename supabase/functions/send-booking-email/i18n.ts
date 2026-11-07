@@ -20,6 +20,8 @@
 
 import { renderGateCodesBox } from './branch-gate.ts'
 import { docsReasonInfo } from './docs-reason.ts'
+// Oprava i3 (2026-11-07): vratka úpravy bez dobropisu → „dokončuje obsluha“ (refund_state 'deferred').
+import { modifiedRefundDeferredNote } from './modified-refund.ts'
 
 export type Lang = 'cs' | 'en' | 'de' | 'nl' | 'es' | 'fr' | 'pl' | 'uk'
 export const SUPPORTED_LANGS: Lang[] = ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl', 'uk']
@@ -1362,14 +1364,14 @@ function renderModifiedBody(lang: Lang, v: Vars): string {
         uk: 'Кошти повертаються на початкову картку.',
       }
   const priceMsgs: Record<Lang, { plus: string; minus: string }> = {
-    cs: { plus: `K úpravě se vztahuje <strong>doplatek ${v.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.`,                  minus: `K úpravě se vztahuje <strong>vrácení ${v.price_difference}</strong> formou dobropisu, který najdete v příloze. ${refundTail.cs}` },
-    en: { plus: `An additional payment of <strong>${v.price_difference}</strong> applies. The payment receipt will follow after payment.`,    minus: `A refund of <strong>${v.price_difference}</strong> applies as a credit note (attached). ${refundTail.en}` },
-    de: { plus: `Es fällt eine Nachzahlung von <strong>${v.price_difference}</strong> an. Der Beleg folgt nach Zahlungseingang.`,           minus: `Eine Rückerstattung von <strong>${v.price_difference}</strong> wird als Gutschrift (Anhang) erstattet — ${refundTail.de}` },
-    nl: { plus: `Er volgt een bijbetaling van <strong>${v.price_difference}</strong>. Het betalingsbewijs komt na betaling.`,             minus: `Een terugbetaling van <strong>${v.price_difference}</strong> wordt verwerkt als creditnota (bijlage) — ${refundTail.nl}` },
-    es: { plus: `Se aplica un pago adicional de <strong>${v.price_difference}</strong>. El comprobante llegará tras el pago.`,             minus: `Se aplica un reembolso de <strong>${v.price_difference}</strong> mediante nota de crédito (adjunta) — ${refundTail.es}` },
-    fr: { plus: `Un supplément de <strong>${v.price_difference}</strong> s'applique. Le justificatif suivra après paiement.`,              minus: `Un remboursement de <strong>${v.price_difference}</strong> est émis sous forme d'avoir (joint) — ${refundTail.fr}` },
-    pl: { plus: `Wymagana jest dopłata <strong>${v.price_difference}</strong>. Potwierdzenie płatności nadejdzie po płatności.`,                 minus: `Zwrot <strong>${v.price_difference}</strong> w formie noty kredytowej (załącznik) — ${refundTail.pl}` },
-    uk: { plus: `Потрібна доплата <strong>${v.price_difference}</strong>. Підтвердження оплати надійде після платежу.`,                          minus: `Повернення <strong>${v.price_difference}</strong> у формі кредит-ноти (у вкладенні) — ${refundTail.uk}` },
+    cs: { plus: `K úpravě se vztahuje <strong>doplatek ${v.price_difference}</strong>. Po platbě dorazí doklad k přijaté platbě.`,                  minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('cs', v.price_difference) : `K úpravě se vztahuje <strong>vrácení ${v.price_difference}</strong> formou dobropisu, který najdete v příloze. ${refundTail.cs}`) },
+    en: { plus: `An additional payment of <strong>${v.price_difference}</strong> applies. The payment receipt will follow after payment.`,    minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('en', v.price_difference) : `A refund of <strong>${v.price_difference}</strong> applies as a credit note (attached). ${refundTail.en}`) },
+    de: { plus: `Es fällt eine Nachzahlung von <strong>${v.price_difference}</strong> an. Der Beleg folgt nach Zahlungseingang.`,           minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('de', v.price_difference) : `Eine Rückerstattung von <strong>${v.price_difference}</strong> wird als Gutschrift (Anhang) erstattet — ${refundTail.de}`) },
+    nl: { plus: `Er volgt een bijbetaling van <strong>${v.price_difference}</strong>. Het betalingsbewijs komt na betaling.`,             minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('nl', v.price_difference) : `Een terugbetaling van <strong>${v.price_difference}</strong> wordt verwerkt als creditnota (bijlage) — ${refundTail.nl}`) },
+    es: { plus: `Se aplica un pago adicional de <strong>${v.price_difference}</strong>. El comprobante llegará tras el pago.`,             minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('es', v.price_difference) : `Se aplica un reembolso de <strong>${v.price_difference}</strong> mediante nota de crédito (adjunta) — ${refundTail.es}`) },
+    fr: { plus: `Un supplément de <strong>${v.price_difference}</strong> s'applique. Le justificatif suivra après paiement.`,              minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('fr', v.price_difference) : `Un remboursement de <strong>${v.price_difference}</strong> est émis sous forme d'avoir (joint) — ${refundTail.fr}`) },
+    pl: { plus: `Wymagana jest dopłata <strong>${v.price_difference}</strong>. Potwierdzenie płatności nadejdzie po płatności.`,                 minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('pl', v.price_difference) : `Zwrot <strong>${v.price_difference}</strong> w formie noty kredytowej (załącznik) — ${refundTail.pl}`) },
+    uk: { plus: `Потрібна доплата <strong>${v.price_difference}</strong>. Підтвердження оплати надійде після платежу.`,                          minus: (v.refund_state === 'deferred' ? modifiedRefundDeferredNote('uk', v.price_difference) : `Повернення <strong>${v.price_difference}</strong> у формі кредит-ноти (у вкладенні) — ${refundTail.uk}`) },
   }
   const attachInfo: Record<Lang, string> = {
     cs: `V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).`,

@@ -66,7 +66,11 @@ Deno.test('i1 storno mail: nepotvrzená vratka → věta o dokončení obsluhou 
     if (def.includes('5–10') || def.includes('5 à 10')) throw new Error(`${lang}: odložená vratka slibuje kartu`)
     if (!def.includes('1 558')) throw new Error(`${lang}: částka`)
   }
-  if (!/ti pošleme/.test(refundDeferredNote('cs', '1', { informal: true }))) throw new Error('tykání pro výbavu')
+  // i3 (2026-11-07): bez slibu „potvrzení pošleme zvlášť“ (žádný takový mail neexistuje) — tykání pro výbavu zůstává
+  if (!/nemusíš nic dělat/.test(refundDeferredNote('cs', '1', { informal: true }))) throw new Error('tykání pro výbavu')
+  for (const lang of ['cs', 'en', 'de', 'nl', 'es', 'fr', 'pl', 'uk']) {
+    if (/zvlášť|separately|separat|apart|por separado|séparément|osobno|окремо/.test(refundDeferredNote(lang, '1'))) throw new Error(`${lang}: slib samostatného potvrzení`)
+  }
   const raw = '<p>hi</p><p style="x">Refund <strong>{{refund_amount}} Kč</strong> ({{refund_percent}} %) vrácen.</p><p>bye</p>'
   eq(stripRefundParagraph(raw), '<p>hi</p><p>bye</p>')
   eq(stripRefundParagraph('<p>bez částky</p>'), '<p>bez částky</p>')

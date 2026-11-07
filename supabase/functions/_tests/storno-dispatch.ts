@@ -10,10 +10,11 @@ export const trigger = () => call('send-cancellation-email', { booking_id: BID, 
 /** Kdy dorazí volání z triggeru vůči Velínu: před jeho process-refund / uvnitř (hned po refunds.create) / souběžně / po něm. */
 export type TriggerMode = 'none' | 'before' | 'mid' | 'concurrent' | 'after'
 
-/** Velín cancelBookingFromVelin (velin/src/pages/booking/bookingMessageHelpers.js) — admin JWT. */
+/** Velín cancelBookingFromVelin (velin/src/pages/booking/bookingMessageHelpers.js) — admin JWT.
+ *  i3 (2026-11-07): „zaplacená“ = paid | partial_refund | refund_pending (paidForRefund), mail vždy nese volbu vratky. */
 export async function velinCancel(choice: number | 'full', mode: TriggerMode = 'none') {
   const b = bk()
-  const wasPaid = b.payment_status === 'paid'
+  const wasPaid = ['paid', 'partial_refund', 'refund_pending'].includes(b.payment_status)
   const total = Math.max(0, Math.round(Number(b.total_price) || 0))
   let refundAmount = wasPaid ? total : 0
   if (wasPaid && choice !== 'full') refundAmount = Math.min(total, Math.max(0, Math.round(choice)))
@@ -39,8 +40,16 @@ export async function velinCancel(choice: number | 'full', mode: TriggerMode = '
   if (mode === 'after') await trigger()
   await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, customer_name: 'Test Zákazník', motorcycle: b.booking_kind === 'gear' ? undefined : 'Test Moto',
     start_date: b.start_date, end_date: b.end_date, cancellation_reason: 'Storno (Velín)', cancelled_by_source: 'velin', source: 'app',
-    ...(wasPaid ? { refund_amount: refundAmount, refund_percent: refundPercent } : {}) }, 'admin')
+    refund_amount: wasPaid ? refundAmount : 0, refund_percent: wasPaid ? refundPercent : 0 }, 'admin')
   return { refundAmount, refundPercent }
+}
+
+/** Velín PŘED opravou i3 (živý během nasazení): rezervace mimo 'paid' = „nezaplacená“ → jen UPDATE + mail BEZ volby vratky. */
+export async function velinCancelLegacyUnpaid() {
+  const b = bk()
+  Object.assign(b, { status: 'cancelled', cancelled_by: ADMIN_ID, cancelled_by_source: 'velin', cancellation_reason: 'Storno (Velín)', cancelled_at: new Date().toISOString() })
+  await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, customer_name: 'Test Zákazník', motorcycle: 'Test Moto',
+    start_date: b.start_date, end_date: b.end_date, cancellation_reason: 'Storno (Velín)', cancelled_by_source: 'velin', source: 'app' }, 'admin')
 }
 
 /** RPC cancel_booking_tracked (20261023e): pásmo k LEAST(refund_pickup_time, pickup_time), strop po posunu; UPDATE +

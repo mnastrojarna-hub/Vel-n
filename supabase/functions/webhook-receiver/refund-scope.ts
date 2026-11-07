@@ -15,6 +15,9 @@
 import { instantKey } from '../process-refund/cancel-once.ts'
 import { staffFullBalanceHaleru, type OtherIntentsStripe } from '../process-refund/other-intents.ts'
 import { bookingIntents, outsidePrice, type IntentLike } from '../_shared/booking-intents.ts'
+import { cancellationRefundPool } from '../process-refund/cancel-once-pool.ts'
+import type { StripeRefundLike } from '../process-refund/cancel-once.ts'
+import { stripeRefundsWithoutCnHaleru } from '../process-refund/doc-owed.ts'
 
 // deno-lint-ignore no-explicit-any
 type Sb = any
@@ -97,4 +100,16 @@ export async function externalBookingBalanceHaleru(stripe: StripeLike, sb: Sb, a
     try { storedPi = await stripe.paymentIntents.retrieve(a.storedPiId) } catch { return null }
   }
   return await staffFullBalanceHaleru(stripe, sb, { bookingId: a.bookingId, storedPi, storedRefunds: null })
+}
+
+/** Vráceno k rezervaci celkem V CENĚ (haléře, všechny její platby, bez vratek mimo cenu a e-shopu) — částka pojistného
+ *  storno mailu u EXTERNÍ vratky (dřív charge.amount_refunded jen té jedné platby: storno 1558 z více plateb + 500
+ *  v dashboardu → mail „1943 Kč“). null = nelze zjistit (→ částka z charge jako dřív). */
+export async function bookingRefundedInPriceHaleru(stripe: StripeLike, sb: Sb, a: { bookingId: string; storedPiId: string | null }): Promise<number | null> {
+  try {
+    const stored = a.storedPiId ? ((await stripe.refunds.list({ payment_intent: a.storedPiId, limit: 100 }))?.data || []) : []
+    const pool = await cancellationRefundPool(stripe, sb, { bookingId: a.bookingId, storedPiId: a.storedPiId,
+      storedRefunds: stored as unknown as StripeRefundLike[] })
+    return pool.complete ? stripeRefundsWithoutCnHaleru(pool.refunds, 0) : null
+  } catch { return null }
 }
