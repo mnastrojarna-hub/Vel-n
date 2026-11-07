@@ -91,7 +91,7 @@ class CheckoutShippingV2 extends StatelessWidget {
                         builder: (context, _) {
                           final s = summary();
                           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(tr.tr('deliveryDetails'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+                            MgWordFit(minScale: 0.8, child: Text(tr.tr('deliveryDetails'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
                             if (s.isNotEmpty) Text(s, style: MgType.small.copyWith(color: MgColors.meta)),
                           ]);
                         },

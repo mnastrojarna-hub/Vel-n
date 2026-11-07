@@ -15,6 +15,7 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/state_views.dart';
 import '../shop_models.dart';
 import 'product_card_v2.dart';
@@ -73,7 +74,7 @@ class ShopViewV2 extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const MgIconTileDark(MgIcons.gift),
         const SizedBox(height: MgSpace.s12),
-        Text(tr.tr('giftVoucher'), style: MgType.h2.copyWith(color: MgColors.onDark)),
+        MgWordFit(minScale: 0.75, child: Text(tr.tr('giftVoucher'), style: MgType.h2.copyWith(color: MgColors.onDark))),
         const SizedBox(height: 4),
         Text('${tr.tr('voucherDesc')} · ${tr.tr('voucherType')}', style: MgType.body.copyWith(color: MgColors.onDarkLead)),
         const SizedBox(height: MgSpace.s16),

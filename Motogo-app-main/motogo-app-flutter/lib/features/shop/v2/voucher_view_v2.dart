@@ -16,6 +16,7 @@ import '../../../core/v2/widgets/mg_inputs.dart';
 import '../../../core/v2/widgets/mg_segmented.dart';
 import '../../payment/v2/pay_parts_v2.dart' show PayCardV2;
 import '../shop_models.dart' show printedVoucherShipping;
+import 'checkout_view_v2.dart' show CheckoutFocusScrollV2;
 
 /// "Jiná" segment of the amount control.
 const int kVoucherCustomV2 = -1;
@@ -127,7 +128,10 @@ class VoucherViewV2 extends StatelessWidget {
       ]),
     );
     final blocked = onBuy == null;
-    return MgPage(
+    // The shell does not resize for the keyboard: keep the amount field
+    // above it (same helper as the checkout).
+    return CheckoutFocusScrollV2(
+        child: MgPage(
       header: MgAppBar(title: tr.tr('giftVoucher'), onBack: onBack),
       overlapHero: false,
       overscrollColor: MgColors.night,
@@ -165,6 +169,6 @@ class VoucherViewV2 extends StatelessWidget {
           size: MgCtaSize.md56,
         ),
       ),
-    );
+    ));
   }
 }

@@ -161,13 +161,21 @@ class ProductViewV2 extends StatelessWidget {
         if (product.inStock) ...[
           const SizedBox(height: MgSpace.s16),
           Row(children: [
-            Text(tr.tr('quantityLabel'), style: MgType.title.copyWith(color: MgColors.ink)),
+            Flexible(child: MgWordFit(minScale: 0.8, child: Text(tr.tr('quantityLabel'), style: MgType.title.copyWith(color: MgColors.ink)))),
             const SizedBox(width: MgSpace.s12),
             QtyStepperV2(qty: qty, onMinus: onMinus, onPlus: onPlus),
-            const Spacer(),
-            MgBump(
-              trigger: qty,
-              child: Text(Money.czk(product.price * qty), style: MgType.tab(MgType.title.copyWith(color: MgColors.price))),
+            const SizedBox(width: MgSpace.s8),
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: MgBump(
+                    trigger: qty,
+                    child: Text(Money.czk(product.price * qty), style: MgType.tab(MgType.title.copyWith(color: MgColors.price))),
+                  ),
+                ),
+              ),
             ),
           ]),
         ],

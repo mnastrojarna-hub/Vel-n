@@ -44,7 +44,8 @@ Future<GoRouter> pumpPs(
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   final router = GoRouter(routes: [
-    GoRoute(path: '/', builder: (_, __) => Scaffold(body: screen)),
+    // Like the app shell: the shell Scaffold does not resize for the keyboard.
+    GoRoute(path: '/', builder: (_, __) => Scaffold(resizeToAvoidBottomInset: false, body: screen)),
     GoRoute(path: '/shop/:id', builder: (_, s) => Scaffold(body: Text('route:/shop/${s.pathParameters['id']}'))),
     for (final p in kPsDestinations) GoRoute(path: p, builder: (_, __) => Scaffold(body: Text('route:$p'))),
   ]);

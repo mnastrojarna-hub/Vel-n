@@ -162,12 +162,21 @@ class CartViewV2 extends StatelessWidget {
         ]),
         const SizedBox(height: MgSpace.s8),
         Row(children: [
-          const SizedBox(width: 48),
+          // Indent under the name, given up first on a narrow phone.
+          const Flexible(child: SizedBox(width: 48)),
           QtyStepperV2(qty: item.qty, onMinus: () => onMinus(item.id), onPlus: () => onPlus(item.id)),
-          const Spacer(),
-          MgBump(
-            trigger: item.total,
-            child: Text(Money.czk(item.total), style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: MgBump(
+                  trigger: item.total,
+                  child: Text(Money.czk(item.total), style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
+                ),
+              ),
+            ),
           ),
         ]),
       ]);

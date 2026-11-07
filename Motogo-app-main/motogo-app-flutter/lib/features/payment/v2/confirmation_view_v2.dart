@@ -131,18 +131,21 @@ class ConfirmationViewV2 extends StatelessWidget {
     final branch = (p?.name ?? branchName ?? '').trim();
     final address = (p?.address ?? '').trim();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(
-          child: MgWordFit(
-            child: Text.rich(TextSpan(children: [
-              TextSpan(text: '${tr.tr('v2UxPsBookingEyebrow').toUpperCase()} '),
-              if (shortId != null) TextSpan(text: shortId, style: const TextStyle(color: MgColors.ink)),
-            ]), style: MgType.tab(MgType.eyebrow.copyWith(color: MgColors.meta))),
-          ),
-        ),
-        const SizedBox(width: 8),
-        MgMeaningChip(label: tr.tr('v2UxPsConfirmedChip'), tone: MgTone.ok),
-      ]),
+      // Number + "Potvrzeno"; the chip drops under the number when the row
+      // is too narrow (never a split word).
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          Text.rich(TextSpan(children: [
+            TextSpan(text: '${tr.tr('v2UxPsBookingEyebrow').toUpperCase()} '),
+            if (shortId != null) TextSpan(text: shortId, style: const TextStyle(color: MgColors.ink)),
+          ]), style: MgType.tab(MgType.eyebrow.copyWith(color: MgColors.meta))),
+          MgMeaningChip(label: tr.tr('v2UxPsConfirmedChip'), tone: MgTone.ok),
+        ],
+      ),
       const SizedBox(height: MgSpace.s10),
       if (motoName != null) MgWordFit(child: Text(motoName!, style: MgType.title.copyWith(color: MgColors.ink))),
       if (range != null) Text(range, style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
