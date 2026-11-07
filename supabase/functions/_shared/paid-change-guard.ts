@@ -12,12 +12,18 @@
 //  • duplicate — druhá platba za změnu, kterou zapsala jiná platba (vrací se celá),
 //  • stale    — platba z doby před nasazením (bez attempt_id / chg_hash) nebo
 //               starší než lhůta → zapisovat automaticky nelze (jen obsluha).
+//  • stale/currency — platba v jiné měně než CZK (verify:charges 2026-11-07): webhook ji
+//               ignoruje (nonCzkIgnored), ale complete_extension (appka i web se session_id)
+//               a „dokonči předchozí" v process-payment by ji zapsaly jako Kč (500 HUF = 500 Kč).
 import type { Sb } from './extension-apply-types.ts'
 import { duplicateRow } from './duplicate-payment.ts'
+import { paymentCurrencyOk } from './currency.ts'
 
 export type PiLike = {
   id: string
   created?: number | null
+  /** PaymentIntent.currency (chybí = nevíme → jako dosud, CZK) */
+  currency?: string | null
   metadata?: Record<string, string> | null
   latest_charge?: string | { amount_refunded?: number | null } | null
 }
@@ -29,7 +35,7 @@ export type Eligibility =
   | { ok: false; kind: 'refunded' }
   /** druhá platba za změnu, kterou už zapsala jiná platba — vrácená / k vrácení (duplicate-payment) */
   | { ok: false; kind: 'duplicate' }
-  | { ok: false; kind: 'stale'; why: 'legacy' | 'too_old' }
+  | { ok: false; kind: 'stale'; why: 'legacy' | 'too_old' | 'currency' }
 
 type StripeLike = {
   charges?: { retrieve: (id: string) => Promise<{ amount_refunded?: number | null }> }
@@ -53,6 +59,8 @@ export async function paidChangeEligibility(sb: Sb, pi: PiLike, o: {
   if (fail) return { ok: false, kind: 'failed', reason: fail.reason, refund: fail.refund }
   if (md.duplicate_of || await duplicateRow(sb, pi.id)) return { ok: false, kind: 'duplicate' }
   if ((await refundedAmount(pi, o.stripe)) > 0) return { ok: false, kind: 'refunded' }
+  // Jiná měna než CZK se nezapisuje nikdy (částka by se vzala jako Kč) → jen obsluha.
+  if (!paymentCurrencyOk(pi.currency)) return { ok: false, kind: 'stale', why: 'currency' }
   if (o.requireNewCode && !isNewCodePi(md)) return { ok: false, kind: 'stale', why: 'legacy' }
   if (o.maxAgeH != null && pi.created) {
     const ageH = ((o.nowMs ?? Date.now()) - pi.created * 1000) / 3_600_000

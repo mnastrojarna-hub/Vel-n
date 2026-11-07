@@ -17,6 +17,8 @@ import { acquireCancelLock, cancelBusy, cancelToken, cancelTargetHaleru, cancell
 // Sloučení hotfixu s vratkou z více plateb (dev f1–f3, 2026-11-05): kontrola nad vratkami VŠECH plateb
 // rezervace + dovrácení zbytku téhož storna po pádu (cancel-once-pool.ts).
 import { cancellationRefundPool, closeStaleCancelMains, completeCancelRemainder, type PoolStripe } from './cancel-once-pool.ts'
+// Oprava i3 (2026-11-07): dlužná částka dle dokladů jako DB trigger _cap_refund_to_paid, převodem placená část (doc-owed.ts).
+import { bankPaidCzk, docSums, docsOwedCzk, shopPartHaleru, stripeRefundsWithoutCnHaleru } from './doc-owed.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -751,15 +753,6 @@ async function cancelDuplicateCreditNote(supabase: any, a: { cnId: string; cnNum
   } catch { return null }
 }
 
-/** Zbytek, který rezervaci dle dokladů ještě dlužíme (Kč): total_price − Σ živých dobropisů (Stripe i ruční). */
-async function docRemainderCzk(supabase: any, bookingId: string, totalPrice: number): Promise<number> {
-  const { data: cns, error } = await supabase.from('invoices').select('total')
-    .eq('booking_id', bookingId).eq('type', 'credit_note').neq('status', 'cancelled')
-  if (error) throw new Error(`credit notes unreadable: ${error.message}`)
-  const back = (cns || []).reduce((t: number, c: any) => t + Math.abs(Number(c.total) || 0), 0)
-  return Math.max(0, Math.round((totalPrice - back) * 100) / 100)
-}
-
 /** Oprava i2 (2026-11-05): čerstvý dobropis na STEJNOU částku (≤15 min) = duplicitní dispatch téže vratky JEN když
  *  už zákazníkovi nic nedlužíme. Dvě zkrácení po sobě o stejnou částku (appka edit_shortening, web shortening,
  *  dvě odebrané položky výbavy za stejnou cenu, Velín) mají po druhém snížení ceny ověřený přeplatek ≥ částka →
@@ -780,32 +773,62 @@ async function verifiedOverpaymentHaleru(supabase: any, bookingId: string, data:
 
 /** Oprava i2 (2026-11-05): část ceny KARTOVÉ rezervace zaplacená mimo Stripe (doplatek úpravy převodem / QR —
  *  mod_surcharge_vs, fio_transactions) → plné storno z Velínu (bez částky) vracelo jen zůstatek Stripe a zapsalo
- *  'refunded'; převodem zaplacená část se nevrátila nikdy a nikdo se to nedozvěděl. Vrací haléře, o které doklady
- *  (total_price − Σ dobropisů) převyšují zůstatek Stripe, JEN je-li doložená platba mimo Stripe; jinak 0. */
-async function nonStripeOwedHaleru(supabase: any, bookingId: string, totalPrice: number, stripeBalanceH: number,
-  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown): Promise<number> {
+ *  'refunded'; převodem zaplacená část se nevrátila nikdy a nikdo se to nedozvěděl.
+ *  Oprava i3 (2026-11-07, V1 / V36): mezera = (Σ DP − Σ dobropisů — jako _cap_refund_to_paid; i2 bral total_price −
+ *  Σ dobropisů a snížení ceny s dobropisem odečetl dvakrát) − zůstatek Stripe − vratky Stripe bez dobropisu (dashboard /
+ *  spadlý dobropis: peníze už odešly). Automaticky jen do doložených plateb převodem (fio_transactions − ruční
+ *  dobropisy); bez nich (jen mod_surcharge_paid_at — hotově / jinak ručně) žádný dobropis ani Fio, mail obsluze.
+ *  Vrací haléře k ručnímu dobropisu; 0 = nic. */
+async function nonStripeOwedHaleru(supabase: any, bookingId: string, stripeBalanceH: number,
+  dlog: (action: string, status: string, extra?: Record<string, unknown>) => unknown,
+  stored: { piId: string | null; refunds: any[] | null }): Promise<number> {
+  const num = bookingNum(bookingId)
+  const staffMail = (action: string, gapH: number, why: string) => opsMailOnce(supabase, bookingId, action,
+    `⚠️ Storno #${num}: ${gapH / 100} Kč dle dokladů nejde vrátit automaticky — zkontrolujte`,
+    `<p>Rezervace <strong>#${num}</strong> (${bookingId}): dle dokladů (DP − dobropisy) rezervaci dlužíme o <strong>${gapH / 100} Kč</strong> víc, `
+    + `než zbývá na platbách kartou (Stripe ${stripeBalanceH / 100} Kč). ${why}</p>`
+    + '<p>Automaticky se tato část NEvrátila. Ověřte, jak byla zaplacena, a případně ji vraťte ručně ve Velíně (storno: „Potvrdit vrácení“ / dobropis).</p>',
+    { gap_haleru: gapH, stripe_balance_haleru: stripeBalanceH, why })
   try {
-    const docH = Math.round((await docRemainderCzk(supabase, bookingId, totalPrice)) * 100)
-    const diff = docH - Math.max(0, stripeBalanceH)
-    if (diff <= 100) return 0
-    const { data: bk } = await supabase.from('bookings').select('payment_vs, mod_surcharge_vs, mod_surcharge_paid_at').eq('id', bookingId).maybeSingle()
-    let bankPaid = false
-    const { data: byId } = await supabase.from('fio_transactions').select('fio_id').eq('booking_id', bookingId).gt('amount', 0).limit(1)
-    bankPaid = !!byId?.length
-    if (!bankPaid) {
-      const vses = [bk?.payment_vs, bk?.mod_surcharge_vs].filter(Boolean).map(String)
-      if (vses.length) {
-        const { data: byVs } = await supabase.from('fio_transactions').select('fio_id').in('vs', vses).gt('amount', 0).limit(1)
-        bankPaid = !!byVs?.length
-      }
-    }
-    if (!bankPaid && !bk?.mod_surcharge_paid_at) {
-      await dlog('full_refund_docs_gap_unexplained', 'warning', { docs_owed_haleru: docH, stripe_balance_haleru: stripeBalanceH })
+    const docs = await docSums(supabase, bookingId)
+    const owed = docsOwedCzk(docs)
+    if (owed == null) {
+      await dlog('full_refund_docs_no_dp', 'info', { stripe_balance_haleru: stripeBalanceH })
       return 0
     }
-    await dlog('full_refund_non_stripe_part', 'info', { docs_owed_haleru: docH, stripe_balance_haleru: stripeBalanceH, non_stripe_haleru: diff,
-      fio_transaction: bankPaid, mod_surcharge_paid_at: bk?.mod_surcharge_paid_at || null })
-    return diff
+    const docH = Math.round(owed * 100)
+    if (docH - Math.max(0, stripeBalanceH) <= 100) return 0
+    const pool = await cancellationRefundPool(stripe as unknown as OtherIntentsStripe, supabase, {
+      bookingId, storedPiId: stored.piId, storedRefunds: stored.refunds as unknown as StripeRefundLike[] | null })
+    if (!pool.complete) {
+      await dlog('full_refund_non_stripe_unverified', 'error', { docs_owed_haleru: docH, stripe_balance_haleru: stripeBalanceH, error: pool.error })
+      await staffMail('full_refund_non_stripe_unverified_mail', docH - Math.max(0, stripeBalanceH), 'Vratky ve Stripe se nepodařilo načíst úplně, takže nejde ověřit, zda část už neodešla.')
+      return 0
+    }
+    const noCnH = stripeRefundsWithoutCnHaleru(pool.refunds, docs.stripeCnCzk)
+    const gapH = docH - Math.max(0, stripeBalanceH) - noCnH
+    if (gapH <= 100) {
+      if (noCnH > 0) await dlog('full_refund_docs_gap_stripe_without_cn', 'info', { docs_owed_haleru: docH, stripe_balance_haleru: stripeBalanceH, stripe_without_cn_haleru: noCnH })
+      return 0
+    }
+    const bank = await bankPaidCzk(supabase, bookingId)
+    if (!bank.rows) {
+      await dlog(bank.modSurchargePaidAt ? 'full_refund_non_stripe_no_bank_evidence' : 'full_refund_docs_gap_unexplained', 'warning', {
+        docs_owed_haleru: docH, stripe_balance_haleru: stripeBalanceH, stripe_without_cn_haleru: noCnH, gap_haleru: gapH, mod_surcharge_paid_at: bank.modSurchargePaidAt })
+      if (bank.modSurchargePaidAt) {
+        await staffMail('full_refund_non_stripe_no_bank_mail', gapH, 'Doplatek je označený jako zaplacený (mod_surcharge_paid_at), ale příchozí platba převodem k rezervaci není (hotově / jinak ručně?).')
+      }
+      return 0
+    }
+    const bankH = Math.max(0, Math.round((bank.czk - docs.manualCnCzk) * 100))
+    const part = Math.min(gapH, bankH)
+    await dlog('full_refund_non_stripe_part', 'info', { docs_owed_haleru: docH, stripe_balance_haleru: stripeBalanceH, stripe_without_cn_haleru: noCnH,
+      gap_haleru: gapH, bank_paid_czk: bank.czk, manual_cn_czk: docs.manualCnCzk, non_stripe_haleru: part, mod_surcharge_paid_at: bank.modSurchargePaidAt })
+    if (gapH - part > 100) {
+      await staffMail('full_refund_non_stripe_capped_bank_mail', gapH - part,
+        `Doložené platby převodem (${bank.czk} Kč − ruční dobropisy ${docs.manualCnCzk} Kč) kryjí jen ${part / 100} Kč — ty se vrací automaticky.`)
+    }
+    return part > 100 ? part : 0
   } catch (e) {
     await dlog('full_refund_non_stripe_check_failed', 'error', { error: (e as Error).message })
     return 0
@@ -858,20 +881,31 @@ async function manualBookingRefund(
     .eq('id', booking_id).single()
   const totalPrice = Number(bkFull?.total_price || 0)
   let manAmount = Number(amount) > 0 ? Number(amount) : totalPrice
-  // Oprava i2 (2026-11-05): strop = co dle dokladů ještě dlužíme (total_price − Σ VŠECH živých dobropisů, Stripe i
-  // ručních); plný požadavek obsluhy (bez částky) = přesně tento zbytek. Dřív jen total_price: po ruční vratce 500
-  // „Potvrdit vrácení“ 100 % vystavilo druhý dobropis (trigger ho ořízl na 2 500, kód to nečetl) a Fio příkaz
-  // i odpověď nesly nekrácených 3 000 → přeplatek 500 Kč. Dobropisy nečitelné → dosavadní strop total_price.
-  if (totalPrice > 0) {
-    let docRemainder: number | null = null
-    try { docRemainder = await docRemainderCzk(supabase, booking_id, totalPrice) }
+  // Oprava i2 (2026-11-05): strop = co dle dokladů ještě dlužíme; plný požadavek obsluhy (bez částky) = nejvýš tento
+  // zbytek. Dřív jen total_price: po ruční vratce 500 „Potvrdit vrácení“ 100 % vystavilo druhý dobropis (trigger ho
+  // ořízl na 2 500, kód to nečetl) a Fio příkaz i odpověď nesly nekrácených 3 000 → přeplatek 500 Kč.
+  // Oprava i3 (2026-11-07, V1): dlužná částka PŘESNĚ jako DB trigger _cap_refund_to_paid (Σ DP − Σ dobropisů, doc-owed.ts) —
+  // i2 bral total_price − Σ dobropisů a snížení ceny s dobropisem (zkrácení / úprava výbavy) odečetl dvakrát (QR 3000,
+  // zkrácení 500, storno 100 % → jen 2000). Bez DP / nečitelné doklady → strop total_price jako před i2. Oříznutý
+  // požadavek s částkou → mail obsluze (dřív jen info v debug_log).
+  {
+    let owedDocs: number | null = null
+    try { owedDocs = docsOwedCzk(await docSums(supabase, booking_id)) }
     catch (e) { await dlog('manual_refund_docs_unreadable', 'error', { error: (e as Error).message }) }
-    if (docRemainder != null) {
-      if (manAmount > docRemainder) {
-        await dlog('manual_refund_capped_docs', 'info', { requested: manAmount, docs_remainder: docRemainder })
-        manAmount = docRemainder
+    const cap = owedDocs ?? (totalPrice > 0 ? totalPrice : null)
+    if (cap != null && manAmount > cap + 0.005) {
+      await dlog('manual_refund_capped_docs', 'info', { requested: manAmount, docs_owed: owedDocs, cap })
+      if (Number(amount) > 0 && !customerCap) {
+        const num = bookingNum(booking_id)
+        await opsMailOnce(supabase, booking_id, 'manual_refund_capped_docs_mail',
+          `⚠️ Ruční vratka #${num} oříznuta na ${cap} Kč (požadováno ${manAmount} Kč)`,
+          `<p>Rezervace <strong>#${num}</strong> (${booking_id}, ${reasonTextFor(reason)}): požadovaná vratka <strong>${manAmount} Kč</strong> převyšuje, `
+          + `co dle dokladů ještě dlužíme (${owedDocs != null ? 'DP − dobropisy' : 'cena rezervace'} = <strong>${cap} Kč</strong>). Dobropis se vystaví jen na ${cap} Kč.</p>`
+          + '<p>Pokud zákazník zaplatil víc, než ukazují doklady (chybí DP), doplňte doklad a zbytek vraťte ručně ve Velíně.</p>',
+          { requested: manAmount, cap, docs_owed: owedDocs })
       }
-    } else if (manAmount > totalPrice) manAmount = totalPrice
+      manAmount = cap
+    }
   }
   const requestedCzk = Number(amount) > 0 ? Number(amount) : 0
   // Oprava i2 (2026-11-05): čerstvý ruční dobropis na STEJNOU částku (≤15 min) = duplicitní dispatch téže vratky
@@ -1594,6 +1628,9 @@ Deno.serve(async (req: Request) => {
     } catch (e) {
       console.warn('[process-refund] PI lookup failed:', (e as Error).message)
     }
+    // Oprava i3 (2026-11-07, V7): přibalená e-shop část hlavní platby (web checkout s doprodejem, metadata.shop_order_id)
+    // do ceny rezervace nepatří — vratka rezervace ji nesmí vrátit a stav 'refunded' se počítá bez ní.
+    let mainShopH = booking_id && storedPi ? await shopPartHaleru(supabase, (storedPi.metadata || {}).shop_order_id, storedRefunds) : 0
 
     // HOTFIX storno 2026-10-29 + více plateb (2026-11-05): volání ze serveru (send-cancellation-email) na
     // storno, ke kterému už naše HLAVNÍ storno vratka existuje (i pending / bez zapsaného stavu / na JINÉ
@@ -1658,6 +1695,9 @@ Deno.serve(async (req: Request) => {
     // Oprava i1 (2026-11-05): ostatní platby rezervace se podařilo přečíst (search / historie) — bez toho nelze říct,
     // že „nic nezbývá“ (no_op → 'refunded' by rezervaci uzavřel bez vrácení původní platby).
     let othersKnown = false
+    // Oprava i3 (2026-11-07, V7): plné volání a na platbách V CENĚ rezervace nic nezbývá → nic nevracet (no_op). Dřív
+    // zůstal reqAmount prázdný a vrátil se celý zbytek uložené platby — u přibalené e-shop objednávky peníze za zboží.
+    let balanceZero = false
     if (booking_id && !isCustomer && !(Number(amount) > 0) && refundableHaleru != null) {
       const balH = await staffFullBalanceHaleru(stripe as unknown as OtherIntentsStripe, supabase, { bookingId: booking_id, storedPi, storedRefunds })
       await dlog('full_refund_balance', 'info', { balance_haleru: balH, stored_refundable_haleru: refundableHaleru, payment_intent_id: stripePaymentIntentId })
@@ -1669,12 +1709,13 @@ Deno.serve(async (req: Request) => {
       }
       othersKnown = true
       if (balH > 0) { reqAmount = balH / 100; fullBalance = true }
-      nonStripeOwedH = await nonStripeOwedHaleru(supabase, booking_id, bookingTotalPrice, balH, dlog)
+      nonStripeOwedH = await nonStripeOwedHaleru(supabase, booking_id, balH, dlog, { piId: stripePaymentIntentId, refunds: storedRefunds })
       if (balH === 0 && nonStripeOwedH > 0) {
         // Na Stripe nic nezbývá, dle dokladů dlužíme část zaplacenou převodem → jen ruční dobropis (+ Fio / refund_pending).
         await dlog('full_refund_non_stripe_only', 'info', { non_stripe_haleru: nonStripeOwedH })
         return await manualBookingRefund(supabase, booking_id, nonStripeOwedH / 100, reason, dlog, false)
       }
+      if (balH === 0) balanceZero = true
     }
 
     // Uložená platba nemá z čeho vracet (nikdy nezaplacený PI opuštěného doplatku, nebo
@@ -1696,6 +1737,7 @@ Deno.serve(async (req: Request) => {
           await dlog('main_pi_retargeted', 'info', { stored_payment_intent_id: stripePaymentIntentId, payment_intent_id: src.piId,
             stored_charged_haleru: chargedHaleru, refundable_haleru: src.refundableHaleru, stored_outside_price: src.outside })
           stripePaymentIntentId = src.piId
+          mainShopH = 0 // kandidát z otherRefundableIntents už je bez e-shop části
           chargedHaleru = src.refundableHaleru
           refundableHaleru = src.refundableHaleru
           refundableCZK = refundableHaleru / 100
@@ -1728,14 +1770,22 @@ Deno.serve(async (req: Request) => {
 
     // Decide effective amount (in haléře). Null = full refund.
     let effectiveAmountHaleru: number | null = null
-    if (reqAmount && reqAmount > 0) {
+    // i3: co z hlavní platby patří do ceny rezervace (bez přibalené e-shop části)
+    const inPriceRefundableH = refundableHaleru == null ? null : Math.max(0, refundableHaleru - mainShopH)
+    if (balanceZero) {
+      effectiveAmountHaleru = 0
+    } else if (reqAmount && reqAmount > 0) {
       effectiveAmountHaleru = Math.round(reqAmount * 100)
       if (refundableHaleru != null && effectiveAmountHaleru > refundableHaleru) {
         console.warn(`[process-refund] requested ${effectiveAmountHaleru/100} CZK > refundable ${refundableHaleru/100} CZK — clamping`)
         effectiveAmountHaleru = refundableHaleru
       }
+      if (mainShopH > 0 && inPriceRefundableH != null && effectiveAmountHaleru > inPriceRefundableH) {
+        await dlog('refund_clamped_shop_part', 'info', { requested_haleru: effectiveAmountHaleru, in_price_haleru: inPriceRefundableH, shop_haleru: mainShopH })
+        effectiveAmountHaleru = inPriceRefundableH
+      }
     } else if (refundableHaleru != null) {
-      effectiveAmountHaleru = refundableHaleru
+      effectiveAmountHaleru = inPriceRefundableH
     }
 
     // Zákazník: max. ověřený přeplatek přes platby V CENĚ rezervace (customerCapHaleru).
@@ -1762,7 +1812,7 @@ Deno.serve(async (req: Request) => {
         // Oprava i1 (2026-11-05): u storna 'refunded' jen když se ostatní platby podařilo přečíst a uložená platba není
         // doplatek úpravy (původní platba rezervace mohla zůstat nevrácená) — jinak 'partial_refund' (Velín „Potvrdit
         // vrácení“ i další storno volání zůstanou možné; nic se nevrací).
-        const closeIt = !(reason === 'cancellation' && (!othersKnown || (storedPi?.metadata || {}).type === 'extension'))
+        const closeIt = balanceZero || !(reason === 'cancellation' && (!othersKnown || (storedPi?.metadata || {}).type === 'extension'))
         await dlog('refund_noop', 'info', { payment_status: closeIt ? 'refunded' : 'partial_refund', others_known: othersKnown,
           stored_type: (storedPi?.metadata || {}).type || null })
         await supabase.from('bookings').update({ payment_status: closeIt ? 'refunded' : 'partial_refund' }).eq('id', booking_id)
@@ -1921,8 +1971,9 @@ Deno.serve(async (req: Request) => {
       //  - jinak (plné vrácení / succeeded) → 'refunded'.
       // Zákaznická vratka = jen přeplatek → rezervace s nenulovou cenou zůstává zaplacená
       // (i když se tím vyčerpá aktuální PI, např. doplatkový).
+      // i3: zbytek hlavní platby V CENĚ (bez přibalené e-shop části) — 100% storno 3000 z platby 3000 + zboží 500 = 'refunded'
       let newStatus = refundedStatus({ refundStatus: refund.status, isCustomer, bookingTotalPrice, amount: reqAmount,
-        refundableHaleru, effectiveAmountHaleru, leftHaleru: extra.leftHaleru, shortHaleru, fullBalance })
+        refundableHaleru: inPriceRefundableH, effectiveAmountHaleru, leftHaleru: extra.leftHaleru, shortHaleru, fullBalance })
       // Více plateb (2026-11-05): 'refunded' = na žádné platbě V CENĚ rezervace nic nezbývá (idempotentní větev
       // „už vráceno“ pak storno odmítne). Vratka s částkou, která přesně vyčerpala hlavní platbu (např. vrácení
       // doplatku 115 Kč z uložené platby doplatku), dřív rezervaci uzavřela, i když na původní platbě zbývalo vše.
