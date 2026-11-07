@@ -7,14 +7,17 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
-import 'res_detail_bits_v2.dart';
+import '../widgets/res_pickup_procedure.dart';
+import 'res_status_v2.dart' show resRangeDays, resRangeShort;
 
 enum _Node { done, current, future, cancelled }
 
-/// "Tvoje cesta" (V22 C10, light): Zaplaceno → Převzetí → Jízda → Vrácení,
+/// "Tvoje cesta" (V22 C10, light): Zaplaceno → Převzetí → Jízda → Vrácení
+/// (self-service: Zaplaceno → Šatna → Protokol → Motorka → Vrácení),
 /// derived ONLY from today's fields (payment status, handover, display
 /// status, completion). The current node pings (the screen's one live
 /// loop; static under reduced motion); a cancelled booking shows every
@@ -32,7 +35,42 @@ class ResJourneyV2 extends StatelessWidget {
     final cancelled = st == ResStatus.cancelled;
     final paid = _paidStates.contains(res.paymentStatus);
     final returned = res.status == 'completed' || res.returnedAt != null || st == ResStatus.dokoncene;
-    final done = [paid, res.isHandedOver || returned, returned, returned];
+    final pickupSub = res.pickupHm == null || res.pickupAllDayLegacy
+        ? tripShortDate(tr, res.startDate)
+        : '${tripShortDate(tr, res.startDate)} ${res.pickupHm}';
+    final rt = (res.returnTime ?? '').trim();
+    final returnSub = '${tripShortDate(tr, res.endDate)}${rt.length >= 5 ? ' ${rt.substring(0, 5)}' : ''}';
+    // Samoobsluha (Reservation board): Zaplaceno · Šatna · Protokol ·
+    // Motorka · Vrácení — šatna jen s výbavou k vyzvednutí; jinak (obsluha,
+    // přistavení) Zaplaceno · Převzetí · Jízda · Vrácení. Jen ze stávajících
+    // polí rezervace (šatna = první zavření, protokol = podpis, motorka =
+    // vydání); krok „Doklady" by potřeboval nový dotaz → rozhodnutí majitele.
+    final kiosk = ResPickupProcedure.visibleFor(res) || (res.isSelfService && returned && res.pickupMethod != 'delivery');
+    final List<(String, String?, bool)> raw = kiosk
+        ? [
+            (tr.tr('v2ResJPaid'), null, paid),
+            if (ResPickupProcedure.needsLocker(res, null))
+              (tr.tr('v2UxRpJLocker'), null, res.gearCollectedAt != null),
+            (tr.tr('v2UxRpJProtocol'), null, res.protocolSigned),
+            (tr.tr('v2UxRpJBike'), null, res.isHandedOver),
+            (tr.tr('v2ResJReturn'), returnSub, returned),
+          ]
+        : [
+            (tr.tr('v2ResJPaid'), null, paid),
+            (tr.tr('v2ResJPickup'), null, res.isHandedOver),
+            (tr.tr('v2ResJRide'), null, returned),
+            (tr.tr('v2ResJReturn'), returnSub, returned),
+          ];
+    // Čas vyzvednutí pod prvním krokem po zaplacení (board „Šatna · pá 12:00").
+    final withSub = [
+      for (var i = 0; i < raw.length; i++) (raw[i].$1, i == 1 ? pickupSub : raw[i].$2, raw[i].$3),
+    ];
+    // Kroky jdou za sebou: hotový pozdější krok znamená hotové i ty před ním
+    // (starší rezervace bez času šatny nesvítí „teď" před hotovým protokolem).
+    final done = [for (final n in withSub) n.$3];
+    for (var i = done.length - 2; i >= 0; i--) {
+      done[i] = done[i] || done[i + 1];
+    }
     final firstOpen = done.indexOf(false);
     _Node stateOf(int i) {
       if (cancelled) return _Node.cancelled;
@@ -40,23 +78,21 @@ class ResJourneyV2 extends StatelessWidget {
       return i == firstOpen ? _Node.current : _Node.future;
     }
 
-    final pickupSub = res.pickupHm == null || res.pickupAllDayLegacy
-        ? tripShortDate(tr, res.startDate)
-        : '${tripShortDate(tr, res.startDate)} ${res.pickupHm}';
-    final nodes = [
-      (tr.tr('v2ResJPaid'), null as String?),
-      (tr.tr('v2ResJPickup'), pickupSub),
-      (tr.tr('v2ResJRide'), null as String?),
-      (tr.tr('v2ResJReturn'), tripShortDate(tr, res.endDate)),
-    ];
+    final nodes = [for (final n in withSub) (n.$1, n.$2)];
+    // Termín a délka jednou, tady (Reservation board „pá 16. 10. – ne 18. 10.
+    // · 3 dny"); zalomí se pod nadpis, když se vedle nevejde.
+    final range = Text(
+      cancelled ? '${tr.cancelled} · ${resRangeShort(tr, res)}' : resRangeDays(tr, res),
+      style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: cancelled ? MgColors.err : MgColors.lead)),
+    );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Expanded(child: ResSectionEyebrowV2(tr.tr('v2ResJourney'))),
-        if (cancelled)
-          Text(tr.cancelled, style: MgType.meta.copyWith(color: MgColors.err))
-        else
-          Text(res.dateRange, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
-      ]),
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 6,
+        children: [MgEyebrowDark(tr.tr('v2ResJourney')), range],
+      ),
       const SizedBox(height: 12),
       LayoutBuilder(builder: (context, c) {
         Widget cell(int i, bool vertical) => MgReveal(
@@ -80,7 +116,7 @@ class ResJourneyV2 extends StatelessWidget {
         // se vykreslí svisle (r2: dřív zmenšení až na 70 %).
         final cellW = c.maxWidth / nodes.length;
         final across = !c.maxWidth.isFinite ||
-            nodes.every((n) => mgWordsFit(context, n.$1, _NodeCell.labelStyle, cellW + 0.5, minScale: _NodeCell.minScale));
+            nodes.every((n) => mgWordsFit(context, n.$1, _NodeCell.labelStyle, cellW - 1, minScale: _NodeCell.minScale));
         if (!across) {
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             for (var i = 0; i < nodes.length; i++) cell(i, true),

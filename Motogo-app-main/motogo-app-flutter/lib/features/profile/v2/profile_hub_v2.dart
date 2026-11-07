@@ -8,6 +8,7 @@ import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../auth/auth_provider.dart' show profileProvider;
 import 'profile_attention_v2.dart';
 import 'profile_booking_fix_v2.dart';
 import 'profile_groups_v2.dart';
@@ -125,6 +126,16 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
     );
   }
 
+  /// Pull-to-refresh (V21 §1.2) = the existing retry (reload the profile),
+  /// held until it lands (max 8 s). Off while the personal form is open —
+  /// a reload must never touch what is being typed.
+  Future<void> _refresh() async {
+    widget.onRetry();
+    try {
+      await ref.read(profileProvider.future).timeout(const Duration(seconds: 8));
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
@@ -133,9 +144,15 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
     return MgPage(
       tabIndex: 4,
       overlapHero: false,
+      onRefresh: w.personalExpanded ? null : _refresh,
       pinnedBack: w.onBack,
       pinnedTitle: _fix ? tr.tr('v2PfFixTitle') : null,
-      header: ProfileHeaderV2(profile: w.profile, onSettings: _toSettings, onBack: w.onBack),
+      header: ProfileHeaderV2(
+        profile: w.profile,
+        onSettings: _toSettings,
+        onBack: w.onBack,
+        loading: w.loading && w.profile == null,
+      ),
       sections: [
         if (w.error != null)
           Padding(

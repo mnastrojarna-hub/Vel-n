@@ -28,6 +28,17 @@ class ResDocsV2 extends ConsumerWidget {
   final Future<void> Function(BuildContext, String) onOpenContract;
   const ResDocsV2({super.key, required this.res, required this.onOpenFinalInvoice, required this.onOpenContract});
 
+  /// true when the section shows at least one row (the "Dokumenty" action
+  /// tile scrolls to it only then) — the same conditions as [build].
+  static bool hasItems(Reservation res, Map<String, BookingDocSource> docs) {
+    final st = res.displayStatus;
+    if (st == ResStatus.dokoncene) return true;
+    if (res.inRentalTerm || st == ResStatus.aktivni) {
+      return docs.containsKey('contract') || docs.containsKey('protocol') || docs.containsKey('protocol_damage');
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);

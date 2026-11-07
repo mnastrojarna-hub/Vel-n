@@ -5,6 +5,7 @@ import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -78,7 +79,7 @@ class ReservationCardV2 extends ConsumerWidget {
             // vejdou celé (es „DURACIÓN", uk „ТРИВАЛІСТЬ" na 320 / 360 dp
             // s velkým písmem) — jinak termín nahoře přes celou šířku.
             child: LayoutBuilder(builder: (context, c) {
-              final date = _info(tr.date, r.dateRange);
+              final date = _info(tr.date, resRangeShort(tr, r));
               final days = _info(tr.tr('resDuration'), resDays(tr, r.dayCount));
               final total = _info(tr.tr('total'), Money.czk(r.totalPrice), price: true);
               final unit = (c.maxWidth - 16) / 33;
@@ -119,7 +120,8 @@ class ReservationCardV2 extends ConsumerWidget {
   Widget _photo(AppTranslations tr, ResStatus st, bool grayscale) {
     final r = reservation;
     return Stack(fit: StackFit.expand, children: [
-      ResBikePhoto(url: r.motoImage, grayscale: grayscale),
+      // Sdílená fotka do detailu rezervace (V2 §5.11, `res-img-{id}`).
+      MgHeroPhoto(tag: mgHeroTagRes(r.id), child: ResBikePhoto(url: r.motoImage, grayscale: grayscale)),
       IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -167,7 +169,13 @@ class ReservationCardV2 extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: MgType.title.copyWith(fontSize: 17, color: MgColors.onDark)),
-              Text(r.shortId, style: MgType.meta.copyWith(color: MgColors.onDarkSecondary)),
+              // „#ID · pobočka" (Reservation board) — kde se vyzvedává hned na kartě.
+              Text(
+                [r.shortId, if ((r.branchName ?? '').trim().isNotEmpty) r.branchName!.trim()].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: MgType.meta.copyWith(color: MgColors.onDarkSecondary),
+              ),
             ]),
           ),
           if (r.sosReplacement || r.endedBySos) ...[

@@ -19,7 +19,7 @@ import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/book
 import { sendBookingMessage, logAudit, cancelBookingFromVelin, edgeErrorDetail, paidForRefund } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 import RefundConfirmModal from './booking/RefundConfirmModal'
-import { livePaidDocsCzk, manualRefundOpen, manualRefundSentStatus } from './booking/manualRefundState'
+import { cancelRefundAlreadyIssued, manualRefundOpen, manualRefundSentLive } from './booking/manualRefundState'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import BookingDamagePanel from './booking/BookingDamagePanel'
@@ -415,12 +415,12 @@ export default function BookingDetail() {
       const amount = cn ? Math.abs(Number(cn.total) || 0) : null
       // Částečná vratka (živé dobropisy — karta i převod — < celková cena) → 'partial_refund', plná → 'refunded' (i4).
       // i5r2: živá rezervace vždy 'partial_refund'; zrušená porovnává se zaplacenými doklady (DP), bez nich s cenou.
-      const paidDocs = booking?.status === 'cancelled' ? await livePaidDocsCzk(supabase, id) : null
-      const newStatus = manualRefundSentStatus(booking, creditNotes, paidDocs)
-      const res = await debugAction('booking.manual_refund_sent', 'BookingDetail', () =>
-        supabase.from('bookings').update({ payment_status: newStatus }).eq('id', id)
-      , { booking_id: id, amount, new_status: newStatus })
-      if (res?.error) { setError(res.error.message); setSaving(false); return }
+      // i6r1 (W3): dobropisy, DP i stav znovu z DB a zápis jen nad přečteným stavem (ne seznam z načtení stránky).
+      const res = await debugAction('booking.manual_refund_sent', 'BookingDetail', async () => {
+        try { return { data: await manualRefundSentLive(supabase, { ...booking, id }), error: null } }
+        catch (e) { return { data: null, error: { message: e.message } } }
+      }, { booking_id: id, amount })
+      if (res?.error) { setError(res.error.message); setSaving(false); await loadBooking(); return }
       await logAudit('booking_manual_refund_sent', { booking_id: id, amount, credit_note: cn?.number || null })
       setConfirm(null)
       await loadBooking()
@@ -440,9 +440,10 @@ export default function BookingDetail() {
       let pct = total > 0 ? Math.round(amt / total * 100) : 0
 
       // 1) Vratka/dobropis přes process-refund (idempotentní). Přeskočí se, když
-      //    už existuje nezrušený dobropis PŘESNĚ na tuto částku — potvrzení
+      //    už existuje nezrušený dobropis TOHOTO storna PŘESNĚ na tuto částku — potvrzení
       //    dřívějšího storna se stejnou vratkou nesmí vystavit duplicitní dobropis.
-      if (amt > 0 && !creditNotes.find(c => Math.abs(Number(c.total) || 0) === amt)) {
+      //    i6r1 (W2b): dobropisy znovu z DB, jen dobropisy tohoto storna (ne dřívějšího zkrácení / zrušené po selhání).
+      if (amt > 0 && !(await cancelRefundAlreadyIssued(supabase, id, amt))) {
         const res = await debugAction('booking.refund_confirm.process', 'BookingDetail', () =>
           supabase.functions.invoke('process-refund', {
             body: { booking_id: id, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) },

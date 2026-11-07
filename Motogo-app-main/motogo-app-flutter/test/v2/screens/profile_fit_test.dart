@@ -148,7 +148,7 @@ void main() {
     if (!_fonts) return markTestSkipped('no Montserrat');
     final fails = await _sweep(t, () => const InvoicesScreen(), () => docListOverrides(), height: 1600, check: (lang, w, s) {
       if (lang != 'de') return;
-      final title = t.getRect(find.text('Endrechnung')), amount = t.getRect(find.text('8450 Kč'));
+      final title = t.getRect(find.text('Endrechnung')), amount = t.getRect(find.text('8.450\u00A0Kč')); // RP-22: locale grouping + NBSP
       if (w == 320 && s == 1.3) expect(amount.top, greaterThan(title.bottom), reason: 'amount under the title');
       if (w == 412 && s == 1.0) expect(amount.left, greaterThan(title.right), reason: 'amount beside the title');
     });

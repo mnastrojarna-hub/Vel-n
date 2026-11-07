@@ -160,7 +160,7 @@ class DocsViewV2 extends StatelessWidget {
               const MgIcon(MgIcons.checkCircle, size: 20, color: MgColors.link),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(tr.tr('docsVerifiedDesc'),
+                child: Text(tr.tr('v2UxRpDocsVerified'),
                     style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onTintOk)),
               ),
             ]),

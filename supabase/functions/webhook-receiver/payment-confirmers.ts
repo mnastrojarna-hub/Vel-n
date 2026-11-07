@@ -176,24 +176,33 @@ export async function confirmBookingPayment(
 
     if (error) {
       console.error('confirm_payment RPC failed:', error.message)
-      const { data: bk } = await supabase.from('bookings')
-        .select('start_date')
-        .eq('id', bookingId)
-        .single()
-      const today = new Date().toISOString().slice(0, 10)
-      const startDate = bk?.start_date || today
-      const isToday = startDate <= today
-      await supabase.from('bookings')
-        .update({
-          payment_status: 'paid',
-          payment_method: 'card',
-          status: isToday ? 'active' : 'reserved',
-          ...(isToday
-            ? { picked_up_at: new Date().toISOString() }
-            : { confirmed_at: new Date().toISOString() }),
-        })
-        .eq('id', bookingId)
-        .neq('status', 'cancelled') // i5r2: záložní zápis nikdy neoživí zrušenou rezervaci
+      // Oprava i6r1 (verify:charges N1): chyba přenosu (timeout / 5xx / reset) — RPC mohla i doběhnout. Stav znovu z DB:
+      // nečitelný → 'retry'; už 'paid' (RPC commitla) → dál jako dřív; ZRUŠENÁ → 'retry' (rozhodne confirm_payment při
+      // dalším doručení: oživí, nebo revive_failed → automatická vratka). Dřív záložní zápis zrušenou nepřepsal (i5r2),
+      // ale webhook dál poslal zákazníkovi „rezervováno“ a odpověděl 200 → peníze stržené u zrušené rezervace bez vratky.
+      const { data: curRaw, error: rdErr } = await supabase.from('bookings').select('status, payment_status, start_date').eq('id', bookingId).maybeSingle()
+      const cur = curRaw as { status?: string; payment_status?: string; start_date?: string } | null
+      if (rdErr || !cur) return 'retry'
+      if (cur.payment_status !== 'paid') {
+        if (cur.status === 'cancelled') return 'retry'
+        const today = new Date().toISOString().slice(0, 10)
+        const startDate = cur.start_date || today
+        const isToday = startDate <= today
+        const { data: fb, error: fbErr } = await supabase.from('bookings')
+          .update({
+            payment_status: 'paid',
+            payment_method: 'card',
+            status: isToday ? 'active' : 'reserved',
+            ...(isToday
+              ? { picked_up_at: new Date().toISOString() }
+              : { confirmed_at: new Date().toISOString() }),
+          })
+          .eq('id', bookingId)
+          .neq('status', 'cancelled') // i5r2: záložní zápis nikdy neoživí zrušenou rezervaci
+          .neq('payment_status', 'paid')
+          .select('id')
+        if (fbErr || !Array.isArray(fb) || fb.length === 0) return 'retry'
+      }
     }
 
     // Save Stripe IDs for future refunds

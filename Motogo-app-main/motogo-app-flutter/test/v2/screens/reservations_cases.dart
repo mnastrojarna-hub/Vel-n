@@ -3,6 +3,8 @@
 // the data their seams pass (PLAN §5.2: S screens load in initState).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:motogo_app/core/currency.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/widgets/pickup_location_link.dart';
@@ -135,6 +137,9 @@ EditPriceCalc _calc(Reservation b, {int addDays = 0}) => EditPriceCalc(
       returnTime: '23:59',
     );
 
+/// The fixture's price calc (shared with the res_profile UX tests).
+EditPriceCalc editCalc(Reservation b, {int addDays = 0}) => _calc(b, addDays: addDays);
+
 Widget editView(
   Reservation b, {
   String tab = 'extend',
@@ -146,7 +151,9 @@ Widget editView(
 }) {
   final calc = _calc(b, addDays: addDays);
   final datesOrSwap = tab == 'move' || tab == 'swap';
-  return ResEditV2View(
+  // RP-11: the seam passes a card surcharge as label + price + "Původně → nově".
+  final pay = addDays > 0 && tab != 'move' && tab != 'swap';
+  return Builder(builder: (c) => ResEditV2View(
     booking: b,
     tab: tab,
     isActive: active,
@@ -248,7 +255,13 @@ Widget editView(
     ),
     stornoPct: stornoPct,
     missingSizes: missing,
-    saveLabel: tab == 'swap' ? null : (tab == 'move' ? 'Posunout zdarma' : 'POKRAČOVAT K PLATBĚ (+4 997 Kč)'),
+    saveLabel: tab == 'swap'
+        ? null
+        : (tab == 'move' ? t(c).tr('moveSaveBtn') : (pay ? t(c).tr('v2UxRpPayDiffCta') : t(c).tr('saveChangesBtn'))),
+    savePrice: pay ? Money.czk(calc.effectivePriceDiff) : null,
+    saveContext: pay
+        ? t(c).trArgs('v2UxRpPayDiff', {'from': Money.czk(b.totalPrice), 'to': Money.czk(calc.newTotal)})
+        : null,
     onSave: addDays != 0 || tab == 'move' ? () {} : null,
     saving: false,
     onBack: () {},
@@ -257,7 +270,7 @@ Widget editView(
     onSelectMove: () {},
     onSelectSwap: () {},
     initialIntent: intent,
-  );
+  ));
 }
 
 Map<String, ResCase> editCases() {

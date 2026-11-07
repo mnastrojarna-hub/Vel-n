@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
+import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'cancel_result_dialog.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../v2/res_cancel_v2.dart';
+import '../v2/res_status_v2.dart' show resRangeShort;
 
 /// Cancel reservation confirmation dialog with storno policy info.
 class ResCancelDialog extends StatefulWidget {
@@ -40,9 +42,10 @@ class _ResCancelDialogState extends State<ResCancelDialog> {
         canPop: !_loading,
         child: ResCancelConfirmV2(
           motoName: widget.reservation.motoName,
-          dateRange: widget.reservation.dateRange,
+          dateRange: resRangeShort(t(context), widget.reservation),
           pct: pct,
-          refundLine: t(context).tr('currentlyRefund').replaceAll('{pct}', '$pct').replaceAll('{amount}', refund.toStringAsFixed(0)),
+          // Táž vratka, čitelně („6 014 Kč", NBSP) — RP-21.
+          refundLine: t(context).trArgs('v2UxRpRefundNow', {'amount': Money.czk(refund), 'pct': pct}),
           loading: _loading,
           onReason: (v) => _reason = v,
           onKeep: () => Navigator.pop(context),

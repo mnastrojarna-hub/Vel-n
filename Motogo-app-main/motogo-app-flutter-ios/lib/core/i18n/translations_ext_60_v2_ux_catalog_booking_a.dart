@@ -2,6 +2,7 @@
 /// Klíče JEN s prefixem `v2UxCb`; všech 8 jazyků (cs tyká), bez emoji.
 const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
   'cs': {
+    'v2UxCbFullDesc': 'Celý popis',
     'v2UxCbUseDates': 'Použít termín · {days}',
     'v2UxCbMute': 'Ztlumit zvuk',
     'v2UxCbUnmute': 'Zapnout zvuk',
@@ -20,6 +21,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
     'v2UxCbShowN': 'Zobrazit {count}',
   },
   'en': {
+    'v2UxCbFullDesc': 'Full description',
     'v2UxCbUseDates': 'Use dates · {days}',
     'v2UxCbMute': 'Mute',
     'v2UxCbUnmute': 'Unmute',
@@ -38,6 +40,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
     'v2UxCbShowN': 'Show {count}',
   },
   'de': {
+    'v2UxCbFullDesc': 'Ganze Beschreibung',
     'v2UxCbUseDates': 'Termin übernehmen · {days}',
     'v2UxCbMute': 'Ton aus',
     'v2UxCbUnmute': 'Ton an',
@@ -56,6 +59,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
     'v2UxCbShowN': '{count} anzeigen',
   },
   'es': {
+    'v2UxCbFullDesc': 'Descripción completa',
     'v2UxCbUseDates': 'Usar fechas · {days}',
     'v2UxCbMute': 'Silenciar',
     'v2UxCbUnmute': 'Activar sonido',
@@ -74,6 +78,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
     'v2UxCbShowN': 'Ver {count}',
   },
   'fr': {
+    'v2UxCbFullDesc': 'Description complète',
     'v2UxCbUseDates': 'Valider · {days}',
     'v2UxCbMute': 'Couper le son',
     'v2UxCbUnmute': 'Activer le son',
@@ -92,6 +97,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
     'v2UxCbShowN': 'Voir {count}',
   },
   'nl': {
+    'v2UxCbFullDesc': 'Volledige beschrijving',
     'v2UxCbUseDates': 'Data gebruiken · {days}',
     'v2UxCbMute': 'Geluid uit',
     'v2UxCbUnmute': 'Geluid aan',
@@ -110,6 +116,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
     'v2UxCbShowN': 'Toon {count}',
   },
   'pl': {
+    'v2UxCbFullDesc': 'Cały opis',
     'v2UxCbUseDates': 'Użyj terminu · {days}',
     'v2UxCbMute': 'Wycisz',
     'v2UxCbUnmute': 'Włącz dźwięk',
@@ -128,6 +135,7 @@ const Map<String, Map<String, String>> translationsExt60V2UxCatalogBookingA = {
     'v2UxCbShowN': 'Pokaż {count}',
   },
   'uk': {
+    'v2UxCbFullDesc': 'Увесь опис',
     'v2UxCbUseDates': 'Застосувати · {days}',
     'v2UxCbMute': 'Вимкнути звук',
     'v2UxCbUnmute': 'Увімкнути звук',

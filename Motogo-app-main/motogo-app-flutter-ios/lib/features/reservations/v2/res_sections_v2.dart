@@ -1,16 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../booking/price_calculator.dart' show branchLat, branchLng;
+import '../booking_gate_provider.dart';
 import '../reservation_models.dart';
+import '../reservation_provider.dart' show DoorCode;
 import '../widgets/res_location_row.dart';
 import 'res_detail_bits_v2.dart';
+
+/// Navigation target of the pickup ([pickup]) or return row — the SAME
+/// address / GPS / fallback arguments `ResWhenWhereV2` passes to
+/// `ResLocationRow` (GPS first, main-branch coordinates when the branch has
+/// none). Used by the CO TEĎ CTA and the action tiles, so every "Navigovat"
+/// opens the same place.
+({double? lat, double? lng, String? fallback}) resNavTarget(Reservation res, String? branchFullAddress,
+    {required bool pickup}) {
+  final delivery = (pickup ? res.pickupMethod : res.returnMethod) == 'delivery';
+  if (delivery) {
+    return pickup
+        ? (lat: res.pickupLat, lng: res.pickupLng, fallback: res.pickupAddress)
+        : (lat: res.returnLat, lng: res.returnLng, fallback: res.returnAddress);
+  }
+  return (lat: res.branchLat ?? branchLat, lng: res.branchLng ?? branchLng, fallback: branchFullAddress);
+}
+
+/// Opens [resNavTarget] through `ResLocationRow.openNavigation`.
+Future<void> resNavigate(Reservation res, String? branchFullAddress, {required bool pickup}) {
+  final n = resNavTarget(res, branchFullAddress, pickup: pickup);
+  return ResLocationRow.openNavigation(lat: n.lat, lng: n.lng, fallbackAddress: n.fallback);
+}
+
+/// "ne 18. 10. do 23:59": the booking's return time; a self-service branch
+/// without one returns until 23:59 (its rule), otherwise the date alone.
+String resReturnWhen(AppTranslations tr, Reservation res) {
+  final date = tripShortDate(tr, res.endDate);
+  final rt = (res.returnTime ?? '').trim();
+  final hm = rt.length >= 5 ? rt.substring(0, 5) : (res.isSelfService && res.returnMethod != 'delivery' ? '23:59' : null);
+  return hm == null ? date : tr.trArgs('v2UxRpReturnBy', {'date': date, 'time': hm});
+}
+
+/// Return rules of a live booking (upcoming / active, return at the
+/// branch): today's Home checklist line + the kiosk auto-completion note
+/// on a self-service branch. Empty otherwise.
+List<String> resReturnRules(AppTranslations tr, Reservation res) {
+  final st = res.displayStatus;
+  if (st != ResStatus.nadchazejici && st != ResStatus.aktivni) return const [];
+  if (res.returnMethod == 'delivery' || res.isGearOnly) return const [];
+  if (res.isSelfService) return [tr.tr('v2HomeChkReturnSelf'), tr.tr('v2UxRpKioskReturn')];
+  if (res.branchType == 'obslužná') return [tr.tr('v2HomeChkReturnStaff')];
+  return const [];
+}
 
 /// "Kdy a kde" (white card): pickup + return through `ResLocationRow` with
 /// the SAME address / GPS / fallback arguments as today's detail (navigation
@@ -42,13 +89,18 @@ class ResWhenWhereV2 extends StatelessWidget {
         ),
         ResLocationRow(
           label: tr.returnLabel,
-          when: tripShortDate(tr, res.endDate),
+          when: resReturnWhen(tr, res),
           isDelivery: res.returnMethod == 'delivery',
           address: res.returnMethod == 'delivery' ? res.returnAddress : branchFullAddress,
           lat: res.returnMethod == 'delivery' ? res.returnLat : (res.branchLat ?? branchLat),
           lng: res.returnMethod == 'delivery' ? res.returnLng : (res.branchLng ?? branchLng),
           fallbackAddress: res.returnMethod == 'delivery' ? res.returnAddress : branchFullAddress,
         ),
+        for (final line in resReturnRules(tr, res))
+          Padding(
+            padding: const EdgeInsets.only(left: 48, top: 6),
+            child: Text(line, style: MgType.small.copyWith(color: MgColors.lead)),
+          ),
       ]),
     );
   }
@@ -57,15 +109,23 @@ class ResWhenWhereV2 extends StatelessWidget {
 /// "Výbava" (white card): sizes chosen at booking (rider + passenger) and
 /// "own gear" — straight from the reservation fields. Hidden when the
 /// booking has none.
-class ResGearV2 extends StatelessWidget {
+class ResGearV2 extends ConsumerWidget {
   final Reservation res;
-  const ResGearV2({super.key, required this.res});
+
+  /// Door codes the detail already loaded: with a locker code out (in the
+  /// rental term, like the codes card) the header shows "Šatna · dveře č. N"
+  /// from the SAME gate info the codes card reads — never a new request.
+  final List<DoorCode>? doorCodes;
+  const ResGearV2({super.key, required this.res, this.doorCodes});
 
   static bool _has(String? s) => (s ?? '').trim().isNotEmpty;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
+    final codes = doorCodes ?? const <DoorCode>[];
+    final lockerOut = res.inRentalTerm && codes.isNotEmpty && codes.any((c) => c.codeType == 'accessories');
+    final door = lockerOut ? ref.watch(bookingGateInfoProvider(res.id)).valueOrNull?.lockerDoor : null;
     final rider = <(String, String, String)>[
       if (_has(res.helmetSize)) (MgIcons.helmet, tr.tr('helmet'), res.helmetSize!),
       if (_has(res.jacketSize)) (MgIcons.jacket, tr.tr('jacket'), res.jacketSize!),
@@ -86,7 +146,25 @@ class ResGearV2 extends StatelessWidget {
       padding: const EdgeInsets.only(top: 12),
       child: MgCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          ResSectionEyebrowV2(tr.tr('v2ResGear')),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              MgEyebrowDark(tr.tr('v2ResGear')),
+              if (door != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: MgColors.well,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: MgColors.line),
+                  ),
+                  child: Text(tr.trArgs('v2UxRpLockerDoor', {'n': door}),
+                      style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
+                ),
+            ],
+          ),
           if (own) ...[
             const SizedBox(height: 12),
             Row(children: [

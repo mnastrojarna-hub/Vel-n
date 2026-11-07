@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_haptic.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
@@ -113,7 +117,7 @@ class ResCodesV2 extends StatelessWidget {
         ],
         for (final c in codes) ...[
           _tile(context, ++n, c.label, c.value, c.sent,
-              sub: c.protocolNote ? tr.tr('protocolFirst') : null, subWarn: c.protocolNote),
+              sub: c.protocolNote ? tr.tr('v2UxRpProtocolFirst') : null, subWarn: c.protocolNote),
         ],
         if (ownGearNoLocker)
           Container(
@@ -132,9 +136,11 @@ class ResCodesV2 extends StatelessWidget {
               ),
             ]),
           ),
+        // Chybí doklady → uvolnění kódů je JEDINÉ hlavní tlačítko CO TEĎ
+        // (Reservation board): plné CTA se smyčkou, „Upravit" je v dlaždicích.
         if (onRelease != null) ...[
-          const SizedBox(height: 12),
-          MgCta(label: tr.tr('uploadDocsForCodes'), onTap: onRelease, size: MgCtaSize.sm48, showMarks: false),
+          const SizedBox(height: 16),
+          MgFabAvoid(child: MgCta(label: tr.tr('uploadDocsForCodes'), onTap: onRelease, loop: true, arrow: true)),
         ],
       ]),
     );
@@ -189,28 +195,73 @@ class ResCodesV2 extends StatelessWidget {
                 Expanded(
                   child: Text(value, style: MgType.tab(MgType.code.copyWith(fontSize: 30, color: MgColors.neon))),
                 ),
-                Semantics(
-                  button: true,
-                  label: '${tr.tr('v2ResCopyCode')} · $label',
-                  excludeSemantics: true,
-                  child: MgPress(
-                    onTap: () async {
-                      await Clipboard.setData(ClipboardData(text: value));
-                      if (!context.mounted) return;
-                      showMgToast(context, tr.tr('copiedToClipboard'), icon: MgIcons.copy);
-                    },
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(color: MgColors.neonA(0.14), borderRadius: BorderRadius.circular(12)),
-                      child: const Center(child: MgIcon(MgIcons.copy, size: 20, color: MgColors.neonText)),
-                    ),
-                  ),
-                ),
+                ResCopyCodeV2(value: value, semanticLabel: '${tr.tr('v2ResCopyCode')} · $label'),
               ]),
             ),
         ]),
       ),
     );
   }
+}
+
+/// Copy button of a door code: copies [value] (+ the same toast as today),
+/// `selectionClick`, and the copy glyph turns into ✓ for 1.5 s (pop) so the
+/// customer sees it worked at the kiosk (RP-29).
+class ResCopyCodeV2 extends StatefulWidget {
+  final String value;
+  final String semanticLabel;
+  const ResCopyCodeV2({super.key, required this.value, required this.semanticLabel});
+
+  @override
+  State<ResCopyCodeV2> createState() => _ResCopyCodeV2State();
+}
+
+class _ResCopyCodeV2State extends State<ResCopyCodeV2> {
+  Timer? _reset;
+  int _tick = 0;
+  bool _done = false;
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    final tr = t(context);
+    MgHaptic.select();
+    await Clipboard.setData(ClipboardData(text: widget.value));
+    if (!mounted) return;
+    setState(() {
+      _done = true;
+      _tick++;
+    });
+    _reset?.cancel();
+    _reset = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _done = false);
+    });
+    showMgToast(context, tr.tr('copiedToClipboard'), icon: MgIcons.copy);
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: widget.semanticLabel,
+        excludeSemantics: true,
+        child: MgPress(
+          onTap: _copy,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(color: MgColors.neonA(0.14), borderRadius: BorderRadius.circular(12)),
+            child: Center(
+              child: MgPop(
+                trigger: _tick,
+                child: MgIcon(_done ? MgIcons.check : MgIcons.copy,
+                    key: ValueKey(_done), size: 20, color: MgColors.neonText, stroke: _done ? 2.6 : 2),
+              ),
+            ),
+          ),
+        ),
+      );
 }

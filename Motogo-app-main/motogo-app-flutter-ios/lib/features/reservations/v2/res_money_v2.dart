@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
@@ -6,6 +7,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
@@ -54,6 +56,10 @@ class _ResMoneyV2State extends State<ResMoneyV2> {
         if (res.extrasPrice != null && res.extrasPrice! > 0) _row(tr.tr('addons'), Money.czk(res.extrasPrice!)),
         if ((res.latePickupDiscount ?? 0) > 0)
           _row(tr.tr('latePickupDiscountLabel'), '−${Money.czk(res.latePickupDiscount!)}', ok: true),
+        // Věrnostní sleva této rezervace (uložená částka) — tečka ranku,
+        // částka zelená jako ostatní slevy (rank nikdy na ceně, V22 §1.4).
+        if ((res.loyaltyDiscountAmount ?? 0) > 0)
+          _row(tr.tr('v2UxRpLoyaltyRow'), '−${Money.czk(res.loyaltyDiscountAmount!)}', ok: true, rankDot: true),
         if (res.discountAmount != null && res.discountAmount! > 0)
           _row('${tr.tr('discountLabel')} ${res.discountCode ?? ''}'.trim(), '−${Money.czk(res.discountAmount!)}', ok: true),
         const SizedBox(height: 4),
@@ -112,11 +118,25 @@ class _ResMoneyV2State extends State<ResMoneyV2> {
     );
   }
 
-  Widget _row(String label, String value, {bool ok = false}) => Container(
+  Widget _row(String label, String value, {bool ok = false, bool rankDot = false}) => Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: MgColors.line))),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Text(label, style: MgType.small.copyWith(color: MgColors.body2))),
+          if (rankDot)
+            Consumer(
+              builder: (context, ref, _) => Container(
+                key: const ValueKey('res-loyalty-dot'),
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(top: 5, right: 8),
+                decoration: BoxDecoration(color: ref.watch(rankTokensProvider).hex, shape: BoxShape.circle),
+              ),
+            ),
+          Expanded(
+            child: Text(label,
+                style: MgType.small.copyWith(
+                    fontWeight: rankDot ? FontWeight.w700 : null, color: rankDot ? MgColors.ink : MgColors.body2)),
+          ),
           const SizedBox(width: 12),
           Text(value, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: ok ? MgColors.link : MgColors.ink))),
         ]),

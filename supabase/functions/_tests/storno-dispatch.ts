@@ -1,7 +1,7 @@
 // ===== _tests/storno-dispatch.ts =====
 // Volající storna pro flow testy (HOTFIX 2026-10-29) — přesná těla a pořadí jako v živém kódu.
 // deno-lint-ignore-file no-explicit-any
-import { ADMIN_ID, BID, EMAIL, bk, call, creditNotes, dbNow, deliver, insert, pgNow, rows, tier, world } from './storno-harness.ts'
+import { ADMIN_ID, BID, EMAIL, FN, bk, call, creditNotes, dbNow, deliver, insert, pgNow, rows, tier, world } from './storno-harness.ts'
 
 /** DB trigger trg_notify_booking_cancelled_email → notify_booking_cancelled_email() → pg_net (service klíč). */
 export const trigger = () => call('send-cancellation-email', { booking_id: BID, cancellation_reason: bk().cancellation_reason || '',
@@ -83,11 +83,23 @@ export async function bulkCancel(withTrigger: boolean) {
   if (withTrigger) await trigger()
 }
 
-/** Velín „Potvrdit (částečné) vrácení“ u zrušené rezervace (BookingDetail confirmCancelledRefund). */
+/** Velín helpery (velin/src/pages/booking/manualRefundState.js) ze stromu pod testem (STORNO_FN_DIR) — starší strom je nemá. */
+let velinMod: any = null
+export async function velinHelpers(): Promise<any> {
+  if (!velinMod) { try { velinMod = await import(new URL('../../velin/src/pages/booking/manualRefundState.js', FN).href) } catch { velinMod = {} } }
+  return velinMod
+}
+
+/** Velín „Potvrdit (částečné) vrácení“ u zrušené rezervace (BookingDetail confirmCancelledRefund).
+ *  i6r1 (W2b): přeskočení vratky dle dobropisů TOHOTO storna z DB (cancelRefundAlreadyIssued), starší Velín dle všech. */
 export async function velinConfirm(amt: number) {
   const total = Math.max(0, Math.round(Number(bk().total_price) || 0))
   let pct = total > 0 ? Math.round(amt / total * 100) : 0
-  if (amt > 0 && !creditNotes().find((c) => Math.abs(Number(c.total) || 0) === amt)) {
+  const v = await velinHelpers()
+  const issued = typeof v.cancelRefundAlreadyIssued === 'function'
+    ? await v.cancelRefundAlreadyIssued((globalThis as any).__STORNO_DB, BID, amt)
+    : !!creditNotes().find((c) => Math.abs(Number(c.total) || 0) === amt)
+  if (amt > 0 && !issued) {
     const res = await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) }, 'admin')
     // BookingDetail: vratka selhala (ne-2xx / success:false) → chyba v UI, bez záznamu i mailu (i1)
     if (!res || typeof res !== 'object' || res.success === false) return { failed: true, res }

@@ -6,6 +6,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../shop_models.dart';
 import '../shop_provider.dart';
 import 'ship_card.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/checkout_parts_v2.dart';
 
 /// Shipping method selector + collapsible delivery address fields.
 /// Mirrors original s-checkout: address fields hidden behind a toggle.
@@ -56,6 +58,23 @@ class CheckoutShippingSectionState
   @override
   Widget build(BuildContext context) {
     final shipMode = ref.watch(shipModeProvider);
+
+    // v2 (PS-11): same provider, controllers and open flag (reveal() too).
+    if (MgV2.on(context)) {
+      return CheckoutShippingV2(
+        mode: shipMode,
+        onPost: () => ref.read(shipModeProvider.notifier).state = ShipMode.post,
+        onPickup: () => ref.read(shipModeProvider.notifier).state = ShipMode.pickup,
+        addressOpen: _addressOpen,
+        onToggle: () => setState(() => _addressOpen = !_addressOpen),
+        fields: Listenable.merge([widget.nameCtrl, widget.streetCtrl, widget.cityCtrl]),
+        summary: _summary,
+        name: widget.nameCtrl,
+        street: widget.streetCtrl,
+        zip: widget.zipCtrl,
+        city: widget.cityCtrl,
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(14),

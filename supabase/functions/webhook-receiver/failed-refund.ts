@@ -12,7 +12,7 @@
 // Stav se čte ze Stripe znovu (ne ze snímku v události); nečitelné platby → nic se nemění (jen mail jako dřív).
 import { cancellationRefundPool } from '../process-refund/cancel-once-pool.ts'
 import { shrinkCreditNote } from '../process-refund/credit-note-sync.ts'
-import { cancellationMissingHaleru, priorCancellationRefunds, type StripeRefundLike } from '../process-refund/cancel-once.ts'
+import { cancellationMissingHaleru, instantKey, priorCancellationRefunds, type StripeRefundLike } from '../process-refund/cancel-once.ts'
 import type { BookingIntentsStripe } from '../_shared/booking-intents.ts'
 
 // deno-lint-ignore no-explicit-any
@@ -32,6 +32,16 @@ export type FailedRefundState = {
   liveHaleru: number | null
   /** novější vratka ji nahradila / uložená vratka rezervace je novější → neotevírat */
   superseded: boolean
+}
+
+/** Kdy webhook toto selhání zpracoval poprvé (s, debug_log refund_updated_failed); null = ještě ne / nečitelné. */
+async function firstFailureLogS(sb: Sb, refundId: string): Promise<number | null> {
+  try {
+    const { data } = await sb.from('debug_log').select('created_at').eq('source', 'webhook-receiver').eq('action', 'refund_updated_failed')
+      .eq('request_data->>refund_id', refundId).order('created_at', { ascending: true }).limit(1)
+    const ms = Date.parse(String(data?.[0]?.created_at || ''))
+    return Number.isFinite(ms) ? Math.floor(ms / 1000) : null
+  } catch { return null }
 }
 
 async function retrieve(stripe: FailedRefundStripe, id: string): Promise<StripeRefundLike | null> {
@@ -64,13 +74,26 @@ export async function failedRefundState(sb: Sb, stripe: FailedRefundStripe, r: R
   // ne zbytek, živá, novější a se stejným požadavkem (mg_target, jinak částka). Dřív stačila novější uložená vratka
   // rezervace / naše vratka téhož důvodu → selhaná vratka 1. zkrácení „nahrazená“ vratkou 2. úpravy o JINOU částku:
   // rezervace se neotevřela a mail obsluze místo „Chybí vrátit“ tvrdil „nahradila novější vratka“.
+  // i6r1 (verify:refunds W1): ani to nestačilo — legitimní DRUHÉ zkrácení o stejnou částku (jiný den) selhanou vratku
+  // prvního „nahradilo“. Teď: vratka označená process-refund (retry-of.ts) jako opakování TÉTO logické vratky
+  // (mg_retry_of = id selhané / hlavní / kořen jejího řetězu); 'none' = nové rozhodnutí, nikdy náhrada. Neoznačená
+  // (starší verze — okno nasazení) jen se stejným požadavkem a vzniklá až PO prvním zpracování tohoto selhání
+  // (debug_log refund_updated_failed); bez záznamu nic. Storno navíc jen téhož storna (mg_cancel_at).
   const ask = Number(main?.metadata?.mg_target ?? r.amount)
-  const newer = pool.refunds.some((x) => {
+  const roots = new Set([r.id, mainId, md.mg_retry_of, main?.metadata?.mg_retry_of].filter((x): x is string => !!x && x !== 'none'))
+  const cancelKey = reason === 'cancellation' ? instantKey(md.mg_cancel_at || '') : null
+  const later = pool.refunds.filter((x) => {
     const xm = x.metadata || {}
     return x.id !== r.id && x.id !== mainId && xm.mg_main_refund !== mainId && xm.mg_part !== 'remainder' && live(x)
       && xm.mg_source === 'process-refund' && xm.mg_booking_id === bk.id && (xm.mg_reason || '') === reason
-      && Number(x.created || 0) > created && Number(xm.mg_target ?? x.amount) === ask
+      && Number(x.created || 0) > created && (cancelKey == null || instantKey(xm.mg_cancel_at || '') === cancelKey)
   })
+  let newer = later.some((x) => typeof x.metadata?.mg_retry_of === 'string' && roots.has(x.metadata.mg_retry_of))
+  const legacy = later.filter((x) => typeof x.metadata?.mg_retry_of !== 'string' && Number(x.metadata?.mg_target ?? x.amount) === ask)
+  if (!newer && legacy.length) {
+    const firstS = await firstFailureLogS(sb, r.id)
+    newer = firstS != null && legacy.some((x) => Number(x.created || 0) >= firstS)
+  }
   // storno: novější rozhodnutí o TOMTO stornu (nejnovější živá hlavní vratka storna vznikla po selhané) a stornu jako celku
   // nic nechybí (Velín „Potvrdit vrácení“ jiné částky, dovrácení) → nahrazeno. Starší hlavní vratka (selhalo dorovnání
   // 50 % → 100 %) nic nenahrazuje — její cíl je menší.

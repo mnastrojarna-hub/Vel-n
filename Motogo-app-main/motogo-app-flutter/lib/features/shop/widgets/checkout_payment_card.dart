@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../payment/payment_provider.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../payment/v2/pay_parts_v2.dart' show PayMethodCardV2;
 
 /// Payment method card showing card options and saved default card.
 class CheckoutPaymentCard extends ConsumerWidget {
@@ -12,6 +14,10 @@ class CheckoutPaymentCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final defaultCard = ref.watch(defaultCardProvider);
+    // v2 (PS-11): the payment step's "ZPŮSOB PLATBY" card.
+    if (MgV2.on(context)) {
+      return Padding(padding: const EdgeInsets.only(bottom: 12), child: PayMethodCardV2(card: defaultCard));
+    }
 
     return Container(
       padding: const EdgeInsets.all(14),

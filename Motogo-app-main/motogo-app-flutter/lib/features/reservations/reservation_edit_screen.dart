@@ -1545,6 +1545,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                               : t(context).tr('saveChangesBtn'));
     if (MgV2.on(context)) {
       final datesOrSwap = _tab == 'move' || _tab == 'swap';
+      // Doplatek kartou: popisek a částka zvlášť („ZAPLATIT DOPLATEK · 4 296 Kč")
+      // + „Původně → nově" nad tlačítkem; tytéž hodnoty jako saveLabel výše.
+      final payCharge = _tab != 'move' && calc.effectivePriceDiff > 0 && !cardCharge(calc.effectivePriceDiff).isWaive
+          ? cardCharge(calc.effectivePriceDiff).charge
+          : null;
       return ResEditV2View(
         booking: _booking!,
         tab: _tab,
@@ -1569,7 +1574,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ? StornoCalc.effectiveRefundPercent(_newStart ?? _booking!.startDate, _booking!)
             : null,
         missingSizes: !datesOrSwap ? _missingGearSizes() : const [],
-        saveLabel: _tab == 'swap' ? null : saveLabel,
+        saveLabel: _tab == 'swap' ? null : (payCharge != null ? t(context).tr('v2UxRpPayDiffCta') : saveLabel),
+        savePrice: _tab == 'swap' || payCharge == null ? null : Money.czk(payCharge),
+        saveContext: _tab == 'swap' || payCharge == null
+            ? null
+            : t(context).trArgs('v2UxRpPayDiff', {'from': Money.czk(_booking!.totalPrice), 'to': Money.czk(calc.newTotal)}),
         onSave: saveAction,
         saving: _saving,
         onBack: () => context.backOr(Routes.reservations),

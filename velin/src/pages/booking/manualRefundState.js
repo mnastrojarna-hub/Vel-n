@@ -32,3 +32,48 @@ export async function livePaidDocsCzk(supabase, bookingId) {
     return (data || []).reduce((s, r) => s + (Number(r.total) || 0), 0)
   } catch { return null }
 }
+
+/** Dobropis patří k tomuto stornu, vznikl-li nejdřív 2 min před bookings.cancelled_at (Velín: čas prohlížeče) — jako
+ *  send-cancellation-email/refund-split.ts. */
+const CN_SLACK_MS = 120_000
+
+/** Oprava i6r1 (verify:refunds W2b): „Potvrdit vrácení“ u zrušené rezervace vratku přeskočí jen kvůli živému dobropisu
+ *  TOHOTO storna na stejnou částku — dobropisy a cancelled_at čte znovu z DB v okamžiku kliknutí. Dřív stačil libovolný
+ *  dobropis ze stránky načtené dřív (dobropis dřívějšího zkrácení 500 Kč, nebo storno dobropis, který webhook mezitím
+ *  zrušil po selhání vratky) → nic se nevrátilo a mail zákazníkovi tvrdil vrácení. Nečitelné → nepřeskočit
+ *  (process-refund má vlastní kontrolu duplicity); bez cancelled_at jako dřív (kterýkoli živý dobropis). */
+export async function cancelRefundAlreadyIssued(supabase, bookingId, amountCzk) {
+  if (!(Number(amountCzk) > 0)) return false
+  try {
+    const { data: bk, error } = await supabase.from('bookings').select('cancelled_at').eq('id', bookingId).maybeSingle()
+    if (error) return false
+    const since = Date.parse(String(bk?.cancelled_at || ''))
+    let q = supabase.from('invoices').select('id, total, created_at').eq('booking_id', bookingId).eq('type', 'credit_note').neq('status', 'cancelled')
+    if (Number.isFinite(since)) q = q.gte('created_at', new Date(since - CN_SLACK_MS).toISOString())
+    const { data: cns, error: cnErr } = await q
+    if (cnErr) return false
+    return (cns || []).some((c) => Math.abs(Number(c.total) || 0) === Number(amountCzk))
+  } catch { return false }
+}
+
+/** Oprava i6r1 (verify:refunds W3): „Vratka odeslána“ — stav z AKTUÁLNÍCH dat (živé dobropisy, DP, payment_status z DB)
+ *  a zápis compare-and-set na přečtený payment_status. Dřív ze seznamu dobropisů z načtení stránky: kartová vratka mezitím
+ *  selhala (webhook její dobropis zrušil), stará stránka pořád sečetla 3 500 = DP → 'refunded' a „Potvrdit vrácení“ pak
+ *  nevrátilo nic. Vrací zapsaný stav; chyba čtení / zápisu nebo změněný stav → výjimka (UI ji ukáže). */
+export async function manualRefundSentLive(supabase, booking) {
+  const id = booking?.id
+  if (!id) throw new Error('Chybí rezervace.')
+  const { data: cur, error } = await supabase.from('bookings').select('status, payment_status, total_price').eq('id', id).maybeSingle()
+  if (error || !cur) throw new Error('Stav rezervace se nepodařilo načíst — zkuste to znovu.')
+  const { data: cns, error: cnErr } = await supabase.from('invoices').select('id, total, stripe_refund_id')
+    .eq('booking_id', id).eq('type', 'credit_note').neq('status', 'cancelled')
+  if (cnErr) throw new Error('Dobropisy se nepodařilo načíst — zkuste to znovu.')
+  const paidDocs = cur.status === 'cancelled' ? await livePaidDocsCzk(supabase, id) : null
+  const status = manualRefundSentStatus({ ...booking, ...cur }, cns || [], paidDocs)
+  let upd = supabase.from('bookings').update({ payment_status: status }).eq('id', id)
+  upd = cur.payment_status == null ? upd.is('payment_status', null) : upd.eq('payment_status', cur.payment_status)
+  const { data: done, error: uErr } = await upd.select('id')
+  if (uErr) throw new Error(uErr.message || 'Zápis stavu selhal.')
+  if (!Array.isArray(done) || done.length === 0) throw new Error('Stav platby se mezitím změnil — obnovte stránku a zkontrolujte vratky.')
+  return status
+}

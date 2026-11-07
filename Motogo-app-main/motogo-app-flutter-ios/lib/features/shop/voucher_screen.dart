@@ -11,6 +11,8 @@ import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/voucher_view_v2.dart';
 
 /// Gift voucher screen — purchase only.
 class VoucherScreen extends ConsumerStatefulWidget {
@@ -47,9 +49,40 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
     super.dispose();
   }
 
+  /// Nákup poukazu — stejná akce pro starý i v2 vzhled.
+  void _buy(AppTranslations tr) {
+    ref.read(cartProvider.notifier).addItem(
+      'voucher_${_amount.toInt()}_${_printed ? "p" : "d"}_${DateTime.now().millisecondsSinceEpoch}',
+      '${tr.tr('giftVoucher')} ${Money.czk(_amount)}${_printed ? " (${tr.tr('printedVoucher').toLowerCase()})" : ""}',
+      _total,
+    );
+    showMotoGoToast(context, icon: '✓', title: tr.tr('addedToCart'), message: '${Money.czk(_total)}');
+    context.push(Routes.cart);
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    // v2 (PS-12): same state, field controller, normalisation and buy.
+    if (MgV2.on(context)) {
+      return VoucherViewV2(
+        amount: _amount,
+        customMode: _customMode,
+        printed: _printed,
+        total: _total,
+        customCtrl: _customCtrl,
+        onPreset: (amt) => setState(() { _amount = amt; _customMode = false; }),
+        onCustom: () => setState(() => _customMode = true),
+        onCustomChanged: (v) {
+          final parsed = int.tryParse(v);
+          setState(() => _amount = parsed ?? 0);
+        },
+        onNormalize: _normalizeAmount,
+        onPrinted: (p) => setState(() => _printed = p),
+        onBuy: _amount < 100 ? null : () => _buy(tr),
+        onBack: () => context.backOr(Routes.shop),
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(
@@ -150,15 +183,7 @@ class _VoucherState extends ConsumerState<VoucherScreen> {
 
           // Buy button
           PressableScale(enabled: _amount >= 100, child: ElevatedButton(
-            onPressed: _amount < 100 ? null : () {
-              ref.read(cartProvider.notifier).addItem(
-                'voucher_${_amount.toInt()}_${_printed ? "p" : "d"}_${DateTime.now().millisecondsSinceEpoch}',
-                '${tr.tr('giftVoucher')} ${Money.czk(_amount)}${_printed ? " (${tr.tr('printedVoucher').toLowerCase()})" : ""}',
-                _total,
-              );
-              showMotoGoToast(context, icon: '✓', title: tr.tr('addedToCart'), message: '${Money.czk(_total)}');
-              context.push(Routes.cart);
-            },
+            onPressed: _amount < 100 ? null : () => _buy(tr),
             style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               const Icon(Icons.card_giftcard, size: 18),

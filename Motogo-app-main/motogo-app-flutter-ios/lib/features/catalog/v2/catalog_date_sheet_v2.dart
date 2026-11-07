@@ -14,6 +14,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../catalog_provider.dart';
 import '../widgets/availability_calendar.dart';
+import 'catalog_fit.dart';
 import 'catalog_text.dart';
 
 /// "Kdy jedeš?" light sheet of the v2 Motorky tab (PLAN §2.2.3): two weekend
@@ -69,6 +70,17 @@ class _RangeWell extends StatelessWidget {
                 style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
           ]),
         );
+    final days = end == null
+        ? null
+        : MgBump(
+            trigger: catDayCount(start, end!),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(color: MgColors.ink, borderRadius: BorderRadius.circular(999)),
+              child: Text(catDays(tr, catDayCount(start, end!)).replaceAll(' ', '\u00A0'),
+                  style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.neon))),
+            ),
+          );
     return Semantics(
       container: true,
       child: Container(
@@ -78,26 +90,31 @@ class _RangeWell extends StatelessWidget {
           borderRadius: BorderRadius.circular(MgRadius.button),
           border: Border.all(color: MgColors.line),
         ),
-        child: Row(children: [
-          tile(tr.tr('dateTabsPickup'), start),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: MgIcon(MgIcons.arrowRight, size: 18, color: MgColors.link),
-          ),
-          tile(tr.tr('dateTabsReturn'), end),
-          if (end != null) ...[
-            const SizedBox(width: 6),
-            MgBump(
-              trigger: catDayCount(start, end!),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: MgColors.ink, borderRadius: BorderRadius.circular(999)),
-                child: Text(catDays(tr, catDayCount(start, end!)).replaceAll(' ', '\u00A0'),
-                    style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.neon))),
-              ),
+        child: LayoutBuilder(builder: (context, c) {
+          // The days chip stays in the row while both caps labels keep
+          // their longest word whole beside it; else it goes under them.
+          final base = DefaultTextStyle.of(context).style.merge(MgType.eyebrow);
+          final word = [tr.tr('dateTabsPickup'), tr.tr('dateTabsReturn')]
+              .map((l) => catWordWidth(context, l.toUpperCase(), base))
+              .reduce((a, b) => a > b ? a : b);
+          final chipW = days == null ? 0.0 : catLineWidth(context, catDays(tr, catDayCount(start, end!)), base) + 30;
+          final side = days == null || (c.maxWidth - 30 - chipW) / 2 >= word * 0.8;
+          final row = Row(children: [
+            tile(tr.tr('dateTabsPickup'), start),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: MgIcon(MgIcons.arrowRight, size: 18, color: MgColors.link),
             ),
-          ],
-        ]),
+            tile(tr.tr('dateTabsReturn'), end),
+            if (side && days != null) ...[const SizedBox(width: 6), days],
+          ]);
+          if (side) return row;
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            row,
+            const SizedBox(height: 8),
+            Align(alignment: AlignmentDirectional.centerStart, child: days),
+          ]);
+        }),
       ),
     );
   }

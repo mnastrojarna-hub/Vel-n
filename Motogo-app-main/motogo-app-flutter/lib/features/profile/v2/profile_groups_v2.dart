@@ -9,6 +9,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../auth/auth_provider.dart' show profileProvider;
 import '../../reservations/reservation_provider.dart' show hasActiveReservationProvider;
 import '../../sos/sos_provider.dart' show hasActiveRentalProvider;
 import 'profile_v2_parts.dart';
@@ -60,6 +61,24 @@ class ProfileGroupsV2 extends ConsumerWidget {
     final cur = ref.watch(currencyProvider);
     final curInfo = supportedCurrencies.firstWhere((c) => c.code == cur, orElse: () => supportedCurrencies.first);
     final lockText = tr.tr('v2PfLockedRental');
+    // Zapnuté kanály z už načteného profilu (žádný nový dotaz) — RP-25.
+    final profile = ref.watch(profileProvider).valueOrNull;
+    final channels = profile == null
+        ? null
+        : [
+            for (final (col, key) in const [
+              ('consent_push', 'v2UxRpChPush'),
+              ('consent_email', 'v2UxRpChEmail'),
+              ('consent_sms', 'v2UxRpChSms'),
+              ('consent_whatsapp', 'v2UxRpChWa'),
+            ])
+              if (profile[col] == true) tr.tr(key),
+          ];
+    final notifValue = locked
+        ? lockText
+        : channels == null
+            ? null
+            : (channels.isEmpty ? tr.tr('v2UxRpChOff') : channels.join(' · '));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       PfSectionLabel(tr.tr('settings'), icon: MgIcons.gear, key: settingsKey),
       MgReveal(
@@ -75,7 +94,7 @@ class ProfileGroupsV2 extends ConsumerWidget {
           PfRow(
             icon: MgIcons.bell,
             title: tr.tr('notifications'),
-            value: locked ? lockText : null,
+            value: notifValue,
             valueIcon: locked ? MgIcons.lock : null,
             onTap: a.onNotif,
           ),

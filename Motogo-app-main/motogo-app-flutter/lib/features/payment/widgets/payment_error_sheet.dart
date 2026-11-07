@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/tokens/mg_colors.dart';
+import '../v2/error_sheet_v2.dart';
 
 /// Persistent bottom sheet for payment errors — stays visible until
 /// the user taps the action button. Each error scenario gets a specific
@@ -25,11 +29,16 @@ class PaymentErrorSheet {
     bool dismissible = true,
   }) {
     HapticFeedback.mediumImpact();
+    final v2 = MgV2.peek(context);
     return showModalBottomSheet<void>(
       context: context,
       isDismissible: dismissible,
       enableDrag: dismissible,
       backgroundColor: Colors.transparent,
+      // v2 (PS-06): light T2 sheet chrome, same flags / pop semantics.
+      isScrollControlled: v2,
+      barrierColor: v2 ? MgColors.nightA(0.55) : null,
+      sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
       builder: (ctx) => PopScope(
         canPop: dismissible,
         // Terminální stav: systémové zpět nesmí potichu nic neudělat —
@@ -39,7 +48,17 @@ class PaymentErrorSheet {
           Navigator.of(ctx).pop();
           onButton?.call();
         },
-        child: _ErrorSheetContent(
+        child: v2
+            ? PaymentErrorSheetV2(
+                title: title,
+                message: message,
+                buttonLabel: buttonLabel,
+                onButton: onButton,
+                secondaryLabel: secondaryLabel,
+                onSecondary: onSecondary,
+                dismissible: dismissible,
+              )
+            : _ErrorSheetContent(
           title: title,
           message: message,
           buttonLabel: buttonLabel,

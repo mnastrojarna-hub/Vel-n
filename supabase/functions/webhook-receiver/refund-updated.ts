@@ -129,11 +129,16 @@ async function onRefundFailed(sb: Sb, stripe: FailedRefundStripe, r: RefundObj, 
       : cn.after != null ? `Dobropis <strong>${cn.number}</strong> byl automaticky upraven z ${cn.before} Kč na <strong>${cn.after} Kč</strong> (skutečně vrácená část).`
       : st?.liveHaleru != null ? `Dobropis <strong>${cn.number}</strong> (${cn.before} Kč) odpovídá skutečně vrácené části — beze změny.`
       : `Dobropis <strong>${cn.number}</strong> (${cn.before} Kč) se nepodařilo automaticky dorovnat (platby ve Stripe nešly načíst) — zkontrolujte, že odpovídá skutečně vrácené částce.`
+    // i6r1 (verify:refunds W6): část téže logické vratky odešla (zbytek z jiné platby) → opakování celé úpravy by ji
+    // vrátilo podruhé; mail velí vrátit jen chybějící část.
+    const partlyLive = (st?.liveHaleru ?? 0) > 0
     const retry = st?.superseded
       ? 'Vratku mezitím nahradila novější vratka — zkontrolujte, že pokrývá i tuto částku.'
       : `Chybí vrátit <strong>${amt} Kč</strong>: ` + (md.mg_reason === 'cancellation'
         ? `vraťte je ve Velíně („Potvrdit vrácení“ u zrušené rezervace na ${amt} Kč — nový dobropis vznikne sám) nebo ve Stripe dashboardu.`
-        : 'vratku zopakujte (Velín / stejná úprava) nebo ji vraťte ve Stripe dashboardu.')
+        : partlyLive
+          ? `vraťte jen chybějících ${amt} Kč (Velín vratka na ${amt} Kč / Stripe dashboard) — celou úpravu NEopakujte, zbylých ${(st?.liveHaleru ?? 0) / 100} Kč už odešlo.`
+          : 'vratku zopakujte (Velín / stejná úprava) nebo ji vraťte ve Stripe dashboardu.')
     todo = `<p>Rezervace je teď ve stavu <strong>„${PAY_LABEL[String(payment)] || payment || '?'}“</strong>${reopened ? ' (znovu otevřena — dřív vypadala jako vrácená)' : ''}. `
       + `${cnText}</p><p>${retry}</p>`
   }

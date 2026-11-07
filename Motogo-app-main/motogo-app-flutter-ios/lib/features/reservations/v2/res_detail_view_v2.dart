@@ -6,23 +6,23 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/shell_actions.dart';
 import '../../../core/v2/chrome/mg_page.dart';
-import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/states/mg_support_row.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
-import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../documents/booking_doc_viewer.dart' show bookingDocsProvider;
 import '../../routes/ride_booking_section.dart';
+import '../../routes/ride_provider.dart' show bookingRidesProvider;
 import '../res_actions.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import '../widgets/paid_change_banner.dart';
 import '../widgets/res_rating_card.dart';
+import 'res_action_tiles_v2.dart';
 import 'res_coted_v2.dart';
 import 'res_detail_hero_v2.dart';
 import 'res_docs_v2.dart';
-import 'res_fit_v2.dart';
 import 'res_money_v2.dart';
 import 'res_sections_v2.dart';
 import 'res_status_v2.dart';
@@ -32,7 +32,7 @@ import 'res_timeline_v2.dart';
 /// `_DetailState` keeps the 5 s refresh, realtime listener, loading / error
 /// views and every action; it passes them here. Both old tabs (Podrobnosti
 /// / Platba) become sections of one page — nothing dropped.
-class ResDetailV2View extends ConsumerWidget {
+class ResDetailV2View extends ConsumerStatefulWidget {
   final Reservation res;
   final AsyncValue<List<DoorCode>> doorCodesAsync;
   final String? branchFullAddress;
@@ -57,21 +57,75 @@ class ResDetailV2View extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ResDetailV2View> createState() => _ResDetailV2ViewState();
+}
+
+class _ResDetailV2ViewState extends ConsumerState<ResDetailV2View> {
+  // Cíle dlaždic „Dokumenty" / „Hodnotit" / „Jízdy" (posun na sekci).
+  final _docsKey = GlobalKey(debugLabel: 'res-docs');
+  final _ratingKey = GlobalKey(debugLabel: 'res-rating');
+  final _ridesKey = GlobalKey(debugLabel: 'res-rides');
+
+  Reservation get res => widget.res;
+
+  void _reveal(GlobalKey key) =>
+      resRevealSection(context, key, MgMotion.of(context, MgMotion.sheet), MgMotion.out);
+
+  /// Dlaždice pod CO TEĎ (Reservation board) — jen akce, které detail má:
+  /// úprava, navigace (jako „Kdy a kde"), posun na dokumenty / hodnocení /
+  /// jízdy, storno (jen nadcházející), znovu rezervovat, konečná faktura.
+  List<ResActionTile> _tiles(AppTranslations tr, ResCoCta cta, VoidCallback edit) {
+    final st = res.displayStatus;
+    final docs = ref.watch(bookingDocsProvider(res.id)).valueOrNull ?? const {};
+    final hasDocs = ResDocsV2.hasItems(res, docs);
+    final pickupNav = resNavTarget(res, widget.branchFullAddress, pickup: true);
+    final returnNav = resNavTarget(res, widget.branchFullAddress, pickup: false);
+    bool canNav(({double? lat, double? lng, String? fallback}) n) =>
+        (n.lat != null && n.lng != null) || (n.fallback ?? '').isNotEmpty;
+    // „Upravit" je dlaždice, pokud není hlavním tlačítkem CO TEĎ (přistavení).
+    final editTile = cta != ResCoCta.edit;
+    switch (st) {
+      case ResStatus.nadchazejici:
+        return [
+          if (editTile) ResActionTile(ResTileIcons.edit, tr.tr('edit'), edit),
+          if (canNav(pickupNav))
+            ResActionTile(ResTileIcons.navigate, tr.tr('v2ResNavigate'),
+                () => resNavigate(res, widget.branchFullAddress, pickup: true)),
+          if (hasDocs) ResActionTile(ResTileIcons.docs, tr.tr('v2UxRpTileDocs'), () => _reveal(_docsKey)),
+          ResActionTile(ResTileIcons.cancel, tr.tr('cancel'), widget.onShowCancelDialog, destructive: true),
+        ];
+      case ResStatus.aktivni:
+        return [
+          if (editTile) ResActionTile(ResTileIcons.edit, tr.tr('edit'), edit),
+          if (canNav(returnNav))
+            ResActionTile(ResTileIcons.navigate, tr.tr('v2ResNavigate'),
+                () => resNavigate(res, widget.branchFullAddress, pickup: false)),
+          if (hasDocs) ResActionTile(ResTileIcons.docs, tr.tr('v2UxRpTileDocs'), () => _reveal(_docsKey)),
+        ];
+      case ResStatus.dokoncene:
+        final rides = ref.watch(bookingRidesProvider(res.id)).valueOrNull ?? const [];
+        return [
+          ResActionTile(ResTileIcons.rate, tr.tr('rateBtn'), () => _reveal(_ratingKey)),
+          ResActionTile(ResTileIcons.again, tr.tr('v2HomeFnAgain'), () => rebookSameMoto(context, ref, res)),
+          ResActionTile(ResTileIcons.invoice, tr.tr('invoiceLabel'), () => widget.onOpenFinalInvoice(context, res.id)),
+          if (rides.isNotEmpty) ResActionTile(ResTileIcons.rides, tr.tr('v2RideSubRides'), () => _reveal(_ridesKey)),
+        ];
+      case ResStatus.cancelled:
+        return const [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tr = t(context);
     final st = res.displayStatus;
     final pending = ref.watch(pendingBookingFabProvider).valueOrNull;
     final pay = resPayFlag(res, pending);
     final co = resCoState(res, pay);
     void edit() => context.push('/reservations/${res.id}/edit');
-
-    // Akce pod CO TEĎ: úpravy / storno jako dnes u nadcházející; „Upravit"
-    // jen když není hlavním tlačítkem CO TEĎ.
-    final tiles = <(String, String, VoidCallback, bool)>[
-      if (st == ResStatus.nadchazejici && (co == ResCoState.unpaid || co == ResCoState.verifying))
-        (MgIcons.edit, tr.tr('editReservation'), edit, false),
-      if (st == ResStatus.nadchazejici) (MgIcons.calendarX, tr.tr('cancelReservationBtn'), onShowCancelDialog, true),
-    ];
+    final doorCodesAsync = widget.doorCodesAsync;
+    final onBack = widget.onBack;
+    final tiles = _tiles(tr, resCoCta(res, co, doorCodesAsync.valueOrNull), edit);
 
     final sheet = Container(
       decoration: const BoxDecoration(
@@ -79,7 +133,7 @@ class ResDetailV2View extends ConsumerWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (onStaleRetry != null) MgStaleNote(onRetry: onStaleRetry!),
+        if (widget.onStaleRetry != null) MgStaleNote(onRetry: widget.onStaleRetry!),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -96,56 +150,44 @@ class ResDetailV2View extends ConsumerWidget {
                 state: co,
                 payTimeLeft: co == ResCoState.unpaid ? pending?.timeLabel : null,
                 onEdit: edit,
-                onRestore: () => onRestoreBooking(context, res),
+                onRestore: () => widget.onRestoreBooking(context, res),
                 onRebook: () => rebookSameMoto(context, ref, res),
                 onPay: pending == null ? null : () => openPendingPayment(context, ref, pending),
+                onNavigatePickup: () => resNavigate(res, widget.branchFullAddress, pickup: true),
+                onNavigateReturn: () => resNavigate(res, widget.branchFullAddress, pickup: false),
+                pickupAddress: widget.branchFullAddress,
+                // Hodnocení jízdy (jen dokončená) — tmavá karta uvnitř CO TEĎ
+                // nad „Znovu rezervovat" (V21 §5.3), tytéž volby i zápis.
+                rating: st == ResStatus.dokoncene
+                    ? KeyedSubtree(key: _ratingKey, child: ResRatingCard(res: res, look: RatingLook.dark))
+                    : null,
               ),
             ),
             if (tiles.isNotEmpty) ...[
               const SizedBox(height: 12),
-              // Vedle sebe jen když se popisky vejdou celými slovy (de
-              // „Reservierung bearbeiten" na 320 dp) — jinak pod sebou.
-              LayoutBuilder(builder: (context, c) {
-                final w = (c.maxWidth - 8 * (tiles.length - 1)) / tiles.length - _ActionTile.chrome;
-                final row = tiles.every((x) => resWordsFit(context, x.$2, _ActionTile.style, w, minScale: 0.85));
-                Widget tile(int i) =>
-                    _ActionTile(icon: tiles[i].$1, label: tiles[i].$2, onTap: tiles[i].$3, destructive: tiles[i].$4);
-                if (!row) {
-                  return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    for (var i = 0; i < tiles.length; i++) ...[if (i > 0) const SizedBox(height: 8), tile(i)],
-                  ]);
-                }
-                return Row(children: [
-                  for (var i = 0; i < tiles.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 8),
-                    Expanded(child: tile(i)),
-                  ],
-                ]);
-              }),
+              ResActionTilesV2(tiles: tiles),
             ],
           ]),
         ),
-        // Hodnocení jízdy (jen dokončená) — dnešní karta s oběma volbami.
-        if (st == ResStatus.dokoncene) ...[
-          const SizedBox(height: 16),
-          ResRatingCard(res: res, look: RatingLook.light),
-        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            ResWhenWhereV2(res: res, branchFullAddress: branchFullAddress),
-            ResGearV2(res: res),
+            ResWhenWhereV2(res: res, branchFullAddress: widget.branchFullAddress),
+            ResGearV2(res: res, doorCodes: doorCodesAsync.valueOrNull),
             const SizedBox(height: 12),
             ResMoneyV2(res: res),
           ]),
         ),
-        ResDocsV2(res: res, onOpenFinalInvoice: onOpenFinalInvoice, onOpenContract: onOpenContract),
+        KeyedSubtree(
+          key: _docsKey,
+          child: ResDocsV2(res: res, onOpenFinalInvoice: widget.onOpenFinalInvoice, onOpenContract: widget.onOpenContract),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             ResHistoryV2(res: res),
             // Projeté jízdy z této výpůjčky — dnešní sekce beze změny.
-            BookingRidesSection(bookingId: res.id),
+            KeyedSubtree(key: _ridesKey, child: BookingRidesSection(bookingId: res.id)),
             const SizedBox(height: 16),
             const MgSupportRow(),
           ]),
@@ -164,55 +206,6 @@ class ResDetailV2View extends ConsumerWidget {
         ResDetailHeroV2(res: res, onBack: onBack),
         Transform.translate(offset: const Offset(0, -24), child: sheet),
       ],
-    );
-  }
-}
-
-/// Light action tile under CO TEĎ (V22 `.at`), red when destructive.
-class _ActionTile extends StatelessWidget {
-  final String icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool destructive;
-  const _ActionTile({required this.icon, required this.label, required this.onTap, required this.destructive});
-
-  static final style = MgType.small.copyWith(fontWeight: FontWeight.w800);
-
-  /// Horizontal padding + border + icon + gap around the label.
-  static const chrome = 24 + 2 + 20 + 8.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = destructive ? MgColors.err : MgColors.link;
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: MgPress(
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 64),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: MgColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: destructive ? MgColors.errBorder : MgColors.line),
-          ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            MgIcon(icon, size: 20, color: c),
-            const SizedBox(width: 8),
-            Flexible(
-              child: MgWordFit(
-                minScale: 0.85,
-                alignment: Alignment.center,
-                child: Text(label,
-                    textAlign: TextAlign.center,
-                    style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: destructive ? MgColors.err : MgColors.ink)),
-              ),
-            ),
-          ]),
-        ),
-      ),
     );
   }
 }

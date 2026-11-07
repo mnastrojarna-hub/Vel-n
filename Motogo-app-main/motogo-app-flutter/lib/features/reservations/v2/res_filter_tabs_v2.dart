@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
@@ -19,9 +20,16 @@ const kResFilterI18n = ['all', 'active', 'upcoming', 'completed', 'cancelled'];
 /// with ‹ › (= the same filter step as the horizontal swipe).
 class ResFilterTabsV2 extends StatefulWidget {
   final String value;
-  final Map<String, int> counts;
+
+  /// Count per filter; null while the list is loading (no false "0").
+  final Map<String, int>? counts;
   final ValueChanged<String> onSelect;
   final ValueChanged<int> onStep;
+
+  /// Body swipe progress (`MgSwipeSegments.progress`, + toward the next
+  /// filter): the dark selection passes from the current tab to its
+  /// neighbour with the finger (design G4 b).
+  final ValueListenable<double>? dragProgress;
 
   const ResFilterTabsV2({
     super.key,
@@ -29,6 +37,7 @@ class ResFilterTabsV2 extends StatefulWidget {
     required this.counts,
     required this.onSelect,
     required this.onStep,
+    this.dragProgress,
   });
 
   @override
@@ -117,16 +126,27 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
           child: SingleChildScrollView(
           controller: _scroll,
           scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            for (var i = 0; i < kResFilterKeys.length; i++)
-              _Tab(
-                key: _keys[kResFilterKeys[i]],
-                label: tr.tr(kResFilterI18n[i]),
-                count: widget.counts[kResFilterKeys[i]] ?? 0,
-                selected: kResFilterKeys[i] == widget.value,
-                onTap: () => widget.onSelect(kResFilterKeys[i]),
-              ),
-          ]),
+          child: ValueListenableBuilder<double>(
+            valueListenable: widget.dragProgress ?? _zero,
+            builder: (context, p, _) {
+              // Výběr přechází s prstem na souseda ve směru tahu.
+              final target = idx + (p > 0 ? 1 : (p < 0 ? -1 : 0));
+              final t = p.abs().clamp(0.0, 1.0);
+              double fill(int i) => i == idx ? 1 - t : (i == target ? t : 0);
+              return Row(children: [
+                for (var i = 0; i < kResFilterKeys.length; i++)
+                  _Tab(
+                    key: _keys[kResFilterKeys[i]],
+                    label: tr.tr(kResFilterI18n[i]),
+                    count: widget.counts?[kResFilterKeys[i]],
+                    selected: kResFilterKeys[i] == widget.value,
+                    fill: fill(i),
+                    dragging: p != 0,
+                    onTap: () => widget.onSelect(kResFilterKeys[i]),
+                  ),
+              ]);
+            },
+          ),
           ),
           ),
         ),
@@ -156,20 +176,36 @@ class _ResFilterTabsV2State extends State<ResFilterTabsV2> {
   }
 }
 
+final _zero = ValueNotifier<double>(0);
+
 class _Tab extends StatelessWidget {
   final String label;
-  final int count;
+  final int? count;
   final bool selected;
+
+  /// 0..1 share of the dark selection (1 = selected, between = mid-swipe).
+  final double fill;
+  final bool dragging;
   final VoidCallback onTap;
-  const _Tab({super.key, required this.label, required this.count, required this.selected, required this.onTap});
+  const _Tab({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.fill,
+    required this.dragging,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dur = MgMotion.of(context, MgMotion.tab);
+    // Během tahu bez zpoždění (výběr drží prst), jinak plynulý přechod.
+    final dur = dragging ? Duration.zero : MgMotion.of(context, MgMotion.tab);
+    final on = fill >= 0.5;
     return Semantics(
       button: true,
       selected: selected,
-      label: '$label, $count',
+      label: count == null ? label : '$label, $count',
       excludeSemantics: true,
       child: MgPress(
         onTap: onTap,
@@ -179,30 +215,39 @@ class _Tab extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 44, minWidth: 56),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: selected ? MgColors.panel : Colors.transparent,
+            color: MgColors.panel.withValues(alpha: fill),
             borderRadius: BorderRadius.circular(10),
-            boxShadow: selected
-                ? [BoxShadow(color: MgColors.panel.withValues(alpha: 0.5), blurRadius: 14, offset: const Offset(0, 6), spreadRadius: -6)]
+            boxShadow: fill > 0
+                ? [
+                    BoxShadow(
+                        color: MgColors.panel.withValues(alpha: 0.5 * fill),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                        spreadRadius: -6)
+                  ]
                 : null,
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Text(label,
                 style: MgType.small.copyWith(
-                    fontWeight: FontWeight.w800, color: selected ? MgColors.onDark : MgColors.meta)),
-            const SizedBox(width: 6),
-            Container(
-              constraints: const BoxConstraints(minWidth: 18),
-              height: 18,
-              padding: const EdgeInsets.symmetric(horizontal: 5),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: selected ? MgColors.neonA(0.18) : MgColors.surface,
-                borderRadius: BorderRadius.circular(999),
+                    fontWeight: FontWeight.w800, color: Color.lerp(MgColors.meta, MgColors.onDark, fill))),
+            // Počet až s daty — při načítání žádná falešná „0".
+            if (count != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                constraints: const BoxConstraints(minWidth: 18),
+                height: 18,
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: on ? MgColors.neonA(0.18) : MgColors.surface,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text('$count',
+                    style: MgType.tab(MgType.micro.copyWith(
+                        fontWeight: FontWeight.w800, height: 1, color: on ? MgColors.neon : MgColors.body2))),
               ),
-              child: Text('$count',
-                  style: MgType.tab(MgType.micro.copyWith(
-                      fontWeight: FontWeight.w800, height: 1, color: selected ? MgColors.neon : MgColors.body2))),
-            ),
+            ],
           ]),
         ),
       ),

@@ -68,16 +68,29 @@ class _DetailMoreV2State extends State<DetailMoreV2> {
           title: tr.tr('v2DetDescription'),
           icon: MgIcons.doc,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            catAnimatedSize(context, Text(
+            // CB-30: 3 lines fading out (no "…") + "Celý popis".
+            catAnimatedSize(context, () {
+              final text = Text(
                 desc,
-                maxLines: _desc ? null : 4,
-                overflow: _desc ? TextOverflow.visible : TextOverflow.ellipsis,
+                maxLines: _desc ? null : 3,
+                overflow: _desc ? TextOverflow.visible : TextOverflow.clip,
                 style: MgType.body.copyWith(fontWeight: FontWeight.w500, color: MgColors.body2, height: 1.6),
-              ),
-            ),
-            if (desc.length > 160)
+              );
+              if (_desc || desc.length <= 120) return text;
+              return ShaderMask(
+                blendMode: BlendMode.dstIn,
+                shaderCallback: (r) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
+                  stops: [0, 0.55, 1],
+                ).createShader(r),
+                child: text,
+              );
+            }()),
+            if (desc.length > 120)
               MgBtnText(
-                label: tr.tr(_desc ? 'v2ShowLess' : 'v2ShowMore'),
+                label: tr.tr(_desc ? 'v2ShowLess' : 'v2UxCbFullDesc'),
                 icon: _desc ? MgIcons.chevronUp : MgIcons.chevronDown,
                 onTap: () => setState(() => _desc = !_desc),
               ),

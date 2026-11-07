@@ -23,6 +23,9 @@ import { bankPaidCzk, docSums, docsOwedCzk, shopPartHaleru, stripeRefundsWithout
 import { failedRefundIds, isReplayOfFailed, REPLAYED_FAILED, replayedFailedRefund, retrySuffix } from './retry-key.ts'
 // Oprava i5 (2026-11-07, V1): osiřelé zbytky storna (hlavní vratka selhala, zbytek z jiné platby odešel)
 import { orphanCoverHaleru, respondOrphanCancelRefund } from './cancel-orphans.ts'
+// Oprava i6r1 (2026-11-07, W1 / W6): opakování selhané logické vratky — značka mg_retry_of, odečet živé části (mimo storno)
+import { NO_RETRY, respondRetryCovered, retriedLogicalRefund, type RetriedRefund } from './retry-of.ts'
+import { refundedStatusMismatch } from './refunded-check.ts' // i6r1 (W3): 'refunded' ověřit proti vratkám storna
 import { paymentCurrencyOk } from '../_shared/currency.ts'
 
 const CORS = {
@@ -1426,6 +1429,15 @@ Deno.serve(async (req: Request) => {
         && data.payment_status === 'partial_refund' && !(Number(amount) > 0)
         && !!data.stripe_payment_intent_id && !isManualPayment(data)
       if (data.payment_status === 'refunded' || (data.payment_status === 'partial_refund' && !wantsNewPartial && !wantsRest)) {
+        // Oprava i6r1 (verify:refunds W3): Velín „Potvrdit vrácení“ s částkou u 'refunded' — stav mohl zapsat zastaralý
+        // „Vratka odeslána“ po selhané kartové vratce → „už vráceno“ jen když to vratky storna opravdu kryjí (refunded-check.ts).
+        if (data.payment_status === 'refunded' && caller.kind === 'admin' && reason === 'cancellation' && data.status === 'cancelled'
+          && Number(amount) > 0 && data.stripe_payment_intent_id && !isManualPayment(data)) {
+          const mism = await refundedStatusMismatch(stripe as unknown as OtherIntentsStripe, supabase, { bookingId: booking_id,
+            storedPiId: data.stripe_payment_intent_id, token: cancelTok, amountHaleru: Math.round(Number(amount) * 100), dlog,
+            headers: { ...CORS, 'Content-Type': 'application/json' } })
+          if (mism) return mism
+        }
         alreadyRefunded = true
         return await respondAlreadyRefunded(supabase, booking_id, data, dlog)
       }
@@ -1701,10 +1713,12 @@ Deno.serve(async (req: Request) => {
     let cancelDoneHaleru = 0 // už vráceno k TOMUTO stornu (všechny platby) → metadata mg_cancel_total (mail webhooku)
     let poolComplete = true // false = ostatní platby nečitelné (mg_cancel_total jen z uložené platby → mail webhooku ho nepoužije)
     let orphanCutH = 0 // i5: část požadavku služby, kterou už vrátily osiřelé zbytky tohoto storna (cancel-orphans.ts)
+    let bookingPool: { refunds: StripeRefundLike[]; complete: boolean } | null = null // i6r1: vratky všech plateb (retry-of.ts)
     if (cancelOnce && cancelBk && storedRefunds) {
       const ois = stripe as unknown as OtherIntentsStripe
       const pool = await cancellationRefundPool(ois, supabase, { bookingId: booking_id!, storedPiId: stripePaymentIntentId,
         storedRefunds: storedRefunds as unknown as StripeRefundLike[] })
+      bookingPool = pool
       poolComplete = pool.complete
       if (!pool.complete) {
         await dlog('cancellation_pool_incomplete', 'error', { error: pool.error, payment_intent_id: stripePaymentIntentId })
@@ -1764,8 +1778,34 @@ Deno.serve(async (req: Request) => {
     // v idempotentní větvi: původní platba (i dorovnání na 15 Kč) se nevrátila nikdy; po nezapsané
     // výměně (uložený vrácený doplatek) no_op → 'refunded' a 0 Kč. Recovery (`_retry`) a idempotentní
     // větev výše se nemění; zákazník částku posílá vždy. Nelze zjistit → dosavadní chování.
+    // Oprava i6r1 (2026-11-07, verify:refunds W1 / W6): požadavek opakuje SELHANOU logickou vratku (retry-of.ts) → nová vratka
+    // nese mg_retry_of (webhook failed-refund.ts: „nahrazená“ jen označeným opakováním); mimo storno obsluha / služba vrací
+    // jen to, co z ní chybí (živý zbytek z jiné platby se dřív vrátil podruhé — přeplatek). Storno: osiřelé zbytky výše (i5).
+    const priceH = Math.round(bookingTotalPrice * 100)
+    if (booking_id && storedRefunds && !bookingPool) {
+      bookingPool = await cancellationRefundPool(stripe as unknown as OtherIntentsStripe, supabase, { bookingId: booking_id,
+        storedPiId: stripePaymentIntentId, storedRefunds: storedRefunds as unknown as StripeRefundLike[] })
+    }
+    const retryKnown = !!bookingPool?.complete
+    const retryFor = (reqH: number | null): RetriedRefund | null => retryKnown && booking_id && reqH && reqH > 0
+      ? retriedLogicalRefund(bookingPool!.refunds, { bookingId: booking_id, reason: reason || '', reqHaleru: reqH, priceHaleru: priceH, cancelTok })
+      : null
+    let retryCutH = 0
+    if (booking_id && reason !== 'cancellation' && !isCustomer && Number(amount) > 0) {
+      const reqH = Math.round(Number(amount) * 100)
+      const rt = retryFor(reqH)
+      if (rt && rt.liveHaleru > 0) {
+        await dlog('refund_retry_live_part', 'info', { retry_of: rt.root, main_refund: rt.mainId, live_haleru: rt.liveHaleru, requested_haleru: reqH })
+        if (rt.liveHaleru >= reqH) {
+          return await respondRetryCovered({ supabase, bookingId: booking_id, retry: rt, dlog, headers: { ...CORS, 'Content-Type': 'application/json' },
+            remaining: () => staffFullBalanceHaleru(stripe as unknown as OtherIntentsStripe, supabase, { bookingId: booking_id, storedPi, storedRefunds: null }) })
+        }
+        retryCutH = rt.liveHaleru
+      }
+    }
     let reqAmount: number | undefined = amount
     if (orphanCutH > 0 && Number(reqAmount) > 0) reqAmount = Math.max(0, Math.round(Number(reqAmount) * 100) - orphanCutH) / 100
+    if (retryCutH > 0 && Number(reqAmount) > 0) reqAmount = Math.max(0, Math.round(Number(reqAmount) * 100) - retryCutH) / 100
     let fullBalance = false
     let nonStripeOwedH = 0 // i2: část ceny zaplacená mimo Stripe (převod / QR doplatek) → ruční dobropis po vratce kartou
     // Oprava i1 (2026-11-05): ostatní platby rezervace se podařilo přečíst (search / historie) — bez toho nelze říct,
@@ -1922,6 +1962,8 @@ Deno.serve(async (req: Request) => {
     const requestedHaleru = reqAmount && reqAmount > 0 ? Math.round(reqAmount * 100) : null
     const targetHaleru = requestedHaleru == null ? null
       : (isCustomer ? Math.min(requestedHaleru, customerCapH ?? 0) : requestedHaleru)
+    // i6r1: opakování posuzuje PŮVODNÍ požadavek (před odečtem osiřelých / živých částí), plné volání = zůstatek
+    const retryOf = booking_id ? retryFor(Number(amount) > 0 ? Math.round(Number(amount) * 100) : (fullBalance ? requestedHaleru : null)) : null
     const refundParams: Stripe.RefundCreateParams = {
       payment_intent: stripePaymentIntentId,
       reason: reason === 'duplicate' ? 'duplicate' : 'requested_by_customer',
@@ -1935,6 +1977,9 @@ Deno.serve(async (req: Request) => {
         ...(booking_id && targetHaleru != null ? { mg_target: String(targetHaleru) } : {}),
         // i2: požadavek vč. části zaplacené převodem (ruční dobropis po této vratce) — duplicita téhož požadavku obsluhy
         ...(booking_id && targetHaleru != null && nonStripeOwedH > 0 ? { mg_requested: String(targetHaleru + nonStripeOwedH) } : {}),
+        // i6r1 (W1 / W6): cena rezervace při vratce (jiná cena = další úprava, ne opakování) a kořen opakované selhané
+        // vratky ('none' = nové; bez klíče = neznámo — vratky ostatních plateb nešly přečíst / starší verze)
+        ...(booking_id ? { mg_price: String(priceH), ...(retryKnown ? { mg_retry_of: retryOf?.root || NO_RETRY } : {}) } : {}),
         // HOTFIX storno 2026-10-29: identita storna (cancel-once.ts); mg_cancel_total = vráceno k tomuto
         // stornu celkem vč. tohoto požadavku (pojistný mail webhooku — cancel-mail-amount.ts).
         ...(booking_id && reason === 'cancellation' ? { mg_cancel_at: cancelTok,
@@ -2360,14 +2405,15 @@ Deno.serve(async (req: Request) => {
         status: refund.status,
         // i2: část zaplacená převodem se počítá jako vrácená jen po odeslání Fio příkazu
         // i5: vč. osiřelých zbytků tohoto storna, které pokryly část požadavku služby (mail storna = celý požadavek)
-        amount_refunded: refundedAmountCZK + orphanCutH / 100 + (manualPart?.fio_sent ? manualPart.amount : 0),
+        // i6r1: vč. živé části opakované selhané vratky (W6 — požadavek = celá úprava, nově vrácen jen chybějící rozdíl)
+        amount_refunded: refundedAmountCZK + (orphanCutH + retryCutH) / 100 + (manualPart?.fio_sent ? manualPart.amount : 0),
         currency: refund.currency,
         credit_note_id: creditNoteId,
         card_brand: cardBrand,
         card_last4: cardLast4,
         // f2: automaticky se nevrátila celá požadovaná částka (zbytek vyřídí obsluha); i2: část převodem čeká na obsluhu
         partial: shortHaleru > 0 || (!!manualPart && !manualPart.fio_sent),
-        requested_amount: requestedHaleru != null ? (requestedHaleru + nonStripeOwedH + orphanCutH) / 100 : null,
+        requested_amount: requestedHaleru != null ? (requestedHaleru + nonStripeOwedH + orphanCutH + retryCutH) / 100 : null,
         ...(manualPart ? { manual_part: manualPart } : {}),
         // i4 (S2): storno — vráceno k TOMUTO stornu celkem (dřívější vratky + tato; Velín „Potvrdit vrácení“ jiné částky
         // po stornu vrací rozdíl navíc → mail a booking_cancellations nesou skutečný součet, ne zvolenou částku)

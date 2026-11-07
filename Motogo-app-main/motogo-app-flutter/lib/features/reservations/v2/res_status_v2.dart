@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/widgets/net_image.dart';
-import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
@@ -38,13 +38,16 @@ String resPayStatusLabel(AppTranslations tr, Reservation r) => switch (r.payment
 /// "3 dny" in the app language.
 String resDays(AppTranslations tr, int n) => '$n ${tr.daysWord(n)}';
 
-/// "pá 16. 10. – ne 18. 10." (short, language-aware).
+/// "pá 16. 10. – ne 18. 10." (short, language-aware; the year only when it
+/// is not this year — design D4, Reservation board).
 String resRangeShort(AppTranslations tr, Reservation r) {
   // Datum se nikdy nerozdělí („čt 22." / „10."): mezery uvnitř data
   // nezlomitelné, zalomit jde jen za pomlčkou.
-  String nb(String x) => x.replaceAll(' ', '\u00A0');
-  return '${nb(tripShortDate(tr, r.startDate))}\u00A0– ${nb(tripShortDate(tr, r.endDate))}';
+  return '${mgDayShort(r.startDate, tr.lang)}\u00A0– ${mgDayShort(r.endDate, tr.lang)}';
 }
+
+/// "pá 16. 10. – ne 18. 10. · 3 dny" (NBSP inside "3 dny").
+String resRangeDays(AppTranslations tr, Reservation r) => '${resRangeShort(tr, r)} · ${mgNbsp(resDays(tr, r.dayCount))}';
 
 /// The unpaid / verifying state of THIS booking, from the same provider the
 /// shell strip uses (`pendingBookingFabProvider`).

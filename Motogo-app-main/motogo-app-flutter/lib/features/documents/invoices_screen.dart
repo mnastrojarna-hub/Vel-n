@@ -12,6 +12,7 @@ import 'document_provider.dart';
 import 'doc_open_runner.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_format.dart' show mgNum;
 import 'v2/invoices_view_v2.dart';
 
 /// Invoices list — mirrors s-invoices from templates-done-pages.js.
@@ -126,11 +127,15 @@ class InvoiceTile extends StatelessWidget {
 
     // v2 vzhled řádku (kill-switch) — stejné otevření dokladu.
     if (MgV2.on(context)) {
+      // Board Faktury: název = druh dokladu, pod ním „číslo · datum"; částka
+      // v Kč s mezerou v tisících („12 027 Kč", NBSP), bez převodu měny.
+      final tr = t(context);
+      final number = (invoice.number ?? '').trim();
       return InvoiceRowV2(
         type: invoice.type,
-        title: invoice.number ?? t(context).tr(invoice.typeKey),
-        date: date,
-        amount: amount,
+        title: tr.tr(invoice.typeKey),
+        date: number.isEmpty ? date : '$number · $date',
+        amount: invoice.total == null ? null : '${isCN ? "−" : ""}${mgNum(invoice.total!.abs(), tr.lang)}\u00A0Kč',
         creditNote: isCN,
         onTap: () => _openInvoice(context),
       );

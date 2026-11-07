@@ -4,6 +4,8 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../shop_models.dart';
 import '../../../core/currency.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/checkout_parts_v2.dart';
 
 /// Order summary — cart items, shipping cost, discount, and total.
 class CheckoutSummarySection extends StatelessWidget {
@@ -26,6 +28,17 @@ class CheckoutSummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v2 (PS-11): the same rows in the v2 receipt look.
+    if (MgV2.on(context)) {
+      return CheckoutSummaryV2(
+        cart: cart,
+        digitalOnly: digitalOnly,
+        shipMode: shipMode,
+        shipping: shipping,
+        discount: discount,
+        total: total,
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(

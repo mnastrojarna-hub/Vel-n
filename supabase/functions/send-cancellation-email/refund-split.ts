@@ -24,6 +24,12 @@ const SPLIT: Record<string, (c: string, b: string, sent: boolean) => string> = {
   uk: (c, b, s) => `Повернення: <strong>${c} CZK</strong> повернуто на вашу платіжну картку (кошти зазвичай надходять протягом 5–10 робочих днів), а <strong>${b} CZK</strong> ${s ? 'ми надіслали банківським переказом на ваш рахунок' : 'надішлемо банківським переказом на ваш рахунок протягом 14 днів'}. Кредит-ноти знайдете у вкладенні.`,
 }
 
+/** i6r1 (verify:refunds W2b): od kdy dobropis patří k tomuto stornu (ISO, cancelled_at − 2 min); null = bez cancelled_at. */
+export function stornoCnSinceIso(cancelledAt: unknown): string | null {
+  const ms = Date.parse(String(cancelledAt || ''))
+  return Number.isFinite(ms) ? new Date(ms - CLOCK_SLACK_MS).toISOString() : null
+}
+
 /** Odstavec o vratce rozdělené na kartu a převod; `informal` = tykání (výpůjčka výbavy, jen cs). */
 export function refundSplitNote(lang: string, s: RefundSplit, o: { informal?: boolean } = {}): string {
   const c = fmt(s.cardCzk), b = fmt(s.bankCzk)

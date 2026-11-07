@@ -99,6 +99,18 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
     super.dispose();
   }
 
+  /// The pill claims "free" only when the loaded calendar has no booked day
+  /// in the range at all (the busy rule waits for the own reservations).
+  static bool _noBookedDay(MotoDetailV2View w) {
+    final s = w.selStart, e = w.selEnd ?? w.selStart;
+    final booked = w.bookedAsync.valueOrNull;
+    if (s == null || e == null || booked == null) return false;
+    for (var d = DateTime(s.year, s.month, s.day); !d.isAfter(e); d = DateTime(d.year, d.month, d.day + 1)) {
+      if (booked.any((r) => r.containsDate(d))) return false;
+    }
+    return true;
+  }
+
   /// Dock "Rozpis": open the existing breakdown and bring the total up.
   void _showBreakdown() {
     _breakdown.value = true;
@@ -147,7 +159,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
         onBack: w.onBack,
         height: heroH,
         hasDates: w.hasDates,
-        rangeFree: w.hasDates && w.bookedAsync.hasValue && !w.busy,
+        rangeFree: w.hasDates && w.bookedAsync.hasValue && !w.busy && _noBookedDay(w),
       ),
       sections: [
         Container(

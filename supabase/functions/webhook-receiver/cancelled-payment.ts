@@ -19,6 +19,8 @@ type Sb = any
 type StripeLike = any
 export type CancelledPaymentVerdict = 'handled' | 'refund' | 'review'
 
+/** claim_email_send slug mailu obsluze (i6r1) — + id platby */
+export const REVIEW_SLUG = 'ops_cancelled_payment_review:'
 const MANUAL = ['bank_transfer', 'qr', 'cash', 'crypto', 'voucher', 'wire']
 const live = (r: { status?: string | null }) => r.status === 'succeeded' || r.status === 'pending'
 
@@ -62,23 +64,38 @@ export async function handleCancelledPayment(sb: Sb, stripe: StripeLike, booking
     } catch { /* ignore */ }
     return true
   }
+  let logId: string | null = null
   try {
-    await sb.from('debug_log').insert({ source: 'webhook-receiver', action: `cancelled_payment_${v.verdict}`, component: 'stripe',
+    const { data: lg } = await sb.from('debug_log').insert({ source: 'webhook-receiver', action: `cancelled_payment_${v.verdict}`, component: 'stripe',
       status: v.verdict === 'handled' ? 'info' : 'warning', request_data: { booking_id: bookingId, payment_intent_id: piId, why: v.why, paid_at_s: v.paidAtS ?? null } })
+      .select('id').single()
+    logId = (lg as { id?: string } | null)?.id ?? null
   } catch { /* ignore */ }
   if (v.verdict === 'refund' && piId) { await refundLatePaymentOnCancelled(sb, stripe, bookingId, piId, { shopOrderId: o.shopOrderId || null, afterRefund: true, czkReceivedH: o.czkReceivedH ?? null }); return false }
   if (v.verdict !== 'review' || !piId) return false
-  // mail 1× na platbu (záznam výše je právě vložený — dedup podle starších záznamů téže platby)
+  // mail 1× na platbu. Oprava i6r1 (verify:charges T1): atomický claim (claim_email_send, okno 1 rok) místo „vložit záznam
+  // a přeskočit, je-li jich víc“ — checkout.session.completed a payment_intent.succeeded (< 1 s od sebe) dřív oba vložily
+  // dřív, než kdokoli četl, oba viděly 2 záznamy a mail neodešel vůbec. RPC chybí / chyba → první záznam vyhrává.
+  const slug = `${REVIEW_SLUG}${piId}`
+  let claimed: boolean | null = null
   try {
-    const { data } = await sb.from('debug_log').select('id').eq('source', 'webhook-receiver').eq('action', 'cancelled_payment_review')
-      .eq('request_data->>payment_intent_id', piId).limit(2)
-    if (Array.isArray(data) && data.length > 1) return false
-  } catch { /* raději mail */ }
+    const { data, error } = await sb.rpc('claim_email_send', { p_booking_id: bookingId, p_slug: slug, p_window_minutes: 525600 })
+    if (!error) claimed = data !== false
+  } catch { /* fallback */ }
+  if (claimed === false) return false
+  if (claimed == null && logId) {
+    try {
+      const { data } = await sb.from('debug_log').select('id').eq('source', 'webhook-receiver').eq('action', 'cancelled_payment_review')
+        .eq('request_data->>payment_intent_id', piId).order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1)
+      if (Array.isArray(data) && data[0] && data[0].id !== logId) return false
+    } catch { /* raději mail */ }
+  }
+  let sent = false
   try {
     const url = Deno.env.get('SUPABASE_URL') ?? ''
     const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     const num = bookingId.slice(-8).toUpperCase()
-    await fetch(`${url}/functions/v1/send-email`, {
+    const res = await fetch(`${url}/functions/v1/send-email`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, apikey: key },
       body: JSON.stringify({ to: 'info@motogo24.cz', booking_id: bookingId,
         subject: `⚠️ Platba k zrušené rezervaci #${num} (už vracené) — zkontrolujte a vraťte`,
@@ -86,6 +103,13 @@ export async function handleCancelledPayment(sb: Sb, stripe: StripeLike, booking
           + `<p style="margin:0 0 8px">Platbu nešlo jednoznačně přiřadit (${v.why === 'duplicate_unrefunded' ? 'duplicitní platba bez vratky' : 'zaplaceno před stornem, rezervace ji neeviduje'}) — automaticky se NEvrátila ani nepotvrdila.</p>`
           + '<p style="margin:0">Zkontrolujte ji ve Stripe; pokud k rezervaci nepatří, vraťte ji ručně (platba → Refund). Detail: Velín → Debug log, akce cancelled_payment_review.</p>' }),
     })
-  } catch { /* ignore */ }
-  return false
+    sent = res.ok
+  } catch { /* níže */ }
+  if (sent) return false
+  // mail neodešel → uvolnit claim / vlastní záznam a nechat Stripe událost doručit znovu (dřív se mail ztratil napořád)
+  try {
+    if (claimed) await sb.from('email_send_locks').delete().eq('booking_id', bookingId).eq('template_slug', slug)
+    else if (logId) await sb.from('debug_log').delete().eq('id', logId)
+  } catch { /* vyprší / ruční kontrola */ }
+  return true
 }

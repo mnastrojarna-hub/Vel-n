@@ -141,6 +141,19 @@ export function advance(min: number) {
   for (const r of world().refunds) r.created -= min * 60 // Stripe: dřívější vratky jsou o `min` starší
   for (const v of world().byKey.values()) v.refund.created -= min * 60 // i5r2: i přehraná odpověď (idempotency) nese původní čas vzniku
   for (const e of world().events) e.created -= min * 60
+  // i6r1: i okamžik storna (dobropisy storna vznikly PO něm — okno „dobropisy tohoto storna“ od cancelled_at − 2 min) a jeho
+  // značky (booking_cancellations.created_at, mg_cancel_at vratek) — o celé minuty, formát (µs, +00:00) beze změny
+  for (const b of db().rows('bookings')) b.cancelled_at = shiftTs(b.cancelled_at, min)
+  for (const c of db().rows('booking_cancellations')) c.created_at = shiftTs(c.created_at, min)
+  for (const md of [...world().refunds.map((r) => r.metadata), ...[...world().byKey.values()].map((v) => v.refund.metadata)]) {
+    if (md?.mg_cancel_at) md.mg_cancel_at = shiftTs(md.mg_cancel_at, min)
+  }
+}
+/** timestamptz o `min` minut dřív se stejným zlomkem sekundy i zónou (Z / +00:00); jiný tvar beze změny */
+function shiftTs(v: any, min: number): any {
+  const m = typeof v === 'string' ? /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?(Z|\+00:00)$/.exec(v) : null
+  if (!m) return v
+  return new Date(Date.parse(m[1] + 'Z') - min * 60_000).toISOString().slice(0, 19) + (m[2] || '') + m[3]
 }
 export async function later<T>(ms: number, fn: () => Promise<T>): Promise<T> {
   const orig = Date.now; Date.now = () => orig() + ms

@@ -18,6 +18,8 @@ import 'paid_change_outcomes.dart';
 import 'payment_provider.dart';
 import 'payment_ui_helpers.dart';
 import 'payment_verify.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/result_view_v2.dart';
 
 /// Univerzální výsledková obrazovka pro platební flow, která nemají vlastní
 /// bohatou děkovací stránku (prodloužení/úprava rezervace, SOS, e-shop), a pro
@@ -212,7 +214,31 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) _goNext(closeRoute);
         },
-        child: Scaffold(
+        // v2 (PS-04): same texts, same verify and destinations.
+        child: MgV2.on(context)
+            ? ResultViewV2(
+                kind: _notPaid || kind == PaymentOutcomeKind.failed
+                    ? PayResultKindV2.failed
+                    : pending
+                        ? PayResultKindV2.pending
+                        : kind == PaymentOutcomeKind.attention
+                            ? PayResultKindV2.attention
+                            : PayResultKindV2.success,
+                title: title,
+                subtitle: subtitle,
+                lines: lines,
+                pickup: _notPaid ? null : outcome?.pickup,
+                nextStep: nextStep,
+                synced: kind == PaymentOutcomeKind.success && !_notPaid,
+                ctaLabel: ctaLabel,
+                onCta: () => _goNext(ctaRoute),
+                secondaryLabel: secondaryRoute != null ? secondaryLabel : null,
+                onSecondary: secondaryRoute != null ? () => _goNext(secondaryRoute) : null,
+                onClose: () => _goNext(closeRoute),
+                verifying: _verifying,
+                onVerify: pending ? () => _verify() : null,
+              )
+            : Scaffold(
           backgroundColor: MotoGoColors.dark,
           body: SafeArea(
             child: Stack(children: [

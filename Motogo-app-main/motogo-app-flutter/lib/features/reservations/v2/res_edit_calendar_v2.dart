@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_calendar.dart';
 
 /// v2 look of `EditReservationCalendar` (V-seam, V22 §3.4): the SAME State
@@ -85,4 +86,27 @@ class EditReservationCalendarV2View extends StatelessWidget {
       legend: TripLegend(items: legend),
     );
   }
+}
+
+/// The calendar instruction of the edit in the v2 voice (tykání, RP-20):
+/// the SAME choice as the screen's `_getCalendarInstruction` (move /
+/// extend / shorten, running rental, chosen shorten side) — only the words
+/// differ ("Klepni na den po 18. 10. — tím rezervaci prodloužíš.").
+String resEditV2Instruction(
+  AppTranslations tr, {
+  required String tab,
+  required bool isActive,
+  required DateTime origStart,
+  required DateTime origEnd,
+  required String? shortenDir,
+}) {
+  String dm(DateTime d) => '${d.day}. ${d.month}.';
+  if (tab == 'move') return tr.tr('v2UxRpMoveHint');
+  if (tab == 'extend') {
+    if (isActive) return tr.trArgs('v2UxRpExtendAfter', {'date': dm(origEnd)});
+    return tr.trArgs('v2UxRpExtendBeforeAfter', {'start': dm(origStart), 'end': dm(origEnd)});
+  }
+  if (isActive) return tr.tr('v2UxRpNewReturnDay');
+  if (shortenDir == null) return tr.tr('v2UxRpShortenDir');
+  return tr.tr(shortenDir == 'start' ? 'v2UxRpNewStartDay' : 'v2UxRpNewEndDay');
 }

@@ -9,7 +9,7 @@ import { gearTexts } from '../_shared/email-gear-blocks.ts'
 import { refundTierPercent } from './refund-tier.ts'
 import { isTriggerDispatch, resolveTriggerDispatch } from './trigger-dispatch.ts'
 // Oprava i3 (2026-11-07): vratka storna rozdělená na kartu a převod — odstavec z živých dobropisů storna (refund-split.ts).
-import { loadRefundSplit, refundSplitNote, type RefundSplit } from './refund-split.ts'
+import { loadRefundSplit, refundSplitNote, stornoCnSinceIso, type RefundSplit } from './refund-split.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -308,6 +308,11 @@ serve(async (req) => {
     // Oprava i2 (2026-11-05): pojistný mail webhooku (skip_refund) může říct, že zbytek storna ještě chybí
     // (refund_deferred — process-refund/cancel-once.ts) → mail neslibuje vrácení celé částky.
     if ((reqBody as any).refund_deferred === true) refundUnsure = true
+    // Oprava i6r1 (verify:refunds W2b): Velín „Potvrdit vrácení“ (skip_refund + force) — částka z volby obsluhy, vratku
+    // Velín mohl přeskočit (dobropis na stejnou částku) → i tady ověřit, že ji kryjí dobropisy TOHOTO storna (jinak mail
+    // neslibuje „vráceno“). Dřív tvrdil „500 Kč vráceno“ s přiloženým dobropisem dřívějšího zkrácení, ačkoli nic neodešlo.
+    if ((reqBody as any).skip_refund === true && force && callerKind === 'admin' && Number(refund_amount) > 0) docsCheck = true
+    let stornoCnSince: string | null = null // i6r1: přikládat jen dobropisy tohoto storna (od cancelled_at − 2 min)
 
     if (booking_id) {
       // Vratka bez Stripe platby (QR/převod/hotově) = manuální — mail dostane
@@ -317,8 +322,9 @@ serve(async (req) => {
       try {
         // Load booking data for refund calculation
         const { data: booking } = await supabase.from('bookings')
-          .select('start_date, end_date, pickup_time, total_price, payment_status, stripe_payment_intent_id, booking_source, motorcycles!moto_id(model)')
+          .select('start_date, end_date, pickup_time, total_price, payment_status, stripe_payment_intent_id, booking_source, cancelled_at, motorcycles!moto_id(model)')
           .eq('id', booking_id).single()
+        stornoCnSince = stornoCnSinceIso((booking as { cancelled_at?: unknown } | null)?.cancelled_at)
 
         if (booking) {
           if (!start_date) start_date = booking.start_date
@@ -436,12 +442,13 @@ serve(async (req) => {
             let attached = false
             for (let attempt = 0; attempt < 3 && !attached; attempt++) {
               try {
-                const { data: cnRows } = await supabase.from('invoices')
+                let cnQ = supabase.from('invoices')
                   .select('id, number, pdf_path')
                   .eq('booking_id', booking_id)
                   .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
                   .neq('status', 'cancelled')
-                  .order('created_at', { ascending: false }).limit(1)
+                if (stornoCnSince) cnQ = cnQ.gte('created_at', stornoCnSince) // i6r1: ne dobropis dřívějšího zkrácení / storna
+                const { data: cnRows } = await cnQ.order('created_at', { ascending: false }).limit(1)
                 const cn = cnRows?.[0]
                 if (cn?.pdf_path) {
                   const path = cn.pdf_path as string
@@ -652,13 +659,13 @@ serve(async (req) => {
         && booking_id
         && !attachments.some(a => /dobropis|credit/i.test(a.filename))) {
       try {
-        const { data: cn } = await supabase.from('invoices')
+        let cnQ = supabase.from('invoices')
           .select('id, number, pdf_path, type')
           .eq('booking_id', booking_id)
           .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
           .neq('status', 'cancelled')
-          .order('created_at', { ascending: false })
-          .limit(1)
+        if (stornoCnSince) cnQ = cnQ.gte('created_at', stornoCnSince) // i6r1: jen dobropis tohoto storna
+        const { data: cn } = await cnQ.order('created_at', { ascending: false }).limit(1)
         if (cn?.length && cn[0].pdf_path) {
           const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
           if (b64) {

@@ -9,6 +9,8 @@ import '../../../core/offline_guard.dart';
 import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/gestures/mg_swipe.dart';
+import '../../../core/v2/gestures/mg_swipe_switcher.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -22,6 +24,7 @@ import '../reservation_provider.dart';
 import 'res_card_actions_v2.dart' show resPrimaryCardId;
 import 'res_filter_tabs_v2.dart';
 import 'res_list_header_v2.dart';
+import 'res_skeletons_v2.dart';
 import 'res_status_v2.dart';
 import 'reservation_card_v2.dart';
 
@@ -41,6 +44,13 @@ class ReservationsScreenV2 extends ConsumerStatefulWidget {
 class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
   Timer? _refreshTimer;
 
+  /// Body swipe progress → the filter track's selection follows the finger.
+  final _drag = ValueNotifier<double>(0);
+
+  /// Direction of the last filter change (+1 next, −1 previous) for the
+  /// in-place content switch.
+  int _dir = 0;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +64,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _drag.dispose();
     super.dispose();
   }
 
@@ -61,9 +72,25 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
     final filter = ref.read(resFilterProvider);
     final idx = kResFilterKeys.indexOf(filter);
     final next = (idx + direction).clamp(0, kResFilterKeys.length - 1);
-    if (next != idx) {
-      ref.read(resFilterProvider.notifier).state = kResFilterKeys[next];
-    }
+    if (next != idx) _setFilter(kResFilterKeys[next]);
+  }
+
+  /// The same filter change as a tab tap / ‹ › / swipe (`resFilterProvider`);
+  /// only remembers the direction for the content slide.
+  void _setFilter(String k) {
+    final from = kResFilterKeys.indexOf(ref.read(resFilterProvider));
+    final to = kResFilterKeys.indexOf(k);
+    setState(() => _dir = (to - from).sign);
+    ref.read(resFilterProvider.notifier).state = k;
+  }
+
+  /// Pull-to-refresh = the existing retry (invalidate), held until the new
+  /// list arrives (max 8 s — offline it just stops).
+  Future<void> _refresh() async {
+    ref.invalidate(reservationsProvider);
+    try {
+      await ref.read(reservationsProvider.future).timeout(const Duration(seconds: 8));
+    } catch (_) {}
   }
 
   @override
@@ -81,23 +108,36 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
     };
     final pending = ref.watch(pendingBookingFabProvider).valueOrNull;
 
-    final list = reservationsAsync.when<Widget>(
+    // Obsah filtru je přepínatelný tahem do stran (board „Přejetím prstem
+    // přepneš filtr"): obsah jde s prstem, výběr filtru taky; ‹ › a záložky
+    // dělají totéž klepnutím.
+    Widget swipeable(Widget content) => MgSwipeSegments<String>(
+          values: kResFilterKeys,
+          value: filter,
+          onChanged: _setFilter,
+          progress: _drag,
+          child: ConstrainedBox(
+            // I krátký seznam má pod sebou plochu pro tah.
+            constraints: const BoxConstraints(minHeight: 360),
+            child: MgSwipeSwitcher(switchKey: filter, direction: _dir, child: content),
+          ),
+        );
+
+    final list = reservationsAsync.when<Widget?>(
       data: (reservations) {
         if (reservations.isEmpty) {
-          return SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: all.isEmpty ? const _EmptyAll() : _EmptyFilter(onShowAll: () => ref.read(resFilterProvider.notifier).state = 'all'),
-            ),
-          );
+          return swipeable(Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: all.isEmpty ? const _EmptyAll() : _EmptyFilter(onShowAll: () => _setFilter('all')),
+          ));
         }
         // Jen jedna karta s tmavým pruhem a rank CTA (ta, která čeká na akci).
         final primaryId = resPrimaryCardId(reservations, pending);
-        return SliverPadding(
+        return swipeable(Padding(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-          sliver: SliverList.builder(
-            itemCount: reservations.length,
-            itemBuilder: (context, index) {
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var index = 0; index < reservations.length; index++)
+              Builder(builder: (context) {
               final res = reservations[index];
               final card = ReservationCardV2(
                 reservation: res,
@@ -108,17 +148,25 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
                 // „Obnovit" = obnovit a zaplatit (D3), stejně jako starý seznam.
                 onRestore: () => restoreAndPay(context, ref, res),
               );
-              // Lazy list: only the first screenful reveals, once per app
-              // session — a card scrolled back into view never blinks again.
+              // Only the first screenful reveals, once per app session — a
+              // card scrolled back into view never blinks again.
               return Padding(
+                key: ValueKey(res.id),
                 padding: const EdgeInsets.only(bottom: 12),
                 child: index < 6 ? MgReveal(index: index, sessionKey: 'res-list', child: card) : card,
               );
-            },
-          ),
-        );
+            }),
+          ]),
+        ));
       },
-      loading: () => SliverFillRemaining(hasScrollBody: false, child: MgLoadingView(onRetry: retry)),
+      // Kostra ve tvaru karet (žádný holý spinner, žádný skok po načtení).
+      loading: () => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+        child: ResListSkeletonV2(onRetry: retry),
+      ),
+      error: (_, __) => null,
+    );
+    final errorSliver = reservationsAsync.whenOrNull<Widget>(
       error: (e, _) => SliverFillRemaining(
         hasScrollBody: false,
         child: MgErrorView(
@@ -131,30 +179,26 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
       ),
     );
 
-    return GestureDetector(
-      onHorizontalDragEnd: (details) {
-        if (details.primaryVelocity == null) return;
-        if (details.primaryVelocity! < -200) _swipeFilter(1); // swipe left → next
-        if (details.primaryVelocity! > 200) _swipeFilter(-1); // swipe right → prev
-      },
-      child: MgPage(
-        tabIndex: 2,
-        overlapHero: false,
-        header: const ResListHeaderV2(),
-        sections: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: ResFilterTabsV2(
-              value: filter,
-              counts: counts,
-              onSelect: (k) => ref.read(resFilterProvider.notifier).state = k,
-              onStep: _swipeFilter,
-            ),
+    return MgPage(
+      tabIndex: 2,
+      overlapHero: false,
+      header: const ResListHeaderV2(),
+      onRefresh: _refresh,
+      sections: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: ResFilterTabsV2(
+            value: filter,
+            counts: src.hasValue ? counts : null,
+            onSelect: _setFilter,
+            onStep: _swipeFilter,
+            dragProgress: _drag,
           ),
-          if (stale) MgStaleNote(onRetry: retry),
-        ],
-        slivers: [list],
-      ),
+        ),
+        if (stale) MgStaleNote(onRetry: retry),
+        if (list != null) list,
+      ],
+      slivers: [if (errorSliver != null) errorSliver],
     );
   }
 }

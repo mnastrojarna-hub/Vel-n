@@ -60,6 +60,22 @@ class ResCardActionsV2 extends ConsumerWidget {
 
   static final _textStyle = MgType.small.copyWith(fontWeight: FontWeight.w800);
 
+  /// Main label of the card (Reservation board): "KÓDY A POSTUP" on the
+  /// list's primary card of a paid self-service pickup at the branch in its
+  /// rental term (codes + procedure are in the detail), else "Detail". Same
+  /// tap either way (the detail).
+  String _detailLabel(AppTranslations tr) {
+    final r = reservation;
+    final codesDay = primary &&
+        r.displayStatus == ResStatus.nadchazejici &&
+        r.inRentalTerm &&
+        r.isSelfService &&
+        r.paymentStatus == 'paid' &&
+        r.pickupMethod != 'delivery' &&
+        (r.pickupAddress ?? '').trim().isEmpty;
+    return codesDay ? tr.tr('v2HomeCtaCodes') : tr.detail;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
@@ -114,7 +130,7 @@ class ResCardActionsV2 extends ConsumerWidget {
         }
         return [half(_main(tr.detail)), if (onEdit != null) ...[gap, half(_second(tr.edit, onEdit!))]];
       case ResStatus.nadchazejici:
-        return [half(_main(tr.detail)), if (onEdit != null) ...[gap, half(_second(tr.edit, onEdit!))]];
+        return [half(_main(_detailLabel(tr))), if (onEdit != null) ...[gap, half(_second(tr.edit, onEdit!))]];
       case ResStatus.dokoncene:
         return [half(_main(tr.tr('rideDetail'))), gap, half(_second(tr.tr('rateBtn'), onTap))];
       case ResStatus.cancelled:
@@ -147,7 +163,7 @@ class ResCardActionsV2 extends ConsumerWidget {
         }
         return mainFits(tr.detail, onEdit == null ? width : half) && (onEdit == null || secondFits(tr.edit, half));
       case ResStatus.nadchazejici:
-        return mainFits(tr.detail, onEdit == null ? width : half) && (onEdit == null || secondFits(tr.edit, half));
+        return mainFits(_detailLabel(tr), onEdit == null ? width : half) && (onEdit == null || secondFits(tr.edit, half));
       case ResStatus.dokoncene:
         return mainFits(tr.tr('rideDetail'), half) && secondFits(tr.tr('rateBtn'), half);
       case ResStatus.cancelled:
@@ -168,7 +184,7 @@ class ResCardActionsV2 extends ConsumerWidget {
           if (onEdit != null) ...[gap, _second(tr.edit, onEdit!)],
         ];
       case ResStatus.nadchazejici:
-        return [_main(tr.detail), if (onEdit != null) ...[gap, _second(tr.edit, onEdit!)]];
+        return [_main(_detailLabel(tr)), if (onEdit != null) ...[gap, _second(tr.edit, onEdit!)]];
       case ResStatus.dokoncene:
         return [_main(tr.tr('rideDetail')), gap, _second(tr.tr('rateBtn'), onTap)];
       case ResStatus.cancelled:

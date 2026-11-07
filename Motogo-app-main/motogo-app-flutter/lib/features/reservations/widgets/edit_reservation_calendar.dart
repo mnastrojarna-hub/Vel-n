@@ -185,12 +185,17 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
     // Click inside original reservation → block
     if (!d.isBefore(origS) && !d.isAfter(origE)) {
+      // v2: stejná hláška tykáním (RP-20).
+      final v2 = MgV2.on(context);
       if (widget.isActive) {
-        widget.onError(
-            t(context).tr('clickDayAfterForExtend').replaceAll('{date}', '${origE.day}.${origE.month}.'));
+        widget.onError(v2
+            ? t(context).trArgs('v2UxRpExtendAfter', {'date': '${origE.day}.\u00A0${origE.month}.'})
+            : t(context).tr('clickDayAfterForExtend').replaceAll('{date}', '${origE.day}.${origE.month}.'));
       } else {
-        widget.onError(
-            t(context).tr('clickDayBeforeOrAfterForExtend').replaceAll('{startDate}', '${origS.day}.${origS.month}.').replaceAll('{endDate}', '${origE.day}.${origE.month}.'));
+        widget.onError(v2
+            ? t(context).trArgs('v2UxRpExtendBeforeAfter',
+                {'start': '${origS.day}.\u00A0${origS.month}.', 'end': '${origE.day}.\u00A0${origE.month}.'})
+            : t(context).tr('clickDayBeforeOrAfterForExtend').replaceAll('{startDate}', '${origS.day}.${origS.month}.').replaceAll('{endDate}', '${origE.day}.${origE.month}.'));
       }
       return;
     }
@@ -240,8 +245,9 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
     if (widget.isActive) {
       if (!d.isBefore(origE)) {
-        widget.onError(
-            t(context).tr('clickDayBeforeForShorten').replaceAll('{date}', '${origE.day}.${origE.month}.'));
+        widget.onError(MgV2.on(context)
+            ? t(context).trArgs('v2UxRpShortenBefore', {'date': '${origE.day}.\u00A0${origE.month}.'})
+            : t(context).tr('clickDayBeforeForShorten').replaceAll('{date}', '${origE.day}.${origE.month}.'));
         return;
       }
       if (d.isBefore(today)) {

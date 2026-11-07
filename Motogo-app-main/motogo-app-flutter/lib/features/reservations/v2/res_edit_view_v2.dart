@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/gestures/mg_edge_back.dart';
+import '../../../core/v2/gestures/mg_swipe_switcher.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../reservation_edit_price_calc.dart';
 import '../reservation_models.dart';
@@ -60,6 +63,13 @@ class ResEditV2View extends StatefulWidget {
   final int? stornoPct;
   final List<String> missingSizes;
   final String? saveLabel;
+
+  /// Card surcharge of the change ("4 296 Kč") — the dock CTA then reads
+  /// "ZAPLATIT DOPLATEK · 4 296 Kč" (amount never uppercased or broken).
+  final String? savePrice;
+
+  /// "Původně 12 027 Kč → nově 16 323 Kč" over the CTA (existing totals).
+  final String? saveContext;
   final VoidCallback? onSave;
   final bool saving;
   final VoidCallback onBack;
@@ -84,6 +94,8 @@ class ResEditV2View extends StatefulWidget {
     required this.stornoPct,
     required this.missingSizes,
     required this.saveLabel,
+    this.savePrice,
+    this.saveContext,
     required this.onSave,
     required this.saving,
     required this.onBack,
@@ -108,9 +120,15 @@ class _ResEditV2ViewState extends State<ResEditV2View> {
     super.dispose();
   }
 
+  /// +1 into an intent, −1 back to the chooser (content slide direction).
+  int _dir = 0;
+
   /// Switch chooser ↔ intent; the page starts at the top again.
   void _go(ResEditIntent? i) {
-    setState(() => _intent = i);
+    setState(() {
+      _dir = i == null ? -1 : 1;
+      _intent = i;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
     });
@@ -200,9 +218,15 @@ class _ResEditV2ViewState extends State<ResEditV2View> {
 
     final dock = (focusDock || chooserDock)
         ? MgDock(
+            contextLine: widget.saveContext == null
+                ? null
+                : Text(widget.saveContext!,
+                    key: const ValueKey('res-edit-pay-diff'),
+                    style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkLead))),
             child: MgFabAvoid(
               child: MgCta(
                 label: widget.saveLabel!,
+                price: widget.savePrice,
                 onTap: widget.onSave,
                 enabled: widget.onSave != null,
                 busy: widget.saving,
@@ -229,10 +253,17 @@ class _ResEditV2ViewState extends State<ResEditV2View> {
             onBack: i == null ? widget.onBack : () => _go(null),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              controller: _scroll,
-              padding: EdgeInsets.only(bottom: dock == null ? MediaQuery.paddingOf(context).bottom + 24 : 24),
-              child: body,
+            // iOS: tah od levého okraje = totéž jako ‹ (zpět na výběr), dokud
+            // je otevřený záměr (PopScope drží stránku); přepnutí záměru se
+            // jen prolne — sekce zůstávají namontované, nic se neztratí.
+            child: MgEdgeBack(
+              enabled: i != null,
+              onBack: () => _go(null),
+              child: SingleChildScrollView(
+                controller: _scroll,
+                padding: EdgeInsets.only(bottom: dock == null ? MediaQuery.paddingOf(context).bottom + 24 : 24),
+                child: MgStepFade(trigger: i ?? 'chooser', direction: _dir, child: body),
+              ),
             ),
           ),
           if (dock != null) dock,

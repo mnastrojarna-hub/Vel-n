@@ -64,7 +64,7 @@ class BranchesViewV2 extends StatelessWidget {
         for (var i = 0; i < branchesInfoMapQueries.length; i++)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: MgReveal(index: i, child: _BranchCard(tx: tx, i: i, onOpen: () => onOpen(i))),
+            child: MgReveal(index: i, child: _BranchCard(tx: tx, i: i, onOpen: () => onOpen(i), onBook: onBook)),
           ),
         MgDarkHero(
           margin: const EdgeInsets.fromLTRB(16, 24, 16, 0),
@@ -92,7 +92,11 @@ class _BranchCard extends StatelessWidget {
   final Map<String, String> tx;
   final int i;
   final VoidCallback onOpen;
-  const _BranchCard({required this.tx, required this.i, required this.onOpen});
+
+  /// "Rezervovat zde" (Profil board Pobočky) = the screen's existing booking
+  /// action (the CTA box's `onBook`).
+  final VoidCallback onBook;
+  const _BranchCard({required this.tx, required this.i, required this.onOpen, required this.onBook});
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +145,9 @@ class _BranchCard extends StatelessWidget {
                   BranchLineV2(icon: MgIcons.pin, html: v('address')),
                   BranchLineV2(icon: MgIcons.clock, html: v('hours')),
                   const SizedBox(height: 4),
-                  MgBtnInk(label: plainText(tx['detail_button'] ?? ''), icon: MgIcons.arrowRight, onTap: onOpen),
+                  MgBtnInk(label: t(context).tr('v2UxRpBookHere'), icon: MgIcons.arrowRight, neonLabel: true, onTap: onBook),
+                  const SizedBox(height: 8),
+                  MgBtnGhostLight(label: plainText(tx['detail_button'] ?? ''), icon: MgIcons.chevronRight, onTap: onOpen),
                 ]),
               ),
             ]),

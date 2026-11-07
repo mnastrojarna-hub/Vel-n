@@ -536,7 +536,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (MgV2.on(ctx)) {
           return DestructiveDialogV2(
             title: t(context).tr('deleteAccountTitle'),
-            body: t(context).tr('deleteAccountDesc'),
+            body: t(context).tr('v2UxRpDeleteDesc'),
             cancelLabel: t(context).cancel,
             deleteLabel: t(context).tr('deleteAccountBtn'),
             onCancel: () => Navigator.pop(ctx),

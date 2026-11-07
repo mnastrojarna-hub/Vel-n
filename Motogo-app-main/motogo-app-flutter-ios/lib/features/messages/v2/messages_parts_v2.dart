@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
@@ -32,6 +33,8 @@ String msgDate(DateTime d) => '${d.day}. ${d.month}. ${d.hour}:${d.minute.toStri
 
 /// Two-segment switch in the dark header (web `.km-sw`): sliding thumb in
 /// the rank CTA material, red count on the first segment.
+final _noDrag = ValueNotifier<double>(0);
+
 class MsgSegmentsV2 extends StatelessWidget {
   final String left;
   final String right;
@@ -39,6 +42,10 @@ class MsgSegmentsV2 extends StatelessWidget {
   final int badge;
   final RankTokens rank;
   final ValueChanged<bool> onChanged;
+
+  /// Body swipe progress (`MgSwipeSegments.progress`, + toward Konverzace):
+  /// the thumb follows the finger.
+  final ValueListenable<double>? dragProgress;
   const MsgSegmentsV2({
     super.key,
     required this.left,
@@ -47,6 +54,7 @@ class MsgSegmentsV2 extends StatelessWidget {
     required this.badge,
     required this.rank,
     required this.onChanged,
+    this.dragProgress,
   });
 
   static const _minScale = 0.8;
@@ -150,10 +158,16 @@ class MsgSegmentsV2 extends StatelessWidget {
         padding: const EdgeInsets.all(4),
         decoration: shell,
         child: Stack(children: [
-          AnimatedAlign(
-            duration: MgMotion.of(context, MgMotion.thumb),
-            curve: MgMotion.out,
-            alignment: rightOn ? Alignment.centerRight : Alignment.centerLeft,
+          ValueListenableBuilder<double>(
+            valueListenable: dragProgress ?? _noDrag,
+            // Palec jde s prstem (x = poloha + posun tahu), po puštění se
+            // dorovná přes MgMotion.thumb.
+            builder: (context, p, child) => AnimatedAlign(
+              duration: p != 0 ? Duration.zero : MgMotion.of(context, MgMotion.thumb),
+              curve: MgMotion.out,
+              alignment: Alignment(((rightOn ? 1 : 0) + p).clamp(0.0, 1.0) * 2 - 1, 0),
+              child: child,
+            ),
             child: FractionallySizedBox(
               widthFactor: 0.5,
               heightFactor: 1,

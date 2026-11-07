@@ -80,16 +80,17 @@ class ResEditHeaderV2 extends StatelessWidget {
             final priceStyle = MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w900, color: MgColors.onDark));
             final price = Text(Money.czk(booking.totalPrice), style: priceStyle);
             final rangeStyle = MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkBody));
-            final stateStyle = MgType.meta.copyWith(color: MgColors.onDarkMeta);
-            final state = '${isActive ? tr.active : tr.upcoming} · $days';
-            final lines = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              MgWordFit(minScale: 0.8, child: Text(resRangeShort(tr, booking), style: rangeStyle)),
-              MgWordFit(minScale: 0.75, child: Text(state, style: stateStyle)),
-            ]);
+            // Jeden řádek „pá 16. 10. – ne 18. 10. · 3 dny" (Reservation board);
+            // stav říká nadpis. Nevejde-li se vedle TEĎ a ceny, jde pod ně.
+            final range = resRangeDays(tr, booking);
+            final lines = Semantics(
+              label: '${isActive ? tr.active : tr.upcoming}, $range, $days',
+              excludeSemantics: true,
+              child: MgWordFit(minScale: 0.85, child: Text(range, style: rangeStyle)),
+            );
             final textW = c.maxWidth - 44 - 8 - (resLineWidth(context, tr.tr('v2ResEditNow'), nowStyle) + 16) - 8 - 8 -
                 resLineWidth(context, Money.czk(booking.totalPrice), priceStyle);
-            final inline = resWordsFit(context, state, stateStyle, textW, minScale: 0.85) &&
-                resWordsFit(context, resRangeShort(tr, booking), rangeStyle, textW, minScale: 0.85);
+            final inline = resLineFits(context, range, rangeStyle, textW, minScale: 0.85);
             if (inline) {
               return Row(children: [
                 photo,

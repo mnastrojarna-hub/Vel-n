@@ -36,7 +36,7 @@ class NewThreadSheetV2View extends StatelessWidget {
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
         style: MgType.body.copyWith(color: MgColors.ink),
-        decoration: mgInputDecoration(context, hint: tr.tr('conversationTopic')),
+        decoration: mgInputDecoration(context, hint: tr.tr('v2UxRpTopicHint')),
         onSubmitted: onSubmitted,
       ),
     );

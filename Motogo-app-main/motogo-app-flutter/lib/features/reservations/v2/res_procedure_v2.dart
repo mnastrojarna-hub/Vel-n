@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/states/mg_state_parts.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_sheet.dart';
 
 /// v2 look of `ResPickupProcedure` (self-service pickup steps). Today the
@@ -16,7 +18,17 @@ class ResProcedureV2 extends StatelessWidget {
   final String? gateTitle;
   final List<String> steps;
   final String? important;
-  const ResProcedureV2({super.key, required this.gateTitle, required this.steps, required this.important});
+
+  /// The procedure is CO TEĎ's one primary action (Reservation board
+  /// "POSTUP NA POBOČCE"): looping CTA instead of the text link.
+  final bool cta;
+  const ResProcedureV2({
+    super.key,
+    required this.gateTitle,
+    required this.steps,
+    required this.important,
+    this.cta = false,
+  });
 
   void _open(BuildContext context) {
     final tr = t(context);
@@ -55,6 +67,14 @@ class ResProcedureV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    if (cta) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: MgFabAvoid(
+          child: MgCta(label: tr.tr('v2UxRpProcCta'), onTap: () => _open(context), loop: true, arrow: true),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Semantics(

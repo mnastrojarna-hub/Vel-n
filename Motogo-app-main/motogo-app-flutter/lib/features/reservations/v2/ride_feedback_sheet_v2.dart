@@ -92,7 +92,7 @@ class RideFeedbackSheetV2 extends StatelessWidget {
             hint: tr.tr('rfSheetHint'),
             error: emptyTried && empty ? tr.tr('rfEmpty') : null,
           ).copyWith(
-            hintMaxLines: 3,
+            hintMaxLines: 6,
             counterStyle: MgType.tab(MgType.micro.copyWith(color: MgColors.meta)),
           ),
         ),

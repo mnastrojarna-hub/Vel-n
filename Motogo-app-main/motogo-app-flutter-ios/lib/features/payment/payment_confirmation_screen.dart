@@ -16,6 +16,8 @@ import '../catalog/catalog_provider.dart';
 import '../reservations/reservation_provider.dart';
 import 'payment_provider.dart';
 import 'payment_ui_helpers.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/confirmation_view_v2.dart';
 
 /// Stav dokladů na děkovací stránce — parita s webovou `/potvrzeni`:
 /// - `verified` = doklady OK (nebo dětská motorka, kde se nevyžadují) → zelený badge
@@ -297,7 +299,45 @@ class _PaymentConfirmationScreenState
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) close();
       },
-      child: Scaffold(
+      // v2 (PS-03): same data, same close / documents destinations.
+      child: MgV2.on(context)
+          ? ConfirmationViewV2(
+              restored: restored,
+              shortId: _v2ShortId(ref.watch(lastConfirmedBookingProvider)),
+              motoName: motoName,
+              start: startDate,
+              end: endDate,
+              pickup: _hasPickupBlock ? _pickup : null,
+              branchName: branchName,
+              pickupTime: pickupTime,
+              returnTime: returnTime != null &&
+                      !selfServiceHidesReturnTime(branchType: branchType, returnMethod: returnMethod)
+                  ? returnTime
+                  : null,
+              lateGateDate: lateGate &&
+                      startDate != null &&
+                      DateTime.now().toUtc().isBefore(kioskReleaseAtUtc(startDate))
+                  ? fmtReleaseDate(startDate)
+                  : null,
+              docs: switch (_info.docsStatus) {
+                _DocsStatus.unknown => PayDocsV2.unknown,
+                _DocsStatus.missing => PayDocsV2.missing,
+                _DocsStatus.verified => _info.isChildBike ? PayDocsV2.child : PayDocsV2.verified,
+              },
+              missingReason: localizeServerReason(tr, _info.missingReason),
+              noDetails: noDetails,
+              loadFailed: _bkFailed,
+              paidTotal: !fromDb || ref.watch(lastConfirmedFromDraftProvider)
+                  ? ref.watch(priceBreakdownProvider).total
+                  : null,
+              onRetry: _retryLoad,
+              onClose: close,
+              onDocs: () {
+                ref.invalidate(reservationsProvider);
+                context.push(Routes.docs);
+              },
+            )
+          : Scaffold(
       backgroundColor: MotoGoColors.dark,
       body: SafeArea(
         child: Stack(children: [
@@ -619,6 +659,10 @@ class _PaymentConfirmationScreenState
       ),
     );
   }
+
+  /// "#XXXXXXXX" — the reservations' short number format.
+  static String? _v2ShortId(String? id) =>
+      id == null || id.length < 8 ? null : '#${id.substring(id.length - 8).toUpperCase()}';
 
   Widget _detailRow(String emoji, String text, {bool bold = false}) {
     return Row(

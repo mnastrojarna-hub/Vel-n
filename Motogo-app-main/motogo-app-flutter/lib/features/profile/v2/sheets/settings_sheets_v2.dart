@@ -47,7 +47,9 @@ class PasswordSheetV2View extends StatelessWidget {
           controller: pass,
           obscureText: true,
           style: MgType.body.copyWith(color: MgColors.ink),
-          decoration: mgInputDecoration(context, label: tr.tr('newPasswordHint')),
+          // Krátký popisek + pravidlo pod polem: „Nouveau mot de passe (min.
+          // 8 caractères)" by se na 320 dp s velkým písmem uřízlo.
+          decoration: mgInputDecoration(context, label: tr.tr('newPassword'), helper: tr.tr('passwordMinLengthMsg')),
         ),
         const SizedBox(height: 12),
         TextField(

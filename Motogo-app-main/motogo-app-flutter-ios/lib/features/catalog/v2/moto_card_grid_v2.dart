@@ -137,8 +137,13 @@ class MotoCardGridV2 extends StatelessWidget {
                         style: MgType.title.copyWith(color: MgColors.ink, height: 1.2)),
                   ),
                   const Spacer(),
-                  Text(price.grid,
-                      style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.price, height: 1.2))),
+                  // CB-30: the price stays on one line (scales, never wraps).
+                  MgWordFit(
+                    minScale: 0.75,
+                    fitLines: 1,
+                    child: Text(price.grid,
+                        style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.price, height: 1.2))),
+                  ),
                   if (price.struck != null)
                     Text(price.struck!,
                         style: MgType.tab(MgType.meta.copyWith(

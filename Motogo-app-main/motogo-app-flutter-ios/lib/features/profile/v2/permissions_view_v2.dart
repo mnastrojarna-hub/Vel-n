@@ -62,7 +62,7 @@ class PermissionsViewV2 extends StatelessWidget {
       sections: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Text('${tr.tr('permsGrantedFirstRun')} ${tr.tr('permsChangeHint')}',
+          child: Text('${tr.tr('permsGrantedFirstRun')} ${tr.tr('v2UxRpPermsHint')}',
               style: MgType.small.copyWith(color: MgColors.lead)),
         ),
         if (requiredActive)

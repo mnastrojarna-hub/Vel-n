@@ -17,6 +17,7 @@ import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../documents/docs_gate_provider.dart';
 import '../../home/nickname_provider.dart';
@@ -36,7 +37,11 @@ class ProfileHeaderV2 extends ConsumerWidget {
   final Map<String, dynamic>? profile;
   final VoidCallback onSettings;
   final VoidCallback? onBack;
-  const ProfileHeaderV2({super.key, required this.profile, required this.onSettings, this.onBack});
+
+  /// First load (no profile yet): name + nickname as dark skeleton bars in
+  /// their final size — never the "Pilot" placeholder flashing first.
+  final bool loading;
+  const ProfileHeaderV2({super.key, required this.profile, required this.onSettings, this.onBack, this.loading = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,15 +78,34 @@ class ProfileHeaderV2 extends ConsumerWidget {
         const SizedBox(height: 12),
         MgEnter(child: MgEyebrow(tr.tr('v2PfClub'))),
         const SizedBox(height: 4),
-        MgEnter(
-          delay: const Duration(milliseconds: 80),
-          child: Semantics(
-            header: true,
-            child: Text(name, style: MgType.h2.copyWith(color: MgColors.onDark, letterSpacing: -0.2)),
+        if (loading) ...[
+          const Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              key: ValueKey('pf-header-skeleton'),
+              padding: EdgeInsets.symmetric(vertical: 3),
+              child: MgSkeleton(width: 160, height: 22, dark: true),
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Align(alignment: AlignmentDirectional.centerStart, child: _NickChip(fullName: fullName, rank: rank)),
+          const SizedBox(height: 4),
+          const Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: MgSkeleton(width: 110, height: 28, radius: 999, dark: true),
+            ),
+          ),
+        ] else ...[
+          MgEnter(
+            delay: const Duration(milliseconds: 80),
+            child: Semantics(
+              header: true,
+              child: Text(name, style: MgType.h2.copyWith(color: MgColors.onDark, letterSpacing: -0.2)),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Align(alignment: AlignmentDirectional.centerStart, child: _NickChip(fullName: fullName, rank: rank)),
+        ],
         if (status != null) _RankStrip(status: status, rank: rank),
         if (docs != null && !docs.isComplete) _DocsCta(docs: docs),
       ]),

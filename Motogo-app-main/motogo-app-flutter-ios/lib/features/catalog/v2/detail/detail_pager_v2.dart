@@ -78,7 +78,7 @@ class MotoDetailPagerV2View extends StatelessWidget {
             child: Semantics(
               label: tr.trArgs('v2DetPagerAria', {'n': currentIndex + 1, 'total': ids.length}),
               child: Container(
-                height: 44,
+                height: 46, // 44 hit inside the 1 px ring
                 decoration: BoxDecoration(
                   color: MgColors.nightA(0.8),
                   borderRadius: BorderRadius.circular(999),

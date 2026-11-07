@@ -14,6 +14,10 @@ import '../../core/currency.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/widgets/mg_toast_rich.dart';
+import 'v2/product_view_v2.dart';
 
 /// Product detail — mirrors s-merch-detail from templates-shop-detail.js.
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -28,6 +32,38 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
   int _imageIndex = 0;
   String? _selectedSize;
   int _qty = 1;
+  /// v2: "Nejdřív vyber velikost" shown inline where the old toast fired.
+  bool _sizeHint = false;
+
+  /// Přidání do košíku — stejná logika pro starý i v2 vzhled (v2 jen
+  /// ukazuje chybějící velikost u voleb a potvrzení s „Do košíku").
+  void _addToCart(Product product) {
+    final v2 = MgV2.peek(context);
+    if (product.needsSize && _selectedSize == null) {
+      if (v2) {
+        setState(() => _sizeHint = true);
+        return;
+      }
+      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'));
+      return;
+    }
+    final cartId = _selectedSize != null ? '${product.id}-$_selectedSize' : product.id;
+    final cartName = _selectedSize != null ? '${product.name} ($_selectedSize)' : product.name;
+    for (int i = 0; i < _qty; i++) {
+      ref.read(cartProvider.notifier).addItem(cartId, cartName, product.price);
+    }
+    ref.read(cartFabDismissedProvider.notifier).state = false;
+    if (v2) {
+      showMgToastRich(context,
+          title: t(context).tr('added'),
+          message: '$_qty× $cartName',
+          icon: MgIcons.checkCircle,
+          actionLabel: t(context).tr('v2UxPsToCart'),
+          onAction: () => context.push(Routes.cart));
+      return;
+    }
+    showMotoGoToast(context, icon: '✓', title: t(context).tr('added'), message: '$_qty× $cartName');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +109,25 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
 
   Widget _build(BuildContext context, Product product) {
     final images = product.images.isNotEmpty ? product.images : [product.displayImage];
+    // v2 (PS-09): same state and actions.
+    if (MgV2.on(context)) {
+      return ProductViewV2(
+        product: product,
+        imageIndex: _imageIndex,
+        onPage: (i) => setState(() => _imageIndex = i),
+        selectedSize: _selectedSize,
+        onSize: (size) => setState(() {
+          _selectedSize = size;
+          _sizeHint = false;
+        }),
+        sizeHint: _sizeHint,
+        qty: _qty,
+        onMinus: _qty > 1 ? () => setState(() => _qty--) : null,
+        onPlus: () => setState(() => _qty++),
+        onAdd: () => _addToCart(product),
+        onBack: () => context.backOr(Routes.shop),
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -218,19 +273,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                     width: double.infinity,
                     height: 48,
                     child: PressableScale(child: ElevatedButton(
-                      onPressed: () {
-                        if (product.needsSize && _selectedSize == null) {
-                          showMotoGoToast(context, icon: '⚠️', title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'));
-                          return;
-                        }
-                        final cartId = _selectedSize != null ? '${product.id}-$_selectedSize' : product.id;
-                        final cartName = _selectedSize != null ? '${product.name} ($_selectedSize)' : product.name;
-                        for (int i = 0; i < _qty; i++) {
-                          ref.read(cartProvider.notifier).addItem(cartId, cartName, product.price);
-                        }
-                        ref.read(cartFabDismissedProvider.notifier).state = false;
-                        showMotoGoToast(context, icon: '✓', title: t(context).tr('added'), message: '$_qty× $cartName');
-                      },
+                      onPressed: () => _addToCart(product),
                       style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                         const Icon(Icons.add_shopping_cart, size: 16),
