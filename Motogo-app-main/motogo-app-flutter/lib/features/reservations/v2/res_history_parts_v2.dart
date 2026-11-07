@@ -8,9 +8,11 @@ import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'res_detail_bits_v2.dart';
+import 'res_fit_v2.dart';
 
 /// Shared bits of the v2 "Historie rezervace" (`ResHistoryV2`): the SAME
 /// rows, conditions and texts as `ResModificationHistory`, drawn with v2
@@ -41,8 +43,42 @@ class ResHistHeadV2 extends StatelessWidget {
   Widget build(BuildContext context) => Row(children: [
         ResHistDiscV2(icon: icon, color: color, size: 28),
         const SizedBox(width: 10),
-        Expanded(child: Text(text, style: MgType.eyebrow.copyWith(color: MgColors.meta))),
+        Expanded(child: MgWordFit(minScale: 0.7, child: Text(text, style: MgType.eyebrow.copyWith(color: MgColors.meta)))),
       ]);
+}
+
+/// Label / value row of a history card (`ResDetailRow` content): side by
+/// side while every label word fits ~42 % of the width (≥ 85 %), else the
+/// label over the value — never a word broken in half (de / fr, large text).
+class ResHistRowV2 extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool bold;
+  const ResHistRowV2({super.key, required this.label, required this.value, this.valueColor, this.bold = false});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
+        final ls = MgType.small.copyWith(color: MgColors.lead);
+        final vs = MgType.tab(MgType.small.copyWith(
+            fontWeight: bold ? FontWeight.w800 : FontWeight.w700, color: valueColor ?? MgColors.ink));
+        final side = resWordsFit(context, label, ls, c.maxWidth * 0.42, minScale: 0.85) &&
+            resWordsFit(context, value, vs, c.maxWidth * 0.5);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: side
+              ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: MgWordFit(minScale: 0.85, child: Text(label, style: ls))),
+                  const SizedBox(width: 12),
+                  Flexible(child: Text(value, textAlign: TextAlign.right, style: vs)),
+                ])
+              : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(label, style: ls),
+                  const SizedBox(height: 2),
+                  MgWordFit(child: Text(value, style: vs)),
+                ]),
+        );
+      });
 }
 
 /// Tinted disc with a line icon (meaning colour 12 %, icon in the colour).
@@ -196,18 +232,21 @@ class _EntryV2 extends StatelessWidget {
                 style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w800, height: 1, color: MgColors.onDark))),
           ),
           const SizedBox(width: 8),
+          // Time · source, the kind chip beside it or (when it does not
+          // fit) on the next line — never a word broken in half.
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('${resHistAt(mod.at, lang)} · $source', style: MgType.tab(MgType.micro.copyWith(color: MgColors.meta))),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
-              child: Text(typeLabel, style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: accent)),
+              padding: const EdgeInsets.only(top: 2),
+              child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                Text('${resHistAt(mod.at, lang)} · $source', style: MgType.tab(MgType.micro.copyWith(color: MgColors.meta))),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+                  child: MgWordFit(
+                      minScale: 0.8,
+                      child: Text(typeLabel, style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: accent))),
+                ),
+              ]),
             ),
           ),
         ]),
@@ -231,13 +270,9 @@ class _ChangeRowV2 extends StatelessWidget {
   const _ChangeRowV2(this.c);
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 84, child: Text(c.label, style: MgType.micro.copyWith(color: MgColors.meta))),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text.rich(TextSpan(children: [
+  Widget build(BuildContext context) {
+    final labelStyle = MgType.micro.copyWith(color: MgColors.meta);
+    final value = Text.rich(TextSpan(children: [
               TextSpan(
                 text: c.from,
                 style: MgType.small.copyWith(color: MgColors.meta, decoration: TextDecoration.lineThrough),
@@ -255,10 +290,25 @@ class _ChangeRowV2 extends StatelessWidget {
                   text: '  ${c.badge}',
                   style: MgType.tab(MgType.micro.copyWith(fontWeight: FontWeight.w800, color: c.badgeColor)),
                 ),
-            ])),
-          ),
-        ]),
-      );
+            ]));
+    // A label word wider than the 84 dp column even at 80 % ("Übernahmeort",
+    // large text) goes over the values instead of breaking in half.
+    final side = resWordsFit(context, c.label, labelStyle, 84, minScale: 0.8);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: side
+          ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(width: 84, child: MgWordFit(minScale: 0.8, child: Text(c.label, style: labelStyle))),
+              const SizedBox(width: 8),
+              Expanded(child: value),
+            ])
+          : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c.label, style: labelStyle),
+              const SizedBox(height: 2),
+              value,
+            ]),
+    );
+  }
 }
 
 /// "SOS události": replacement / ended-by-SOS banners and the incident

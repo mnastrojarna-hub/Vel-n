@@ -20,58 +20,81 @@ class MgMapTileStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final retry = tr.tr('eoRetry');
-    return Material(
-      type: MaterialType.transparency,
-      child: Container(
-        key: const ValueKey('map-tiles-strip-v2'),
-        padding: const EdgeInsets.only(left: 10),
-        decoration: BoxDecoration(
-          color: MgColors.nightA(0.94),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: MgColors.white(0.10)),
-          boxShadow: MgShadows.dark,
-        ),
-        child: Row(children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(color: MgColors.white(0.10), shape: BoxShape.circle),
-            child: const Center(child: MgIcon(MgIcons.wifiOff, size: 16, color: MgColors.onDark)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Semantics(
-              liveRegion: true,
+    final retryStyle = MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.neon);
+    final disc = Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(color: MgColors.white(0.10), shape: BoxShape.circle),
+      child: const Center(child: MgIcon(MgIcons.wifiOff, size: 16, color: MgColors.onDark)),
+    );
+    final text = Semantics(
+      liveRegion: true,
+      child: Text(tr.tr('eoMapTilesFail'), style: MgType.meta.copyWith(color: MgColors.onDark)),
+    );
+    Widget link(EdgeInsets pad) => Semantics(
+          button: true,
+          label: retry,
+          excludeSemantics: true,
+          child: MgPress(
+            key: const ValueKey('map-tiles-retry-v2'),
+            onTap: onRetry,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(tr.tr('eoMapTilesFail'), style: MgType.meta.copyWith(color: MgColors.onDark)),
-              ),
-            ),
-          ),
-          Semantics(
-            button: true,
-            label: retry,
-            excludeSemantics: true,
-            child: MgPress(
-              key: const ValueKey('map-tiles-retry-v2'),
-              onTap: onRetry,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Center(
-                    widthFactor: 1,
-                    child: Text(retry,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.neon)),
-                  ),
+                padding: pad,
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Text(retry, maxLines: 1, softWrap: false, style: retryStyle),
                 ),
               ),
             ),
           ),
-        ]),
-      ),
+        );
+    return Material(
+      type: MaterialType.transparency,
+      child: LayoutBuilder(builder: (context, c) {
+        // A narrow strip (map card, 320 dp) puts the link under the text,
+        // so no word is ever split.
+        final tp = TextPainter(
+          text: TextSpan(text: retry, style: retryStyle),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        final stacked = c.maxWidth - 46 - (tp.width + 24) < 180;
+        tp.dispose();
+        return Container(
+          key: const ValueKey('map-tiles-strip-v2'),
+          padding: EdgeInsets.fromLTRB(10, stacked ? 8 : 0, stacked ? 12 : 0, 0),
+          decoration: BoxDecoration(
+            // Solid like the status strips: a translucent fill let the shadow
+            // and the map ghost through.
+            color: MgColors.night,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: MgColors.white(0.10)),
+            boxShadow: MgShadows.dark,
+          ),
+          child: stacked
+              ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  disc,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Padding(padding: const EdgeInsets.only(top: 5), child: text),
+                      link(const EdgeInsets.only(right: 12)),
+                    ]),
+                  ),
+                ])
+              : Row(children: [
+                  disc,
+                  const SizedBox(width: 8),
+                  Expanded(child: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: text)),
+                  link(const EdgeInsets.symmetric(horizontal: 12)),
+                ]),
+        );
+      }),
     );
   }
 }

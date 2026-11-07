@@ -16,6 +16,7 @@ import 'package:motogo_app/core/widgets/address_autocomplete_field.dart';
 import 'package:motogo_app/features/auth/v2/register_view_v2.dart';
 import 'package:motogo_app/features/booking/booking_ui_helpers.dart' show showAddrBottomSheet;
 import 'package:motogo_app/features/booking/widgets/address_picker.dart';
+import 'package:motogo_app/features/loyalty/v2/loyalty_screen_v2.dart';
 import 'package:motogo_app/features/reservations/reservation_edit_price_calc.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_address_v2.dart';
@@ -31,6 +32,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/reservations_cases.dart';
 import '../support/fakes_history.dart';
+import '../support/fakes_leaderboard.dart';
 import '../support/fakes_reservations.dart';
 import 'cases_core.dart' show launcher, tapOpen;
 import 'cases_ux_auth_sos_misc.dart' show asmBase, asmMotos, asmRegModel;
@@ -253,6 +255,12 @@ List<RenderCase> coverageUxCases() => [
               padding: const EdgeInsets.all(16),
               child: ResModificationHistory(res: histCancelSosRes(), sosIncidents: histIncidents())),
           () => resOverrides()),
+      // fix:r2 — "Žebříček jezdců" (flag loyalty_leaderboard) in the v2 look.
+      RenderCase('cov', 'loyalty', 'leaderboard', () => const LoyaltyScreenV2(), () => leaderboardOverrides(),
+          level: 6, scaffold: false),
+      RenderCase('cov', 'loyalty', 'leaderboard_empty', () => const LoyaltyScreenV2(),
+          () => leaderboardOverrides(empty: true, nick: null),
+          level: 6, scaffold: false),
       RenderCase('cov', 'booking', 'address_sheet',
           () => launcher((c) => showAddrBottomSheet(c, 'Adresa přistavení', 'Brno', 'Masarykova 12', (_, __) {})),
           () => resOverrides(),

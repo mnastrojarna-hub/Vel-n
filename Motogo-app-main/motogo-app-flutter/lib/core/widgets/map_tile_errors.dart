@@ -53,20 +53,37 @@ class MapTileErrors {
   }
 }
 
-/// v2: where the tile strip of this map goes — [top] px from the map's top,
-/// under the screen's header / HUD lying over the map; null = the screen's
-/// chrome shows [MapTileErrorStripV2] itself (a header of varying height)
-/// and the chip inside the map stays out. No inset (a map in a card) = 8.
-/// Flag off: ignored — the old chip keeps its place.
-class MapTileErrorInset extends InheritedWidget {
+/// v2: wraps a map whose top the screen's chrome covers (header, HUD, back
+/// button, expand disc). [top] = the tile strip is drawn over the map
+/// [top] px from its top (above markers and lines); null = the screen's
+/// chrome shows [MapTileErrorStripV2] itself (under a header of varying
+/// height). Either way the [MapTileErrorChip] inside the map stays out.
+/// Without one (a map in a card) the chip shows the strip at the map's top.
+/// Flag off: no change — the old chip keeps its place.
+class MapTileErrorInset extends StatelessWidget {
   final double? top;
-  const MapTileErrorInset({super.key, this.top, required super.child});
+  final Widget child;
+  const MapTileErrorInset({super.key, this.top, required this.child});
 
-  static MapTileErrorInset? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<MapTileErrorInset>();
+  static bool placed(BuildContext context) => context.getInheritedWidgetOfExactType<_MapTileStripPlaced>() != null;
 
   @override
-  bool updateShouldNotify(MapTileErrorInset oldWidget) => oldWidget.top != top;
+  Widget build(BuildContext context) {
+    final marked = _MapTileStripPlaced(child: child);
+    final t = top;
+    if (t == null || !MgV2.on(context)) return marked;
+    return Stack(fit: StackFit.expand, children: [
+      marked,
+      Positioned(top: t, left: 12, right: 12, child: const MapTileErrorStripV2()),
+    ]);
+  }
+}
+
+class _MapTileStripPlaced extends InheritedWidget {
+  const _MapTileStripPlaced({required super.child});
+
+  @override
+  bool updateShouldNotify(_MapTileStripPlaced oldWidget) => false;
 }
 
 /// v2 tile strip placed by a screen's chrome (under its header); nothing
@@ -105,13 +122,12 @@ class MapTileErrorChip extends StatelessWidget {
       builder: (context, since, _) {
         if (since == null) return const SizedBox.shrink();
         if (MgV2.on(context)) {
-          final inset = MapTileErrorInset.maybeOf(context);
-          if (inset != null && inset.top == null) return const SizedBox.shrink();
-          return Align(
+          if (MapTileErrorInset.placed(context)) return const SizedBox.shrink();
+          return const Align(
             alignment: Alignment.topCenter,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(12, inset?.top ?? 8, 12, 0),
-              child: const MgMapTileStrip(onRetry: MapTileErrors.retry),
+              padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: MgMapTileStrip(onRetry: MapTileErrors.retry),
             ),
           );
         }

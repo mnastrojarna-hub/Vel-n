@@ -67,12 +67,12 @@ class ResHistoryV2 extends StatelessWidget {
         text: '${d(os)} – ${d(oe)} → ${d(cs)} – ${d(ce)}',
       ),
       const SizedBox(height: 12),
-      ResDetailRowV2(
+      ResHistRowV2(
         label: tr.tr('originalTerm'),
         value: '${d(os)} – ${d(oe)} (${desc.origDays} ${tr.daysWord(desc.origDays)})',
         valueColor: MgColors.meta,
       ),
-      ResDetailRowV2(
+      ResHistRowV2(
         label: tr.tr('newTerm'),
         value: '${d(cs)} – ${d(ce)} (${desc.newDays} ${tr.daysWord(desc.newDays)})',
         bold: true,
@@ -91,14 +91,14 @@ class ResHistoryV2 extends StatelessWidget {
       ResHistHeadV2(icon: MgIcons.calendarX, text: tr.tr('cancellationSection'), color: MgColors.err),
       const SizedBox(height: 10),
       if (res.cancelledAt != null)
-        ResDetailRowV2(label: tr.tr('cancelledLabel'), value: resHistAt(res.cancelledAt!, tr.lang), valueColor: MgColors.err),
-      ResDetailRowV2(label: tr.tr('cancelledBy'), value: source),
+        ResHistRowV2(label: tr.tr('cancelledLabel'), value: resHistAt(res.cancelledAt!, tr.lang), valueColor: MgColors.err),
+      ResHistRowV2(label: tr.tr('cancelledBy'), value: source),
       if (res.cancellationReason != null && res.cancellationReason!.isNotEmpty)
-        ResDetailRowV2(label: tr.tr('reasonLabel'), value: res.cancellationReason!),
+        ResHistRowV2(label: tr.tr('reasonLabel'), value: res.cancellationReason!),
       if (res.stornoFee != null && res.stornoFee! > 0)
-        ResDetailRowV2(label: tr.tr('stornoFeeLabel'), value: Money.czk(res.stornoFee!)),
+        ResHistRowV2(label: tr.tr('stornoFeeLabel'), value: Money.czk(res.stornoFee!)),
       if (res.refundAmount != null && res.refundAmount! > 0)
-        ResDetailRowV2(label: tr.tr('refundedLabel'), value: Money.czk(res.refundAmount!), valueColor: MgColors.link),
+        ResHistRowV2(label: tr.tr('refundedLabel'), value: Money.czk(res.refundAmount!), valueColor: MgColors.link),
     ]);
   }
 

@@ -8,6 +8,8 @@ import '../../core/widgets/moto_fx.dart';
 import 'loyalty_provider.dart';
 import 'loyalty_leaderboard_provider.dart';
 import '../../core/feature_flags.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/loyalty_leaderboard_v2.dart';
 
 /// Sekce „Žebříček jezdců" na stránce ranků.
 ///
@@ -21,6 +23,8 @@ class LoyaltyLeaderboardSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // v2 vzhled (kill-switch app_v2_ui): tytéž providery, podmínky i akce.
+    if (MgV2.on(context)) return const LoyaltyLeaderboardV2();
     // Žebříček je zatím vypnutý — data se na serveru sbírají a vyhodnocují,
     // ale anonymní srovnání s ostatními uživateli se v appce nezobrazuje,
     // dokud se flag `loyalty_leaderboard` ve Velíně nezapne.
@@ -424,6 +428,9 @@ class _ListRow extends StatelessWidget {
     );
   }
 }
+
+/// [_subLabel] for the v2 look (the same rule, one source).
+String loyaltyLeaderboardSubLabel(String Function(String) tr, LeaderboardEntry e) => _subLabel(tr, e);
 
 /// Popisek pod přezdívkou: km bez nehody a škrábnutí, a když jezdec v měsíci
 /// postoupil o rank, přidá se i o kolik. Když RPC km ještě neposílá

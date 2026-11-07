@@ -11,6 +11,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/widgets/map_tile_errors.dart';
 
 /// Focused community form (Navrhnout trasu / Přidat místo): dark compact
 /// header with back (= the screen's PopScope via `maybePop`, so the
@@ -101,7 +102,8 @@ class SubmitMapCardV2 extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Stack(children: [
-            Positioned.fill(child: map),
+            // Map tiles failing: the strip over the map (above the pin).
+            Positioned.fill(child: MapTileErrorInset(top: 8, child: map)),
             if (overlay != null) Positioned(left: 8, right: 8, bottom: 8, child: Center(child: overlay)),
           ]),
         ),

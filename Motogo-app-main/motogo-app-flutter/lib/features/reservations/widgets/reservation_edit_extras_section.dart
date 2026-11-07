@@ -12,6 +12,7 @@ import '../v2/res_edit_sections_v2.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../booking/v2/sizes_sheet_v2.dart' show showSingleSizeSheetV2;
 import '../v2/res_edit_sizes_v2.dart';
+import '../v2/res_edit_extras_v2.dart';
 
 /// Extras + gear size section for reservation edit.
 ///
@@ -274,10 +275,70 @@ class EditExtrasSection extends StatelessWidget {
     return '${t(context).tr('sizeSingular')}: $size · ${t(context).tr('tapToChangeSize')}';
   }
 
+  /// v2 add-on rows — the SAME values and tap closures as the old cards.
+  List<EditAddonV2> _v2Addons(BuildContext context, bool passengerSelected) => [
+        if (!isKids)
+          EditAddonV2(
+            icon: MgIcons.user,
+            title: t(context).tr('passengerGearLabel'),
+            sub: t(context).tr('passengerGearSub'),
+            price: _gearFree ? t(context).tr('gearFree') : '+${Money.czk(690)}',
+            checked: passengerSelected,
+            onTap: () {
+              if (passengerSelected) {
+                _removeExtra('spolujezdec');
+                onPassengerHelmetSize(null);
+                onPassengerJacketSize(null);
+                onPassengerPantsSize(null);
+                onPassengerGlovesSize(null);
+              } else {
+                _addExtra('spolujezdec');
+                _showPassengerGearSheet(context);
+              }
+            },
+          ),
+        EditAddonV2(
+          icon: MgIcons.boot,
+          title: t(context).tr('driverBootsLabel'),
+          sub: _bootsSub(context, selectedExtras.contains('boty_ridic'), bootsSize),
+          price: _gearFree ? t(context).tr('gearFree') : '+${Money.czk(290)}',
+          checked: selectedExtras.contains('boty_ridic'),
+          opensSheet: true,
+          onTap: () => _showBootSizeSheet(context,
+              title: t(context).tr('driverBootsLabel'),
+              isSelected: selectedExtras.contains('boty_ridic'),
+              onPick: (s) { onBootsSize(s); _addExtra('boty_ridic'); },
+              onRemove: () { onBootsSize(null); _removeExtra('boty_ridic'); }),
+        ),
+        if (!isKids)
+          EditAddonV2(
+            icon: MgIcons.boot,
+            title: t(context).tr('bootsPassengerLabel'),
+            sub: _bootsSub(context, selectedExtras.contains('boty_spolujezdec'), passengerBootsSize),
+            price: _gearFree ? t(context).tr('gearFree') : '+${Money.czk(290)}',
+            checked: selectedExtras.contains('boty_spolujezdec'),
+            opensSheet: true,
+            onTap: () => _showBootSizeSheet(context,
+                title: t(context).tr('bootsPassengerLabel'),
+                isSelected: selectedExtras.contains('boty_spolujezdec'),
+                onPick: (s) { onPassengerBootsSize(s); _addExtra('boty_spolujezdec'); },
+                onRemove: () { onPassengerBootsSize(null); _removeExtra('boty_spolujezdec'); }),
+          ),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final passengerSelected = !isKids && selectedExtras.contains('spolujezdec');
     return EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // v2 vzhled (kill-switch app_v2_ui): hlavička, poznámky a placené
+      // doplňky jako řádky rezervace — tytéž texty, podmínky i zavření.
+      if (MgV2.on(context))
+        EditAddonsV2(
+          deliveryInfo: pickupMethod == 'delivery' || returnMethod == 'delivery',
+          gearFree: _gearFree,
+          addons: _v2Addons(context, passengerSelected),
+        )
+      else ...[
       Row(children: [
         const Icon(Icons.backpack, size: 16, color: MotoGoColors.greenDark),
         const SizedBox(width: 6),
@@ -353,10 +414,14 @@ class EditExtrasSection extends StatelessWidget {
             isSelected: selectedExtras.contains('boty_spolujezdec'),
             onPick: (s) { onPassengerBootsSize(s); _addExtra('boty_spolujezdec'); },
             onRemove: () { onPassengerBootsSize(null); _removeExtra('boty_spolujezdec'); })),
+      ],
 
       // Rozbalené velikosti spolujezdce (zdarma měnit) když je výbava vybraná.
       if (passengerSelected) ...[
         const SizedBox(height: 6),
+        if (MgV2.on(context))
+          EditPassengerLabelV2(t(context).tr('passengerGearLabel'))
+        else
         Text('${t(context).tr('passengerGearLabel')}'.toUpperCase(),
           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker)),
         const SizedBox(height: 6),
@@ -423,6 +488,9 @@ class EditExtrasSection extends StatelessWidget {
         // změna výbavy řidiče v této úpravě (jinak bez výbavy = bez kódu šatny).
         if ([helmetSize, jacketSize, pantsSize, glovesSize].every((s) => s == null || s.trim().isEmpty)) ...[
           const SizedBox(height: 6),
+          if (MgV2.on(context))
+            EditPickOneV2(t(context).tr('gearBasicPickOne'))
+          else
           Text(t(context).tr('gearBasicPickOne'),
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
         ],

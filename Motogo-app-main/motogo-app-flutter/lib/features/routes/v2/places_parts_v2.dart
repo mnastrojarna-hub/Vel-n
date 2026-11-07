@@ -104,7 +104,7 @@ class PlacesMapCardV2 extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: Stack(children: [
               // Map tiles failing: the strip under the expand disc.
-              Positioned.fill(child: MapTileErrorInset(top: 56, child: map)),
+              Positioned.fill(child: MapTileErrorInset(top: 52, child: map)),
               Positioned(
                 right: 4,
                 top: 4,
