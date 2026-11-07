@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/booking_rules.dart' show selfServiceHidesReturnTime;
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_page.dart';
-import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
-import '../../../core/v2/widgets/mg_photo_viewer.dart';
 import '../../booking/booking_models.dart';
-import '../../booking/v2/booking_recap_v2.dart';
 import '../../booking/v2/booking_v2_parts.dart' show bkDays, bkNb;
 import '../../catalog/moto_model.dart';
 import '../booking_upsell_provider.dart';
@@ -18,6 +14,7 @@ import '../payment_provider.dart';
 import '../widgets/upsell_section.dart';
 import 'countdown_chip_v2.dart';
 import 'pay_dock_v2.dart';
+import 'pay_gallery_v2.dart';
 import 'pay_header_v2.dart';
 import 'pay_parts_v2.dart';
 import 'pay_receipt_v2.dart';
@@ -109,31 +106,23 @@ class PaymentViewV2 extends StatelessWidget {
       title: _isNew ? tr.tr('v2BkTitle') : c!.label,
       sub: _isNew ? (m?.model ?? draft.motoName) : _shortId(),
       onBack: onBack,
-      steps: _isNew,
+      // The old payment header had no step bar.
+      steps: false,
       chip: chip,
       rank: !_sos,
     );
     final cc = cardCharge(amount, forceMin: forceMin);
     final round = cc.isRound || cc.isWaive;
     final sections = <Widget>[
+      // The old page's MotoGalleryCard: inline pager of every photo, the
+      // model and "{branch}, {city}".
       if (_isNew && m != null)
         RepaintBoundary(
-          child: BookingRecapV2(
-            moto: m,
-            start: draft.startDate,
-            end: draft.endDate,
-            dayCount: breakdown.days,
-            pickupTime: draft.pickupTime,
-            // Self-service branch: the return time is not chosen (23:59).
-            returnTime: selfServiceHidesReturnTime(branchType: m.branchType, returnMethod: draft.returnMethod)
-                ? null
-                : draft.returnTime,
-            half: breakdown.latePickupDiscount > 0,
-            pickupDelivery: draft.pickupMethod == 'delivery',
-            // The old page's gallery card: every photo + branch city.
-            withCity: true,
-            photoCount: m.images.length,
-            onPhotoTap: () => showMgPhotoViewer(context, urls: m.images.isNotEmpty ? m.images : [m.displayImage]),
+          child: PayGalleryV2(
+            images: m.images.isNotEmpty ? m.images : [m.displayImage],
+            model: m.model,
+            branchName: m.branchName,
+            branchCity: m.branchCity,
           ),
         ),
       Padding(
@@ -150,16 +139,10 @@ class PaymentViewV2 extends StatelessWidget {
                 verified: verified,
               )
             else ...[
-              // An applied promo / voucher stays visible before paying (the
-              // old page's inline price card); the full receipt = "Rozpis".
-              if (breakdown.discountTotal > 0)
-                PayRowV2(
-                  key: const ValueKey('pay-v2-discount'),
-                  icon: MgIcons.tag,
-                  label: tr.tr('discountLabel'),
-                  value: '−${Money.czk(breakdown.discountTotal)}',
-                  valueColor: MgColors.link,
-                ),
+              // The old page's PriceSummaryCard, open inline: the booking
+              // form's v2 receipt (same rows and conditions) + a bundled
+              // e-shop add-on with the total incl. it.
+              PayBreakdownV2(draft: draft, breakdown: breakdown, extras: extras, upsell: bundledUpsell),
               if (verified != null) PayVerifiedLineV2(verified),
             ],
             if (round) ...[
@@ -183,11 +166,7 @@ class PaymentViewV2 extends StatelessWidget {
     final freeLabel = (charge.isWaive ? tr.tr('pdConfirmFree') : tr.tr('confirmOrderFree')).replaceAll('→', '').trim();
     final label = expired ? tr.tr('timeExpired') : (charge.noCharge ? freeLabel : tr.tr('payBtn'));
     final contextLine = _isNew
-        ? [
-            tr.tr('v2YourPrice'),
-            bkDays(tr, breakdown.days),
-            if (breakdown.loyaltyDiscount > 0) bkNb(tr.trArgs('v2UxCbDockSaves', {'amount': Money.czk(breakdown.loyaltyDiscount)})),
-          ].join(' · ')
+        ? [tr.tr('v2YourPrice'), bkDays(tr, breakdown.days)].join(' · ')
         : '${tr.tr('v2UxPsToPay')} · ${bkNb(payAmountText(amount))}';
     final dock = PayDockV2(
       contextLine: contextLine,
@@ -199,10 +178,6 @@ class PaymentViewV2 extends StatelessWidget {
       onPay: onPay,
       status: verifying ? tr.tr('fxVerifyingBtn') : null,
       statusNote: verifying ? tr.tr('fxVerifyingNote') : null,
-      trailingLabel: _isNew ? tr.tr('v2Breakdown') : null,
-      onTrailing: _isNew
-          ? () => showPayBreakdownV2(context, draft: draft, breakdown: breakdown, extras: extras, upsell: bundledUpsell)
-          : null,
       rank: !_sos,
     );
     return MgPage(

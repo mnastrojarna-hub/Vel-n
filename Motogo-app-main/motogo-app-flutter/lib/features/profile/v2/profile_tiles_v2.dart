@@ -12,11 +12,8 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
-import '../../catalog/catalog_provider.dart' show branchesProvider, motorcyclesProvider;
-import '../../documents/docs_gate_provider.dart';
 import '../../messages/messages_provider.dart' show adminUnreadCountProvider;
 import 'profile_fit.dart';
-import 'profile_v2_parts.dart';
 
 /// "Můj účet" tiles 2 × 3 (V21 §1.2): Zprávy (+ red count), Moje doklady
 /// (status), Faktury, Dokumenty a smlouvy, Platební metody (the SAME push as
@@ -25,92 +22,83 @@ import 'profile_v2_parts.dart';
 /// loaded — no new requests.
 class ProfileTilesV2 extends ConsumerWidget {
   final VoidCallback onPaymentMethods;
-  const ProfileTilesV2({super.key, required this.onPaymentMethods});
+
+  /// The old profile's two places for these items (owner 2026-11-07 "jen
+  /// upgrade vzhledu"): true = Pobočky (+ E-shop when the flag shows it)
+  /// above "Můj účet"; false = the account items Zprávy (unread badge),
+  /// Doklady, Faktury, Smlouvy, Platební metody under Osobní údaje. Labels
+  /// only, as the old menu rows (no status lines).
+  final bool branches;
+  const ProfileTilesV2({super.key, required this.onPaymentMethods, this.branches = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final unread = ref.watch(adminUnreadCountProvider);
-    final docs = ref.watch(docsFabStatusProvider).valueOrNull;
     final eshop = ref.watch(eshopVisibleProvider).valueOrNull ?? false;
-    // Pobočky z DB (už načtený katalog — nic se kvůli dlaždici nestahuje);
-    // statický text jen než / když se katalog nenačte.
-    final branchNames = ref.exists(motorcyclesProvider)
-        ? [
-            for (final b in ref.watch(branchesProvider))
-              if ((b['name'] as String?)?.trim().isNotEmpty ?? false) (b['name'] as String).trim(),
+
+    final specs = branches
+        ? <_TileSpec>[
+            (
+              icon: MgIcons.pin,
+              label: tr.tr('branchesLabel'),
+              sub: null,
+              tone: _Tone.meta,
+              badge: 0,
+              onTap: () => context.push(Routes.branchesInfo),
+            ),
+            if (eshop)
+              (
+                icon: MgIcons.bag,
+                label: tr.tr('eshopMenu'),
+                sub: null,
+                tone: _Tone.meta,
+                badge: 0,
+                onTap: () => context.push(Routes.shop),
+              ),
           ]
-        : const <String>[];
-
-    String? docsSub;
-    var docsTone = _Tone.meta;
-    if (docs != null) {
-      if (docs.isComplete) {
-        docsSub = tr.tr('verified');
-        docsTone = _Tone.ok;
-      } else {
-        final gate = docs.gate;
-        final items = (gate != null && !gate.ok)
-            ? docsGateMissingLabels(context, gate, docsOnly: true)
-            : [
-                if (!docs.hasIdOrPassport) tr.tr('idOrPassport'),
-                if (!docs.hasLicense) tr.tr('driversLicense').toLowerCase(),
-              ];
-        docsSub = items.isEmpty ? tr.tr('docsNotVerified') : '${tr.tr('missing')}: ${items.join(', ')}';
-        docsTone = _Tone.warn;
-      }
-    }
-
-    final specs = <_TileSpec>[
-      (
-        icon: MgIcons.chat,
-        label: tr.tr('messagesTitle'),
-        sub: unread > 0 ? pfPlural(tr, 'v2PfMsgNew', unread) : tr.tr('v2PfMsgNone'),
-        tone: _Tone.meta,
-        badge: unread,
-        onTap: () => context.push(Routes.messages),
-      ),
-      (
-        icon: MgIcons.idCard,
-        label: tr.tr('documents'),
-        sub: docsSub,
-        tone: docsTone,
-        badge: 0,
-        onTap: () => context.push(Routes.docs),
-      ),
-      (
-        icon: MgIcons.receipt,
-        label: tr.tr('invoicesTitle'),
-        sub: tr.tr('v2PfTileInvoicesSub'),
-        tone: _Tone.meta,
-        badge: 0,
-        onTap: () => context.push(Routes.invoices),
-      ),
-      (
-        icon: MgIcons.docs,
-        label: tr.tr('contracts'),
-        sub: tr.tr('v2PfTileContractsSub'),
-        tone: _Tone.meta,
-        badge: 0,
-        onTap: () => context.push(Routes.contracts),
-      ),
-      (
-        icon: MgIcons.card,
-        label: tr.tr('paymentMethods'),
-        sub: tr.tr('v2PfTilePaySub'),
-        tone: _Tone.meta,
-        badge: 0,
-        onTap: onPaymentMethods,
-      ),
-      (
-        icon: MgIcons.pin,
-        label: tr.tr('branchesLabel'),
-        sub: branchNames.isEmpty ? tr.tr('v2PfTileBranchesSub') : branchNames.join(' · '),
-        tone: _Tone.meta,
-        badge: 0,
-        onTap: () => context.push(Routes.branchesInfo),
-      ),
-    ];
+        : <_TileSpec>[
+            (
+              icon: MgIcons.chat,
+              label: tr.tr('messages'),
+              sub: null,
+              tone: _Tone.meta,
+              badge: unread,
+              onTap: () => context.push(Routes.messages),
+            ),
+            (
+              icon: MgIcons.idCard,
+              label: tr.tr('documents'),
+              sub: null,
+              tone: _Tone.meta,
+              badge: 0,
+              onTap: () => context.push(Routes.docs),
+            ),
+            (
+              icon: MgIcons.receipt,
+              label: tr.tr('invoices'),
+              sub: null,
+              tone: _Tone.meta,
+              badge: 0,
+              onTap: () => context.push(Routes.invoices),
+            ),
+            (
+              icon: MgIcons.docs,
+              label: tr.tr('contracts'),
+              sub: null,
+              tone: _Tone.meta,
+              badge: 0,
+              onTap: () => context.push(Routes.contracts),
+            ),
+            (
+              icon: MgIcons.card,
+              label: tr.tr('paymentMethods'),
+              sub: null,
+              tone: _Tone.meta,
+              badge: 0,
+              onTap: onPaymentMethods,
+            ),
+          ];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -128,7 +116,11 @@ class ProfileTilesV2 extends ConsumerWidget {
                 child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Expanded(child: MgReveal(index: r, sessionKey: 'pf-tiles', child: tile(specs[r]))),
                   const SizedBox(width: 10),
-                  Expanded(child: MgReveal(index: r + 1, sessionKey: 'pf-tiles', child: tile(specs[r + 1]))),
+                  Expanded(
+                    child: r + 1 < specs.length
+                        ? MgReveal(index: r + 1, sessionKey: 'pf-tiles', child: tile(specs[r + 1]))
+                        : const SizedBox.shrink(),
+                  ),
                 ]),
               ),
             ]
@@ -137,24 +129,6 @@ class ProfileTilesV2 extends ConsumerWidget {
               if (i > 0) const SizedBox(height: 10),
               MgReveal(index: i, sessionKey: 'pf-tiles', child: tile(specs[i])),
             ],
-          if (eshop) ...[
-            const SizedBox(height: 10),
-            MgReveal(
-              index: 5,
-              sessionKey: 'pf-tiles',
-              child: _Tile(
-                spec: (
-                  icon: MgIcons.bag,
-                  label: tr.tr('eshopMenu'),
-                  sub: tr.tr('v2PfShopSub'),
-                  tone: _Tone.meta,
-                  badge: 0,
-                  onTap: () => context.push(Routes.shop),
-                ),
-                wide: true,
-              ),
-            ),
-          ],
         ]);
       }),
     );

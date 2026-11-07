@@ -25,12 +25,17 @@ class BookingPriceV2 extends ConsumerWidget {
   final int dayCount;
   final List<SelectedExtra>? pricedExtras;
 
+  /// Card margin (null = the form's 16 / 12 inset; the payment page draws
+  /// it inside its own gutter → zero).
+  final EdgeInsetsGeometry? margin;
+
   const BookingPriceV2({
     super.key,
     required this.draft,
     required this.bd,
     required this.dayCount,
     this.pricedExtras,
+    this.margin,
   });
 
   @override
@@ -59,6 +64,7 @@ class BookingPriceV2 extends ConsumerWidget {
         );
     final dc = dayCount;
     return BkCard(
+      margin: margin ?? const EdgeInsets.fromLTRB(16, 12, 16, 0),
       icon: MgIcons.receipt,
       title: tr.priceSummary,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

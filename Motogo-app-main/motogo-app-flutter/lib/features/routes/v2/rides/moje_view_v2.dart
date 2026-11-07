@@ -107,7 +107,6 @@ class MojeViewV2 extends StatefulWidget {
 
 class _MojeViewV2State extends State<MojeViewV2> {
   final MgShellChrome _chrome = MgShellChrome();
-  bool _saved = false;
   RideFilter _filter = RideFilter.all;
   bool _hint = false;
   int _dir = 0; // směr posledního přepnutí podzáložky (animace obsahu)
@@ -122,16 +121,18 @@ class _MojeViewV2State extends State<MojeViewV2> {
   }
 
   MojeSub get _sub => switch (widget.tab) {
-        0 => _saved ? MojeSub.saved : MojeSub.rides,
+        // The old first tab = ONE page: rides AND the saved routes.
+        0 => MojeSub.rides,
         1 => MojeSub.places,
         _ => MojeSub.history,
       };
 
   void _select(MojeSub s, [RideFilter? f]) {
+    // "Uložené trasy" live on the first tab's page (under the rides).
+    if (s == MojeSub.saved) s = MojeSub.rides;
     final d = MojeSub.values.indexOf(s) - MojeSub.values.indexOf(_sub);
     setState(() {
       _dir = d.sign;
-      if (s == MojeSub.rides || s == MojeSub.saved) _saved = s == MojeSub.saved;
       if (f != null) _filter = f;
     });
     widget.onTab(switch (s) {
@@ -203,12 +204,8 @@ class _MojeViewV2State extends State<MojeViewV2> {
         MojeSubChipsV2(
           value: sub,
           onChanged: _select,
-          counts: {
-            MojeSub.rides: w.loggedIn && w.rides.hasValue ? groupRides(rides).length : null,
-            MojeSub.saved: w.loggedIn ? w.routes.valueOrNull?.length : null,
-            MojeSub.places: w.loggedIn ? w.places.valueOrNull?.length : null,
-            MojeSub.history: historyItems.length,
-          },
+          // The old tab buttons: labels only.
+          counts: const {},
         ),
         const SizedBox(height: 12),
       ],

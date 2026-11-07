@@ -13,7 +13,6 @@ import 'v2/chrome/mg_chrome_metrics.dart' show MgSizeReporter;
 import 'v2/chrome/mg_status_strip.dart';
 import 'widgets/moto_fx.dart';
 import '../features/documents/docs_gate_provider.dart';
-import '../features/home/v2/home_state.dart' show HomeTicket, deriveHomeState;
 import '../features/shell/v2/strip_stack_v2.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
@@ -250,11 +249,8 @@ class ShellFabLayer extends ConsumerWidget {
 
 /// v2 status strips in the existing priority (V22 T4): SOS > platba >
 /// doklady > trasa > košík — same visibility rules and closures as the
-/// pills above. On Domů only the payable S2 strip is left out: the Home
-/// ticket S2 carries BOTH its actions (pay + "Zrušit nedokončenou
-/// rezervaci"). The SOS (S1) and docs (S3) strips and the "Platba se
-/// ověřuje" strip stay — their ✕ / result screen exist nowhere else on Domů
-/// (owner rule "nothing harder to reach" over v1 C2).
+/// pills above — on every screen, Domů included (as the old shell: pay and
+/// cancel of an unpaid booking live on its strip only).
 List<ShellStripEntry> _v2Strips(BuildContext context, WidgetRef ref, String location) {
   final onPaymentScreen = ref.watch(paymentScreenActiveProvider) ||
       location == Routes.payment ||
@@ -299,20 +295,12 @@ List<ShellStripEntry> _v2Strips(BuildContext context, WidgetRef ref, String loca
   final sos = showSosFabZone
       ? pendingSos.when(data: (s) => s, loading: () => null, error: (_, __) => null)
       : null;
-  final hero = location == Routes.home
-      ? deriveHomeState(
-          reservations: reservations.valueOrNull ?? const <Reservation>[],
-          sos: pendingSos.valueOrNull,
-          pending: pendingBooking.valueOrNull,
-          docsComplete: ref.watch(docsFabStatusProvider).valueOrNull?.isComplete,
-        ).ticket
-      : null;
   final tr = t(context);
   return [
     if (sos != null)
       ShellStripEntry('sos', ({int more = 0, VoidCallback? onMore, VoidCallback? beforeTap}) =>
           ShellSosFab(incident: sos, v2: true, more: more, onMore: onMore, beforeTap: beforeTap)),
-    if (booking != null && !(hero == HomeTicket.s2 && !booking.verifying))
+    if (booking != null)
       ShellStripEntry('pay', ({int more = 0, VoidCallback? onMore, VoidCallback? beforeTap}) =>
           ShellBookingFab(booking: booking, v2: true, more: more, onMore: onMore, beforeTap: beforeTap)),
     if (showDocsFab)

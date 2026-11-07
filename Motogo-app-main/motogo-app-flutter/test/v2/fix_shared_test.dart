@@ -299,11 +299,12 @@ void main() {
     });
   });
 
-  test('AI button hidden over the old e-shop / voucher CTAs', () {
+  test('AI button hidden over the old e-shop / voucher CTAs (Domů only, as the old app)', () {
     expect(v2FabHiddenFor('/shop'), isTrue);
     expect(v2FabHiddenFor('/shop/abc'), isTrue);
     expect(v2FabHiddenFor('/voucher'), isTrue);
-    expect(v2FabHiddenFor('/profile'), isFalse);
+    expect(v2FabHiddenFor('/profile'), isTrue);
+    expect(v2FabHiddenFor('/'), isFalse);
   });
 
   test('Pobočky chrome from CMS defaults is never Czech in another language', () {

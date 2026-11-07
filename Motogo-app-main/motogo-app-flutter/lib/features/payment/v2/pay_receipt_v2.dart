@@ -84,9 +84,44 @@ class PayReceiptV2 extends StatelessWidget {
   }
 }
 
-/// "Rozpis ▴" of a new booking: the booking form's own v2 receipt (same
-/// rows and conditions as the old `PriceSummaryCard`) in a light sheet;
-/// a bundled e-shop add-on is listed under it with the total incl. it.
+/// The price card of a new booking, INLINE as the old `PriceSummaryCard`:
+/// the booking form's own v2 receipt (same rows and conditions); a bundled
+/// e-shop add-on is listed under it with the total incl. it.
+class PayBreakdownV2 extends StatelessWidget {
+  final BookingDraft draft;
+  final PriceBreakdown breakdown;
+  final List<SelectedExtra> extras;
+  final List<BookingUpsellItem> upsell;
+  const PayBreakdownV2({
+    super.key,
+    required this.draft,
+    required this.breakdown,
+    required this.extras,
+    required this.upsell,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    final upsellTotal = upsell.fold<double>(0, (s, i) => s + i.price);
+    return Column(key: const ValueKey('pay-v2-breakdown'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      BookingPriceV2(draft: draft, bd: breakdown, dayCount: breakdown.days, pricedExtras: extras, margin: EdgeInsets.zero),
+      if (upsell.isNotEmpty) ...[
+        const SizedBox(height: MgSpace.s12),
+        PayCardV2(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (final u in upsell) PayRowV2(label: u.name, value: '+${Money.czk(u.price)}'),
+            const Divider(height: 12, color: MgColors.line),
+            PayRowV2(label: tr.tr('totalLabel'), value: Money.czk(breakdown.total + upsellTotal)),
+          ]),
+        ),
+      ],
+    ]);
+  }
+}
+
+/// "Rozpis ▴" sheet variant of [PayBreakdownV2] (kept for callers outside
+/// the payment page).
 Future<void> showPayBreakdownV2(
   BuildContext context, {
   required BookingDraft draft,

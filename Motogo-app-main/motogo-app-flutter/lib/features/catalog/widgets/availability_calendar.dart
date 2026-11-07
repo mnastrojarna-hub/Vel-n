@@ -5,7 +5,6 @@ import '../moto_model.dart';
 import '../../../core/date_days.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/motion/mg_haptic.dart';
-import '../../../core/v2/widgets/mg_toast.dart';
 import '../v2/availability_calendar_v2.dart';
 
 /// Interactive availability calendar — mirrors genCal() + pickS/pickD
@@ -117,11 +116,7 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   void _onDayTap(DateTime date) {
     if (widget.readOnly) return;
     final v2 = MgV2.on(context);
-    if (_isPast(date) || _isOccupied(date)) {
-      // v2: a busy day says why it does not react (toast = info only).
-      if (v2 && !_isPast(date)) showMgToast(context, t(context).tr('v2UxCbBusyDay'));
-      return;
-    }
+    if (_isPast(date) || _isOccupied(date)) return;
 
     widget.onDateTap?.call(date);
 

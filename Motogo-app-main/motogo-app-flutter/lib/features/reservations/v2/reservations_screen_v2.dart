@@ -18,7 +18,6 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
-import '../reservation_models.dart';
 import '../booking_restore.dart' show restoreAndPay;
 import '../reservation_provider.dart';
 import 'page_swipe_v2.dart';
@@ -111,11 +110,6 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
     final src = ref.watch(reservationsProvider);
     final stale = src.hasError && src.hasValue;
     void retry() => ref.invalidate(reservationsProvider);
-    final all = src.valueOrNull ?? const <Reservation>[];
-    final counts = <String, int>{
-      for (final k in kResFilterKeys)
-        k: k == 'all' ? all.length : all.where((r) => r.displayStatus.name == k).length,
-    };
     final pending = ref.watch(pendingBookingFabProvider).valueOrNull;
 
     // Obsah filtru je přepínatelný tahem do stran (board „Přejetím prstem
@@ -139,7 +133,9 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
         if (reservations.isEmpty) {
           return swipeable(Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: all.isEmpty ? const _EmptyAll() : _EmptyFilter(onShowAll: () => _setFilter('all')),
+            // The old list: ANY empty result (all or filtered) = the same
+            // "Žádné rezervace" block with REZERVOVAT.
+            child: const _EmptyAll(),
           ));
         }
         // Jen jedna karta s tmavým pruhem a rank CTA (ta, která čeká na akci).
@@ -219,7 +215,8 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: ResFilterTabsV2(
               value: filter,
-              counts: src.hasValue ? counts : null,
+              // Labels only, as the old filter chips (no counts).
+              counts: null,
               onSelect: _setFilter,
               onStep: _swipeFilter,
               dragProgress: _drag,
@@ -234,7 +231,9 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
   }
 }
 
-/// No reservation at all: the one dark rank block with the looping CTA.
+/// Empty list (no reservation at all, or none in the chosen filter — the
+/// old screen showed one block for both): the dark rank block with the old
+/// texts and the looping REZERVOVAT (→ Motorky, same target).
 class _EmptyAll extends StatelessWidget {
   const _EmptyAll();
 
@@ -255,53 +254,14 @@ class _EmptyAll extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Text(tr.tr('v2ResEmptyTitle'),
+        Text(tr.tr('noReservations'),
             textAlign: TextAlign.center, style: MgType.h3.copyWith(color: MgColors.onDark)),
         const SizedBox(height: 8),
-        Text(tr.tr('v2ResEmptyBody'),
+        Text(tr.tr('noReservationsDesc'),
             textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.onDarkLead)),
         const SizedBox(height: 20),
         MgCta(label: tr.tr('noResBookCta'), onTap: () => context.go(Routes.search), loop: true, arrow: true),
       ]),
-    );
-  }
-}
-
-/// The chosen filter has nothing, other filters do → one tap back to "Vše".
-class _EmptyFilter extends StatelessWidget {
-  final VoidCallback onShowAll;
-  const _EmptyFilter({required this.onShowAll});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    return Semantics(
-      button: true,
-      label: '${tr.tr('v2ResFilterEmpty')} ${tr.tr('v2ResShowAll')}',
-      excludeSemantics: true,
-      child: MgPress(
-        onTap: onShowAll,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 120),
-          padding: const EdgeInsets.all(16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: MgColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: MgColors.line, width: 1.5),
-          ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const MgIcon(MgIcons.filter, size: 24, color: MgColors.meta),
-            const SizedBox(height: 8),
-            Text(tr.tr('v2ResFilterEmpty'),
-                textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.lead)),
-            const SizedBox(height: 4),
-            Text(tr.tr('v2ResShowAll'),
-                textAlign: TextAlign.center,
-                style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.link)),
-          ]),
-        ),
-      ),
     );
   }
 }

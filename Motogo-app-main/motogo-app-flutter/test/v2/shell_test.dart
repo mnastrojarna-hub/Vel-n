@@ -114,14 +114,11 @@ void main() {
     expect(v2TabIndexFor('/places-map'), 3);
     expect(v2TabIndexFor('/messages?n=1'), 4);
     expect(v2TabIndexFor('/ai-agent'), 4);
-    expect(v2NavHiddenFor('/moto/abc'), isTrue);
-    expect(v2NavHiddenFor('/reservations/x/edit'), isTrue);
-    expect(v2NavHiddenFor('/reservations/x'), isFalse);
-    expect(v2NavHiddenFor('/messages/abc'), isTrue);
-    expect(v2NavHiddenFor('/messages'), isFalse);
+    // AI button on Domů only (old app); the nav is never hidden by route.
+    expect(v2FabHiddenFor('/'), isFalse);
     expect(v2FabHiddenFor('/routes'), isTrue);
     expect(v2FabHiddenFor('/routes/abc'), isTrue);
-    expect(v2FabHiddenFor('/reservations'), isFalse);
+    expect(v2FabHiddenFor('/reservations'), isTrue);
     expect(v2FabHiddenFor('/sos'), isTrue);
   });
 
@@ -149,13 +146,13 @@ void main() {
     expect(container.read(v2TabReselectProvider).$1, 1);
   });
 
-  testWidgets('pushed focused flow hides the nav (location from the delegate)', (tester) async {
+  testWidgets('pushed bike detail keeps the nav, as the old shell (location from the delegate)', (tester) async {
     final router = await _pump(tester, '/search');
     unawaited(router.push('/moto/abc'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('MOTO abc'), findsOneWidget);
-    expect(_navShown(tester), isFalse);
+    expect(_navShown(tester), isTrue);
     router.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -164,8 +161,7 @@ void main() {
 
   testWidgets('pending booking → v2 payment strip + Rezervace dot; same countdown text', (tester) async {
     final pending = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now());
-    // On Domů the Home ticket S2 carries the payment (SH-06, v1 C2) → the
-    // strip shows on the other screens.
+    // The strip shows on every screen (old shell), Domů included.
     await _pump(tester, '/search', pending: pending, unread: 2);
     expect(find.byType(MgStatusStrip), findsOneWidget);
     expect(find.text('Dokončit rezervaci'), findsOneWidget);
@@ -174,20 +170,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('strips: 8 px above the nav; nav hidden without a dock → above the bottom safe area', (tester) async {
+  testWidgets('strips: 8 px above the nav, also on a pushed bike detail (nav stays)', (tester) async {
     final pending = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now());
     final router = await _pump(tester, '/search', pending: pending, bottomInset: 34);
     // The strip slides in once the pending booking arrives (sticky 300).
     await tester.pump(const Duration(milliseconds: 400));
     final navTop = tester.getTopLeft(find.byType(V2NavBar)).dy;
     expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy, moreOrLessEquals(navTop - 8));
-    // Focused flow without a dock (the test page has none): the body reaches
-    // the screen edge, the strip must clear the 34 px home indicator.
     unawaited(router.push('/moto/abc'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(_navShown(tester), isFalse);
-    expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy, moreOrLessEquals(780 - 34 - 8));
+    expect(_navShown(tester), isTrue);
+    expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy,
+        moreOrLessEquals(tester.getTopLeft(find.byType(V2NavBar)).dy - 8));
     expect(tester.takeException(), isNull);
   });
 

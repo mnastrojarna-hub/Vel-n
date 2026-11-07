@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
-import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_format.dart';
@@ -233,49 +232,17 @@ class _GlassChip extends StatelessWidget {
       );
 }
 
-/// Description with 3 lines + Více / Méně (display only).
-class RouteDescV2 extends StatefulWidget {
+/// The FULL description, always open as on the old route detail (owner
+/// 2026-11-07 "jen upgrade vzhledu"). Display only.
+class RouteDescV2 extends StatelessWidget {
   final String text;
   const RouteDescV2(this.text, {super.key});
 
   @override
-  State<RouteDescV2> createState() => _RouteDescV2State();
-}
-
-class _RouteDescV2State extends State<RouteDescV2> {
-  bool _open = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final style = MgType.body.copyWith(color: MgColors.body2);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-      child: LayoutBuilder(builder: (context, c) {
-        final tp = TextPainter(
-          text: TextSpan(text: widget.text, style: DefaultTextStyle.of(context).style.merge(style)),
-          maxLines: 3,
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-        )..layout(maxWidth: c.maxWidth);
-        final long = tp.didExceedMaxLines;
-        tp.dispose();
-        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          MgAnimatedSize(
-            duration: MgMotion.sheet,
-            alignment: Alignment.topCenter,
-            child: Text(widget.text, maxLines: _open ? null : 3, overflow: _open ? null : TextOverflow.ellipsis, style: style),
-          ),
-          if (long)
-            MgBtnText(
-              label: tr.tr(_open ? 'v2RtLess' : 'v2RtMore'),
-              icon: _open ? MgIcons.chevronUp : MgIcons.chevronDown,
-              onTap: () => setState(() => _open = !_open),
-            ),
-        ]);
-      }),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+        child: Text(text, key: const ValueKey('rt-desc'), style: MgType.body.copyWith(color: MgColors.body2)),
+      );
 }
 
 /// Card of "Místa na trase" (photo, number, name, 2-line description).

@@ -5,18 +5,17 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
-import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
-import '../../reservations/reservation_provider.dart' show reservationsProvider;
 import '../sos_provider.dart';
 import 'sos_header_v2.dart';
 import 'sos_widgets_v2.dart';
 
 /// v2 SOS start (SOS board "Start · výběr problému"): dark header without
-/// aura (active booking bike + dates in the eyebrow), then in THIS order:
-/// active incident (T3 amber), the emergency numbers 112 / 155 / 158, the
-/// problem rows, the AI agent last; nonstop dock. Same actions as before.
+/// aura, then in the OLD screen's order (owner 2026-11-07 "jen upgrade
+/// vzhledu"): active incident (T3 amber) / status error, the AI service
+/// agent, the emergency numbers 112 / 155 / 158, the problem rows; nonstop
+/// dock. Same actions as before.
 class SosStartViewV2 extends ConsumerWidget {
   final AsyncValue<SosIncident?> active;
   final Widget? statusError;
@@ -43,13 +42,6 @@ class SosStartViewV2 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
-    String? eyebrow;
-    for (final r in ref.watch(reservationsProvider).valueOrNull ?? const []) {
-      if (r.sosAllowed) {
-        eyebrow = '${r.motoName} · ${mgDayShort(r.startDate, tr.lang)}\u00A0– ${mgDayShort(r.endDate, tr.lang)}';
-        break;
-      }
-    }
     final inc = active.valueOrNull;
     return SosPageV2(
       onBack: onBack,
@@ -57,13 +49,13 @@ class SosStartViewV2 extends ConsumerWidget {
         onBack: onBack,
         icon: MgIcons.alert,
         tint: SosTint.red,
-        eyebrow: eyebrow,
         title: tr.sosTitle,
         sub: tr.tr('v2UxAsmSosPick'),
       ),
       sections: [
         if (inc != null && inc.isActive) SosActiveBannerV2(incident: inc, onTap: onOpenIncident),
         if (statusError != null) statusError!,
+        _AiCard(onTap: onAi),
         _Emergency(onDial: onDial),
         SosRowV2(
           icon: MgIcons.crash,
@@ -86,7 +78,6 @@ class SosStartViewV2 extends ConsumerWidget {
           sub: tr.tr('sendGpsToMotoGo'),
           onTap: onShareLocation,
         ),
-        _AiCard(onTap: onAi),
       ],
     );
   }

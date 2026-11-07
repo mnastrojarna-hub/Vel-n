@@ -1,7 +1,6 @@
 // fix:home r2 — a range given for "today" is dropped once that day is in
-// the past (midnight / resume, no restart); the header never repeats the
-// unread message ("MotoGo ti píše" shows it) and keeps the S0 idle line
-// only without a Velín banner; the funnel eyebrow stays labelled beside the
+// the past (midnight / resume, no restart); the header is the old one (no
+// concierge / unread note — lookonly-fix:core); the funnel eyebrow stays labelled beside the
 // pager when it fits; "Všechny trasy ›" moves under the title instead of
 // splitting its words; the calculator disc and the funnel calendar button
 // are CTA zones (the AI button yields instead of peeking over them).
@@ -80,26 +79,20 @@ void main() {
     await _end(t);
   });
 
-  testWidgets('header: no repeated unread message, idle line only without a banner', (t) async {
+  testWidgets('header = the old one ("jen vzhled"): no concierge / unread note, pilot + search, banner last', (t) async {
     final msg = _s('cs', 'v2HomeNoteMsg').split('{title}').first.trim();
     final idle = _s('cs', 'v2HomeNoteIdle');
-    await pumpV2(t, const HomeScreenV2(), overrides: homeOverrides(funnel: kMotos.take(2).toList()));
-    await _frames(t);
-    expect(find.textContaining(msg), findsNothing);
-    expect(find.text(idle), findsNothing, reason: 'S0 with the Velín banner: no idle line');
-    await _end(t);
-
-    await pumpV2(t, const HomeScreenV2(), overrides: homeOverrides(funnel: kMotos.take(2).toList(), banner: false));
-    await _frames(t);
-    expect(find.text(idle), findsOneWidget);
-    expect(find.textContaining(msg), findsNothing);
-    await _end(t);
-
-    await pumpV2(t, const HomeScreenV2(), overrides: homeOverrides(reservations: [res('b4', status: 'reserved', from: 3, to: 5)]));
-    await _frames(t);
-    expect(find.textContaining(msg), findsNothing, reason: 'S4: the message row shows it, not the header');
-    expect(t.takeException(), isNull);
-    await _end(t);
+    for (final banner in [true, false]) {
+      await pumpV2(t, const HomeScreenV2(), overrides: homeOverrides(funnel: kMotos.take(2).toList(), banner: banner));
+      await _frames(t);
+      expect(find.textContaining(msg), findsNothing);
+      expect(find.text(idle), findsNothing);
+      expect(find.text('PILOT: Jan'), findsOneWidget);
+      expect(find.byKey(const ValueKey('home-search')), findsOneWidget);
+      expect(find.textContaining('zavřeno'), banner ? findsWidgets : findsNothing);
+      expect(t.takeException(), isNull);
+      await _end(t);
+    }
   });
 
   for (final (w, full) in [(326.0, true), (250.0, false)]) {

@@ -13,21 +13,23 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 
 /// Compact dark rank header of the v2 booking form (board `.rk-hero.bh`):
 /// back (dark style, the form's EXISTING back action), title "Rezervace",
-/// the bike, and the 3-step progress (`.stp`). The step state is derived
-/// only from what the form already knows (dates, validation, sizes) —
-/// it decides nothing. No countdown chip (the form has none today).
+/// the bike and — only where a caller passes [currentStep] — the 3-step
+/// progress (`.stp`). The booking form passes none: its old header had
+/// only the title and the bike (owner 2026-11-07 "jen upgrade vzhledu").
+/// No countdown chip (the form has none today).
 class BookingHeaderV2 extends StatelessWidget {
   final String bikeName;
   final VoidCallback onBack;
 
-  /// 0 = Termín a předání, 1 = Výbava a velikosti, 2 = Kontrola a platba.
-  final int currentStep;
+  /// 0 = Termín a předání, 1 = Výbava a velikosti, 2 = Kontrola a platba;
+  /// null = no step bar.
+  final int? currentStep;
 
   const BookingHeaderV2({
     super.key,
     required this.bikeName,
     required this.onBack,
-    required this.currentStep,
+    this.currentStep,
   });
 
   @override
@@ -56,8 +58,10 @@ class BookingHeaderV2 extends StatelessWidget {
           const SizedBox(width: 8),
           const MgLogoRing(size: 48),
         ]),
-        const SizedBox(height: 12),
-        BookingStepsV2(current: currentStep),
+        if (currentStep != null) ...[
+          const SizedBox(height: 12),
+          BookingStepsV2(current: currentStep!),
+        ],
       ]),
     );
   }

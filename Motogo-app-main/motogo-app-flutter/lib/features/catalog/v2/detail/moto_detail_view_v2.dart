@@ -13,7 +13,6 @@ import '../catalog_text.dart';
 import 'detail_dock_v2.dart';
 import 'detail_hero_v2.dart';
 import 'detail_more_v2.dart';
-import 'detail_specs_v2.dart';
 import 'detail_trip_card_v2.dart';
 
 /// v2 view of one bike detail page (PLAN §2.2.2, technique S): a DUMB view
@@ -111,16 +110,6 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
     return true;
   }
 
-  /// Dock "Rozpis": open the existing breakdown and bring the total up.
-  void _showBreakdown() {
-    _breakdown.value = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final c = _totalKey.currentContext;
-      if (c == null || !mounted) return;
-      MgPinnedBack.reveal(c, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
-    });
-  }
-
   /// Dock "VYBRAT TERMÍN": open the calendar, then bring "Tvoje jízda" up.
   void _pickDates() {
     widget.onPickDates();
@@ -178,8 +167,10 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
                 decoration: BoxDecoration(color: MgColors.grabberLight, borderRadius: BorderRadius.circular(3)),
               ),
             ),
-            DetailKeyTilesV2(moto: moto),
-            const SizedBox(height: 16),
+            // The old detail's order: video → branch → description →
+            // parameters → prices → calendar (+ total) → manual.
+            DetailMoreV2(moto: moto, branchInfo: w.branchInfo),
+            const SizedBox(height: 20),
             ValueListenableBuilder<bool>(
               valueListenable: _breakdown,
               builder: (_, __, ___) => DetailTripCardV2(
@@ -203,7 +194,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
               bookedAsync: w.bookedAsync,
             ),
             ),
-            DetailMoreV2(moto: moto, branchInfo: w.branchInfo),
+            DetailManualSectionV2(moto: moto),
           ]),
         ),
       ],
@@ -216,7 +207,6 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
         onPickDates: _pickDates,
         onReserve: w.onReserve,
         busy: w.busy,
-        onBreakdown: !w.busy && q != null && q.total > 0 ? _showBreakdown : null,
       ),
     );
   }

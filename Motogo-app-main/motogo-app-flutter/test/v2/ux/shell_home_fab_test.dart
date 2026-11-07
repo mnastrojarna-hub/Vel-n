@@ -1,5 +1,6 @@
-// SH-12: the AI disc never sits on the ½ offer box (tap zone) — real
-// AppShellV2 + HomeScreenV2 at 360×780 cs and 320×690 uk, at rest.
+// SH-12: the AI disc never sits on the funnel CTA (CTA zone; the ½ offer
+// box left Domů with the "jen vzhled" restore) — real AppShellV2 +
+// HomeScreenV2 at 360×780 cs and 320×690 uk, at rest.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,7 +16,8 @@ import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
-import 'package:motogo_app/core/v2/widgets/mg_surfaces.dart';
+import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
+import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 import 'package:motogo_app/features/messages/messages_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -83,11 +85,11 @@ void main() {
   setUp(MgMotion.resetSession);
 
   for (final (lang, size) in [('cs', const Size(360, 780)), ('uk', const Size(320, 690))]) {
-    testWidgets('SH-12 AI disc never on the offer box · $lang ${size.width.toInt()}', (tester) async {
+    testWidgets('SH-12 AI disc never on the funnel CTA · $lang ${size.width.toInt()}', (tester) async {
       await _pump(tester, lang, size);
-      final offer = find.byType(MgTintFeature);
+      final offer = find.descendant(of: find.byType(HomeFunnelV2), matching: find.byType(MgCta));
       expect(offer, findsOneWidget);
-      // Scroll the offer through the viewport; at every rest stop the disc
+      // Scroll the CTA through the viewport; at every rest stop the disc
       // must not cover its text.
       final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
       for (var y = 0.0; y <= 600; y += 150) {
@@ -100,7 +102,7 @@ void main() {
         final fade = find.ancestor(of: disc.first, matching: find.byType(AnimatedOpacity));
         if (tester.widget<AnimatedOpacity>(fade.first).opacity == 0) continue;
         final d = tester.getRect(disc.first).deflate(4);
-        // The painted glyphs of every offer text line (not the text boxes).
+        // The painted glyphs of every CTA text line (not the text boxes).
         for (final e in find.descendant(of: offer, matching: find.byType(RichText)).evaluate()) {
           final p = e.renderObject! as RenderParagraph;
           final text = p.text.toPlainText();

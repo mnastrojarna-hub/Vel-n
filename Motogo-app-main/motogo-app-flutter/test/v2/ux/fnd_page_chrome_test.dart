@@ -113,13 +113,9 @@ void main() {
   });
 
   group('shell nav slot', () {
-    test('nav STAYS on SOS, cart, voucher, product detail (old shell parity); hidden on focused flows', () {
-      for (final p in ['/sos', '/sos/theft', '/sos/done', '/cart', '/voucher', '/shop/abc', '/shop', '/']) {
-        expect(v2NavHiddenFor(p), isFalse, reason: p);
+    test('AI button only on Domů (old app); the nav slot never depends on the route', () {
+      for (final p in ['/sos', '/sos/theft', '/sos/done', '/cart', '/voucher', '/shop/abc', '/shop', '/', '/sos/payment', '/checkout', '/booking', '/payment']) {
         expect(v2FabHiddenFor(p), p == '/' ? isFalse : isTrue, reason: p);
-      }
-      for (final p in ['/sos/payment', '/checkout', '/booking', '/payment']) {
-        expect(v2NavHiddenFor(p), isTrue, reason: p);
       }
     });
 
@@ -137,25 +133,14 @@ void main() {
     }
 
     for (final reduced in [false, true]) {
-      testWidgets('/checkout collapses the nav slot, / brings it back (reduced=$reduced)', (tester) async {
+      testWidgets('/checkout keeps the nav slot, as the old shell (reduced=$reduced)', (tester) async {
         final router = await pumpShellV2(tester, '/', reducedMotion: reduced, paths: [...kShellTestPaths, '/checkout']);
         final slot = find.ancestor(of: find.byType(V2NavBar), matching: find.byType(MgStickySlide));
         expect(tester.getSize(slot).height, greaterThan(60));
         router.go('/checkout');
         await tester.pump();
-        if (reduced) {
-          await tester.pump();
-          expect(tester.getSize(slot).height, 0);
-        } else {
-          await tester.pump(const Duration(milliseconds: 150));
-          expect(tester.getSize(slot).height, inExclusiveRange(0, 64));
-          await tester.pump(const Duration(milliseconds: 200));
-          expect(tester.getSize(slot).height, 0);
-        }
-        expect(find.text('PAGE /checkout'), findsOneWidget);
-        router.go('/');
-        await tester.pump();
         await tester.pump(const Duration(milliseconds: 350));
+        expect(find.text('PAGE /checkout'), findsOneWidget);
         expect(tester.getSize(slot).height, greaterThan(60));
         expect(tester.widget<MgStickySlide>(slot).visible, isTrue);
       });

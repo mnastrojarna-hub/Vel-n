@@ -69,9 +69,22 @@ class ShopViewV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final hero = MgDarkHero(
+    // The old voucher banner: the gift-voucher picture on top and the WHOLE
+    // banner opens /voucher (the CTA inside is the same action).
+    final hero = MgPress(
+      key: const ValueKey('shop-v2-voucher-banner'),
+      onTap: onVoucher,
+      child: MgDarkHero(
       rankAura: true,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      padding: EdgeInsets.zero,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(MgRadius.hero)),
+          child: Image.asset('assets/darkovy-poukaz.webp', fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: MgSpace.heroH, vertical: MgSpace.heroV),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const MgIconTileDark(MgIcons.gift),
         const SizedBox(height: MgSpace.s12),
         MgWordFit(minScale: 0.75, child: Text(tr.tr('giftVoucher'), style: MgType.h2.copyWith(color: MgColors.onDark))),
@@ -79,7 +92,10 @@ class ShopViewV2 extends StatelessWidget {
         Text('${tr.tr('voucherDesc')} · ${tr.tr('voucherType')}', style: MgType.body.copyWith(color: MgColors.onDarkLead)),
         const SizedBox(height: MgSpace.s16),
         MgCta(key: const ValueKey('shop-v2-voucher'), label: tr.tr('buyVoucher'), onTap: onVoucher, size: MgCtaSize.md56),
+          ]),
+        ),
       ]),
+      ),
     );
     final Widget grid = products.when(
       data: (list) {

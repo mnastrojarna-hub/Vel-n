@@ -1,9 +1,8 @@
 // fix:r2:core — (1) photo viewer: a pinch with one finger held still zooms
 // and never closes / pages; a swipe-down under way springs back when a
-// second finger lands; one finger works again after. (2) Domů "Další
-// rezervace": the booking line opens that booking (as the old Home card),
-// "Zobrazit vše" opens the tab; with an unpaid ticket both paid bookings
-// stay one tap. (3) Map tiles failing: v2 strip under the header / HUD,
+// second finger lands; one finger works again after. (2) Domů bookings:
+// each card opens that booking (as the old Home card), "VŠE" opens the
+// tab; with an unpaid booking both paid bookings stay one tap. (3) Map tiles failing: v2 strip under the header / HUD,
 // never under it; same retry; flag off = the old chip unchanged.
 import 'dart:io';
 
@@ -21,8 +20,9 @@ import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/core/v2/widgets/mg_back_v2.dart';
 import 'package:motogo_app/core/v2/widgets/mg_map_tile_strip.dart';
 import 'package:motogo_app/core/v2/widgets/mg_photo_viewer.dart';
+import 'package:motogo_app/core/v2/widgets/mg_section.dart';
 import 'package:motogo_app/core/widgets/map_tile_errors.dart';
-import 'package:motogo_app/features/home/v2/home_message_row_v2.dart';
+import 'package:motogo_app/features/home/v2/home_bookings_v2.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 import 'package:motogo_app/features/home/widgets/home_reservations_section.dart';
 import 'package:motogo_app/features/routes/places_map_screen.dart';
@@ -209,29 +209,26 @@ void main() {
     }
   });
 
-  group('Domů "Další rezervace" — each booking one tap (old Home parity)', () {
-    testWidgets('s6: booking line → its detail; "Zobrazit vše" → Rezervace tab', (t) async {
+  group('Domů bookings — each booking one tap (old Home cards, lookonly-fix:core)', () {
+    testWidgets('s6: second card → its detail; "VŠE" → Rezervace tab', (t) async {
       final o = homeCases()['s6']!();
       await _routerApp(t, const HomeScreenV2(), o);
-      final row = find.byType(HomeMoreBookingsRowV2);
-      await t.ensureVisible(row);
+      final cards = find.byType(HomeBookingCardV2);
+      expect(cards, findsNWidgets(2));
+      final r = t.widget<HomeBookingCardV2>(cards.at(1)).reservation;
+      await t.ensureVisible(cards.at(1));
       await t.pump(const Duration(milliseconds: 600));
-      final w = t.widget<HomeMoreBookingsRowV2>(row);
-      expect(w.next, isNotNull);
-      expect(w.second, isNull);
-      final id = w.next!.id;
-      await t.tap(find.descendant(of: row, matching: find.textContaining(w.next!.dateRange)));
+      await t.tap(cards.at(1));
       await t.pump();
       await t.pump(const Duration(seconds: 1));
-      expect(find.text('PAGE $id'), findsOneWidget);
+      expect(find.text('PAGE ${r.id}'), findsOneWidget);
     });
 
-    testWidgets('s6: "Zobrazit vše" → Rezervace tab', (t) async {
+    testWidgets('s6: "VŠE" → Rezervace tab (44 px hit)', (t) async {
       await _routerApp(t, const HomeScreenV2(), homeCases()['s6']!());
-      final row = find.byType(HomeMoreBookingsRowV2);
-      await t.ensureVisible(row);
+      final all = find.ancestor(of: find.text('VŠE'), matching: find.byType(MgTextLink));
+      await t.ensureVisible(all);
       await t.pump(const Duration(milliseconds: 600));
-      final all = find.byKey(const ValueKey('home-more-all'));
       expect(t.getSize(all).height, greaterThanOrEqualTo(44));
       await t.tap(all);
       await t.pump();
@@ -239,24 +236,19 @@ void main() {
       expect(find.text('TAB /reservations'), findsOneWidget);
     });
 
-    testWidgets('s2 (unpaid ticket) + 2 paid → two lines, each opens its booking', (t) async {
+    testWidgets('s2 (unpaid) + 2 paid → the 2 paid cards, each opens its booking; no unpaid card', (t) async {
       for (final second in [false, true]) {
         await t.pumpWidget(const SizedBox());
         await _routerApp(t, const HomeScreenV2(), homeCases()['s2-paid2']!());
-        final row = find.byType(HomeMoreBookingsRowV2);
-        await t.ensureVisible(row);
+        final cards = find.byType(HomeBookingCardV2);
+        expect(cards, findsNWidgets(2));
+        final f = cards.at(second ? 1 : 0);
+        final r = t.widget<HomeBookingCardV2>(f).reservation;
+        expect(r.paymentStatus, 'paid');
+        await t.ensureVisible(f);
         await t.pump(const Duration(milliseconds: 600));
-        final w = t.widget<HomeMoreBookingsRowV2>(row);
-        expect(w.count, 2);
-        expect(w.second, isNotNull);
-        final r = second ? w.second! : w.next!;
-        if (second) {
-          final f = find.byKey(const ValueKey('home-more-second'));
-          expect(t.getSize(f).height, greaterThanOrEqualTo(44));
-          await t.tap(f);
-        } else {
-          await t.tap(find.descendant(of: row, matching: find.textContaining(r.dateRange)));
-        }
+        expect(t.getSize(f).height, greaterThanOrEqualTo(44));
+        await t.tap(f);
         await t.pump();
         await t.pump(const Duration(seconds: 1));
         expect(find.text('PAGE ${r.id}'), findsOneWidget, reason: 'second=$second');

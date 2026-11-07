@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
@@ -54,12 +53,11 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
     }
     ref.read(cartFabDismissedProvider.notifier).state = false;
     if (v2) {
+      // Stejný toast jako dřív (bez zkratky do košíku), jen v2 vzhled.
       showMgToastRich(context,
           title: t(context).tr('added'),
           message: '$_qty× $cartName',
-          icon: MgIcons.checkCircle,
-          actionLabel: t(context).tr('v2UxPsToCart'),
-          onAction: () => context.push(Routes.cart));
+          icon: MgIcons.checkCircle);
       return;
     }
     showMotoGoToast(context, icon: '✓', title: t(context).tr('added'), message: '$_qty× $cartName');

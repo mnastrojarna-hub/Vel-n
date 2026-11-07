@@ -116,12 +116,6 @@ class ProfileGroupsV2 extends ConsumerWidget {
         child: PfGroup(rows: [
           if (sos) PfRow(icon: MgIcons.sos, title: tr.sosTitle, tone: PfRowTone.sos, onTap: () => context.push(Routes.sos)),
           PfRow(
-            icon: MgIcons.ai,
-            title: tr.tr('aiServiceAgent'),
-            value: tr.tr('v2PfAiSub'),
-            onTap: () => context.push(Routes.aiAgent),
-          ),
-          PfRow(
             icon: MgIcons.help,
             title: tr.tr('helpFaq'),
             value: 'motogo24.cz',
