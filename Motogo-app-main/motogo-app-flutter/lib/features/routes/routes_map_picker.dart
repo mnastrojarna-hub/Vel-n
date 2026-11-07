@@ -332,6 +332,7 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
     return RtMapCardDataV2(
       name: r.nameFor(widget.lang),
       meta: busy ? tr.tr('routesMapComputing') : (failed ? tr.tr('routesMapLineFailed') : meta.join(' · ')),
+      sub: r.branchId != null ? widget.branches[r.branchId]?.name : null,
       color: routesMapColor(i, v2: true),
       active: r.id == widget.activeId,
       onPick: () => widget.onPick(r),

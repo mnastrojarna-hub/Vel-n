@@ -194,7 +194,7 @@ void main() {
             alignment: Alignment.bottomCenter,
             child: RoutesMapPicker(
               routes: kRtRoutes.take(3).toList(),
-              branches: const {},
+              branches: const {'b1': kBranchVn, 'b2': kBranchMezna},
               lang: 'cs',
               activeId: null,
               lines: const {},
@@ -204,7 +204,12 @@ void main() {
             ),
           ));
       expect(find.byType(RoutesMapPanelV2), findsOneWidget);
-      expect(find.text('Trasy přes vybraný bod · 3'), findsOneWidget);
+      // fix:r1 #11 split the title so the count never gets cut.
+      expect(find.text('Trasy přes vybraný bod'), findsOneWidget);
+      expect(find.text('\u00A0·\u00A03'), findsOneWidget);
+      // fix:r2 parity: the start branch of each route, as the old card.
+      expect(find.text(kBranchVn.name), findsWidgets);
+      expect(t.takeException(), isNull);
       await t.tap(find.text(kRtRoutes.first.name));
       await t.tap(find.text('Detail').first);
       expect(log, ['pick:r1', 'open:r1']);
@@ -215,6 +220,51 @@ void main() {
       expect(px % kRoutesMapCardV2Extent, closeTo(0, 0.5));
       expect(t.widget<Scrollable>(list).physics, isA<MgSnapScrollPhysics>());
     });
+
+    testWidgets('flag OFF: the old card shows the start branch too (parity)', (t) async {
+      await pumpV2(
+          t,
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: RoutesMapPicker(
+              routes: kRtRoutes.take(3).toList(),
+              branches: const {'b1': kBranchVn, 'b2': kBranchMezna},
+              lang: 'cs',
+              activeId: null,
+              lines: const {},
+              computing: const {},
+              onPick: (_) {},
+              onOpen: (_) {},
+            ),
+          ),
+          v2: false);
+      expect(find.byType(RoutesMapPanelV2), findsNothing);
+      expect(find.text(kBranchVn.name), findsWidgets);
+    });
+
+    for (final w in [320.0, 360.0, 412.0]) {
+      testWidgets('v2 card with branch fits at $w dp (2-line name, no overflow)', (t) async {
+        await pumpV2(
+            t,
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: RoutesMapPicker(
+                routes: kRtRoutes.take(3).toList(),
+                branches: const {'b1': kBranchVn, 'b2': kBranchMezna},
+                lang: 'de',
+                activeId: 'r1',
+                lines: const {},
+                computing: const {},
+                onPick: (_) {},
+                onOpen: (_) {},
+              ),
+            ),
+            size: Size(w, 780));
+        expect(t.takeException(), isNull);
+        final card = find.ancestor(of: find.text(kBranchVn.name).first, matching: find.byType(Container)).first;
+        expect(t.getRect(find.text(kBranchVn.name).first).bottom, lessThanOrEqualTo(t.getRect(card).bottom));
+      });
+    }
   });
 
   testWidgets('F-20 route line: reduced motion = the whole line at once', (t) async {
