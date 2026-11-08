@@ -10,10 +10,8 @@ import '../../../../core/v2/gestures/mg_swipe.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
-import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
-import '../../../../core/v2/widgets/mg_segmented.dart';
 import '../../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/state_views.dart' show MgErrorView;
@@ -22,7 +20,6 @@ import '../../ride_model.dart';
 import '../../ride_trip.dart';
 import 'moje_cards_v2.dart';
 import 'moje_tabs_v2.dart';
-import 'moje_tracks_v2.dart';
 import 'moje_view_v2.dart' show MojeViewV2;
 import 'ride_card_v2.dart';
 import 'ride_merge_v2.dart' show openRideMergeV2;
@@ -139,13 +136,9 @@ class MojeListsV2 extends StatelessWidget {
     final rec = data.rec;
     // Jízdy seskupené do cest (sloučené jezdcem / jedna výpůjčka).
     final items = groupRides(rides);
-    final mg = items.where((i) => _members(i).any((r) => r.bookingId != null)).toList();
-    final pv = items.where((i) => _members(i).any((r) => r.bookingId == null)).toList();
-    final shown = switch (filter) {
-      RideFilter.all => items,
-      RideFilter.motogo => mg,
-      RideFilter.private => pv,
-    };
+    // „jen vzhled“ (majitel 2026-11-07): celý seznam jako v původní appce —
+    // bez filtru Vše/MotoGo/Soukromé, souhrnné mapy a měsíčních nadpisů.
+    final shown = items;
     final shownRides = [for (final i in shown) ..._members(i)];
     final ids = [for (final r in shownRides) r.id];
     return [
@@ -163,35 +156,13 @@ class MojeListsV2 extends StatelessWidget {
       else if (rides.isEmpty)
         MojeEmptyV2(icon: MgIcons.bike, title: tr.tr('v2RideEmptyTitle'), text: tr.tr('v2RideEmptySub'))
       else ...[
-        // F-16 (board): one line, dark thumb, inline neon count.
-        MgSegmented<RideFilter>(
-          value: filter,
-          onChanged: onFilter,
-          inlineCount: true,
-          inkThumb: true,
-          counts: {RideFilter.all: items.length, RideFilter.motogo: mg.length, RideFilter.private: pv.length},
-          segments: [
-            MgSegment(value: RideFilter.all, label: tr.tr('v2RideFilterAll')),
-            MgSegment(value: RideFilter.motogo, label: tr.tr('v2RideFilterMg')),
-            MgSegment(value: RideFilter.private, label: tr.tr('v2RideFilterPriv')),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (shown.isEmpty)
-          MojeEmptyV2(icon: MgIcons.filter, title: tr.tr('v2RideEmptyFilter'))
-        else ...[
-          // Tmavý hrdina segmentu: všechny jízdy filtru na jedné mapě.
-          MojeTracksV2(rides: shownRides, siblingIds: ids),
-          const SizedBox(height: 12),
+        ...[
           // Sloučit jízdy do cesty — jen když to server umí a je co slučovat.
           if (rideTripsAvailable(rides, items)) ...[
             MojeMergeRowV2(onTap: () => openRideMergeV2(context)),
             const SizedBox(height: 12),
           ],
           for (var i = 0; i < shown.length; i++) ...[
-            // F-33 (board): month head "ŘÍJEN 2026 · 1 · 96 km" when the
-            // month changes (display only — from the items shown).
-            if (i == 0 || _monthOf(shown[i]) != _monthOf(shown[i - 1])) _monthHead(context, shown, i),
             _reveal(
               i,
               'ride-${_members(shown[i]).first.id}',
@@ -204,37 +175,6 @@ class MojeListsV2 extends StatelessWidget {
         ],
       ],
     ];
-  }
-
-  static DateTime _startOf(RideListItem i) => switch (i) {
-        RideListItemRide(:final ride) => ride.startedAt.toLocal(),
-        RideListItemTrip(:final trip) => trip.from.toLocal(),
-      };
-
-  static int _monthOf(RideListItem i) {
-    final d = _startOf(i);
-    return d.year * 12 + d.month;
-  }
-
-  Widget _monthHead(BuildContext context, List<RideListItem> shown, int at) {
-    final tr = t(context);
-    final m = _monthOf(shown[at]);
-    final group = [for (final i in shown) if (_monthOf(i) == m) i];
-    final km = group.fold<double>(0, (s, i) => s + _members(i).fold<double>(0, (a, r) => a + r.distanceKm));
-    final d = _startOf(shown[at]);
-    final label = '${tr.tr('v2CalMonth${d.month}')} ${d.year}'.toUpperCase();
-    return Padding(
-      padding: EdgeInsets.fromLTRB(4, at == 0 ? 2 : 10, 4, 8),
-      child: Semantics(
-        header: true,
-        child: Row(children: [
-          Expanded(child: Text(label, style: MgType.eyebrow.copyWith(color: MgColors.meta))),
-          const MgIcon(MgIcons.bike, size: 14, color: MgColors.meta),
-          const SizedBox(width: 4),
-          Text('${group.length} · ${mgKm(km, tr.lang)}', style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
-        ]),
-      ),
-    );
   }
 
   /// "Uložené trasy" under the rides (the old tab showed both at once).
