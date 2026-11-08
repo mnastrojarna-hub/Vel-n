@@ -101,10 +101,12 @@ void main() {
       await t.pump(const Duration(milliseconds: 350));
     }
 
-    testWidgets('busy day tap → toast "Tento den je motorka půjčená", nothing selected', (t) async {
+    // lookonly-fix (owner 2026-11-07 "jen upgrade vzhledu"): a busy day
+    // does not react, exactly as the original calendar (no toast).
+    testWidgets('busy day tap → no reaction (no toast), nothing selected', (t) async {
       final out = await pump(t);
       await tapDay(t, 10);
-      expect(find.text(_cs.tr('v2UxCbBusyDay')), findsOneWidget);
+      expect(find.text(_cs.tr('v2UxCbBusyDay')), findsNothing);
       expect(out, isEmpty);
       await t.pump(const Duration(seconds: 5));
     });

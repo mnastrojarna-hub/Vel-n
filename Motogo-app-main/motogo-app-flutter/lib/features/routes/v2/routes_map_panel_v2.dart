@@ -144,15 +144,17 @@ class _Card extends StatelessWidget {
                     ),
                     const Spacer(),
                     // Start branch (old card) beside "Detail ›" (board:
-                    // chevron after the word, 44 px hit) — no extra height.
+                    // chevron after the word, 44 px hit): up to 2 lines in
+                    // the 44 px row — the name is never cut, no extra height.
                     Row(children: [
                       Expanded(
                         child: d.sub == null
                             ? const SizedBox.shrink()
                             : Text(d.sub!,
-                                maxLines: 1,
+                                key: const ValueKey('rt-map-card-branch'),
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: MgType.meta.copyWith(color: MgColors.meta)),
+                                style: MgType.meta.copyWith(color: MgColors.meta, height: 1.2)),
                       ),
                       Semantics(
                         button: true,

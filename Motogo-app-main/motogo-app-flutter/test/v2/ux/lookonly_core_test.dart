@@ -174,7 +174,7 @@ void main() {
         _dy(t, find.text('Aktivní rezervace')),
         _dy(t, find.byType(HomeBookingCardV2)),
         _dy(t, find.byKey(const ValueKey('home-sos-card'))),
-        _dy(t, find.byKey(const ValueKey('home-filter-card'))),
+        _dy(t, find.byKey(const ValueKey('moto-filter-card'))),
         _dy(t, find.byKey(const ValueKey('home-bike-count'))),
       ];
       for (var i = 1; i < ys.length; i++) {
@@ -257,27 +257,28 @@ void main() {
         await t.pumpWidget(const SizedBox());
         await _app(t, v2 ? const HomeScreenV2() : const HomeScreen(), homeCases()['s6']!(), v2: v2);
         expect(find.byType(AvailabilityCalendar), findsNothing, reason: 'v2=$v2');
-        await _tapVisible(t, v2 ? find.byKey(const ValueKey('home-filter-toggle')) : find.text('Filtr motorek'));
+        await _tapVisible(t, find.text('Filtr motorek'));
         await t.pump(const Duration(milliseconds: 600));
         expect(find.byType(AvailabilityCalendar), findsOneWidget, reason: 'v2=$v2');
       }
-      // v2: the reset in the collapsed header clears dates + filters + sort.
+      // v2: the panel's own reset (collapsed card) clears dates + filters + sort.
       await t.pumpWidget(const SizedBox());
       await _app(t, const HomeScreenV2(), homeCases()['s6']!());
       final c = ProviderScope.containerOf(t.element(find.byType(HomeScreenV2)));
-      c.read(catalogFilterProvider.notifier).state = const CatalogFilter(category: 'naked');
+      c.read(catalogFilterProvider.notifier).state = CatalogFilter(category: 'naked', startDate: day(3), endDate: day(5));
       c.read(catalogSortProvider.notifier).state = 'price_asc';
       await _settle(t);
-      expect(find.byKey(const ValueKey('home-filter-count')), findsOneWidget);
-      await _tapVisible(t, find.byKey(const ValueKey('home-filter-reset')));
+      expect(find.byType(AvailabilityCalendar), findsNothing);
+      await _tapVisible(t, find.text(t.element(find.byType(HomeScreenV2)).tr('homeFilterReset')));
       expect(c.read(catalogFilterProvider).activeCount, 0);
+      expect(c.read(catalogFilterProvider).startDate, isNull);
       expect(c.read(catalogSortProvider), 'default');
     });
 
     testWidgets('count line + the FULL list (every bike), card → detail with the pager order', (t) async {
       for (final v2 in [true, false]) {
         await t.pumpWidget(const SizedBox());
-        final r = await _app(t, v2 ? const HomeScreenV2() : const HomeScreen(), homeCases()['s6']!(), v2: v2);
+        await _app(t, v2 ? const HomeScreenV2() : const HomeScreen(), homeCases()['s6']!(), v2: v2);
         expect(find.text('Zobrazeno: ${kMotos.length} motorek'), findsOneWidget, reason: 'v2=$v2');
         final last = kMotos.last;
         final card = v2 ? find.byKey(ValueKey('home-mc-${last.id}')) : find.byType(MotoCard).last;

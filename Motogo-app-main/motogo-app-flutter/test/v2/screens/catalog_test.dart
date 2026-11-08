@@ -19,7 +19,6 @@ import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_filter_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_price.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 
 import '../support/fakes_catalog.dart';
@@ -72,15 +71,7 @@ void main() {
       overrides: () => catalogOverrides(filter: dated, filtered: available),
       after: null,
     ),
-    (
-      name: 'motorky__grid',
-      build: motorky,
-      overrides: () => catalogOverrides(filter: dated, filtered: available),
-      after: (t) async {
-        await t.tap(find.byWidgetPredicate((w) => w is CatPathIcon && w.d == CatPathIcon.grid));
-        await t.pump(const Duration(milliseconds: 300));
-      },
-    ),
+    // lookonly-fix: no grid toggle (the old search list had none).
     (name: 'motorky__empty', build: motorky, overrides: () => catalogOverrides(filter: dated, filtered: const []), after: null),
     (name: 'motorky__error', build: motorky, overrides: () => catalogOverrides(filteredError: Exception('net')), after: null),
     (name: 'motorky__loading', build: motorky, overrides: () => catalogOverrides(filteredLoading: true), after: null),

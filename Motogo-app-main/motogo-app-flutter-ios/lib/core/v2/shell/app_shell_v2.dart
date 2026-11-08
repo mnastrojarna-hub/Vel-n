@@ -26,8 +26,9 @@ import 'shell_nav_map.dart';
 /// The v2 app shell (PLAN §1.10): same body handling as `AppShell`
 /// (`MgBackGuard(shell: true)`, banner, keyboard), the SAME floating panels
 /// (`ShellFabLayer`, as v2 status strips) and paid-after-restart notice
-/// (`ShellPaidListener`), plus the 5-tab [V2NavBar] (hidden in focused
-/// flows / with the keyboard) and the floating AI button. Tab taps go
+/// (`ShellPaidListener`), plus the 5-tab [V2NavBar] (on every shell route,
+/// hidden only with the keyboard — as the old shell) and the floating AI
+/// button (Domů only, as the old app). Tab taps go
 /// through the shared `onShellTabTap` (payment-running confirm, Home reset).
 /// Location is read from the router delegate, so pushed routes count too.
 /// Status bar (fix:statusbar): the shell declares its canvas (dark icons)
@@ -133,7 +134,9 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
     // `/` a `/search` mají banner jako poslední řádek své v2 hlavičky.
     final topBanner = bannerVisible && banner.valueOrNull!.text.trim().isNotEmpty && path != '/' && path != '/search';
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final navHidden = keyboardOpen || v2NavHiddenFor(path);
+    // As the old AppShell: the nav on every shell route, hidden only while
+    // the keyboard is open.
+    final navHidden = keyboardOpen;
     final fabHidden = keyboardOpen || v2FabHiddenFor(path) || ref.watch(paymentScreenActiveProvider);
 
     // Badges: Profil = nepřečtené zprávy; Rezervace = rezervace čeká na akci

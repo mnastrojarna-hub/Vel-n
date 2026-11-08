@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
@@ -117,34 +118,31 @@ void main() {
 
   // Expanders: payment details + history open without overflow.
   for (final lang in ['cs', 'de', 'uk']) {
-    testWidgets('detail expanders open $lang', (tester) async {
+    // lookonly-fix: the old two tabs (Podrobnosti / Platební podrobnosti);
+    // the history is the old always-open block.
+    testWidgets('detail tabs + history $lang', (tester) async {
       final c = detailCases()['done-5']!;
       final key = GlobalKey();
       await pumpV2(tester, c.$1(), lang: lang, size: const Size(360, 2800), overrides: c.$2(), boundaryKey: key);
       await _settleClean(tester);
-      for (final label in [kPayDetailsLabel(lang), kHistoryLabel(lang)]) {
-        final f = find.text(label);
-        expect(f, findsOneWidget);
-        await tester.ensureVisible(f);
-        await tester.tap(f);
-        await tester.pump(const Duration(milliseconds: 600));
-      }
+      final tab = find.text(translations[lang]!['paymentDetailsTab']!);
+      expect(tab, findsOneWidget);
+      await tester.tap(tab);
+      await tester.pump(const Duration(milliseconds: 600));
       await _settleClean(tester);
-      await maybeShot(tester, key, 'reservations__detail__expanders__${lang}__360x2800');
+      await maybeShot(tester, key, 'reservations__detail__paytab__${lang}__360x2800');
     });
   }
 
-  // Edit: picking an intent from the chooser opens its focus; back returns.
-  testWidgets('edit chooser → focus → back', (tester) async {
+  // Edit: the old single page — a tab tap uses the screen's closure, no chooser.
+  testWidgets('edit: tab row, no chooser', (tester) async {
     final c = editCases()['chooser']!;
     await pumpV2(tester, c.$1(), size: const Size(390, 1400), overrides: c.$2());
     await _settleClean(tester);
-    await tester.tap(find.text('Výbava a doplňky'));
+    expect(find.text('Co chceš změnit?'), findsNothing);
+    await tester.tap(find.descendant(of: find.byKey(const ValueKey('res-edit-tabs')), matching: find.text('Zkrátit')));
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.text('Výbava a doplňky'), findsOneWidget); // header title now
-    await tester.tap(find.bySemanticsLabel('Zpět'));
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(find.text('Co chceš změnit?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await _settleClean(tester);
   });
 

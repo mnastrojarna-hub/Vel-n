@@ -248,7 +248,7 @@ class ResDetailTabContent extends ConsumerWidget {
 
           // ===== HODNOCENÍ JÍZDY (Completed only) — hvězdy + 2 rovnocenné volby =====
           if (st == ResStatus.dokoncene) ...[
-            ResRatingCard(res: res, look: MgV2.on(context) ? RatingLook.light : RatingLook.classic),
+            ResRatingCard(res: res, look: MgV2.on(context) ? RatingLook.dark : RatingLook.classic),
             const SizedBox(height: 12),
 
             // Action buttons for completed — documents section

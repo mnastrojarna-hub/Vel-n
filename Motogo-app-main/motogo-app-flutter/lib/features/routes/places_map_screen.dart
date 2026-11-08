@@ -20,7 +20,6 @@ import '../../core/v2/widgets/mg_back_v2.dart';
 import '../../core/v2/widgets/mg_word_fit.dart';
 import 'v2/map_controls_v2.dart';
 import 'v2/record_dock_v2.dart';
-import '../../core/v2/chrome/mg_ai_fab.dart';
 import '../../core/v2/tokens/mg_colors.dart';
 
 /// Celoobrazovková mapa MÍST — trasy z katalogu se sem NEKRESLÍ.
@@ -387,12 +386,6 @@ class _PlacesMapScreenState extends ConsumerState<PlacesMapScreen> {
                       color: MotoGoColors.green, size: 20),
                 ),
               ),
-            // v2 (F-30, V22 §6.4): AI 44 jako poslední prvek horní lišty —
-            // od 400 dp (užší telefon: titulek by se dělil uprostřed slova).
-            if (MgV2.on(context) && MediaQuery.sizeOf(context).width >= 400) ...[
-              const SizedBox(width: 4),
-              const MgAiDisc(size: 44),
-            ],
           ],
         ),
       ),

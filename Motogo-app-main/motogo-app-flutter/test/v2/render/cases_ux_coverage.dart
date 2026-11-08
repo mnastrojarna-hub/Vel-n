@@ -74,7 +74,6 @@ Widget _edit(Reservation b, ResEditIntent intent, {Widget? swap, Widget? moto, W
     onSelectShorten: _n,
     onSelectMove: _n,
     onSelectSwap: _n,
-    initialIntent: intent,
   );
 }
 

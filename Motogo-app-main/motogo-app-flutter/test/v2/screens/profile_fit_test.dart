@@ -98,7 +98,7 @@ void main() {
       // Grid while the labels fit (cs, 412 dp), one tile per row otherwise.
       Finder tile(String key) =>
           find.descendant(of: find.byType(ProfileTilesV2), matching: find.text(translations[lang]![key]!));
-      final grid = _top(t, tile('messagesTitle')) == _top(t, tile('documents'));
+      final grid = _top(t, tile('messages')) == _top(t, tile('documents'));
       if (lang == 'cs' && w == 412 && s == 1.0) expect(grid, isTrue, reason: 'grid at 412');
       if (lang == 'de' && w == 320) expect(grid, isFalse, reason: 'one per row at 320 ×$s');
     });

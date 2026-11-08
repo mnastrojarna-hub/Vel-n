@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/icons/mg_icons.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';

@@ -243,7 +243,8 @@ void main() {
       expect(find.byType(MgSwipeSegments<MojeSub>), findsOneWidget);
       await t.flingFrom(const Offset(180, 450), const Offset(-300, 0), 1000);
       await t.pump(const Duration(milliseconds: 400));
-      expect(taps.log, contains('tab:0')); // Jízdy → Uložené (same tab index 0)
+      // lookonly-fix: the old three tabs — the first page → Objevená místa.
+      expect(taps.log, contains('tab:1'));
       await ridesEnd(t);
     });
 

@@ -163,12 +163,14 @@ void main() {
     expect(backs, 1);
   });
 
-  testWidgets('tab root (no back): unchanged — collapsed, no banner, no back', (tester) async {
+  // Tab root: no booking fix; the header back is the old always-visible
+  // one (→ Domů), as on the old Profil (lookonly-fix).
+  testWidgets('tab root: unchanged — collapsed, no banner; only the old header back', (tester) async {
     await pumpV2(tester, const PfHubHarness(bookingFix: true), overrides: _fix(_cases[0].profile, kBmw));
     await _settle(tester);
     expect(find.text(_tr('cs', 'saveChanges')), findsNothing);
     expect(find.text(_tr('cs', 'v2PfFixTitle')), findsNothing);
-    expect(find.byType(MgV2Back), findsNothing);
+    expect(find.byKey(const ValueKey('pf-back')), findsOneWidget);
   });
 
   testWidgets('reduced motion settles', (tester) async {

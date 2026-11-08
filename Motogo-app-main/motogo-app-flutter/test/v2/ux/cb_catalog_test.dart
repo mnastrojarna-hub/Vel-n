@@ -18,10 +18,8 @@ import 'package:motogo_app/core/v2/widgets/mg_photo_viewer.dart';
 import 'package:motogo_app/core/v2/widgets/mg_skeleton.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
 import 'package:motogo_app/features/catalog/v2/moto_filter_panel_v2.dart';
-import 'package:motogo_app/features/catalog/v2/motorky_compact_bar_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_error_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_loading_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
@@ -176,25 +174,7 @@ void main() {
     });
   }
 
-  testWidgets('CB-07: compact bar hidden at the top, shown past the header; discs call their actions', (t) async {
-    final (ws, we) = futureWeekend();
-    await pumpV2(t, const MotorkyScreenV2(),
-        overrides: catalogOverrides(filter: CatalogFilter(startDate: ws, endDate: we), filtered: [kBmw, kHusq]),
-        reducedMotion: true);
-    await t.pump(const Duration(milliseconds: 500));
-    final bar = find.byType(MotorkyCompactBarV2);
-    double barBottom() => t.getRect(bar).bottom;
-    expect(barBottom(), lessThanOrEqualTo(0.5));
-    await t.drag(find.byType(CustomScrollView), const Offset(0, -700));
-    await t.pump(const Duration(milliseconds: 400));
-    expect(barBottom(), greaterThan(40));
-    final c = ProviderScope.containerOf(t.element(bar));
-    await t.tap(find.descendant(of: bar, matching: find.byType(MgIconButton)).last);
-    await t.pump(const Duration(milliseconds: 400));
-    expect(c.read(catalogModeProvider), CatalogMode.calc);
-    await _drain(t);
-  });
-
+  // lookonly-fix: no compact bar — dates and filters are inline as on the old screen.
   testWidgets('CB-08: full-card skeleton = the real card height (±10 %), slow state after 15 s', (t) async {
     var retries = 0;
     await pumpV2(t, SingleChildScrollView(child: MotorkyLoadingV2(grid: false, cardHeight: 560, onRetry: () => retries++)),

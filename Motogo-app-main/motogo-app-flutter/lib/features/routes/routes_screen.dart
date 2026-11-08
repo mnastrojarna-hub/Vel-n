@@ -490,17 +490,13 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
         controller: _scroll,
         overlapHero: false,
         onRefresh: () async => ref.invalidate(routesDataProvider),
-        header: RoutesHubHeaderV2(
-          search: _searchField(context),
-          stats: (rtFloorCount(data.routes.length), rtFloorCount(ref.watch(catalogPoisProvider).valueOrNull?.length)),
-        ),
+        // The counts once (band), as the old subtitle computed them.
+        header: RoutesHubHeaderV2(search: _searchField(context)),
         slivers: [
           SliverToBoxAdapter(
-            // F-31 (V21 T2): floored LIVE counts; not loaded = the old text.
             child: RoutesBandV2(
-              routes: rtFloorCount(data.routes.length) ?? _fmtCount(data.routes.length, 1370, 10),
-              pois: rtFloorCount(ref.watch(catalogPoisProvider).valueOrNull?.length) ??
-                  _fmtCount(ref.watch(catalogPoisProvider).valueOrNull?.length, 37000, 1000),
+              routes: _fmtCount(data.routes.length, 1370, 10),
+              pois: _fmtCount(ref.watch(catalogPoisProvider).valueOrNull?.length, 37000, 1000),
               toolbar: _filterBar(context, data, me, selAnchor != null),
             ),
           ),

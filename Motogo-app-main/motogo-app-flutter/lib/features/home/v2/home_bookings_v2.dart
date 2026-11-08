@@ -94,7 +94,7 @@ class HomeBookingCardV2 extends StatelessWidget {
       ),
       title: r.motoName,
       sub: '${r.shortId} · ${r.dateRange}',
-      trailing: _StatusPill(status: r.displayStatus, label: _label(tr, r.displayStatus)),
+      badge: _StatusPill(status: r.displayStatus, label: _label(tr, r.displayStatus)),
       onTap: () => GoRouter.maybeOf(context)?.push('/reservations/${r.id}'),
     );
   }
@@ -157,14 +157,16 @@ class HomeSosCardV2 extends StatelessWidget {
   }
 }
 
-/// White tappable card row: leading, title + sub, trailing / chevron.
+/// White tappable card row: leading, title + sub, chevron. [badge] (the
+/// status pill) sits on the right, or under the texts when the row is
+/// narrow (320 dp phone, long German status) — the bike name never splits.
 class _Row extends StatelessWidget {
   final Widget leading;
   final String title;
   final String sub;
-  final Widget? trailing;
+  final Widget? badge;
   final VoidCallback onTap;
-  const _Row({super.key, required this.leading, required this.title, required this.sub, this.trailing, required this.onTap});
+  const _Row({super.key, required this.leading, required this.title, required this.sub, this.badge, required this.onTap});
 
   @override
   Widget build(BuildContext context) => MgFabAvoid(
@@ -178,22 +180,29 @@ class _Row extends StatelessWidget {
             onTap: onTap,
             child: MgCard(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-              child: Row(children: [
-                leading,
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
-                    const SizedBox(height: 2),
-                    Text(sub, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
-                  ]),
-                ),
-                const SizedBox(width: 8),
-                trailing ?? const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
-              ]),
+              child: LayoutBuilder(builder: (context, c) {
+                final below = badge != null && c.maxWidth < 290;
+                return Row(children: [
+                  leading,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      MgWordFit(
+                        minScale: 0.8,
+                        child: Text(title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(sub, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
+                      if (below) ...[const SizedBox(height: 6), badge!],
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  if (badge != null && !below) badge! else const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.lead),
+                ]);
+              }),
             ),
           ),
         ),

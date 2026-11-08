@@ -6,6 +6,7 @@ import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
@@ -95,11 +96,19 @@ class SavedRouteCardV2 extends StatelessWidget {
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.only(right: 8),
-          child: Row(children: [
-            Expanded(child: MgBtnInk(label: tr.tr('myExpNavigate'), icon: MgIcons.navigate, neonLabel: true, height: 48, onTap: onNavigate)),
-            const SizedBox(width: 10),
-            Expanded(child: MgBtnGhostLight(label: tr.tr('myExpEdit'), icon: MgIcons.edit, onTap: onOpen)),
-          ]),
+          // Side by side while both labels keep whole words (icon 20 + 8 +
+          // ~36 padding); else one under the other (uk at 320, large text).
+          child: LayoutBuilder(builder: (context, c) {
+            final nav = MgBtnInk(label: tr.tr('myExpNavigate'), icon: MgIcons.navigate, neonLabel: true, height: 48, onTap: onNavigate);
+            final edit = MgBtnGhostLight(label: tr.tr('myExpEdit'), icon: MgIcons.edit, onTap: onOpen);
+            final half = (c.maxWidth - 10) / 2 - 64;
+            final side = mgWordsFit(context, tr.tr('myExpNavigate'), MgType.button, half) &&
+                mgWordsFit(context, tr.tr('myExpEdit'), MgType.button, half);
+            if (!side) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [nav, const SizedBox(height: 8), edit]);
+            }
+            return Row(children: [Expanded(child: nav), const SizedBox(width: 10), Expanded(child: edit)]);
+          }),
         ),
       ]),
     );

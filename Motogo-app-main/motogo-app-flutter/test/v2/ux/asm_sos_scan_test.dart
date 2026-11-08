@@ -34,7 +34,7 @@ void main() {
   setUpAll(loadMontserrat);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('SOS start: flag ON = v2 view; order banner → 112/155/158 → rows → AI; dial = tile number', (t) async {
+  testWidgets('SOS start: flag ON = v2 view; order banner → AI → 112/155/158 → rows; dial = tile number', (t) async {
     await pumpAsmRouted(t, const SosReportScreen(), overrides: asmBase(active: true));
     await t.pump(const Duration(milliseconds: 100));
     expect(find.byType(SosStartViewV2), findsOneWidget);
@@ -54,13 +54,10 @@ void main() {
         overrides: asmBase());
     await t.pump(const Duration(milliseconds: 100));
     double y(Finder f) => t.getTopLeft(f.first).dy;
-    expect(y(find.text('Aktivní SOS incident')), lessThan(y(find.text('112'))));
+    // lookonly-fix: the OLD order — banner → AI agent → 112 / 155 / 158 → rows.
+    expect(y(find.text('Aktivní SOS incident')), lessThan(y(find.text('AI Servisní agent'))));
+    expect(y(find.text('AI Servisní agent')), lessThan(y(find.text('112'))));
     expect(y(find.text('112')), lessThan(y(find.text('Nehoda / Krádež'))));
-    await t.drag(find.byType(Scrollable).first, const Offset(0, -400));
-    await t.pump();
-    expect(y(find.text('Sdílet polohu')), lessThan(y(find.text('AI Servisní agent'))));
-    await t.drag(find.byType(Scrollable).first, const Offset(0, 400));
-    await t.pump();
     await t.tap(find.text('155'));
     expect(dialed, ['155']);
   });

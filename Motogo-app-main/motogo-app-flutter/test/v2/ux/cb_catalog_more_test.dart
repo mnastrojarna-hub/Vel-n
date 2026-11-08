@@ -7,8 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
-import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
-import 'package:motogo_app/core/v2/widgets/mg_chips.dart';
 import 'package:motogo_app/core/v2/widgets/mg_skeleton.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_page.dart';
@@ -18,7 +16,6 @@ import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_hero_v2.dart';
-import 'package:motogo_app/features/catalog/v2/detail/detail_trip_card_v2.dart';
 import 'package:motogo_app/features/catalog/v2/detail/video_chrome_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -115,21 +112,7 @@ void main() {
     await _drain(t);
   });
 
-  testWidgets('CB-17: dock "Rozpis" opens the trip card\'s breakdown', (t) async {
-    final (ws, we) = futureWeekend();
-    await pumpV2(t, const MotoDetailPage(motoId: 'm-bmw', showBackButton: true),
-        overrides: catalogOverrides(filter: CatalogFilter(startDate: ws, endDate: we)), reducedMotion: true);
-    await t.pump(const Duration(milliseconds: 500));
-    final rozpis = find.widgetWithText(MgBtnText, _cs.tr('v2Breakdown'));
-    expect(rozpis, findsOneWidget);
-    await t.tap(rozpis);
-    await t.pump(const Duration(milliseconds: 600));
-    final state = t.state(find.byType(DetailTripCardV2));
-    expect(state, isNotNull);
-    expect(t.widget<DetailTripCardV2>(find.byType(DetailTripCardV2)).breakdown!.value, isTrue);
-    await _drain(t);
-  });
-
+  // lookonly-fix: no dock "Rozpis" (the old detail had no such action).
   testWidgets('CB-19: date sheet footer "POUŽÍT TERMÍN · 3 DNY" + "Zrušit termín" (= clear), "Hotovo" without', (t) async {
     final (ws, we) = futureWeekend();
     await pumpV2(t, const MotorkyScreenV2(),
@@ -148,22 +131,7 @@ void main() {
     await _drain(t);
   });
 
-  testWidgets('CB-20: header category chips = the panel write (toggle) with exact counts', (t) async {
-    await pumpV2(t, const MotorkyScreenV2(), overrides: catalogOverrides(filtered: [kBmw, kHusq, kKids]), reducedMotion: true);
-    await t.pump(const Duration(milliseconds: 400));
-    final c = ProviderScope.containerOf(t.element(find.byType(MotorkyScreenV2)));
-    final label = _cs.tr(MotoCategory.labelKey(kBmw.category));
-    final chip = find.bySemanticsLabel('$label, ${[kBmw, kHusq, kKids].where((m) => m.category == kBmw.category).length}');
-    expect(chip, findsOneWidget);
-    await t.tap(chip);
-    await t.pump(const Duration(milliseconds: 300));
-    expect(c.read(catalogFilterProvider).category, kBmw.category);
-    await t.tap(find.bySemanticsLabel(label));
-    await t.pump(const Duration(milliseconds: 300));
-    expect(c.read(catalogFilterProvider).category, isNull);
-    await _drain(t);
-  });
-
+  // lookonly-fix: no header chips — the old filter panel is inline (lookonly_areas_cb_test).
   testWidgets('CB-23: video chrome — skeleton while loading, 44 mute disc calls the player toggle, pill counter', (t) async {
     var toggles = 0;
     await pumpV2(t, SizedBox(
@@ -180,23 +148,7 @@ void main() {
     expect(toggles, 1);
   });
 
-  testWidgets('CB-26: no dates → free weekend presets; a tap = the calendar\'s onRangeSelected', (t) async {
-    await pumpV2(t, const MotoDetailPage(motoId: 'm-bmw', showBackButton: true), overrides: catalogOverrides(), reducedMotion: true,
-        size: const Size(412, 915));
-    await t.pump(const Duration(milliseconds: 500));
-    final chip = find.widgetWithText(MgChoiceChip, _cs.tr('v2CatPresetWeekend'));
-    await Scrollable.ensureVisible(t.element(chip), alignment: 0.4);
-    await t.pump();
-    await t.tap(chip);
-    await t.pump(const Duration(milliseconds: 400));
-    // The detail's own range state (what the calendar's onRangeSelected sets).
-    final (s, e) = catWeekend(DateTime.now());
-    final card = t.widget<DetailTripCardV2>(find.byType(DetailTripCardV2));
-    expect([card.selStart, card.selEnd], [s, e]);
-    expect(find.widgetWithText(MgChoiceChip, _cs.tr('v2CatPresetWeekend')), findsNothing);
-    await _drain(t);
-  });
-
+  // lookonly-fix: no weekend presets (the old detail had none; lookonly_areas_cb_test).
   testWidgets('CB-27: mode switch — reduced motion shows the new content at once', (t) async {
     await pumpV2(t, const MotorkyScreenV2(), overrides: catalogOverrides(filtered: [kBmw]), reducedMotion: true);
     await t.pump(const Duration(milliseconds: 300));

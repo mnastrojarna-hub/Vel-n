@@ -31,43 +31,11 @@ int v2TabIndexFor(String location) {
   return 0;
 }
 
-final RegExp _resEdit = RegExp(r'^/reservations/[^/]+/edit$');
-final RegExp _thread = RegExp(r'^/messages/[^/]+$');
-final RegExp _routeDetail = RegExp(r'^/routes/[^/]+$');
-
-/// Focused flows hide the nav (the screen's back control is the way out;
-/// system back is unchanged). SOS, cart, voucher and a product detail KEEP
-/// the nav (owner rule "nothing harder to reach" over V22 §2.4 — the old
-/// shell shows it there): their docks sit above it.
-bool v2NavHiddenFor(String location) {
-  final p = _path(location);
-  return p.startsWith('/moto/') ||
-      p == '/booking' ||
-      p == '/payment' ||
-      p == '/sos/payment' ||
-      _resEdit.hasMatch(p) ||
-      p == '/ai-agent' ||
-      _thread.hasMatch(p) ||
-      p == '/checkout';
-}
-
-/// Routes where the floating AI button is hidden (docked into the screen's
-/// dock, map controls, SOS priority, the chat itself…).
-bool v2FabHiddenFor(String location) {
-  final p = _path(location);
-  return v2NavHiddenFor(p) ||
-      p.startsWith('/sos') ||
-      // E-shop / dárkový poukaz: staré obrazovky s tlačítky přes celou šířku
-      // dole („Přidat do košíku", koupě poukazu) — AI tlačítko by je krylo.
-      p.startsWith('/shop') ||
-      p == '/voucher' ||
-      p == '/cart' ||
-      p == '/routes' ||
-      p == '/routes-list' ||
-      _routeDetail.hasMatch(p) ||
-      p == '/places-map' ||
-      p == '/routes-map';
-}
+/// Routes where the floating AI button shows: only Domů, exactly like the
+/// old app (its AI button lives on HomeScreen only; SOS has its own AI row).
+/// The nav itself is never hidden by route — the old AppShell shows it on
+/// every shell route and hides it only while the keyboard is open.
+bool v2FabHiddenFor(String location) => _path(location) != '/';
 
 /// Re-tap of the active tab: (tab index, sequence) — `MgPage` scrolls to top.
 final v2TabReselectProvider = StateProvider<(int, int)>((_) => (-1, 0));

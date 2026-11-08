@@ -179,7 +179,7 @@ void main() {
 
   group('RP-13 / RP-25 profile', () {
     testWidgets('header while loading: skeleton bars, never "Pilot"', (t) async {
-      await pumpV2(t, ProfileHeaderV2(profile: null, onSettings: () {}, loading: true), overrides: profileOverrides());
+      await pumpV2(t, ProfileHeaderV2(profile: null, loading: true), overrides: profileOverrides());
       await t.pump();
       expect(find.byKey(const ValueKey('pf-header-skeleton')), findsOneWidget);
       expect(find.text(_t('pilot')), findsNothing);

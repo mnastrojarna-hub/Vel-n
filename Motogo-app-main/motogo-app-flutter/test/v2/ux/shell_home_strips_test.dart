@@ -1,5 +1,5 @@
-// SH-05 strip ✕ confirm, SH-06 Domů leaves out only the payable strip (the
-// ticket S2 has both its actions), SH-07 every strip stacked with its own
+// SH-05 strip ✕ confirm, SH-06 Domů shows the payable strip as every screen
+// (lookonly-fix:core — the old shell), SH-07 every strip stacked with its own
 // tap / ✕ (owner parity rule), SH-13 tab fade-through, SH-14 push page.
 import 'dart:async';
 
@@ -104,9 +104,11 @@ PendingBooking _pending() => PendingBooking(id: 'b1', totalPrice: 12027, created
 void main() {
   setUpAll(loadMontserrat);
 
-  testWidgets('SH-06 Domů: the payable strip is left out (the ticket S2 has pay + cancel); /search shows it', (tester) async {
+  testWidgets('SH-06 Domů shows the payable strip too (old shell: pay + cancel live only there); /search shows it', (tester) async {
     final router = await _shell(tester, '/', pending: _pending());
-    expect(find.byType(MgStatusStrip), findsNothing);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(MgStatusStrip), findsOneWidget);
+    expect(find.text('Dokončit rezervaci'), findsOneWidget);
     router.go('/search');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

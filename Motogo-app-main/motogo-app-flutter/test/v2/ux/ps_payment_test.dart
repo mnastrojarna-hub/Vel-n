@@ -56,10 +56,10 @@ PaymentViewV2 _view({
 void main() {
   setUpAll(mockBookingPathProvider);
 
-  testWidgets('flag ON: /payment shows the v2 view (step 3 header, chip, CTA); OFF the old screen', (tester) async {
+  testWidgets('flag ON: /payment shows the v2 view (old header without a step bar, chip, CTA); OFF the old screen', (tester) async {
     var router = await pumpPs(tester, const PaymentScreen(), overrides: psPayOverrides());
     expect(find.byType(PaymentViewV2), findsOneWidget);
-    expect(find.byType(BookingStepsV2), findsOneWidget);
+    expect(find.byType(BookingStepsV2), findsNothing);
     expect(find.byType(PayCountdownChipV2), findsOneWidget);
     expect(find.byType(PaymentHeader), findsNothing);
     await psLeaveRoute(tester, router);
@@ -71,20 +71,20 @@ void main() {
 
   testWidgets('the CTA runs the screen\'s pay handler once; expired / busy lock it', (tester) async {
     var paid = 0;
-    await pumpV2(tester, _view(onPay: () => paid++), scaffold: false);
+    await pumpV2(tester, _view(onPay: () => paid++), scaffold: false, overrides: bookingOverrides(moto: kBmw));
     await tester.tap(find.byKey(const ValueKey('pay-v2-cta')));
     await tester.pump();
     expect(paid, 1);
     expect(tester.widget<MgCta>(find.byKey(const ValueKey('pay-v2-cta'))).price, contains('10'));
 
-    await pumpV2(tester, _view(expired: true, onPay: () => paid++), scaffold: false);
+    await pumpV2(tester, _view(expired: true, onPay: () => paid++), scaffold: false, overrides: bookingOverrides(moto: kBmw));
     final cta = tester.widget<MgCta>(find.byKey(const ValueKey('pay-v2-cta')));
     expect(cta.enabled, isFalse);
     expect(cta.price, isNull);
     await tester.tap(find.byKey(const ValueKey('pay-v2-cta')), warnIfMissed: false);
     expect(paid, 1);
 
-    await pumpV2(tester, _view(processing: true, verifying: true, onPay: () => paid++), scaffold: false);
+    await pumpV2(tester, _view(processing: true, verifying: true, onPay: () => paid++), scaffold: false, overrides: bookingOverrides(moto: kBmw));
     expect(tester.widget<MgCta>(find.byKey(const ValueKey('pay-v2-cta'))).busy, isTrue);
     await tester.tap(find.byKey(const ValueKey('pay-v2-cta')), warnIfMissed: false);
     expect(paid, 1);
@@ -93,7 +93,7 @@ void main() {
 
   testWidgets('free / waived amount: confirm label without a price, same handler', (tester) async {
     var paid = 0;
-    await pumpV2(tester, _view(amount: 0.4, onPay: () => paid++), scaffold: false);
+    await pumpV2(tester, _view(amount: 0.4, onPay: () => paid++), scaffold: false, overrides: bookingOverrides(moto: kBmw));
     final cta = tester.widget<MgCta>(find.byKey(const ValueKey('pay-v2-cta')));
     expect(cta.price, isNull);
     expect(cta.label.contains('→'), isFalse);
@@ -125,16 +125,16 @@ void main() {
     expect(find.text('Rozpis'), findsNothing);
   });
 
-  testWidgets('"Rozpis" opens the booking receipt in a sheet', (tester) async {
+  // lookonly-fix: the old page showed its price card open — inline, no
+  // "Rozpis" link / sheet.
+  testWidgets('the booking receipt is inline (old open price card), no "Rozpis"', (tester) async {
     await pumpV2(tester, _view(onPay: () {}), scaffold: false, overrides: bookingOverrides(moto: kBmw));
-    await tester.tap(find.text('Rozpis'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(BookingPriceV2), findsOneWidget);
+    expect(find.text('Rozpis'), findsNothing);
   });
 
   testWidgets('PS-19: idle page runs at most one ticker (the CTA fx)', (tester) async {
-    await pumpV2(tester, _view(onPay: () {}), scaffold: false);
+    await pumpV2(tester, _view(onPay: () {}), scaffold: false, overrides: bookingOverrides(moto: kBmw));
     // Real frames (a single long pump would only start the one-shots).
     for (var i = 0; i < 40; i++) {
       await tester.pump(const Duration(milliseconds: 100));

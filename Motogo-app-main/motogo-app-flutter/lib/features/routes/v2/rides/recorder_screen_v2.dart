@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/friendly_error.dart';
 import '../../../../core/i18n/i18n_provider.dart';
-import '../../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../../core/v2/chrome/mg_dock.dart';
 import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
@@ -148,9 +147,6 @@ class _RecorderScreenV2State extends ConsumerState<RecorderScreenV2> {
                     semanticLabel: tr.tr('v2RideRecInfoA11y'),
                     onTap: () => setState(() => _hint = !_hint),
                   ),
-                  // V22 §6.4 (F-30): AI 44 as the last top-bar item.
-                  const SizedBox(width: 6),
-                  const MgAiDisc(size: 44),
                 ]),
               ),
               Expanded(

@@ -48,9 +48,12 @@ void main() {
     // initState calls ref.invalidate before the element is mounted — a
     // debug-only assert of the old screen), so the seam line is guarded at
     // source level and the view behaviour at widget level.
-    test('the v2 seam opens Výměna when the screen is on the swap tab', () {
+    // lookonly-fix: the view follows the screen's tab ('swap' for ?tab=swap)
+    // — the same tab row as the old page, no intent chooser.
+    test('the v2 seam passes the screen\'s tab (no intent chooser)', () {
       final src = File('lib/features/reservations/reservation_edit_screen.dart').readAsStringSync();
-      expect(src, contains("initialIntent: _tab == 'swap' ? ResEditIntent.swap : null,"));
+      expect(src, isNot(contains('initialIntent')));
+      expect(src, contains('tab: _tab,'));
     });
 
     final b = resv('d1', status: 'reserved', from: 5, to: 7);
@@ -74,7 +77,6 @@ void main() {
           onSelectShorten: () {},
           onSelectMove: () {},
           onSelectSwap: () {},
-          initialIntent: intent,
         );
 
     testWidgets('initial swap intent: the swap section at once, no chooser tap', (t) async {
@@ -85,14 +87,15 @@ void main() {
       expect(find.text(_t('swap.tab')), findsWidgets);
     });
 
-    testWidgets('no initial intent: the chooser as before', (t) async {
+    testWidgets('extend tab: the old page at once (tab row, no chooser)', (t) async {
       await pumpV2(t, view(null), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
-      expect(find.byType(ResEditChooserV2), findsOneWidget);
+      expect(find.byType(ResEditChooserV2), findsNothing);
+      expect(find.byKey(const ValueKey('res-edit-tabs')), findsOneWidget);
     });
   });
 
-  group('edit chooser keeps the blocker and the CTA', () {
+  group('edit keeps the blocker and the CTA (old page)', () {
     final b = resv('e1', status: 'reserved', from: 4, to: 6);
     Widget edit({List<String> missing = const [], VoidCallback? onSave, bool saving = false}) => ResEditV2View(
           booking: b,
@@ -118,24 +121,24 @@ void main() {
     testWidgets('missing sizes: warning + disabled CTA at first glance', (t) async {
       await pumpV2(t, edit(missing: const ['Helma', 'Boty']), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
-      expect(find.byType(ResEditChooserV2), findsOneWidget);
+      expect(find.byType(ResEditChooserV2), findsNothing);
       expect(find.text(_t('fillGearSizesOnDelivery')), findsOneWidget);
       expect(find.text('${_t('missingLabel')}: Helma, Boty'), findsOneWidget);
       final cta = t.widget<MgCta>(find.byType(MgCta));
       expect(cta.enabled, isFalse);
     });
 
-    testWidgets('a save started from the chooser keeps the busy CTA', (t) async {
+    testWidgets('a running save keeps the busy CTA', (t) async {
       await pumpV2(t, edit(saving: true), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
       final cta = t.widget<MgCta>(find.byType(MgCta));
       expect(cta.busy, isTrue);
     });
 
-    testWidgets('nothing to save and nothing missing: chooser without a dock (as before)', (t) async {
+    testWidgets('nothing to save: the save CTA is there, disabled (old button)', (t) async {
       await pumpV2(t, edit(), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
-      expect(find.byType(MgCta), findsNothing);
+      expect(t.widget<MgCta>(find.byType(MgCta)).enabled, isFalse);
     });
   });
 

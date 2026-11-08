@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
@@ -119,7 +120,8 @@ class MotoFilterCardV2 extends StatelessWidget {
                 ),
               ),
             ),
-          AnimatedSize(
+          // MgAnimatedSize: no layout assert when the duration is 0 (reduced motion).
+          MgAnimatedSize(
             duration: MgMotion.of(context, MgMotion.sheet),
             curve: MgMotion.out,
             alignment: Alignment.topCenter,

@@ -638,11 +638,8 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
         child: BuilderStopTileV2(
           number: i + 1,
           label: label,
-          // F-27: pojmenovaná zastávka ukáže „Zastávka N · souřadnice"
-          // (souřadnice jako dřív — poloha zůstává vidět).
-          sub: s.name != null
-              ? '${t(context).tr('routeBuilderStop')} ${i + 1} · ${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}'
-              : '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
+          // Jako dřív: pod názvem jen souřadnice (číslo ukazuje kotouč).
+          sub: '${s.point.latitude.toStringAsFixed(4)}, ${s.point.longitude.toStringAsFixed(4)}',
           onRemove: () => _removeAt(i),
           wrapHandle: (h) => ReorderableDragStartListener(index: i, child: h),
         ),

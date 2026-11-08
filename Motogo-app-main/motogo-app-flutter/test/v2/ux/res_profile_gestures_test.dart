@@ -4,7 +4,6 @@
 // instant), Zprávy notes ↔ threads swipe, loading skeleton without a false
 // "0", edit iOS edge-back to the chooser with section state kept, money CTA
 // "ZAPLATIT DOPLATEK · 4 296 Kč" on one line.
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -171,7 +170,7 @@ void main() {
   group('RP-18 / RP-11 edit', () {
     final b = resv('e1', status: 'reserved', from: 4, to: 6);
 
-    Widget edit({ResEditIntent? intent, Widget? place, String lang = 'cs'}) => ResEditV2View(
+    Widget edit({Widget? place, String lang = 'cs'}) => ResEditV2View(
           booking: b,
           tab: 'extend',
           isActive: false,
@@ -192,40 +191,21 @@ void main() {
           onSelectShorten: () {},
           onSelectMove: () {},
           onSelectSwap: () {},
-          initialIntent: intent,
         );
 
-    testWidgets('iOS left-edge swipe in an intent returns to the chooser', (t) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      try {
-        await pumpV2(t, edit(intent: ResEditIntent.place, place: const SizedBox(height: 200)), overrides: resOverrides());
-        await t.pump(const Duration(milliseconds: 400));
-        expect(find.byType(ResEditChooserV2), findsNothing);
-        await t.dragFrom(const Offset(4, 420), const Offset(260, 0));
-        await _settle(t);
-        expect(find.byType(ResEditChooserV2), findsOneWidget);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
-
-    testWidgets('text typed in an intent survives chooser ↔ intent', (t) async {
-      await pumpV2(t, edit(intent: ResEditIntent.place, place: const TextField(key: ValueKey('note'))),
-          overrides: resOverrides());
+    // lookonly-fix: no intent chooser — the edit is the old single page (system / edge back leave it).
+    testWidgets('text typed in a section survives a tab switch (sections stay the screen\'s)', (t) async {
+      await pumpV2(t, edit(place: const TextField(key: ValueKey('note'))), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
       await t.enterText(find.byKey(const ValueKey('note')), 'Zvonek 2');
       await t.pump();
-      await t.tap(find.bySemanticsLabel(_t('back')).first);
-      await _settle(t);
-      expect(find.byType(ResEditChooserV2), findsOneWidget);
-      await t.tap(find.text(_t('v2ResIntPlace')).first);
-      await _settle(t);
       expect(find.text('Zvonek 2'), findsOneWidget);
+      expect(find.byType(ResEditChooserV2), findsNothing);
     });
 
     for (final (lang, size) in [('cs', const Size(360, 780)), ('de', const Size(320, 690))]) {
       testWidgets('pay CTA "${_t('v2UxRpPayDiffCta', lang)} · price" on one line, $lang ${size.width.toInt()}', (t) async {
-        await pumpV2(t, edit(intent: ResEditIntent.extend, lang: lang), lang: lang, size: size, overrides: resOverrides());
+        await pumpV2(t, edit(lang: lang), lang: lang, size: size, overrides: resOverrides());
         await t.pump(const Duration(milliseconds: 400));
         final cta = t.widget<MgCta>(find.byType(MgCta));
         expect(cta.label, _t('v2UxRpPayDiffCta', lang));

@@ -63,7 +63,9 @@ void main() {
     final cart = _c(tester, ProductDetailScreen).read(cartProvider);
     expect(cart.single.id, 'p1-L');
     expect(cart.single.qty, 1);
-    expect(find.text('Do košíku'), findsOneWidget, reason: 'toast action to the cart');
+    // lookonly-fix: the old toast "Přidáno · 1× …" — no cart shortcut.
+    expect(find.text('Přidáno'), findsOneWidget);
+    expect(find.text('Do košíku'), findsNothing);
   });
 
   testWidgets('cart: + / − / trash / Vyprázdnit act on the provider; empty = Stavy 13.1 with "Do e-shopu"', (tester) async {

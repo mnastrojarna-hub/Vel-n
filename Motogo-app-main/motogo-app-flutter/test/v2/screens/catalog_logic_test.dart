@@ -101,14 +101,15 @@ void main() {
   final (ws, we) = futureWeekend();
   final dated = CatalogFilter(startDate: ws, endDate: we);
 
-  // With dates the card CTA books directly (owner 2026-10-22, see
-  // catalog_card_book_test.dart); without dates it opens the detail.
+  // The card CTA is the old "Detail" (lookonly-fix): it opens the detail.
   testWidgets('card CTA (no dates) → detail with the shown (sorted) sibling ids', (t) async {
     final (router, c) = await _pumpRouted(t,
         initial: '/search',
         path: '/search',
         screen: (_) => const MotorkyScreenV2(),
         overrides: catalogOverrides(filtered: [kBmw, kHusq, kKids]));
+    await t.ensureVisible(find.byType(MgCta).first);
+    await t.pump();
     await t.tap(find.byType(MgCta).first);
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('detail:m-bmw'), findsOneWidget);

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_status_bar.dart';
@@ -102,13 +101,7 @@ class RouteDetailViewV2 extends StatelessWidget {
     final dock = MgDock(
       safeArea: !inShell,
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            child: MgFabAvoid(child: MgCta(label: tr.tr('routeNavigate'), loop: true, onTap: onNavigate)),
-          ),
-          const SizedBox(width: 8),
-          const MgAiDisc(size: 56),
-        ]),
+        MgFabAvoid(child: MgCta(label: tr.tr('routeNavigate'), loop: true, onTap: onNavigate)),
         const SizedBox(height: 4),
         Row(children: [
           if (onCustomize != null)

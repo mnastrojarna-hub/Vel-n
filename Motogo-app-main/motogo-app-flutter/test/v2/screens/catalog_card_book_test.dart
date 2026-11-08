@@ -1,7 +1,6 @@
-// Owner 2026-10-22 "nikdy nic vyplňovat dvakrát": with dates set, the
-// Motorky card CTA "REZERVOVAT" goes straight to the booking form (bike +
-// dates filled, both folded with "Změnit") instead of the detail where
-// REZERVOVAT had to be pressed again; photo / no dates still open the detail.
+// Motorky card taps after lookonly-fix (owner 2026-11-07 "jen upgrade
+// vzhledu"): the card button is the old "Detail" (with or without dates)
+// and, like the photo, opens the detail with the shown sibling ids.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,19 +14,13 @@ import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/core/feature_flags.dart';
-import 'package:motogo_app/features/auth/auth_provider.dart' show profileProvider;
 import 'package:motogo_app/features/booking/booking_provider.dart';
 import 'package:motogo_app/features/booking/my_vouchers.dart';
-import 'package:motogo_app/features/booking/v2/booking_express_v2.dart';
-import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
-import 'package:motogo_app/features/booking/v2/booking_recap_v2.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
-import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/fakes_catalog.dart' show catalogOverrides;
 import '../support/v2_harness.dart';
@@ -104,34 +97,27 @@ void main() {
   final dated = CatalogFilter(startDate: ws, endDate: we);
   final cs = AppTranslations.of('cs');
 
-  testWidgets('dates set: card REZERVOVAT → form with the bike + dates folded', (t) async {
+  // lookonly-fix (owner 2026-11-07 "jen upgrade vzhledu"): the card button
+  // is the old "Detail" with or without dates — no booking shortcut.
+  testWidgets('dates set: card "Detail" → the detail (no direct booking)', (t) async {
     final c = await _pump(t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq], profile: _profile));
-    // In the app the profile is loaded long before (Home, and the list's
-    // own loyaltyStatusProvider watches it); the fakes override loyalty.
-    c.read(profileProvider);
-    await t.pump();
     final cta = find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byType(MgCta));
-    expect(t.widget<MgCta>(cta).label, cs.tr('v2CatCtaBook'));
+    expect(t.widget<MgCta>(cta).label, cs.tr('motoCardDetail'));
+    await t.ensureVisible(cta);
+    await t.pump();
     await t.tap(cta);
     await _settle(t);
-    expect(find.byType(BookingDebugWrapper), findsOneWidget);
-    expect(find.descendant(of: find.byType(BookingRecapV2), matching: find.text(kBmw.model)), findsWidgets);
-    // CB-11: "Termín a předání" starts OPEN (owner "nic neomezit"); the
-    // date card itself is folded ("Změnit").
-    expect(t.widget<BookingHandoverRowV2>(find.byType(BookingHandoverRowV2)).open, isTrue);
-    expect(find.byType(BookingDateCardV2), findsOneWidget);
-    await openBookingExpress(t);
-    expect(find.descendant(of: find.byType(BookingDateCardV2), matching: find.text('Změnit')), findsOneWidget);
-    expect(find.byType(AvailabilityCalendar), findsNothing);
-    final d = c.read(bookingDraftProvider);
-    expect([d.motoId, d.startDate, d.endDate, d.helmetSize], ['m-bmw', ws, we, 'L']);
-    expect(c.read(bookingMotoProvider)?.id, 'm-bmw');
+    expect(find.text('detail:m-bmw'), findsOneWidget);
+    expect(find.byType(BookingDebugWrapper), findsNothing);
+    expect(c.read(bookingDraftProvider).motoId, isNull);
     expect(c.read(filteredMotoIdsProvider), ['m-bmw', 'm-husq']);
     await _unmount(t);
   });
 
   testWidgets('dates set: the photo still opens the detail', (t) async {
     final c = await _pump(t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq]));
+    await t.ensureVisible(find.byType(MotoCardFullV2).first);
+    await t.pump();
     await t.tapAt(t.getTopLeft(find.byType(MotoCardFullV2).first) + const Offset(206, 140));
     await _settle(t);
     expect(find.text('detail:m-bmw'), findsOneWidget);
@@ -139,10 +125,12 @@ void main() {
     await _unmount(t);
   });
 
-  testWidgets('no dates: card CTA "Vybrat" → detail with the shown sibling ids', (t) async {
+  testWidgets('no dates: card CTA "Detail" → detail with the shown sibling ids', (t) async {
     final c = await _pump(t, catalogOverrides(filtered: [kBmw, kHusq, kKids]));
     final cta = find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byType(MgCta));
-    expect(t.widget<MgCta>(cta).label, cs.tr('v2CatCtaPick'));
+    expect(t.widget<MgCta>(cta).label, cs.tr('motoCardDetail'));
+    await t.ensureVisible(cta);
+    await t.pump();
     await t.tap(cta);
     await _settle(t);
     expect(find.text('detail:m-bmw'), findsOneWidget);

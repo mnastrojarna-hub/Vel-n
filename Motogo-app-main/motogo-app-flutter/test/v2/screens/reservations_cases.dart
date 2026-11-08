@@ -148,6 +148,7 @@ Widget editView(
   bool active = false,
   int? stornoPct,
   List<String> missing = const [],
+  VoidCallback? onShorten,
 }) {
   final calc = _calc(b, addDays: addDays);
   final datesOrSwap = tab == 'move' || tab == 'swap';
@@ -266,10 +267,9 @@ Widget editView(
     saving: false,
     onBack: () {},
     onSelectExtend: () {},
-    onSelectShorten: () {},
+    onSelectShorten: onShorten ?? () {},
     onSelectMove: () {},
     onSelectSwap: () {},
-    initialIntent: intent,
   ));
 }
 

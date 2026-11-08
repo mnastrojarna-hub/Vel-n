@@ -13,6 +13,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../loyalty/loyalty_provider.dart';
+import 'res_fit_v2.dart';
 
 /// Compact dark rank header of the Rezervace tab (V22 `.ls-h`) with the OLD
 /// header's content (owner 2026-11-07 "jen upgrade vzhledu"): the always
@@ -41,25 +42,27 @@ class ResListHeaderV2 extends ConsumerWidget {
     return MgRankHero(
       ambientKey: 'reservations',
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      child: Row(children: [
-        MgV2Back(key: const ValueKey('res-list-back'), onTap: () => context.go(Routes.home), style: MgBackStyle.dark),
-        const SizedBox(width: 8),
-        Padding(padding: const EdgeInsets.all(4), child: frame),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Semantics(
-              header: true,
-              child: MgWordFit(
-                minScale: 0.75,
-                child: Text(tr.tr('myReservations'), style: MgType.h2.copyWith(color: MgColors.onDark)),
+      child: LayoutBuilder(builder: (context, c) {
+        final titleStyle = MgType.h2.copyWith(color: MgColors.onDark);
+        // The logo only while the title keeps whole words beside it (de
+        // "Reservierungen" at 320 / large text) — the back always stays.
+        final logo = resWordsFit(context, tr.tr('myReservations'), titleStyle, c.maxWidth - 52 - 52 - 10, minScale: 0.75);
+        return Row(children: [
+          MgV2Back(key: const ValueKey('res-list-back'), onTap: () => context.go(Routes.home), style: MgBackStyle.dark),
+          const SizedBox(width: 8),
+          if (logo) ...[Padding(padding: const EdgeInsets.all(4), child: frame), const SizedBox(width: 10)],
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Semantics(
+                header: true,
+                child: MgWordFit(minScale: 0.75, child: Text(tr.tr('myReservations'), style: titleStyle)),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(tr.tr('resOverview'), style: MgType.small.copyWith(color: MgColors.onDarkSecondary)),
-          ]),
-        ),
-      ]),
+              const SizedBox(height: 2),
+              Text(tr.tr('resOverview'), style: MgType.small.copyWith(color: MgColors.onDarkSecondary)),
+            ]),
+          ),
+        ]);
+      }),
     );
   }
 }

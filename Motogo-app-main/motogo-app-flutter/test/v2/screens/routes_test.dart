@@ -166,7 +166,8 @@ void main() {
       await tester.tap(find.bySemanticsLabel(translations[lang]!['v2RtAddA11y']!));
       await tester.pump(const Duration(milliseconds: 800));
       expect(tester.takeException(), isNull);
-      expect(find.text(translations[lang]!['v2RtCreateRoute']!), findsOneWidget);
+      // lookonly-fix: the old menu — no v2-only "Vytvořit trasu" row.
+      expect(find.text(translations[lang]!['v2RtCreateRoute']!), findsNothing);
       expect(find.text(translations[lang]!['rideManualStart']!), findsOneWidget);
       sem.dispose();
       await rtEnd(tester);

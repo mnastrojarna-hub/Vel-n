@@ -295,7 +295,8 @@ void main() {
   });
 
   group('F-24 / F-25 place sheet', () {
-    testWidgets('‹ › discs step like the swipe; primary = rank CTA in a dark dock', (t) async {
+    // lookonly-fix: the old pager had no ‹ › buttons — only the swipe (and ✕).
+    testWidgets('a swipe steps the places (no ‹ › discs); primary = rank CTA in a dark dock', (t) async {
       final pois = kRtRoutes.first.pois;
       await pumpV2(
           t,
@@ -304,7 +305,8 @@ void main() {
           reducedMotion: true);
       await _open(t);
       expect(find.text('1 / ${pois.length}'), findsOneWidget);
-      await t.tap(find.bySemanticsLabel('Další místo'));
+      expect(find.bySemanticsLabel('Další místo'), findsNothing);
+      await t.flingFrom(const Offset(300, 500), const Offset(-260, 0), 1200);
       await t.pumpAndSettle();
       expect(find.text('2 / ${pois.length}'), findsOneWidget);
       expect(find.descendant(of: find.byType(PoiTripButtonV2), matching: find.byType(MgCta)), findsOneWidget);

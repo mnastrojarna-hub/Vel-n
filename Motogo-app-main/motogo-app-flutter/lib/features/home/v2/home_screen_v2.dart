@@ -10,6 +10,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../catalog/widgets/moto_filter_panel.dart';
 import '../../reservations/reservation_models.dart';
 import '../../reservations/reservation_provider.dart';
 import '../../reservations/widgets/res_rating_card.dart';
@@ -17,7 +18,6 @@ import '../home_actions.dart';
 import 'home_bike_list_v2.dart';
 import 'home_bookings_v2.dart';
 import 'home_calc_row_v2.dart';
-import 'home_filter_card_v2.dart';
 import 'home_funnel_v2.dart';
 import 'home_header_v2.dart';
 import 'home_rank_card_v2.dart';
@@ -140,7 +140,9 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
             ),
             HomeCalcRowV2(funnel: funnel),
             const HomeRecordRowV2(),
-            const HomeFilterCardV2(),
+            // Stará Domů: MotoFilterPanel(showDates: true) — jeho v2 vzhled
+            // (sbalená karta, TERMÍN + kalendář, obsah filtru) je v panelu.
+            const MotoFilterPanel(showDates: true),
             const HomeBikeCountV2(),
           ],
         ),
@@ -186,6 +188,7 @@ class _ToTopButton extends StatelessWidget {
                   child: MgIconButton(
                     key: const ValueKey('home-to-top'),
                     icon: MgIcons.up,
+                    style: MgIconButtonStyle.light,
                     semanticLabel: t(context).tr('v2UxCoreToTop'),
                     onTap: onTap,
                   ),

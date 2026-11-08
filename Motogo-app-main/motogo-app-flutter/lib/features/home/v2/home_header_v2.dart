@@ -67,51 +67,60 @@ class HomeHeaderV2 extends ConsumerWidget {
           ]);
         }),
         const SizedBox(height: 10),
-        Row(children: [
-          Flexible(
-            child: Semantics(
-              hint: tr.tr('editNickname'),
-              child: MgRankChip(
-                key: const ValueKey('home-pilot'),
-                rank: rank,
-                label: pilot,
-                onTap: () => showNicknameDialog(context, ref, fullName: fullName),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Semantics(
-              button: true,
-              label: search,
-              excludeSemantics: true,
-              child: MgPress(
-                key: const ValueKey('home-search'),
-                scale: 0.98,
-                onTap: () => router?.go(Routes.search),
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: MgColors.white(0.10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: MgColors.white(0.08)),
-                  ),
-                  child: Row(children: [
-                    const MgIcon(MgIcons.search, size: 18, color: MgColors.onDarkMeta),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(search,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: MgType.small.copyWith(color: MgColors.onDarkMeta, height: 1.25)),
-                    ),
-                  ]),
+        // Pilot (přirozená šířka, max ~45 %) + vyhledávání přes zbytek řádku;
+        // nápověda se zmenší na 2 řádky, nikdy se neusekne.
+        LayoutBuilder(builder: (context, c) {
+          return Row(children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: c.maxWidth * 0.45),
+              child: Semantics(
+                hint: tr.tr('editNickname'),
+                child: MgRankChip(
+                  key: const ValueKey('home-pilot'),
+                  rank: rank,
+                  label: pilot,
+                  onTap: () => showNicknameDialog(context, ref, fullName: fullName),
                 ),
               ),
             ),
-          ),
-        ]),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Semantics(
+                button: true,
+                label: search,
+                excludeSemantics: true,
+                child: MgPress(
+                  key: const ValueKey('home-search'),
+                  scale: 0.98,
+                  onTap: () => router?.go(Routes.search),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: MgColors.white(0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: MgColors.white(0.08)),
+                    ),
+                    child: Row(children: [
+                      const MgIcon(MgIcons.search, size: 18, color: MgColors.onDarkMeta),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: MgWordFit(
+                          minScale: 0.75,
+                          fitLines: 2,
+                          child: Text(search,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: MgType.small.copyWith(color: MgColors.onDarkMeta, height: 1.25)),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ]);
+        }),
         // Velín banner = poslední JEDEN řádek hlavičky: marquee, při omezení
         // pohybu statický s „…"; klepnutí ukáže celý text (V22 §2.4 #2).
         if (hasBanner) ...[

@@ -1,7 +1,7 @@
-// pay_shop PS-07: the booking upsell in the v2 look — card OPEN by default
-// (owner 2026-11-07 "nic neomezit": the offer is visible at once), a
-// product row that snaps to whole cards (24 px peek), the old tile's tap
-// rules on the same provider; flag OFF keeps the old section.
+// pay_shop PS-07: the booking upsell in the v2 look after lookonly-fix —
+// the old card (title, no fold) with the featured products one under
+// another, all visible at once; the old tile's tap rules on the same
+// provider; flag OFF keeps the old section.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,18 +21,19 @@ Widget _host() => const Material(
 List<BookingUpsellItem> _items(WidgetTester t) =>
     ProviderScope.containerOf(t.element(find.byType(UpsellSection))).read(bookingUpsellProvider);
 
-ScrollPosition _rowPos(WidgetTester t) =>
-    t.state<ScrollableState>(find.descendant(of: find.byKey(const ValueKey('upsell-v2-row')), matching: find.byType(Scrollable))).position;
-
 void main() {
-  testWidgets('flag ON: card open, products visible at once; a tap folds it; flag OFF: the old section', (tester) async {
+  testWidgets('flag ON: the old card, all products at once, no fold; flag OFF: the old section', (tester) async {
     await pumpPs(tester, _host(), overrides: psShopOverrides());
     await tester.pumpAndSettle();
     expect(find.byType(UpsellRowV2), findsOneWidget);
-    expect(find.byKey(const ValueKey('upsell-v2-row')), findsOneWidget);
+    expect(find.byKey(const ValueKey('upsell-v2-row')), findsNothing);
+    for (final p in kPsProducts.take(3)) {
+      expect(find.byKey(ValueKey('upsell-v2-${p.id}')), findsOneWidget);
+    }
+    // The title is not a fold: a tap keeps every product.
     await tester.tap(find.text('Doporučujeme k rezervaci'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('upsell-v2-row')), findsNothing);
+    expect(find.byKey(const ValueKey('upsell-v2-p3')), findsOneWidget);
 
     await pumpPs(tester, _host(), overrides: psShopOverrides(), v2: false);
     await tester.pumpAndSettle();
@@ -65,34 +66,5 @@ void main() {
     expect(_items(tester), isEmpty);
   });
 
-  testWidgets('swipe snaps to whole cards; a fling moves one card; something chosen = open', (tester) async {
-    await pumpPs(tester, _host(), overrides: psShopOverrides(), reducedMotion: false);
-    await tester.pumpAndSettle();
-    final row = find.byKey(const ValueKey('upsell-v2-row'));
-    final card = tester.getSize(find.descendant(of: row, matching: find.byType(SizedBox)).first).width;
-    final extent = card + 12;
-    // One whole card + 12 gap + 24 px peek of the next.
-    expect(card, closeTo(tester.getSize(row).width - 24 - 12, 0.5));
-    await tester.drag(row, const Offset(-60, 0));
-    await tester.pumpAndSettle();
-    expect(_rowPos(tester).pixels % extent, closeTo(0, 0.5));
-    await tester.fling(row, const Offset(-80, 0), 900);
-    await tester.pumpAndSettle();
-    expect(_rowPos(tester).pixels, closeTo(extent, 0.5));
-
-    // Something already chosen → the card starts open.
-    await pumpPs(
-        tester,
-        Material(
-          child: UpsellRowV2(
-            products: kPsProducts.take(3).toList(),
-            isSelected: (id) => id == 'p2',
-            sizeOf: (_) => null,
-            onToggle: (_, __) {},
-            onRemove: (_) {},
-          ),
-        ));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('upsell-v2-row')), findsOneWidget);
-  });
+  // lookonly-fix: no snapping row — the products are one under another as before.
 }
