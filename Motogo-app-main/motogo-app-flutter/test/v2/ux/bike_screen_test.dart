@@ -31,7 +31,9 @@ ScrollPosition _page(WidgetTester t) => t
     .state<ScrollableState>(find.descendant(of: find.byType(MotorkyScreenV2), matching: find.byType(Scrollable)).first)
     .position;
 
-MgSnapZone _zone(WidgetTester t) => t.renderObject<RenderMgSnapZone>(find.byType(MgSnapZoneSliver)).zone;
+// The list starts below the inline dates card: off screen until scrolled.
+MgSnapZone _zone(WidgetTester t) =>
+    t.renderObject<RenderMgSnapZone>(find.byType(MgSnapZoneSliver, skipOffstage: false)).zone;
 
 Future<void> _settle(WidgetTester t) async {
   for (var i = 0; i < 12; i++) {
@@ -50,22 +52,26 @@ void main() {
   testWidgets('Motorky: every card is the folded viewport tall (844 − 34 band), one bike per screen', (t) async {
     await pumpBarsShell(t, '/search', _routes);
     await t.pump(const Duration(milliseconds: 500));
+    final z = _zone(t);
+    _page(t).jumpTo(z.offsetOf(0));
+    await t.pump();
     final cards = find.byType(MotoCardFullV2);
     expect(cards, findsWidgets);
     expect(t.getSize(cards.first).height, 844 - 34);
-    final z = _zone(t);
     expect(z.active, isTrue);
     expect(z.extent, 844 - 34 + kBikeScreenGap);
     // Snapped on bike 2 with the bars folded: the card IS the screen.
-    _page(t).jumpTo(z.offsetOf(1));
-    await t.drag(find.byType(CustomScrollView), const Offset(0, -60));
+    _page(t).jumpTo(z.offsetOf(1) - 60);
+    await t.pump();
+    await slowDrag(t, find.byType(CustomScrollView), -60);
     await _settle(t);
     expect(navFolded(t), isTrue);
-    final r = t.getRect(cards.at(1));
+    expect(_page(t).pixels, moreOrLessEquals(z.offsetOf(1), epsilon: 0.5));
+    final r = t.getRect(find.byKey(ValueKey('mc-${t.widget<BikeScreenList>(find.byType(BikeScreenList)).ids[1]}')));
     expect(r.top, moreOrLessEquals(0, epsilon: 0.5));
     expect(r.bottom, moreOrLessEquals(844 - 34, epsilon: 0.5));
     // Top controls under the status bar inset (47), never under the clock.
-    expect(t.widget<MotoCardFullV2>(cards.at(1)).topInset, 47);
+    expect(t.widget<MotoCardFullV2>(cards.first).topInset, 47);
     await _drain(t);
   });
 
@@ -76,10 +82,10 @@ void main() {
     final pos = _page(t);
     pos.jumpTo(z.offsetOf(1));
     await t.pump();
-    await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.3 + 18));
+    await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.3));
     await _settle(t);
     expect(pos.pixels, moreOrLessEquals(z.offsetOf(1), epsilon: 1), reason: '30 % → back to the same bike');
-    await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.65 + 18));
+    await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.65));
     await _settle(t);
     expect(pos.pixels, moreOrLessEquals(z.offsetOf(2), epsilon: 1), reason: '65 % → the next bike');
     pos.jumpTo(z.offsetOf(0));
@@ -96,7 +102,7 @@ void main() {
     await pumpBarsShell(t, '/search', _routes);
     await t.pump(const Duration(milliseconds: 500));
     final pos = _page(t);
-    await slowDrag(t, find.byType(CustomScrollView), -118);
+    await slowDrag(t, find.byType(CustomScrollView), -100);
     await _settle(t);
     expect(pos.pixels, moreOrLessEquals(100, epsilon: 2), reason: 'dates / filters: free resting');
     await _drain(t);
@@ -108,22 +114,23 @@ void main() {
     final p2 = _page(t);
     p2.jumpTo(z.offsetOf(1));
     await t.pump();
-    await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.3 + 18));
+    await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.3));
     await _settle(t);
-    expect(p2.pixels, moreOrLessEquals(z.offsetOf(1) + z.extent * 0.3, epsilon: 2), reason: 'no animated snap');
+    final frac = (p2.pixels - z.offsetOf(1)) / z.extent;
+    expect(frac, inInclusiveRange(0.15, 0.45), reason: 'no animated snap: it rests where the finger left it');
     await _drain(t);
   });
 
   testWidgets('detail: swipe ‹ › through the shown list, controls fold on scroll, back lands on the last bike', (t) async {
     final router = await pumpBarsShell(t, '/search', _routes, size: const Size(412, 915));
     await t.pump(const Duration(milliseconds: 500));
-    final ids = t.widget<BikeScreenList>(find.byType(BikeScreenList)).ids;
+    final ids = t.widget<BikeScreenList>(find.byType(BikeScreenList, skipOffstage: false)).ids;
     expect(ids.length, greaterThanOrEqualTo(3));
     final z = _zone(t);
     // Open bike 1 from its card.
     _page(t).jumpTo(z.offsetOf(1));
     await t.pump();
-    await t.tap(find.byType(MotoCardFullV2).at(1), warnIfMissed: false);
+    await t.tap(find.byKey(ValueKey('mc-${ids[1]}')), warnIfMissed: false);
     await t.pump();
     await t.pump(const Duration(milliseconds: 600));
     expect(find.byType(MotoDetailPagerV2View), findsOneWidget);

@@ -107,18 +107,19 @@ void main() {
       await _pumpScanner(t, 'missing_id', st(gate(dlF: true, dlB: true)));
       final tr = AppTranslations('cs');
       expect(find.text(tr.tr('v2UxAsmPickDoc')), findsOneWidget);
-      expect(find.text(tr.tr('passport')), findsOneWidget);
-      expect(find.text(tr.tr('dlOnly')), findsNothing);
+      // Labels of the 2026-11-08 scanner choice (owner wording).
+      expect(find.text(tr.tr('v2UxAsmScanPassDl')), findsOneWidget);
+      expect(find.text(tr.tr('v2UxAsmScanDlOnly')), findsNothing);
     });
 
     testWidgets('status unavailable → the full flow (choice incl. "only ŘP")', (t) async {
       await _pumpScanner(t, 'missing', null);
-      expect(find.text(AppTranslations('cs').tr('dlOnly')), findsOneWidget);
+      expect(find.text(AppTranslations('cs').tr('v2UxAsmScanDlOnly')), findsOneWidget);
     });
 
     testWidgets('today\'s full flow unchanged: choice incl. "only ŘP"', (t) async {
       await _pumpScanner(t, null, st(gate(idF: true, idB: true, dlF: true)));
-      expect(find.text(AppTranslations('cs').tr('dlOnly')), findsOneWidget);
+      expect(find.text(AppTranslations('cs').tr('v2UxAsmScanDlOnly')), findsOneWidget);
     });
 
     testWidgets('today\'s dl_only unchanged: both ŘP sides (1/2)', (t) async {

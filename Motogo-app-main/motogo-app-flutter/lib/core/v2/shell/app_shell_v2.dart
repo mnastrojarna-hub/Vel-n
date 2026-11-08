@@ -272,7 +272,8 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
             : MgStickySlide(
                 visible: !navHidden,
                 collapse: true,
-                child: MgNavBand(folded: folded, band: outer.padding.bottom, child: _lastNav!),
+                // The body's bottom edge moved: the AI button re-checks its slot.
+                child: MgNavBand(folded: folded, band: outer.padding.bottom, onEnd: _chrome.scrollIdle, child: _lastNav!),
               ),
       ),
     );

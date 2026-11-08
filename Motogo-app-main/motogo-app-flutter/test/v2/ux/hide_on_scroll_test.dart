@@ -10,6 +10,7 @@ import 'package:motogo_app/core/banner_provider.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/chrome/mg_dock.dart';
+import 'package:motogo_app/core/v2/chrome/mg_hide_on_scroll.dart';
 import 'package:motogo_app/core/v2/chrome/mg_nav_band.dart';
 import 'package:motogo_app/core/v2/chrome/mg_page.dart';
 import 'package:motogo_app/core/v2/chrome/mg_status_strip.dart';
@@ -68,31 +69,41 @@ void main() {
     expect(navFolded(t), isTrue);
     expect(t.getSize(find.byType(MgNavBand)).height, _band, reason: 'only the safe-area band stays');
     expect(t.getRect(find.byKey(const ValueKey('long'))).bottom, _h - _band, reason: 'the body grows by the tab row');
-    // The tab row is out of reach while folded.
-    expect(t.getRect(find.byType(V2NavBar)).top, greaterThanOrEqualTo(_h - _band - 0.5));
+    expect(t.getRect(find.byType(MgNavBand)).top, _h - _band);
+    // The tab row is out of reach (and out of semantics) while folded.
+    final ignore = find.ancestor(of: find.byType(V2NavBar), matching: find.byType(IgnorePointer));
+    expect(t.widgetList<IgnorePointer>(ignore).any((w) => w.ignoring), isTrue);
     await t.drag(find.byKey(const ValueKey('long')), const Offset(0, 60));
     await settleChrome(t);
     expect(navFolded(t), isFalse);
     expect(t.getSize(find.byType(MgNavBand)).height, 64 + _band);
   });
 
-  testWidgets('hysteresis: < 24 px down keeps it, < 8 px up keeps it folded', (t) async {
+  testWidgets('hysteresis: folds after 24 px down, shows after 8 px up — not before', (t) async {
     await pumpBarsShell(t, '/long', _routes);
+    _ctrl.jumpTo(400);
+    await t.pump();
     final g = await t.startGesture(t.getCenter(find.byKey(const ValueKey('long'))));
-    await g.moveBy(const Offset(0, -30)); // slop
-    await t.pump();
-    await g.moveBy(const Offset(0, -10));
-    await t.pump();
-    expect(navFolded(t), isFalse, reason: '10 px is no intent yet');
-    await g.moveBy(const Offset(0, -30));
-    await t.pump();
-    expect(navFolded(t), isTrue);
-    await g.moveBy(const Offset(0, 5));
-    await t.pump();
-    expect(navFolded(t), isTrue, reason: '5 px back is jitter');
+    // Past the touch slop first, scrolling UP (shown stays shown) — the
+    // count of a reversal starts at 0.
+    await g.moveBy(const Offset(0, 20));
     await g.moveBy(const Offset(0, 10));
     await t.pump();
     expect(navFolded(t), isFalse);
+    var from = _ctrl.offset;
+    while (!navFolded(t)) {
+      await g.moveBy(const Offset(0, -2));
+      await t.pump();
+      expect(_ctrl.offset - from, lessThan(30));
+    }
+    expect(_ctrl.offset - from, inInclusiveRange(MgBarsController.hideAfter - 4, MgBarsController.hideAfter + 2));
+    from = _ctrl.offset;
+    while (navFolded(t)) {
+      await g.moveBy(const Offset(0, 1));
+      await t.pump();
+      expect(from - _ctrl.offset, lessThan(12));
+    }
+    expect(from - _ctrl.offset, inInclusiveRange(MgBarsController.showAfter - 1, MgBarsController.showAfter + 1));
     await g.up();
     await settleChrome(t);
   });
@@ -112,8 +123,9 @@ void main() {
     _ctrl.jumpTo(1500);
     await settleChrome(t);
     expect(navFolded(t), isFalse);
-    await _ctrl.animateTo(3000, duration: const Duration(milliseconds: 200), curve: Curves.linear);
+    _ctrl.animateTo(3000, duration: const Duration(milliseconds: 200), curve: Curves.linear);
     await settleChrome(t);
+    expect(_ctrl.offset, 3000);
     expect(navFolded(t), isFalse);
   });
 
