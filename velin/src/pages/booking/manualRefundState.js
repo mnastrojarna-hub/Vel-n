@@ -56,6 +56,21 @@ export async function cancelRefundAlreadyIssued(supabase, bookingId, amountCzk) 
   } catch { return false }
 }
 
+/** P2 (majitel 2026-11-08): kolik už se k TOMUTO stornu vrátilo (součet živých dobropisů od bookings.cancelled_at
+ *  − 2 min) — „Potvrdit vrácení“ pak pošle jen rozdíl do zadané CELKOVÉ částky storna. null = nepodařilo se načíst. */
+export async function cancelRefundedSoFarCzk(supabase, bookingId) {
+  try {
+    const { data: bk, error } = await supabase.from('bookings').select('cancelled_at').eq('id', bookingId).maybeSingle()
+    if (error) return null
+    const since = Date.parse(String(bk?.cancelled_at || ''))
+    let q = supabase.from('invoices').select('id, total, created_at').eq('booking_id', bookingId).eq('type', 'credit_note').neq('status', 'cancelled')
+    if (Number.isFinite(since)) q = q.gte('created_at', new Date(since - CN_SLACK_MS).toISOString())
+    const { data: cns, error: cnErr } = await q
+    if (cnErr) return null
+    return Math.round((cns || []).reduce((sum, c) => sum + Math.abs(Number(c.total) || 0), 0))
+  } catch { return null }
+}
+
 /** Oprava i6r1 (verify:refunds W3): „Vratka odeslána“ — stav z AKTUÁLNÍCH dat (živé dobropisy, DP, payment_status z DB)
  *  a zápis compare-and-set na přečtený payment_status. Dřív ze seznamu dobropisů z načtení stránky: kartová vratka mezitím
  *  selhala (webhook její dobropis zrušil), stará stránka pořád sečetla 3 500 = DP → 'refunded' a „Potvrdit vrácení“ pak

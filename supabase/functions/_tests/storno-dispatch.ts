@@ -96,6 +96,31 @@ export async function velinConfirm(amt: number) {
   const total = Math.max(0, Math.round(Number(bk().total_price) || 0))
   let pct = total > 0 ? Math.round(amt / total * 100) : 0
   const v = await velinHelpers()
+  // P2 (majitel 2026-11-08): zadaná částka = CELKOVÁ vratka storna (max. zaplaceno), odejde jen rozdíl proti
+  // dobropisům tohoto storna — stejně jako BookingDetail.confirmCancelledRefund (strom s cancelRefundedSoFarCzk).
+  if (typeof v.cancelRefundedSoFarCzk === 'function') {
+    const db = (globalThis as any).__STORNO_DB
+    const paidDocs = await v.livePaidDocsCzk(db, BID)
+    const cap = paidDocs != null && paidDocs > 0 ? Math.round(paidDocs) : total
+    const target = Math.min(cap, Math.max(0, Math.round(amt)))
+    const done = await v.cancelRefundedSoFarCzk(db, BID)
+    if (done == null) return { failed: true, res: null }
+    amt = Math.max(target, done)
+    const delta = target - done
+    if (delta > 0) {
+      const full = target >= cap && done === 0
+      const res = await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(full ? {} : { amount: delta, cancel_total: target }) }, 'admin')
+      if (!res || typeof res !== 'object' || res.success === false) return { failed: true, res }
+      const sum = Math.round(Number(res.cancel_refunded_total))
+      if (Number.isFinite(sum) && sum > 0) amt = Math.min(cap, sum)
+    }
+    pct = total > 0 ? Math.round(amt / total * 100) : 0
+    const lastP2 = rows('booking_cancellations').at(-1)
+    if (lastP2) Object.assign(lastP2, { refund_amount: amt, refund_percent: pct })
+    await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, cancellation_reason: bk().cancellation_reason, cancelled_by_source: 'velin',
+      source: 'app', refund_amount: amt, refund_percent: pct, skip_refund: true, force: true }, 'admin')
+    return { failed: false }
+  }
   const issued = typeof v.cancelRefundAlreadyIssued === 'function'
     ? await v.cancelRefundAlreadyIssued((globalThis as any).__STORNO_DB, BID, amt)
     : !!creditNotes().find((c) => Math.abs(Number(c.total) || 0) === amt)

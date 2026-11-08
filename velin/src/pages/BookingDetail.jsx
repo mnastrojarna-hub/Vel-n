@@ -19,7 +19,7 @@ import { TABS, ACTIONS, CANCEL_REASONS, paymentStatusInfo } from './booking/book
 import { sendBookingMessage, logAudit, cancelBookingFromVelin, edgeErrorDetail, paidForRefund } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 import RefundConfirmModal from './booking/RefundConfirmModal'
-import { cancelRefundAlreadyIssued, manualRefundOpen, manualRefundSentLive } from './booking/manualRefundState'
+import { cancelRefundedSoFarCzk, livePaidDocsCzk, manualRefundOpen, manualRefundSentLive } from './booking/manualRefundState'
 import PaymentConfirmModal from './booking/PaymentConfirmModal'
 import AppInstallBadge, { loadAppInstalls } from '../components/AppInstallBadge'
 import BookingDamagePanel from './booking/BookingDamagePanel'
@@ -429,33 +429,44 @@ export default function BookingDetail() {
   }
 
   // „Potvrdit vrácení" u ZRUŠENÉ rezervace (Čeká na vrácení / Částečně vráceno):
-  // dle zvolené částky provede vratku (Stripe reálně vrátí; u QR/převodu/hotově
+  // zvolená částka = CELKOVÁ vratka storna (P2), provede vratku ROZDÍLU (Stripe reálně vrátí; u QR/převodu/hotově
   // vystaví dobropis a peníze posílá admin převodem), aktualizuje záznam storna,
   // označí stav platby a pošle storno mail ze šablony s přiloženým dobropisem.
   async function confirmCancelledRefund(refund) {
     setSaving(true); setError(null)
     try {
       const total = Math.max(0, Math.round(Number(booking.total_price) || 0))
-      let amt = Math.min(total, Math.max(0, Math.round(Number(refund?.amount) || 0)))
-      let pct = total > 0 ? Math.round(amt / total * 100) : 0
+      // P2 (majitel 2026-11-08): zadaná částka = CELKOVÁ vratka k tomuto stornu, nikdy víc, než zákazník zaplatil
+      // (živé doklady o platbě; bez nich cena rezervace). Pošle se jen rozdíl proti už vrácenému k tomuto stornu
+      // (dobropisy storna) — zaplaceno 3 000, zadáno 2 000, už odešlo 1 000 → odejde 1 000. Server navíc vrací
+      // nejvýš dosud nevrácenou část platby.
+      const paidDocs = await livePaidDocsCzk(supabase, id)
+      const cap = paidDocs != null && paidDocs > 0 ? Math.round(paidDocs) : total
+      const target = Math.min(cap, Math.max(0, Math.round(Number(refund?.amount) || 0)))
+      const done = await cancelRefundedSoFarCzk(supabase, id)
+      if (done == null) { setError('Dosavadní vratky k tomuto stornu se nepodařilo načíst — zkuste to znovu.'); setSaving(false); return }
+      // Už vrácené vzít zpět nejde: záznam storna nese skutečný součet vratek storna.
+      let amt = Math.max(target, done)
+      const delta = target - done
 
-      // 1) Vratka/dobropis přes process-refund (idempotentní). Přeskočí se, když
-      //    už existuje nezrušený dobropis TOHOTO storna PŘESNĚ na tuto částku — potvrzení
-      //    dřívějšího storna se stejnou vratkou nesmí vystavit duplicitní dobropis.
-      //    i6r1 (W2b): dobropisy znovu z DB, jen dobropisy tohoto storna (ne dřívějšího zkrácení / zrušené po selhání).
-      if (amt > 0 && !(await cancelRefundAlreadyIssued(supabase, id, amt))) {
+      // 1) Vratka/dobropis přes process-refund (idempotentní) — jen ROZDÍL. Opakované potvrzení téže
+      //    celkové částky (rozdíl 0) nic znovu nevrací ani nevystaví další dobropis.
+      if (delta > 0) {
+        const full = target >= cap && done === 0
+        // cancel_total: server pozná duplicitu podle součtu vratek storna (ne podle stejné částky) a rozdíl
+        // ořízne, aby celkem nepřekročil zadanou částku.
         const res = await debugAction('booking.refund_confirm.process', 'BookingDetail', () =>
           supabase.functions.invoke('process-refund', {
-            body: { booking_id: id, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) },
+            body: { booking_id: id, reason: 'cancellation', ...(full ? {} : { amount: delta, cancel_total: target }) },
           })
-        , { booking_id: id, amount: amt })
+        , { booking_id: id, amount: delta, target })
         if (res?.error) { setError('Vratka selhala: ' + await edgeErrorDetail(res.error)); setSaving(false); return }
         if (res?.data && res.data.success === false) { setError('Vratka selhala: ' + (res.data.error || res.data.code || 'neznámá chyba')); setSaving(false); return }
-        // i4 (S2): po dřívější storno vratce vrátí process-refund zvolenou částku NAVÍC → záznam storna i mail nesou
-        // skutečně vrácený součet k tomuto stornu (cancel_refunded_total), ne zvolenou částku.
+        // Skutečně vrácený součet k tomuto stornu ze Stripe (cancel_refunded_total) má přednost.
         const sum = Math.round(Number(res?.data?.cancel_refunded_total))
-        if (Number.isFinite(sum) && sum > amt) { amt = Math.min(total, sum); pct = total > 0 ? Math.round(amt / total * 100) : 0 }
+        if (Number.isFinite(sum) && sum > 0) amt = Math.min(cap, sum)
       }
+      const pct = total > 0 ? Math.round(amt / total * 100) : 0
 
       // 2) Záznam storna nese skutečně potvrzenou výši vratky (badge „bez vratky"
       //    z něj čte refund_amount = 0).

@@ -172,6 +172,10 @@ interface RefundRequest {
   order_id?: string
   amount?: number      // partial refund in CZK (omit for full refund)
   reason?: string      // 'cancellation' | 'shortening' | 'duplicate' | 'requested_by_customer'
+  /** P2 (majitel 2026-11-08): Velín „Potvrdit vrácení“ u zrušené rezervace — CELKOVÁ vratka k tomuto stornu (Kč),
+   *  `amount` = jen rozdíl proti už vrácenému. Duplicitu pak server pozná podle součtu vratek storna (vráceno ≥ cíl),
+   *  ne podle stejné částky (rozdíl smí být stejný jako dřívější vratka storna). */
+  cancel_total?: number
 }
 
 // Idempotent helper: for an already-refunded booking, locate the credit note,
@@ -1731,8 +1735,11 @@ Deno.serve(async (req: Request) => {
           { error: pool.error })
       }
       cancelDoneHaleru = cancellationRefundedHaleru(pool.refunds, booking_id!, cancelTok)
+      const totalH = caller.kind === 'admin' && Number(body.cancel_total) > 0 ? Math.round(Number(body.cancel_total) * 100) : null
       const prior = caller.kind === 'service'
         ? priorCancellationRefunds(pool.refunds, booking_id!, cancelTok)
+        : totalH != null
+        ? (cancelDoneHaleru >= totalH ? priorCancellationRefunds(pool.refunds, booking_id!, cancelTok) : [])
         : duplicateAdminRefunds(pool.refunds, booking_id!, {
           amountHaleru: Number(amount) > 0 ? Math.round(Number(amount) * 100) : null,
           nowS: Math.floor(Date.now() / 1000), lock: cancelLock,
@@ -1806,6 +1813,11 @@ Deno.serve(async (req: Request) => {
     let reqAmount: number | undefined = amount
     if (orphanCutH > 0 && Number(reqAmount) > 0) reqAmount = Math.max(0, Math.round(Number(reqAmount) * 100) - orphanCutH) / 100
     if (retryCutH > 0 && Number(reqAmount) > 0) reqAmount = Math.max(0, Math.round(Number(reqAmount) * 100) - retryCutH) / 100
+    // P2: s cancel_total obsluha nikdy nepřekročí CELKOVOU vratku storna (Velín počítá rozdíl z dobropisů, Stripe je přesnější).
+    if (caller.kind === 'admin' && Number(body.cancel_total) > 0 && Number(reqAmount) > 0 && booking_id && reason === 'cancellation') {
+      const leftH = Math.round(Number(body.cancel_total) * 100) - cancelDoneHaleru
+      if (leftH > 0 && leftH < Math.round(Number(reqAmount) * 100)) reqAmount = leftH / 100
+    }
     let fullBalance = false
     let nonStripeOwedH = 0 // i2: část ceny zaplacená mimo Stripe (převod / QR doplatek) → ruční dobropis po vratce kartou
     // Oprava i1 (2026-11-05): ostatní platby rezervace se podařilo přečíst (search / historie) — bez toho nelze říct,

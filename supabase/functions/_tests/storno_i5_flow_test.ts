@@ -96,7 +96,7 @@ Deno.test({ name: 'i5 B3: hlavní storno vratka selže, zbytek odešel → služ
       const r = await pr(1750, 'service'); await deliver()
       if (r?.cancel_refunded_total !== 1750 || r?.amount_refunded !== 1750) bad.push(`service: odpověď ${JSON.stringify(r)}`)
     } else if (via === 'velin') {
-      await velinConfirm(500); await deliver() // obsluha vrací chybějících 500 Kč (Velín vrací zvolenou částku navíc — P2)
+      await velinConfirm(1750); await deliver() // P2 (majitel 2026-11-08): obsluha zadá CELKOVOU vratku storna 1750 → odejde chybějících 500
       const cm = customerMails().at(-1), last = rows('booking_cancellations').at(-1)
       if (cm?.amount !== 1750 || Number(last?.refund_amount) !== 1750) bad.push(`velin: mail ${JSON.stringify(cm)}, booking_cancellations ${last?.refund_amount}`)
     } else {

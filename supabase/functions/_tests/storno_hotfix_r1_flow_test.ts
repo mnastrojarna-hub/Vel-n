@@ -56,13 +56,14 @@ Deno.test({ name: 'charge.refunded znovu po 40 min, když hromadné „Zrušit�
   money('replay po novém cancelled_at', 1500); mailsSay('replay po novém cancelled_at', 1500, 1)
 } })
 
-Deno.test({ name: '„Potvrdit částečné vrácení“ 100 % po stornu 50 % → vrátí zbytek (3000); ruční platba (QR) beze změny', ignore: !MAPPED, fn: async () => {
+Deno.test({ name: '„Potvrdit částečné vrácení“ 100 % po stornu 50 % → vrátí zbytek (3000); ruční platba (QR) → dobropis na zbytek (P2)', ignore: !MAPPED, fn: async () => {
   fresh(10); await velinCancel(1500); await deliver(); advance(40); await velinConfirm(3000); await deliver()
   money('zbytek kartou', 3000)
   if (bk().payment_status !== 'refunded' || customerMails().at(-1)?.amount !== 3000) throw new Error(`stav ${bk().payment_status}, maily ${JSON.stringify(customerMails())}`)
   fresh(10, { booking: { payment_method: 'qr', pay_channel: 'qr', stripe_payment_intent_id: null } })
   await velinCancel(1500); bk().payment_status = 'partial_refund'; advance(40); await velinConfirm(3000)
-  money('QR beze změny (žádný další ruční dobropis)', 0, 1500)
+  // P2 (majitel 2026-11-08): celková vratka storna 3000 → ruční dobropis na zbývajících 1500 (peníze posílá obsluha)
+  money('QR: dobropis na zbytek do celkových 3000', 0, 3000)
 } })
 
 Deno.test({ name: 'pád process-refund po refunds.create u rezervace s dřívější vratkou úpravy → další volání ze serveru dorovná stav (před webhookem)', ignore: !MAPPED, fn: async () => {

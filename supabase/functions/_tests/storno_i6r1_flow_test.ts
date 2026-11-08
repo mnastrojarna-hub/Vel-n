@@ -153,7 +153,7 @@ Deno.test({ name: 'i6r1 W3: karta + převod, kartová vratka selže → „Vratk
   const st = await velin.manualRefundSentLive(db(), page.bk)
   advance(10)
   const nMail = customerMails().length
-  await velinConfirm(3000); await deliver()
+  await velinConfirm(3500); await deliver() // P2: celková vratka storna 3500 (karta 3000 + převod 500 už v dobropisu)
   const cm = customerMails().slice(nMail).at(-1)
   const bad: string[] = []
   if (afterFail.cn !== 500 || afterFail.st !== 'refund_pending') bad.push(`po selhání karty dobropisy ${afterFail.cn} Kč, stav ${afterFail.st} (předpoklad)`)
