@@ -104,7 +104,7 @@ void main() {
     expect(find.text('3 dny'), findsOneWidget);
     expect(find.text(tr.tr('rideStatGap')), findsOneWidget);
     expect(find.textContaining(tr.tr('rpPauseLegend')), findsOneWidget);
-    expect(find.textContaining(tr.tr('rpGapNotice')), findsOneWidget);
+    expect(find.textContaining(tr.tr('rideGapEstNotice')), findsOneWidget);
     expect(find.text(tr.tr('rideStatPoints')), findsNothing);
     // Jízda ze starého serveru: „celkový čas", bez pauz a dnů.
     final old = rides.firstWhere((r) => r.id == 'b2');

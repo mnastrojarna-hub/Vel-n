@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { MAPY_CZ_API_KEY } from '../lib/mapyCz'
 import { splitTrackOnGaps } from '../lib/rideTrack'
+import { fetchRoadLine } from '../lib/mapyRoute'
+
+/** Nejvýš tolik mezer jedné jízdy se odhaduje po silnici. */
+const GAP_ROAD_MAX = 25
 
 const fmtClock = (ts) => new Date(ts * 1000).toLocaleString('cs-CZ',
   { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -20,7 +24,9 @@ function pauseLabel(g) {
 // PROČ SE STOPA TRHÁ NA ÚSEKY: když appka běžela na pozadí, GPS fixy
 // nechodily a mezi dvěma body je klidně hodina a 40 km. Spojit je plnou
 // čarou = tvrdit, že tudy zákazník jel. Takový úsek proto kreslíme
-// přerušovaně a šedě — „tady trasu neznáme". PAUZA (noc, oběd; značka od
+// přerušovaně a šedě jako ODHAD trasy po silnici s popiskem (majitel
+// 2026-11-08: „odhad šedá trasa s popisem“; dokud odhad není, nic — nikdy
+// rovná spojnice). PAUZA (noc, oběd; značka od
 // appky nebo dlouhé ticho bez jízdy) spojnici nemá; jen když se motorka
 // během pauzy přesunula o víc než 300 m (trajekt, přívěs), je modrošedá
 // čárkovaná — do km se nepočítá (stejně jako v appce).
@@ -41,6 +47,22 @@ export default function TrasyJizdaMapa({
 
   // Rozdělení stopy na souvislé úseky + mezery počítáme jen při změně stopy.
   const segments = useMemo(() => splitTrackOnGaps(track), [track])
+
+  // Odhad trasy po silnici přes mezery bez signálu (klíč = index úseku).
+  const [gapRoads, setGapRoads] = useState({})
+  useEffect(() => {
+    let alive = true
+    let n = 0
+    setGapRoads({})
+    segments.forEach((s, i) => {
+      const g = s.gapBefore
+      if (g?.kind !== 'gap' || ++n > GAP_ROAD_MAX) return
+      fetchRoadLine([g.from, g.to], MAPY_CZ_API_KEY).then(line => {
+        if (alive && line) setGapRoads(prev => ({ ...prev, [i]: line }))
+      })
+    })
+    return () => { alive = false }
+  }, [segments])
 
   const cleanPoints = useMemo(() => (points || [])
     .filter(p => p && p.lat != null && p.lng != null)
@@ -117,6 +139,7 @@ export default function TrasyJizdaMapa({
 .live-pause{background:#6E86A0;width:22px;height:22px;font-size:9px;letter-spacing:-1px}
 @keyframes mgpulse{0%{transform:scale(.6);opacity:.85}100%{transform:scale(2.6);opacity:0}}
 .halo{border-radius:50%;background:#dc2626;width:22px;height:22px;animation:mgpulse 1.8s ease-out infinite}
+.gap-lbl{display:inline-block;white-space:nowrap;background:rgba(255,255,255,.92);border:1px solid #94a3b8;border-radius:10px;padding:2px 8px;font:700 11px sans-serif;color:#475569}
 .lg-credit{position:absolute;left:8px;bottom:4px;z-index:500}.lg-credit img{width:80px}</style></head>
 <body><div id="m"></div>
 <a class="lg-credit" href="https://mapy.cz/" target="_blank"><img src="https://api.mapy.cz/img/api/logo.svg" alt="Mapy.cz"/></a>
@@ -131,8 +154,8 @@ window.addEventListener('message',function(e){
   var d=e.data; if(!d||d.__mg!=='jizda-map'||d.type!=='render') return;
   layer.clearLayers();
   var pts=[];
-  // Souvislé úseky = plná zelená čára. Mezery (appka na pozadí / bez
-  // signálu) = šedá přerušovaná — trasu mezi nimi NEZNÁME.
+  /* Souvislé úseky = plná zelená čára. Mezery (appka na pozadí / bez
+     signálu) = šedý přerušovaný ODHAD trasy po silnici s popiskem. */
   (d.segments||[]).forEach(function(seg){
     if(!seg.pts||seg.pts.length<1) return;
     for(var i=0;i<seg.pts.length;i++) pts.push(seg.pts[i]);
@@ -141,8 +164,11 @@ window.addEventListener('message',function(e){
     L.polyline(seg.pts,{color:'#1a8a18',weight:4,opacity:.95}).addTo(layer);
   });
   (d.gaps||[]).forEach(function(g){
-    L.polyline([g.from,g.to],{color:'#94a3b8',weight:3,opacity:.85,dashArray:'6,8'})
-      .addTo(layer).bindTooltip('Bez signálu '+g.label+' — trasa není známá');
+    if(!g.road||g.road.length<2) return;
+    L.polyline(g.road,{color:'#94a3b8',weight:3,opacity:.85,dashArray:'6,8'})
+      .addTo(layer).bindTooltip('Odhad trasy po silnici — bez signálu '+g.label+', skutečná trasa není známá');
+    L.marker(g.road[Math.floor(g.road.length/2)],{icon:L.divIcon({html:'<div class="gap-lbl">Odhad trasy · bez GPS</div>',
+      className:'',iconSize:[150,22],iconAnchor:[75,11]}),interactive:false}).addTo(layer);
   });
   (d.pauses||[]).forEach(function(g){
     L.polyline([g.from,g.to],{color:'#6E86A0',weight:3,opacity:.9,dashArray:'10,7'})
@@ -185,7 +211,8 @@ send({type:'ready'});
         __mg: 'jizda-map',
         type: 'render',
         segments: segments.map(s => ({ pts: s.pts })),
-        gaps: segments.flatMap(s => s.gapBefore?.kind === 'gap' ? [s.gapBefore] : []),
+        gaps: segments.flatMap((s, i) => s.gapBefore?.kind === 'gap' && gapRoads[i]
+          ? [{ road: gapRoads[i], label: s.gapBefore.label }] : []).slice(0, GAP_ROAD_MAX),
         pauses: segments.flatMap(s => s.gapBefore?.kind === 'pause' && s.gapBefore.moved
           ? [{ from: s.gapBefore.from, to: s.gapBefore.to, label: pauseLabel(s.gapBefore) }] : []),
         points: markers,
@@ -216,7 +243,7 @@ send({type:'ready'});
     // (srcDoc se vykresluje synchronně). Pošleme data i rovnou.
     push()
     return () => window.removeEventListener('message', onMsg)
-  }, [segments, markers, livePoint, fitKey])
+  }, [segments, gapRoads, markers, livePoint, fitKey])
 
   if (failed) {
     return (

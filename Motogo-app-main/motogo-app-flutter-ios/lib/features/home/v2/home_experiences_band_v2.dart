@@ -15,6 +15,7 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../routes/my_experiences_provider.dart';
 import '../../routes/ride_model.dart';
 import '../../routes/ride_provider.dart';
+import '../../routes/road_line.dart' show rideSketchPoints;
 import 'home_record_row_v2.dart';
 import 'home_sketch.dart';
 import 'home_reveal.dart';
@@ -237,7 +238,10 @@ class _Entry extends StatelessWidget {
           ),
           constraints: const BoxConstraints(minHeight: 72),
           child: Row(children: [
-            HomeSketch(points: ride.mapPoints, width: 64, height: 48, private: !withMoto),
+            Consumer(
+              builder: (context, ref, _) =>
+                  HomeSketch(points: rideSketchPoints(ref, ride), width: 64, height: 48, private: !withMoto),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

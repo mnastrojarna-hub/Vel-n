@@ -87,7 +87,7 @@ class RideStatsCardV2 extends StatelessWidget {
         }),
         if (r.hasGaps) ...[
           const SizedBox(height: 8),
-          _note(MgIcons.signalOff, tr.tr('v2RpGapNotice'), MgColors.warnBg, MgColors.warn),
+          _note(MgIcons.signalOff, tr.tr('rideGapEstNotice'), MgColors.warnBg, MgColors.warn),
         ],
         if (movedPause) ...[
           const SizedBox(height: 8),

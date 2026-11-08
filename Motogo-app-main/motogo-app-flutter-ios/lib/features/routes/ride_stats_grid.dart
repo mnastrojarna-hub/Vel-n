@@ -79,7 +79,7 @@ class RideStatsGrid extends StatelessWidget {
         }),
         // Poctivé vysvětlení děravé stopy (jen skutečné výpadky signálu —
         // pauzy a noci sem nepatří).
-        if (r.hasGaps) ...[const SizedBox(height: 12), _note('📵 ${tr.tr('rpGapNotice')}')],
+        if (r.hasGaps) ...[const SizedBox(height: 12), _note('📵 ${tr.tr('rideGapEstNotice')}')],
         if (rideHasMovedPause(r.segments)) ...[
           const SizedBox(height: 8),
           _note('〰️ ${tr.tr('rpPauseLegend')}', bg: MotoGoColors.g100, border: MotoGoColors.g200, fg: MotoGoColors.g600),

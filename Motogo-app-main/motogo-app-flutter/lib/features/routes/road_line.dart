@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'ride_model.dart' show RideGap, UserRide;
 import 'routes_provider.dart' show RouteProfile, fetchMapyRoute;
 
 /// Čára trasy VŽDY po silnici — pokyn majitele 2026-11-08: „všechny trasy se
@@ -58,3 +59,35 @@ void retryRoadLineLater(Ref ref, String id) {
 
 const int _kRetries = 3;
 final Map<String, int> _retries = {};
+
+/// Nejvýš tolik mezer jedné jízdy se odhaduje po silnici (jízda s rozbitou
+/// stopou by jinak routing zahltila dotazy).
+const int kRideGapRoadMax = 25;
+
+/// ODHAD trasy po silnici přes mezeru v záznamu jízdy (bez GPS) — majitel
+/// 2026-11-08: „odhad šedá trasa s popisem“. Prázdné, dokud není spočítaný
+/// (nebo routing selhal) — nikdy rovná spojnice. Do km se nepočítá.
+List<LatLng> rideGapRoadAt(WidgetRef ref, LatLng from, LatLng to) =>
+    ref.watch(roadLineProvider(RoadLineKey([from, to]))).valueOrNull ?? const <LatLng>[];
+
+/// [rideGapRoadAt] pro mezeru stopy.
+List<LatLng> rideGapRoad(WidgetRef ref, RideGap g) => rideGapRoadAt(ref, g.from, g.to);
+
+/// Jedna čára jízdy pro malý náhled (Domů): souvislé úseky stopy spojené
+/// ODHADEM trasy po silnici přes mezery bez GPS (jakmile je spočítaný).
+List<LatLng> rideSketchPoints(WidgetRef ref, UserRide ride) {
+  final segs = ride.segments;
+  if (segs.length < 2) return ride.mapPoints;
+  final out = <LatLng>[];
+  var roads = 0;
+  for (final s in segs) {
+    final g = s.gapBefore;
+    if (g != null && !g.isPause && out.isNotEmpty && roads < kRideGapRoadMax) {
+      roads++;
+      final road = rideGapRoad(ref, g);
+      if (road.length >= 2) out.addAll(road);
+    }
+    out.addAll(s.points);
+  }
+  return out.length >= 2 ? out : ride.mapPoints;
+}

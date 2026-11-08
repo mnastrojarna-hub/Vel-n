@@ -116,7 +116,7 @@ class TripDetailViewV2 extends StatelessWidget {
                       // Map tiles failing: the strip over the map (above the track).
                       child: MapTileErrorInset(
                         top: 8,
-                        child: RideTrackMap(track: a.track, segments: a.segments, points: a.points),
+                        child: RideTrackMap(track: a.track, segments: a.segments, points: a.points, gapLabels: true),
                       ),
                     ),
                   ),

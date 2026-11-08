@@ -4,7 +4,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:motogo_app/features/home/v2/home_sketch.dart';
+import 'dart:io';
+
+import 'package:flutter/widgets.dart' show SizedBox;
+import 'package:flutter_map/flutter_map.dart' show Polyline, PolylineLayer;
 import 'package:motogo_app/features/routes/my_experiences_provider.dart';
+import 'package:motogo_app/features/routes/ride_map.dart';
+import 'package:motogo_app/features/routes/ride_model.dart';
 import 'package:motogo_app/features/routes/road_line.dart';
 import 'package:motogo_app/features/routes/routes_map_provider.dart';
 import 'package:motogo_app/features/routes/routes_model.dart';
@@ -13,6 +19,7 @@ import 'package:motogo_app/features/routes/v2/rides/ride_track_sketch_v2.dart';
 import 'package:motogo_app/features/routes/v2/route_road_sketch_v2.dart';
 
 import '../support/fakes_routes.dart';
+import '../support/fakes_routes_http.dart';
 import '../support/v2_harness.dart';
 
 const _a = LatLng(49.20, 16.60), _b = LatLng(49.25, 16.70), _c = LatLng(49.30, 16.65);
@@ -26,6 +33,11 @@ Map<String, dynamic> _json(List<LatLng> geo) => {
     };
 
 void main() {
+  setUpAll(() {
+    registerRoutesStrings();
+    HttpOverrides.global = RtFakeHttpOverrides();
+  });
+
   group('isRoadGeometry', () {
     test('bare stops (+ branch start and loop back) are straight legs', () {
       expect(isRoadGeometry(const [], 3), isFalse);
@@ -85,6 +97,36 @@ void main() {
       await t.pumpAndSettle();
       expect(asked, RoadLineKey(const [_a, _b, _c], profile: RouteProfile.shortest));
       expect(t.widget<RideTrackSketch>(find.byType(RideTrackSketch)).lines.single, road);
+    });
+  });
+
+  group('ride gaps (owner: „odhad šedá trasa s popisem“)', () {
+    const gap = RideGap(from: _b, to: _c, sec: 900, km: 6);
+    final segs = [
+      const RideSegment([_a, _b]),
+      const RideSegment([_c, LatLng(49.31, 16.66)], gapBefore: gap),
+    ];
+    final road = fakeRoadLine(const [_b, _c]);
+
+    testWidgets('big map: gap = grey dotted ROAD estimate + label, no straight connector', (t) async {
+      await pumpV2(t, SizedBox(width: 360, height: 400, child: RideTrackMap(track: const [_a, _b, _c], segments: segs, interactive: true)),
+          overrides: [roadLineProvider.overrideWith((ref, key) async => key.stops.length == 2 ? road : const <LatLng>[])]);
+      await t.pump(const Duration(milliseconds: 50));
+      final lines = [for (final l in t.widgetList<PolylineLayer>(find.byType(PolylineLayer))) ...l.polylines];
+      expect(lines.any((Polyline l) => l.points.length == road.length), isTrue);
+      expect(lines.any((Polyline l) => l.points.length == 2 && l.points.first == _b && l.points.last == _c), isFalse);
+      expect(find.text('Odhad trasy · bez GPS'), findsOneWidget);
+      await rtEnd(t);
+    });
+
+    testWidgets('routing failed → no gap line at all', (t) async {
+      await pumpV2(t, SizedBox(width: 360, height: 400, child: RideTrackMap(track: const [_a, _b, _c], segments: segs, interactive: true)),
+          overrides: [roadLineProvider.overrideWith((ref, key) async => const <LatLng>[])]);
+      await t.pump(const Duration(milliseconds: 50));
+      final lines = [for (final l in t.widgetList<PolylineLayer>(find.byType(PolylineLayer))) ...l.polylines];
+      expect(lines.any((Polyline l) => l.points.length == 2 && l.points.first == _b), isFalse);
+      expect(find.text('Odhad trasy · bez GPS'), findsNothing);
+      await rtEnd(t);
     });
   });
 }
