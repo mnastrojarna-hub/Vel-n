@@ -14,6 +14,7 @@ import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/pending_sos_fab_provider.dart';
 import 'package:motogo_app/core/v2/chrome/mg_hide_on_scroll.dart';
 import 'package:motogo_app/core/v2/chrome/mg_nav_band.dart';
+import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
@@ -100,8 +101,10 @@ Future<GoRouter> pumpBarsShell(
   return router;
 }
 
-/// Whether the shell nav is folded to its band right now.
-bool navFolded(WidgetTester tester) => tester.widget<MgNavBand>(find.byType(MgNavBand)).folded;
+/// Whether the shell nav is folded to its band right now (a folding header
+/// uses an `MgNavBand` too → the one around the tab row).
+bool navFolded(WidgetTester tester) =>
+    tester.widget<MgNavBand>(find.ancestor(of: find.byType(V2NavBar), matching: find.byType(MgNavBand))).folded;
 
 /// Lets the 300 ms chrome motion finish.
 Future<void> settleChrome(WidgetTester tester) async {

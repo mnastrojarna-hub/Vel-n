@@ -2,6 +2,7 @@
 // bike with the bars folded, the detail scrolled (8 languages × sizes).
 import 'dart:io';
 
+import '../screens/rides_cases.dart' show ridesMockPathProvider;
 import '../support/fakes_home.dart' show mockPathProvider;
 import '../support/fakes_routes_http.dart';
 import 'cases_bars.dart';
@@ -9,5 +10,6 @@ import 'render_harness.dart';
 
 void main() => renderMatrix(barsRenderCases(), setUpAllExtra: () async {
       mockPathProvider();
+      ridesMockPathProvider();
       HttpOverrides.global = RtFakeHttpOverrides();
     });

@@ -2,7 +2,9 @@
 // 2026-11-08): Motorky / Domů scrolled down by a USER drag onto bike 2
 // (bars folded: nav band, card = the screen) and the bike detail pager
 // scrolled down (controls + nav folded). Safe areas 47 / 34 like an
-// iPhone. MG_VERIFY_RENDER=1 flutter test test/v2/render/render_bars_test.dart
+// iPhone. Also: settled on a bike with the bars SHOWN (caption above the
+// nav / Domů's to-top button) and a fixed header folded (edit, ride).
+// MG_VERIFY_RENDER=1 flutter test test/v2/render/render_bars_test.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -22,7 +24,10 @@ import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 import 'package:motogo_app/features/messages/messages_provider.dart';
 
 import '../screens/home_test.dart' show homeCases;
+import '../screens/reservations_cases.dart' show editCases;
+import '../screens/rides_cases.dart' show rideDetail;
 import '../support/fakes_catalog.dart' show catalogOverrides;
+import '../support/fakes_rides.dart' show kRideMg, ridesOverrides;
 import 'render_harness.dart';
 
 GoRouter Function() _router(String initial) => () => GoRouter(initialLocation: initial, routes: [
@@ -79,6 +84,25 @@ Future<void> _toBike(WidgetTester t, Type screen, int k) async {
   }
 }
 
+/// Settled on bike [k] by a programmatic jump: the bars stay SHOWN (back
+/// from the detail, a scroll up) — the caption rides above the nav (Domů:
+/// also above the scroll-to-top button).
+Future<void> _toBikeShown(WidgetTester t, Type screen, int k) async {
+  await _insets(t);
+  final zone = t.renderObject<RenderMgSnapZone>(find.byType(MgSnapZoneSliver, skipOffstage: false)).zone;
+  final pos = t.state<ScrollableState>(find.descendant(of: find.byType(screen), matching: find.byType(Scrollable)).first).position;
+  pos.jumpTo(zone.offsetOf(k));
+  for (var i = 0; i < 4; i++) {
+    await t.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// A fixed header folded by a drag on the content (root route: own bars).
+Future<void> _foldHeader(WidgetTester t) async {
+  await _insets(t);
+  await _drag(t, const Offset(200, 560), -260);
+}
+
 Future<void> _detail(WidgetTester t) async {
   await _insets(t);
   // On the hero (the dock below does not scroll).
@@ -92,6 +116,13 @@ List<RenderCase> barsRenderCases() {
         router: _router('/search'), after: (t) => _toBike(t, MotorkyScreenV2, 1)),
     RenderCase('bars', 'home', 'bike1_folded', () => const SizedBox(), () => [...home['s0']!(), ..._shellExtras],
         router: _router('/'), after: (t) => _toBike(t, HomeScreenV2, 0)),
+    RenderCase('bars', 'motorky', 'bike2_shown', () => const SizedBox(), () => [...catalogOverrides(), ..._shellExtras],
+        router: _router('/search'), after: (t) => _toBikeShown(t, MotorkyScreenV2, 1)),
+    RenderCase('bars', 'home', 'bike2_totop', () => const SizedBox(), () => [...home['s0']!(), ..._shellExtras],
+        router: _router('/'), after: (t) => _toBikeShown(t, HomeScreenV2, 1)),
+    RenderCase('bars', 'edit', 'header_folded', editCases()['chooser']!.$1, editCases()['chooser']!.$2,
+        scaffold: false, after: _foldHeader),
+    RenderCase('bars', 'ride', 'header_folded', () => rideDetail(kRideMg), ridesOverrides, scaffold: false, after: _foldHeader),
     RenderCase(
       'bars',
       'detail',
