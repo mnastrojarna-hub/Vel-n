@@ -80,7 +80,8 @@ Future<void> _toBike(WidgetTester t, Type screen, int k) async {
 
 Future<void> _detail(WidgetTester t) async {
   await _insets(t);
-  await _drag(t, const Offset(200, 600), -420);
+  // On the hero (the dock below does not scroll).
+  await _drag(t, const Offset(200, 260), -420);
 }
 
 List<RenderCase> barsRenderCases() {
