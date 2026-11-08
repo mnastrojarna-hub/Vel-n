@@ -26,6 +26,7 @@ import 'package:motogo_app/core/v2/shell/shell_nav_map.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
 import 'package:motogo_app/features/catalog/widgets/moto_card.dart';
+import 'package:motogo_app/features/catalog/widgets/moto_filter_panel.dart';
 import 'package:motogo_app/features/home/home_screen.dart';
 import 'package:motogo_app/features/home/v2/home_bookings_v2.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
@@ -174,7 +175,7 @@ void main() {
         _dy(t, find.text('Aktivní rezervace')),
         _dy(t, find.byType(HomeBookingCardV2)),
         _dy(t, find.byKey(const ValueKey('home-sos-card'))),
-        _dy(t, find.byKey(const ValueKey('moto-filter-card'))),
+        _dy(t, find.byType(MotoFilterPanel)),
         _dy(t, find.byKey(const ValueKey('home-bike-count'))),
       ];
       for (var i = 1; i < ys.length; i++) {

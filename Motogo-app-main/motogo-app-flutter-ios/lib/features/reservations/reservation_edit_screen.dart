@@ -40,7 +40,6 @@ import '../../core/widgets/pickup_location_link.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/res_edit_view_v2.dart';
-import 'v2/res_edit_chooser_v2.dart' show ResEditIntent;
 import 'v2/res_edit_address_v2.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
@@ -1587,8 +1586,6 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         onSelectShorten: selectShorten,
         onSelectMove: selectMove,
         onSelectSwap: selectSwap,
-        // ?tab=swap („Vybrat jinou motorku") → rovnou výměna, jako stará záložka.
-        initialIntent: _tab == 'swap' ? ResEditIntent.swap : null,
       );
     }
 

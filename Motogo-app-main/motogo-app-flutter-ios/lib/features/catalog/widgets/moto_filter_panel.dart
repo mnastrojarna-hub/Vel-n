@@ -9,6 +9,7 @@ import 'availability_calendar.dart';
 import 'filter_branch_chip.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../v2/moto_filter_card_v2.dart';
 import '../v2/moto_filter_panel_v2.dart';
 
 /// Řazení výpisu (hodnota → klíč popisku) — sdílí starý panel i v2 list.
@@ -128,6 +129,49 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
         onBranch: (v) => _set(_f.copyWith(branch: () => v)),
         onToday: (v) => _set(_f.copyWith(availableTodayOnly: v)),
         onSort: (v) => ref.read(catalogSortProvider.notifier).state = v,
+      );
+    }
+
+    // v2 vložený panel (Motorky, Domů): stejná sbalitelná karta, stejný stav
+    // a settery, jen v2 vzhled (MotoFilterCardV2 + obsah MotoFilterPanelV2View).
+    if (!widget.embedded && MgV2.on(context)) {
+      String? branchName;
+      for (final b in ref.watch(branchesProvider)) {
+        if (b['id'] == filter.branch) branchName = b['name'] as String?;
+      }
+      return MotoFilterCardV2(
+        open: _open,
+        active: active,
+        onToggle: () => setState(() => _open = !_open),
+        onReset: _reset,
+        branchName: filter.branch == null ? null : branchName,
+        datesValue: widget.showDates ? _dateLabel(context, filter) : null,
+        calendar: widget.showDates
+            ? AvailabilityCalendar(
+                selectedStart: filter.startDate,
+                selectedEnd: filter.endDate,
+                onRangeSelected: (start, end) => _set(
+                  _f.copyWith(startDate: () => start, endDate: () => end),
+                ),
+                onReset: () =>
+                    _set(_f.copyWith(startDate: () => null, endDate: () => null)),
+              )
+            : null,
+        body: MotoFilterPanelV2View(
+          filter: filter,
+          sort: ref.watch(catalogSortProvider),
+          branches: ref.watch(branchesProvider),
+          ranges: _ranges(context, filter),
+          licenseOptions: kFilterLicenseOptions,
+          sortOptions: kFilterSortOptions,
+          showReset: false,
+          onReset: _reset,
+          onCategory: (v) => _set(_f.copyWith(category: () => v)),
+          onLicense: (v) => _set(_f.copyWith(licenseGroup: () => v)),
+          onBranch: (v) => _set(_f.copyWith(branch: () => v)),
+          onToday: (v) => _set(_f.copyWith(availableTodayOnly: v)),
+          onSort: (v) => ref.read(catalogSortProvider.notifier).state = v,
+        ),
       );
     }
 

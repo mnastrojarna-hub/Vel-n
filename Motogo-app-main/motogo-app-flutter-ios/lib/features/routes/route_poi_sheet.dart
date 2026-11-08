@@ -192,12 +192,8 @@ class _PoiPagerState extends State<_PoiPager> {
           Positioned(
             top: 8,
             right: 10,
-            child: MgV2.on(context)
-                ? Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (many) PoiSheetNavV2(onPrev: _at > 0 ? () => _go(-1) : null, onNext: _at < _items.length - 1 ? () => _go(1) : null),
-                    const PoiSheetCloseV2(),
-                  ])
-                : const MgSheetClose(overlay: true),
+            // v2: jen zavření (listuje se tahem jako dřív, bez šipek).
+            child: MgV2.on(context) ? const PoiSheetCloseV2() : const MgSheetClose(overlay: true),
           ),
           if (many)
             Positioned(

@@ -502,8 +502,9 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
           search: _searchField(context),
           onMap: hub ? () => context.push(Routes.placesMap) : null,
           onAdd: hub ? () => showCommunityAddMenu(context) : null,
+          // Always visible back (old: tab root Místa → Domů).
           onBack: hub
-              ? null
+              ? () => context.go(Routes.home)
               : widget.pickMode
                   ? () => Navigator.of(context).pop()
                   : () => context.backOr(Routes.routes),

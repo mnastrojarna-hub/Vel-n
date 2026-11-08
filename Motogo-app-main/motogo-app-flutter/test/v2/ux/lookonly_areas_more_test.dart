@@ -4,9 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:motogo_app/core/i18n/translations.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
 import 'package:motogo_app/features/booking/v2/booking_header_v2.dart';
 import 'package:motogo_app/features/payment/card_minimum.dart';
@@ -31,7 +32,7 @@ import '../support/profile_harness.dart';
 import '../support/ps_harness.dart';
 import '../support/v2_harness.dart';
 
-String _cs(String key) => translations['cs']![key]!;
+String _cs(String key) => AppTranslations.of('cs').tr(key);
 void _n() {}
 
 void main() {
@@ -50,7 +51,9 @@ void main() {
     expect(find.byType(ProfileAttentionV2), findsNothing);
     expect(find.text(_cs('aiServiceAgent')), findsNothing);
     expect(find.byKey(const ValueKey('pf-back')), findsOneWidget);
-    double y(String key) => t.getTopLeft(find.text(_cs(key)).first).dy;
+    // Section labels are drawn in caps → match case-insensitively.
+    double y(String key) =>
+        t.getTopLeft(find.textContaining(RegExp('^${RegExp.escape(_cs(key))}\$', caseSensitive: false)).first).dy;
     // Pobočky above "Můj účet"; Osobní údaje first in it, then Zprávy … Platební metody.
     expect(y('branchesLabel'), lessThan(y('myAccount')));
     expect(y('myAccount'), lessThan(y('personalInfo')));
@@ -166,7 +169,7 @@ void main() {
     testWidgets('record dock: ZAZNAMENAT JÍZDU without a docked AI disc', (t) async {
       await pumpV2(t, TrasyRecordDockV2(onOpenRecorder: () {}), overrides: ridesOverrides());
       await t.pump();
-      expect(find.text(_cs('v2RtRecShort')), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('v2RtRecShort')), findsOneWidget);
       expect(find.byType(MgAiDisc), findsNothing);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 2));

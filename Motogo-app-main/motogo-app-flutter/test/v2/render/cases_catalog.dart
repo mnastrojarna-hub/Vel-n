@@ -23,7 +23,6 @@ import 'package:motogo_app/features/catalog/v2/calc/calc_step_moto_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_filter_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_price.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 
 import '../support/fakes_catalog.dart';
@@ -35,10 +34,6 @@ Future<void> _openSheet(WidgetTester t, Future<void> Function(BuildContext) open
   await t.pump(const Duration(milliseconds: 400));
 }
 
-Future<void> _toGrid(WidgetTester t) async {
-  await t.tap(find.byWidgetPredicate((w) => w is CatPathIcon && w.d == CatPathIcon.grid));
-  await t.pump(const Duration(milliseconds: 300));
-}
 
 Future<void> _expandCalendar(WidgetTester t) async {
   await t.pump(const Duration(milliseconds: 50));
@@ -81,9 +76,7 @@ List<RenderCase> catalogRenderCases() {
     m('find_nodates', () => catalogOverrides()),
     m('find_banner', () => catalogOverrides(banner: banner)),
     m('find_dates', () => catalogOverrides(filter: dated, filtered: available)),
-    m('grid', () => catalogOverrides(filter: dated, filtered: available), after: _toGrid),
     // Grid without dates: "Dnes volná" badge + "od … /den" prices.
-    m('grid_nodates', () => catalogOverrides(), after: _toGrid),
     m('empty', () => catalogOverrides(filter: dated, filtered: const [])),
     m('error', () => catalogOverrides(filteredError: Exception('net'))),
     m('loading', () => catalogOverrides(filteredLoading: true), loading: true),

@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/gestures/mg_snap_physics.dart';
-import '../../../core/v2/icons/mg_icons.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
-import '../../../core/v2/widgets/mg_disclosure.dart';
+import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/widgets/mg_photo.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_emoji_map.dart' show mgStripEmoji;
@@ -17,11 +15,10 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../shop/shop_models.dart';
 import 'pay_parts_v2.dart' show PayCardV2;
 
-/// v2 look of `UpsellSection` (PS-07, flag `reservation_upsell`): a card
-/// "Doporučujeme k rezervaci ▾" that starts OPEN (sales offer visible at
-/// first glance, as in the old section; owner 2026-11-07 "nic neomezit") —
-/// the customer may fold it; inside a row of product cards
-/// that snaps to whole cards with a 24 px peek of the next one. Pure view —
+/// v2 look of `UpsellSection` (PS-07, flag `reservation_upsell`): the old
+/// card "Doporučujeme k rezervaci" with the featured products (max 3) ONE
+/// UNDER ANOTHER, all visible and tappable at once (owner 2026-11-07 "jen
+/// upgrade vzhledu"). Pure view —
 /// selection, sizes, add / remove are the section's own callbacks with the
 /// old tile's tap rules (row tap: chosen → remove, no size → add; size chip:
 /// chosen → remove, else replace).
@@ -42,54 +39,38 @@ class UpsellRowV2 extends StatelessWidget {
     required this.onRemove,
   });
 
-  static const double peek = 24;
-
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final list = products;
     if (list != null && list.isEmpty) return const SizedBox.shrink();
     return PayCardV2(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: MgDisclosure(
-        key: const ValueKey('upsell-v2'),
-        label: tr.tr('v2UxPsUpsellTitle'),
-        initiallyExpanded: true,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(tr.tr('upsellFromShop'), style: MgType.meta.copyWith(color: MgColors.meta)),
-            const SizedBox(height: MgSpace.s8),
-            LayoutBuilder(builder: (context, c) {
-              final w = c.maxWidth;
-              // One whole card + 24 px of the next (a single product = full width).
-              final item = list != null && list.length == 1 ? w : w - peek - MgSpace.s12;
-              if (list == null) return const MgSkeletonRow(thumb: 56, lines: 2);
-              return SingleChildScrollView(
-                key: const ValueKey('upsell-v2-row'),
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                physics: MgSnapScrollPhysics(itemExtent: item + MgSpace.s12),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  for (var i = 0; i < list.length; i++) ...[
-                    if (i > 0) const SizedBox(width: MgSpace.s12),
-                    SizedBox(
-                      width: item,
-                      child: _UpsellCardV2(
-                        product: list[i],
-                        selected: isSelected(list[i].id),
-                        size: sizeOf(list[i].id),
-                        onToggle: (s) => onToggle(list[i], s),
-                        onRemove: () => onRemove(list[i]),
-                      ),
-                    ),
-                  ],
-                ]),
-              );
-            }),
-          ]),
-        ),
-      ),
+      key: const ValueKey('upsell-v2'),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          MgIcon(MgIcons.star, size: 18, color: MgColors.link),
+          const SizedBox(width: 6),
+          Expanded(child: Text(tr.tr('recommendForBooking'), style: MgType.title.copyWith(color: MgColors.ink))),
+        ]),
+        const SizedBox(height: MgSpace.s8),
+        Text(tr.tr('upsellFromShop'), style: MgType.meta.copyWith(color: MgColors.meta)),
+        const SizedBox(height: MgSpace.s8),
+        if (list == null)
+          const MgSkeletonRow(thumb: 56, lines: 2)
+        else
+          for (var i = 0; i < list.length; i++) ...[
+            if (i > 0) const SizedBox(height: MgSpace.s8),
+            _UpsellCardV2(
+              key: ValueKey('upsell-v2-${list[i].id}'),
+              product: list[i],
+              selected: isSelected(list[i].id),
+              size: sizeOf(list[i].id),
+              onToggle: (s) => onToggle(list[i], s),
+              onRemove: () => onRemove(list[i]),
+            ),
+          ],
+      ]),
     );
   }
 }
@@ -102,6 +83,7 @@ class _UpsellCardV2 extends StatelessWidget {
   final VoidCallback onRemove;
 
   const _UpsellCardV2({
+    super.key,
     required this.product,
     required this.selected,
     required this.size,

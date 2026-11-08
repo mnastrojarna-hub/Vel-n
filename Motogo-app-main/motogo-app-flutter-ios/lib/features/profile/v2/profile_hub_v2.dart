@@ -9,7 +9,6 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../auth/auth_provider.dart' show profileProvider;
-import 'profile_attention_v2.dart';
 import 'profile_booking_fix_v2.dart';
 import 'profile_groups_v2.dart';
 import 'profile_header_v2.dart';
@@ -115,17 +114,6 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
     }
   }
 
-  void _toSettings() {
-    final c = _settingsKey.currentContext;
-    if (c == null) return;
-    Scrollable.ensureVisible(
-      c,
-      duration: MgMotion.reduced(context) ? Duration.zero : MgMotion.sheet,
-      curve: MgMotion.out,
-      alignment: 0.02,
-    );
-  }
-
   /// Pull-to-refresh (V21 §1.2) = the existing retry (reload the profile),
   /// held until it lands (max 8 s). Off while the personal form is open —
   /// a reload must never touch what is being typed.
@@ -149,7 +137,6 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
       pinnedTitle: _fix ? tr.tr('v2PfFixTitle') : null,
       header: ProfileHeaderV2(
         profile: w.profile,
-        onSettings: _toSettings,
         onBack: w.onBack,
         loading: w.loading && w.profile == null,
       ),
@@ -159,10 +146,12 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: MgErrorView(compact: true, error: w.error, what: tr.tr('eoProfileLoadFail'), onRetry: w.onRetry),
           ),
-        const ProfileAttentionV2(),
+        // The old order: (rank in the header) → Pobočky (+ E-shop) → Můj
+        // účet: Osobní údaje (+ form), Zprávy, Doklady, Faktury, Smlouvy,
+        // Platební metody → Nastavení → Pomoc → Ostatní → verze.
+        const SizedBox(height: 16),
+        ProfileTilesV2(onPaymentMethods: w.onPaymentMethods, branches: true),
         PfSectionLabel(tr.tr('myAccount'), icon: MgIcons.person),
-        ProfileTilesV2(onPaymentMethods: w.onPaymentMethods),
-        const SizedBox(height: 24),
         ProfilePersonalV2(
           profile: w.loading ? null : w.profile,
           ready: w.ready,
@@ -174,6 +163,7 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
           addressKey: _addressKey,
           docsKey: _docsKey,
         ),
+        ProfileTilesV2(onPaymentMethods: w.onPaymentMethods),
         ProfileGroupsV2(actions: w.actions, settingsKey: _settingsKey, version: w.version),
       ],
     );

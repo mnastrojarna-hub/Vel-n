@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 
@@ -51,7 +52,9 @@ class ResDetailRowV2 extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Text(label, style: MgType.small.copyWith(color: MgColors.lead))),
+          // A long word (es "Complementos" at 320 / large text) scales a
+          // little instead of breaking.
+          Expanded(child: MgWordFit(minScale: 0.8, child: Text(label, style: MgType.small.copyWith(color: MgColors.lead)))),
           const SizedBox(width: 12),
           child ??
               Flexible(

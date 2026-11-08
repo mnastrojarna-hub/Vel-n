@@ -110,6 +110,8 @@ void main() {
       expect(find.byType(MgFilterChip), findsNWidgets(3));
       expect(find.byType(RideCardV2), findsNWidgets(kRides.length));
       expect(find.byType(SavedRouteCardV2), findsNWidgets(kSavedRoutes.length));
+      await tester.ensureVisible(find.byType(MgFilterChip).at(2));
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.tap(find.byType(MgFilterChip).at(2));
       expect(taps.log.last, 'tab:2');
       await tester.pump(const Duration(seconds: 1));

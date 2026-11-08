@@ -3,9 +3,10 @@
 // defaults and order as the original (flag OFF) screens.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:motogo_app/core/i18n/translations.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/states/mg_support_row.dart';
+import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/core/v2/widgets/mg_segmented.dart';
 import 'package:motogo_app/features/reservations/v2/res_coted_v2.dart';
@@ -21,7 +22,7 @@ import '../screens/reservations_cases.dart';
 import '../support/fakes_reservations.dart';
 import '../support/v2_harness.dart';
 
-String _cs(String key) => translations['cs']![key]!;
+String _cs(String key) => AppTranslations.of('cs').tr(key);
 
 void main() {
   setUpAll(() async {
@@ -41,7 +42,7 @@ void main() {
       await t.pump(const Duration(milliseconds: 600));
       expect(find.text(_cs('noReservations')), findsOneWidget);
       expect(find.text(_cs('noReservationsDesc')), findsOneWidget);
-      expect(find.widgetWithText(MgCta, _cs('noResBookCta')), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('noResBookCta')), findsOneWidget);
       expect(find.text(_cs('v2ResShowAll')), findsNothing);
       // The old header: always visible back, no live pill.
       expect(find.byKey(const ValueKey('res-list-back')), findsOneWidget);
@@ -64,7 +65,7 @@ void main() {
       expect(find.text(_cs('returnMotorcycle')), findsOneWidget);
       expect(find.text('ČAS VYZVEDNUTÍ'), findsOneWidget);
       // Nothing changed → the save CTA is there, disabled (old button).
-      final cta = t.widget<MgCta>(find.widgetWithText(MgCta, _cs('saveChangesBtn')));
+      final cta = t.widget<MgCta>(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('saveChangesBtn')));
       expect(cta.enabled, isFalse);
       await t.pump(const Duration(seconds: 2));
     });
@@ -94,8 +95,8 @@ void main() {
       expect(find.byType(MgSupportRow), findsNothing);
       // The old info rows incl. "Kategorie" and the old edit / cancel buttons.
       expect(find.text(_cs('resCategory')), findsOneWidget);
-      expect(find.text(_cs('editReservation')), findsOneWidget);
-      expect(find.text(_cs('cancelReservationBtn')), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('editReservation')), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is MgBtnDestructive && w.label == _cs('cancelReservationBtn')), findsOneWidget);
       // Second tab = the old payment details.
       await t.tap(find.text(_cs('paymentDetailsTab')));
       await t.pump(const Duration(milliseconds: 600));

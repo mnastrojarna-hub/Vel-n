@@ -601,9 +601,8 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         onGdpr: setGdpr,
         onKids: setKids,
         onProceed: () => GoRouter.of(context).push('/payment'),
-        // v2: Profil otevře formulář u chybějících údajů + „Zpět k rezervaci"
-        // (profile_booking_fix_v2.dart).
-        onCompleteProfile: () => GoRouter.of(context).push('/profile?edit=personal'),
+        // Stejný cíl jako staré tlačítko „Doplnit profil“ (jen vzhled).
+        onCompleteProfile: () => GoRouter.of(context).push('/profile'),
       );
     }
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
@@ -38,7 +37,7 @@ class TrasySelection {
 /// ❚❚ / ▶ pause disc for every recording, "Ukončit" for a manual ride;
 /// `RecLiveBarV2`) → ② Místa
 /// selection ("VLASTNÍ VYJÍŽĎKA (n)" + ✕ + ⏺ disc) → ③ idle "ZAZNAMENAT
-/// JÍZDU" + docked AI disc (the floating AI button is hidden on Trasy).
+/// JÍZDU" (no AI here: the old Trasy screens had no AI entry).
 /// Start / stop go through `toggleManualRide` (same permission handling
 /// and result messages as Moje zážitky). [onOpenRecorder] = tap on the
 /// live bar (the recorder screen; null = not tappable).
@@ -82,8 +81,6 @@ class TrasyRecordDockV2 extends ConsumerWidget {
             onStop: () => trasyConfirmStopRide(context, ref),
           ),
         ),
-        const SizedBox(width: 8),
-        const MgAiDisc(size: 56),
       ]);
     } else {
       row = Row(children: [
@@ -98,8 +95,6 @@ class TrasyRecordDockV2 extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        const MgAiDisc(size: 56),
       ]);
     }
     return MgDock(

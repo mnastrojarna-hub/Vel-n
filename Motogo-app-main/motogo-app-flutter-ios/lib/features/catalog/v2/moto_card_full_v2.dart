@@ -97,7 +97,8 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final m = widget.moto;
     final imgs = _images;
     final multi = imgs.length > 1;
-    final specs = m.shortDescItems(tr.tr).take(4).map((e) => e.card).toList();
+    // The old card's "Základní údaje": up to 6 (Velín short_desc_fields).
+    final specs = m.shortDescItems(tr.tr).take(6).map((e) => e.card).toList();
     final lic = catLicenseLabel(tr, m);
     final branch = catBranchLine(tr, m);
     // [height] is the MINIMUM: with large text / long words the card grows
@@ -218,6 +219,8 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                       if (m.category != null && m.category!.isNotEmpty)
                         _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
                       if (lic.isNotEmpty) _Tag(lic),
+                      // The old card's "{kW} KW" badge.
+                      if (m.powerKw != null) _Tag('${m.powerKw} KW'),
                       if (branch != null)
                         Row(mainAxisSize: MainAxisSize.min, children: [
                           MgIcon(MgIcons.pin, size: 16, color: MgColors.neon),

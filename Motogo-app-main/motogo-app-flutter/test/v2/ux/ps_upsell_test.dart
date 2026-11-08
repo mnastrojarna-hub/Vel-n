@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/features/payment/booking_upsell_provider.dart';
 import 'package:motogo_app/features/payment/v2/upsell_row_v2.dart';
 import 'package:motogo_app/features/payment/widgets/upsell_section.dart';
@@ -31,7 +32,7 @@ void main() {
       expect(find.byKey(ValueKey('upsell-v2-${p.id}')), findsOneWidget);
     }
     // The title is not a fold: a tap keeps every product.
-    await tester.tap(find.text('Doporučujeme k rezervaci'));
+    await tester.tap(find.text(AppTranslations.of('cs').tr('recommendForBooking')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('upsell-v2-p3')), findsOneWidget);
 

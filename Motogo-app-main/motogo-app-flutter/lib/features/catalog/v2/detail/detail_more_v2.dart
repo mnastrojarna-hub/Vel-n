@@ -46,7 +46,8 @@ class DetailMoreV2 extends StatelessWidget {
               key: const ValueKey('det-branch'),
               icon: MgIcons.pin,
               title: '${tr.tr('detailBranchLabel')}$branch',
-              sub: catBranchAddress(m),
+              // Street address only (the city is already in the title).
+              sub: (m.branchAddress ?? '').trim().isEmpty ? null : catBranchAddress(m),
               divider: false,
             ),
           ),

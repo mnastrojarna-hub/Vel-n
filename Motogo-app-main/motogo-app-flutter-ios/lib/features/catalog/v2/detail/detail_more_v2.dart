@@ -2,148 +2,90 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
-import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
-import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_row.dart';
 import '../../moto_model.dart';
 import '../../widgets/manual_card.dart';
 import '../../widgets/moto_video_player.dart';
 import 'detail_specs_v2.dart';
 import 'detail_trip_card_v2.dart';
-import '../catalog_price.dart';
 import '../catalog_text.dart';
 
-/// Light sections under "Tvoje jízda": V kostce (`shortDescItems`, label +
-/// value), Popis (localized plain description, 4 lines + Zobrazit víc),
-/// Video (the UNCHANGED `MotoVideoPlayer`), Víc o motorce (all parameters
-/// = old `SpecsSection` data, day price list = old `PricingTable` data,
-/// the manual = `ManualCard` v2 look, branch). Nothing dropped.
-class DetailMoreV2 extends StatefulWidget {
+/// Light sections above "Tvoje jízda", in the OLD detail's order and all
+/// open as there (owner 2026-11-07 "jen upgrade vzhledu"): Video (the
+/// UNCHANGED `MotoVideoPlayer`), branch ("Pobočka: {name}, {city}" + type
+/// and street address), the FULL localized plain description, all
+/// parameters (old `SpecsSection` data) and the day price list (old
+/// `PricingTable` data). The manual follows the trip card
+/// ([DetailManualSectionV2]), as the old `ManualCard` followed the calendar.
+class DetailMoreV2 extends StatelessWidget {
   final Motorcycle moto;
   final String branchInfo;
   const DetailMoreV2({super.key, required this.moto, required this.branchInfo});
 
   @override
-  State<DetailMoreV2> createState() => _DetailMoreV2State();
-}
-
-class _DetailMoreV2State extends State<DetailMoreV2> {
-  bool _desc = false;
-  bool _params = false;
-  bool _prices = false;
-
-  @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final m = widget.moto;
-    final sd = m.shortDescItems(tr.tr);
+    final m = moto;
     final desc = m.descriptionPlainFor(tr.lang);
     final specs = m.specList(tr.tr);
+    final branch = catBranchLineCity(tr, m) ?? branchInfo;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (sd.isNotEmpty)
-        DetailSectionV2(
-          title: tr.tr('v2DetGlance'),
-          icon: MgIcons.list,
-          child: Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final it in sd)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: MgColors.well,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: MgColors.line),
-                ),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(it.label.toUpperCase(), style: MgType.micro.copyWith(color: MgColors.meta, letterSpacing: 0.6)),
-                  const SizedBox(height: 4),
-                  Text(it.value, style: MgType.tab(MgType.title.copyWith(color: MgColors.ink))),
-                ]),
-              ),
-          ]),
-        ),
-      if (desc != null)
-        DetailSectionV2(
-          title: tr.tr('v2DetDescription'),
-          icon: MgIcons.doc,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // CB-30: 3 lines fading out (no "…") + "Celý popis".
-            catAnimatedSize(context, () {
-              final text = Text(
-                desc,
-                maxLines: _desc ? null : 3,
-                overflow: _desc ? TextOverflow.visible : TextOverflow.clip,
-                style: MgType.body.copyWith(fontWeight: FontWeight.w500, color: MgColors.body2, height: 1.6),
-              );
-              if (_desc || desc.length <= 120) return text;
-              return ShaderMask(
-                blendMode: BlendMode.dstIn,
-                shaderCallback: (r) => const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
-                  stops: [0, 0.55, 1],
-                ).createShader(r),
-                child: text,
-              );
-            }()),
-            if (desc.length > 120)
-              MgBtnText(
-                label: tr.tr(_desc ? 'v2ShowLess' : 'v2UxCbFullDesc'),
-                icon: _desc ? MgIcons.chevronUp : MgIcons.chevronDown,
-                onTap: () => setState(() => _desc = !_desc),
-              ),
-          ]),
-        ),
       if (m.videos.isNotEmpty)
         DetailSectionV2(
           title: tr.tr('v2DetVideo'),
           icon: MgIcons.play,
           child: MotoVideoPlayer(key: ValueKey('motovid-${m.id}'), urls: m.videos),
         ),
-      DetailSectionV2(
-        title: tr.tr('v2DetMore'),
-        icon: MgIcons.moto,
-        child: DetailCardV2(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (specs.isNotEmpty) ...[
-              _toggleRow(tr.tr('v2DetAllParams'), MgIcons.gear, _params, () => setState(() => _params = !_params)),
-              if (_params) Padding(padding: const EdgeInsets.only(bottom: 12), child: DetailAllParamsV2(specs: specs)),
-            ],
-            if (m.prices != null) ...[
-              _toggleRow(tr.tr('v2DetPriceByDay'), MgIcons.receipt, _prices, () => setState(() => _prices = !_prices)),
-              if (_prices) Padding(padding: const EdgeInsets.only(bottom: 12), child: DetailPriceTableV2(prices: m.prices!)),
-            ],
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: ManualCard(moto: m),
+      if (branch.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 20),
+          child: DetailCardV2(
+            child: MgRow(
+              key: const ValueKey('det-branch'),
+              icon: MgIcons.pin,
+              title: '${tr.tr('detailBranchLabel')}$branch',
+              // Street address only (the city is already in the title).
+              sub: (m.branchAddress ?? '').trim().isEmpty ? null : catBranchAddress(m),
+              divider: false,
             ),
-            // CB-06: branch · type + street address.
-            if ((catBranchLine(tr, m) ?? widget.branchInfo).isNotEmpty)
-              MgRow(
-                icon: MgIcons.pin,
-                title: catBranchLine(tr, m) ?? widget.branchInfo,
-                sub: catBranchAddress(m) ?? tr.tr('branchPrefix'),
-              ),
-          ]),
-        ),
-      ),
-    ]);
-  }
-
-  Widget _toggleRow(String title, String icon, bool open, VoidCallback onTap) => Semantics(
-        expanded: open,
-        child: MgRow(
-          icon: icon,
-          title: title,
-          divider: !open,
-          onTap: onTap,
-          trailing: AnimatedRotation(
-            turns: open ? 0.5 : 0,
-            duration: MgMotion.of(context, MgMotion.color),
-            child: MgIcon(MgIcons.chevronDown, size: 20, color: MgColors.meta),
           ),
         ),
+      if (desc != null)
+        DetailSectionV2(
+          title: tr.tr('v2DetDescription'),
+          icon: MgIcons.doc,
+          child: Text(
+            desc,
+            key: const ValueKey('det-desc'),
+            style: MgType.body.copyWith(fontWeight: FontWeight.w500, color: MgColors.body2, height: 1.6),
+          ),
+        ),
+      if (specs.isNotEmpty)
+        DetailSectionV2(
+          title: tr.tr('v2DetAllParams'),
+          icon: MgIcons.gear,
+          child: DetailAllParamsV2(specs: specs),
+        ),
+      if (m.prices != null)
+        DetailSectionV2(
+          title: tr.tr('v2DetPriceByDay'),
+          icon: MgIcons.receipt,
+          child: DetailPriceTableV2(prices: m.prices!),
+        ),
+    ]);
+  }
+}
+
+/// The manual (`ManualCard`, v2 look) under the trip card — the old order.
+class DetailManualSectionV2 extends StatelessWidget {
+  final Motorcycle moto;
+  const DetailManualSectionV2({super.key, required this.moto});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 20),
+        child: ManualCard(moto: moto),
       );
 }

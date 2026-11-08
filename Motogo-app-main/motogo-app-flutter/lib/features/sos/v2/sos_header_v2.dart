@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/error_feedback.dart' show callMotoGo, kMotoGoPhoneLabel;
-import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/chrome/mg_status_bar.dart';
@@ -155,7 +154,8 @@ class SosHeaderV2 extends StatelessWidget {
 
 /// Nonstop-line dock (SOS board "Spodní lišta", V22 §2.4): replaces the nav
 /// on every SOS screen — the whole call pill dials the existing nonstop
-/// line (`callMotoGo`), the AI disc opens the existing AI agent. [cta] (e.g.
+/// line (`callMotoGo`); the AI agent stays the SOS start's own row, as on
+/// the old screens (no AI disc on every SOS page). [cta] (e.g.
 /// the replacement confirm) and [contextLine] sit above the call row.
 class SosDockV2 extends StatelessWidget {
   final Widget? cta;
@@ -214,8 +214,6 @@ class SosDockV2 extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          const MgAiDisc(size: 52, glow: false),
         ]),
       ]),
     );

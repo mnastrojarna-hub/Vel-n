@@ -108,8 +108,12 @@ void main() {
         path: '/search',
         screen: (_) => const MotorkyScreenV2(),
         overrides: catalogOverrides(filtered: [kBmw, kHusq, kKids]));
+    for (var i = 0; i < 12 && find.byType(MgCta).evaluate().isEmpty; i++) {
+      await t.drag(find.byType(CustomScrollView).first, const Offset(0, -300));
+      await t.pump(const Duration(milliseconds: 300));
+    }
     await t.ensureVisible(find.byType(MgCta).first);
-    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
     await t.tap(find.byType(MgCta).first);
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('detail:m-bmw'), findsOneWidget);

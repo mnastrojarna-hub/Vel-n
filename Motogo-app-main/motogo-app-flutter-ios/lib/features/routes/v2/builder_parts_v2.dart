@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/chrome/mg_status_bar.dart';
@@ -74,9 +73,6 @@ class BuilderTopBarV2 extends StatelessWidget {
                 ),
               ),
             ),
-          // V22 §6.4 (F-30): AI 44 as the last top-bar item.
-          const SizedBox(width: 8),
-          const MgAiDisc(size: 44),
         ]),
       ),
     );

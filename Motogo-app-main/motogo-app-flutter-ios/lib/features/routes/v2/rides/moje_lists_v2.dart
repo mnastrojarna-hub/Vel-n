@@ -71,8 +71,9 @@ class MojeListsV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final children = switch (sub) {
-      MojeSub.rides => data.loggedIn ? _rides(context) : [_locked(context)],
-      MojeSub.saved => data.loggedIn ? _saved(context) : [_locked(context)],
+      // The old first tab: rides, then the saved routes on the same page.
+      MojeSub.rides || MojeSub.saved =>
+        data.loggedIn ? [..._rides(context), ..._savedSection(context)] : [_locked(context)],
       MojeSub.places => data.loggedIn ? _places(context) : [_locked(context)],
       MojeSub.history => _history(context),
     };
@@ -84,7 +85,7 @@ class MojeListsV2 extends StatelessWidget {
           // neighbour sub-tab (tap twin = the chips); the new content slides
           // in from the side it came from.
           MgSwipeSegments<MojeSub>(
-            values: MojeSub.values,
+            values: kMojeTabs,
             value: sub,
             enabled: onSwipe != null,
             onChanged: (s) => onSwipe?.call(s),
@@ -235,6 +236,18 @@ class MojeListsV2 extends StatelessWidget {
       ),
     );
   }
+
+  /// "Uložené trasy" under the rides (the old tab showed both at once).
+  List<Widget> _savedSection(BuildContext context) => [
+        const SizedBox(height: 20),
+        Padding(
+          key: const ValueKey('moje-saved-head'),
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(t(context).tr('v2RideSubSaved').toUpperCase(),
+              style: MgType.eyebrow.copyWith(color: MgColors.meta)),
+        ),
+        ..._saved(context),
+      ];
 
   List<Widget> _saved(BuildContext context) {
     final tr = t(context);

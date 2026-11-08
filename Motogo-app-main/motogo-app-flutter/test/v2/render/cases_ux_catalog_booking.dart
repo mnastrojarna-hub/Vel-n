@@ -18,7 +18,6 @@ import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_filter_sheet_v2.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_price.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
 import 'package:motogo_app/features/catalog/widgets/fullscreen_gallery.dart';
@@ -85,10 +84,6 @@ List<RenderCase> uxCatalogBookingRenderCases() {
       RenderCase('uxcb', 'booking', state, () => const BookingDebugWrapper(), o, after: after);
   return [
     cat('compact_bar', () => catalogOverrides(filter: dated, filtered: [kBmw, kHusq, kKids]), after: _scrollList),
-    cat('loading_grid', () => catalogOverrides(filteredLoading: true), loading: true, after: (t) async {
-      await t.tap(find.byWidgetPredicate((w) => w is CatPathIcon && w.d == CatPathIcon.grid));
-      await t.pump(const Duration(milliseconds: 300));
-    }),
     cat('filters_active', () => catalogOverrides(), after: _openFilters),
     cat('pager_pill', () => [...catalogOverrides(filter: dated), filteredMotoIdsProvider.overrideWith((ref) => ['m-bmw', 'm-husq', 'm-shot'])],
         build: () => const MotoDetailScreen(motoId: 'm-husq')),

@@ -22,6 +22,8 @@ import 'res_rating_card.dart';
 import 'paid_change_banner.dart';
 import '../../../core/currency.dart';
 import '../../../core/booking_rules.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_detail_parts_v2.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
@@ -84,49 +86,52 @@ class ResDetailTabContent extends ConsumerWidget {
           // Zaplacená výměna / úprava se ještě zapisuje (D6).
           PaidChangeBanner(bookingId: res.id),
           ResDetailCard(children: [
-            // Motorcycle name + ID
-            Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-            const SizedBox(height: 2),
-            Text(res.shortId, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
-            const SizedBox(height: 10),
+            // v2 vzhled: tentýž název, #ID, stav (+ hodnocení) — jen v2 typ.
+            if (MgV2.on(context)) ResDetailHeadV2(res: res) else ...[
+              // Motorcycle name + ID
+              Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+              const SizedBox(height: 2),
+              Text(res.shortId, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+              const SizedBox(height: 10),
 
-            // Status badge (+ trvale viditelné hodnocení jízdy, je-li)
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(50),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    statusTitle,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: statusColor),
-                  ),
-                ),
-                if ((res.rating ?? 0) > 0)
+              // Status badge (+ trvale viditelné hodnocení jízdy, je-li)
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: MotoGoColors.amberBg,
+                      color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(50),
-                      border: Border.all(color: MotoGoColors.amberBorder),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.star_rounded, size: 13, color: Color(0xFFF59E0B)),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${res.rating}/5',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
-                      ),
-                    ]),
+                    child: Text(
+                      statusTitle,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: statusColor),
+                    ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                  if ((res.rating ?? 0) > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: MotoGoColors.amberBg,
+                        borderRadius: BorderRadius.circular(50),
+                        border: Border.all(color: MotoGoColors.amberBorder),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.star_rounded, size: 13, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${res.rating}/5',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
+                        ),
+                      ]),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Info rows
             ResDetailRow(label: t(context).tr('resCategory'), value: res.category ?? '–'),
@@ -167,7 +172,13 @@ class ResDetailTabContent extends ConsumerWidget {
           // Kiosk kódy (šatna i motorka) pustí až od 12:00 dne začátku — dokud
           // výdej nenastal, vysvětlení + cesta k dřívějšímu času (sleva zanikne,
           // doplatek). CTA jen u nevyzvednuté 'reserved' (aktivní čas nezmění).
-          if (res.kioskReleasePending) ...[
+          if (res.kioskReleasePending && MgV2.on(context))
+            ResLateGateV2(
+              text: t(context).tr('ssLateGateNote').replaceAll('{datum}', fmtReleaseDate(pragueWallClock(res.startDate))),
+              ctaLabel: res.status == 'reserved' ? t(context).tr('ssLateGateCta') : null,
+              onCta: res.status == 'reserved' ? () => context.push('/reservations/${res.id}/edit') : null,
+            )
+          else if (res.kioskReleasePending) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -194,6 +205,9 @@ class ResDetailTabContent extends ConsumerWidget {
 
           // ===== PRICE CARD =====
           ResDetailCard(children: [
+            if (MgV2.on(context))
+              ResDetailLabelV2(t(context).tr('financialSummary'), title: true)
+            else
             Text(t(context).tr('financialSummary'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
             const SizedBox(height: 8),
             ResDetailRow(label: t(context).tr('totalPrice'), value: '${Money.czk(res.totalPrice)}', bold: true),
@@ -234,13 +248,15 @@ class ResDetailTabContent extends ConsumerWidget {
 
           // ===== HODNOCENÍ JÍZDY (Completed only) — hvězdy + 2 rovnocenné volby =====
           if (st == ResStatus.dokoncene) ...[
-            ResRatingCard(res: res),
+            ResRatingCard(res: res, look: MgV2.on(context) ? RatingLook.dark : RatingLook.classic),
             const SizedBox(height: 12),
 
             // Action buttons for completed — documents section
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
+              child: MgV2.on(context)
+                  ? ResDetailLabelV2(t(context).tr('documentsSection'))
+                  : Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
             ),
             ResDetailButton.outlined(
               emoji: '💰',
@@ -306,7 +322,9 @@ class ResDetailTabContent extends ConsumerWidget {
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
+                child: MgV2.on(context)
+                  ? ResDetailLabelV2(t(context).tr('documentsSection'))
+                  : Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
               ),
               ..._bookingDocButtons(context, ref, includeContract: true),
             ],

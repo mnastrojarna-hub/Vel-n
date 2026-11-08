@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
@@ -14,12 +13,9 @@ import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
-import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
-import '../../documents/docs_gate_provider.dart';
 import '../../home/nickname_provider.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../../loyalty/loyalty_ranks_screen.dart' show openLoyaltyRanks;
@@ -35,20 +31,18 @@ import 'profile_fit.dart';
 /// [onBack] (Profil pushed from the booking form) = a back disc first.
 class ProfileHeaderV2 extends ConsumerWidget {
   final Map<String, dynamic>? profile;
-  final VoidCallback onSettings;
   final VoidCallback? onBack;
 
   /// First load (no profile yet): name + nickname as dark skeleton bars in
   /// their final size — never the "Pilot" placeholder flashing first.
   final bool loading;
-  const ProfileHeaderV2({super.key, required this.profile, required this.onSettings, this.onBack, this.loading = false});
+  const ProfileHeaderV2({super.key, required this.profile, this.onBack, this.loading = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
     final status = ref.watch(loyaltyStatusProvider).valueOrNull;
-    final docs = ref.watch(docsFabStatusProvider).valueOrNull;
     final fullName = profile?['full_name'] as String?;
     final name = (fullName == null || fullName.trim().isEmpty) ? tr.tr('pilot') : fullName;
 
@@ -69,11 +63,15 @@ class ProfileHeaderV2 extends ConsumerWidget {
       ambientKey: 'profile',
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // The old header: the always visible back (pushed → back, tab root
+        // → `backOr(Domů)` as there); no extra shortcuts.
         Row(children: [
-          if (onBack != null) MgV2Back(onTap: onBack, style: MgBackStyle.dark),
+          MgV2Back(
+            key: const ValueKey('pf-back'),
+            onTap: onBack ?? () => context.backOr(Routes.home),
+            style: MgBackStyle.dark,
+          ),
           Padding(padding: const EdgeInsets.all(8), child: avatar),
-          const Spacer(),
-          MgIconButton(icon: MgIcons.gear, semanticLabel: tr.tr('settings'), onTap: onSettings),
         ]),
         const SizedBox(height: 12),
         MgEnter(child: MgEyebrow(tr.tr('v2PfClub'))),
@@ -107,7 +105,6 @@ class ProfileHeaderV2 extends ConsumerWidget {
           Align(alignment: AlignmentDirectional.centerStart, child: _NickChip(fullName: fullName, rank: rank)),
         ],
         if (status != null) _RankStrip(status: status, rank: rank),
-        if (docs != null && !docs.isComplete) _DocsCta(docs: docs),
       ]),
     );
   }
@@ -273,60 +270,3 @@ class _StripTop extends StatelessWidget {
   }
 }
 
-/// Amber glass card with the rank CTA (only while documents are incomplete).
-class _DocsCta extends StatelessWidget {
-  final DocsScreenStatus docs;
-  const _DocsCta({required this.docs});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final items = <String>[];
-    final gate = docs.gate;
-    if (gate != null && !gate.ok) {
-      items.addAll(docsGateMissingLabels(context, gate));
-    } else {
-      if (!docs.hasIdOrPassport) items.add(tr.tr('idOrPassport'));
-      if (!docs.hasLicense) items.add(tr.tr('driversLicense').toLowerCase());
-    }
-    return MgReveal(
-      index: 3,
-      sessionKey: 'pf-docs',
-      child: Container(
-        margin: const EdgeInsets.only(top: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: MgColors.warnDarkBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: MgColors.warnDark.withValues(alpha: 0.45)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: MgColors.warnDark.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Center(child: MgIcon(MgIcons.idCard, size: 22, color: MgColors.warnDark)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr.tr('docsNotVerified'), style: MgType.title.copyWith(color: MgColors.onDark)),
-                if (items.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text('${tr.tr('missing')}: ${items.join(', ')}',
-                      style: MgType.small.copyWith(color: MgColors.onDarkLead)),
-                ],
-              ]),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          MgCta(label: tr.tr('docsBlockingBtn'), loop: true, onTap: () => context.push(Routes.docs)),
-        ]),
-      ),
-    );
-  }
-}

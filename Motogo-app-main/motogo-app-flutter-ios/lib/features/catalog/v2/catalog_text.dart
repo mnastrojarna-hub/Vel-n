@@ -91,6 +91,19 @@ String? catBranchLine(AppTranslations tr, Motorcycle m) {
   return type == null ? name : '$name · $type';
 }
 
+/// The old detail's branch info WITH its city ("{name}, {city}", as
+/// `moto_detail_page` builds `branchInfo`) + the branch type: "MotoGo24
+/// Mezná, Pelhřimov · s obsluhou". The city is skipped when the name
+/// already contains it. Null when the bike has no branch.
+String? catBranchLineCity(AppTranslations tr, Motorcycle m) {
+  final name = (m.branchName ?? '').trim();
+  final city = (m.branchCity ?? '').trim();
+  final place = [if (name.isNotEmpty) name, if (city.isNotEmpty && !name.contains(city)) city].join(', ');
+  if (place.isEmpty) return null;
+  final type = catBranchType(tr, m);
+  return type == null ? place : '$place · $type';
+}
+
 /// Street address of the branch ("Mezná 9, Pelhřimov"); null when unknown.
 String? catBranchAddress(Motorcycle m) {
   final parts = [

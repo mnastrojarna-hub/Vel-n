@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
-import '../../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/rank/rank_hero.dart';
@@ -114,7 +113,6 @@ class RideHeaderShellV2 extends StatelessWidget {
       MgIconButton(icon: MgIcons.share, semanticLabel: shareLabel, onTap: onShare),
       const SizedBox(width: 4),
       MgIconButton(icon: MgIcons.trash, semanticLabel: deleteLabel, iconColor: MgColors.errDark, onTap: onDelete),
-      if (ai) ...[const SizedBox(width: 4), const MgAiDisc(size: 44)],
     ];
     return MgRankHero(
       ambientKey: 'ride',

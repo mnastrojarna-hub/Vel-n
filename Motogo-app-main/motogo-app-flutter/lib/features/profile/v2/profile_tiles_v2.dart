@@ -106,7 +106,8 @@ class ProfileTilesV2 extends ConsumerWidget {
       // otherwise (de / nl / uk at 320 dp, large text) one wide tile per row
       // — a label never breaks inside a word (verify:render).
       child: LayoutBuilder(builder: (context, box) {
-        final grid = specs.every((x) => _Tile.fitsCell(context, x, (box.maxWidth - 10) / 2));
+        // A single tile (Pobočky without the e-shop) takes the full row.
+        final grid = specs.length > 1 && specs.every((x) => _Tile.fitsCell(context, x, (box.maxWidth - 10) / 2));
         _Tile tile(_TileSpec x) => _Tile(spec: x, wide: !grid);
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (grid)

@@ -32,6 +32,16 @@ const _profile = {
   },
 };
 
+/// The cards sit under the inline dates + filter (old order): drag the list.
+Future<void> _toCard(WidgetTester t) async {
+  for (var i = 0; i < 12 && find.byType(MotoCardFullV2).evaluate().isEmpty; i++) {
+    await t.drag(find.byType(CustomScrollView).first, const Offset(0, -300));
+    await t.pump(const Duration(milliseconds: 300));
+  }
+  await t.ensureVisible(find.byType(MotoCardFullV2).first);
+  await t.pump(const Duration(milliseconds: 300));
+}
+
 Future<ProviderContainer> _pump(WidgetTester t, List<Override> overrides) async {
   t.view.physicalSize = const Size(412, 915) * 2;
   t.view.devicePixelRatio = 2;
@@ -101,6 +111,7 @@ void main() {
   // is the old "Detail" with or without dates — no booking shortcut.
   testWidgets('dates set: card "Detail" → the detail (no direct booking)', (t) async {
     final c = await _pump(t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq], profile: _profile));
+    await _toCard(t);
     final cta = find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byType(MgCta));
     expect(t.widget<MgCta>(cta).label, cs.tr('motoCardDetail'));
     await t.ensureVisible(cta);
@@ -116,8 +127,7 @@ void main() {
 
   testWidgets('dates set: the photo still opens the detail', (t) async {
     final c = await _pump(t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq]));
-    await t.ensureVisible(find.byType(MotoCardFullV2).first);
-    await t.pump();
+    await _toCard(t);
     await t.tapAt(t.getTopLeft(find.byType(MotoCardFullV2).first) + const Offset(206, 140));
     await _settle(t);
     expect(find.text('detail:m-bmw'), findsOneWidget);
@@ -127,6 +137,7 @@ void main() {
 
   testWidgets('no dates: card CTA "Detail" → detail with the shown sibling ids', (t) async {
     final c = await _pump(t, catalogOverrides(filtered: [kBmw, kHusq, kKids]));
+    await _toCard(t);
     final cta = find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byType(MgCta));
     expect(t.widget<MgCta>(cta).label, cs.tr('motoCardDetail'));
     await t.ensureVisible(cta);

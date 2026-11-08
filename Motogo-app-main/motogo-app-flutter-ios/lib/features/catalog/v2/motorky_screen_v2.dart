@@ -3,29 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
-import '../../booking/booking_entry.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
 import 'calc/calc_body_v2.dart';
 import 'calc/calc_sticky_v2.dart';
-import 'catalog_date_sheet_v2.dart';
-import 'catalog_filter_sheet_v2.dart';
 import 'catalog_mode.dart';
 import 'catalog_mode_sync.dart';
 import 'catalog_price.dart';
 import 'catalog_text.dart';
 import 'moto_card_full_v2.dart';
-import 'moto_card_grid_v2.dart';
-import 'motorky_compact_bar_v2.dart';
+import '../widgets/moto_filter_panel.dart';
+import 'motorky_dates_card_v2.dart';
 import 'motorky_error_v2.dart';
 import 'motorky_header_v2.dart';
 import 'motorky_loading_v2.dart';
@@ -47,8 +44,6 @@ class MotorkyScreenV2 extends ConsumerStatefulWidget {
 
 class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
-  bool _grid = false;
-
   /// CB-27: the content under the mode switch fades in over `enter` 450
   /// when the mode changes (V21 §3.1); full at once under reduced motion.
   late final AnimationController _modeFade = AnimationController(vsync: this, duration: MgMotion.enter, value: 1);
@@ -112,14 +107,6 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     if (ref.read(catalogModeProvider) != m) ref.read(catalogModeProvider.notifier).state = m;
   }
 
-  /// Card CTA "REZERVOVAT" with dates set: straight into the booking form
-  /// with this bike and the list's dates (PM-3) — the list already shows
-  /// only bikes free in them; photo / name still open the detail.
-  void _book(List<Motorcycle> motos, Motorcycle m, DateTime s, DateTime e) {
-    ref.read(filteredMotoIdsProvider.notifier).state = motos.map((m) => m.id).toList();
-    startBookingFromSelection(context, ref, m, s, e);
-  }
-
   /// Načíst katalog znovu (zdroj i odvozený filtrovaný seznam) — jako dřív.
   void _reloadMotos() {
     ref.invalidate(motorcyclesProvider);
@@ -147,12 +134,6 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     context.push('/moto/${m.id}');
   }
 
-  /// Same write as the branch dropdown of `MotoFilterPanel`.
-  void _setBranch(String? id) {
-    final f = ref.read(catalogFilterProvider);
-    ref.read(catalogFilterProvider.notifier).state = f.copyWith(branch: () => id);
-  }
-
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
@@ -174,36 +155,35 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     final filter = ref.watch(catalogFilterProvider);
     final sort = ref.watch(catalogSortProvider);
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
-    final count = motosAsync.hasValue ? motosAsync.value!.length : null;
     final sticky = mode == CatalogMode.calc ? ref.watch(calcStickyProvider) : null;
 
     final header = MotorkyHeaderV2(
       mode: mode,
       onMode: _setMode,
-      count: mode == CatalogMode.find ? count : null,
-      grid: _grid,
-      onGrid: (g) => setState(() => _grid = g),
-      onOpenDates: () => showCatalogDateSheet(context),
-      onClearDates: () => catClearDates(ref),
-      onOpenFilters: () => showCatalogFilterSheet(context),
-      onBranch: _setBranch,
+      // The old search header: back → Domů (tab root), menu → Profil.
+      onBack: () => context.go(Routes.home),
+      onMenu: () => context.go(Routes.profile),
     );
 
     final List<Widget> slivers;
     if (mode == CatalogMode.calc) {
       slivers = const [SliverToBoxAdapter(child: CalcBodyV2())];
     } else {
+      // The old search screen's order: dates (inline, open) → filter panel
+      // → count line → the list.
       slivers = [
+        const SliverToBoxAdapter(child: MotorkyDatesCardV2()),
+        const SliverToBoxAdapter(child: MotoFilterPanel()),
+        SliverToBoxAdapter(child: _countLine(tr, motosAsync, filter)),
         motosAsync.when(
           // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
           skipLoadingOnReload: true,
           data: (all) => _list(tr, sortMotorcycles(all, sort), filter, loyalty),
           // Kostry ve tvaru karet (CB-08); po 15 s „trvá to déle" + Zkusit znovu.
           loading: () => SliverToBoxAdapter(
-            child: MotorkyLoadingV2(grid: _grid, cardHeight: _cardHeight(context), onRetry: _reloadMotos),
+            child: MotorkyLoadingV2(grid: false, cardHeight: _cardHeight(context), onRetry: _reloadMotos),
           ),
           // Co se stalo, proč a jak to opravit + akce.
-          // Stavy 8.6 (CB-21): karta pod hlavičkou, termín a filtry zůstanou.
           error: (e, _) => SliverToBoxAdapter(child: MotorkyErrorV2(error: e, onRetry: _reloadMotos)),
         ),
       ];
@@ -222,72 +202,42 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
       // CB-18: pull-to-refresh only where "Zkusit znovu" exists (the list).
       onRefresh: mode == CatalogMode.find ? _refresh : null,
       overscrollColor: MgColors.night,
-      // CB-07: compact night bar once the header has scrolled away.
-      pinnedBar: mode == CatalogMode.find
-          ? MotorkyCompactBarV2(
-              onOpenDates: () => showCatalogDateSheet(context),
-              onOpenFilters: () => showCatalogFilterSheet(context),
-              onCalc: () => _setMode(CatalogMode.calc),
-            )
-          : null,
+    );
+  }
+
+  /// The old results header: "Dostupné motorky: n · d dní" with dates,
+  /// "Zobrazeno motorek: n" without; "Hledám…" while loading.
+  Widget _countLine(AppTranslations tr, AsyncValue<List<Motorcycle>> motosAsync, CatalogFilter f) {
+    final s = f.startDate, e = f.endDate;
+    final days = s != null && e != null ? catDayCount(s, e) : 0;
+    final motos = motosAsync.valueOrNull;
+    final String text;
+    if (motos != null) {
+      text = days > 0
+          ? '${tr.tr('searchAvailableMotorcycles').replaceAll('{n}', '${motos.length}')} · ${catDays(tr, days)}'
+          : tr.tr('searchShownMotorcycles').replaceAll('{n}', '${motos.length}');
+    } else if (motosAsync.isLoading) {
+      text = tr.tr('searchSearching');
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      key: const ValueKey('motorky-count'),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Text(text, style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
     );
   }
 
   Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty) {
-    // A past range (dropped right after this frame) never offers REZERVOVAT.
     final s = f.startDate, e = f.endDate;
     final hasDates = s != null && e != null && !catBeforeToday(s);
-    if (motos.isEmpty) return SliverToBoxAdapter(child: _empty(tr, hasDates));
-    final days = hasDates ? catDayCount(s, e) : 0;
-    final countLine = hasDates
-        ? '${tr.tr('searchAvailableMotorcycles').replaceAll('{n}', '${motos.length}')} · ${catDays(tr, days)}'
-        : tr.tr('searchShownMotorcycles').replaceAll('{n}', '${motos.length}');
+    if (motos.isEmpty) return SliverToBoxAdapter(child: _empty(tr));
     String? avail(Motorcycle m) =>
         hasDates ? tr.tr('v2CatFreeInRange') : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null);
-    final cta = tr.tr(hasDates ? 'v2CatCtaBook' : 'v2CatCtaPick');
-    final head = Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-      child: Text(countLine.toUpperCase(), style: MgType.tab(MgType.eyebrow.copyWith(color: MgColors.meta))),
-    );
-    final foot = Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Text(tr.tr('v2CatVatNote'), textAlign: TextAlign.center, style: MgType.small.copyWith(color: MgColors.meta)),
-    );
-    if (_grid) {
-      Widget card(int i) => MotoCardGridV2(
-            moto: motos[i],
-            price: catCardPrice(tr, motos[i], s, e, loyalty),
-            availability: avail(motos[i]),
-            onOpen: () => _open(motos, motos[i]),
-          );
-      return SliverMainAxisGroup(slivers: [
-        SliverToBoxAdapter(child: head),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              // Two cards per row, both as tall as the taller one.
-              (context, r) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: IntrinsicHeight(
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    Expanded(child: card(r * 2)),
-                    const SizedBox(width: 12),
-                    Expanded(child: r * 2 + 1 < motos.length ? card(r * 2 + 1) : const SizedBox.shrink()),
-                  ]),
-                ),
-              ),
-              childCount: (motos.length + 1) ~/ 2,
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(child: foot),
-      ]);
-    }
     final h = _cardHeight(context);
-    // CB-30: full view without the canvas count line (the header says it).
+    // Same card tap as before; the card's button is the old "Detail".
     return SliverMainAxisGroup(slivers: [
-      const SliverToBoxAdapter(child: SizedBox(height: 12)),
+      const SliverToBoxAdapter(child: SizedBox(height: 8)),
       SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, i) {
@@ -297,10 +247,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
               price: catCardPrice(tr, motos[i], s, e, loyalty),
               availability: avail(motos[i]),
               live: i == 0,
-              ctaLabel: cta,
+              ctaLabel: tr.tr('motoCardDetail'),
               height: h,
               onOpen: () => _open(motos, motos[i]),
-              onCta: hasDates ? () => _book(motos, motos[i], s, e) : null,
             );
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -311,14 +260,16 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
           childCount: motos.length,
         ),
       ),
-      SliverToBoxAdapter(child: foot),
     ]);
   }
 
-  Widget _empty(AppTranslations tr, bool hasDates) => Padding(
+  /// The old empty result: icon, "searchNoMotorcycles" + "zkus jiné
+  /// filtry" (the dates and the filter panel are right above it).
+  Widget _empty(AppTranslations tr) => Padding(
+        key: const ValueKey('motorky-empty'),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         child: MgCard(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
           child: Column(children: [
             Container(
               width: 72,
@@ -328,22 +279,13 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
                 shape: BoxShape.circle,
                 border: Border.all(color: MgColors.line),
               ),
-              child: Center(child: MgIcon(MgIcons.search, size: 32, color: MgColors.ink)),
+              child: Center(child: MgIcon(MgIcons.moto, size: 32, color: MgColors.ink)),
             ),
             const SizedBox(height: 16),
-            Text(
-              tr.tr(hasDates ? 'searchNoMotorcycles' : 'v2CatEmptyTitle'),
-              textAlign: TextAlign.center,
-              style: MgType.h3.copyWith(color: MgColors.ink),
-            ),
+            Text(tr.tr('searchNoMotorcycles'), textAlign: TextAlign.center, style: MgType.h3.copyWith(color: MgColors.ink)),
             const SizedBox(height: 8),
-            Text(tr.tr('v2CatEmptyText'), textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.body2)),
-            const SizedBox(height: 20),
-            MgBtnInk(label: tr.tr('v2CatEditFilters'), icon: MgIcons.filter, onTap: () => showCatalogFilterSheet(context)),
-            if (hasDates) ...[
-              const SizedBox(height: 8),
-              MgBtnGhostLight(label: tr.tr('v2CatDateClear'), onTap: () => catClearDates(ref)),
-            ],
+            Text(tr.tr('searchTryDifferentFilters'),
+                textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.body2)),
           ]),
         ),
       );

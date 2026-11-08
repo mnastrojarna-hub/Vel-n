@@ -69,8 +69,8 @@ class DetailDockV2 extends StatelessWidget {
       maxLines: 2,
       style: TextStyle(color: change ? MgColors.warnDark : (s == null ? MgColors.onDarkMeta : MgColors.onDarkLead)),
     );
+    // No AI disc: the old detail had no AI entry (only Domů / SOS).
     return MgDock(
-      aiDisc: true,
       contextLine: onBreakdown == null || pick
           ? text
           : Row(children: [

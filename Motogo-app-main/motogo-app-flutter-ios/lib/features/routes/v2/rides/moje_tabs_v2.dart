@@ -19,9 +19,13 @@ import 'rec_live_bar_v2.dart' show recBarLineV2;
 import 'rec_widgets_v2.dart';
 import 'ride_phase_v2.dart';
 
-/// The four Moje sub-screens (V22 Zazitky): Jízdy and Uložené trasy share
-/// the old first tab, Objevená místa = old tab 1, Historie = old tab 2.
+/// The Moje sub-screens (V22 Zazitky): the old first tab (rides + saved
+/// routes on ONE page — [saved] is only a jump target onto it), Objevená
+/// místa = old tab 1, Historie = old tab 2.
 enum MojeSub { rides, saved, places, history }
+
+/// The selectable sub-screens = the old three tabs.
+const kMojeTabs = [MojeSub.rides, MojeSub.places, MojeSub.history];
 
 /// Ride list filter (UI only, on the same list): all / with a MotoGo
 /// rental / own bike.
@@ -68,7 +72,7 @@ class _MojeSubChipsV2State extends State<MojeSubChipsV2> {
       MojeSub.history: MgIcons.history,
     };
     const keys = {
-      MojeSub.rides: 'v2RideSubRides',
+      MojeSub.rides: 'myExpRoutesTab',
       MojeSub.saved: 'v2RideSubSaved',
       MojeSub.places: 'v2RideSubPlaces',
       MojeSub.history: 'v2RideSubHistory',
@@ -77,7 +81,7 @@ class _MojeSubChipsV2State extends State<MojeSubChipsV2> {
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(children: [
-        for (final s in MojeSub.values) ...[
+        for (final s in kMojeTabs) ...[
           if (s != MojeSub.rides) const SizedBox(width: 8),
           MgFilterChip(
             key: _keys[s],

@@ -4,9 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/booking_form_widget.dart';
-import 'package:motogo_app/core/i18n/translations.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/states/mg_support_row.dart';
 import 'package:motogo_app/features/booking/v2/booking_dock_v2.dart';
@@ -26,7 +25,7 @@ import '../support/fakes_booking.dart';
 import '../support/fakes_catalog.dart';
 import '../support/v2_harness.dart';
 
-String _cs(String key) => translations['cs']![key]!;
+String _cs(String key) => AppTranslations.of('cs').tr(key);
 
 void main() {
   setUpAll(() async {
@@ -44,21 +43,8 @@ void main() {
 
   group('Motorky = the old search screen', () {
     testWidgets('dates + calendar and the filter panel inline, the old count line, Detail CTA', (t) async {
-      final pushed = <String>[];
-      final router = GoRouter(routes: [
-        GoRoute(path: '/', builder: (_, __) => const MotorkyScreenV2()),
-        GoRoute(path: '/moto/:id', builder: (_, s) {
-          pushed.add(s.uri.path);
-          return const SizedBox();
-        }),
-        GoRoute(path: '/booking', builder: (_, __) {
-          pushed.add('/booking');
-          return const SizedBox();
-        }),
-      ]);
-      await pumpV2(t, MaterialApp.router(routerConfig: router),
+      await pumpV2(t, const MotorkyScreenV2(),
           size: const Size(412, 3000),
-          scaffold: false,
           overrides: catalogOverrides(filter: CatalogFilter(startDate: ws, endDate: we), filtered: [kBmw, kHusq]));
       await t.pump(const Duration(milliseconds: 800));
       // Inline, always open: the step line, the single-day hint, the calendar.
@@ -70,14 +56,12 @@ void main() {
       expect(find.byType(MotoFilterCardV2), findsOneWidget);
       // The old results header.
       expect(find.textContaining(_cs('searchAvailableMotorcycles').replaceAll('{n}', '2')), findsOneWidget);
-      // No grid toggle; the card button is the old "Detail" → /moto/:id.
-      final cta = find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.text(_cs('motoCardDetail')));
-      expect(cta, findsOneWidget);
-      expect(find.text(_cs('v2CatCtaBook')), findsNothing);
-      await t.ensureVisible(cta);
-      await t.tap(cta);
-      await t.pumpAndSettle(const Duration(milliseconds: 100));
-      expect(pushed, ['/moto/m-bmw']);
+      // No grid toggle; the card button is the old "Detail" (its tap →
+      // /moto/:id is covered in catalog_card_book_test).
+      final card = t.widget<MotoCardFullV2>(find.byType(MotoCardFullV2).first);
+      expect(card.ctaLabel, _cs('motoCardDetail'));
+      expect(card.onCta, isNull);
+      expect(find.text(_cs('v2CatCtaBook').toUpperCase()), findsNothing);
     });
 
     testWidgets('the header has the always visible back', (t) async {

@@ -130,8 +130,8 @@ class BookingDockV2 extends StatelessWidget {
         color: MgColors.night,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      // No AI disc: the old form had no AI entry (only Domů / SOS).
       child: MgDock(
-        aiDisc: true,
         contextLine: line,
         trailing: trailing,
         child: MgFabAvoid(

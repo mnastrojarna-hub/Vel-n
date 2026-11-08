@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/v2/icons/mg_icon.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
+import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart' show DoorCode;
 import 'package:motogo_app/features/reservations/v2/res_codes_v2.dart';
@@ -20,6 +22,8 @@ import '../support/fakes_reservations.dart';
 import '../support/v2_harness.dart';
 
 String _t(String key, [String lang = 'cs']) => translations[lang]?[key] ?? key;
+
+Finder _cta(String label) => find.byWidgetPredicate((w) => w is MgCta && w.label == label);
 
 Widget _detail(Reservation r,
         {List<DoorCode> codes = const [],
@@ -47,7 +51,8 @@ final _sent = [code('accessories', '4821'), code('motorcycle', '7395')];
 
 /// Scrolls the (lazy) detail list until [f] is built, then centres it.
 Future<void> _center(WidgetTester t, Finder f) async {
-  await t.scrollUntilVisible(f, 300, scrollable: find.byType(Scrollable).first);
+  await t.scrollUntilVisible(f, 300,
+      scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
   Scrollable.ensureVisible(t.element(f), alignment: 0.5);
   await t.pump();
   await t.pump(const Duration(milliseconds: 300));
@@ -67,9 +72,9 @@ void main() {
   testWidgets('upcoming: the old "Upravit rezervaci" + "Zrušit rezervaci" (→ the old storno callback)', (t) async {
     var cancels = 0;
     await _pump(t, _detail(resv('u1', status: 'reserved', from: 3, to: 5), onCancel: () => cancels++));
-    final cancel = find.text(_t('cancelReservationBtn'));
+    final cancel = find.byWidgetPredicate((w) => w is MgBtnDestructive && w.label == _t('cancelReservationBtn'));
     await _center(t, cancel);
-    expect(find.text(_t('editReservation')), findsOneWidget);
+    expect(_cta(_t('editReservation')), findsOneWidget);
     await t.tap(cancel);
     await t.pump();
     expect(cancels, 1);
@@ -80,20 +85,20 @@ void main() {
     final r = resv('c1', status: 'completed', from: -6, to: -3);
     final ids = <String>[];
     await _pump(t, _detail(r, onInvoice: (_, id) async => ids.add(id)));
-    final invoice = find.text(_t('finalInvoice'));
+    final invoice = find.byWidgetPredicate((w) => w is MgBtnGhostLight && w.label == _t('finalInvoice'));
     await _center(t, invoice);
     await t.tap(invoice);
     await t.pump();
     expect(ids, [r.id]);
-    await _center(t, find.text(_t('bookAgain')));
-    expect(find.text(_t('bookAgain')), findsOneWidget);
+    await _center(t, _cta(_t('bookAgain')));
+    expect(_cta(_t('bookAgain')), findsOneWidget);
     await t.pump(const Duration(seconds: 2));
   });
 
   testWidgets('cancelled: the old "Obnovit rezervaci"', (t) async {
     await _pump(t, _detail(resv('x1', status: 'cancelled', from: 3, to: 5)));
-    await _center(t, find.text(_t('restoreBooking')));
-    expect(find.text(_t('restoreBooking')), findsOneWidget);
+    await _center(t, _cta(_t('restoreBooking')));
+    expect(_cta(_t('restoreBooking')), findsOneWidget);
     await t.pump(const Duration(seconds: 2));
   });
 
@@ -104,9 +109,10 @@ void main() {
       return null;
     });
     addTearDown(() => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
-    await _pump(t, _detail(resv('d1', status: 'reserved', from: 0, to: 2), codes: _sent));
+    // Tall page: the codes card (old position, under the history) is built.
+    await _pump(t, _detail(resv('d1', status: 'reserved', from: 0, to: 2), codes: _sent), size: const Size(360, 5000));
     final btn = find.byType(ResCopyCodeV2).first;
-    await _center(t, btn);
+    expect(btn, findsOneWidget);
     await t.tap(btn);
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
