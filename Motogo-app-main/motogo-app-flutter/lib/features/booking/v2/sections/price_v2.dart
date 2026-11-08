@@ -6,7 +6,6 @@ import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
-import '../../../../core/v2/widgets/mg_chips.dart';
 import '../../../../core/v2/widgets/mg_price.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../loyalty/loyalty_provider.dart';
@@ -106,13 +105,8 @@ class BookingPriceV2 extends ConsumerWidget {
           eyebrow: tr.totalFinal,
           value: bkMoney(bd.total),
           sub: tr.tr('priceVatNote'),
-          savingsChip: bd.loyaltyDiscount > 0
-              ? MgMeaningChip(
-                  label: tr.trArgs('v2BkRankSaves', {'amount': bkMoney(bd.loyaltyDiscount)}),
-                  tone: MgTone.ok,
-                  dark: true,
-                )
-              : null,
+          // „jen vzhled“: sleva za rank je v rozpisu výš (jako v původní
+          // appce) — žádný čip navíc v celkové částce.
         ),
       ]),
     );
