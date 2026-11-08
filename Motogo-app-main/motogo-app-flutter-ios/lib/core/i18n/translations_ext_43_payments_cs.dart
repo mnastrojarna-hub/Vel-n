@@ -45,7 +45,7 @@ const Map<String, String> ext43PaymentsCs = {
   'pdCancelForbidden': 'Tuhle rezervaci nemůžeš zrušit z tohoto účtu. Přihlas se účtem, kterým jsi ji vytvořil(a), a zruš ji tam.',
   'pdSwapUnknown': 'Výměnu teď nejde provést. Nic se nezměnilo – zkus jiný den výměny nebo jinou motorku.',
   'pdSlevomatUnverified': 'Poukaz ze Slevomatu se teď nepodařilo ověřit u Slevomatu. Kód zůstává platný – zkus to prosím za pár minut znovu.',
-  'pdRefundManual': 'Automatická vratka se nepovedla. Vratku dokončí obsluha do 2 pracovních dnů – nemusíš nic dělat, potvrzení a dobropis přijdou e-mailem.',
+  'pdRefundManual': 'Automatická vratka se nepovedla. Vratku dokončí obsluha do 2 pracovních dnů – nemusíš nic dělat, vrácenou částku pak uvidíš v detailu rezervace.',
   'pdCurrencyTitle': 'Karta neumí platit v korunách',
   'pdCurrencyBody': 'Tvoje karta neumí zaplatit v českých korunách (CZK). Nic jsme nestrhli – zaplať prosím jinou kartou, většina karet Visa a Mastercard to umí.',
   'pdWalletDeclinedTitle': 'Peněženka platbu odmítla',

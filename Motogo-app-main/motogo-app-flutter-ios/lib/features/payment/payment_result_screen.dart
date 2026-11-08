@@ -43,6 +43,8 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
   bool _verifying = false;
   /// Ověření prokázalo, že platba neproběhla.
   bool _notPaid = false;
+  /// Platba prošla na mezitím zrušenou rezervaci → vracíme ji.
+  bool _lateRefund = false;
   /// Zaplacená změna se dokončuje (D6) — výsledek z fronty i bez klepnutí.
   StreamSubscription<PaidChangeEvent>? _queueSub;
 
@@ -163,6 +165,14 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
         _autoVerify?.cancel();
         ref.invalidate(pendingBookingFabProvider);
         setState(() => _notPaid = true);
+      case VerifyState.cancelledRefund:
+        _autoVerify?.cancel();
+        ref.invalidate(pendingBookingFabProvider);
+        ref.invalidate(reservationsProvider);
+        setState(() {
+          _notPaid = true;
+          _lateRefund = true;
+        });
       case VerifyState.pending:
         if (!silent) {
           showMotoGoToast(context,
@@ -182,10 +192,14 @@ class _PaymentResultScreenState extends ConsumerState<PaymentResultScreen> {
     // ukaž alespoň obecné potvrzení a pošli ho na rezervace, ať nikde neuvízne.
     final kind = outcome?.kind ?? PaymentOutcomeKind.success;
     final pending = kind == PaymentOutcomeKind.pending && !_notPaid;
-    final title = _notPaid
-        ? tr.tr('psNotPaidTitle')
-        : (outcome?.title ?? tr.tr('paid'));
-    final subtitle = _notPaid
+    final title = _lateRefund
+        ? tr.tr('pdLateRefundTitle')
+        : _notPaid
+            ? tr.tr('psNotPaidTitle')
+            : (outcome?.title ?? tr.tr('paid'));
+    final subtitle = _lateRefund
+        ? tr.tr('pdLateRefundBody')
+        : _notPaid
         ? (outcome?.notPaidMessage ?? tr.tr('psNotPaidBooking'))
         : (outcome?.subtitle ?? tr.tr('paymentCompleted'));
     final lines = _notPaid ? const <PaymentOutcomeLine>[] : (outcome?.lines ?? const []);

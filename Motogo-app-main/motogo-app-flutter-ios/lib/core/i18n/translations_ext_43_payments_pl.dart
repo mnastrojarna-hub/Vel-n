@@ -43,7 +43,7 @@ const Map<String, String> ext43PaymentsPl = {
   'pdCancelForbidden': 'Nie możesz anulować tej rezerwacji z tego konta. Zaloguj się na konto, z którego ją utworzono, i anuluj ją tam.',
   'pdSwapUnknown': 'Wymiany nie da się teraz przeprowadzić. Nic się nie zmieniło – spróbuj inny dzień wymiany albo inny motocykl.',
   'pdSlevomatUnverified': 'Nie udało się teraz sprawdzić bonu Slevomat w Slevomacie. Kod pozostaje ważny – spróbuj ponownie za kilka minut.',
-  'pdRefundManual': 'Automatyczny zwrot się nie powiódł. Nasz zespół dokończy zwrot w ciągu 2 dni roboczych – nie musisz nic robić, potwierdzenie i korekta przyjdą e-mailem.',
+  'pdRefundManual': 'Automatyczny zwrot się nie powiódł. Nasz zespół dokończy zwrot w ciągu 2 dni roboczych – nie musisz nic robić, zwróconą kwotę zobaczysz potem w szczegółach rezerwacji.',
   'pdCurrencyTitle': 'Karta nie może płacić w koronach',
   'pdCurrencyBody': 'Twoja karta nie może płacić w koronach czeskich (CZK). Nic nie pobraliśmy – zapłać inną kartą, większość kart Visa i Mastercard to potrafi.',
   'pdWalletDeclinedTitle': 'Portfel odrzucił płatność',

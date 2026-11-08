@@ -366,6 +366,15 @@ extension _PaymentProblems on _PaymentScreenState {
         _onPaymentSuccess();
       case VerifyState.pending:
         await _goPending();
+      case VerifyState.cancelledRefund:
+        _setProcessing(false);
+        _showError(
+          title: tr.tr('pdLateRefundTitle'),
+          message: tr.tr('pdLateRefundBody'),
+          buttonLabel: tr.tr('successCta'),
+          onButton: () => context.go(Routes.reservations),
+          dismissible: false,
+        );
       case VerifyState.notPaid:
         _setProcessing(false);
         _showError(

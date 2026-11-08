@@ -43,7 +43,7 @@ const Map<String, String> ext43PaymentsDe = {
   'pdCancelForbidden': 'Diese Buchung kannst du mit diesem Konto nicht stornieren. Melde dich mit dem Konto an, mit dem du sie angelegt hast, und storniere sie dort.',
   'pdSwapUnknown': 'Der Tausch lässt sich gerade nicht durchführen. Es hat sich nichts geändert – versuch einen anderen Tauschtag oder ein anderes Motorrad.',
   'pdSlevomatUnverified': 'Der Slevomat-Gutschein ließ sich bei Slevomat gerade nicht prüfen. Der Code bleibt gültig – versuch es bitte in ein paar Minuten noch einmal.',
-  'pdRefundManual': 'Die automatische Rückerstattung hat nicht geklappt. Unser Team schließt sie innerhalb von 2 Werktagen ab – du musst nichts tun, Bestätigung und Gutschrift kommen per E-Mail.',
+  'pdRefundManual': 'Die automatische Rückerstattung hat nicht geklappt. Unser Team schließt sie innerhalb von 2 Werktagen ab – du musst nichts tun, den erstatteten Betrag siehst du dann in den Buchungsdetails.',
   'pdCurrencyTitle': 'Die Karte kann nicht in Kronen zahlen',
   'pdCurrencyBody': 'Deine Karte kann nicht in tschechischen Kronen (CZK) zahlen. Es wurde nichts abgebucht – zahl bitte mit einer anderen Karte, die meisten Visa- und Mastercard-Karten können das.',
   'pdWalletDeclinedTitle': 'Die Wallet hat die Zahlung abgelehnt',
