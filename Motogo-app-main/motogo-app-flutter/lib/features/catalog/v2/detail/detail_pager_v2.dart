@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
+import '../../../../core/v2/chrome/mg_hide_on_scroll.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/motion/mg_motion.dart';
+import '../../../../core/v2/motion/mg_sticky_slide.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
 import '../../moto_detail_page.dart';
+import '../bike_screen_list_v2.dart' show catalogShownMotoProvider;
 
 /// v2 view of the detail pager (`MotoDetailScreen`, technique S limited to
 /// the overlay controls): the SAME `PageView` (controller, item count,
 /// `onPageChanged`, `MotoDetailPage` per bike) — only the back control
 /// becomes the photo-style `MgV2Back` (same `backOr(Routes.search)`) and the
 /// position counter a glass pill next to it with ‹ › (CB-12, tap = swipe).
-class MotoDetailPagerV2View extends StatelessWidget {
+/// Hide-on-scroll (owner 2026-11-08): both controls fold up while the bike
+/// is scrolled down and return on scroll up; a new page starts with them
+/// shown. The bike on screen is published ([catalogShownMotoProvider]) so
+/// the list it came from returns scrolled to it.
+class MotoDetailPagerV2View extends ConsumerStatefulWidget {
   final bool hasPager;
   final PageController controller;
   final List<String> ids;
@@ -37,7 +45,34 @@ class MotoDetailPagerV2View extends StatelessWidget {
     required this.onBack,
   });
 
+  @override
+  ConsumerState<MotoDetailPagerV2View> createState() => _MotoDetailPagerV2ViewState();
+}
+
+class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
+  @override
+  void initState() {
+    super.initState();
+    final w = widget;
+    final id = w.hasPager && w.ids.isNotEmpty ? w.ids[w.currentIndex.clamp(0, w.ids.length - 1)] : w.motoId;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _publish(id));
+  }
+
+  void _publish(String id) {
+    if (!mounted) return;
+    final n = ref.read(catalogShownMotoProvider.notifier);
+    if (n.state != id) n.state = id;
+  }
+
+  /// The shared `onPageChanged` + bars back + the bike on screen.
+  void _changed(int i) {
+    MgBarsScope.read(context)?.show();
+    widget.onPageChanged(i);
+    if (widget.ids.isNotEmpty) _publish(widget.ids[i % widget.ids.length]);
+  }
+
   void _go(BuildContext context, int dir) {
+    final controller = widget.controller;
     if (!controller.hasClients) return;
     if (MgMotion.reduced(context)) {
       controller.jumpToPage((controller.page ?? 0).round() + dir);
@@ -50,33 +85,47 @@ class MotoDetailPagerV2View extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final w = widget;
+    final ids = w.ids;
     final tr = t(context);
     final top = MediaQuery.paddingOf(context).top;
+    final shown = !MgBarsScope.hiddenOf(context);
     return Scaffold(
       backgroundColor: MgColors.surface,
       body: Stack(children: [
-        if (hasPager)
+        if (w.hasPager)
           PageView.builder(
-            controller: controller,
-            itemCount: itemCount,
-            onPageChanged: onPageChanged,
+            controller: w.controller,
+            itemCount: w.itemCount,
+            onPageChanged: _changed,
             itemBuilder: (_, i) {
               final idx = i % ids.length;
               return MotoDetailPage(key: ValueKey(ids[idx]), motoId: ids[idx]);
             },
           )
         else
-          MotoDetailPage(motoId: motoId, showBackButton: true),
-        if (hasPager) ...[
-          Positioned(top: top + 12, left: 16, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
+          MotoDetailPage(motoId: w.motoId, showBackButton: true),
+        if (w.hasPager) ...[
+          Positioned(
+            top: top + 12,
+            left: 16,
+            child: MgStickySlide(
+              visible: shown,
+              from: AxisDirection.up,
+              child: MgV2Back(onTap: w.onBack, style: MgBackStyle.photo),
+            ),
+          ),
           // CB-12: "‹ n / m ›" — the chevrons are the tap twin of the
           // existing swipe (same controller, 300 ms out; a jump when the
           // system asks for reduced motion).
           Positioned(
             top: top + 12,
             left: 16 + 44 + 8,
-            child: Semantics(
-              label: tr.trArgs('v2DetPagerAria', {'n': currentIndex + 1, 'total': ids.length}),
+            child: MgStickySlide(
+              visible: shown,
+              from: AxisDirection.up,
+              child: Semantics(
+              label: tr.trArgs('v2DetPagerAria', {'n': w.currentIndex + 1, 'total': ids.length}),
               child: Container(
                 height: 46, // 44 hit inside the 1 px ring
                 decoration: BoxDecoration(
@@ -88,12 +137,13 @@ class MotoDetailPagerV2View extends StatelessWidget {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   _Chev(left: true, label: tr.tr('v2UxCbPrevBike'), onTap: () => _go(context, -1)),
                   ExcludeSemantics(
-                    child: Text('${currentIndex + 1} / ${ids.length}',
+                    child: Text('${w.currentIndex + 1} / ${ids.length}',
                         style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark, height: 1))),
                   ),
                   _Chev(left: false, label: tr.tr('v2UxCbNextBike'), onTap: () => _go(context, 1)),
                 ]),
               ),
+            ),
             ),
           ),
         ],

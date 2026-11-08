@@ -3,19 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/gestures/mg_zone_snap.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/v2/catalog_mode_sync.dart' show catBeforeToday;
+import '../../catalog/v2/bike_screen_list_v2.dart';
 import '../../catalog/v2/catalog_price.dart';
 import '../../catalog/v2/moto_card_full_v2.dart';
 import '../../catalog/v2/motorky_loading_v2.dart';
 import '../../loyalty/loyalty_provider.dart';
 
-/// Full card height on Domů (the Motorky list geometry).
-double homeBikeCardHeight(BuildContext context) => (MediaQuery.sizeOf(context).height * 0.72).clamp(460.0, 600.0);
+/// Full card height on Domů (the Motorky list geometry: one bike per
+/// screen).
+double homeBikeCardHeight(BuildContext context) => bikeScreenHeight(context);
 
 /// "Zobrazeno: n motorek" under the filter (old Domů count line, same
 /// loading / error texts).
@@ -46,10 +49,12 @@ class HomeBikeCountV2 extends ConsumerWidget {
 /// pager — the old `MotoCard` tap. The card is the Motorky v2 card; its CTA
 /// opens the same detail (the old card had only "Detail"). [heroes] off
 /// while the funnel shows: its centred bike already carries the photo's
-/// Hero tag (one tagged source per route, design M1).
+/// Hero tag (one tagged source per route, design M1). One bike per screen
+/// ([BikeScreenList]): [zone] = the Domů page's snap zone.
 class HomeBikeListV2 extends ConsumerWidget {
   final bool heroes;
-  const HomeBikeListV2({super.key, this.heroes = true});
+  final MgSnapZone? zone;
+  const HomeBikeListV2({super.key, this.heroes = true, this.zone});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,31 +75,31 @@ class HomeBikeListV2 extends ConsumerWidget {
           context.push('/moto/${m.id}');
         }
 
+        final top = MediaQuery.paddingOf(context).top;
         return SliverPadding(
           padding: const EdgeInsets.only(bottom: 16),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, i) {
-                final m = motos[i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: HeroMode(
-                    enabled: heroes,
-                    child: MotoCardFullV2(
-                    key: ValueKey('home-mc-${m.id}'),
-                    moto: m,
-                    price: catCardPrice(tr, m, hasDates ? s : null, hasDates ? e : null, loyalty),
-                    availability:
-                        hasDates ? tr.tr('v2CatFreeInRange') : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null),
-                    ctaLabel: tr.tr('motoCardDetail'),
-                    height: h,
-                    onOpen: () => open(m),
-                  ),
-                  ),
-                );
-              },
-              childCount: motos.length,
-            ),
+          sliver: BikeScreenList(
+            ids: [for (final m in motos) m.id],
+            zone: zone ?? MgSnapZone(),
+            height: h,
+            onOpen: (i) => open(motos[i]),
+            card: (context, i, onOpen) {
+              final m = motos[i];
+              return HeroMode(
+                enabled: heroes,
+                child: MotoCardFullV2(
+                  key: ValueKey('home-mc-${m.id}'),
+                  moto: m,
+                  price: catCardPrice(tr, m, hasDates ? s : null, hasDates ? e : null, loyalty),
+                  availability:
+                      hasDates ? tr.tr('v2CatFreeInRange') : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null),
+                  ctaLabel: tr.tr('motoCardDetail'),
+                  height: h,
+                  topInset: top,
+                  onOpen: onOpen,
+                ),
+              );
+            },
           ),
         );
       },

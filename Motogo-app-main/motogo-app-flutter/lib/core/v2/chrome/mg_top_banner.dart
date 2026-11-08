@@ -4,6 +4,7 @@ import '../../i18n/i18n_provider.dart';
 import '../icons/mg_icon.dart';
 import '../motion/mg_anim_loops.dart';
 import '../motion/mg_motion.dart';
+import '../motion/mg_sticky_slide.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_sheet.dart';
@@ -15,11 +16,14 @@ import 'mg_status_bar.dart';
 /// text in a light sheet, so nothing is ever lost. [band] = its own night
 /// band under the status bar (shell tabs without their own banner line) —
 /// it declares light status-bar icons (`MgStatusBar`); otherwise an inline
-/// row (last line of a dark header).
+/// row (last line of a dark header). [folded] (band only, hide-on-scroll
+/// `MgBarsScope`): the line folds up under the status-bar strip, which stays
+/// night (light icons keep their surface); the body below grows.
 class MgTopBanner extends StatelessWidget {
   final String text;
   final bool band;
-  const MgTopBanner({super.key, required this.text, this.band = false});
+  final bool folded;
+  const MgTopBanner({super.key, required this.text, this.band = false, this.folded = false});
 
   static const double height = 28;
 
@@ -60,7 +64,7 @@ class MgTopBanner extends StatelessWidget {
       child: Container(
         color: MgColors.night,
         padding: EdgeInsets.fromLTRB(16, top, 16, 0),
-        child: line,
+        child: MgStickySlide(visible: !folded, from: AxisDirection.up, collapse: true, child: line),
       ),
     );
   }

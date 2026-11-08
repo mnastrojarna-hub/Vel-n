@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/gestures/mg_zone_snap.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
@@ -14,6 +15,7 @@ import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
+import 'bike_screen_list_v2.dart';
 import 'calc/calc_body_v2.dart';
 import 'calc/calc_sticky_v2.dart';
 import 'catalog_mode.dart';
@@ -60,6 +62,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
   /// funnel), otherwise the bike list — a once-used calculator must not
   /// hijack later "find a bike" entries (Pobočka, empty Rezervace…).
   late CatalogMode _mode;
+
+  /// One bike per screen: the list's cards the page scroll settles on.
+  final MgSnapZone _zone = MgSnapZone();
 
   @override
   void initState() {
@@ -124,8 +129,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     }
   }
 
-  /// Full card height (the skeleton uses the same geometry).
-  double _cardHeight(BuildContext context) => (MediaQuery.sizeOf(context).height * 0.72).clamp(460.0, 600.0);
+  /// Full card height = one bike per screen (the skeleton uses the same
+  /// geometry).
+  double _cardHeight(BuildContext context) => bikeScreenHeight(context);
 
   /// Same as the old card `onTap`: order for swiping in the detail pager =
   /// the shown (sorted) list, then open the detail.
@@ -198,6 +204,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
       ],
       overlapHero: false,
       tabIndex: 1,
+      snap: _zone,
       dock: sticky == null ? null : CalcStickyV2(data: sticky),
       // CB-18: pull-to-refresh only where "Zkusit znovu" exists (the list).
       onRefresh: mode == CatalogMode.find ? _refresh : null,
@@ -235,30 +242,30 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     String? avail(Motorcycle m) =>
         hasDates ? tr.tr('v2CatFreeInRange') : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null);
     final h = _cardHeight(context);
+    final top = MediaQuery.paddingOf(context).top;
     // Same card tap as before; the card's button is the old "Detail".
     return SliverMainAxisGroup(slivers: [
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
-      SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, i) {
-            final card = MotoCardFullV2(
-              key: ValueKey('mc-${motos[i].id}'),
-              moto: motos[i],
-              price: catCardPrice(tr, motos[i], s, e, loyalty),
-              availability: avail(motos[i]),
-              live: i == 0,
-              ctaLabel: tr.tr('motoCardDetail'),
-              height: h,
-              onOpen: () => _open(motos, motos[i]),
-            );
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              // CB-28: the first three cards reveal once per session.
-              child: i < 3 ? MgReveal(index: i, sessionKey: 'motorky-cards', child: card) : card,
-            );
-          },
-          childCount: motos.length,
-        ),
+      BikeScreenList(
+        ids: [for (final m in motos) m.id],
+        zone: _zone,
+        height: h,
+        onOpen: (i) => _open(motos, motos[i]),
+        card: (context, i, open) {
+          final card = MotoCardFullV2(
+            key: ValueKey('mc-${motos[i].id}'),
+            moto: motos[i],
+            price: catCardPrice(tr, motos[i], s, e, loyalty),
+            availability: avail(motos[i]),
+            live: i == 0,
+            ctaLabel: tr.tr('motoCardDetail'),
+            height: h,
+            topInset: top,
+            onOpen: open,
+          );
+          // CB-28: the first three cards reveal once per session.
+          return i < 3 ? MgReveal(index: i, sessionKey: 'motorky-cards', child: card) : card;
+        },
       ),
     ]);
   }
