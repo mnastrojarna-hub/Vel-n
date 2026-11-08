@@ -187,8 +187,8 @@ void main() {
     await pumpV2(
         t,
         ScanChoiceV2(onBack: _n, choices: [
-          (icon: MgIcons.idCard, label: 'Občanský průkaz', steps: 4, onTap: () => hits.add('op')),
-          (icon: MgIcons.bike, label: 'Pouze řidičský průkaz', steps: 2, onTap: () => hits.add('dl')),
+          (icon: MgIcons.idCard, label: 'Občanský průkaz', steps: 4, sub: null, onTap: () => hits.add('op')),
+          (icon: MgIcons.bike, label: 'Pouze řidičský průkaz', steps: 2, sub: null, onTap: () => hits.add('dl')),
         ]),
         scaffold: false);
     await t.pump();

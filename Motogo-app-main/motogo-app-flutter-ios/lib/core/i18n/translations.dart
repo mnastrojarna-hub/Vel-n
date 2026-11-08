@@ -132,6 +132,7 @@ import 'translations_ext_60_v2_ux_auth_sos_misc_a.dart';
 import 'translations_ext_60_v2_ux_auth_sos_misc_b.dart';
 import 'translations_ext_60_v2_ux_auth_sos_misc_c.dart';
 import 'translations_ext_60_v2_ux_auth_sos_misc_d.dart';
+import 'translations_ext_60_v2_scan_choice.dart';
 import 'translations_ext_60_v2_ux_routes_rides_a.dart';
 import 'translations_ext_60_v2_ux_routes_rides_b.dart';
 import 'translations_ext_58_v2_booking_r2.dart';
@@ -272,6 +273,7 @@ final translations = _mergeAll([
   translationsExt60V2UxAuthSosMiscB,
   translationsExt60V2UxAuthSosMiscC,
   translationsExt60V2UxAuthSosMiscD,
+  translationsExt60V2ScanChoice,
   translationsExt60V2UxRoutesRidesA,
   translationsExt60V2UxRoutesRidesB,
   translationsExt58V2BookingR2,

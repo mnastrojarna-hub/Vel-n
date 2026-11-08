@@ -5,6 +5,7 @@
 // camera error, verifying).
 // MG_VERIFY_RENDER=1 flutter test test/v2/render/render_ux_auth_sos_misc_test.dart
 import 'package:flutter/material.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/icons/mg_icon.dart';
@@ -16,6 +17,7 @@ import 'package:motogo_app/features/auth/v2/welcome_overlay_v2.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/documents/v2/scan_camera_v2.dart';
 import 'package:motogo_app/features/documents/v2/scan_choice_v2.dart';
+import 'package:motogo_app/features/documents/v2/scan_choice_text_v2.dart';
 import 'package:motogo_app/features/documents/v2/scan_states_v2.dart';
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart' show reservationsProvider;
@@ -308,11 +310,16 @@ List<RenderCase> authSosMiscUxCases() => [
           'asm',
           'scan',
           'choice',
-          () => ScanChoiceV2(onBack: _n, choices: [
-                (icon: MgIcons.idCard, label: 'Občanský průkaz', steps: 4, onTap: _n),
-                (icon: MgIcons.doc, label: 'Cestovní pas', steps: 4, onTap: _n),
-                (icon: MgIcons.bike, label: 'Pouze řidičský průkaz', steps: 2, onTap: _n),
-              ]),
+          () => Builder(builder: (c) {
+                // Same labels / photo lists the scanner builds (owner 2026-11-08).
+                ScanChoice ch(String icon, String label, List<String> keys) =>
+                    (icon: icon, label: t(c).tr(label), steps: keys.length, sub: scanChoiceSub(c, keys), onTap: _n);
+                return ScanChoiceV2(onBack: _n, note: t(c).tr('v2UxAsmScanNeed'), choices: [
+                  ch(MgIcons.idCard, 'v2UxAsmScanIdDl', const ['id_front', 'id_back', 'dl_front', 'dl_back']),
+                  ch(MgIcons.doc, 'v2UxAsmScanPassDl', const ['passport_front', 'passport_back', 'dl_front', 'dl_back']),
+                  ch(MgIcons.bike, 'v2UxAsmScanDlOnly', const ['dl_front', 'dl_back']),
+                ]);
+              }),
           asmBase,
           scaffold: false),
       RenderCase('asm', 'scan', 'loading', () => ScanChoiceV2(onBack: _n, choices: const [], loading: true), asmBase,

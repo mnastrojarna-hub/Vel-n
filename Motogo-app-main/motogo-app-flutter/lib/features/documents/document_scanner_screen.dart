@@ -23,6 +23,7 @@ import '../../core/v2/widgets/mg_v1_pass.dart';
 import '../../core/v2/icons/mg_icon.dart';
 import 'v2/scan_camera_v2.dart';
 import 'v2/scan_choice_v2.dart';
+import 'v2/scan_choice_text_v2.dart';
 import 'v2/scan_states_v2.dart';
 
 // Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
@@ -721,25 +722,31 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
       // icons in v2 (fix:statusbar r1); old look unchanged.
       mgV1StatusBar(context, dark: true, child: _screen());
 
-  /// Počet stran k naskenování pro volbu [type] (stejný filtr jako [_sequence]).
-  int _countFor(String type) {
-    final all = _stepsFor(type);
+  /// Kroky (klíče stran) pro volbu [type] — stejný filtr jako [_sequence].
+  List<String> _keysFor(String type) {
+    final all = _stepsFor(type).map((s) => s.key).toList();
     final only = _only;
-    if (only == null) return all.length;
-    final some = all.where((s) => only.contains(s.key)).length;
-    return some == 0 ? all.length : some;
+    if (only == null) return all;
+    final some = all.where(only.contains).toList();
+    return some.isEmpty ? all : some;
   }
+
+  /// Počet stran k naskenování pro volbu [type] (stejný filtr jako [_sequence]).
+  int _countFor(String type) => _keysFor(type).length;
 
   /// v2 obrazovky mimo kameru (volba dokladu, načítání plánu, ověřování).
   Widget? _screenV2() {
     if (!MgV2.on(context)) return null;
     if (_planLoading) return ScanChoiceV2(onBack: _safePop, choices: const [], loading: true);
     if (_idType == null) {
-      return ScanChoiceV2(onBack: _safePop, choices: [
-        (icon: MgIcons.idCard, label: t(context).tr('idCard'), steps: _countFor('op'), onTap: () => _selectIdType('op')),
-        (icon: MgIcons.doc, label: t(context).tr('passport'), steps: _countFor('passport'), onTap: () => _selectIdType('passport')),
-        if (_offerDlOnly)
-          (icon: MgIcons.bike, label: t(context).tr('dlOnly'), steps: _countFor('dl_only'), onTap: () => _selectIdType('dl_only')),
+      // Volby říkají, že se fotí vždy doklad totožnosti + řidičák, a pod
+      // každou je přesný seznam fotek (majitel 2026-11-08). Akce beze změny.
+      ScanChoice choice(String icon, String label, String type) => (icon: icon, label: t(context).tr(label),
+          steps: _countFor(type), sub: scanChoiceSub(context, _keysFor(type)), onTap: () => _selectIdType(type));
+      return ScanChoiceV2(onBack: _safePop, note: t(context).tr('v2UxAsmScanNeed'), choices: [
+        choice(MgIcons.idCard, 'v2UxAsmScanIdDl', 'op'),
+        choice(MgIcons.doc, 'v2UxAsmScanPassDl', 'passport'),
+        if (_offerDlOnly) choice(MgIcons.bike, 'v2UxAsmScanDlOnly', 'dl_only'),
       ]);
     }
     if (_stepIdx >= _sequence.length) return ScanVerifyingV2(onBack: _safePop);

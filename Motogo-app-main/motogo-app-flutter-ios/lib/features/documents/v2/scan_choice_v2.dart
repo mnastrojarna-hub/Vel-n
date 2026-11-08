@@ -13,7 +13,9 @@ import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 
 /// One document choice of the scanner (same `_selectIdType` action).
-typedef ScanChoice = ({String icon, String label, int steps, VoidCallback onTap});
+/// [sub] = what exactly gets photographed (scanChoiceSub); null = the plain
+/// "{n} × skenovat" line.
+typedef ScanChoice = ({String icon, String label, int steps, String? sub, VoidCallback onTap});
 
 /// Night page of the scanner (choice, loading, verifying): dark gradient,
 /// ‹ + "Skenování dokladů".
@@ -58,7 +60,10 @@ class ScanChoiceV2 extends StatelessWidget {
   final VoidCallback onBack;
   final List<ScanChoice> choices;
   final bool loading;
-  const ScanChoiceV2({super.key, required this.onBack, required this.choices, this.loading = false});
+
+  /// Line under the title (what the bike handover needs); null = none.
+  final String? note;
+  const ScanChoiceV2({super.key, required this.onBack, required this.choices, this.loading = false, this.note});
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +74,10 @@ class ScanChoiceV2 extends StatelessWidget {
         padding: EdgeInsets.only(top: 24, bottom: MediaQuery.paddingOf(context).bottom + 24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(tr.tr('v2UxAsmPickDoc'), style: MgType.h2.copyWith(color: MgColors.onDark)),
+          if (note != null) ...[
+            const SizedBox(height: 8),
+            Text(note!, style: MgType.body.copyWith(color: MgColors.onDarkMeta)),
+          ],
           const SizedBox(height: 16),
           if (loading)
             for (var i = 0; i < 3; i++) ...[
@@ -96,7 +105,7 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sub = t(context).trArgs('v2UxAsmScanTimes', {'n': c.steps});
+    final sub = c.sub ?? t(context).trArgs('v2UxAsmScanTimes', {'n': c.steps});
     return Semantics(
       button: true,
       label: '${c.label}, $sub',
@@ -118,7 +127,7 @@ class _Row extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(c.label, style: MgType.title.copyWith(color: MgColors.onDark)),
                 const SizedBox(height: 2),
-                Text(sub, style: MgType.small.copyWith(color: MgColors.onDarkMeta)),
+                Text(sub, style: MgType.small.copyWith(color: MgColors.onDarkMeta), maxLines: 3),
               ]),
             ),
             const MgIcon(MgIcons.chevronRight, size: 22, color: MgColors.neon),
