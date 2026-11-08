@@ -129,9 +129,8 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
     final q = dated ? quoteFor(moto, w.selStart!, w.selEnd!, loyalty: loyalty) : null;
     final q12 = dated && w.dayCount >= 2 ? quoteFor(moto, w.selStart!, w.selEnd!, pickupTime: '12:00', loyalty: loyalty) : null;
     final cheapest = moto.prices?.cheapest ?? 0;
-    final from = cheapest > 0
-        ? t(context).trArgs('v2CatGridFrom', {'amount': catMoney(catFromPerDay(moto, loyalty?.percent ?? 0))})
-        : null;
+    // „jen vzhled“: ceníková cena jako v původním detailu (sleva za rank až v rezervaci).
+    final from = cheapest > 0 ? t(context).trArgs('v2CatGridFrom', {'amount': catMoney(cheapest)}) : null;
     final heroH = (MediaQuery.sizeOf(context).height * 0.6).clamp(340.0, 560.0);
     return MgPage(
       background: MgColors.surface,
@@ -202,7 +201,7 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
         selStart: w.selStart,
         selEnd: w.selEnd,
         dayCount: w.dayCount,
-        price: !w.busy && q != null && q.total > 0 ? catMoney(q.total) : null,
+        price: !w.busy && w.hasDates && w.totalPrice > 0 ? catMoney(w.totalPrice) : null,
         fromPrice: from,
         onPickDates: _pickDates,
         onReserve: w.onReserve,

@@ -257,22 +257,19 @@ void main() {
       expect(t.widget<DetailTripCardV2>(_tripOf('m-bmw')).calendarExpanded, isFalse);
       final cta = t.widget<MgCta>(_ctaIn(DetailDockV2));
       expect(cta.label, _cs.tr('v2CalcPickDatesCta'));
-      expect(cta.price, _cs.trArgs('v2CatGridFrom', {'amount': catMoney(catFromPerDay(kBmw, kLoyalty3.percent))}));
+      // „jen vzhled“: ceníková cena jako v původním detailu (sleva za rank až v rezervaci).
+      expect(cta.price, _cs.trArgs('v2CatGridFrom', {'amount': catMoney(kBmw.prices!.cheapest)}));
       await t.tap(_ctaIn(DetailDockV2));
       await _settle(t);
       expect(t.widget<DetailTripCardV2>(_tripOf('m-bmw')).calendarExpanded, isTrue);
       await _unmount(t);
     });
 
-    testWidgets('② is an info row with the 12:00 saving for 2+ days', (t) async {
+    testWidgets('trip card = the old price card: list total, no rank, no 12:00 info', (t) async {
       await _pump(t, '/moto/m-bmw', catalogOverrides(filter: dated));
-      final info = find.byType(DetailHandoverInfoV2);
-      expect(find.descendant(of: info, matching: find.byType(CalcInfoBadge)), findsOneWidget);
-      expect(find.descendant(of: info, matching: find.text(_cs.tr('v2LpCalcTitle'))), findsOneWidget);
-      expect(find.descendant(of: info, matching: find.byType(CalcHalfInfo)), findsOneWidget);
-      await _unmount(t);
-      await _pump(t, '/moto/m-bmw', catalogOverrides(filter: CatalogFilter(startDate: ws, endDate: ws)));
-      expect(find.descendant(of: find.byType(DetailHandoverInfoV2), matching: find.byType(CalcHalfInfo)), findsNothing);
+      expect(find.byType(DetailHandoverInfoV2), findsNothing);
+      expect(find.byType(CalcHalfInfo), findsNothing);
+      expect(find.textContaining(RegExp(_cs.tr('priceTotalFor').trim(), caseSensitive: false)), findsOneWidget);
       await _unmount(t);
     });
 
