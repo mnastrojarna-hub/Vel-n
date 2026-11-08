@@ -100,12 +100,6 @@ class RenderMgChromeLift extends RenderShiftedBox {
   }
 
   @override
-  double computeMinIntrinsicHeight(double width) => child?.getMinIntrinsicHeight(width) ?? 0;
-
-  @override
-  double computeMaxIntrinsicHeight(double width) => child?.getMaxIntrinsicHeight(width) ?? 0;
-
-  @override
   Size computeDryLayout(BoxConstraints constraints) {
     final c = child;
     if (c == null) return constraints.smallest;

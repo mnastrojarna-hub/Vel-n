@@ -9,7 +9,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -169,10 +168,10 @@ void main() {
       'submit': (
         SubmitScaffoldV2(
           title: 'Návrh místa',
-          children: [for (var i = 0; i < 30; i++) SizedBox(height: 80, child: Text('f$i'))],
           busy: false,
           busyLabel: '',
           onSubmit: () {},
+          children: [for (var i = 0; i < 30; i++) SizedBox(height: 80, child: Text('f$i'))],
         ),
         const []
       ),

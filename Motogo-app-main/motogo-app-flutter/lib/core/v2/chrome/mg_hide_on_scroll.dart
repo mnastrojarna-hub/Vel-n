@@ -16,8 +16,11 @@ import 'package:flutter/widgets.dart';
 /// [hideAfter] px of continuous downward scroll, shown after [showAfter] px
 /// upward; always shown at the top (pixels <= min — also after a
 /// programmatic scroll-to-top), when the content cannot scroll, on [show]
-/// (route change, tab switch, pager page change) and while [enabled] is
-/// false (screen reader on).
+/// (route change, tab switch, pager page change — also a page pushed /
+/// popped on the shell navigator, `MgBarsRouteObserver`) and while
+/// [enabled] is false (screen reader on). A fling counts only in the
+/// direction of its drag (a snap's spring back is physics); nothing counts
+/// while a popup route (sheet, dialog) is on top ([popupOnTop]).
 class MgBarsController extends ChangeNotifier {
   static const double hideAfter = 24;
   static const double showAfter = 8;

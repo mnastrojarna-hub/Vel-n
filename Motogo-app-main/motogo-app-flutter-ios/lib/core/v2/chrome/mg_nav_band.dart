@@ -16,14 +16,19 @@ import '../tokens/mg_colors.dart';
 /// no taps, no semantics. `MgMotion.sticky` + emphasized, instant under
 /// reduced motion. (The keyboard still removes the whole nav — the shell's
 /// `MgStickySlide` around this.)
+/// Also the fold of a fixed top header (`MgFoldHeader`): the same box with
+/// the status-bar strip as [band] and the header's surface as [fill].
 class MgNavBand extends StatelessWidget {
   final bool folded;
   final double band;
   final Widget child;
 
+  /// The band's surface (default: the nav's night).
+  final Color? fill;
+
   /// The fold / unfold finished (the shell re-places the AI button).
   final VoidCallback? onEnd;
-  const MgNavBand({super.key, required this.folded, required this.band, required this.child, this.onEnd});
+  const MgNavBand({super.key, required this.folded, required this.band, required this.child, this.onEnd, this.fill});
 
   @override
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
@@ -36,7 +41,7 @@ class MgNavBand extends StatelessWidget {
           ignoring: folded,
           child: ExcludeSemantics(
             excluding: folded,
-            child: _NavBandBox(progress: v, band: band, color: MgColors.night.withValues(alpha: 0.96), child: child),
+            child: _NavBandBox(progress: v, band: band, color: fill ?? MgColors.night.withValues(alpha: 0.96), child: child),
           ),
         ),
       );

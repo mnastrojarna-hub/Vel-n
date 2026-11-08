@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/chrome/mg_fold_header.dart';
+import '../../../core/v2/chrome/mg_hide_on_scroll.dart' show MgBarsHost;
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
@@ -200,21 +202,26 @@ class ResEditV2View extends StatelessWidget {
     // Scaffold jako dosud: klávesnice (adresa přistavení) zmenší obsah.
     return Scaffold(
       backgroundColor: MgColors.canvas,
-      body: Column(children: [
-        ResEditHeaderV2(
-          booking: booking,
-          isActive: isActive,
-          title: tr.tr('editReservation'),
-          onBack: onBack,
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.only(bottom: dock == null ? MediaQuery.paddingOf(context).bottom + 24 : 24),
-            child: body,
+      // Hide-on-scroll: the tall header folds while the form scrolls down.
+      body: MgBarsHost(
+        child: Column(children: [
+          MgFoldHeader(
+            child: ResEditHeaderV2(
+              booking: booking,
+              isActive: isActive,
+              title: tr.tr('editReservation'),
+              onBack: onBack,
+            ),
           ),
-        ),
-        if (dock != null) dock,
-      ]),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: dock == null ? MediaQuery.paddingOf(context).bottom + 24 : 24),
+              child: body,
+            ),
+          ),
+          if (dock != null) dock,
+        ]),
+      ),
     );
   }
 }
