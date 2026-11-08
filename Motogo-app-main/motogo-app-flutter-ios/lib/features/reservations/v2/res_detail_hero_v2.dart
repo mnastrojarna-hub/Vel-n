@@ -13,7 +13,8 @@ import 'res_detail_bits_v2.dart';
 
 /// Photo hero of the reservation detail (V22 `.rph`): the bike contained
 /// over a dark ground, back disc (photo style → the SAME `backOr` as
-/// today), status pill, rating chip and the SOS tags of the old card.
+/// today), status pill and rating chip (SOS tags stay on the list card and
+/// in the history, as in the old app).
 class ResDetailHeroV2 extends StatelessWidget {
   final Reservation res;
   final VoidCallback onBack;
@@ -48,20 +49,8 @@ class ResDetailHeroV2 extends StatelessWidget {
             border: MgColors.star.withValues(alpha: 0.55),
             semanticLabel: '${tr.tr('ratingTitle')} ${tr.trArgs('starsCount', {'n': res.rating})}',
           ),
-        if (res.sosReplacement)
-          ResPhotoChip(
-            label: tr.tr('replacementForSos'),
-            icon: MgIcons.swap,
-            iconColor: MgColors.neon,
-            border: MgColors.neonA(0.5),
-          ),
-        if (res.endedBySos)
-          ResPhotoChip(
-            label: tr.tr('endedBySos'),
-            icon: MgIcons.sos,
-            iconColor: MgColors.sosDot,
-            border: MgColors.sosDot.withValues(alpha: 0.7),
-          ),
+        // „jen vzhled“: štítky SOS (náhrada / ukončeno SOS) má jako dřív jen
+        // karta v seznamu a historie úprav — detail je v původní appce neměl.
       ],
     );
   }

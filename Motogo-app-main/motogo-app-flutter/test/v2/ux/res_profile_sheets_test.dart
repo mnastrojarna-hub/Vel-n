@@ -185,7 +185,9 @@ void main() {
       expect(find.text(_t('pilot')), findsNothing);
     });
 
-    testWidgets('Notifikace shows the enabled channels from the loaded profile', (t) async {
+    // „jen vzhled“ (majitel 2026-11-07): řádky nastavení bez hodnot vpravo,
+    // jako položky menu v původní appce — kanály ukazuje až otevřený list.
+    testWidgets('Nastavení: rows without values (look only, as the old menu)', (t) async {
       const actions = PfGroupActions(
         onPermissions: _noop, onNotif: _noop, onPrivacy: _noop, onPassword: _noop, onLanguage: _noop,
         onCurrency: _noop, onFaq: _noop, onLogout: _noop, onDelete: _noop,
@@ -196,7 +198,9 @@ void main() {
         overrides: profileOverrides(profile: {...kProfileFull, 'consent_push': true, 'consent_email': true, 'consent_sms': false}),
       );
       await t.pump(const Duration(milliseconds: 300));
-      expect(find.text('Push · E-mail'), findsOneWidget);
+      expect(find.text('Push · E-mail'), findsNothing);
+      expect(find.text(_t('notifications')), findsOneWidget);
+      expect(find.text('motogo24.cz'), findsNothing);
     });
   });
 }
