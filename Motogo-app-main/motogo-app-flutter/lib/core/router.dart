@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../main.dart' show rootNavigatorKey;
 import 'app_shell.dart';
+import 'v2/chrome/mg_hide_on_scroll.dart' show MgBarsRouteObserver;
 import 'v2/flag/v2_scope.dart' show MgV2, V2Switch;
 import 'v2/motion/mg_pages.dart' show mgTabPage;
 import 'v2/shell/app_shell_v2.dart';
@@ -368,6 +369,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // vč. Profilu, AI tlačítko), VYPNUTO = původní AppShell. Cesty, deep
       // linky i zpět jsou v obou režimech stejné; přepíná se jen vzhled.
       ShellRoute(
+        // v2 hide-on-scroll: a page pushed / popped on the shell navigator
+        // (also pageless `Navigator.push`) brings the bars back; sheets do
+        // not fold them (no-op in the old look).
+        observers: [MgBarsRouteObserver()],
         builder: (context, state, child) =>
             V2Switch(v1: AppShell(child: child), v2: AppShellV2(child: child)),
         routes: [

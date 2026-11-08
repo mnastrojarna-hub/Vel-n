@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/gestures/mg_zone_snap.dart';
+import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/widgets/state_views.dart';
@@ -19,6 +20,10 @@ import '../../loyalty/loyalty_provider.dart';
 /// Full card height on Domů (the Motorky list geometry: one bike per
 /// screen).
 double homeBikeCardHeight(BuildContext context) => bikeScreenHeight(context);
+
+/// Domů's scroll-to-top button slot above the strips (12 + 44): while the
+/// button shows, the bike caption rides above it (never under the button).
+const double kHomeToTopSlot = 12 + MgSize.touch;
 
 /// "Zobrazeno: n motorek" under the filter (old Domů count line, same
 /// loading / error texts).
@@ -50,11 +55,13 @@ class HomeBikeCountV2 extends ConsumerWidget {
 /// opens the same detail (the old card had only "Detail"). [heroes] off
 /// while the funnel shows: its centred bike already carries the photo's
 /// Hero tag (one tagged source per route, design M1). One bike per screen
-/// ([BikeScreenList]): [zone] = the Domů page's snap zone.
+/// ([BikeScreenList]): [zone] = the Domů page's snap zone; [toTop] = the
+/// scroll-to-top button is on (its slot under the caption, [kHomeToTopSlot]).
 class HomeBikeListV2 extends ConsumerWidget {
   final bool heroes;
   final MgSnapZone? zone;
-  const HomeBikeListV2({super.key, this.heroes = true, this.zone});
+  final bool toTop;
+  const HomeBikeListV2({super.key, this.heroes = true, this.zone, this.toTop = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,6 +103,7 @@ class HomeBikeListV2 extends ConsumerWidget {
                   ctaLabel: tr.tr('motoCardDetail'),
                   height: h,
                   topInset: top,
+                  liftExtra: toTop ? kHomeToTopSlot : 0,
                   onOpen: onOpen,
                 ),
               );

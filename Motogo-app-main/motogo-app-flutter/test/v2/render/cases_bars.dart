@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/feature_flags.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/pending_sos_fab_provider.dart';
+import 'package:motogo_app/core/v2/chrome/mg_hide_on_scroll.dart';
 import 'package:motogo_app/core/v2/gestures/mg_zone_snap.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
@@ -25,7 +26,7 @@ import '../support/fakes_catalog.dart' show catalogOverrides;
 import 'render_harness.dart';
 
 GoRouter Function() _router(String initial) => () => GoRouter(initialLocation: initial, routes: [
-      ShellRoute(builder: (_, __, child) => AppShellV2(child: child), routes: [
+      ShellRoute(observers: [MgBarsRouteObserver()], builder: (_, __, child) => AppShellV2(child: child), routes: [
         GoRoute(path: '/', builder: (_, __) => const HomeScreenV2()),
         GoRoute(path: '/search', builder: (_, __) => const MotorkyScreenV2()),
         GoRoute(path: '/moto/:id', builder: (_, s) => MotoDetailScreen(motoId: s.pathParameters['id']!)),

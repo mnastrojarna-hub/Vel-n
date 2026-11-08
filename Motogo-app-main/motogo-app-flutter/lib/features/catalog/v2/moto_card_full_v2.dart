@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_chrome_lift.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
@@ -48,6 +49,10 @@ class MotoCardFullV2 extends StatefulWidget {
   /// Status-bar inset over the card's top edge (0 = none).
   final double topInset;
 
+  /// A slot under the caption shown only with the bars unfolded (Domů's
+  /// scroll-to-top): the caption rides above the nav AND it (`MgChromeLift`).
+  final double liftExtra;
+
   const MotoCardFullV2({
     super.key,
     required this.moto,
@@ -59,6 +64,7 @@ class MotoCardFullV2 extends StatefulWidget {
     this.live = false,
     this.height = 560,
     this.topInset = 0,
+    this.liftExtra = 0,
   });
 
   @override
@@ -224,66 +230,72 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
             ],
             if (widget.availability != null)
               Positioned(top: top + 20, left: 12, child: _AvailabilityPill(text: widget.availability!, live: widget.live)),
-            Padding(
-              padding: EdgeInsets.fromLTRB(16, top + 60, 16, 16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                IgnorePointer(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                      if (m.category != null && m.category!.isNotEmpty)
-                        _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
-                      if (lic.isNotEmpty) _Tag(lic),
-                      // The old card's "{kW} KW" badge.
-                      if (m.powerKw != null) _Tag('${m.powerKw} KW'),
-                      if (branch != null)
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          MgIcon(MgIcons.pin, size: 16, color: MgColors.neon),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(branch, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
-                          ),
-                        ]),
-                    ]),
-                    const SizedBox(height: 8),
-                    Text(m.model,
-                        style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
-                    if (specs.isNotEmpty) ...[
+            // With the bars shown the body is a nav row shorter than the
+            // card: the caption rides above the nav (and the strips).
+            MgChromeLift(
+              room: widget.height,
+              extra: widget.liftExtra,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, top + 60, 16, 16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  IgnorePointer(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                        if (m.category != null && m.category!.isNotEmpty)
+                          _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
+                        if (lic.isNotEmpty) _Tag(lic),
+                        // The old card's "{kW} KW" badge.
+                        if (m.powerKw != null) _Tag('${m.powerKw} KW'),
+                        if (branch != null)
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            MgIcon(MgIcons.pin, size: 16, color: MgColors.neon),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(branch, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
+                            ),
+                          ]),
+                      ]),
                       const SizedBox(height: 8),
-                      Wrap(spacing: 6, runSpacing: 6, children: [for (final s in specs) _SpecChip(s)]),
-                    ],
-                    const SizedBox(height: 10),
-                  ]),
-                ),
-                LayoutBuilder(builder: (context, c) {
-                  // Price + CTA side by side only when the price ("2 727 Kč
-                  // /Tag") fits next to the button; otherwise the button goes
-                  // full width under the price (no number split in half).
-                  final narrow = _priceWidth(context, widget.price) + 12 + _ctaWidth(context, widget.ctaLabel) > c.maxWidth;
-                  Widget cta(bool expand) => MgFabAvoid(
-                        child: MgCta(
-                          label: widget.ctaLabel,
-                          onTap: widget.onCta ?? widget.onOpen,
-                          size: MgCtaSize.sm48,
-                          expand: expand,
-                          arrow: true,
-                          loop: widget.live,
-                          semanticLabel: '${widget.ctaLabel} · ${m.model}',
-                        ),
-                      );
-                  if (narrow) {
-                    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                      IgnorePointer(child: _PriceBlock(price: widget.price)),
-                      const SizedBox(height: 12),
-                      cta(true),
+                      Text(m.model,
+                          style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
+                      if (specs.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 6, runSpacing: 6, children: [for (final s in specs) _SpecChip(s)]),
+                      ],
+                      const SizedBox(height: 10),
+                    ]),
+                  ),
+                  LayoutBuilder(builder: (context, c) {
+                    // Price + CTA side by side only when the price ("2 727 Kč
+                    // /Tag") fits next to the button; otherwise the button goes
+                    // full width under the price (no number split in half).
+                    final narrow = _priceWidth(context, widget.price) + 12 + _ctaWidth(context, widget.ctaLabel) > c.maxWidth;
+                    Widget cta(bool expand) => MgFabAvoid(
+                          child: MgCta(
+                            label: widget.ctaLabel,
+                            onTap: widget.onCta ?? widget.onOpen,
+                            size: MgCtaSize.sm48,
+                            expand: expand,
+                            arrow: true,
+                            loop: widget.live,
+                            semanticLabel: '${widget.ctaLabel} · ${m.model}',
+                          ),
+                        );
+                    if (narrow) {
+                      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                        IgnorePointer(child: _PriceBlock(price: widget.price)),
+                        const SizedBox(height: 12),
+                        cta(true),
+                      ]);
+                    }
+                    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Expanded(child: IgnorePointer(child: _PriceBlock(price: widget.price))),
+                      const SizedBox(width: 12),
+                      cta(false),
                     ]);
-                  }
-                  return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Expanded(child: IgnorePointer(child: _PriceBlock(price: widget.price))),
-                    const SizedBox(width: 12),
-                    cta(false),
-                  ]);
-                }),
-              ]),
+                  }),
+                ]),
+              ),
             ),
           ]),
         ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 
 import '../../../../core/i18n/i18n_provider.dart';
+import '../../../../core/v2/chrome/mg_fold_header.dart';
+import '../../../../core/v2/chrome/mg_hide_on_scroll.dart' show MgBarsHost;
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/states/mg_state_screen.dart';
@@ -68,83 +70,89 @@ class RideDetailViewV2 extends StatelessWidget {
     final mapH = mapHeightFor(MediaQuery.sizeOf(context).height);
     return Scaffold(
       backgroundColor: MgColors.canvas,
-      body: Column(children: [
-        RideDetailHeaderV2(
-          ride: ride,
-          onBack: onBack,
-          onEdit: onEdit,
-          onShare: onShare,
-          onDelete: onDelete,
-          pager: sibling == null ? null : RidePagerV2(at: sibling!.$1, of: sibling!.$2, onPrev: onPrev, onNext: onNext),
-        ),
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottom),
-            children: [
-              Stack(children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: mapH,
-                  child: Container(
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: MgShadows.card),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(children: [
-                      Positioned.fill(
-                        // Map tiles failing: the strip under the hint pill.
-                        child: MapTileErrorInset(
-                          top: 48,
-                          child: RideTrackMap(
-                            track: ride.track,
-                            segments: ride.segments,
-                            points: ride.points,
-                            interactive: true,
-                            onMapTap: onMapTap,
-                            onPointTap: onPointTap,
+      // Hide-on-scroll: the header folds while the ride scrolls down (a
+      // root route — its own bars).
+      body: MgBarsHost(
+        child: Column(children: [
+          MgFoldHeader(
+            child: RideDetailHeaderV2(
+              ride: ride,
+              onBack: onBack,
+              onEdit: onEdit,
+              onShare: onShare,
+              onDelete: onDelete,
+              pager: sibling == null ? null : RidePagerV2(at: sibling!.$1, of: sibling!.$2, onPrev: onPrev, onNext: onNext),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottom),
+              children: [
+                Stack(children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: mapH,
+                    child: Container(
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: MgShadows.card),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(children: [
+                        Positioned.fill(
+                          // Map tiles failing: the strip under the hint pill.
+                          child: MapTileErrorInset(
+                            top: 48,
+                            child: RideTrackMap(
+                              track: ride.track,
+                              segments: ride.segments,
+                              points: ride.points,
+                              interactive: true,
+                              onMapTap: onMapTap,
+                              onPointTap: onPointTap,
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(left: 10, top: 10, right: 10, child: _MapHint(text: tr.tr('v2RideMapHint'))),
-                    ]),
+                        Positioned(left: 10, top: 10, right: 10, child: _MapHint(text: tr.tr('v2RideMapHint'))),
+                      ]),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: mapH - 24),
-                  child: MgReveal(sessionKey: 'ride-stats-${ride.id}', child: RideStatsCardV2(ride: ride)),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              RideTripRowV2(ride: ride),
-              const SizedBox(height: 8),
-              RideVisibilityCardV2(isPublic: ride.isPublic, busy: busy, onChanged: onVisibility),
-              if (ride.stages.length >= 2) ...[
+                  Padding(
+                    padding: EdgeInsets.only(top: mapH - 24),
+                    child: MgReveal(sessionKey: 'ride-stats-${ride.id}', child: RideStatsCardV2(ride: ride)),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                RideTripRowV2(ride: ride),
+                const SizedBox(height: 8),
+                RideVisibilityCardV2(isPublic: ride.isPublic, busy: busy, onChanged: onVisibility),
+                if (ride.stages.length >= 2) ...[
+                  const SizedBox(height: 24),
+                  RideStagesV2(stages: ride.stages),
+                ],
                 const SizedBox(height: 24),
-                RideStagesV2(stages: ride.stages),
-              ],
-              const SizedBox(height: 24),
-              Row(children: [
-                const MgIcon(MgIcons.pin, size: 20, color: MgColors.routeGreen),
-                const SizedBox(width: 8),
-                Expanded(
-                  // r1: „Stopps und Sehenswürdigkeiten" celé, slovo se nedělí.
-                  child: Semantics(
-                    header: true,
-                    child: MgWordFit(minScale: 0.75, child: Text(tr.tr('rideStops'), style: MgType.section.copyWith(color: MgColors.ink))),
+                Row(children: [
+                  const MgIcon(MgIcons.pin, size: 20, color: MgColors.routeGreen),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    // r1: „Stopps und Sehenswürdigkeiten" celé, slovo se nedělí.
+                    child: Semantics(
+                      header: true,
+                      child: MgWordFit(minScale: 0.75, child: Text(tr.tr('rideStops'), style: MgType.section.copyWith(color: MgColors.ink))),
+                    ),
                   ),
-                ),
-                if (ride.points.isNotEmpty)
-                  Text('${ride.points.length}', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta))),
-              ]),
-              const SizedBox(height: 4),
-              Text(tr.tr('rideStopsHint'), style: MgType.small.copyWith(color: MgColors.meta)),
-              const SizedBox(height: 12),
-              for (var i = 0; i < ride.points.length; i++)
-                RidePointCardV2(point: ride.points[i], number: i, onTap: () => onEditPoint(ride.points[i])),
-            ],
+                  if (ride.points.isNotEmpty)
+                    Text('${ride.points.length}', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta))),
+                ]),
+                const SizedBox(height: 4),
+                Text(tr.tr('rideStopsHint'), style: MgType.small.copyWith(color: MgColors.meta)),
+                const SizedBox(height: 12),
+                for (var i = 0; i < ride.points.length; i++)
+                  RidePointCardV2(point: ride.points[i], number: i, onTap: () => onEditPoint(ride.points[i])),
+              ],
+            ),
           ),
-        ),
-      ]),
+        ]),
+      ),
     );
   }
 }

@@ -32,6 +32,29 @@ class MgBarsController extends ChangeNotifier {
   bool _disposed = false;
   double _acc = 0;
   ScrollDirection _user = ScrollDirection.idle;
+  final Map<Object, (double, bool Function())> _folds = {};
+
+  /// A popup route (bottom sheet, dialog, menu) is the top route of the
+  /// shell navigator (`MgBarsRouteObserver`): its scrolling is not the
+  /// page's — folding the nav behind it would move the sheet under the
+  /// finger — so nothing counts until it closes.
+  bool popupOnTop = false;
+
+  /// A fixed header that folds with the bars (`MgFoldHeader`) also grows
+  /// the viewport: [h] px more scroll range are needed before anything
+  /// folds (no flicker on a page that would stop scrolling).
+  /// [active] = its route is the current one.
+  void reportFold(Object owner, double h, bool Function() active) => _folds[owner] = (h, active);
+
+  void removeFold(Object owner) => _folds.remove(owner);
+
+  double get _foldExtra {
+    var h = 0.0;
+    for (final f in _folds.values) {
+      if (f.$2()) h += f.$1;
+    }
+    return h;
+  }
 
   bool get hidden => _hidden && _enabled;
   bool get enabled => _enabled;
@@ -78,7 +101,7 @@ class MgBarsController extends ChangeNotifier {
   bool handle(ScrollNotification n) {
     final m = n.metrics;
     if (m.axis != Axis.vertical || !m.hasPixels || !m.hasContentDimensions) return false;
-    if (!_enabled) return false;
+    if (!_enabled || popupOnTop) return false;
     final range = m.maxScrollExtent - m.minScrollExtent;
     if (n is UserScrollNotification) {
       _user = n.direction;
@@ -98,15 +121,20 @@ class MgBarsController extends ChangeNotifier {
       show();
       return false;
     }
-    final user = n.dragDetails != null || _user != ScrollDirection.idle;
+    final drag = n.dragDetails != null;
     // Programmatic scroll, or the bounce at / beyond the bottom edge.
-    if (!user || m.pixels >= m.maxScrollExtent) return false;
+    if ((!drag && _user == ScrollDirection.idle) || m.pixels >= m.maxScrollExtent) return false;
+    final px = n.scrollDelta ?? 0;
+    // After the finger lifts only the fling's own direction counts (`_user`
+    // reverse = pixels growing): a snap's spring back to the bike, or a
+    // spring's return after an overshoot, is physics — never the customer.
+    if (!drag && (px > 0) != (_user == ScrollDirection.reverse)) return false;
     // Content direction: a reversed list (chat) grows upward.
-    final d = (n.scrollDelta ?? 0) * (m.axisDirection == AxisDirection.up ? -1 : 1);
+    final d = px * (m.axisDirection == AxisDirection.up ? -1 : 1);
     if (d == 0) return false;
     if (_acc != 0 && (d > 0) != (_acc > 0)) _acc = 0;
     _acc += d;
-    if (_acc >= hideAfter && range >= minRange) {
+    if (_acc >= hideAfter && range >= minRange + _foldExtra) {
       _set(true);
     } else if (_acc <= -showAfter) {
       _set(false);
@@ -172,4 +200,38 @@ class _MgHideOnScrollState extends State<MgHideOnScroll> {
         onNotification: _c.handle,
         child: MgBarsScope(controller: _c, child: widget.child),
       );
+}
+
+/// A screen with its own fixed header (`MgFoldHeader`): inside the v2 shell
+/// the shell's bars fold it; on a root route (no scope above) the screen
+/// listens to its own scrolling, as an `MgPage` outside the shell does.
+class MgBarsHost extends StatelessWidget {
+  final Widget child;
+  const MgBarsHost({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) =>
+      MgBarsScope.maybeOf(context) == null ? MgHideOnScroll(child: child) : child;
+}
+
+/// Observer of the shell navigator (router.dart `ShellRoute.observers`):
+/// a new page on top — a push / pop / replace, also a `Navigator.push` the
+/// router location never sees (full-screen map, viewers) — brings the bars
+/// back; a popup route on top (bottom sheet, dialog, menu) only marks
+/// [MgBarsController.popupOnTop] and leaves the bars as they are (the page
+/// under it did not change). No-op outside the v2 shell (no scope).
+class MgBarsRouteObserver extends NavigatorObserver {
+  Route<dynamic>? _page;
+
+  @override
+  void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
+    final ctx = navigator?.context;
+    final c = ctx == null ? null : MgBarsScope.read(ctx);
+    if (c == null) return;
+    final popup = topRoute is PopupRoute;
+    c.popupOnTop = popup;
+    if (popup || identical(topRoute, _page)) return;
+    _page = topRoute;
+    c.reset();
+  }
 }

@@ -153,7 +153,7 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
           ],
         ),
       ],
-      slivers: [HomeBikeListV2(heroes: !funnel, zone: _zone)],
+      slivers: [HomeBikeListV2(heroes: !funnel, zone: _zone, toTop: _showTop)],
     );
 
     return Stack(children: [

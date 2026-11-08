@@ -77,8 +77,11 @@ class MgZoneSnapPhysics extends ScrollPhysics {
     final target = targetFor(position, natural, velocity);
     if (target == null) return base;
     final tolerance = toleranceFor(position);
-    if ((target - position.pixels).abs() < tolerance.distance && velocity.abs() < tolerance.velocity) return null;
-    return ScrollSpringSimulation(spring, position.pixels, target, velocity, tolerance: tolerance);
+    // The fling's velocity only when it heads to the target: a release that
+    // settles back (or stays on its bike) never shoots past it and returns.
+    final v = (target - position.pixels) * velocity > 0 ? velocity : 0.0;
+    if ((target - position.pixels).abs() < tolerance.distance && v.abs() < tolerance.velocity) return null;
+    return ScrollSpringSimulation(spring, position.pixels, target, v, tolerance: tolerance);
   }
 }
 

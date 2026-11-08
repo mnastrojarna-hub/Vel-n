@@ -12,6 +12,7 @@ import 'package:motogo_app/core/feature_flags.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/pending_sos_fab_provider.dart';
+import 'package:motogo_app/core/v2/chrome/mg_hide_on_scroll.dart';
 import 'package:motogo_app/core/v2/chrome/mg_nav_band.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
@@ -49,6 +50,9 @@ Future<GoRouter> pumpBarsShell(
   addTearDown(tester.view.reset);
   final router = GoRouter(initialLocation: initial, routes: [
     ShellRoute(
+      // As router.dart: pushes / pops on the shell navigator reset the bars,
+      // a popup on top is not the page.
+      observers: [MgBarsRouteObserver()],
       builder: (_, __, child) => AppShellV2(child: child),
       routes: [for (final e in routes.entries) GoRoute(path: e.key, builder: (_, s) => e.value(s))],
     ),

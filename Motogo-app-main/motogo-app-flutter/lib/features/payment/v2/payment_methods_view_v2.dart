@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_app_bar.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
+import '../../../core/v2/chrome/mg_fold_header.dart';
+import '../../../core/v2/chrome/mg_hide_on_scroll.dart' show MgBarsHost;
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/states/mg_state_banner.dart';
@@ -55,7 +57,10 @@ class PaymentMethodsViewV2 extends StatelessWidget {
     if (list == null) {
       return Material(
         color: MgColors.canvas,
-        child: Column(children: [header, Expanded(child: body ?? const SizedBox.shrink())]),
+        // Hide-on-scroll: the app bar folds while a scrolling state scrolls.
+        child: MgBarsHost(
+          child: Column(children: [MgFoldHeader(child: header), Expanded(child: body ?? const SizedBox.shrink())]),
+        ),
       );
     }
     final add = onAdd;
