@@ -23,6 +23,12 @@ import 'catalog_text.dart';
 /// and the rank CTA. EVERY tap target opens the detail through [onOpen] —
 /// the caller's existing logic (sibling ids + `context.push('/moto/:id')`) —
 /// except the CTA when the caller gives [onCta] (dates set → REZERVOVAT).
+/// One bike per screen (owner 2026-11-08 "vždycky motorka je na celou
+/// stránku"): the lists give it the whole folded viewport as [height] and
+/// the status-bar inset as [topInset] — the top controls (photo segments,
+/// availability pill, side tap zones) sit below the status bar, and on a
+/// tall card the contained photo rides in the upper part, clear of the
+/// caption block.
 class MotoCardFullV2 extends StatefulWidget {
   final Motorcycle moto;
   final CatCardPrice price;
@@ -39,6 +45,9 @@ class MotoCardFullV2 extends StatefulWidget {
   final VoidCallback? onCta;
   final double height;
 
+  /// Status-bar inset over the card's top edge (0 = none).
+  final double topInset;
+
   const MotoCardFullV2({
     super.key,
     required this.moto,
@@ -49,6 +58,7 @@ class MotoCardFullV2 extends StatefulWidget {
     this.onCta,
     this.live = false,
     this.height = 560,
+    this.topInset = 0,
   });
 
   @override
@@ -101,6 +111,9 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final specs = m.shortDescItems(tr.tr).take(6).map((e) => e.card).toList();
     final lic = catLicenseLabel(tr, m);
     final branch = catBranchLine(tr, m);
+    final top = widget.topInset;
+    // A full-screen card: the photo in the upper part, above the caption.
+    final photoAlign = widget.height > 640 ? const Alignment(0, -0.4) : Alignment.center;
     // [height] is the MINIMUM: with large text / long words the card grows
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).
@@ -154,6 +167,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                         imgs[i],
                         thumbWidth: 900,
                         fit: BoxFit.contain,
+                        alignment: photoAlign,
                         width: double.infinity,
                         placeholder: const SizedBox.expand(),
                         error: _fallback(),
@@ -186,7 +200,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
             ),
             if (multi) ...[
               Positioned(
-                top: 8,
+                top: top + 8,
                 left: 12,
                 right: 12,
                 child: ExcludeSemantics(
@@ -209,9 +223,9 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
               _zone(left: false, label: tr.tr('v2CatPhotoNext')),
             ],
             if (widget.availability != null)
-              Positioned(top: 20, left: 12, child: _AvailabilityPill(text: widget.availability!, live: widget.live)),
+              Positioned(top: top + 20, left: 12, child: _AvailabilityPill(text: widget.availability!, live: widget.live)),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
+              padding: EdgeInsets.fromLTRB(16, top + 60, 16, 16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 IgnorePointer(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -291,7 +305,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
   Widget _zone({required bool left, required String label}) => Positioned(
         left: left ? 0 : null,
         right: left ? null : 0,
-        top: 64,
+        top: widget.topInset + 64,
         bottom: widget.height * 0.42,
         width: 72,
         child: Semantics(

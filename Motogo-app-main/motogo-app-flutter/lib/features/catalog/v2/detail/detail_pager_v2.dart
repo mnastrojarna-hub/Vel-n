@@ -89,7 +89,10 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
     final ids = w.ids;
     final tr = t(context);
     final top = MediaQuery.paddingOf(context).top;
-    final shown = !MgBarsScope.hiddenOf(context);
+    // Only the two controls listen to the bars (never the pages).
+    Widget folding(Widget child) => Builder(
+          builder: (context) => MgStickySlide(visible: !MgBarsScope.hiddenOf(context), from: AxisDirection.up, child: child),
+        );
     return Scaffold(
       backgroundColor: MgColors.surface,
       body: Stack(children: [
@@ -109,11 +112,7 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
           Positioned(
             top: top + 12,
             left: 16,
-            child: MgStickySlide(
-              visible: shown,
-              from: AxisDirection.up,
-              child: MgV2Back(onTap: w.onBack, style: MgBackStyle.photo),
-            ),
+            child: folding(MgV2Back(onTap: w.onBack, style: MgBackStyle.photo)),
           ),
           // CB-12: "‹ n / m ›" — the chevrons are the tap twin of the
           // existing swipe (same controller, 300 ms out; a jump when the
@@ -121,10 +120,7 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
           Positioned(
             top: top + 12,
             left: 16 + 44 + 8,
-            child: MgStickySlide(
-              visible: shown,
-              from: AxisDirection.up,
-              child: Semantics(
+            child: folding(Semantics(
               label: tr.trArgs('v2DetPagerAria', {'n': w.currentIndex + 1, 'total': ids.length}),
               child: Container(
                 height: 46, // 44 hit inside the 1 px ring
@@ -143,8 +139,7 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
                   _Chev(left: false, label: tr.tr('v2UxCbNextBike'), onTap: () => _go(context, 1)),
                 ]),
               ),
-            ),
-            ),
+            )),
           ),
         ],
       ]),

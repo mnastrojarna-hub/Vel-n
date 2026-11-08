@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../gestures/mg_zone_snap.dart';
 import '../motion/mg_motion.dart';
 import '../motion/mg_sticky_slide.dart';
 import '../shell/shell_nav_map.dart';
 import '../tokens/mg_colors.dart';
 import 'mg_chrome_metrics.dart';
+import 'mg_hide_on_scroll.dart';
 import 'mg_pinned_back.dart';
 import 'mg_status_bar.dart';
 
@@ -34,7 +36,10 @@ export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 /// the canvas. [pinnedBar] (dark, e.g. a compact title + action bar) slides
 /// down from the top once the scroll passes [pinnedBarAfter] (default: the
 /// measured header height − 8) and declares light status-bar icons; not
-/// together with [pinnedBack].
+/// together with [pinnedBack]. Hide-on-scroll (owner 2026-11-08): the
+/// pinned back / bar fold away while the content scrolls down
+/// (`MgBarsScope` of the v2 shell; a page outside the shell listens to its
+/// own scroll). [snap] = a "one per screen" zone the scroll settles on.
 class MgPage extends ConsumerStatefulWidget {
   final Widget? header;
   final List<Widget> sections;
@@ -58,6 +63,7 @@ class MgPage extends ConsumerStatefulWidget {
   final Color? overscrollColor;
   final Widget? pinnedBar;
   final double? pinnedBarAfter;
+  final MgSnapZone? snap;
 
   const MgPage({
     super.key,
@@ -78,6 +84,7 @@ class MgPage extends ConsumerStatefulWidget {
     this.overscrollColor,
     this.pinnedBar,
     this.pinnedBarAfter,
+    this.snap,
   }) : assert(pinnedBar == null || pinnedBack == null, 'pinnedBar and pinnedBack exclude each other');
 
   @override
@@ -167,7 +174,9 @@ class _MgPageState extends ConsumerState<MgPage> {
     ];
     Widget scroll = CustomScrollView(
       controller: _ctrl,
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: widget.snap == null
+          ? const AlwaysScrollableScrollPhysics()
+          : MgZoneSnapPhysics(zone: widget.snap!, parent: const AlwaysScrollableScrollPhysics()),
       slivers: content,
     );
     if (widget.onRefresh != null) {
@@ -180,7 +189,9 @@ class _MgPageState extends ConsumerState<MgPage> {
               child: scroll,
             );
     }
-    return MgStatusBar.forColor(
+    // Outside the v2 shell (no bars scope) the page folds its own chrome.
+    final ownBars = MgBarsScope.maybeOf(context) == null;
+    final Widget page = MgStatusBar.forColor(
       widget.background,
       child: MgPinnedScope(
         title: widget.pinnedBack != null ? widget.pinnedTitle : null,
@@ -234,6 +245,7 @@ class _MgPageState extends ConsumerState<MgPage> {
         ),
       ),
     );
+    return ownBars ? MgHideOnScroll(child: page) : page;
   }
 }
 
@@ -309,9 +321,10 @@ class _PinnedBarHostState extends State<_PinnedBarHost> {
   }
 
   /// The status-bar region slides with the bar: off-screen it stops counting.
+  /// Folds away with the hide-on-scroll chrome too.
   @override
   Widget build(BuildContext context) => MgStickySlide(
-        visible: _on,
+        visible: _on && !MgBarsScope.hiddenOf(context),
         from: AxisDirection.up,
         child: MgStatusBar(dark: true, child: widget.child),
       );

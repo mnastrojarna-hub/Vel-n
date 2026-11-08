@@ -162,8 +162,11 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
         left: 16,
         bottom: 0,
         // Folds with the hide-on-scroll chrome: while the bikes scroll down
-        // it would sit on the card's price line; back on any scroll up.
-        child: _ToTopButton(visible: _showTop && !MgBarsScope.hiddenOf(context), onTap: _toTop),
+        // it would sit on the card's price line; back on any scroll up
+        // (own Builder: only the button listens, not the whole Domů).
+        child: Builder(
+          builder: (context) => _ToTopButton(visible: _showTop && !MgBarsScope.hiddenOf(context), onTap: _toTop),
+        ),
       ),
     ]);
   }

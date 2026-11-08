@@ -15,6 +15,8 @@ import '../../../features/reservations/reservation_models.dart';
 import '../../../features/reservations/reservation_provider.dart';
 import '../chrome/mg_ai_fab.dart';
 import '../chrome/mg_chrome_metrics.dart';
+import '../chrome/mg_hide_on_scroll.dart';
+import '../chrome/mg_nav_band.dart';
 import '../chrome/mg_status_bar.dart';
 import '../chrome/mg_top_banner.dart';
 import '../chrome/v2_nav_bar.dart';
@@ -35,6 +37,11 @@ import 'shell_nav_map.dart';
 /// for whatever has no region of its own (a v1 screen kept inside the v2
 /// look); v2 pages, their dark headers and the banner band declare
 /// themselves and win while they lie under the status bar.
+/// Hide-on-scroll (owner 2026-11-08, `MgBarsController`): scrolling the
+/// content down folds the nav to its safe-area band (`MgNavBand`) and the
+/// banner band's line; scrolling up, a route change or a tab switch brings
+/// them back. Docks, strips and the AI button keep sitting on the body's
+/// bottom edge (the band keeps the safe area), so nothing re-insets.
 class AppShellV2 extends ConsumerStatefulWidget {
   final Widget child;
   const AppShellV2({super.key, required this.child});
@@ -45,11 +52,22 @@ class AppShellV2 extends ConsumerStatefulWidget {
 
 class _AppShellV2State extends ConsumerState<AppShellV2> {
   final MgShellChrome _chrome = MgShellChrome();
+  final MgBarsController _bars = MgBarsController();
 
   /// The nav as last shown — kept while it slides out (no tab jump).
   Widget? _lastNav;
   GoRouter? _router;
   String _location = '/';
+
+  @override
+  void initState() {
+    super.initState();
+    _bars.addListener(_onBars);
+  }
+
+  void _onBars() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void didChangeDependencies() {
@@ -80,7 +98,11 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
   void _onRoute() {
     if (!mounted) return;
     final loc = _readLocation();
-    if (loc != _location) setState(() => _location = loc);
+    if (loc != _location) {
+      setState(() => _location = loc);
+      // Every route change / tab switch starts with the bars shown.
+      _bars.reset();
+    }
     // The cross-tab back chip lives only while its tab is on screen.
     final origin = ref.read(v2TabOriginProvider);
     if (origin != null && v2TabIndexFor(loc) != origin.tab) {
@@ -95,6 +117,9 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
   @override
   void dispose() {
     _router?.routerDelegate.removeListener(_onRoute);
+    _bars
+      ..removeListener(_onBars)
+      ..dispose();
     // Docks / avoid zones unregister in post-frame callbacks scheduled by the
     // children (disposed first) → dispose the chrome after them.
     final c = _chrome;
@@ -137,6 +162,8 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
     // As the old AppShell: the nav on every shell route, hidden only while
     // the keyboard is open.
     final navHidden = keyboardOpen;
+    // Hide-on-scroll: folds the nav to its band and the banner line.
+    final folded = _bars.hidden;
     final fabHidden = keyboardOpen || v2FabHiddenFor(path) || ref.watch(paymentScreenActiveProvider);
 
     // Badges: Profil = nepřečtené zprávy; Rezervace = rezervace čeká na akci
@@ -180,16 +207,19 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
             chrome: _chrome,
             navVisible: !navHidden,
             fabVisible: !fabHidden,
+            foldedViewport: outer.size.height - (navHidden ? 0 : outer.padding.bottom) - (topBanner ? outer.padding.top : 0),
             child: Stack(children: [
               Column(children: [
                 // v2 jednořádkový banner (marquee; při omezení pohybu statický
                 // řádek, klepnutí = celý text) — stejný jako v hlavičce Domů.
-                if (topBanner) MgTopBanner(text: banner.valueOrNull!.text, band: true),
+                if (topBanner) MgTopBanner(text: banner.valueOrNull!.text, band: true, folded: folded),
                 Expanded(
                   child: MediaQuery.removePadding(
                     context: context,
                     removeTop: topBanner,
-                    child: NotificationListener<ScrollEndNotification>(
+                    child: MgHideOnScroll(
+                      controller: _bars,
+                      child: NotificationListener<ScrollEndNotification>(
                       onNotification: _onScroll,
                       // The nav slot stays in the Scaffold while the nav
                       // slides out (collapsed to 0), which strips the body's
@@ -200,6 +230,7 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
                         viewPadding: outer.viewPadding.bottom,
                         child: MgBackGuard(shell: true, child: widget.child),
                       ),
+                    ),
                     ),
                   ),
                 ),
@@ -238,7 +269,12 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
         ),
         bottomNavigationBar: _lastNav == null
             ? null
-            : MgStickySlide(visible: !navHidden, collapse: true, child: _lastNav!),
+            : MgStickySlide(
+                visible: !navHidden,
+                collapse: true,
+                // The body's bottom edge moved: the AI button re-checks its slot.
+                child: MgNavBand(folded: folded, band: outer.padding.bottom, onEnd: _chrome.scrollIdle, child: _lastNav!),
+              ),
       ),
     );
   }

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_chrome_metrics.dart';
+import '../../../core/v2/chrome/mg_hide_on_scroll.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/gestures/mg_zone_snap.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -45,6 +47,9 @@ class HomeScreenV2 extends ConsumerStatefulWidget {
 class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
   final ScrollController _scroll = ScrollController();
   bool _showTop = false;
+
+  /// One bike per screen: the bike list the page scroll settles on.
+  final MgSnapZone _zone = MgSnapZone();
 
   @override
   void initState() {
@@ -117,6 +122,7 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
       controller: _scroll,
       onRefresh: () => refreshHome(ref),
       overlapHero: false,
+      snap: _zone,
       sections: [
         HomeHeroStack(
           overlap: overlap,
@@ -147,7 +153,7 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
           ],
         ),
       ],
-      slivers: [HomeBikeListV2(heroes: !funnel)],
+      slivers: [HomeBikeListV2(heroes: !funnel, zone: _zone)],
     );
 
     return Stack(children: [
@@ -155,7 +161,12 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
       Positioned(
         left: 16,
         bottom: 0,
-        child: _ToTopButton(visible: _showTop, onTap: _toTop),
+        // Folds with the hide-on-scroll chrome: while the bikes scroll down
+        // it would sit on the card's price line; back on any scroll up
+        // (own Builder: only the button listens, not the whole Domů).
+        child: Builder(
+          builder: (context) => _ToTopButton(visible: _showTop && !MgBarsScope.hiddenOf(context), onTap: _toTop),
+        ),
       ),
     ]);
   }

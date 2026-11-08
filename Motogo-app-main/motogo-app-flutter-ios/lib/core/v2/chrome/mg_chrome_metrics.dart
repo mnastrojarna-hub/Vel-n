@@ -106,11 +106,17 @@ class MgChromeScope extends InheritedNotifier<MgShellChrome> {
   final bool navVisible;
   final bool fabVisible;
 
+  /// Height of the shell body while the hide-on-scroll chrome is folded
+  /// (screen − the nav's safe-area band − the banner's status-bar strip):
+  /// the "one bike per screen" card height. 0 = unknown.
+  final double foldedViewport;
+
   const MgChromeScope({
     super.key,
     required MgShellChrome chrome,
     required this.navVisible,
     required this.fabVisible,
+    this.foldedViewport = 0,
     required super.child,
   }) : super(notifier: chrome);
 
@@ -125,6 +131,7 @@ class MgChromeScope extends InheritedNotifier<MgShellChrome> {
   bool updateShouldNotify(MgChromeScope oldWidget) =>
       oldWidget.navVisible != navVisible ||
       oldWidget.fabVisible != fabVisible ||
+      oldWidget.foldedViewport != foldedViewport ||
       super.updateShouldNotify(oldWidget);
 }
 

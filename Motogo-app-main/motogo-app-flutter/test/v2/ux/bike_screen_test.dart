@@ -18,7 +18,10 @@ import 'package:motogo_app/features/catalog/v2/bike_screen_list_v2.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_pager_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
+import 'package:motogo_app/features/home/v2/funnel_carousel_v2.dart';
+import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 
+import '../screens/home_test.dart' show homeCases;
 import '../support/bars_harness.dart';
 import '../support/v2_harness.dart';
 
@@ -159,6 +162,46 @@ void main() {
     await t.pump(const Duration(milliseconds: 600));
     expect(find.byType(MotoDetailPagerV2View), findsNothing);
     expect(_page(t).pixels, moreOrLessEquals(_zone(t).offsetOf(2), epsilon: 1));
+    await _drain(t);
+  });
+
+  testWidgets('Domů: one bike per screen; back from a list bike lands on it, back from the funnel leaves the list alone', (t) async {
+    final routes = <String, Widget Function(GoRouterState)>{
+      '/': (_) => const HomeScreenV2(),
+      '/moto/:id': (s) => MotoDetailScreen(motoId: s.pathParameters['id']!),
+    };
+    final router = await pumpBarsShell(t, '/', routes, overrides: homeCases()['s0']!());
+    await t.pump(const Duration(milliseconds: 500));
+    final z = _zone(t);
+    final ids = t.widget<BikeScreenList>(find.byType(BikeScreenList, skipOffstage: false)).ids;
+    final pos = t.state<ScrollableState>(find.descendant(of: find.byType(HomeScreenV2), matching: find.byType(Scrollable)).first).position;
+    // Funnel → detail → swipe → back: the page stays where it was.
+    expect(find.byType(FunnelBikeCard), findsWidgets);
+    final before = pos.pixels;
+    await t.tap(find.byType(FunnelBikeCard).first, warnIfMissed: false);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.byType(MotoDetailPagerV2View), findsOneWidget);
+    await t.drag(find.byType(PageView).first, const Offset(-350, 0));
+    await _settle(t);
+    router.pop();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
+    expect(pos.pixels, before, reason: 'a funnel detail never moves the bike list');
+    // List bike 0 → detail → swipe to bike 1 → back: bike 1 on screen.
+    pos.jumpTo(z.offsetOf(0));
+    await t.pump();
+    final card = find.byKey(ValueKey('home-mc-${ids[0]}'));
+    expect(t.getSize(card).height, 844 - 34);
+    await t.tap(card, warnIfMissed: false);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
+    await t.drag(find.byType(PageView).first, const Offset(-350, 0));
+    await _settle(t);
+    router.pop();
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 600));
+    expect(pos.pixels, moreOrLessEquals(_zone(t).offsetOf(1), epsilon: 1));
     await _drain(t);
   });
 

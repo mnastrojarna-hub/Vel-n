@@ -47,10 +47,17 @@ class MgBarsController extends ChangeNotifier {
     }
   }
 
-  /// Bars back (route change, tab switch, a new pager page).
+  /// Bars back (top edge, a new pager page).
   void show() {
     _acc = 0;
     _set(false);
+  }
+
+  /// A route change / tab switch: bars back, and a user scroll of the old
+  /// page that left mid-fling (its idle never came) is forgotten.
+  void reset() {
+    _user = ScrollDirection.idle;
+    show();
   }
 
   void _set(bool v) {

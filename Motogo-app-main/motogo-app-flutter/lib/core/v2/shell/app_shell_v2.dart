@@ -101,7 +101,7 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
     if (loc != _location) {
       setState(() => _location = loc);
       // Every route change / tab switch starts with the bars shown.
-      _bars.show();
+      _bars.reset();
     }
     // The cross-tab back chip lives only while its tab is on screen.
     final origin = ref.read(v2TabOriginProvider);

@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../motion/mg_motion.dart';
+import '../motion/mg_sticky_slide.dart';
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import '../widgets/mg_back_v2.dart';
+import 'mg_hide_on_scroll.dart';
 import 'mg_status_bar.dart';
 
 /// Title of the collapsed bar of an `MgPage` with a pinned back; MgPage puts
@@ -34,6 +36,9 @@ class MgPinnedScope extends InheritedWidget {
 /// screen's own back action (unchanged). The bar declares its brightness
 /// (`MgStatusBar`, from [background]) — once it covers the status bar the
 /// icons switch; the bare disc declares nothing (the hero under it does).
+/// Hide-on-scroll (`MgBarsScope`, owner 2026-11-08): while the content is
+/// scrolled DOWN the disc / bar slides up out of the status-bar area (its
+/// status-bar region leaves with it) and comes back on any scroll up.
 class MgPinnedBack extends StatelessWidget {
   final ScrollController controller;
   final double after;
@@ -101,6 +106,11 @@ class MgPinnedBack extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = MgMotion.of(context, MgMotion.color);
     final top = MediaQuery.paddingOf(context).top;
+    final folded = MgBarsScope.hiddenOf(context);
+    return MgStickySlide(visible: !folded, from: AxisDirection.up, child: _pinned(context, d, top));
+  }
+
+  Widget _pinned(BuildContext context, Duration d, double top) {
     return LayoutBuilder(builder: (context, box) {
       final barH = barHeightFor(context, title, box.maxWidth.isFinite ? box.maxWidth : MediaQuery.sizeOf(context).width);
       return AnimatedBuilder(
