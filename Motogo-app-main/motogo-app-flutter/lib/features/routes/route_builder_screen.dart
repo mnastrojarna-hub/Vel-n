@@ -198,11 +198,13 @@ class _RouteBuilderScreenState extends ConsumerState<RouteBuilderScreen> {
     setState(() => _computing = true);
     final info = await fetchMapyRouteInfo(pts, profile: _profile);
     if (!mounted || req != _reqId) return;
-    final g = info?.geometry ?? pts;
+    // Bez routingu (signál / výpadek API) žádná čára ani délka — nikdy rovné
+    // spojnice zastávek (pokyn majitele 2026-11-08); další změna přepočítá.
+    final g = info?.geometry ?? const <LatLng>[];
     setState(() {
       _geometry = g;
       // Reálná délka po silnici z API; fallback = délka vrácené polyline.
-      _distanceM = info?.lengthM ?? polylineLengthM(g);
+      _distanceM = info == null ? null : (info.lengthM ?? polylineLengthM(g));
       _computing = false;
     });
     // Poskládanou trasu si zapamatuje mapa — po „zpět" se na ní vykreslí

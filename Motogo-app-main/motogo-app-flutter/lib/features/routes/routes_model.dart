@@ -19,6 +19,14 @@ int? _toI(dynamic v) {
   return int.tryParse(v.toString());
 }
 
+/// Je [geometry] opravdu čára PO SILNICI? Pokyn majitele 2026-11-08: „všechny
+/// trasy se všude zobrazovaly přepočítané po silnici a ne jen přímky mezi
+/// body“. Routing (Mapy.com) vrací stovky bodů; geometrie s nejvýš tolika
+/// body, kolik má trasa zastávek (+ start na pobočce a návrat okruhu), jsou
+/// jen rovné spojnice zastávek → appka je nekreslí a trasu dopočítá živě.
+bool isRoadGeometry(List<LatLng> geometry, int stopCount) =>
+    geometry.length >= 2 && geometry.length > stopCount + 2;
+
 /// Normalizace textu pro vyhledávání — malá písmena bez diakritiky.
 /// (Dart nemá unicodedata; mapa pokrývá evropské jazyky appky vč. cs/pl/ro/sk.)
 String searchNorm(String s) {
@@ -317,7 +325,11 @@ class RouteItem {
       difficulty: j['difficulty']?.toString(),
       waypoints: wps,
       waypointLabels: wpLabels,
-      geometry: geo,
+      // Uložená „geometrie“ složená jen ze zastávek = rovné spojnice → bere
+      // se jako chybějící a trasa se dopočítá po silnici (isRoadGeometry).
+      geometry: isRoadGeometry(geo, wps.isNotEmpty ? wps.length : poiList.length)
+          ? geo
+          : const <LatLng>[],
       mapyUrl: j['mapy_url']?.toString(),
       coverImage: j['cover_image']?.toString(),
       images: (j['images'] as List?)?.map((e) => e.toString()).toList() ?? const [],

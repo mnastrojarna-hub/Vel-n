@@ -12,6 +12,7 @@ import '../../core/supabase_client.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import 'routes_cache.dart';
+import 'road_line.dart' show retryRoadLineLater;
 import 'routes_model.dart';
 import '../../core/friendly_error.dart';
 import '../../core/offline_guard.dart';
@@ -719,8 +720,9 @@ final routeDisplayProvider =
       final pts = navPointsFrom(myLoc, route, null);
       if (pts.length >= 2) {
         final geo = await fetchMapyRoute(pts, profile: RouteProfile.recommended);
+        if (geo == null) retryRoadLineLater(ref, 'display:$routeId');
         return RouteDisplay(
-          geometry: geo ?? pts,
+          geometry: geo ?? const <LatLng>[],
           start: myLoc,
           origin: RouteOrigin.currentLocation,
         );
@@ -746,7 +748,9 @@ final routeDisplayProvider =
       final pts = navPointsFrom(start, route, null);
       if (pts.length >= 2) {
         final geo = await fetchMapyRoute(pts, profile: RouteProfile.recommended);
-        return RouteDisplay(geometry: geo ?? pts, start: start, origin: origin);
+        if (geo == null) retryRoadLineLater(ref, 'display:$routeId');
+        return RouteDisplay(
+            geometry: geo ?? const <LatLng>[], start: start, origin: origin);
       }
     }
   }
@@ -763,7 +767,14 @@ final routeDisplayProvider =
     if (pts.length < 2) {
       return RouteDisplay(geometry: pts, start: displayStart);
     }
-    base = await fetchMapyRoute(pts) ?? pts;
+    // Bez routingu (signál / výpadek API) NIC místo rovných spojnic zastávek
+    // (pokyn majitele 2026-11-08); za chvíli se zkusí znovu.
+    final geo = await fetchMapyRoute(pts);
+    if (geo == null) {
+      retryRoadLineLater(ref, 'display:$routeId');
+      return RouteDisplay(geometry: const <LatLng>[], start: displayStart);
+    }
+    base = geo;
   }
   // Náhled od aktuální polohy: před okruh se předřadí dojezdový úsek od
   // jezdce k startu trasy (jen s povolenou polohou poblíž trasy — vzdálené

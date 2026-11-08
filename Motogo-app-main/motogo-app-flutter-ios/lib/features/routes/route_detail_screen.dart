@@ -150,19 +150,12 @@ class _RouteDetailScreenState extends ConsumerState<RouteDetailScreen> {
     _precacheImages(context, route);
     final displayAsync = ref.watch(routeDisplayProvider(route.id));
     final display = displayAsync.valueOrNull;
-    // Než doběhne routing (poloha + Mapy.com API), vykresli trasu aspoň
-    // z jejích zastávek — mapa tak není několik vteřin prázdná a jezdec
-    // hned vidí, kudy se jede.
-    // Dokud nedoběhne routing, kreslíme NÁHRADNÍ čáru přes zastávky (rovné
-    // úseky) — mapa tak není několik vteřin prázdná. Že to ještě není trasa
-    // po silnici, říká indikátor „Počítám trasu" níž.
+    // Dokud nedoběhne routing (poloha + Mapy.com API), kreslí se jen uložená
+    // geometrie PO SILNICI z Velína, jinak zatím žádná čára — nikdy rovné
+    // spojnice zastávek (pokyn majitele 2026-11-08). Že se trasa ještě
+    // počítá, říká indikátor „Počítám trasu“ níž; body trasy jsou vidět hned.
     final preview = display == null;
-    final geometry = display?.geometry ??
-        (route.geometry.length >= 2
-            ? route.geometry
-            : (route.waypoints.length >= 2
-                ? route.waypoints
-                : route.geometry));
+    final geometry = display?.geometry ?? route.geometry;
     final mapStart = display?.start ??
         (startIsNearRoute(route, branch?.latLng) ? branch?.latLng : null);
     // U okruhu se body číslují od NEJBLIŽŠÍHO k aktuální poloze jezdce —

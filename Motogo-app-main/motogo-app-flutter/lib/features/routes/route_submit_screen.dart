@@ -133,7 +133,8 @@ class _RouteSubmitScreenState extends State<RouteSubmitScreen> {
     final req = ++_reqId;
     final geo = await fetchMapyRoute(pts);
     if (!mounted || req != _reqId) return;
-    setState(() => _geometry = geo ?? pts);
+    // Bez routingu žádná čára — nikdy rovné spojnice (pokyn majitele 2026-11-08).
+    setState(() => _geometry = geo ?? const <LatLng>[]);
   }
 
   void _fit() {

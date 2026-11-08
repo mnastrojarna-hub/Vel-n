@@ -17,6 +17,7 @@ import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../routes/routes_model.dart';
 import '../../routes/routes_provider.dart';
+import '../../routes/v2/route_road_sketch_v2.dart';
 import 'home_sketch.dart';
 import 'home_ticket_parts.dart';
 import 'home_reveal.dart';
@@ -168,7 +169,7 @@ class _RouteCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                HomeSketch(points: route.waypoints, width: width, height: 120, tile: false, stroke: 3),
+                RouteRoadSketchV2(route: route, width: width, height: 120, tile: false, stroke: 3),
                 if (km != null)
                   Positioned(
                     left: 12,

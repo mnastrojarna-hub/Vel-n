@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -11,6 +12,7 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../home/v2/home_sketch.dart';
 import '../route_image.dart';
 import '../routes_model.dart';
+import 'route_road_sketch_v2.dart' show routeRoadLine;
 import 'rt_v2_text.dart';
 
 /// Route type pill on photos / dark cards ("Okruh" / "Za místy").
@@ -89,7 +91,6 @@ class RouteCardV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final cover = route.cover;
-    final sketch = route.geometry.length >= 2 ? route.geometry : route.waypoints;
     final name = route.nameFor(lang);
     final meta = <(String, String)>[
       if (route.distanceKm != null) (MgIcons.ruler, '${mgNum(route.distanceKm!, tr.lang)}\u00A0km'),
@@ -137,19 +138,24 @@ class RouteCardV2 extends StatelessWidget {
                     ),
                   ),
                   Positioned(top: 10, left: 10, child: RouteTypePillV2(loop: route.isLoop)),
-                  if (sketch.length >= 2)
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: Container(
+                  // Náhled trasy jen PO SILNICI (pokyn majitele 2026-11-08) —
+                  // dokud čára není spočítaná, rámeček se neukazuje.
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Consumer(builder: (context, ref, _) {
+                      final sketch = routeRoadLine(ref, route);
+                      if (sketch.length < 2) return const SizedBox.shrink();
+                      return Container(
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: MgColors.white(0.25)),
                         ),
                         child: HomeSketch(points: sketch, width: 104, height: 76),
-                      ),
-                    ),
+                      );
+                    }),
+                  ),
                   Positioned(
                     left: 14,
                     right: 14,

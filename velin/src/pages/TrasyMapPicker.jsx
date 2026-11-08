@@ -4,8 +4,8 @@ import { MAPY_CZ_API_KEY } from '../lib/mapyCz'
 // Interaktivní mapa pro skládání trasy ve Velíně.
 // - Klik do mapy přidá bod trasy (waypoint) nebo bod zájmu (POI) dle režimu
 // - Tažením markeru se bod posune
-// - Vykreslí SKUTEČNOU trasu (geometry z Mapy.com routing); dokud není, ukáže
-//   rovné spojnice v pořadí start → waypointy → (u okruhu zpět)
+// - Vykreslí SKUTEČNOU trasu (geometry z Mapy.com routing); dokud není, jsou
+//   vidět jen body — nikdy rovné spojnice (pokyn majitele 2026-11-08)
 // Leaflet se načítá v iframe (bez npm závislosti); srcDoc je STABILNÍ (počítá se
 // jednou) → markery/trasa se aktualizují přes postMessage bez reloadu mapy.
 //
@@ -133,21 +133,21 @@ map.on('click',function(e){send({type:'click',lat:e.latlng.lat,lng:e.latlng.lng}
 window.addEventListener('message',function(e){
   var d=e.data; if(!d||d.__mg!=='trasy-map'||d.type!=='render') return;
   layer.clearLayers();
-  var pts=[], line=[];
-  if(d.start){line.push([d.start.lat,d.start.lng]);pts.push([d.start.lat,d.start.lng]);
+  var pts=[];
+  if(d.start){pts.push([d.start.lat,d.start.lng]);
     L.marker([d.start.lat,d.start.lng],{icon:icon('start','★'),zIndexOffset:1000}).addTo(layer).bindTooltip('Pobočka (start)');}
   (d.waypoints||[]).forEach(function(w,i){
-    line.push([w.lat,w.lng]);pts.push([w.lat,w.lng]);
+    pts.push([w.lat,w.lng]);
     var m=L.marker([w.lat,w.lng],{icon:icon('wp',String(i+1)),draggable:true}).addTo(layer);
     m.bindTooltip(w.label||('Bod '+(i+1)));
     m.on('dragend',function(ev){var p=ev.target.getLatLng();send({type:'move',kind:'wp',index:i,lat:p.lat,lng:p.lng});});
   });
-  if(d.isLoop&&d.start) line.push([d.start.lat,d.start.lng]);
+  /* Trasa se kreslí JEN po silnici (geometrie z Mapy.com routingu). Dokud
+     není spočítaná, jsou vidět jen body — nikdy rovné spojnice mezi nimi
+     (pokyn majitele 2026-11-08). */
   if(d.geometry&&d.geometry.length>1){
     L.polyline(d.geometry,{color:'#1a8a18',weight:5,opacity:.9}).addTo(layer);
     for(var g=0;g<d.geometry.length;g++) pts.push(d.geometry[g]);
-  } else if(line.length>1){
-    L.polyline(line,{color:'#1a8a18',weight:4,opacity:.85,dashArray:'6,8'}).addTo(layer);
   }
   (d.pois||[]).forEach(function(p,i){
     pts.push([p.lat,p.lng]);

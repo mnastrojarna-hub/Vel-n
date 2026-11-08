@@ -15,6 +15,7 @@ import '../../my_experiences_provider.dart';
 import '../../ride_card.dart' show rideDate;
 import '../../route_image.dart';
 import '../rt_v2_text.dart' show rtDur;
+import '../route_road_sketch_v2.dart' show SavedRouteRoadSketchV2;
 import 'ride_track_sketch_v2.dart';
 
 /// Delete icon of a light card (48 hit, red glyph) — same callback as the
@@ -74,7 +75,7 @@ class SavedRouteCardV2 extends StatelessWidget {
       semanticLabel: r.name,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          RideTrackSketch.line(r.waypoints, size: 56),
+          SavedRouteRoadSketchV2(route: r, size: 56),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
