@@ -6,76 +6,73 @@
 //  - přílohy z VLASTNÍ gear šablony (i když renderType ≠ type), „Smlouva“ = smlouva o nájmu výbavy;
 //  - chybí-li gear šablona → minimální CZ/EN gear fallback + debug_log email_template_fallback.
 // Motorkové rezervace: prepareGearMail vrátí null a index.ts běží beze změny.
-import { substitute, type Lang } from './i18n.ts'
-import { branchPageUrl, loadGateForBranch } from './branch-gate.ts'
-import { buildGearVars, gearRenderType, gearSubjectVars, loadGearBooking, type GearBooking } from '../_shared/email-gear.ts'
-import { renderGearDoorCodesBlock } from '../_shared/email-gear-blocks.ts'
-import { gearFallbackLang, gearFallbackTemplate, gearFallbackVars } from '../_shared/email-gear-fallback.ts'
-
-// deno-lint-ignore no-explicit-any
-type Sb = any
-type CodeRow = { code_type: string; door_code: string; sent_to_customer: boolean; withheld_reason: string | null }
-
-export interface GearMail {
-  booking: GearBooking
-  renderType: string
-  /** Všechny gear proměnné v jazyce `l` (odkazy vždy na doménu zákazníka). */
-  varsFor: (l: Lang) => Record<string, string>
-  subjectVars: (v: Record<string, string>) => Record<string, string>
+import { substitute } from './i18n.ts';
+import { branchPageUrl, loadGateForBranch } from './branch-gate.ts';
+import { buildGearVars, gearRenderType, gearSubjectVars, loadGearBooking } from '../_shared/email-gear.ts';
+import { renderGearDoorCodesBlock } from '../_shared/email-gear-blocks.ts';
+import { gearFallbackLang, gearFallbackTemplate, gearFallbackVars } from '../_shared/email-gear-fallback.ts';
+/** Vydaný kód šatny (accessories, odeslaný zákazníkovi, nezadržený); '' = kódy zatím nejsou. */ export function releasedLockerCode(rows) {
+  return rows.find((c)=>c.code_type === 'accessories' && c.sent_to_customer === true && !c.withheld_reason)?.door_code || '';
 }
-
-export interface GearMailOpts {
-  bookingId: string; renderType: string; site: string; customerName?: string
-  payload: Record<string, unknown>; doorCodeRows: CodeRow[]
-}
-
-/** Vydaný kód šatny (accessories, odeslaný zákazníkovi, nezadržený); '' = kódy zatím nejsou. */
-export function releasedLockerCode(rows: CodeRow[]): string {
-  return rows.find((c) => c.code_type === 'accessories' && c.sent_to_customer === true && !c.withheld_reason)?.door_code || ''
-}
-
-export async function prepareGearMail(supabase: Sb, o: GearMailOpts): Promise<GearMail | null> {
-  const g = await loadGearBooking(supabase, o.bookingId, o.payload?.booking_kind)
-  if (!g) return null
-  const code = releasedLockerCode(o.doorCodeRows)
-  const self = g.branch?.type === 'samoobslužná'
+export async function prepareGearMail(supabase, o) {
+  const g = await loadGearBooking(supabase, o.bookingId, o.payload?.booking_kind);
+  if (!g) return null;
+  const code = releasedLockerCode(o.doorCodeRows);
+  const self = g.branch?.type === 'samoobslužná';
   // Brána + č. dveří šatny jen s vydaným kódem šatny (jako get_booking_gate_info pro gear).
-  let gateCode = '', lockerDoor: number | null = null, gateBranch = ''
+  let gateCode = '', lockerDoor = null, gateBranch = '';
   if (code && g.branch?.id) {
-    const gate = await loadGateForBranch(supabase, g.branch.id)
-    if (gate) { gateCode = gate.code; lockerDoor = gate.lockerDoor; gateBranch = gate.branchId }
-    else if (self) {
+    const gate = await loadGateForBranch(supabase, g.branch.id);
+    if (gate) {
+      gateCode = gate.code;
+      lockerDoor = gate.lockerDoor;
+      gateBranch = gate.branchId;
+    } else if (self) {
       try {
-        const { data: n, error } = await supabase.rpc('_branch_locker_door_no', { p_branch_id: g.branch.id })
-        if (!error && n != null && Number.isFinite(Number(n))) lockerDoor = Number(n)
-      } catch { /* bez čísla dveří */ }
+        const { data: n, error } = await supabase.rpc('_branch_locker_door_no', {
+          p_branch_id: g.branch.id
+        });
+        if (!error && n != null && Number.isFinite(Number(n))) lockerDoor = Number(n);
+      } catch  {}
     }
   }
-  const varsFor = (l: Lang) => ({
-    ...buildGearVars(g, l, { site: o.site, customerName: o.customerName, payload: o.payload }),
-    door_codes_block: renderGearDoorCodesBlock(l, {
-      code, gate: gateCode, lockerDoor, selfService: self, branchName: g.branch?.name || '',
-      pageUrl: gateBranch ? branchPageUrl(o.site, l, gateBranch) : '',
-    }),
-    // Kódy výpůjčky výbavy nejsou kódy motorky — motorkové proměnné prázdné.
-    door_code_moto: '', door_code_gear: code, motorcycle: '', original_motorcycle: '',
-  })
+  const varsFor = (l)=>({
+      ...buildGearVars(g, l, {
+        site: o.site,
+        customerName: o.customerName,
+        payload: o.payload
+      }),
+      door_codes_block: renderGearDoorCodesBlock(l, {
+        code,
+        gate: gateCode,
+        lockerDoor,
+        selfService: self,
+        branchName: g.branch?.name || '',
+        pageUrl: gateBranch ? branchPageUrl(o.site, l, gateBranch) : ''
+      }),
+      // Kódy výpůjčky výbavy nejsou kódy motorky — motorkové proměnné prázdné.
+      door_code_moto: '',
+      door_code_gear: code,
+      motorcycle: '',
+      original_motorcycle: ''
+    });
   return {
     booking: g,
     renderType: gearRenderType(o.renderType),
     varsFor,
-    subjectVars: (v) => gearSubjectVars(v, g, o.customerName),
-  }
+    subjectVars: (v)=>gearSubjectVars(v, g, o.customerName)
+  };
 }
-
 /** Gear šablona ve Velínu chybí → minimální CZ/EN gear text (nikdy motorkový). Ostatní jazyky dostanou
  *  anglický text i s proměnnými výbavy v angličtině (odkazy dál v jazyce zákazníka); `lang` = jazyk
- *  textu, `vars` = proměnné, se kterými se text vyplnil (volající je převezme, ať se blok kódů nepřidá 2×). */
-export function gearFallbackRender(
-  gm: GearMail, lang: Lang, vars: Record<string, string>,
-): { subject: string; body: string; lang: Lang; vars: Record<string, string> } {
-  const L = gearFallbackLang(lang)
-  const v = gearFallbackVars(lang, vars, gm.varsFor)
-  const tpl = gearFallbackTemplate(gm.renderType, L, v)
-  return { subject: substitute(tpl.subject, gm.subjectVars(v)), body: substitute(tpl.body, v), lang: L, vars: v }
+ *  textu, `vars` = proměnné, se kterými se text vyplnil (volající je převezme, ať se blok kódů nepřidá 2×). */ export function gearFallbackRender(gm, lang, vars) {
+  const L = gearFallbackLang(lang);
+  const v = gearFallbackVars(lang, vars, gm.varsFor);
+  const tpl = gearFallbackTemplate(gm.renderType, L, v);
+  return {
+    subject: substitute(tpl.subject, gm.subjectVars(v)),
+    body: substitute(tpl.body, v),
+    lang: L,
+    vars: v
+  };
 }
