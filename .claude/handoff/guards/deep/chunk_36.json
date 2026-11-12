@@ -1,0 +1,278 @@
+{
+ "title": "Reservation detail blocks (res_detail_tab_content.dart) - part 1 of 3 (G-438..G-450; mainly res_detail_tab_content.dart, res_modification_history.dart, paid_change_banner.dart)",
+ "guards": [
+  {
+   "id": "G-438",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-099 Paid change banner",
+   "situation": "A paid swap or edit failed permanently (e.g. server refused); the customer is told what happened and what happens to the extra payment (refund), and the banner stays until they confirm 'Rozumím'.",
+   "old_where": "lib/features/reservations/widgets/paid_change_banner.dart:63-103 (failed entry; paidChangeFailureTitle/paidChangeFailureText in features/payment/paid_change_outcomes.dart:37-60; ack → PaidChangeQueue.acknowledge :139)",
+   "customer_sees": "Red box '! <title>' with the reason and refund sentence and a 'Rozumím' button.",
+   "visible": "clear",
+   "server": "yes(refusal reason comes from split_booking_moto_swap / the paid-change apply path)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/paid_change_banner.dart:78-85 + 127-131 (MgStateBanner tone err, v2Actions = [MgBtnText 'Rozumím' → ack])"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same failure detection, same texts, same ack callback; v2 shows them as an error-tone banner with an inline text button.",
+   "evidence": "Same failure detection, same texts, same ack callback; v2 shows them as an error-tone banner with an inline text button.",
+   "sources": [
+    "reservation-detail-blocks-02"
+   ]
+  },
+  {
+   "id": "G-439",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-099 Paid change banner",
+   "situation": "A paid bike swap failed because the new bike was taken by someone else in the meantime; the customer must decide: keep the current bike or pick another (routes to the swap tab of the edit screen, where availability is checked again).",
+   "old_where": "lib/features/reservations/widgets/paid_change_banner.dart:72-77, 94-101 (offerOther = failed.isSwap && isTakenReason(reason); isTakenReason features/payment/paid_change_outcomes.dart:34; swapPickRoute :41 '/reservations/<id>/edit?tab=swap')",
+   "customer_sees": "Red box 'Motorka je mezitím obsazená' with two text buttons 'Ponechat současnou motorku' / 'Vybrat jinou motorku'.",
+   "visible": "clear",
+   "server": "yes(split_booking_moto_swap refuses with new_moto_unavailable / moto_unavailable)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/paid_change_banner.dart:80-84 (v2Actions MgBtnInk keep → ack, MgBtnGhostLight pick other → pickOther)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Both v2 buttons call the same ack/pickOther closures; pickOther acknowledges first and pushes the same swap route. The swap tab itself is inventoried in the edit bucket.",
+   "evidence": "Both v2 buttons call the same ack/pickOther closures; pickOther acknowledges first and pushes the same swap route. The swap tab itself is inventoried in the edit bucket.",
+   "sources": [
+    "reservation-detail-blocks-03"
+   ]
+  },
+  {
+   "id": "G-440",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-099 Paid change banner",
+   "situation": "The banner only appears for this booking's PAID queue entries and refreshes itself when the background queue finishes; on success it reloads the booking so the new bike/terms show.",
+   "old_where": "lib/features/reservations/widgets/paid_change_banner.dart:36-57 (PaidChangeQueue.events listener, filter bookingId, invalidate reservationByIdProvider/reservationsProvider on done); :61 empty → SizedBox.shrink",
+   "customer_sees": "Nothing when there is nothing pending; the banner disappears and the detail updates when the change is written.",
+   "visible": "silent",
+   "server": "n/a (client queue state)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/paid_change_banner.dart (same State in v2; only _box differs)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "No v2 branch in initState/_load/build logic; MgV2 only in _box :127.",
+   "evidence": "No v2 branch in initState/_load/build logic; MgV2 only in _box :127.",
+   "sources": [
+    "reservation-detail-blocks-04"
+   ]
+  },
+  {
+   "id": "G-441",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-100 Status header + rental facts + places",
+   "situation": "Pickup time shown: an old 'any time on the first day' booking (00:01 marker) must not show a fake 00:01 time.",
+   "old_where": "lib/features/reservations/widgets/res_detail_tab_content.dart:144-147 (res.pickupAllDayLegacy → 'ssPickupAnyTime', else pickupHm; reservation_models.dart:297-307)",
+   "customer_sees": "Row 'Čas vyzvednutí: kdykoliv během prvního dne' or 'HH:MM'.",
+   "visible": "small-text",
+   "server": "yes(kiosk release rules use the same marker server-side; not traced further)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:144-147 same rows, drawn by ResDetailRowV2 (lib/features/reservations/widgets/res_detail_row.dart:24-26)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition in the shared widget; only the row look changes.",
+   "evidence": "Same condition in the shared widget; only the row look changes.",
+   "sources": [
+    "reservation-detail-blocks-06"
+   ]
+  },
+  {
+   "id": "G-442",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-100 Status header + rental facts + places",
+   "situation": "Customer taps navigate to the pickup/return place; the navigate button is only offered when there is a target (GPS or an address), and branch navigation always uses GPS (falls back to the main branch coordinates) because the text address 'Mezná 9' is ambiguous.",
+   "old_where": "lib/features/reservations/widgets/res_location_row.dart:59-60 (hasNavTarget), :115 (button only if hasNavTarget), :35-52 (GPS first, Google Maps fallback); args lib/features/reservations/widgets/res_detail_tab_content.dart:152-167 (branchLat/branchLng fallback)",
+   "customer_sees": "Green navigation icon button next to the address, or no button when no target.",
+   "visible": "clear",
+   "server": "no (client navigation only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_location_row.dart:63-72 (v2 ResLocationV2 onNavigate: hasNavTarget ? _openNavigation : null) → lib/features/reservations/v2/res_location_v2.dart:55-62 (button only when onNavigate != null). Other v2 entry: res_sections_v2.dart:35-39 resNavigate uses the same ResLocationRow.openNavigation and same args (used by home_ticket_v2.dart:247)."
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same hasNavTarget and same static openNavigation in every v2 entry point found.",
+   "evidence": "Same hasNavTarget and same static openNavigation in every v2 entry point found.",
+   "sources": [
+    "reservation-detail-blocks-07"
+   ]
+  },
+  {
+   "id": "G-443",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-100 Status header + rental facts + places",
+   "situation": "Delivery vs branch: the row tells the customer whether the bike is delivered to an address or picked up at the branch.",
+   "old_where": "lib/features/reservations/widgets/res_location_row.dart:56-57 (typeLabel deliveryLabel/branchPrefix by isDelivery); lib/features/reservations/widgets/res_detail_tab_content.dart:154,162",
+   "customer_sees": "Label 'Přistavení' or 'Pobočka' with truck/store icon above the address.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_location_row.dart:64-71 → ResLocationV2 (typeLabel, isDelivery)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same values passed.",
+   "evidence": "Same values passed.",
+   "sources": [
+    "reservation-detail-blocks-08"
+   ]
+  },
+  {
+   "id": "G-444",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-101 Self-service 12:00 release note",
+   "situation": "From the 12:00 note the customer may move to an earlier time (discount lapses, surcharge) — the 'change time' button is offered only for a not-yet-picked-up booking in status 'reserved', never for an active one.",
+   "old_where": "lib/features/reservations/widgets/res_detail_tab_content.dart:193-200 (if res.status == 'reserved' → ResDetailButton.primary → /reservations/<id>/edit)",
+   "customer_sees": "Green button '🕛 Chci vyzvednout dřív' under the note; no button otherwise.",
+   "visible": "clear",
+   "server": "unknown (edit flow's own server checks are in the edit bucket)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:178-179 (ctaLabel/onCta only when res.status == 'reserved') → res_detail_parts_v2.dart:96-99 (MgBtnInk only when ctaLabel && onCta non-null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical condition and route.",
+   "evidence": "Identical condition and route.",
+   "sources": [
+    "reservation-detail-blocks-12"
+   ]
+  },
+  {
+   "id": "G-445",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-102 Financial summary",
+   "situation": "Discounts and extra fees are listed only when they apply (delivery fee, add-ons, 12:00 late-pickup discount, promo/voucher code), so the customer sees what the 12:00 rule is worth before changing the time.",
+   "old_where": "lib/features/reservations/widgets/res_detail_tab_content.dart:214-230 (each row only if amount > 0)",
+   "customer_sees": "Rows with amounts, discounts in green with a minus sign.",
+   "visible": "small-text",
+   "server": "yes(prices are computed server-side; not re-traced)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:214-230 same conditions, ResDetailRowV2"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same conditions in the shared widget.",
+   "evidence": "Same conditions in the shared widget.",
+   "sources": [
+    "reservation-detail-blocks-14"
+   ]
+  },
+  {
+   "id": "G-446",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-103 Reservation history",
+   "situation": "After a date change the customer sees the original and the new term (extended / shortened / moved), so they know which dates now apply.",
+   "old_where": "lib/features/reservations/widgets/res_modification_history.dart:51-53, 102-170 (hasDateMod = original dates set and day-level change; ModDescription.describe)",
+   "customer_sees": "Coloured summary card (blue/red/green) with original and new term and day counts.",
+   "visible": "clear",
+   "server": "n/a (display of server fields)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_modification_history.dart:50 (MgV2.on → ResHistoryV2) → lib/features/reservations/v2/res_history_v2.dart:28-32, 36, 50-81 (same condition, MgStateBanner tone ok/warn/info)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same hasDateMod rule and same texts; tone banner with icon.",
+   "evidence": "Same hasDateMod rule and same texts; tone banner with icon.",
+   "sources": [
+    "reservation-detail-blocks-15"
+   ]
+  },
+  {
+   "id": "G-447",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-103 Reservation history",
+   "situation": "A cancelled booking shows who cancelled it, when, why, the storno fee and the refunded amount.",
+   "old_where": "lib/features/reservations/widgets/res_modification_history.dart:56, 637-676 (hasCancellation = displayStatus cancelled; rows only when values exist / > 0)",
+   "customer_sees": "Card '🗑️ STORNO' with Zrušeno, Zrušil (zákazník/admin/systém), Důvod, Storno poplatek, Vráceno.",
+   "visible": "small-text",
+   "server": "yes(cancel_booking_tracked computes fee/refund — STATE_3:99)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_history_v2.dart:39, 83-103 (same rows and conditions)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Row-by-row identical conditions.",
+   "evidence": "Row-by-row identical conditions.",
+   "sources": [
+    "reservation-detail-blocks-16"
+   ]
+  },
+  {
+   "id": "G-448",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-103 Reservation history",
+   "situation": "SOS events: the booking shows it is an SOS replacement, or that it was ended by SOS, plus the list of incidents with their state.",
+   "old_where": "lib/features/reservations/widgets/res_modification_history.dart:54-55, 506-634 (hasSos; sosReplacement / endedBySos badges; sosIncidentsProvider from lib/features/reservations/widgets/res_detail_tab_content.dart:79)",
+   "customer_sees": "Card '🆘 SOS UDÁLOSTI' with green/red badges and incident rows.",
+   "visible": "clear",
+   "server": "n/a (display)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_history_v2.dart:38, 44 → res_history_parts_v2.dart:329-395 (same badges and rows)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flags; same sosIncidents list passed.",
+   "evidence": "Same flags; same sosIncidents list passed.",
+   "sources": [
+    "reservation-detail-blocks-17"
+   ]
+  },
+  {
+   "id": "G-449",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-103 Reservation history",
+   "situation": "Timeline: 'Vydáno' (issued) appears only after the bike code was entered AND the handover protocol signed, not just after payment, so the customer is not misled that the bike is out.",
+   "old_where": "lib/features/reservations/widgets/res_modification_history.dart:679-711 (issuedAt from reservation_models.dart:335-344)",
+   "customer_sees": "Timeline rows Vytvořeno / Potvrzeno / Vydáno / Vráceno / Zrušeno / Hodnoceno with times.",
+   "visible": "small-text",
+   "server": "yes(picked_up_at / handover_protocol_filled_at written by kiosk/edge submit-handover-protocol)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_history_v2.dart:105-118 (same events, same order, res.issuedAt)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same event list.",
+   "evidence": "Same event list.",
+   "sources": [
+    "reservation-detail-blocks-18"
+   ]
+  },
+  {
+   "id": "G-450",
+   "step": "reservation-detail-blocks",
+   "step_title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surface": "S-103 Reservation history",
+   "situation": "Edit history: each paid/unpaid modification (moto, method, address, times, gear, extras) is listed with before → after.",
+   "old_where": "lib/features/reservations/widgets/res_modification_history.dart:172-504 (_buildHistoryCard, only when modificationHistory not empty)",
+   "customer_sees": "Card with history entries and change rows.",
+   "visible": "small-text",
+   "server": "n/a (display)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_history_v2.dart:43 → res_history_parts_v2.dart:140-300 (ResHistoryListV2, same has*Change conditions)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Conditions mirror the old ones (res_history_parts_v2.dart:148-202); individual label texts not compared one by one.",
+   "evidence": "Conditions mirror the old ones (res_history_parts_v2.dart:148-202); individual label texts not compared one by one.",
+   "sources": [
+    "reservation-detail-blocks-19"
+   ]
+  }
+ ]
+}

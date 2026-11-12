@@ -1,0 +1,283 @@
+{
+ "title": "My experiences, ride recording and ride results - part 4 of 6 (G-1062..G-1073; mainly ride_point_sheet.dart, ride_detail_screen.dart, ride_trip_row.dart)",
+ "guards": [
+  {
+   "id": "G-1062",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "Deleting the ride that is being recorded: the dialog warns what happens (a rental re-records from now, an own ride stops) and the recorder is detached before delete.",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:258-268 (warn text), :294 (discardCurrent)",
+   "customer_sees": "Warning sentence in the dialog body.",
+   "visible": "small-text",
+   "server": "no (client recorder state)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _delete; v2 dialog body = warn ?? ride.name (ride_detail_screen.dart:272)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical text and order.",
+   "evidence": "Identical text and order.",
+   "sources": [
+    "rides-42"
+   ]
+  },
+  {
+   "id": "G-1063",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "A failed ride delete keeps the customer on the detail and says so (it used to leave as if deleted).",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:295-300",
+   "customer_sees": "Error snackbar with retry.",
+   "visible": "small-text",
+   "server": "yes(delete_user_ride returns success:found)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same handler"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "rides-43"
+   ]
+  },
+  {
+   "id": "G-1064",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "Adding a stop by tapping the map / editing a stop goes through the stop editor; the server limits stops and checks ownership.",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:305-314, map :484-491 (onMapTap/_addStop, onPointTap)",
+   "customer_sees": "Stop editor sheet.",
+   "visible": "small-text",
+   "server": "yes(save_ride_point: owner, max 200 points, coordinates required for a new point)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_detail_view_v2.dart:110-111,150 (onMapTap/onPointTap/onEditPoint = old _addStop/_editPoint, ride_detail_screen.dart:327-329)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handlers.",
+   "evidence": "Same handlers.",
+   "sources": [
+    "rides-44"
+   ]
+  },
+  {
+   "id": "G-1065",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "'Add to trip' is offered only when trips are available; 'Remove from trip' is locked while running and reports the result with Undo.",
+   "old_where": "ride_trip_row.dart:52 (rideTripsAvailable), :36-43 (_busy), :108 (onPressed null when busy)",
+   "customer_sees": "Text buttons; remove greys while busy; snackbar with Undo.",
+   "visible": "small-text",
+   "server": "yes(set_user_rides_trip, own rides only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_trip_row_v2.dart:101 (needs me.serverV2 AND rideTripsAvailable - stricter), :42-50,94-97 (remove has NO busy lock)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Add-to-trip gating holds (stricter), but the v2 Remove button can be tapped repeatedly while the first request is running; the old look disabled it.",
+   "evidence": "Add-to-trip gating holds (stricter), but the v2 Remove button can be tapped repeatedly while the first request is running; the old look disabled it.",
+   "sources": [
+    "rides-45"
+   ]
+  },
+  {
+   "id": "G-1066",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-020 Discard confirmation / S-217 Ride point sheet",
+   "situation": "The stop editor cannot be dragged away; closing with unsaved text or new photos asks 'Discard changes?'.",
+   "old_where": [
+    "features/routes/ride_point_sheet.dart:28-33 (enableDrag:false), :103-107 (_close: busy, dirty), :196-200 (PopScope canPop: !dirty && !busy)",
+    "lib/features/routes/ride_point_sheet.dart:31-33 (enableDrag: false), :98-107 (_dirty, _close -> confirmDiscard), :196-202 (PopScope canPop: !_dirty && !_busy)",
+    "lib/features/routes/ride_point_sheet.dart:104,197 (busy)"
+   ],
+   "customer_sees": "Discard / Stay dialog.",
+   "visible": "clear",
+   "server": [
+    "no",
+    "n/a"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/routes/ride_point_sheet.dart:207-218 (RidePointSheetV2View onClose: _close)",
+    "lib/features/routes/ride_point_sheet.dart:205-223 (v2 view built inside the same PopScope); close lib/features/routes/v2/rides/ride_point_sheet_v2.dart:83 -> onClose = _close; confirmDiscard v2 look core/widgets/error_feedback.dart:210-211",
+    "Same PopScope; lib/features/routes/v2/rides/ride_point_sheet_v2.dart:141 shows a busy button"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same state object, same PopScope and drag setting.",
+   "sources": [
+    "global-overlays-43",
+    "rides-46",
+    "rides-47"
+   ],
+   "merged_situations": [
+    {
+     "source": "global-overlays-43",
+     "situation": "Ride stop editor: closing with unsaved text/photos asks first; closing is blocked while saving; drag-to-close disabled."
+    },
+    {
+     "source": "rides-47",
+     "situation": "While saving, back/close is blocked."
+    }
+   ],
+   "visible_by_source": {
+    "global-overlays-43": "clear",
+    "rides-46": "clear",
+    "rides-47": "silent"
+   }
+  },
+  {
+   "id": "G-1067",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-217 Ride point sheet",
+   "situation": "At most 8 photos per stop: the add tile disappears when full and the picker only takes the free slots.",
+   "old_where": "lib/features/routes/ride_point_sheet.dart:83 (_maxPhotos = 8), :109-117 (free slots), :370 (add tile only below max)",
+   "customer_sees": "Add tile simply absent.",
+   "visible": "silent",
+   "server": "no (client limit only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_point_sheet_v2.dart:104 (counter n / 8), :118 (add tile only below max); onPick = old _pick"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same limit; v2 also shows a counter (clearer).",
+   "evidence": "Same limit; v2 also shows a counter (clearer).",
+   "sources": [
+    "rides-48"
+   ]
+  },
+  {
+   "id": "G-1068",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-217 Ride point sheet",
+   "situation": "No access to photos: the reason and fix are shown inside the sheet.",
+   "old_where": "lib/features/routes/ride_point_sheet.dart:120-127 (_error from FriendlyError perm photos)",
+   "customer_sees": "Red text in the sheet.",
+   "visible": "small-text",
+   "server": "no (device)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_point_sheet_v2.dart:85-87 (MgStateBanner err)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _error string, shown as a banner.",
+   "evidence": "Same _error string, shown as a banner.",
+   "sources": [
+    "rides-49"
+   ]
+  },
+  {
+   "id": "G-1069",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-217 Ride point sheet",
+   "situation": "A failed save keeps the sheet open with the text kept; photos that did not upload are reported; a repeated save edits the same new stop instead of creating a second one.",
+   "old_where": "lib/features/routes/ride_point_sheet.dart:95-96 (_savedId), :132-178 (_save)",
+   "customer_sees": "Red error text in the sheet.",
+   "visible": "small-text",
+   "server": "yes(save_ride_point owner check, 200 point limit; storage policy media_ride_upload)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "onSave = _save (lib/features/routes/ride_point_sheet.dart:219); error lib/features/routes/v2/rides/ride_point_sheet_v2.dart:85-87"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "rides-50"
+   ]
+  },
+  {
+   "id": "G-1070",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-217 Ride point sheet",
+   "situation": "Save button is disabled while saving.",
+   "old_where": "lib/features/routes/ride_point_sheet.dart:284 (onPressed: _busy ? null)",
+   "customer_sees": "Spinner in the button.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_point_sheet_v2.dart:141 (busy, onTap null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same busy flag.",
+   "evidence": "Same busy flag.",
+   "sources": [
+    "rides-51"
+   ]
+  },
+  {
+   "id": "G-1071",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-217 Ride point sheet",
+   "situation": "Delete is offered only for an existing stop and is ignored while busy (no confirmation in either look).",
+   "old_where": "lib/features/routes/ride_point_sheet.dart:180-192, :246-255",
+   "customer_sees": "Trash icon only when editing an existing stop.",
+   "visible": "silent",
+   "server": "yes(delete_ride_point joins user_rides on auth.uid())",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/ride_point_sheet.dart:217 (onDelete null for a new stop) -> lib/features/routes/v2/rides/ride_point_sheet_v2.dart:71-78 (onTap null when busy)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _delete; v2 also disables while busy.",
+   "evidence": "Same _delete; v2 also disables while busy.",
+   "sources": [
+    "rides-52"
+   ]
+  },
+  {
+   "id": "G-1072",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-217 Ride point sheet",
+   "situation": "New photos are uploaded only for a signed-in user.",
+   "old_where": "lib/features/routes/ride_point_sheet.dart:138-140 (uid != null)",
+   "customer_sees": "Photos silently not uploaded if signed out.",
+   "visible": "silent",
+   "server": "yes(storage media_ride_upload for authenticated only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _save"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "rides-53"
+   ]
+  },
+  {
+   "id": "G-1073",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-218 Ride share sheet",
+   "situation": "The share link uses only the longest continuous part of the track (no invented straight line over a gap); no link when fewer than 2 points.",
+   "old_where": "lib/features/routes/ride_share.dart:24-37, :48-51",
+   "customer_sees": "Shared text without a map link.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/ride_share.dart:120-125 -> lib/features/routes/v2/rides/ride_share_v2.dart:9,26 (same text and link passed in); trip: lib/features/routes/v2/rides/trip_detail_screen_v2.dart:154-170 (rideShareWaypoints)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same text/link computation.",
+   "evidence": "Same text/link computation.",
+   "sources": [
+    "rides-54"
+   ]
+  }
+ ]
+}

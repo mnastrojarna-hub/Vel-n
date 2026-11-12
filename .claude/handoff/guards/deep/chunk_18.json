@@ -1,0 +1,282 @@
+{
+ "title": "Booking form part 2: gear, price, promo, note, consents, proceed - part 2 of 3 (G-214..G-225; mainly booking_form_promo_section.dart, booking_size_dialogs.dart, booking_provider.dart)",
+ "guards": [
+  {
+   "id": "G-214",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-063",
+   "situation": "Boots size sheet: the size from the last booking is only marked, never pre-selected - the customer must tap a size (incident 2026-09-28: boots saved that were never chosen).",
+   "old_where": "lib/core/booking_size_dialogs.dart:277 (last only when current == null), :325-339 (only highlight + 'naposledy' tag), :317-319 (save only on tap)",
+   "customer_sees": "Size chips; the last one has a darker border and a 'naposledy' tag.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_size_dialogs.dart:279-290 -> lib/features/booking/v2/sizes_sheet_v2.dart:105-123 (banner 'Z minula …', chip selected only if s == current, save only on tap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "No pre-selection in v2; the last size is explained in a banner instead of a tiny tag.",
+   "evidence": "No pre-selection in v2; the last size is explained in a banner instead of a tiny tag.",
+   "sources": [
+    "booking-form-2-16"
+   ]
+  },
+  {
+   "id": "G-215",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-063",
+   "situation": "Boots sizes are children's sizes for a kids bike and the adult range otherwise.",
+   "old_where": "lib/core/booking_form_extras_section.dart:95 (sizesOverride: gearSizesFor('boots', kids:isKids, selfService:…)) ; lib/core/booking_size_dialogs.dart:276",
+   "customer_sees": "Only allowed sizes.",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_size_dialogs.dart:284 (sizes: sizeList - same list) -> lib/features/booking/v2/sizes_sheet_v2.dart:113-123"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same sizeList.",
+   "evidence": "Same sizeList.",
+   "sources": [
+    "booking-form-2-17"
+   ]
+  },
+  {
+   "id": "G-216",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-063",
+   "situation": "'Odebrat' is offered only for boots already chosen; closing the sheet changes nothing.",
+   "old_where": "lib/core/booking_size_dialogs.dart:342 (if current != null _RemoveExtraButton)",
+   "customer_sees": "Red 'Odebrat' text button only for chosen boots.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_size_dialogs.dart:288 (onRemove: current == null ? null : …) -> lib/features/booking/v2/sizes_sheet_v2.dart:126-135"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "booking-form-2-18"
+   ]
+  },
+  {
+   "id": "G-217",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-064",
+   "situation": "Price summary shows discount, loyalty, late-pickup (50 % on day 1 from 12:00) and delivery rows only when they really apply; the total comes from priceBreakdownProvider.",
+   "old_where": "lib/core/booking_form_price_section.dart:63-111 (rows guarded by bd.pickupDeliveryFee>0, returnDeliveryFee>0, discountTotal>0, loyaltyDiscount>0, latePickupDiscount>0) ; lib/features/booking/booking_provider.dart:49-69",
+   "customer_sees": "Receipt rows and total 'Celkem (cena konečná)'.",
+   "visible": "clear",
+   "server": "yes(trg_validate_app_loyalty, trg_validate_late_pickup clamp the discounts on INSERT)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_price_section.dart:33-35 -> lib/features/booking/v2/sections/price_v2.dart:70-87,104-110 (same conditions, same bd.total)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical conditions and the same PriceBreakdown object.",
+   "evidence": "Identical conditions and the same PriceBreakdown object.",
+   "sources": [
+    "booking-form-2-19"
+   ]
+  },
+  {
+   "id": "G-218",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-064",
+   "situation": "Deposit is not charged (depositNotCharged row with 0 Kč).",
+   "old_where": "lib/core/booking_form_price_section.dart:111",
+   "customer_sees": "Subtle row with a tick.",
+   "visible": "small-text",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/sections/price_v2.dart:87"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same row with a check icon.",
+   "evidence": "Same row with a check icon.",
+   "sources": [
+    "booking-form-2-20"
+   ]
+  },
+  {
+   "id": "G-219",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-064",
+   "situation": "Loyalty status fails to load: price is shown without the rank discount.",
+   "old_where": "lib/features/booking/booking_provider.dart:54 (loyalty?.percent ?? 0)",
+   "customer_sees": "Nothing explains it - the discount row is just missing.",
+   "visible": "silent",
+   "server": "yes(trg_validate_app_loyalty)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/sections/price_v2.dart:88-102 (amber note 'Věrnostní slevu teď nevidíme…' + 'Zkusit znovu')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same price rule; v2 explains it, which is clearer than the old look.",
+   "evidence": "Same price rule; v2 explains it, which is clearer than the old look.",
+   "sources": [
+    "booking-form-2-21"
+   ]
+  },
+  {
+   "id": "G-220",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-065",
+   "situation": "Promo dialog: an empty code does nothing.",
+   "old_where": "lib/core/booking_form_promo_section.dart:47-48 (if code.isEmpty return)",
+   "customer_sees": "Nothing happens.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/promo_sheet_v2.dart:45-48,58 (calls the same apply)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same apply closure.",
+   "evidence": "Same apply closure.",
+   "sources": [
+    "booking-form-2-22"
+   ]
+  },
+  {
+   "id": "G-221",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-065",
+   "situation": "The same code cannot be applied twice.",
+   "old_where": "lib/core/booking_form_promo_section.dart:49-51 (promoAlreadyUsed)",
+   "customer_sees": "Red text 'Kód \"…\" je již použit' under the field.",
+   "visible": "small-text",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/promo_sheet_v2.dart:62-65 (red MgStateBanner with the same error text)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same apply; v2 shows the error as a red banner title.",
+   "evidence": "Same apply; v2 shows the error as a red banner title.",
+   "sources": [
+    "booking-form-2-23"
+   ]
+  },
+  {
+   "id": "G-222",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-065",
+   "situation": "Double tap / double Enter cannot apply a fixed voucher twice while validation runs.",
+   "old_where": "lib/core/booking_form_promo_section.dart:46 (if loading return) and :140 (button null while loading, spinner)",
+   "customer_sees": "Button shows a spinner and is inactive.",
+   "visible": "clear",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/promo_sheet_v2.dart:45-48 (MgBtnInk busy, onTap null while busy) + same apply guard"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same loading flag inside apply.",
+   "evidence": "Same loading flag inside apply.",
+   "sources": [
+    "booking-form-2-24"
+   ]
+  },
+  {
+   "id": "G-223",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-065",
+   "situation": "Two percent codes cannot be combined.",
+   "old_where": "lib/core/booking_form_promo_section.dart:59-62 (promoNoCombinePercent)",
+   "customer_sees": "Red text 'Nelze kombinovat dva procentuální kódy'.",
+   "visible": "small-text",
+   "server": "unknown (no trigger found that enforces it on booking_discounts)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/promo_sheet_v2.dart:62-65"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same apply.",
+   "evidence": "Same apply.",
+   "sources": [
+    "booking-form-2-25"
+   ]
+  },
+  {
+   "id": "G-224",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-065 / Booking form (promo) / Booking form (promo dialog)",
+   "situation": "Server refuses the code (expired, not yet valid, used up, voucher already used, Slevomat not verified, no internet, not found) - the specific reason is shown and nothing is applied.",
+   "old_where": [
+    "lib/core/booking_form_promo_section.dart:54,66-67 ; lib/features/booking/booking_provider.dart:78-185 (validateAndApplyCode -> validate_promo_code, validate_voucher_code, edge slevomat-voucher)",
+    "lib/features/booking/booking_provider.dart:72-185 (validateAndApplyCode: validate_promo_code, validate_voucher_code, slevomat-voucher; DiscountResult messageKey)",
+    "lib/core/booking_form_promo_section.dart:45-68 apply (loading lock, promoAlreadyUsed, promoNoCombinePercent); features/booking/booking_provider.dart:78-185 validateAndApplyCode"
+   ],
+   "customer_sees": "Red error text with the reason.",
+   "visible": "small-text",
+   "server": [
+    "yes(validate_promo_code, validate_voucher_code, edge slevomat-voucher)",
+    "yes(validate_promo_code / validate_voucher_code RPC, slevomat-voucher edge; process-payment refuses a free booking without promo/voucher id)",
+    "yes(validate_promo_code, validate_voucher_code RPC, edge slevomat-voucher; redeem_booking_discounts_on_paid)"
+   ],
+   "v2_entry_points": [
+    "v2 promo chip / promo sheet",
+    "v2 promo sheet (chip/pill in form)"
+   ],
+   "v2_where": [
+    "lib/features/booking/v2/promo_sheet_v2.dart:62-65",
+    "lib/core/booking_form_promo_section.dart:85-95 (showPromoSheetV2 with the same apply handler and error getter)",
+    "lib/core/booking_form_promo_section.dart:85-95 (v2 showPromoSheetV2 with the same apply closure)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same validateAndApplyCode call through the shared apply.",
+   "evidence": "Same validateAndApplyCode call through the shared apply.",
+   "sources": [
+    "booking-form-2-26",
+    "mx-start-40",
+    "mx-order-23"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-40",
+     "situation": "A promo, voucher or Slevomat code is unknown, used up or not valid; it is not applied and the reason is shown (network failure is reported separately)."
+    },
+    {
+     "source": "mx-order-23",
+     "situation": "Empty code, the same code twice, a second percent code, an expired/used-up/not-yet-valid/unknown code or no network are refused with a concrete reason; double tap is locked while validating."
+    }
+   ]
+  },
+  {
+   "id": "G-225",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-065",
+   "situation": "Own gift vouchers: tapping one only puts the code into the field - it is applied only with 'Použít' (a voucher bought for someone else must not be spent by one tap); already applied or expired vouchers are not offered.",
+   "old_where": "lib/core/booking_form_promo_section.dart:72-82 (onUse sets ctrl.text only) ; lib/features/booking/my_vouchers.dart:20-53 (active, date window, unusedVouchers)",
+   "customer_sees": "Voucher chips above the field; code appears in the field.",
+   "visible": "clear",
+   "server": "yes(validate_voucher_code on apply)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_promo_section.dart:169-186 (v2 card vouchers filtered by unusedVouchers; onVoucher -> _openPromoDialog(prefill)) ; lib/core/booking_form_promo_section.dart:37-38,89 (prefill, no autofocus) ; lib/features/booking/v2/sections/promo_v2.dart:127-129"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 adds voucher chips on the card itself, but they only open the same sheet with the code pre-filled; 'Použít' still runs apply.",
+   "evidence": "v2 adds voucher chips on the card itself, but they only open the same sheet with the code pre-filled; 'Použít' still runs apply.",
+   "sources": [
+    "booking-form-2-27"
+   ]
+  }
+ ]
+}

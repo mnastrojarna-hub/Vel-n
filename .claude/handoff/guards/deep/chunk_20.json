@@ -1,0 +1,499 @@
+{
+ "title": "Payment screen (booking, edit surcharge, SOS, restore) - part 1 of 5 (G-236..G-248; mainly payment_screen.dart, payment_screen_problems.dart, payment_ui_helpers.dart)",
+ "guards": [
+  {
+   "id": "G-236",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment / Payment screen + shell tabs / Payment screen (surcharge)",
+   "situation": "The customer presses back (arrow, system back, iOS swipe) after the payment may already have gone to the bank; they must confirm 'Opravdu opustit probíhající platbu?' and, if they leave, a 'payment sent' marker is set so the app shows 'Platba se ověřuje' instead of offering a second payment.",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:1504-1520 (BackButtonListener + PopScope canPop: !_processing), handler lib/features/payment/payment_screen_problems.dart:462-480 (_onBack), lib/features/payment/payment_screen.dart:131-138 (_setProcessing/_markSubmitted)",
+    "lib/features/payment/payment_screen.dart:1505-1520 (BackButtonListener + PopScope canPop: !_processing); lib/core/shell_tab_action.dart:15-24 (confirmLeaveRunningPayment)",
+    "lib/features/payment/payment_screen.dart:1505-1520 BackButtonListener + PopScope(canPop: !_processing); payment_screen_problems.dart:462-481 _onBack; core/shell_tab_action.dart:29-37",
+    "lib/features/payment/payment_screen.dart:1510-1517 (PopScope canPop: !_processing)"
+   ],
+   "customer_sees": "A confirmation dialog with 'Odejít' / 'Zůstat'; after leaving, Rezervace with the unpaid strip showing 'Ověřuje se'.",
+   "visible": "clear",
+   "server": [
+    "no (client-side navigation lock; the server-side idempotency is attempt_id in process-payment)",
+    "n/a",
+    "yes(process-payment idempotency)"
+   ],
+   "v2_entry_points": [
+    "v2 back arrow, Android back, iOS swipe, v2 bottom nav tabs",
+    "v2 header back, pinned back, system back, swipe, v2 bottom nav, kill-switch look change",
+    "v2 payment view (same PaymentScreen State)"
+   ],
+   "v2_where": [
+    "lib/features/payment/payment_screen.dart:1516-1544 (the same PopScope/BackButtonListener wrap the v2 PaymentViewV2); v2 header back lib/features/payment/v2/pay_header_v2.dart:45 MgV2Back(onTap: onBack); pinned back after scroll lib/features/payment/v2/payment_view_v2.dart:188 pinnedBack: onBack; onBack = _onBack (payment_screen.dart:1542)",
+    "PopScope wraps PaymentViewV2 (payment_screen.dart:1516-1545); onShellTabTap is shared by both navs (shell_tab_action.dart:3-6)",
+    "lib/features/payment/payment_screen.dart:1522-1546 (v2 view inside the same PopScope), v2/payment_view_v2.dart:107,189 onBack; core/v2/shell/app_shell_v2.dart:149 onShellTabTap; core/feature_flags.dart:172 MgV2Gate waits while payment running",
+    "lib/features/payment/payment_screen.dart:1516-1522 (PopScope wraps both MgV2 branches)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 back entry (header arrow, pinned back, system back, swipe) calls the same _onBack or is caught by the same PopScope; MgPage has no other pop path (lib/core/v2/chrome/mg_page.dart:216-228 uses widget.pinnedBack).",
+   "evidence": "Every v2 back entry (header arrow, pinned back, system back, swipe) calls the same _onBack or is caught by the same PopScope; MgPage has no other pop path (lib/core/v2/chrome/mg_page.dart:216-228 uses widget.pinnedBack).",
+   "sources": [
+    "payment-1-02",
+    "mx-start-45",
+    "mx-order-27",
+    "mx-rental-49"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-45",
+     "situation": "While a payment is running, back, swipe and the bottom tabs ask for confirmation so the result is not lost and nobody pays twice."
+    },
+    {
+     "source": "mx-order-27",
+     "situation": "Leaving while a payment may have reached the bank needs confirmation; then the app marks the payment as \"being verified\" instead of offering a new payment."
+    },
+    {
+     "source": "mx-rental-49",
+     "situation": "While the surcharge payment is processing the payment screen cannot be left with back."
+    }
+   ],
+   "visible_by_source": {
+    "payment-1-02": "clear",
+    "mx-start-45": "clear",
+    "mx-order-27": "clear",
+    "mx-rental-49": "silent"
+   },
+   "notes": [
+    "mx-order-27: Leave-confirmation was added on this branch (confirmLeaveRunningPayment absent in 70a94933)."
+   ]
+  },
+  {
+   "id": "G-237",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-001 / S-073 Payment screen / S-171 Shop checkout / S-083 'Opravdu opustit probíhající platbu?' dialog",
+   "situation": "While a card payment is still being processed (card charge, 3-D Secure, server confirmation), the customer taps a bottom tab and would leave the payment screen; the app stops and asks first, because a lost result led to paying twice.",
+   "old_where": [
+    "lib/core/shell_tab_action.dart:26-35 (onShellTabTap: paymentProcessingProvider -> confirmLeaveRunningPayment, features/payment/payment_ui_helpers.dart:17-49; paymentLeaveActionProvider for the shop). NOTE: added on this branch, not present in 4.1.3 (70a94933 app_shell.dart:303-317 had no such check); today it applies to the old look too.",
+    "lib/core/shell_tab_action.dart:29-37 (paymentProcessingProvider), set by lib/features/payment/payment_screen.dart:131",
+    "lib/features/shop/shop_checkout_screen.dart:86-113 (_setProcessing/_markSubmitted/_syncGuard set paymentProcessingProvider and paymentLeaveActionProvider = _leaveToPending); shell lib/core/shell_tab_action.dart:29-36",
+    "lib/features/payment/payment_ui_helpers.dart:17-48 (AlertDialog: 'Odejít' returns true, 'Zůstat' false, dismiss null = stay); callers lib/features/payment/payment_screen_problems.dart:465, :470, lib/core/shell_tab_action.dart:30, lib/features/shop/shop_checkout_screen.dart:654"
+   ],
+   "customer_sees": "An AlertDialog \"psLeaveTitle\" with body text, a grey \"Odejít\" text button and a filled \"Zůstat a počkat\" button; tapping outside = stay.",
+   "visible": "clear",
+   "server": [
+    "no (client-side protection; the server only deduplicates the payment webhook in confirm_payment)",
+    "no"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/v2/shell/app_shell_v2.dart:137-151 (_onTab -> onShellTabTap), lib/features/routes/v2/rides/moje_view_v2.dart:31-37 (v2 nav on Moje zážitky -> onShellTabTap), v2 dialog in payment_ui_helpers.dart:19-27 (showMgConfirm, dismissed = stay)",
+    "lib/core/v2/shell/app_shell_v2.dart:149 and lib/features/routes/v2/rides/moje_view_v2.dart:35 both call the shared onShellTabTap",
+    "lib/core/v2/shell/app_shell_v2.dart:149 (v2 tab taps go through the shared onShellTabTap); same providers set by the same screen state",
+    "lib/features/payment/payment_ui_helpers.dart:19-28 (showMgConfirm: safe 'Odejít' -> false -> leave; action 'Zůstat' -> true -> stay; dismissed null -> stay), lib/core/v2/widgets/mg_dialog.dart:46-71"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 tab tap (5 tabs in the shell and the v2 nav drawn on Moje zážitky) calls the same onShellTabTap, which reads paymentProcessingProvider and runs the same confirm; the v2 dialog has a title, body and two buttons, and closing it keeps the customer on the payment.",
+   "evidence": "Every v2 tab tap (5 tabs in the shell and the v2 nav drawn on Moje zážitky) calls the same onShellTabTap, which reads paymentProcessingProvider and runs the same confirm; the v2 dialog has a title, body and two buttons, and closing it keeps the customer on the payment.",
+   "sources": [
+    "shell-fabs-01",
+    "payment-1-03",
+    "shop-24",
+    "payment-1-65"
+   ],
+   "merged_situations": [
+    {
+     "source": "payment-1-03",
+     "situation": "The customer taps a bottom-bar tab while the payment is running; the app asks the same leave confirmation before switching."
+    },
+    {
+     "source": "shop-24",
+     "situation": "While a submitted payment runs, tapping a bottom-bar tab asks for confirmation and then goes to 'Platba se overuje' instead of silently leaving."
+    },
+    {
+     "source": "payment-1-65",
+     "situation": "Leaving a running payment by back, tab or shop checkout requires explicit confirmation; dismissing the dialog means 'stay'."
+    }
+   ]
+  },
+  {
+   "id": "G-238",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen",
+   "situation": "Back pressed while nothing was sent yet (draft or intent still being created), or the page was opened without history (FAB, deep link): the customer goes to a sensible parent (form, reservation detail, Rezervace, cart, SOS) instead of the app closing, without a false 'verifying' state.",
+   "old_where": "lib/features/payment/payment_screen_problems.dart:477-479, target lib/features/payment/payment_screen.dart:325-340 (_backFallback), :1510",
+   "customer_sees": "The previous page or the fitting parent page.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/payment_view_v2.dart:107-111 and :188 pass the same onBack"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler in both looks.",
+   "evidence": "Same handler in both looks.",
+   "sources": [
+    "payment-1-04"
+   ]
+  },
+  {
+   "id": "G-239",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen",
+   "situation": "Back is pressed while an error sheet, dialog or the offline overlay is on top of the payment page; back closes that layer first instead of leaving the payment.",
+   "old_where": "lib/features/payment/payment_ui_helpers.dart:55-65 (isTopmostRoute, OfflineGuard.overlayVisible), used at lib/features/payment/payment_screen.dart:1509",
+   "customer_sees": "The top sheet/dialog closes; the payment page stays.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_screen.dart:1508-1515 wraps the v2 view too"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared listener.",
+   "evidence": "Shared listener.",
+   "sources": [
+    "payment-1-05"
+   ]
+  },
+  {
+   "id": "G-240",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment / Payment screen",
+   "situation": "The 30-minute time to pay runs out; the pay button locks, an unpaid new-booking draft is cancelled (bike released) and a sheet that cannot be swiped away sends the customer to pick again (or to the reservation for an edit).",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:423-441 (_startCountdown, _expired), lib/features/payment/payment_screen_problems.dart:428-458 (_onTimeout, dismissible: false), lib/core/booking_rules.dart:13 (30 min)",
+    "lib/core/booking_rules.dart:10-13; lib/features/payment/payment_screen.dart:425-440 (_startCountdown), :913 (_doPayment refuses when expired)",
+    "lib/core/booking_rules.dart:13 paymentTimeoutDuration; features/payment/payment_screen.dart:156-161 deadline from bookingCreatedAt, :423-440 countdown, payment_screen_problems.dart:428-460 _onTimeout; widgets/payment_header_widgets.dart:281 onPressed null when expired"
+   ],
+   "customer_sees": "Button text '⏱ Čas vypršel' (disabled), then sheet 'Čas na zaplacení vypršel' with 'Vybrat znovu' / 'Otevřít rezervaci'.",
+   "visible": "clear",
+   "server": [
+    "yes(pg_cron auto-cancel-pending-bookings -> auto_cancel_expired_pending(), app = 30 min, SUPABASE_BACKEND_STATE_5.md:380; process-payment refuses cancelled bookings: booking_cancelled)",
+    "yes(cron auto_cancel_expired_pending)",
+    "yes(auto_cancel_expired_pending cron, app 30 min)"
+   ],
+   "v2_entry_points": [
+    "v2 payment view",
+    "v2 payment view (from form dock, FAB strip, Home ticket, restore)"
+   ],
+   "v2_where": [
+    "lib/features/payment/v2/payment_view_v2.dart:167 (label timeExpired), :176 (enabled: !expired), :174 (no price when expired); chip lib/features/payment/v2/countdown_chip_v2.dart:46-49 'Čas vypršel' amber; same _onTimeout sheet",
+    "lib/features/payment/payment_screen.dart:1536-1540 (timeRemaining, lastMinutes, expired passed to PaymentViewV2)",
+    "lib/features/payment/v2/payment_view_v2.dart:93-99 countdown chip, :167-178 label timeExpired, enabled: !expired; same _onTimeout"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Timer, _expired and _onTimeout live in the shared State; the v2 dock gets expired and disables the CTA.",
+   "evidence": "Timer, _expired and _onTimeout live in the shared State; the v2 dock gets expired and disables the CTA.",
+   "sources": [
+    "payment-1-06",
+    "mx-start-43",
+    "mx-order-25"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-43",
+     "situation": "The app booking must be paid within 30 minutes of creation; a countdown runs and after expiry the pay button no longer works and the booking is cancelled."
+    },
+    {
+     "source": "mx-order-25",
+     "situation": "The customer has 30 minutes from booking creation (or restore) to pay; then Pay is locked, the unpaid draft is cancelled and a non-dismissible sheet sends him back."
+    }
+   ]
+  },
+  {
+   "id": "G-241",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen",
+   "situation": "Returning to an unfinished or restored booking does not get a fresh 30 minutes; the countdown continues from when the booking was created, so the app never promises time the server no longer holds.",
+   "old_where": "lib/features/payment/payment_screen.dart:157-161 (bookingCreatedAt), set by lib/core/shell_actions.dart:23 and lib/features/reservations/booking_restore.dart:100",
+   "customer_sees": "The remaining minutes, not 30:00.",
+   "visible": "clear",
+   "server": "yes(auto_cancel_expired_pending cron)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared initState; v2 entries (strip, Home ticket) use the same openPendingPayment lib/core/shell_actions.dart:13-26 (lib/core/shell_fabs.dart:110, lib/features/home/v2/home_ticket_v2.dart:276)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "All v2 entry points that open an unpaid booking go through openPendingPayment which sets bookingCreatedAt.",
+   "evidence": "All v2 entry points that open an unpaid booking go through openPendingPayment which sets bookingCreatedAt.",
+   "sources": [
+    "payment-1-07"
+   ]
+  },
+  {
+   "id": "G-242",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment screen",
+   "situation": "The customer taps pay twice or taps while a payment is processing, verifying or already completed; the second tap does nothing.",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:913 (if (_processing || _expired || _completed) return), button lib/features/payment/widgets/payment_header_widgets.dart:281",
+    "lib/features/payment/payment_screen.dart:913 (_processing||_expired||_completed return); widgets/payment_header_widgets.dart:277-281"
+   ],
+   "customer_sees": "Disabled button with spinner.",
+   "visible": "clear",
+   "server": [
+    "yes(process-payment attempt_id idempotency key / payment_in_progress)",
+    "yes(process-payment duplicate guard 409)"
+   ],
+   "v2_entry_points": [
+    "v2 dock"
+   ],
+   "v2_where": [
+    "lib/features/payment/v2/pay_dock_v2.dart:121-131 MgCta(busy: busy, onTap: enabled ? onPay : null); lib/core/v2/widgets/mg_cta.dart:215 (onTap only when active && !busy); SOS ink button lib/core/v2/widgets/mg_buttons.dart _MgButton enabled = onTap != null && !busy",
+    "lib/features/payment/v2/payment_view_v2.dart:176-178 busy: processing; v2/pay_dock_v2.dart:126-130 (tap still wired, handler returns early at payment_screen.dart:913)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Both the widget and the shared _doPayment guard block a second tap.",
+   "evidence": "Both the widget and the shared _doPayment guard block a second tap.",
+   "sources": [
+    "payment-1-08",
+    "mx-order-26"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-26",
+     "situation": "While a payment runs the Pay button does nothing (no second charge)."
+    }
+   ]
+  },
+  {
+   "id": "G-243",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen",
+   "situation": "A new booking cannot be created while the profile lacks street, city, ZIP, or (for a bike that needs a licence) licence number and expiry, or when the licence expires before the rental ends; the draft is not inserted and nothing is charged.",
+   "old_where": "lib/features/payment/payment_screen.dart:600-608 (profileCompletenessValidationProvider), lib/features/booking/booking_provider.dart:312-352, sheet lib/features/payment/payment_screen_problems.dart:522-529",
+   "customer_sees": "Sheet 'Rezervaci se nepodařilo vytvořit' with the list of missing fields and button 'Upravit rezervaci'.",
+   "visible": "clear",
+   "server": "no (no insert trigger on bookings found that checks address/licence number/expiry; only door codes are later withheld until documents are complete: trg_zz_door_codes_docs_gate, SUPABASE_BACKEND_STATE_4.md:42)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2 pay CTA onPay = _doPayment (payment_screen.dart:1543) -> _createDraftWithRecovery -> _createDraftBooking; same sheet via PaymentErrorSheet.show (v2 body lib/features/payment/v2/error_sheet_v2.dart)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The check is in the shared draft creation; the primary gate is the booking form (other bucket).",
+   "evidence": "The check is in the shared draft creation; the primary gate is the booking form (other bucket).",
+   "sources": [
+    "payment-1-09"
+   ]
+  },
+  {
+   "id": "G-244",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment screen",
+   "situation": "Creating the booking fails because the customer is not logged in or the access token expired; the app refreshes the session once and retries, otherwise asks to sign in again.",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:457-477 and :573-577, sheet lib/features/payment/payment_screen_problems.dart:514-521, signInAgain lib/features/payment/payment_ui_helpers.dart:70-75",
+    "lib/features/payment/payment_screen.dart:453-477; payment_screen_problems.dart:517-524"
+   ],
+   "customer_sees": "Sheet 'Přihlášení vypršelo' with 'Přihlásit'.",
+   "visible": "clear",
+   "server": [
+    "yes(bookings insert requires auth.uid via RLS)",
+    "yes(auth)"
+   ],
+   "v2_entry_points": [
+    "v2 payment"
+   ],
+   "v2_where": [
+    "Shared logic; v2 sheet body lib/features/payment/v2/error_sheet_v2.dart:38-46",
+    "shared handler"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same code path.",
+   "evidence": "Same code path.",
+   "sources": [
+    "payment-1-10",
+    "mx-order-32"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-32",
+     "situation": "Expired login at booking insert: the app refreshes the session once; if that fails it asks to sign in (network failure is reported as network, not as logout)."
+    }
+   ]
+  },
+  {
+   "id": "G-245",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment / Payment screen (draft creation)",
+   "situation": "Payment is opened with no bike or no dates in the draft (old draft, direct entry); no booking with empty data is created.",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:578-599, sheet lib/features/payment/payment_screen_problems.dart:522-529",
+    "lib/features/payment/payment_screen.dart:572-607 (_createDraftBooking)",
+    "lib/features/payment/payment_screen.dart:573-608; payment_screen_problems.dart:483-537 _showDraftFailure"
+   ],
+   "customer_sees": "Sheet 'Rezervaci se nepodařilo vytvořit' + 'Vyber nejdřív termín' / 'Není vybraná motorka', button 'Upravit rezervaci'.",
+   "visible": "clear",
+   "server": [
+    "unknown (could not confirm a NOT NULL/CHECK on bookings dates from STATE files)",
+    "partly (RLS needs a user; profile fields not enforced server-side)",
+    "partial (RLS auth; no profile check)"
+   ],
+   "v2_entry_points": [
+    "v2 payment pay button",
+    "v2 payment"
+   ],
+   "v2_where": [
+    "Shared",
+    "lib/features/payment/payment_screen.dart:1522-1545 (PaymentViewV2 onPay: _doPayment -> same _createDraftWithRecovery/_createDraftBooking)",
+    "lib/features/payment/widgets/payment_error_sheet.dart:32-62 (v2 PaymentErrorSheetV2, same buttons/dismissible)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same code path.",
+   "evidence": "Same code path.",
+   "sources": [
+    "payment-1-11",
+    "mx-start-41",
+    "mx-order-28"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-41",
+     "situation": "Safety net before the booking row is created: no user, no bike, no dates, or incomplete profile -> no booking is created and the reason is shown."
+    },
+    {
+     "source": "mx-order-28",
+     "situation": "At Pay the app re-checks login, bike, dates and profile completeness before inserting the booking; failing that it explains and sends back to the form."
+    }
+   ],
+   "notes": [
+    "mx-start-41: Payment does NOT repeat the licence, overlap, length, lead-time, size or consent checks; it relies on the booking form CTA. Every v2 path that creates a NEW booking passes through the same canProceed (booking_form_widget.dart:582, :603). Other /payment entries (unpaid-booking strip lib/core/shell_actions.dart:13-26, restore) pay for an EXISTING booking, as in the old look.",
+    "mx-order-28: Licence, overlap, lead time and min/max days are NOT re-checked at payment in either look."
+   ]
+  },
+  {
+   "id": "G-246",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment screen (draft creation)",
+   "situation": "Someone else booked the same bike for these dates in the meantime (or the customer already has an overlapping booking); the booking is refused before any charge.",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:854-862 (_DraftKind.motoTaken), sheet lib/features/payment/payment_screen_problems.dart:488-499",
+    "lib/features/payment/payment_screen.dart:854-862 motoTaken, payment_screen_problems.dart:487-499"
+   ],
+   "customer_sees": "Sheet 'Motorka je v tomto termínu obsazená' with the dates, 'Změnit termín' and 'Jiná motorka'.",
+   "visible": "clear",
+   "server": [
+    "yes(trg_check_booking_overlap and trg_check_user_booking_overlap, SUPABASE_BACKEND_STATE_4.md:85, :189)",
+    "yes(trg_check_booking_overlap, SECURITY DEFINER)"
+   ],
+   "v2_entry_points": [
+    "v2 payment"
+   ],
+   "v2_where": [
+    "Shared",
+    "shared handler; lib/features/payment/widgets/payment_error_sheet.dart:51-60"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same code path.",
+   "evidence": "Same code path.",
+   "sources": [
+    "payment-1-12",
+    "mx-order-29"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-29",
+     "situation": "If someone else booked the bike meanwhile, the insert is refused and the customer is told and offered other dates or another bike."
+    }
+   ]
+  },
+  {
+   "id": "G-247",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment / Payment screen",
+   "situation": "The customer's own older unpaid draft for the same bike blocks the new one; the app cancels it and retries, but if a payment is already running on it the customer is sent to 'Platba se ověřuje' instead of paying twice.",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:478-497 (_ownOverlappingDraft, PaymentPendingMarker.isPending), :501-529",
+    "lib/features/payment/payment_screen.dart:451-497 (_createDraftWithRecovery)",
+    "lib/features/payment/payment_screen.dart:478-497, :499-528 _ownOverlappingDraft"
+   ],
+   "customer_sees": "Either nothing (automatic) or the 'Platba se ověřuje' result page.",
+   "visible": "silent",
+   "server": [
+    "yes(trg_check_booking_overlap; process-payment payment_in_progress)",
+    "yes(trg_check_booking_overlap, trg_check_user_booking_overlap)",
+    "yes(trg_check_booking_overlap)"
+   ],
+   "v2_entry_points": [
+    "v2 pay button",
+    "v2 payment"
+   ],
+   "v2_where": [
+    "Shared",
+    "shared logic, v2 view only (payment_screen.dart:1522-1545)",
+    "shared handler"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same code path.",
+   "evidence": "Same code path.",
+   "sources": [
+    "payment-1-13",
+    "mx-start-42",
+    "mx-order-30"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-42",
+     "situation": "Someone else booked the bike meanwhile (or the customer's own earlier draft overlaps); the app cancels its own stale draft and retries, or shows that the bike is taken / that a payment is being verified."
+    },
+    {
+     "source": "mx-order-30",
+     "situation": "If his own older unpaid draft of the same bike blocks the insert, it is cancelled and the insert retried; if a payment for it is still in flight he is shown \"Platba se ověřuje\" instead of paying twice."
+    }
+   ],
+   "visible_by_source": {
+    "payment-1-13": "silent",
+    "mx-start-42": "clear",
+    "mx-order-30": "clear"
+   },
+   "notes": [
+    "mx-order-30: Added on branch (_ownOverlappingDraft absent in 70a94933)."
+   ]
+  },
+  {
+   "id": "G-248",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-073 Payment screen / Payment screen (draft creation)",
+   "situation": "A trailer cannot be booked with a bike from a self-service branch, and a trailer unit taken meanwhile is refused; the app also strips the trailer from self-service bookings before insert.",
+   "old_where": [
+    "lib/features/payment/payment_screen.dart:583-591, :753, error mapping :863-871, sheet lib/features/payment/payment_screen_problems.dart:500-506",
+    "lib/features/payment/payment_screen.dart:863-876; payment_screen_problems.dart:504-510"
+   ],
+   "customer_sees": "Sheet 'Rezervaci se nepodařilo vytvořit' / 'Vozík je v termínu obsazený', 'Změnit termín'.",
+   "visible": "clear",
+   "server": [
+    "yes(trg_check_trailer_overlap, SUPABASE_BACKEND_STATE_4.md:87)",
+    "yes(trg_check_trailer_overlap, trg_check_self_service_delivery)"
+   ],
+   "v2_entry_points": [
+    "v2 payment"
+   ],
+   "v2_where": [
+    "Shared",
+    "shared handler"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same code path.",
+   "evidence": "Same code path.",
+   "sources": [
+    "payment-1-14",
+    "mx-order-31"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-31",
+     "situation": "Trailer taken meanwhile, trailer at self-service branch, or delivery at self-service refused by DB -> concrete message."
+    }
+   ]
+  }
+ ]
+}

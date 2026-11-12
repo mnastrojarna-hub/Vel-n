@@ -1,0 +1,1692 @@
+{
+ "file": "/tmp/claude-0/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/scratchpad/persona/deep/census.json",
+ "total": 222,
+ "buckets": [
+  {
+   "key": "shell-fabs",
+   "title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surfaces": [
+    {
+     "id": "S-001",
+     "kind": "section",
+     "name": "Bottom navigation bar (Domů / Rezervovat / Rezervace / Trasy) with unread badge",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/app_shell.dart:122",
+     "entry": "Always visible on every shell route except noNav routes (router.dart:174); tab tap goes through onShellTabTap lib/core/shell_tab_action.dart:16 (asks to leave a running payment, :29); badge at app_shell.dart:177"
+    },
+    {
+     "id": "S-002",
+     "kind": "banner",
+     "name": "Header announcement banner (marquee)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_banner.dart:9",
+     "entry": "Rendered at app_shell.dart:75 when bannerProvider (lib/core/banner_provider.dart:120) returns enabled data"
+    },
+    {
+     "id": "S-003",
+     "kind": "floating",
+     "name": "Cart floating button (items + total, dismiss X)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_fab_layer.dart:138",
+     "entry": "Shown when cart has items and the customer is not in the shop flow or on payment (shell_fab_layer.dart:65-67); tap -> /cart"
+    },
+    {
+     "id": "S-004",
+     "kind": "floating",
+     "name": "'Dokončit rezervaci' unpaid-booking floating button with timer",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_fabs.dart:55",
+     "entry": "pendingBookingFabProvider (lib/core/pending_booking_fab_provider.dart) has an unexpired unpaid booking; hidden on login/register/docScan/payment/success (shell_fab_layer.dart:70-77); tap -> openPendingPayment lib/core/shell_actions.dart:3 -> /payment"
+    },
+    {
+     "id": "S-005",
+     "kind": "floating",
+     "name": "'Ověřujeme platbu' verifying-payment floating button",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_fabs.dart:184",
+     "entry": "Variant chosen at shell_fabs.dart:97 when the pending booking is in payment verification; tap -> /payment-result"
+    },
+    {
+     "id": "S-006",
+     "kind": "dialog",
+     "name": "'Zrušit rezervaci?' confirmation from the unpaid-booking floating button",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_fabs.dart:36",
+     "entry": "X / cancel on the unpaid-booking floating button (cancelPendingBookingFlow, AlertDialog at :48)"
+    },
+    {
+     "id": "S-007",
+     "kind": "floating",
+     "name": "SOS floating button (finish SOS - choose replacement bike)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_fabs.dart:127",
+     "entry": "pendingSosFabProvider (lib/core/pending_sos_fab_provider.dart) returns an incident; placed at shell_fab_layer.dart:212; tap -> openPendingSos shell_actions.dart -> /sos/replacement"
+    },
+    {
+     "id": "S-008",
+     "kind": "floating",
+     "name": "Missing documents floating button (dismissable)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_fabs_b.dart:119",
+     "entry": "Active booking and docsFabStatusProvider not complete, not on /docs or /docs/scan, not dismissed (shell_fab_layer.dart:99-112); tap -> /docs"
+    },
+    {
+     "id": "S-009",
+     "kind": "floating",
+     "name": "Active route/ride floating button ('Pokračovat v trase', end)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_fabs_b.dart:18",
+     "entry": "activeRideProvider has a ride, not on payment (shell_fab_layer.dart:84); tap -> openRide; X -> endRide"
+    },
+    {
+     "id": "S-010",
+     "kind": "banner",
+     "name": "'Zaplaceno po restartu' snackbar listener",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/shell_paid_listener.dart:12",
+     "entry": "Wraps the shell (app_shell.dart:66); fires when a payment finished after an app restart"
+    }
+   ]
+  },
+  {
+   "key": "global-overlays",
+   "title": "App-wide overlays, dialogs and system screens (old look)",
+   "surfaces": [
+    {
+     "id": "S-011",
+     "kind": "overlay",
+     "name": "First-launch intro animation",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/widgets/moto_fx.dart:447",
+     "entry": "main.dart:529 on first start (old look MotoIntroOverlay)"
+    },
+    {
+     "id": "S-012",
+     "kind": "overlay",
+     "name": "Language selection overlay",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/overlays/onboarding_overlays.dart:21",
+     "entry": "main.dart:510 when SharedPreferences mg_locale is null (shouldShow :36)"
+    },
+    {
+     "id": "S-013",
+     "kind": "overlay",
+     "name": "Permissions onboarding overlay",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/overlays/onboarding_overlays.dart:145",
+     "entry": "main.dart:513 after language, when shouldShow (:164)"
+    },
+    {
+     "id": "S-014",
+     "kind": "overlay",
+     "name": "Offline full-screen overlay ('Jste offline', retry / continue offline)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/offline_guard.dart:129",
+     "entry": "OfflineGuard.startWatching main.dart:308 on connectivity loss; widget _OfflineOverlay :209"
+    },
+    {
+     "id": "S-015",
+     "kind": "banner",
+     "name": "Offline / back-online strip",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/offline_guard.dart:198",
+     "entry": "After 'continue offline' or reachability change (_showBanner :190)"
+    },
+    {
+     "id": "S-016",
+     "kind": "dialog",
+     "name": "Forced update dialog (cannot be dismissed)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/update_check_provider.dart:96",
+     "entry": "UpdateChecker.check main.dart:309/353 when app version < min version; PopScope :104"
+    },
+    {
+     "id": "S-017",
+     "kind": "dialog",
+     "name": "In-app (store) update dialog",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/in_app_update_service.dart:154",
+     "entry": "InAppUpdateService.check main.dart:310/354"
+    },
+    {
+     "id": "S-018",
+     "kind": "overlay",
+     "name": "Loyalty level-up celebration",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/loyalty/loyalty_levelup_overlay.dart:190",
+     "entry": "LoyaltyLevelUpWatcher main.dart:502 when the customer reaches a new level"
+    },
+    {
+     "id": "S-019",
+     "kind": "dialog",
+     "name": "Shared error dialog (what happened + action buttons)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/widgets/error_feedback.dart:132",
+     "entry": "showErrorDialog called from many screens (SOS feedback, documents, permissions, payments...)"
+    },
+    {
+     "id": "S-020",
+     "kind": "dialog",
+     "name": "'Zahodit rozpracované?' discard confirmation",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/widgets/error_feedback.dart:205",
+     "entry": "confirmDiscard: register back, SOS report sheet, ride point sheet, route builder, community/route submit"
+    },
+    {
+     "id": "S-021",
+     "kind": "dialog",
+     "name": "Blocking progress dialog with optional cancel (MgProgress)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/widgets/error_feedback.dart:252",
+     "entry": "Document upload (documents_screen.dart:375) and document opening (doc_open_runner.dart:30)"
+    },
+    {
+     "id": "S-022",
+     "kind": "route",
+     "name": "Unknown link error page",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/widgets/route_error_page.dart:15",
+     "entry": "router errorBuilder lib/core/router.dart:227 for unknown/stale deep links; router redirect :228 also maps /app/... App Links and sends logged-out users to /login for _authRequired routes (:184-203)"
+    }
+   ]
+  },
+  {
+   "key": "auth",
+   "title": "Login, registration and password reset",
+   "surfaces": [
+    {
+     "id": "S-023",
+     "kind": "route",
+     "name": "Login screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/login_screen.dart:26",
+     "entry": "/login (router.dart:264); initial route; redirect target for protected routes when logged out (router.dart:258)"
+    },
+    {
+     "id": "S-024",
+     "kind": "section",
+     "name": "Biometric login button",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/login_screen.dart:384",
+     "entry": "Shown on login when BiometricService.isAvailable (:107) and a stored session exists; handler _doBioLogin (:195)"
+    },
+    {
+     "id": "S-025",
+     "kind": "dialog",
+     "name": "'Neznámý e-mail' dialog (offer registration)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/login_screen.dart:165",
+     "entry": "Login with an e-mail that has no account"
+    },
+    {
+     "id": "S-026",
+     "kind": "route",
+     "name": "Registration screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/register_screen.dart:26",
+     "entry": "/register (router.dart:268) from login; MgBackGuard + BackButtonListener/PopScope :429/435"
+    },
+    {
+     "id": "S-027",
+     "kind": "dialog",
+     "name": "'E-mail už je registrovaný' dialog",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/register_screen.dart:168",
+     "entry": "Registration with an existing e-mail"
+    },
+    {
+     "id": "S-028",
+     "kind": "dialog",
+     "name": "Discard registration on back",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/register_screen.dart:206",
+     "entry": "Back while the form is dirty -> confirmDiscard"
+    },
+    {
+     "id": "S-029",
+     "kind": "overlay",
+     "name": "Welcome overlay after registration",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/widgets/moto_fx.dart:631",
+     "entry": "register_screen.dart:405 after successful sign-up"
+    },
+    {
+     "id": "S-030",
+     "kind": "route",
+     "name": "Password reset screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/reset_password_screen.dart:26",
+     "entry": "/reset-password (router.dart:273) from login; allowed while logged in during recovery (router.dart:245-248)"
+    },
+    {
+     "id": "S-031",
+     "kind": "section",
+     "name": "Password reset steps 1 e-mail / 2 code / 3 new password (back = previous step)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/auth/reset_password_screen.dart:351",
+     "entry": "_step 1..3 (:37, :128, :167); PopScope canPop only on step 1 (:229)"
+    }
+   ]
+  },
+  {
+   "key": "home-search",
+   "title": "Home tab and Rezervovat (search) tab",
+   "surfaces": [
+    {
+     "id": "S-032",
+     "kind": "route",
+     "name": "Home screen (Domů)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/home/home_screen.dart:21",
+     "entry": "/ (router.dart:379) via V2Switch; bottom nav tab 1; auth required"
+    },
+    {
+     "id": "S-033",
+     "kind": "section",
+     "name": "Home header with nickname",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/home/widgets/home_header.dart:174",
+     "entry": "Top of Home; tap nickname"
+    },
+    {
+     "id": "S-034",
+     "kind": "dialog",
+     "name": "Nickname dialog",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/home/nickname_provider.dart:58",
+     "entry": "Home header tap (home_header.dart:174) or profile (profile_screen.dart:588)"
+    },
+    {
+     "id": "S-035",
+     "kind": "section",
+     "name": "Loyalty rank card on Home",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/loyalty/loyalty_rank_card.dart:1",
+     "entry": "home_screen.dart:86; tap -> /loyalty"
+    },
+    {
+     "id": "S-036",
+     "kind": "sheet",
+     "name": "Loyalty program info sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/loyalty/loyalty_rank_card.dart:200",
+     "entry": "Info icon on the loyalty rank card (_showProgramInfo)"
+    },
+    {
+     "id": "S-037",
+     "kind": "section",
+     "name": "My active reservations + SOS shortcut on Home",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/home/widgets/home_reservations_section.dart:11",
+     "entry": "home_screen.dart:92; cards -> /reservations/:id (home_reservation_card.dart:45), all -> /reservations (:46), book -> /search (:67), SOS -> /sos (:112)"
+    },
+    {
+     "id": "S-038",
+     "kind": "section",
+     "name": "Motorcycle filter panel (dates calendar, licence chip, branch chip, sort, ranges)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/widgets/moto_filter_panel.dart:42",
+     "entry": "Home (home_screen.dart:99, showDates) and Search (moto_search_screen.dart:212); licence chip :441 (lib/features/home/widgets/license_chip.dart:6), branch chip lib/features/catalog/widgets/filter_branch_chip.dart"
+    },
+    {
+     "id": "S-039",
+     "kind": "section",
+     "name": "Motorcycle list cards (Home and Search)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/widgets/moto_card.dart:1",
+     "entry": "home_screen.dart:143 and moto_search_screen.dart:281; tap -> /moto/:id"
+    },
+    {
+     "id": "S-040",
+     "kind": "floating",
+     "name": "Home floating buttons: scroll-to-top and AI assistant",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/home/home_screen.dart:177",
+     "entry": "Scroll-to-top when scrolled (:37/:177); AI button -> /ai-agent (:198)"
+    },
+    {
+     "id": "S-041",
+     "kind": "route",
+     "name": "Rezervovat / motorcycle search screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/moto_search_screen.dart:19",
+     "entry": "/search (router.dart:383) via V2Switch; bottom nav tab 2; public (not in _authRequired)"
+    },
+    {
+     "id": "S-042",
+     "kind": "section",
+     "name": "Search date tabs + availability calendar",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/moto_search_screen.dart:127",
+     "entry": "DateTabsSection (:127, lib/features/catalog/widgets/date_tabs_section.dart) and AvailabilityCalendar (:186, lib/features/catalog/widgets/availability_calendar.dart)"
+    }
+   ]
+  },
+  {
+   "key": "moto-detail",
+   "title": "Motorcycle detail (entry into booking)",
+   "surfaces": [
+    {
+     "id": "S-043",
+     "kind": "route",
+     "name": "Motorcycle detail (pager over filtered bikes)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/moto_detail_screen.dart:16",
+     "entry": "/moto/:id (router.dart:404) from Home/Search cards, branch detail, routes ride-booking section; page widget lib/features/catalog/moto_detail_page.dart:38"
+    },
+    {
+     "id": "S-044",
+     "kind": "section",
+     "name": "Detail date / calendar block (collapsed summary + expanded calendar)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/moto_detail_page.dart:621",
+     "entry": "Toggle :621, edit :733, AvailabilityCalendar :754 with booked dates"
+    },
+    {
+     "id": "S-045",
+     "kind": "banner",
+     "name": "Validation banner (licence group, overlap with own booking, kids bike)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/widgets/validation_banner.dart:19",
+     "entry": "moto_detail_page.dart:392 when dates are chosen; BookingValidator.checkLicense (validation_banner.dart:39)"
+    },
+    {
+     "id": "S-046",
+     "kind": "section",
+     "name": "Price footer card (days x price)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/widgets/price_footer.dart:12",
+     "entry": "moto_detail_page.dart:381"
+    },
+    {
+     "id": "S-047",
+     "kind": "section",
+     "name": "'Rezervovat' CTA button (enabled only when allowed)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/moto_detail_page.dart:768",
+     "entry": "_buildCtaButton; onPressed canProceed (:795) -> startBookingFromSelection lib/features/booking/booking_entry.dart:27 -> /booking"
+    },
+    {
+     "id": "S-048",
+     "kind": "pushed",
+     "name": "Fullscreen photo gallery",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/widgets/fullscreen_gallery.dart:31",
+     "entry": "Tap on photos (moto_detail_page.dart:98/:425); also branch photos (branch_photos_section.dart:51)"
+    },
+    {
+     "id": "S-049",
+     "kind": "section",
+     "name": "Detail info blocks: video, specs, pricing table, manual",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/moto_detail_page.dart:289",
+     "entry": "Video :289, SpecsSection :348, PricingTable :357, ManualCard :373 (opens in-app browser, manual_card.dart:86)"
+    },
+    {
+     "id": "S-050",
+     "kind": "section",
+     "name": "Bike not found / load error state (back to search)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/catalog/moto_detail_page.dart:164",
+     "entry": "Unknown or unavailable moto id; buttons -> /search (:164/:175)"
+    }
+   ]
+  },
+  {
+   "key": "booking-form-1",
+   "title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surfaces": [
+    {
+     "id": "S-051",
+     "kind": "route",
+     "name": "Booking form (Rezervace motorky)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:34",
+     "entry": "/booking (router.dart:409, BookingDebugWrapper); from detail CTA via booking_entry.dart:68/90; auth required (router.dart:187)"
+    },
+    {
+     "id": "S-052",
+     "kind": "section",
+     "name": "Form header + selected bike card",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:617",
+     "entry": "BookingFormHeader (lib/core/booking_form_header_widget.dart) and BookingFormMotoCard (lib/core/booking_form_moto_card.dart) at :617-618"
+    },
+    {
+     "id": "S-053",
+     "kind": "section",
+     "name": "No bike selected state ('Nejprve vyberte motorku')",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:378",
+     "entry": "Booking opened without bookingMotoProvider; button -> select moto (:389)"
+    },
+    {
+     "id": "S-054",
+     "kind": "section",
+     "name": "Section dates (date range, day count, edit, calendar with booked dates)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:218",
+     "entry": "_buildDateSection called at :619; booked-dates load failure handling :296"
+    },
+    {
+     "id": "S-055",
+     "kind": "section",
+     "name": "Section pickup / return times",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_time_section.dart:1",
+     "entry": "BookingFormTimeSection at booking_form_widget.dart:620"
+    },
+    {
+     "id": "S-056",
+     "kind": "section",
+     "name": "Section pickup (at branch / delivery to address)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_pickup_section.dart:1",
+     "entry": "booking_form_widget.dart:627; address entry :47, map :59"
+    },
+    {
+     "id": "S-057",
+     "kind": "section",
+     "name": "Locked option tile ('Doručení není u samoobslužné pobočky')",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_locked_option.dart:11",
+     "entry": "Pickup/return sections for self-service branches (booking_form_pickup_section.dart:74/106, return :74/107)"
+    },
+    {
+     "id": "S-058",
+     "kind": "section",
+     "name": "Section return (at branch / pick-up from address)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_return_section.dart:1",
+     "entry": "booking_form_widget.dart:632"
+    },
+    {
+     "id": "S-059",
+     "kind": "sheet",
+     "name": "Address entry bottom sheet (autocomplete)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/booking/booking_ui_helpers.dart:252",
+     "entry": "showAddrBottomSheet from pickup/return sections (:47) and AddressPickerWidget (address_picker.dart:182)"
+    },
+    {
+     "id": "S-060",
+     "kind": "pushed",
+     "name": "Fullscreen map picker for address",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/booking/widgets/map_picker.dart:19",
+     "entry": "MapPickerScreen.show (:26) via launchMapPicker lib/features/booking/map_launcher.dart:16"
+    }
+   ]
+  },
+  {
+   "key": "booking-form-2",
+   "title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surfaces": [
+    {
+     "id": "S-061",
+     "kind": "section",
+     "name": "Section gear and add-ons (basic gear, own gear, sizes, trailer)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_extras_section.dart:1",
+     "entry": "booking_form_widget.dart:637"
+    },
+    {
+     "id": "S-062",
+     "kind": "sheet",
+     "name": "Passenger gear sizes sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_size_dialogs.dart:30",
+     "entry": "Tap passenger gear item (booking_form_extras_section.dart:89)"
+    },
+    {
+     "id": "S-063",
+     "kind": "sheet",
+     "name": "Gear size picker sheet (boots etc.)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_size_dialogs.dart:268",
+     "entry": "Tap sized gear item (booking_form_extras_section.dart:93)"
+    },
+    {
+     "id": "S-064",
+     "kind": "section",
+     "name": "Section price summary (delivery, discounts, loyalty, late-pickup, deposit)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_price_section.dart:1",
+     "entry": "booking_form_widget.dart:645"
+    },
+    {
+     "id": "S-065",
+     "kind": "dialog",
+     "name": "Promo / voucher code dialog",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_promo_section.dart:98",
+     "entry": "BookingFormPromoSection at booking_form_widget.dart:650; errors 'already used' :50, 'cannot combine percent' :61"
+    },
+    {
+     "id": "S-066",
+     "kind": "section",
+     "name": "Note for MotoGo (collapsible)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:92",
+     "entry": "booking_form_widget.dart:651"
+    },
+    {
+     "id": "S-067",
+     "kind": "section",
+     "name": "Consents: VOP, personal data, kids guardian",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:662",
+     "entry": "Checkboxes :662/:668/:675 (kids only when isKids)"
+    },
+    {
+     "id": "S-068",
+     "kind": "banner",
+     "name": "Missing gear sizes warning",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:684",
+     "entry": "missingSizes non-empty (computed :197-211)"
+    },
+    {
+     "id": "S-069",
+     "kind": "banner",
+     "name": "Form error line",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:736",
+     "entry": "err != null from validation"
+    },
+    {
+     "id": "S-070",
+     "kind": "section",
+     "name": "'Doplnit profil' button + 'Souhlasy jsou povinné' note",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:821",
+     "entry": "Shown instead of / above proceed when profile incomplete (:821) or consents missing (:840)"
+    },
+    {
+     "id": "S-071",
+     "kind": "banner",
+     "name": "Booked dates still loading / retry",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:860",
+     "entry": "Booked dates of the bike not loaded yet; retry button :872"
+    },
+    {
+     "id": "S-072",
+     "kind": "section",
+     "name": "'Pokračovat k platbě' button",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/core/booking_form_widget.dart:905",
+     "entry": "Bottom of the form -> creates booking -> /payment"
+    }
+   ]
+  },
+  {
+   "key": "payment-1",
+   "title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surfaces": [
+    {
+     "id": "S-073",
+     "kind": "route",
+     "name": "Payment screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_screen.dart:62",
+     "entry": "/payment (router.dart:417) from booking form, unpaid FAB, reservation edit surcharge (reservation_edit_screen.dart:1138), restore (booking_restore.dart:103); /sos/payment (router.dart:499); auth required; back locked during processing (BackButtonListener/PopScope :1504/:1516)"
+    },
+    {
+     "id": "S-074",
+     "kind": "section",
+     "name": "Payment header with countdown (time to pay)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/payment_header_widgets.dart:12",
+     "entry": "PaymentHeader at payment_screen.dart:1551; PaymentCountdown :77"
+    },
+    {
+     "id": "S-075",
+     "kind": "section",
+     "name": "Bike gallery + price summary + server price note (new booking)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/moto_gallery_card.dart:1",
+     "entry": "payment_screen.dart:1565-1595 when _isNewBooking; PriceSummaryCard lib/features/booking/widgets/price_summary.dart"
+    },
+    {
+     "id": "S-076",
+     "kind": "section",
+     "name": "Payment context card (edit / SOS / restore flows, SOS deposit note)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/payment_header_widgets.dart:108",
+     "entry": "payment_screen.dart:1596 when not a new booking"
+    },
+    {
+     "id": "S-077",
+     "kind": "section",
+     "name": "Card rounding / minimum charge note",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/card_rounding_note.dart:1",
+     "entry": "payment_screen.dart:1605; lib/features/payment/card_minimum.dart"
+    },
+    {
+     "id": "S-078",
+     "kind": "section",
+     "name": "Upsell products on payment",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/upsell_section.dart:1",
+     "entry": "payment_screen.dart:1610 for new booking with normal charge"
+    },
+    {
+     "id": "S-079",
+     "kind": "section",
+     "name": "Saved card preview + encryption note",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/saved_card_preview.dart:1",
+     "entry": "payment_screen.dart:1620 when default card and a charge is due"
+    },
+    {
+     "id": "S-080",
+     "kind": "section",
+     "name": "Pay button (free confirm / verifying states)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/payment_header_widgets.dart:239",
+     "entry": "payment_screen.dart:1637"
+    },
+    {
+     "id": "S-081",
+     "kind": "sheet",
+     "name": "Card payment sheet (Google Pay / card)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/card_payment_sheet.dart:49",
+     "entry": "payment_screen.dart:1149; PopScope locks back while paying (:467)"
+    },
+    {
+     "id": "S-082",
+     "kind": "sheet",
+     "name": "Payment error sheet (what went wrong + actions)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/widgets/payment_error_sheet.dart:33",
+     "entry": "payment_screen_problems.dart:23 (actions e.g. edit address :112), booking_restore.dart:73/228, reservation_edit_states.dart:115-163, shop checkout"
+    },
+    {
+     "id": "S-083",
+     "kind": "dialog",
+     "name": "'Opravdu opustit probíhající platbu?' dialog",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_ui_helpers.dart:17",
+     "entry": "Back / tab tap while payment is processing (payment_screen_problems.dart:465/470, shell_tab_action.dart:30)"
+    }
+   ]
+  },
+  {
+   "key": "payment-2",
+   "title": "After payment: confirmation, result, saved cards",
+   "surfaces": [
+    {
+     "id": "S-084",
+     "kind": "route",
+     "name": "Booking confirmation / thank-you screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_confirmation_screen.dart:72",
+     "entry": "/success (router.dart:280) after paid booking; back handled by BackButtonListener/PopScope :284/:293"
+    },
+    {
+     "id": "S-085",
+     "kind": "section",
+     "name": "Documents status card + 'Nahrát doklady' CTA on confirmation",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_confirmation_screen.dart:771",
+     "entry": "Docs missing (:310) -> /docs (:337/:614)"
+    },
+    {
+     "id": "S-086",
+     "kind": "route",
+     "name": "Payment result screen (shop / edit / verifying)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_result_screen.dart:32",
+     "entry": "/payment-result (router.dart:285) from shop checkout (shop_checkout_screen.dart:311/381), verifying FAB; back via BackButtonListener/PopScope :215/:225"
+    },
+    {
+     "id": "S-087",
+     "kind": "pushed",
+     "name": "Payment methods (saved cards)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_methods_screen.dart:33",
+     "entry": "Profile -> Platební metody (profile_screen.dart:227 MaterialPageRoute)"
+    },
+    {
+     "id": "S-088",
+     "kind": "dialog",
+     "name": "Delete saved card confirmation",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_methods_screen.dart:167",
+     "entry": "Delete on a saved card"
+    },
+    {
+     "id": "S-089",
+     "kind": "sheet",
+     "name": "Add new card sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_methods_screen.dart:228",
+     "entry": "'Přidat kartu' (_addNewCard :226); PopScope :366/:381"
+    }
+   ]
+  },
+  {
+   "key": "reservations-list-detail",
+   "title": "Reservations list and reservation detail shell",
+   "surfaces": [
+    {
+     "id": "S-090",
+     "kind": "route",
+     "name": "Reservations list",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservations_screen.dart:20",
+     "entry": "/reservations (router.dart:387) bottom nav tab 3; auth required"
+    },
+    {
+     "id": "S-091",
+     "kind": "section",
+     "name": "Status filter tabs (Vše / Aktivní / Nadcházející / Dokončené / Zrušené)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservations_screen.dart:124",
+     "entry": "Top of list (:23-28)"
+    },
+    {
+     "id": "S-092",
+     "kind": "section",
+     "name": "Reservation card with state-dependent buttons (detail, edit, SOS, rate, restore)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_card.dart:162",
+     "entry": "Each list row; edit -> /reservations/:id/edit (reservations_screen.dart:190); SOS -> /sos"
+    },
+    {
+     "id": "S-093",
+     "kind": "dialog",
+     "name": "Cancel reservation dialog (from list)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservations_screen.dart:223",
+     "entry": "Card cancel; dialog widget lib/features/reservations/widgets/res_cancel_dialog.dart:15 (PopScope :41/:58)"
+    },
+    {
+     "id": "S-094",
+     "kind": "dialog",
+     "name": "Cancel result dialog (refund amount / failure)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/cancel_result_dialog.dart:14",
+     "entry": "After cancel inside ResCancelDialog (res_cancel_dialog.dart:33)"
+    },
+    {
+     "id": "S-095",
+     "kind": "route",
+     "name": "Reservation detail",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_detail_screen.dart:35",
+     "entry": "/reservations/:id (router.dart:421) from list, Home card, push notification 'booking'/'handover_protocol' (notification_handler.dart:170-176)"
+    },
+    {
+     "id": "S-096",
+     "kind": "section",
+     "name": "Detail tabs: Detail / Podrobnosti o platbě",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_detail_screen.dart:219",
+     "entry": "Tab buttons :219/:225"
+    },
+    {
+     "id": "S-097",
+     "kind": "section",
+     "name": "Payment details tab",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_payment_details_tab.dart:1",
+     "entry": "reservation_detail_screen.dart:296"
+    },
+    {
+     "id": "S-098",
+     "kind": "dialog",
+     "name": "Cancel reservation dialog (from detail)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_detail_screen.dart:302",
+     "entry": "'Zrušit rezervaci' button in detail (res_detail_tab_content.dart:347)"
+    }
+   ]
+  },
+  {
+   "key": "reservation-detail-blocks",
+   "title": "Reservation detail blocks (res_detail_tab_content.dart)",
+   "surfaces": [
+    {
+     "id": "S-099",
+     "kind": "banner",
+     "name": "Paid change banner (bike changed by MotoGo: keep / pick other)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/paid_change_banner.dart:22",
+     "entry": "res_detail_tab_content.dart:87"
+    },
+    {
+     "id": "S-100",
+     "kind": "section",
+     "name": "Status header + rental facts + pickup/return place rows with navigation",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:90",
+     "entry": "Rows :137-170; ResLocationRow lib/features/reservations/widgets/res_location_row.dart:20"
+    },
+    {
+     "id": "S-101",
+     "kind": "banner",
+     "name": "Self-service late-release note (from 12:00) with 'change time' CTA",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:181",
+     "entry": "res.kioskReleasePending (:175-200); CTA only for status reserved (:193)"
+    },
+    {
+     "id": "S-102",
+     "kind": "section",
+     "name": "Financial summary (total, delivery, add-ons, discounts, paid state)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:208",
+     "entry": "Detail tab"
+    },
+    {
+     "id": "S-103",
+     "kind": "section",
+     "name": "Reservation history (changes, SOS, storno)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_modification_history.dart:25",
+     "entry": "res_detail_tab_content.dart:239"
+    },
+    {
+     "id": "S-104",
+     "kind": "section",
+     "name": "Access codes card (door / locker / gate codes, docs prompt)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_access_codes_card.dart:30",
+     "entry": "res_detail_tab_content.dart:244; may push /docs (:45); gate info lib/features/reservations/booking_gate_provider.dart:35"
+    },
+    {
+     "id": "S-105",
+     "kind": "section",
+     "name": "Self-service pickup procedure",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_pickup_procedure.dart:26",
+     "entry": "res_detail_tab_content.dart:247 when ResPickupProcedure.visibleFor"
+    },
+    {
+     "id": "S-106",
+     "kind": "section",
+     "name": "Rating card + ride feedback sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_rating_card.dart:39",
+     "entry": "res_detail_tab_content.dart:251 for finished bookings; sheet lib/features/reservations/widgets/ride_feedback_sheet.dart:20"
+    },
+    {
+     "id": "S-107",
+     "kind": "section",
+     "name": "State-dependent action buttons (final invoice, contract, book again, restore, edit, SOS, cancel)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:250",
+     "entry": "dokoncene :250-285, cancelled :286, aktivni :297-310 (SOS only if res.sosAllowed :303), nadchazejici :338-350"
+    },
+    {
+     "id": "S-108",
+     "kind": "section",
+     "name": "Booking documents buttons (contract, handover protocol, damage protocol)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:319",
+     "entry": "res.inRentalTerm or active (:319); opens via openBookingDoc lib/features/reservations/res_actions.dart:26"
+    },
+    {
+     "id": "S-109",
+     "kind": "sheet",
+     "name": "Restore cancelled booking and pay / refusal sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/booking_restore.dart:37",
+     "entry": "Restore button (:289) -> restoreAndPay; refusal _showRefusal :179 via PaymentErrorSheet"
+    }
+   ]
+  },
+  {
+   "key": "reservation-edit-1",
+   "title": "Reservation edit: tabs, calendar, places, times, price",
+   "surfaces": [
+    {
+     "id": "S-110",
+     "kind": "route",
+     "name": "Reservation edit screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:48",
+     "entry": "/reservations/:id/edit (router.dart:426) from list card edit, detail 'Upravit rezervaci' (res_detail_tab_content.dart:300/341), paid change banner 'pick other'"
+    },
+    {
+     "id": "S-111",
+     "kind": "section",
+     "name": "Edit tabs Prodloužit / Zkrátit / Posunout / Výměna motorky",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1630",
+     "entry": "Move only if canMove (:1416), swap only if canSwap (:1419)"
+    },
+    {
+     "id": "S-112",
+     "kind": "section",
+     "name": "Edit calendar (new dates with booked days)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_calendar_section.dart:30",
+     "entry": "reservation_edit_screen.dart:1444 (not on swap tab, :1656); calendar widget lib/features/reservations/widgets/edit_reservation_calendar.dart"
+    },
+    {
+     "id": "S-113",
+     "kind": "section",
+     "name": "Move tab free-of-charge note",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1660",
+     "entry": "_tab == 'move'"
+    },
+    {
+     "id": "S-114",
+     "kind": "section",
+     "name": "Pickup place / time card (upcoming only)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1675",
+     "entry": "!_isActive and not move/swap; AddressPickerWidget lib/features/booking/widgets/address_picker.dart:47 at :1465"
+    },
+    {
+     "id": "S-115",
+     "kind": "section",
+     "name": "Return place / time card",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1702",
+     "entry": "Not move/swap; return AddressPickerWidget :1482"
+    },
+    {
+     "id": "S-116",
+     "kind": "section",
+     "name": "Shorten tab storno conditions + storno warning",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1726",
+     "entry": "_tab == 'shorten'; _buildStornoWarning :475"
+    },
+    {
+     "id": "S-117",
+     "kind": "section",
+     "name": "Price difference card (surcharge / refund / storno percent)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1737",
+     "entry": "calc.hasChanges and not move/swap"
+    },
+    {
+     "id": "S-118",
+     "kind": "banner",
+     "name": "Missing gear sizes warning in edit",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1784",
+     "entry": "Not move/swap and _missingGearSizes non-empty"
+    },
+    {
+     "id": "S-119",
+     "kind": "section",
+     "name": "Save / pay difference button",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1536",
+     "entry": "saveAction/saveLabel; surcharge -> /payment (:1138)"
+    }
+   ]
+  },
+  {
+   "key": "reservation-edit-2",
+   "title": "Reservation edit: bike change, swap, gear, results",
+   "surfaces": [
+    {
+     "id": "S-120",
+     "kind": "section",
+     "name": "Change bike section (extend/shorten tabs)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_moto_section.dart:17",
+     "entry": "reservation_edit_screen.dart:1494"
+    },
+    {
+     "id": "S-121",
+     "kind": "section",
+     "name": "Swap bike tab (Výměna) with date picker",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_swap_section.dart:33",
+     "entry": "reservation_edit_screen.dart:1425 when canSwap; date picker :176"
+    },
+    {
+     "id": "S-122",
+     "kind": "section",
+     "name": "Edit gear / extras section",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_extras_section.dart:51",
+     "entry": "reservation_edit_screen.dart:1508"
+    },
+    {
+     "id": "S-123",
+     "kind": "sheet",
+     "name": "Boot size sheet (edit)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_extras_section.dart:89",
+     "entry": "Tap boots in edit extras"
+    },
+    {
+     "id": "S-124",
+     "kind": "sheet",
+     "name": "Passenger gear sheet (edit)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_extras_section.dart:142",
+     "entry": "Tap passenger gear in edit extras"
+    },
+    {
+     "id": "S-125",
+     "kind": "section",
+     "name": "Edit confirmation page (change saved / refund)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_confirm_page.dart:13",
+     "entry": "reservation_edit_screen.dart:1282 after a successful save"
+    },
+    {
+     "id": "S-126",
+     "kind": "sheet",
+     "name": "Edit failure / uncertain-result sheets",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_states.dart:115",
+     "entry": "showEditFailure / showEditUncertain (reservation_edit_screen.dart:684/692/1176/1252); :129, :163"
+    }
+   ]
+  },
+  {
+   "key": "documents",
+   "title": "Documents screen, invoices, contracts and document viewers",
+   "surfaces": [
+    {
+     "id": "S-127",
+     "kind": "route",
+     "name": "Documents screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/documents_screen.dart:30",
+     "entry": "/docs (router.dart:289, noNav) from profile (profile_screen.dart:367), docs FAB (shell_fab_layer.dart:230), access codes card (res_access_codes_card.dart:45), payment confirmation (:337/:614)"
+    },
+    {
+     "id": "S-128",
+     "kind": "section",
+     "name": "Scan buttons (scan documents / driving licence only / upload from gallery)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/documents_screen.dart:156",
+     "entry": "Scan -> /docs/scan (:156), DL only (:182), gallery (:216)"
+    },
+    {
+     "id": "S-129",
+     "kind": "section",
+     "name": "Verification status card + 'Doklady neověřeny' warning",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/documents_screen.dart:234",
+     "entry": "Status :245; summary :474-500"
+    },
+    {
+     "id": "S-130",
+     "kind": "section",
+     "name": "Document rows (ID/passport, licence) with scan / delete",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/documents_screen.dart:249",
+     "entry": "Rows :249/:256; row widget :527-562"
+    },
+    {
+     "id": "S-131",
+     "kind": "banner",
+     "name": "Docs gate missing line (what is still missing)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/docs_gate_widgets.dart:56",
+     "entry": "documents_screen.dart:238/:264 when gate not ok (docsGateChecklistProvider lib/features/documents/docs_gate_provider.dart)"
+    },
+    {
+     "id": "S-132",
+     "kind": "sheet",
+     "name": "Gallery: which document is this? sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/docs_gate_widgets.dart:17",
+     "entry": "documents_screen.dart:340"
+    },
+    {
+     "id": "S-133",
+     "kind": "dialog",
+     "name": "Delete document confirmation",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/documents_screen.dart:300",
+     "entry": "Delete on a document row"
+    },
+    {
+     "id": "S-134",
+     "kind": "route",
+     "name": "Invoices",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/invoices_screen.dart:19",
+     "entry": "/invoices (router.dart:441) from profile (:368)"
+    },
+    {
+     "id": "S-135",
+     "kind": "route",
+     "name": "Contracts",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/contracts_screen.dart:39",
+     "entry": "/contracts (router.dart:445) from profile (:369); offline check :224/:253"
+    },
+    {
+     "id": "S-136",
+     "kind": "pushed",
+     "name": "Document web view",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/doc_webview_screen.dart:17",
+     "entry": "booking_doc_viewer.dart:133/184/221, contracts_screen.dart:180/269/419, doc_open_runner.dart:95"
+    },
+    {
+     "id": "S-137",
+     "kind": "pushed",
+     "name": "PDF pages viewer",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/pdf_pages_screen.dart:23",
+     "entry": "booking_doc_viewer.dart:217"
+    },
+    {
+     "id": "S-138",
+     "kind": "section",
+     "name": "Booking document opening flow (progress, offline, retry)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/doc_open_runner.dart:30",
+     "entry": "openBookingDoc (res_actions.dart:26) and final invoice/contract in detail (reservation_detail_screen.dart:328)"
+    }
+   ]
+  },
+  {
+   "key": "doc-scanner",
+   "title": "Document scanner steps (/docs/scan)",
+   "surfaces": [
+    {
+     "id": "S-139",
+     "kind": "route",
+     "name": "Document scanner",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:46",
+     "entry": "/docs/scan (router.dart:293, noNav) with ?mode=missing|missing_id|missing_dl|dl_only from documents screen (documents_screen.dart:56-60)"
+    },
+    {
+     "id": "S-140",
+     "kind": "section",
+     "name": "Scan plan loading",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:1293",
+     "entry": "_planLoading"
+    },
+    {
+     "id": "S-141",
+     "kind": "section",
+     "name": "Choose ID type (ID card / passport / DL only)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:769",
+     "entry": "_idType == null; DL only offered when _offerDlOnly"
+    },
+    {
+     "id": "S-142",
+     "kind": "section",
+     "name": "Camera step (frame, progress dots, skip)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:900",
+     "entry": "_capture :235, skip :1023, dots :1261"
+    },
+    {
+     "id": "S-143",
+     "kind": "section",
+     "name": "Camera error view (open settings / retry / close)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:842",
+     "entry": "Camera permission/init failure"
+    },
+    {
+     "id": "S-144",
+     "kind": "overlay",
+     "name": "Scan result overlay (success / error)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:1043",
+     "entry": "_resultKind success/error"
+    },
+    {
+     "id": "S-145",
+     "kind": "overlay",
+     "name": "Contact fallback overlay (repeated failure)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:1155",
+     "entry": "_resultKind contactFallback; try again anyway :1209"
+    },
+    {
+     "id": "S-146",
+     "kind": "section",
+     "name": "Done / verifying screen and return to /docs",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/documents/document_scanner_screen.dart:1303",
+     "entry": "_stepIdx >= sequence; go /docs (:221/:664/:685) with gate result (:640-669). Note: lib/features/documents/document_camera_screen.dart:11 has no caller (dead code)"
+    }
+   ]
+  },
+  {
+   "key": "profile",
+   "title": "Profile tab and settings",
+   "surfaces": [
+    {
+     "id": "S-147",
+     "kind": "route",
+     "name": "Profile",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/profile_screen.dart:43",
+     "entry": "/profile (router.dart:399); from header/home; auth required"
+    },
+    {
+     "id": "S-148",
+     "kind": "section",
+     "name": "Personal info form (expandable, save)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/profile_screen.dart:402",
+     "entry": "'Osobní údaje' menu item (:364) toggles; save _save (:127); licence group save :164"
+    },
+    {
+     "id": "S-149",
+     "kind": "section",
+     "name": "My account menu (messages badge, documents, invoices, contracts, payment methods, branches, e-shop)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/profile_screen.dart:357",
+     "entry": "Rows :357-370"
+    },
+    {
+     "id": "S-150",
+     "kind": "section",
+     "name": "Settings menu",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/profile_screen.dart:373",
+     "entry": "Rows :374-379"
+    },
+    {
+     "id": "S-151",
+     "kind": "sheet",
+     "name": "Consent sheet (notifications / privacy)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/widgets/consent_sheet.dart:18",
+     "entry": "profile_screen.dart:375/376 -> :562"
+    },
+    {
+     "id": "S-152",
+     "kind": "sheet",
+     "name": "Change password sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/widgets/settings_sheets.dart:24",
+     "entry": "profile_screen.dart:377"
+    },
+    {
+     "id": "S-153",
+     "kind": "sheet",
+     "name": "Language picker sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/widgets/settings_sheets.dart:115",
+     "entry": "profile_screen.dart:378"
+    },
+    {
+     "id": "S-154",
+     "kind": "sheet",
+     "name": "Currency picker sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/widgets/settings_sheets.dart:175",
+     "entry": "profile_screen.dart:379"
+    },
+    {
+     "id": "S-155",
+     "kind": "sheet",
+     "name": "Permissions sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/widgets/settings_sheets.dart:247",
+     "entry": "profile_screen.dart:374"
+    },
+    {
+     "id": "S-156",
+     "kind": "route",
+     "name": "Permissions screen + permission result dialog",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/permissions_screen.dart:20",
+     "entry": "/permissions (router.dart:511); result lib/features/profile/widgets/perm_result.dart:11"
+    },
+    {
+     "id": "S-157",
+     "kind": "section",
+     "name": "Help and other: SOS, FAQ, logout",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/profile_screen.dart:382",
+     "entry": "SOS row :384 (conditional), FAQ :385, logout :389"
+    },
+    {
+     "id": "S-158",
+     "kind": "dialog",
+     "name": "Delete account dialog",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/profile_screen.dart:494",
+     "entry": "profile_screen.dart:390"
+    }
+   ]
+  },
+  {
+   "key": "branches-loyalty-messages",
+   "title": "Branches, loyalty club, messages and AI assistant",
+   "surfaces": [
+    {
+     "id": "S-159",
+     "kind": "route",
+     "name": "Branches list",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/branches/branches_info_screen.dart:19",
+     "entry": "/pobocky (router.dart:449) from profile (:357)"
+    },
+    {
+     "id": "S-160",
+     "kind": "route",
+     "name": "Branch detail (photos, video, bikes)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/branches/branch_detail_screen.dart:23",
+     "entry": "/pobocky/:index (router.dart:453); bikes lib/features/branches/branch_motos_section.dart:21"
+    },
+    {
+     "id": "S-161",
+     "kind": "sheet",
+     "name": "Branches / bikes sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/profile/widgets/branches_sheet.dart:22",
+     "entry": "branches_info_screen.dart:38/58"
+    },
+    {
+     "id": "S-162",
+     "kind": "route",
+     "name": "Loyalty ranks (club)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/loyalty/loyalty_ranks_screen.dart:25",
+     "entry": "/loyalty (router.dart:515) via V2Switch from loyalty rank card"
+    },
+    {
+     "id": "S-163",
+     "kind": "route",
+     "name": "Messages (notifications / conversations tabs)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/messages/messages_screen.dart:20",
+     "entry": "/messages (router.dart:431) from profile (:366), push 'message'/'door_codes' (?n=id), SOS detail; tabs :109/:112"
+    },
+    {
+     "id": "S-164",
+     "kind": "sheet",
+     "name": "New conversation sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/messages/messages_screen.dart:237",
+     "entry": "'Nová zpráva' in messages"
+    },
+    {
+     "id": "S-165",
+     "kind": "route",
+     "name": "Conversation thread",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/messages/thread_detail_screen.dart:21",
+     "entry": "/messages/:id (router.dart:436)"
+    },
+    {
+     "id": "S-166",
+     "kind": "route",
+     "name": "AI assistant chat",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/messages/ai_agent_screen.dart:26",
+     "entry": "/ai-agent (router.dart:507) from Home floating button, SOS screen (sos_report_screen.dart:56/110)"
+    },
+    {
+     "id": "S-167",
+     "kind": "sheet",
+     "name": "AI chat photo source sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/messages/ai_agent_screen.dart:201",
+     "entry": "Attach photo"
+    }
+   ]
+  },
+  {
+   "key": "shop",
+   "title": "E-shop, cart, checkout and vouchers",
+   "surfaces": [
+    {
+     "id": "S-168",
+     "kind": "route",
+     "name": "E-shop",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/shop_screen.dart:18",
+     "entry": "/shop (router.dart:391) from profile (:359), push 'shop_order'"
+    },
+    {
+     "id": "S-169",
+     "kind": "route",
+     "name": "Product detail (size, quantity, add to cart)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/product_detail_screen.dart:22",
+     "entry": "/shop/:id (router.dart:458); size :215, qty :247/:259, add :274"
+    },
+    {
+     "id": "S-170",
+     "kind": "route",
+     "name": "Cart",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/cart_screen.dart:19",
+     "entry": "/cart (router.dart:463) from shop and cart floating button"
+    },
+    {
+     "id": "S-171",
+     "kind": "route",
+     "name": "Shop checkout",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/shop_checkout_screen.dart:42",
+     "entry": "/checkout (router.dart:467) from cart (:48/:172); auth required (router.dart:202); back lock :680/:690"
+    },
+    {
+     "id": "S-172",
+     "kind": "section",
+     "name": "Checkout shipping (delivery method + address)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/widgets/checkout_shipping_section.dart:14",
+     "entry": "shop_checkout_screen.dart:700/771"
+    },
+    {
+     "id": "S-173",
+     "kind": "section",
+     "name": "Checkout payment method card",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/widgets/checkout_payment_card.dart:11",
+     "entry": "shop_checkout_screen.dart:707/780"
+    },
+    {
+     "id": "S-174",
+     "kind": "section",
+     "name": "Checkout summary",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/widgets/checkout_summary_section.dart:11",
+     "entry": "shop_checkout_screen.dart:709/786"
+    },
+    {
+     "id": "S-175",
+     "kind": "section",
+     "name": "Checkout promo / voucher codes card",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/shop_checkout_screen.dart:859",
+     "entry": "Expand :898, apply :956, remove :1022"
+    },
+    {
+     "id": "S-176",
+     "kind": "section",
+     "name": "Checkout pay button",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/shop_checkout_screen.dart:823",
+     "entry": "_finalize; card sheet :529; error sheets :356/:406/:587/:615/:637; result -> /payment-result"
+    },
+    {
+     "id": "S-177",
+     "kind": "route",
+     "name": "Gift voucher purchase",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/shop/voucher_screen.dart:18",
+     "entry": "/voucher (router.dart:471) from shop (:34/:107)"
+    }
+   ]
+  },
+  {
+   "key": "sos",
+   "title": "SOS screens and sheets",
+   "surfaces": [
+    {
+     "id": "S-178",
+     "kind": "route",
+     "name": "SOS start screen",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_report_screen.dart:29",
+     "entry": "/sos (router.dart:475) from Home (home_reservations_section.dart:112), reservation card/detail, profile; auth required"
+    },
+    {
+     "id": "S-179",
+     "kind": "banner",
+     "name": "Active SOS incident banner",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_report_screen.dart:396",
+     "entry": "Existing open incident -> /sos/done (:101)"
+    },
+    {
+     "id": "S-180",
+     "kind": "sheet",
+     "name": "Accident type picker (minor / immobile / theft)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_report_screen.dart:217",
+     "entry": "Accident tile (:170)"
+    },
+    {
+     "id": "S-181",
+     "kind": "sheet",
+     "name": "Breakdown type picker (minor / immobile / service)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_report_screen.dart:252",
+     "entry": "Breakdown tile (:177)"
+    },
+    {
+     "id": "S-182",
+     "kind": "sheet",
+     "name": "SOS report input (description + photos)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_report_sheet.dart:24",
+     "entry": "collectSosReport from sos_report_screen.dart:291; discard confirm :60; PopScope :107"
+    },
+    {
+     "id": "S-183",
+     "kind": "dialog",
+     "name": "SOS failure / location result dialogs",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_feedback.dart:21",
+     "entry": "showSosActionFailed :21, showSosLocationResult :49"
+    },
+    {
+     "id": "S-184",
+     "kind": "route",
+     "name": "SOS accident - bike immobile",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_immobile_screen.dart:20",
+     "entry": "/sos/accident (router.dart:479); fault decision :249, replacement :59, end ride :98"
+    },
+    {
+     "id": "S-185",
+     "kind": "route",
+     "name": "SOS breakdown - bike immobile",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_breakdown_immobile_screen.dart:21",
+     "entry": "/sos/breakdown (router.dart:483)"
+    },
+    {
+     "id": "S-186",
+     "kind": "route",
+     "name": "SOS theft",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_theft_screen.dart:21",
+     "entry": "/sos/theft (router.dart:487)"
+    },
+    {
+     "id": "S-187",
+     "kind": "route",
+     "name": "SOS service (own repair, upload invoice)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_service_screen.dart:23",
+     "entry": "/sos/service (router.dart:491); invoice upload :58, choice dialog :94"
+    },
+    {
+     "id": "S-188",
+     "kind": "route",
+     "name": "SOS replacement bike + delivery address",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_replacement_screen.dart:46",
+     "entry": "/sos/replacement (router.dart:495) from SOS floating button, immobile screens, SOS detail (:338/:473); confirm :85"
+    },
+    {
+     "id": "S-189",
+     "kind": "route",
+     "name": "SOS done / incident detail",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/sos/sos_detail_screen.dart:25",
+     "entry": "/sos/done (router.dart:503); push 'sos' (notification_handler.dart:183)"
+    }
+   ]
+  },
+  {
+   "key": "places",
+   "title": "Places (Místa) tab, POI sheets and community submissions",
+   "surfaces": [
+    {
+     "id": "S-190",
+     "kind": "route",
+     "name": "Places tab (Místa)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/all_pois_screen.dart:47",
+     "entry": "/routes (router.dart:525) bottom nav tab 4"
+    },
+    {
+     "id": "S-191",
+     "kind": "route",
+     "name": "POI picker for route builder",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/all_pois_screen.dart:47",
+     "entry": "/pois (router.dart:310) and pushed pickMode (route_builder_screen.dart:143)"
+    },
+    {
+     "id": "S-192",
+     "kind": "sheet",
+     "name": "POI detail sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_poi_sheet.dart:41",
+     "entry": "Tap a place in list/map"
+    },
+    {
+     "id": "S-193",
+     "kind": "dialog",
+     "name": "POI image viewer + photo credit sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_poi_sheet.dart:595",
+     "entry": "Tap photo; credit :695"
+    },
+    {
+     "id": "S-194",
+     "kind": "sheet",
+     "name": "POI tools sheet (sort/filter)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/all_pois_screen.dart:1203",
+     "entry": "Places toolbar"
+    },
+    {
+     "id": "S-195",
+     "kind": "sheet",
+     "name": "Route picker sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/all_pois_screen.dart:1758",
+     "entry": "Places -> pick route"
+    },
+    {
+     "id": "S-196",
+     "kind": "route",
+     "name": "Places map",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/places_map_screen.dart:35",
+     "entry": "/places-map (router.dart:534)"
+    },
+    {
+     "id": "S-197",
+     "kind": "sheet",
+     "name": "Community add menu (add route / add place)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/community_submit.dart:32",
+     "entry": "Add button in places/routes"
+    },
+    {
+     "id": "S-198",
+     "kind": "pushed",
+     "name": "Submit a place",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/community_submit.dart:174",
+     "entry": "community_submit.dart:100, places_map_screen.dart:94, all_pois_screen.dart:842; discard :282, PopScope :290"
+    },
+    {
+     "id": "S-199",
+     "kind": "pushed",
+     "name": "Submit a route",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_submit_screen.dart:33",
+     "entry": "community_submit.dart:92; discard :211, PopScope :219"
+    },
+    {
+     "id": "S-200",
+     "kind": "sheet",
+     "name": "Submission success sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/submit_common.dart:262",
+     "entry": "After a submission"
+    },
+    {
+     "id": "S-201",
+     "kind": "sheet",
+     "name": "POI reviews editor",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/poi_reviews.dart:82",
+     "entry": "POI detail -> write review"
+    }
+   ]
+  },
+  {
+   "key": "routes-nav",
+   "title": "Recommended routes, route detail, builder and navigation",
+   "surfaces": [
+    {
+     "id": "S-202",
+     "kind": "route",
+     "name": "Recommended routes list",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/routes_screen.dart:44",
+     "entry": "/routes-list (router.dart:529)"
+    },
+    {
+     "id": "S-203",
+     "kind": "sheet",
+     "name": "Routes sort sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/routes_screen.dart:681",
+     "entry": "Routes list toolbar"
+    },
+    {
+     "id": "S-204",
+     "kind": "sheet",
+     "name": "Routes filter sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/routes_screen.dart:951",
+     "entry": "Routes list toolbar"
+    },
+    {
+     "id": "S-205",
+     "kind": "route",
+     "name": "Routes map",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/routes_map_screen.dart:42",
+     "entry": "/routes-map (router.dart:538)"
+    },
+    {
+     "id": "S-206",
+     "kind": "route",
+     "name": "Route detail (full map, export, reviews, booking section)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_detail_screen.dart:26",
+     "entry": "/routes/:id (router.dart:542); full map :663, export sheet :718; bike booking lib/features/routes/ride_booking_section.dart"
+    },
+    {
+     "id": "S-207",
+     "kind": "sheet",
+     "name": "Route reviews sheet + editors",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_reviews.dart:91",
+     "entry": "Route detail; editors :149/:305"
+    },
+    {
+     "id": "S-208",
+     "kind": "route",
+     "name": "Route builder",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_builder_screen.dart:42",
+     "entry": "/route-build (router.dart:321); name sheet lib/features/routes/route_builder_sheets.dart:95; discard :76; PopScope :257"
+    },
+    {
+     "id": "S-209",
+     "kind": "route",
+     "name": "Route navigation (recommended or custom)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_navigation_screen.dart:52",
+     "entry": "/route-nav/:id (router.dart:303) and /route-nav-custom (:354); starts active ride :1087"
+    },
+    {
+     "id": "S-210",
+     "kind": "dialog",
+     "name": "End ride / save custom route dialogs",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_navigation_screen.dart:1126",
+     "entry": "End :1126; save :1184"
+    },
+    {
+     "id": "S-211",
+     "kind": "sheet",
+     "name": "Navigation stops sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/route_nav_widgets.dart:700",
+     "entry": "During navigation"
+    }
+   ]
+  },
+  {
+   "key": "rides",
+   "title": "My experiences, ride recording and ride results",
+   "surfaces": [
+    {
+     "id": "S-212",
+     "kind": "route",
+     "name": "My experiences (created routes / my places / my rides tabs)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/my_experiences_screen.dart:38",
+     "entry": "/my-experiences (router.dart:336); tabs :209/:212"
+    },
+    {
+     "id": "S-213",
+     "kind": "section",
+     "name": "Ride recording controls card (start/stop)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_rec_controls.dart:234",
+     "entry": "my_experiences_screen.dart:594 -> toggleManualRide lib/features/routes/ride_actions.dart:16; start result snack lib/features/routes/ride_start_feedback.dart:12"
+    },
+    {
+     "id": "S-214",
+     "kind": "sheet",
+     "name": "Ride pause / recording status sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_pause_sheet.dart:75",
+     "entry": "Recording chip (:34)"
+    },
+    {
+     "id": "S-215",
+     "kind": "dialog",
+     "name": "Delete saved route confirmation",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/my_experiences_screen.dart:783",
+     "entry": "Delete in my experiences"
+    },
+    {
+     "id": "S-216",
+     "kind": "route",
+     "name": "Ride detail",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_detail_screen.dart:32",
+     "entry": "/ride/:id (router.dart:342); edit texts :209, delete :257"
+    },
+    {
+     "id": "S-217",
+     "kind": "sheet",
+     "name": "Ride point (photo / note) sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_point_sheet.dart:19",
+     "entry": "ride_detail_screen.dart:306/312; PopScope :196"
+    },
+    {
+     "id": "S-218",
+     "kind": "sheet",
+     "name": "Ride share sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_share.dart:120",
+     "entry": "ride_detail_screen.dart:325/461, trip detail :131"
+    },
+    {
+     "id": "S-219",
+     "kind": "pushed",
+     "name": "Trip detail (merged rides)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_trip_detail_screen.dart:26",
+     "entry": "ride_trip_card.dart:40"
+    },
+    {
+     "id": "S-220",
+     "kind": "pushed",
+     "name": "Merge rides into a trip",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_merge_screen.dart:20",
+     "entry": "ride_trip_card.dart:47; min two rides :63"
+    },
+    {
+     "id": "S-221",
+     "kind": "dialog",
+     "name": "Trip name / ride confirm dialogs and trip delete sheet",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_trip_ui.dart:51",
+     "entry": "rideTripNameDialog :51, rideConfirm :88, rideTripDeleteSheet :114"
+    },
+    {
+     "id": "S-222",
+     "kind": "overlay",
+     "name": "Ride recorder watcher (auto prompts, invisible host)",
+     "file": "Motogo-app-main/motogo-app-flutter/lib/features/routes/ride_recorder_watcher.dart:86",
+     "entry": "main.dart:505"
+    }
+   ]
+  }
+ ]
+}

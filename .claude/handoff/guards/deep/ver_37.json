@@ -1,0 +1,96 @@
+{
+ "file": "/tmp/claude-0/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/scratchpad/persona/deep/ver_37.json",
+ "verdicts": [
+  {
+   "id": "G-451",
+   "verdict": "WEAKER",
+   "visible_v2": "silent",
+   "proof": "Old rule confirmed: res_access_codes_card.dart:125-131 (and 70a94933 same) shows localizeServerReason(withheldReason) ?? awaitingDocs in place of the code, black text in a white card. v2: only entry point is the reservation detail (codes are rendered nowhere else; grep doorCodesProvider/DoorCode outside reservations only hits payment_screen release call and push banner text). Same value computed at res_access_codes_card.dart:94-96, drawn in res_codes_v2.dart:164-176: label in onDark #FFFFFF, reason in warnDark #FFD36B, lock icon warnDark, tile fill white 6% - on the #F4F7F5 canvas. lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render. For docs-withheld codes the green MgCta 'Nahrát doklady pro kódy' (res_codes_v2.dart:141-144) still signals the problem, but for the swap-withheld reason ('Vraťte nejdřív původní motorku', no CTA because hasWithheld excludes it, :76) nothing legible explains why there is no code.",
+   "fix_idea": "In the MgV2 branch of res_access_codes_card.dart (:87-103, :167-168, :180-187) wrap the ResCodesV2 output in a dark rounded panel (MgColors.panel / the same surface MgDarkHero uses) so its dark-token text sits on dark, OR add a light variant to ResCodesV2 (ink/lead text, MgColors.warn for withheld reason + lock, MgColors.link or green-dark for code digits). Logic untouched."
+  },
+  {
+   "id": "G-452",
+   "verdict": "HOLDS",
+   "visible_v2": "clear",
+   "proof": "Old: hasWithheld res_access_codes_card.dart:76 (excludes swapWithheldReason), button :145-160 calling _handleReleaseCodes :35-55 (releaseDoorCodes RPC release_my_door_codes reservation_provider.dart:209-221 -> push Routes.docs -> retry -> toast). v2: single entry, the detail codes card; res_access_codes_card.dart:102 passes onRelease: hasWithheld ? () => _handleReleaseCodes(context, ref) : null, rendered as MgCta (neon filled button with own background, readable on light canvas) at res_codes_v2.dart:141-144. Same condition, same handler, same toasts. No other v2 surface calls releaseDoorCodes (grep). Server enforces independently: release_my_door_codes + trg_zz_door_codes_docs_gate (STATE_3/STATE_4). Caveat: the explanation text next to it is the illegible G-451 text.",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-453",
+   "verdict": "WEAKER",
+   "visible_v2": "silent",
+   "proof": "Old: gate info from bookingGateInfoProvider res_access_codes_card.dart:73, order :79-82, gate row + hint :110-117 (bold black value, grey hint). v2: same gate.gateCode and the same sorted list passed at :88-101; res_codes_v2.dart:115-121 numbers tiles 1-2-3 in the same order. But label is onDark #FFFFFF (:164), hint onDarkSecondary #B8D4C6 (:168) and the code digits neon #74FB71 at 30 px (:196) on the light canvas - this also applies to the locker and bike code digits themselves. lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render. Order and data hold; the customer can hardly read the codes or the hint.",
+   "fix_idea": "In the MgV2 branch of res_access_codes_card.dart (:87-103, :167-168, :180-187) wrap the ResCodesV2 output in a dark rounded panel (MgColors.panel / the same surface MgDarkHero uses) so its dark-token text sits on dark, OR add a light variant to ResCodesV2 (ink/lead text, MgColors.warn for withheld reason + lock, MgColors.link or green-dark for code digits). Logic untouched."
+  },
+  {
+   "id": "G-454",
+   "verdict": "WEAKER",
+   "visible_v2": "silent",
+   "proof": "Old: res_access_codes_card.dart:141-142 row 'Kód šatny: Máte vlastní výbavu…' in black on white. v2: same condition passed at :101 (ownGearEffective && no accessories code); res_codes_v2.dart:122-138 draws it as text onDarkLead #CFE7DA inside a faint neon outline on the light canvas. lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render.",
+   "fix_idea": "In the MgV2 branch of res_access_codes_card.dart (:87-103, :167-168, :180-187) wrap the ResCodesV2 output in a dark rounded panel (MgColors.panel / the same surface MgDarkHero uses) so its dark-token text sits on dark, OR add a light variant to ResCodesV2 (ink/lead text, MgColors.warn for withheld reason + lock, MgColors.link or green-dark for code digits). Logic untouched."
+  },
+  {
+   "id": "G-455",
+   "verdict": "WEAKER",
+   "visible_v2": "silent",
+   "proof": "Old: skipError :70 keeps loaded codes; error branch :188-216 white card, grey reason text (g600) and three TextButtons (retry / Zprávy / Zavolat). v2: :180-187 ResCodesV2.error with the same three callbacks; res_codes_v2.dart:88-108 draws a 14% red tint box (errDarkBg) with title onDark #FFFFFF, reason onDarkBody #E8F5EE and MgBtnText dark:true (fg neonText #A8FF9F, mg_buttons.dart ~:267) on the light canvas. Actions and handlers hold; the reason and the three action labels are close to invisible. lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render.",
+   "fix_idea": "In the MgV2 branch of res_access_codes_card.dart (:87-103, :167-168, :180-187) wrap the ResCodesV2 output in a dark rounded panel (MgColors.panel / the same surface MgDarkHero uses) so its dark-token text sits on dark, OR add a light variant to ResCodesV2 (ink/lead text, MgColors.warn for withheld reason + lock, MgColors.link or green-dark for code digits). Logic untouched."
+  },
+  {
+   "id": "G-456",
+   "verdict": "WEAKER",
+   "visible_v2": "small-text",
+   "proof": "Old: :169-175 white card with black title 'Přístupové kódy' and green spinner. v2: :167-168 ResCodesV2.loading -> res_codes_v2.dart:80-87: key icon neon, title onDark #FFFFFF (invisible on #F4F7F5), neon spinner. Only an unlabeled spinner + icon remains visible. lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render.",
+   "fix_idea": "In the MgV2 branch of res_access_codes_card.dart (:87-103, :167-168, :180-187) wrap the ResCodesV2 output in a dark rounded panel (MgColors.panel / the same surface MgDarkHero uses) so its dark-token text sits on dark, OR add a light variant to ResCodesV2 (ink/lead text, MgColors.warn for withheld reason + lock, MgColors.link or green-dark for code digits). Logic untouched."
+  },
+  {
+   "id": "G-457",
+   "verdict": "HOLDS",
+   "visible_v2": "silent",
+   "proof": "doorCodesProvider realtime stream reservation_provider.dart:141-166 and 5 s invalidate in _DetailState reservation_detail_screen.dart:52-60 (skipped offline) are in the shared state; the v2 view is built from the same _DetailState (reservation_detail_screen.dart:163 ResDetailV2View(doorCodesAsync…)) and passed through res_detail_view_v2.dart:97-99 into the same ResAccessCodesCard. Silent in both looks (as before).",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-458",
+   "verdict": "WEAKER",
+   "visible_v2": "small-text",
+   "proof": "Old: visibleFor res_pickup_procedure.dart:28-32, hidden :57; old look a white CollapsibleSection card with title. v2: the same visibleFor check at :57 runs before the MgV2 branch (:75), so the rule holds (no extra bookings see it). But the only v2 entry is the text link ResProcedureV2 (cta false - ResDetailTabContent:247 never sets cta:true; the cta variant is unused) drawn in neonText #A8FF9F with neonText icons (res_procedure_v2.dart:89-96) on the #F4F7F5 canvas, so the offered procedure is barely discoverable. lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render.",
+   "fix_idea": "In ResProcedureV2 non-cta branch (res_procedure_v2.dart:89-96) use a light-page colour (MgColors.link / ink) for the icon, text and chevron, or render it as a white card row like the other detail cards; or pass cta:true from res_detail_tab_content.dart:247 in v2."
+  },
+  {
+   "id": "G-459",
+   "verdict": "WEAKER",
+   "visible_v2": "small-text",
+   "proof": "Steps are computed by the old widget (needsLocker res_pickup_procedure.dart:38-53, steps :61-73) and passed unchanged to ResProcedureV2 (:75-81); the sheet is light (showMgSheet light=true default, mg_sheet.dart:24) and shows them via MgStateSteps (res_procedure_v2.dart:38-43) - content holds and is readable once open. Weaker only because the sheet is reachable solely through the near-invisible neonText link (see G-458).",
+   "fix_idea": "Same as G-458 (make the procedure link legible on the light page)."
+  },
+  {
+   "id": "G-460",
+   "verdict": "WEAKER",
+   "visible_v2": "small-text",
+   "proof": "Old: amber box '⚠️ DŮLEŽITÉ' at res_pickup_procedure.dart:101-112 when gate.hasGate. v2: important passed only when gate.hasGate (:78) and drawn in the light sheet as warnBg box with warn icon (res_procedure_v2.dart:44-62) - clear once open. Reachable only via the neonText link on the light canvas (res_procedure_v2.dart:89-96), so the warning is less likely to be seen than the old visible card title.",
+   "fix_idea": "Same as G-458; optionally show a one-line warn chip next to the link when important != null."
+  },
+  {
+   "id": "G-461",
+   "verdict": "WEAKER",
+   "visible_v2": "silent",
+   "proof": "Rule holds: res_detail_tab_content.dart:250-251 only for st == ResStatus.dokoncene in both looks; the other v2 entry (Home, home_screen_v2.dart:105-113) shows ResRatingCard only for HomeTicket.s10, which home_state.dart:144-155 derives only from a dokoncene booking. Server now also guards it: trg_bookings_rating_guard (STATE_4:18, migration 20261112c02_booking_rating_guard.sql) - server yes. Visibility: in the v2 detail the card uses RatingLook.dark (:251) -> res_rating_dark_v2.dart:44-105: card fill white 6%, title onDark #FFFFFF (:66), question onDarkSecondary (:72), empty stars starOffDark white 25% (:96), hint onDarkMeta (:105) on the light canvas - empty stars and title practically invisible. 70a94933 old look: white card, black title, grey #D1D5DB stars (git show 70a94933 res_detail_tab_content.dart:223-260). lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render.",
+   "fix_idea": "In res_detail_tab_content.dart:251 use RatingLook.light (HomeReviewLightView, onHide null) for the v2 detail, or wrap ResRatingDarkV2 in a dark panel; logic in _rate unchanged."
+  },
+  {
+   "id": "G-462",
+   "verdict": "HOLDS",
+   "visible_v2": "clear",
+   "proof": "All v2 star taps call the same _rate (res_rating_card.dart:62-91: same star ignored, optimistic _pending, serial chain, revert + FriendlyError toast on error, thanks toast): dark detail res_rating_dark_v2.dart:89 onTap: onRate(i+1) wired at res_rating_card.dart:119-130; Home light view wired at :132-145. Toasts are the same showMotoGoToast. Note: 70a94933 had no revert-on-error (stars stayed; toast only) - current behaviour is stricter in both looks. Discovering the empty stars is covered by G-461.",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-463",
+   "verdict": "WEAKER",
+   "visible_v2": "silent",
+   "proof": "Rule holds: rating == 0 -> nothing, else _followUp (res_rating_dark_v2.dart:110), same two tiles in same order (:168-171) with the same _openGoogle/_openFeedback. But in the v2 detail the thanks title (onDark, :165), subtitle (onDarkSecondary :166), tile titles (onDark :149), captions (onDarkMeta :152), tile fill white 8% and leading disc MgColors.surface (:138) sit on the light canvas - only the Google G badge, edit icon and chevron are visible. In 70a94933 the Google review was a separate visible outlined button in the completed section; the current code removed it (comment res_detail_tab_content.dart ~:275), so in v2 detail the Google review / private feedback choices are effectively hidden. lib/ = Motogo-app-main/motogo-app-flutter/lib. Placement verified: ResDetailV2View (features/reservations/v2/res_detail_view_v2.dart:87-107) puts ResDetailTabContent as a sliver of MgPage, whose default background is MgColors.canvas #F4F7F5 (core/v2/chrome/mg_page.dart:74); ResDetailTabContent places ResAccessCodesCard / ResPickupProcedure / ResRatingCard directly in the SliverList (widgets/res_detail_tab_content.dart:244, 247, 251) with no dark container; ResCoTedV2 / any dark hero for these widgets no longer exists in features/reservations (grep finds no instance). Tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF :22, onDarkBody #E8F5EE :23, onDarkLead #CFE7DA :24, onDarkSecondary #B8D4C6 :25, onDarkMeta #9FC4B1 :26, warnDark #FFD36B :57, errDarkBg 14% red :63, starOffDark white 25% :68, neonText #A8FF9F :11. Not confirmed by a render.",
+   "fix_idea": "Same as G-461 (light rating look or dark panel in the v2 detail)."
+  }
+ ]
+}

@@ -1,0 +1,304 @@
+{
+ "title": "Login, registration and password reset - part 4 of 4 (G-084..G-097; mainly reset_password_screen.dart, auth_provider.dart, router.dart)",
+ "guards": [
+  {
+   "id": "G-084",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 1: the e-mail is empty or has no '@'; no code is sent.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:92-98 (_sendCode)",
+   "customer_sees": "Toast ⚠️ 'email' + 'validEmailMsg'.",
+   "visible": "small-text",
+   "server": "partly (send-recovery-otp answers the same for unknown addresses - anti-enumeration)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:94 (_v2Field 'email' -> red text under the field) ; button lib/features/auth/v2/reset_view_v2.dart:169 and keyboard Done :166 (m.onSend = _sendCode)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _sendCode check from both v2 entry points; v2 shows the error under the field.",
+   "evidence": "Same _sendCode check from both v2 entry points; v2 shows the error under the field.",
+   "sources": [
+    "auth-48"
+   ]
+  },
+  {
+   "id": "G-085",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 1: the code e-mail cannot be sent (server >= 500, network, limit); the customer stays on step 1.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:100-116 ; lib/features/auth/auth_provider.dart:431-455 (resetPassword -> edge function send-recovery-otp)",
+   "customer_sees": "Toast ✗ 'eoCodeSendFail' + reason, 7 s.",
+   "visible": "small-text",
+   "server": "yes(send-recovery-otp edge function)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:106-108 -> lib/features/auth/v2/login_states_v2.dart:377-389 (showAuthErrorV2 red sheet)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same service call; v2 red sheet with 'Zkusit znovu' that waits for the customer.",
+   "evidence": "Same service call; v2 red sheet with 'Zkusit znovu' that waits for the customer.",
+   "sources": [
+    "auth-49"
+   ]
+  },
+  {
+   "id": "G-086",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 1/2: the code is requested again within 60 seconds for the same address; the server silently sends no new e-mail but answers success.",
+   "old_where": "supabase/functions/send-recovery-otp/index.ts:182-191 (cooldown 60 s via message_log)",
+   "customer_sees": "'Code sent' toast although no new mail goes out.",
+   "visible": "silent",
+   "server": "yes(send-recovery-otp cooldown)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/v2/reset_view_v2.dart:216 (resend) and lib/features/auth/reset_password_screen.dart:151-154 (v2 'Poslat nový kód' on verify error) -> same _sendCode"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Server-side rule, identical for both looks; v2 adds a second resend entry (the verify-error sheet) that goes through the same _sendCode and the same server cooldown.",
+   "evidence": "Server-side rule, identical for both looks; v2 adds a second resend entry (the verify-error sheet) that goes through the same _sendCode and the same server cooldown.",
+   "sources": [
+    "auth-50"
+   ]
+  },
+  {
+   "id": "G-087",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 1: an unknown e-mail is not revealed; the flow continues to the code step but no code arrives, so the customer cannot get further.",
+   "old_where": "lib/features/auth/auth_provider.dart:441-447 (success also for unknown e-mail) ; supabase/functions/send-recovery-otp/index.ts:175-177",
+   "customer_sees": "Step 2 'enter code' as usual.",
+   "visible": "silent",
+   "server": "yes(send-recovery-otp anti-enumeration)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:118-128 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same service, same step change.",
+   "evidence": "Same service, same step change.",
+   "sources": [
+    "auth-51"
+   ]
+  },
+  {
+   "id": "G-088",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 2: fewer than 8 digits typed; the code is not checked. The field accepts digits only and at most 8.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:133-139 (_verifyCode code.length < 8) ; field :460-475 (maxLength 8, FilteringTextInputFormatter.digitsOnly)",
+   "customer_sees": "Toast ⚠️ 'codeLabel' + 'enter8DigitCode'.",
+   "visible": "small-text",
+   "server": "yes(Supabase Auth verifyOTP rejects a wrong code)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:135 (_v2Field 'code') ; lib/features/auth/v2/code_boxes_v2.dart:370-381 (maxLength 8, digitsOnly) ; paste lib/features/auth/v2/reset_view_v2.dart:179-185 (asmDigits keeps digits, max 8)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same length check; the v2 boxes use the same formatter and the paste button strips non-digits and caps at 8, so no path enters a longer or non-numeric code.",
+   "evidence": "Same length check; the v2 boxes use the same formatter and the paste button strips non-digits and caps at 8, so no path enters a longer or non-numeric code.",
+   "sources": [
+    "auth-52"
+   ]
+  },
+  {
+   "id": "G-089",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 2: the code is wrong or expired; the customer stays on step 2.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:141-163 ; lib/features/auth/auth_provider.dart:463-477 (verifyOtp, PasswordFlowErrors.otp)",
+   "customer_sees": "Toast ✗ 'eoOtpVerifyFail' + reason, 8 s.",
+   "visible": "small-text",
+   "server": "yes(Supabase Auth verifyOTP)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:147-155 (showAuthErrorV2 with 'Poslat nový kód' -> _sendCode)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same verify call; v2 red sheet with a button that re-sends the code through the normal _sendCode (e-mail re-validated).",
+   "evidence": "Same verify call; v2 red sheet with a button that re-sends the code through the normal _sendCode (e-mail re-validated).",
+   "sources": [
+    "auth-53"
+   ]
+  },
+  {
+   "id": "G-090",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 2: 'Resend code' is disabled while a request runs.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:479-482 (TextButton onPressed: _loading ? null : _sendCode)",
+   "customer_sees": "Greyed-out link.",
+   "visible": "clear",
+   "server": "yes(send-recovery-otp cooldown)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/v2/reset_view_v2.dart:215-217 (MgBtnText onTap: m.loading ? null : m.onSend; mg_buttons.dart:72-76 greys a null onTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "auth-54"
+   ]
+  },
+  {
+   "id": "G-091",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Any step: the main button (Send code / Verify / Set password) cannot be pressed twice while the request runs.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:624-625 (PressableScale enabled: !_loading; onPressed: _loading ? null : onPressed)",
+   "customer_sees": "Spinner in the button, button inactive.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:255-257 (onSend/onVerify/onSet = () {} while loading) ; lib/features/auth/v2/reset_view_v2.dart:130-132 (MgCta busy)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "In v2 even the keyboard Done key is a no-op while loading (the old look's onSubmitted calls the handler directly, reset_password_screen.dart:420/475/576) - v2 is stricter.",
+   "evidence": "In v2 even the keyboard Done key is a no-op while loading (the old look's onSubmitted calls the handler directly, reset_password_screen.dart:420/475/576) - v2 is stricter.",
+   "sources": [
+    "auth-55"
+   ]
+  },
+  {
+   "id": "G-092",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 3: new password shorter than 8 characters; it is not saved.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:175-180",
+   "customer_sees": "Toast ⚠️ 'password' + 'passwordMinLengthMsg'.",
+   "visible": "small-text",
+   "server": "partly (Supabase Auth updateUser enforces its own minimum; value not visible in repo)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:176 (_v2Field 'pass1') ; live hint chips lib/features/auth/v2/reset_view_v2.dart:254-272"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same check; v2 shows the error under the field and live 'min 8' / 'match' chips computed with the same rules.",
+   "evidence": "Same check; v2 shows the error under the field and live 'min 8' / 'match' chips computed with the same rules.",
+   "sources": [
+    "auth-56"
+   ]
+  },
+  {
+   "id": "G-093",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 3: the two new passwords differ; nothing is saved.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:181-186",
+   "customer_sees": "Toast ⚠️ 'password' + 'passwordsNoMatch'.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:182 (_v2Field 'pass2')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same check, inline error in v2.",
+   "evidence": "Same check, inline error in v2.",
+   "sources": [
+    "auth-57"
+   ]
+  },
+  {
+   "id": "G-094",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 3: saving the new password fails on the server; the customer stays on step 3.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:188-204 ; lib/features/auth/auth_provider.dart:480-488 (updatePassword, PasswordFlowErrors.update)",
+   "customer_sees": "Toast ✗ 'eoPwSaveFail' + reason, 8 s.",
+   "visible": "small-text",
+   "server": "yes(Supabase Auth updateUser)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:194-196 (showAuthErrorV2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same call, red sheet in v2.",
+   "evidence": "Same call, red sheet in v2.",
+   "sources": [
+    "auth-58"
+   ]
+  },
+  {
+   "id": "G-095",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Step 3 success: the temporary recovery login is signed out and the customer must log in again with the new password.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:206-215 (AuthService.signOut, recoveryInProgress = false, toast, context.go(login))",
+   "customer_sees": "Toast 'passwordChanged' / 'loginWithNewPassword' and the login screen.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:206-215 (shared; v2 onSet = _setPassword :257)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler for both looks.",
+   "evidence": "Same handler for both looks.",
+   "sources": [
+    "auth-59"
+   ]
+  },
+  {
+   "id": "G-096",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-031 Password reset steps 1-3",
+   "situation": "Back on step 2 or 3 goes to the previous step (typed e-mail and code kept); only step 1 can leave the screen. Known gap in BOTH looks: after a verified code (step 3) the customer can go back to step 1 and to login without setting a new password; the recovery session stays signed in and the router then sends them to Home.",
+   "old_where": "lib/features/auth/reset_password_screen.dart:82-88 (_onBack), 228-232 (PopScope canPop only on step 1) ; router.dart:245-250 (login while logged in -> home)",
+   "customer_sees": "Previous step; from step 1 the login screen (or Home if the recovery login is active).",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/reset_password_screen.dart:241-243 (MgEdgeBack) ; lib/features/auth/v2/reset_view_v2.dart:74 (MgV2Back -> _onBack)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 back path uses the same _onBack and the same PopScope; the 'skip step 3' gap is not caused by v2 - it exists identically in the old look on this branch (and in 4.1.3 step 3 was never shown at all).",
+   "evidence": "Every v2 back path uses the same _onBack and the same PopScope; the 'skip step 3' gap is not caused by v2 - it exists identically in the old look on this branch (and in 4.1.3 step 3 was never shown at all).",
+   "sources": [
+    "auth-60"
+   ]
+  },
+  {
+   "id": "G-097",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "Router",
+   "situation": "A customer who is not logged in follows a link to the bike list, a bike detail, the shop, the cart, the voucher page, My documents, the document scanner, branches, routes or the AI agent; these paths are NOT in the protected list, so they open without login. The protection starts at the next step (booking form, checkout, messages).",
+   "old_where": "lib/core/router.dart:184-203 (paths missing from _authRequired: /search, /moto/:id, /shop, /cart, /voucher, /docs, /docs/scan, /pobocky, /ai-agent, /permissions, /loyalty, /routes...); document upload refuses without a user: lib/features/documents/document_provider.dart:491-494 (not_authenticated); booking insert refuses: lib/features/payment/payment_screen.dart:572-577",
+   "customer_sees": "The screen itself; a later step sends them to login or fails with an error.",
+   "visible": "silent",
+   "server": "yes for writes (RLS / not_authenticated); browsing is public",
+   "v2_entry_points": [
+    "same deep links, v2 detail dock REZERVOVAT, v2 calculator BOOK, v2 shop"
+   ],
+   "v2_where": [
+    "lib/core/router.dart:184-203 unchanged and shared; startBookingFromSelection pushes /booking (lib/features/booking/booking_entry.dart:68,90) which the redirect catches"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same gap in both looks (identical router list). Reported because a 50-year-old customer can land on /docs logged out and see an empty status; not a v2 regression.",
+   "evidence": "Same gap in both looks (identical router list). Reported because a 50-year-old customer can land on /docs logged out and see an empty status; not a v2 regression.",
+   "sources": [
+    "mx-start-02"
+   ],
+   "notes": [
+    "mx-start-02: Same gap in both looks (identical router list). Reported because a 50-year-old customer can land on /docs logged out and see an empty status; not a v2 regression."
+   ]
+  }
+ ]
+}

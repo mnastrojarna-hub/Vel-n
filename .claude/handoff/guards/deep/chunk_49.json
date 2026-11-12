@@ -1,0 +1,428 @@
+{
+ "title": "Reservation edit: tabs, calendar, places, times, price - part 4 of 5 (G-599..G-612; mainly reservation_edit_screen.dart, reservation_edit_extras_section.dart, reservation_edit_price_calc.dart)",
+ "guards": [
+  {
+   "id": "G-599",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-116",
+   "situation": "When days are removed, a coloured warning says how much will be refunded (100 / 50 / 0 %), computed from the NEW start like the server.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:475-520 (_buildStornoWarning), :1733 (only if diffDays < 0)",
+   "customer_sees": "Green / amber / red banner with icon and refund100/50/0 text.",
+   "visible": "clear",
+   "server": "partly: process-refund caps to the overpayment; storno % on the app's direct UPDATE is not re-derived server-side (not found)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1573-1575 (same StornoCalc.effectiveRefundPercent), lib/features/reservations/v2/res_edit_notes_v2.dart:42-58 (MgStateBanner ok/warn/err)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same percent, same tones.",
+   "evidence": "Same percent, same tones.",
+   "sources": [
+    "reservation-edit-1-49"
+   ]
+  },
+  {
+   "id": "G-600",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-116 / S-125 Edit confirmation page / Edit reservation",
+   "situation": "A shortening or cheaper change was saved but the refund failed or was only partial; the page does not promise money back.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1182-1212 (process-refund, refundFellShort, pdRefundManual)",
+    "lib/features/reservations/reservation_edit_screen.dart:1190-1211 (refundOk / refundFellShort lib/features/reservations/widgets/reservation_edit_states.dart:221-226), :1225-1238 (message pdRefundManual, isRefund only if refundOk)",
+    "lib/features/reservations/reservation_edit_screen.dart:1723-1731 (storno note + _buildStornoWarning :474-520), :1131-1250 (save first, then process-refund; refundFellShort -> pdRefundManual)"
+   ],
+   "customer_sees": "Title 'Zkrácení potvrzeno' with text that staff will finish the refund; amber refund icon only when the refund really went through.",
+   "visible": "small-text",
+   "server": [
+    "yes(process-refund overpayment cap + trg_cap_refund_to_paid, SUPABASE_BACKEND_STATE_4.md:100)",
+    "yes(process-refund edge function returns partial / amount_refunded)",
+    "yes(process-refund; _apply_booking_changes_core storno %)"
+   ],
+   "v2_entry_points": [
+    "v2 edit shorten tab"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193 (shared _save)",
+    "lib/features/reservations/v2/res_edit_states_v2.dart:67-74 (same message; refund icon MgIcons.refresh only when isRefund)",
+    "lib/features/reservations/v2/res_edit_view_v2.dart:172-175 (ResEditNoteV2 + ResStornoWarningV2 with the same StornoCalc.effectiveRefundPercent, lib/features/reservations/reservation_edit_screen.dart:1574-1576); lib/features/reservations/v2/res_edit_price_v2.dart:108-114"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "Same title/message strings and the same isRefund flag; v2 uses the green 'ok' tone for both cases instead of amber for refunds.",
+   "sources": [
+    "reservation-edit-1-50",
+    "reservation-edit-2-47",
+    "mx-rental-43"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-50",
+     "situation": "The refund is executed only after the change is saved, and only as much as the storno % allows; a failed or partial refund is reported honestly."
+    },
+    {
+     "source": "mx-rental-43",
+     "situation": "Shortening an upcoming booking: the storno rules and the refund percentage computed from the NEW start are shown; the refund is paid only after the change is saved, and a failed or partial refund is reported honestly instead of promising money."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-1-50": "clear",
+    "reservation-edit-2-47": "small-text",
+    "mx-rental-43": "clear"
+   }
+  },
+  {
+   "id": "G-601",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-117",
+   "situation": "Price overview appears only when something changed and not on move/swap tabs.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1737",
+   "customer_sees": "Price card.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:127,176"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-1-51"
+   ]
+  },
+  {
+   "id": "G-602",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-117",
+   "situation": "Result line: Doplatek (red, +) / Vrácení (green) / Rozdíl.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1762-1768",
+   "customer_sees": "Label and coloured amount.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_price_v2.dart:178-182, 211-227"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same labels and sign.",
+   "evidence": "Same labels and sign.",
+   "sources": [
+    "reservation-edit-1-52"
+   ]
+  },
+  {
+   "id": "G-603",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-117 / Edit reservation",
+   "situation": "Card minimum: a surcharge of 1–15 Kč is charged as 15 Kč, up to 1 Kč is waived; explained before paying.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1770-1775; lib/features/payment/widgets/card_rounding_note.dart:33-35",
+    "lib/features/reservations/reservation_edit_screen.dart:1077 (cardCharge), :1531-1545 (saveLabel pdSaveFree / proceedToPayment +amount), :1767-1773 (CardRoundingNote)"
+   ],
+   "customer_sees": "Amber info note.",
+   "visible": "small-text",
+   "server": [
+    "yes(per comment Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1084-1086 the server writes the rounding; not verified in edge code)",
+    "yes(process-payment rounding)"
+   ],
+   "v2_entry_points": [
+    "v2 price card + dock"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_price_v2.dart:232-236; lib/features/payment/v2/pay_parts_v2.dart:173-180",
+    "lib/features/reservations/v2/res_edit_price_v2.dart:101-106 (PayRoundingNoteV2 under the same rule); lib/features/reservations/reservation_edit_screen.dart:1572-1585"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same rule (isRound / isWaive).",
+   "evidence": "Same rule (isRound / isWaive).",
+   "sources": [
+    "reservation-edit-1-53",
+    "mx-rental-42"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-42",
+     "situation": "Card minimum: a surcharge of up to 1 Kč is waived (saved without payment), 1–15 Kč is charged as 15 Kč; the customer is told before paying."
+    }
+   ]
+  },
+  {
+   "id": "G-604",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-117",
+   "situation": "Storno percentage line under the result when days are removed (also at 0 Kč).",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1777-1780",
+   "customer_sees": "Small grey line.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_price_v2.dart:238-243"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-1-54"
+   ]
+  },
+  {
+   "id": "G-605",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-117",
+   "situation": "Discount is re-computed on the new content (variant B) and shown as old → new.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1758-1760; lib/features/reservations/reservation_edit_price_calc.dart:417-433",
+   "customer_sees": "Row \"discountLabel\".",
+   "visible": "small-text",
+   "server": "unknown for the direct UPDATE path",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_price_v2.dart:175-176"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same calc object.",
+   "evidence": "Same calc object.",
+   "sources": [
+    "reservation-edit-1-55"
+   ]
+  },
+  {
+   "id": "G-606",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-117",
+   "situation": "Late-pickup (from 12:00) discount: moving the pickup time before 12:00 or below 2 days loses it; the price row shows the impact.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1747-1749; lib/features/reservations/reservation_edit_price_calc.dart:361-397",
+   "customer_sees": "Row \"latePickupDiscountLabel\" with +/−.",
+   "visible": "small-text",
+   "server": "yes(trg_validate_late_pickup_update, SUPABASE_BACKEND_STATE_4.md:117)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_price_v2.dart:169-170"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same calc.",
+   "evidence": "Same calc.",
+   "sources": [
+    "reservation-edit-1-56"
+   ]
+  },
+  {
+   "id": "G-607",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-117 / S-122 Edit gear / extras section",
+   "situation": "From loyalty rank loyaltyFreeGearLevel paid gear is free, but only on bookings made in the app; web bookings edited in the app still pay.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:254-259, 396-400",
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:73-74 (_gearFree), :363-374 (benefit banner), :266 ('ZDARMA' price); level from lib/features/reservations/reservation_edit_screen.dart:254-255 (_appOnlyLevel: booking_source == 'app')"
+   ],
+   "customer_sees": "Medal banner 'loyaltyGearBenefit' and 'ZDARMA' instead of prices.",
+   "visible": "clear",
+   "server": [
+    "no for the direct UPDATE path (trg_validate_app_loyalty is BEFORE INSERT only, SUPABASE_BACKEND_STATE_4.md:114)",
+    "yes(update_booking_gear / _apply_booking_changes_core per code comment Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:250-253)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared _calc used by lib/features/reservations/reservation_edit_screen.dart:1560",
+    "lib/features/reservations/v2/res_edit_extras_v2.dart:62-74 (crown icon + same text) and lib/features/reservations/widgets/reservation_edit_extras_section.dart:285, :304, :318 (price 'gearFree')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same calc.",
+   "evidence": "Same _gearFree from the same loyaltyLevel.",
+   "sources": [
+    "reservation-edit-1-57",
+    "reservation-edit-2-35"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-57",
+     "situation": "Loyalty advantages (gear price, % off a surcharge) only for app bookings, never for web bookings edited in the app."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-1-57": "silent",
+    "reservation-edit-2-35": "clear"
+   }
+  },
+  {
+   "id": "G-608",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-118 / S-122 Edit gear / extras section / Edit reservation",
+   "situation": "Without own gear, a customer who changed the rider gear must keep at least one basic size (helmet, jacket, pants or gloves); otherwise saving is blocked.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:562-570 (gearBasicPickOne)",
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:487-496 (hint 'gearBasicPickOne' under the pickers); lib/features/reservations/reservation_edit_screen.dart:562-570 (riderTouched && !_ownGear && all empty), save disabled :1538",
+    "lib/features/reservations/reservation_edit_screen.dart:552-610 (_missingGearSizes), :1736-1755 (yellow warning), :792-799 (toast on save)"
+   ],
+   "customer_sees": "Amber hint under the pickers, amber banner above the save button, grey save button.",
+   "visible": "clear",
+   "server": [
+    "unknown",
+    "no (no server rule found; locker code just not issued)",
+    "unknown (gear sizes are not validated by a found trigger)"
+   ],
+   "v2_entry_points": [
+    "v2 edit body banner + dock"
+   ],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1576 (missingSizes) + lib/features/reservations/v2/res_edit_notes_v2.dart:113-128 (MgStateBanner warn) + lib/features/reservations/v2/res_edit_view_v2.dart:178; disabled CTA :193-194",
+    "lib/features/reservations/v2/res_edit_extras_v2.dart:101-111 (EditPickOneV2 with warning icon) + lib/features/reservations/v2/res_edit_view_v2.dart:178 + :194",
+    "lib/features/reservations/reservation_edit_screen.dart:1578 (missingSizes) -> lib/features/reservations/v2/res_edit_view_v2.dart:178 ResMissingSizesV2 (lib/features/reservations/v2/res_edit_notes_v2.dart:113-128); dock disabled via the same saveAction"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same list function.",
+   "evidence": "Same condition and texts; save disabled through the same saveAction.",
+   "sources": [
+    "reservation-edit-1-58",
+    "reservation-edit-2-38",
+    "mx-rental-36"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-58",
+     "situation": "Without \"own gear\", if the rider changed his gear in this edit, at least one basic gear piece must be chosen."
+    },
+    {
+     "source": "mx-rental-36",
+     "situation": "Required gear sizes: without \"own gear\" at least one basic rider item must be chosen (only if the rider gear was touched); paid add-ons (boots, passenger gear) need sizes; self-service branch limits helmet S–3XL and clothes to 4XL; an active rental skips the check."
+    }
+   ]
+  },
+  {
+   "id": "G-609",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-118 / S-122 Edit gear / extras section",
+   "situation": "Driver or passenger boots are ticked without a size (on delivery, or newly added/changed); saving is blocked.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:578-586",
+    "lib/features/reservations/reservation_edit_screen.dart:580-587 (need('boty_ridic'/'boty_spolujezdec') && size == null), card sub 'clickToSelectSize' lib/features/reservations/widgets/reservation_edit_extras_section.dart:272-276"
+   ],
+   "customer_sees": "Card line 'Klikni pro výběr velikosti', amber missing-sizes banner, grey save button.",
+   "visible": "clear",
+   "server": [
+    "unknown",
+    "no (no server rule found)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1576",
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:303, :317 (same _bootsSub) and lib/features/reservations/v2/res_edit_view_v2.dart:178, :194"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same list.",
+   "evidence": "Same rule; v2 row passes needSize:false (no extra orange highlight), which matches the old card that also had no warning colour on the row.",
+   "sources": [
+    "reservation-edit-1-59",
+    "reservation-edit-2-39"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-59",
+     "situation": "Paid driver boots / passenger boots must have a size (always for delivery, otherwise when added or changed)."
+    }
+   ]
+  },
+  {
+   "id": "G-610",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-118 / S-122 Edit gear / extras section",
+   "situation": "Passenger gear is ticked but no passenger size is chosen; saving is blocked (at least one piece needed).",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:588-598 (gearPassenger)",
+    "lib/features/reservations/reservation_edit_screen.dart:589-599 ('gearPassenger')"
+   ],
+   "customer_sees": "Amber missing-sizes banner and grey save button.",
+   "visible": "clear",
+   "server": [
+    "unknown",
+    "no"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1576",
+    "lib/features/reservations/v2/res_edit_view_v2.dart:178, :194"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same list.",
+   "evidence": "Same _missingGearSizes list.",
+   "sources": [
+    "reservation-edit-1-60",
+    "reservation-edit-2-40"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-60",
+     "situation": "Paid passenger gear: at least one passenger piece must have a size."
+    }
+   ]
+  },
+  {
+   "id": "G-611",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-118 / S-122 Edit gear / extras section",
+   "situation": "An older booking has a size outside the self-service range and the customer changes gear or moves to a self-service bike; saving is locked until a valid size is picked.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:604-618 (gearSizeSelfServiceLimit)",
+    "lib/features/reservations/reservation_edit_screen.dart:604-618 (_missingGearSizes adds 'gearSizeSelfServiceLimit'), save disabled :1538, banner :1784-1802"
+   ],
+   "customer_sees": "Amber banner 'Doplň velikosti výbavy' listing the missing item; grey save button.",
+   "visible": "clear",
+   "server": [
+    "unknown for moto bookings (_gear_ss_size_ok exists for gear RPCs, SUPABASE_BACKEND_STATE_3.md:29)",
+    "unknown"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1576",
+    "lib/features/reservations/reservation_edit_screen.dart:1576 (missingSizes) and :1582 (onSave null) -> lib/features/reservations/v2/res_edit_view_v2.dart:178 (ResMissingSizesV2, res_edit_notes_v2.dart:118-125) and :190-196 (MgCta enabled: onSave != null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same list.",
+   "evidence": "Same list, same banner texts, CTA disabled.",
+   "sources": [
+    "reservation-edit-1-61",
+    "reservation-edit-2-33"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-61",
+     "situation": "Self-service branch: sizes outside the kiosk range (helmet S–3XL, jacket/pants/gloves ≤ 4XL) block saving when changed or when moving to a self-service bike."
+    }
+   ]
+  },
+  {
+   "id": "G-612",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-118",
+   "situation": "For an active rental the gear check is skipped (gear cannot be changed then), so extension is not blocked.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:551",
+   "customer_sees": "Nothing.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1576"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same list function.",
+   "evidence": "Same list function.",
+   "sources": [
+    "reservation-edit-1-62"
+   ]
+  }
+ ]
+}

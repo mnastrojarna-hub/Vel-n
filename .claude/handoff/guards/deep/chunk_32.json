@@ -1,0 +1,429 @@
+{
+ "title": "Reservations list and reservation detail shell - part 2 of 5 (G-384..G-397; mainly reservation_card.dart, booking_restore.dart, reservations_screen.dart)",
+ "guards": [
+  {
+   "id": "G-384",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092",
+   "situation": "Upcoming booking (including \"term started, bike not handed over\") on the list: only Detail and Upravit; no SOS and no storno on the card.",
+   "old_where": "lib/features/reservations/widgets/reservation_card.dart:167-171",
+   "customer_sees": "Buttons \"Detail\", \"Upravit\".",
+   "visible": "clear",
+   "server": "n/a (no action offered)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_card_actions_v2.dart:355-356 and :409-410; label may read \"KÓDY A POSTUP\" on the primary card of a paid self-service pickup in term (:290-300) but the tap is the same onTap (detail)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same set of actions; the alternative label opens the same detail.",
+   "evidence": "Same set of actions; the alternative label opens the same detail.",
+   "sources": [
+    "reservations-list-detail-16"
+   ]
+  },
+  {
+   "id": "G-385",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092 / S-110 / Reservation detail",
+   "situation": "A customer wants to edit a reservation that is completed or cancelled; the Edit button is only offered for upcoming (nadchazejici) and active (aktivni) reservations, and the late-pickup shortcut only for status reserved. The edit screen itself has NO status check of its own, so a hand-typed deep link to a finished reservation would open it in both looks.",
+   "old_where": [
+    "lib/features/reservations/widgets/reservation_card.dart:163 and :170 (if onEdit != null); lib/features/reservations/reservations_screen.dart:190 (always passed)",
+    "lib/features/reservations/widgets/reservation_card.dart:158-171; lib/features/reservations/widgets/res_detail_tab_content.dart:179,196-198,296-302,336-343",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:297-311 (st == ResStatus.aktivni) and :338-350 (st == ResStatus.nadchazejici); st = Reservation.displayStatus (reservation_models.dart:388-394)"
+   ],
+   "customer_sees": "No Edit button on completed/cancelled cards and detail; Edit only on upcoming/active.",
+   "visible": "clear",
+   "server": [
+    "see edit-screen bucket (not traced here)",
+    "partly: trg_guard_booking_delivery acts only on reserved/active; no general status gate on a direct customer UPDATE found (unknown)",
+    "no (the edit route /reservations/:id/edit has no server or router status check; the server checks individual writes)"
+   ],
+   "v2_entry_points": [
+    "v2 detail (ResDetailV2View -> ResDetailTabContent), v2 list card (ResCardActionsV2), deep link /reservations/:id/edit"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:150 (same push); lib/features/reservations/v2/res_card_actions_v2.dart:349, :354, :356, :407, :410",
+    "lib/features/reservations/v2/res_card_actions_v2.dart:120-131 (Edit only in aktivni/nadchazejici branches); lib/features/reservations/v2/res_coted_v2.dart:57-76,155 (CO TEĎ edit CTA only in upcoming/active states); res_coted_v2.dart:210-221 (late-gate edit CTA only when status==reserved); lib/features/payment/paid_change_outcomes.dart:41 (same route)",
+    "lib/features/reservations/v2/res_detail_view_v2.dart:96-107 renders ResDetailTabContent; buttons drawn via ResDetailButton -> ResDetailButtonV2 (widgets/res_detail_button.dart:77); list card v2/res_card_actions_v2.dart:115-139 shows Upravit only for aktivni/nadchazejici"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same visibility rule; guards of the edit screen itself are outside this bucket.",
+   "evidence": "Same status conditions on every v2 entry point found; the missing in-screen status gate is identical in both looks (not a v2 regression, but worth knowing).",
+   "sources": [
+    "reservations-list-detail-17",
+    "reservation-edit-1-02",
+    "mx-rental-01"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-17",
+     "situation": "The card's Upravit button is shown for active and upcoming bookings regardless of payment or documents; all blocking happens inside the edit screen."
+    },
+    {
+     "source": "mx-rental-01",
+     "situation": "A customer whose rental is running (bike handed over) looks for the edit and SOS actions; the edit button is offered only in states Active and Upcoming, never for Completed or Cancelled bookings."
+    }
+   ],
+   "notes": [
+    "mx-rental-01: Neither look guards the edit route itself (core/router.dart:427); a deep link to /reservations/<completed id>/edit opens the edit screen in both looks. Same behaviour, not a v2 regression."
+   ]
+  },
+  {
+   "id": "G-386",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092",
+   "situation": "Completed booking: \"Detail jízdy\" and \"Hodnotit\" both only open the detail; rating is never written from the card.",
+   "old_where": "lib/features/reservations/widgets/reservation_card.dart:172-176 (both onTap)",
+   "customer_sees": "Two buttons, both lead to the detail.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_card_actions_v2.dart:357-358 and :411-412 (rateBtn -> onTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same.",
+   "evidence": "Same.",
+   "sources": [
+    "reservations-list-detail-18"
+   ]
+  },
+  {
+   "id": "G-387",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092",
+   "situation": "Cancelled booking: \"Obnovit\" runs restore-and-pay (not a free new booking); in 4.1.3 it only jumped to the bike search.",
+   "old_where": "lib/features/reservations/widgets/reservation_card.dart:177-181 (onRestore ?? onTap); lib/features/reservations/reservations_screen.dart:193 (restoreAndPay); 70a94933 card went to Routes.search",
+   "customer_sees": "Button \"Obnovit\" -> server check -> payment screen or an explanation sheet.",
+   "visible": "clear",
+   "server": "yes (customer_restore_booking - but defined only in the not-yet-deployed migration supabase/migrations/20261112a02_customer_restore.sql, not listed in SUPABASE_BACKEND_STATE_3.md)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:152 (restoreAndPay); lib/features/reservations/v2/res_card_actions_v2.dart:359-360, :413-414"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler in both looks. Note: the change from 4.1.3 (search -> restore and pay) affects both looks equally.",
+   "evidence": "Same handler in both looks. Note: the change from 4.1.3 (search -> restore and pay) affects both looks equally.",
+   "sources": [
+    "reservations-list-detail-19"
+   ]
+  },
+  {
+   "id": "G-388",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092 / S-109 Restore cancelled booking / Reservations list card / detail / Reservation detail / list – restore",
+   "situation": "Customer tries to restore a cancelled booking whose start is today or already past: refused before any server call (today has its own text).",
+   "old_where": [
+    "lib/features/reservations/booking_restore.dart:39-49 (startDay not after today -> RestoreRefused date_passed / reason today)",
+    "lib/features/reservations/booking_restore.dart:39-49 (startDay not after today → RestoreRefused date_passed, reason today)",
+    "lib/features/reservations/booking_restore.dart:36-80 restoreAndPay (startDay must be after today), :83-99 _goPay, :126-145 RPC, :148-170 refusal texts",
+    "lib/features/reservations/booking_restore.dart:40-48 (!startDay.isAfter(today) -> date_passed / today)"
+   ],
+   "customer_sees": "Bottom sheet 'Rezervaci nelze obnovit' with the reason and 'Vybrat znovu' + 'Jiná motorka'.",
+   "visible": "clear",
+   "server": [
+    "yes (customer_restore_booking returns date_passed, supabase/migrations/20261112a02_customer_restore.sql:103 - pending deploy)",
+    "yes(customer_restore_booking → date_passed — supabase/migrations/20261112a02_customer_restore.sql:103; not yet described in STATE_3)",
+    "yes(customer_restore_booking - supabase/migrations/20261112a02_customer_restore.sql in repo; not yet in STATE_3, live deployment not verified; app shows \"pdRestoreUpdating\" while missing)",
+    "yes(customer_restore_booking checks the date — migration 20261112a02)"
+   ],
+   "v2_entry_points": [
+    "v2 card restore button; v2 detail restore",
+    "v2 detail button, v2 list card \"Obnovit\""
+   ],
+   "v2_where": [
+    "Shared function restoreAndPay called from lib/features/reservations/v2/reservations_screen_v2.dart:152 and from the detail (reservation_detail_screen.dart:315-316)",
+    "lib/features/reservations/booking_restore.dart (same function) reached from: detail lib/features/reservations/widgets/res_detail_tab_content.dart:290 → reservation_detail_screen.dart:315-316; v2 list card lib/features/reservations/v2/reservations_screen_v2.dart:152 → res_card_actions_v2.dart:137",
+    "lib/features/reservations/v2/reservations_screen_v2.dart:152 restoreAndPay; features/reservations/reservation_detail_screen.dart:314-316 (v2 detail reuses ResDetailTabContent :286-292)",
+    "lib/features/reservations/v2/reservations_screen_v2.dart:152 and detail onRestoreBooking (reservation_detail_screen.dart:172) both call the same restoreAndPay"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Every v2 entry point calls restoreAndPay. The error sheet has its own v2 look (payment_error_sheet.dart:32-60) with the same buttons.",
+   "sources": [
+    "reservations-list-detail-20",
+    "reservation-detail-blocks-51",
+    "mx-order-45",
+    "mx-rental-22"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-20",
+     "situation": "Restore of a booking whose start date is today or in the past is refused before any server call."
+    },
+    {
+     "source": "mx-order-45",
+     "situation": "Restore is allowed only for bookings starting tomorrow or later; the server re-checks owner, status, free bike, own overlap, closed branch, trailer, voucher/promo validity, price and limit, then gives a new 30-minute window."
+    },
+    {
+     "source": "mx-rental-22",
+     "situation": "A cancelled booking whose start is today or in the past cannot be restored; the app refuses before calling the server and offers a new booking of the same bike or another bike."
+    }
+   ],
+   "notes": [
+    "mx-order-45: Reworked on branch: 4.1.3 checked availability client-side and updated the row directly (70a94933 reservation_detail_screen.dart:300-338)."
+   ]
+  },
+  {
+   "id": "G-389",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092 / S-109 Restore cancelled booking / Reservation detail / list – restore",
+   "situation": "The server refuses a restore (bike taken, own overlapping booking, branch closed, trailer, voucher/promo no longer valid, price changed, restore limit, cancelled by staff, not yours): a sheet with the exact reason and a next step.",
+   "old_where": [
+    "lib/features/reservations/booking_restore.dart:135-152 (restoreBookingRpc), :155-177 (restoreRefusalText), :179-242 (_showRefusal: forbidden -> login; moto_unavailable -> change dates / other bike; others -> pick again / other bike; default -> retry)",
+    "lib/features/reservations/booking_restore.dart:203-208, 167-171 (moto_unavailable → title motoOccupiedTitle, 'Změnit termín' → /moto/<id>, 'Jiná motorka' → search)",
+    "lib/features/reservations/booking_restore.dart:51-104 and :155-243 (restoreRefusalText / _showRefusal)"
+   ],
+   "customer_sees": "PaymentErrorSheet with a heading (\"Nelze obnovit\" / \"Motorka je obsazená\"), the reason and one or two buttons.",
+   "visible": "clear",
+   "server": [
+    "yes (customer_restore_booking, supabase/migrations/20261112a02_customer_restore.sql:85-186, :251-292 - pending deploy)",
+    "yes(customer_restore_booking moto_unavailable — migration 20261112a02:292; check_moto_availability)",
+    "yes(customer_restore_booking)"
+   ],
+   "v2_entry_points": [
+    "v2 detail, v2 list card"
+   ],
+   "v2_where": [
+    "Shared restoreAndPay (see previous record)",
+    "lib/features/reservations/booking_restore.dart shared; PaymentErrorSheetV2 via payment_error_sheet.dart:52-60",
+    "Same function restoreAndPay (lib/features/reservations/booking_restore.dart:36) from both looks; PaymentErrorSheet has its own v2 face"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function. While the RPC is not deployed, PostgrestException PGRST202/42883 maps to restore_unavailable -> \"pdRestoreUpdating\" text (booking_restore.dart:145-151) in both looks.",
+   "evidence": "Same function. While the RPC is not deployed, PostgrestException PGRST202/42883 maps to restore_unavailable -> \"pdRestoreUpdating\" text (booking_restore.dart:145-151) in both looks.",
+   "sources": [
+    "reservations-list-detail-21",
+    "reservation-detail-blocks-52",
+    "mx-rental-23"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-detail-blocks-52",
+     "situation": "The bike is taken in the original term by someone else: restore refused; customer is offered to change dates on the same bike or pick another bike."
+    },
+    {
+     "source": "mx-rental-23",
+     "situation": "Restore is refused by the server (bike taken, own overlap, branch closed, trailer, voucher/promo no longer valid, price changed, restore limit, cancelled by staff); each refusal has its own message and a step that helps; a successful restore goes straight to payment within a new 30-minute window."
+    }
+   ]
+  },
+  {
+   "id": "G-390",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092 / S-109 Restore cancelled booking",
+   "situation": "Restore network error or unknown server error: nothing changed, the customer gets a retry; if the restore RPC is not deployed yet a 'server is updating' text.",
+   "old_where": [
+    "lib/features/reservations/booking_restore.dart:68-82",
+    "lib/features/reservations/booking_restore.dart:68-82 (network/server → PaymentErrorSheet retry), :145-151, 173 (RPC missing → restore_unavailable), :222-226 default retry"
+   ],
+   "customer_sees": "Sheet 'Rezervaci nelze obnovit' + 'Zkusit znovu'.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared restoreAndPay",
+    "lib/features/reservations/booking_restore.dart shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Same function.",
+   "sources": [
+    "reservations-list-detail-22",
+    "reservation-detail-blocks-57"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-22",
+     "situation": "Restore fails on the network or with an unknown server error: nothing changes and the sheet offers \"Zkusit znovu\"."
+    }
+   ]
+  },
+  {
+   "id": "G-391",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092 / S-109 Restore cancelled booking",
+   "situation": "Restore succeeded on the server earlier but the answer was lost (timeout): a second tap does not restore twice; the app detects the booking awaits payment (within 30 min of restore) and goes straight to payment, otherwise opens the booking.",
+   "old_where": [
+    "lib/features/reservations/booking_restore.dart:54-66 and :109-131 (restoredAwaitingPayment)",
+    "lib/features/reservations/booking_restore.dart:56-65, 106-131 (not_cancelled → restoredAwaitingPayment: status pending, unpaid, restored_by_source app, < paymentTimeoutDuration)"
+   ],
+   "customer_sees": "Goes to payment, or sheet 'Otevřít rezervaci'.",
+   "visible": "small-text",
+   "server": [
+    "yes (customer_restore_booking not_cancelled, migration 20261112a02:88 - pending deploy)",
+    "yes(customer_restore_booking not_cancelled — migration 20261112a02:88)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared restoreAndPay",
+    "lib/features/reservations/booking_restore.dart shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Same function.",
+   "sources": [
+    "reservations-list-detail-23",
+    "reservation-detail-blocks-58"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-23",
+     "situation": "The restore succeeded on the server but the answer was lost; a second tap gets \"not_cancelled\": the app checks the booking is pending, unpaid, restored from the app and still inside the 30-minute window before sending the customer straight to payment, otherwise it explains."
+    }
+   ],
+   "visible_by_source": {
+    "reservations-list-detail-23": "clear",
+    "reservation-detail-blocks-58": "small-text"
+   }
+  },
+  {
+   "id": "G-392",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092 / S-109 Restore cancelled booking",
+   "situation": "After a successful restore the customer must pay: the amount comes from the SERVER (incl. any price adjustment) and a new 30-minute payment window starts from the restore time.",
+   "old_where": [
+    "lib/features/reservations/booking_restore.dart:90-104 (_goPay -> Routes.payment, isRestore, bookingCreatedAt)",
+    "lib/features/reservations/booking_restore.dart:89-104 (_goPay: PaymentContext amount = r.total_price, bookingCreatedAt = restored_at, isRestore → Routes.payment)"
+   ],
+   "customer_sees": "Payment screen 'Obnovení rezervace' with the server amount and countdown.",
+   "visible": "clear",
+   "server": [
+    "yes (customer_restore_booking sets restored_at and a new 30 min window - pending deploy)",
+    "yes(customer_restore_booking sets restored_at and a new pay window; auto_cancel_expired_pending)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared restoreAndPay",
+    "lib/features/reservations/booking_restore.dart shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Same function; payment screen guards are in the payment bucket.",
+   "sources": [
+    "reservations-list-detail-24",
+    "reservation-detail-blocks-59"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-24",
+     "situation": "After a successful restore the customer must pay: the payment context is set with the server amount and the new payment window (restored_at)."
+    }
+   ]
+  },
+  {
+   "id": "G-393",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092",
+   "situation": "SOS badges on the card photo tell an SOS replacement bike (\"🏍️ SOS\", green) apart from a rental ended by SOS (\"🆘 SOS\", red).",
+   "old_where": "lib/features/reservations/widgets/reservation_card.dart:110-128",
+   "customer_sees": "Small pill with a motorcycle or SOS emoji, green or red.",
+   "visible": "clear",
+   "server": "n/a (display)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservation_card_v2.dart:181-190 (one chip labelled \"SOS\" with the same SOS icon in both cases; only icon/border colour differs; the difference is spoken only in the semantic label)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Both cases now read \"SOS\" with the same pictogram; the motorcycle-vs-SOS emoji that told them apart visually is gone (colour only).",
+   "evidence": "Both cases now read \"SOS\" with the same pictogram; the motorcycle-vs-SOS emoji that told them apart visually is gone (colour only).",
+   "sources": [
+    "reservations-list-detail-25"
+   ]
+  },
+  {
+   "id": "G-394",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092",
+   "situation": "Completed and cancelled bookings are shown in grey so they do not look actionable.",
+   "old_where": "lib/features/reservations/widgets/reservation_card.dart:34 and :54-57 (ColorFilter saturation)",
+   "customer_sees": "Grey photo.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservation_card_v2.dart:54 and :124 (ResBikePhoto grayscale)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservations-list-detail-26"
+   ]
+  },
+  {
+   "id": "G-395",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092",
+   "situation": "Status badge on each card (Aktivní / Nadcházející / Dokončená / Zrušená).",
+   "old_where": "lib/features/reservations/widgets/reservation_card.dart:106-109 and :192-211",
+   "customer_sees": "Coloured pill top right.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservation_card_v2.dart:149 (ResStatusPill, lib/features/reservations/v2/res_status_v2.dart:63-103)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same status source.",
+   "evidence": "Same status source.",
+   "sources": [
+    "reservations-list-detail-27"
+   ]
+  },
+  {
+   "id": "G-396",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092",
+   "situation": "A booking without a photo URL does not crash the list (placeholder instead of an error widget).",
+   "old_where": "lib/features/reservations/widgets/reservation_card.dart:58-66",
+   "customer_sees": "Grey placeholder with a motorcycle.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_status_v2.dart:172 (ResBikePhoto: url null or empty -> placeholder)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same null/empty check.",
+   "evidence": "Same null/empty check.",
+   "sources": [
+    "reservations-list-detail-28"
+   ]
+  },
+  {
+   "id": "G-397",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-093",
+   "situation": "Cancelling a booking from the list: the list wires onCancel to its own _CancelDialog, but the old card never renders a cancel button, so storno is reachable only from the detail.",
+   "old_where": "lib/features/reservations/reservations_screen.dart:191 and :223-230; lib/features/reservations/widgets/reservation_card.dart:17 and :158-183 (no button uses onCancel); same in 70a94933",
+   "customer_sees": "No storno button on the list card.",
+   "visible": "clear",
+   "server": "yes (cancel_booking_tracked)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:145-153 (no onCancel passed); lib/features/reservations/v2/reservation_card_v2.dart:24 (comment: no storno on the card)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Neither look exposes storno from the list.",
+   "evidence": "Neither look exposes storno from the list.",
+   "sources": [
+    "reservations-list-detail-29"
+   ]
+  }
+ ]
+}

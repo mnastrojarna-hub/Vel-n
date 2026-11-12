@@ -1,0 +1,665 @@
+{
+ "title": "Login, registration and password reset - part 1 of 4 (G-042..G-055; mainly login_screen.dart, auth_provider.dart, router.dart)",
+ "guards": [
+  {
+   "id": "G-042",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen / Login",
+   "situation": "The customer taps Log in (or presses Done on the keyboard) with the e-mail or the password empty; the app refuses to send anything.",
+   "old_where": [
+    "lib/features/auth/login_screen.dart:123-133 (_doLogin, email.isEmpty || pass.isEmpty)",
+    "lib/features/auth/login_screen.dart:123-133 (_doLogin)"
+   ],
+   "customer_sees": "Toast with a cross: 'Chyba' + 'fillEmailAndPassword' text; it disappears after a few seconds.",
+   "visible": "small-text",
+   "server": [
+    "no (client only; Supabase signInWithPassword would also reject an empty password, but the app never calls it)",
+    "n/a (client check)"
+   ],
+   "v2_entry_points": [
+    "v2 login button, keyboard Enter"
+   ],
+   "v2_where": [
+    "lib/features/auth/login_screen.dart:124-129 (MgV2.peek branch) -> lib/features/auth/v2/login_view_v2.dart:91-111 (AsmField error: emailError / passError)",
+    "lib/features/auth/login_screen.dart:124-130 (v2 sets field errors _v2EmailErr/_v2PassErr shown under each field); lib/features/auth/login_screen.dart:273-288 (LoginViewV2 onLogin: _doLogin)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 button (login_view_v2.dart:120-126 MgCta onTap: onLogin) and the keyboard Done (login_view_v2.dart:109) both call the same _doLogin; the same empty check runs and v2 puts a red error text directly under each empty field (login_screen.dart:126-127) that stays until the customer types (onEdited -> _clearV2Errors :266-269). That is clearer than the vanishing toast.",
+   "evidence": "The v2 button (login_view_v2.dart:120-126 MgCta onTap: onLogin) and the keyboard Done (login_view_v2.dart:109) both call the same _doLogin; the same empty check runs and v2 puts a red error text directly under each empty field (login_screen.dart:126-127) that stays until the customer types (onEdited -> _clearV2Errors :266-269). That is clearer than the vanishing toast.",
+   "sources": [
+    "auth-01",
+    "mx-start-04"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-04",
+     "situation": "The customer taps Log in with an empty e-mail or password and the app refuses to send the request."
+    }
+   ],
+   "notes": [
+    "mx-start-04: v2 marks the empty field itself, which is clearer than the old toast."
+   ]
+  },
+  {
+   "id": "G-043",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen",
+   "situation": "The customer taps Log in again while the first attempt is still running; the second tap is ignored.",
+   "old_where": "lib/features/auth/widgets/login_buttons.dart:23-25 (PressableScale enabled: !loading, onPressed: loading ? null : onPressed); _loading set in login_screen.dart:135",
+   "customer_sees": "The green button shows a spinner instead of the label and cannot be pressed.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/v2/login_view_v2.dart:120-126 (MgCta busy: loading) -> core/v2/widgets/mg_cta.dart:212-217 (onTap: active && !busy ? onTap : null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 MgCta with busy=true shows a spinner and drops taps (mg_cta.dart:137, 215-217). Note: in BOTH looks the keyboard Done key on the password field still calls _doLogin while loading (login_form_fields.dart:122 / login_view_v2.dart:109); _doLogin has no loading check, so this small gap is identical in old and new look.",
+   "evidence": "v2 MgCta with busy=true shows a spinner and drops taps (mg_cta.dart:137, 215-217). Note: in BOTH looks the keyboard Done key on the password field still calls _doLogin while loading (login_form_fields.dart:122 / login_view_v2.dart:109); _doLogin has no loading check, so this small gap is identical in old and new look.",
+   "sources": [
+    "auth-02"
+   ]
+  },
+  {
+   "id": "G-044",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen / Login",
+   "situation": "The customer types a wrong password (or the server refuses the login for another reason: unconfirmed e-mail, rate limit, network); the login does not happen.",
+   "old_where": [
+    "lib/features/auth/login_screen.dart:136-156 (AuthService.signIn error != null) -> lib/features/auth/auth_provider.dart:116-163 (signIn, AuthErrorMapper.signIn)",
+    "lib/features/auth/login_screen.dart:136-155; lib/features/auth/auth_provider.dart:116-160 (signIn, accountNoLongerExists / loginFailed)"
+   ],
+   "customer_sees": "Toast with a cross, mapped title + explanation, shown 7 seconds; the form stays filled.",
+   "visible": "small-text",
+   "server": [
+    "yes(Supabase Auth signInWithPassword)",
+    "yes(Supabase Auth)"
+   ],
+   "v2_entry_points": [
+    "v2 login button"
+   ],
+   "v2_where": [
+    "lib/features/auth/login_screen.dart:148-149 -> lib/features/auth/v2/login_states_v2.dart:297-311 (showLoginFailedV2: red state sheet, 'Zkusit znovu' + 'Poslat nové heslo')",
+    "lib/features/auth/login_screen.dart:148-149 (showLoginFailedV2 with \"Zapomenuté heslo\")"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same AuthService.signIn call and the same AuthErrorInfo title/message; v2 shows them in a red bottom sheet that stays until closed and adds a shortcut to the existing reset flow (_forgotPassword). Clearer than the 7-second toast.",
+   "evidence": "Same AuthService.signIn call and the same AuthErrorInfo title/message; v2 shows them in a red bottom sheet that stays until closed and adds a shortcut to the existing reset flow (_forgotPassword). Clearer than the 7-second toast.",
+   "sources": [
+    "auth-03",
+    "mx-start-06"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-06",
+     "situation": "The password is wrong or Supabase Auth refuses the login; the customer stays on the login screen with the mapped reason."
+    }
+   ],
+   "notes": [
+    "mx-start-06: v2 adds the forgot-password action to the message."
+   ]
+  },
+  {
+   "id": "G-045",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen",
+   "situation": "The customer logs in to an account that was deleted in Velín (auth user still exists, profile row gone); the login is undone.",
+   "old_where": "lib/features/auth/auth_provider.dart:127-136 (_profileExists false -> signOut + 'accountNoLongerExists', code profile_missing)",
+   "customer_sees": "Toast: 'loginError' + 'accountNoLongerExists' (account no longer exists, register again).",
+   "visible": "small-text",
+   "server": "no (the orphaned auth.users row still authenticates; the block is client-side in AuthService.signIn; check_web_booking_email reports the e-mail as known)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/login_screen.dart:136-149 -> lib/features/auth/v2/login_states_v2.dart:297-311"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The check lives in AuthService.signIn, which v2 calls through the same _doLogin; the resulting error reaches the v2 red sheet with the same text. _profileExists fails open on a network error (auth_provider.dart:649-651) in both looks.",
+   "evidence": "The check lives in AuthService.signIn, which v2 calls through the same _doLogin; the resulting error reaches the v2 red sheet with the same text. _profileExists fails open on a network error (auth_provider.dart:649-651) in both looks.",
+   "sources": [
+    "auth-04"
+   ]
+  },
+  {
+   "id": "G-046",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen / Login",
+   "situation": "The customer logs in with an e-mail that has no account at all; instead of a vague error the app asks whether to register.",
+   "old_where": [
+    "lib/features/auth/login_screen.dart:143-147 (AuthService.emailExists == false -> _showUnknownEmailDialog) ; lib/features/auth/auth_provider.dart:168-177 (RPC check_web_booking_email)",
+    "lib/features/auth/login_screen.dart:139-147, 162-190 (_showUnknownEmailDialog); AuthService.emailExists -> RPC check_web_booking_email (lib/features/auth/auth_provider.dart:168-175)"
+   ],
+   "customer_sees": "Dialog 'loginUnknownEmailTitle' with Cancel / Register (see S-025).",
+   "visible": "clear",
+   "server": [
+    "yes(check_web_booking_email RPC answers; Supabase Auth refuses the login)",
+    "yes(check_web_booking_email + Supabase Auth)"
+   ],
+   "v2_entry_points": [
+    "v2 login button"
+   ],
+   "v2_where": [
+    "lib/features/auth/login_screen.dart:166-168 -> lib/features/auth/v2/login_states_v2.dart:315-325 (showUnknownEmailV2)",
+    "lib/features/auth/login_screen.dart:163-166 (showUnknownEmailV2, same _openRegister)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same emailExists RPC and same branch; v2 shows its own confirm dialog with the same two choices. When the RPC cannot answer (null, e.g. offline) both looks fall back to the normal error (login_screen.dart:146-156, auth_provider.dart:172-175) and never claim the e-mail is unknown.",
+   "evidence": "Same emailExists RPC and same branch; v2 shows its own confirm dialog with the same two choices. When the RPC cannot answer (null, e.g. offline) both looks fall back to the normal error (login_screen.dart:146-156, auth_provider.dart:172-175) and never claim the e-mail is unknown.",
+   "sources": [
+    "auth-05",
+    "mx-start-05"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-05",
+     "situation": "The customer types an e-mail that has no account; instead of a vague failure the app asks whether to register."
+    }
+   ]
+  },
+  {
+   "id": "G-047",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen / S-032 Home screen (Domů) / S-110 / S-051 / S-171 Shop checkout / S-073 Payment screen / S-084 / S-147 Profile / S-090 / S-095 / S-163 Messages / S-001 / S-047 / S-022 Unknown link page and router redirects / S-072 / S-135 Contracts / S-134 Invoices / S-178 / Router (every screen) / Shop checkout / Messages / SOS / router (all screens)",
+   "situation": "A customer who is not logged in tries to open the booking form (/booking) or go on to /payment; the router sends them to the login screen instead.",
+   "old_where": [
+    "lib/core/router.dart:236-258 (redirect: isLoggedIn = MotoGoSupabase.currentSession != null; _authRequired set; return Routes.login)",
+    "lib/core/router.dart:184-203 (_authRequired contains Routes.home) and :253-258 (redirect to Routes.login); same list at 70a94933 core/router.dart:152-172",
+    "lib/core/router.dart:228-252 (global redirect), route at router.dart:426-430",
+    "lib/core/router.dart:184-202 (_authRequired contains Routes.booking at :187 and Routes.payment at :188), redirect at :252-257",
+    "lib/core/router.dart:184-203 (_authRequired contains Routes.checkout) and :252-258 (redirect to Routes.login when no session)",
+    "lib/core/router.dart:183-203 (_authRequired contains Routes.payment and Routes.sosPayment), redirect lib/core/router.dart:237-258",
+    "router.dart:184-190 (_authRequired contains Routes.success) and router.dart:251-257 (redirect to Routes.login)",
+    "lib/core/router.dart:190 (_authRequired contains Routes.profile) and redirect at router.dart:228-258 (returns Routes.login when no session)",
+    "lib/core/router.dart:184-202 (_authRequired contains Routes.reservations) and :253-258 (redirect to Routes.login when no session)",
+    "lib/core/router.dart:184-202 and :253-258 (prefix /reservations matches /reservations/:id)",
+    "lib/core/router.dart:181-200 (_authRequired contains Routes.messages, prefix match also covers /messages/:id), :240-248",
+    "lib/core/router.dart:184-203 (_authRequired includes home, reservations, booking, payment, profile, sos…) and redirect :228-258 (not logged in + protected -> Routes.login).",
+    "core/router.dart:184-203 (_authRequired includes Routes.booking), :252-258 redirect to Routes.login; push in features/booking/booking_entry.dart:68",
+    "core/router.dart:184-203 (_authRequired), :247-253 (redirect)",
+    "lib/core/router.dart:183-203 (_authRequired includes Routes.booking and Routes.payment)",
+    "lib/core/router.dart:193,252-258",
+    "lib/core/router.dart:192,252-258 (Routes.invoices in _authRequired)",
+    "lib/core/router.dart:194-201 (_authRequired contains all /sos routes) + :252-258 redirect; lib/features/sos/sos_provider.dart:220-223 (AuthException when currentUser null)",
+    "core/router.dart:228-235",
+    "lib/core/router.dart:184-203 (_authRequired list), lib/core/router.dart:237-258 (redirect), lib/core/router.dart:208-212 (_AuthNotifier re-runs the redirect on every auth change); initialLocation = login (router.dart:222)",
+    "lib/core/router.dart:202 (Routes.checkout in _authRequired)",
+    "lib/core/router.dart:191, :253-258",
+    "lib/core/router.dart:194-201",
+    "lib/core/router.dart:184-203 (_authRequired incl. Routes.booking, Routes.payment, prefix /reservations), :228-259 redirect"
+   ],
+   "customer_sees": "The login screen; the form never opens.",
+   "visible": "clear",
+   "server": [
+    "yes(RLS on all customer tables requires auth.uid())",
+    "unknown (the route redirect is client-side; per-user data reads were not traced to RLS here)",
+    "yes(RLS bookings: user SELECT/UPDATE only where user_id = auth.uid(), SUPABASE_BACKEND_STATE_5.md:43)",
+    "yes(process-payment refuses with auth_required, supabase/functions/process-payment/index.ts:333/420; bookings insert needs an authenticated user)",
+    "yes (create_shop_order is login-only: auth.uid() NULL -> error, 20260924d:52-53; REVOKE anon per SUPABASE_BACKEND_STATE_3.md:97)",
+    "yes(process-payment answers auth_required; bookings insert needs an authenticated user)",
+    "yes (RLS bookings_user_select: the booking row in lib/features/payment/payment_confirmation_screen.dart:145-154 is only readable by its owner)",
+    "yes(profiles RLS: SELECT/UPDATE only id = auth.uid(), SUPABASE_BACKEND_STATE_5.md:44)",
+    "yes (bookings are read under the owner row-level security; the list query also filters user_id, lib/features/reservations/reservation_provider.dart:93)",
+    "yes (bookings owner RLS)",
+    "yes (RLS: admin_messages user SELECT own, messages/message_threads customer SELECT own, STATE_5:48-50)",
+    "yes (RLS on bookings/profiles; data are only returned for auth.uid())",
+    "unknown (booking creation runs authenticated; RLS not traced in this bucket)",
+    "yes (customer data behind these screens is protected by RLS per SUPABASE_BACKEND_STATE_5.md; not traced table by table)",
+    "yes(RLS on bookings)",
+    "yes(RLS documents SELECT user_id=uid; generated_documents customer_id=uid per document_provider.dart:41-48 comment)",
+    "yes(RLS invoices customer SELECT customer_id=uid, STATE_5 line 55)",
+    "yes (RLS sos_incidents customer INSERT/SELECT only user_id = auth.uid(), STATE_5:46)",
+    "no",
+    "yes (Supabase RLS on bookings/profiles etc.; exact policy names not checked)",
+    "yes(create_shop_order needs auth — not checked in detail)",
+    "yes(RLS on message tables — names not checked)",
+    "yes(trg_one_active_sos; RLS)",
+    "yes(RLS on bookings insert/select requires auth.uid())"
+   ],
+   "v2_entry_points": [
+    "v2 bottom nav incl. the new Profile tab, AI floating button, home funnel/calculator CTA (push /booking), notification taps, App Links /app/..., deep links",
+    "v2 cart, v2 cart strip",
+    "v2 Messages, notification taps",
+    "v2 SOS entry points (Home, strip, menu)",
+    "all v2 entries go through the same GoRouter (shared redirect)"
+   ],
+   "v2_where": [
+    "lib/core/router.dart:236-258 (same redirect, look-independent; LoginScreen built by router.dart:262-265 and switched to LoginViewV2 at lib/features/auth/login_screen.dart:273-288)",
+    "lib/core/router.dart:379-381 (the same GoRoute for '/' builds V2Switch(v1: HomeScreen, v2: HomeScreenV2))",
+    "lib/core/router.dart:426-430 (the route has no V2Switch; the same ReservationEditScreen and the same global redirect serve both looks)",
+    "lib/core/router.dart:410-416 (one GoRoute for /booking, same BookingDebugWrapper for both looks); redirect is look-independent",
+    "Same router for both looks; v2 cart checkout CTA lib/features/shop/cart_screen.dart:48 -> context.push(Routes.checkout) passes the same redirect",
+    "lib/core/router.dart:417-420 and :498-500 build the same PaymentScreen for both looks; the redirect is look-independent",
+    "Same GoRoute router.dart:280-284; the v2 view is chosen inside the screen widget, after the redirect has run",
+    "lib/core/router.dart:399-401 (one route, ProfileScreen decides the look inside build at profile_screen.dart:234)",
+    "lib/core/router.dart:388-389 (same GoRoute, V2Switch(v1: ReservationsScreen, v2: ReservationsScreenV2)); the redirect runs before the page builder",
+    "lib/core/router.dart:421-425 (same route and screen; v2 is a branch inside the screen)",
+    "lib/core/router.dart:431-439 (same routes for both looks); v2 entry points profile_tiles_v2.dart:67, profile_attention_v2.dart:72, home_message_row_v2.dart:47, home_line_card_v2.dart:70, core/v2/states/mg_support_row.dart:60 all push the same route",
+    "Same GoRouter redirect for both looks (router.dart:228-258); v2 tabs call context.go through onShellTabTap (shell_tab_action.dart:47), so the redirect runs.",
+    "features/booking/booking_entry.dart:90 (v2 path also ctx.push(Routes.booking)) -> same router redirect",
+    "core/router.dart:226-256 - one redirect for both looks; v2 screens are swapped only below it (V2Switch :377-389)",
+    "Router is shared; v2 has no own route to the form or payment",
+    "lib/core/router.dart (look-independent)",
+    "Router and createSosIncident are shared by both looks (no MgV2 branch in router redirect).",
+    "Shared redirect",
+    "lib/core/router.dart:371-377 — the SAME GoRouter and the SAME redirect serve both looks; ShellRoute only swaps AppShell for AppShellV2 via V2Switch; v2 pages are children of the same routes",
+    "same router",
+    "lib/core/router.dart:228-259 (shared by both looks; V2Switch only wraps tab pages :377-389)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The redirect is in the GoRouter configuration, which is shared by both looks; v2 only changes what the login page draws. Not changed by the v2 branch apart from the /app/ App-Link prefix rewrite (router.dart:229-235) that runs before the same check.",
+   "evidence": "The redirect runs in GoRouter before any widget is built, so the v2 branch inside BookingDebugWrapper cannot be reached without a session. All v2 entry points (detail, Home funnel, calculator) go through startBookingFromSelection -> ctx.push(Routes.booking) (booking_entry.dart:68/90), which is subject to the same redirect.",
+   "sources": [
+    "auth-06",
+    "home-search-01",
+    "reservation-edit-1-01",
+    "booking-form-1-01",
+    "shop-21",
+    "payment-1-01",
+    "payment-2-02",
+    "profile-01",
+    "reservations-list-detail-01",
+    "reservations-list-detail-36",
+    "branches-loyalty-messages-32",
+    "shell-fabs-04",
+    "moto-detail-22",
+    "global-overlays-51",
+    "booking-form-2-43",
+    "documents-32",
+    "documents-26",
+    "sos-02",
+    "global-overlays-53",
+    "mx-start-01",
+    "mx-start-60",
+    "mx-start-63",
+    "mx-start-65",
+    "mx-order-01"
+   ],
+   "merged_situations": [
+    {
+     "source": "auth-06",
+     "situation": "A customer who is not logged in opens any protected screen (home, booking, reservations, profile, deep link, notification tap); the router sends them to the login screen first."
+    },
+    {
+     "source": "home-search-01",
+     "situation": "A customer who is not logged in tries to open Domů and is sent to the login screen instead."
+    },
+    {
+     "source": "reservation-edit-1-01",
+     "situation": "A customer who is not logged in tries to open /reservations/:id/edit and is sent to the login screen."
+    },
+    {
+     "source": "shop-21",
+     "situation": "A customer who is not logged in tries to open the checkout; the router sends them to the login screen."
+    },
+    {
+     "source": "payment-1-01",
+     "situation": "A customer who is not logged in (or whose session ended) opens /payment or /sos/payment, for example from a deep link, and is sent to the login screen instead."
+    },
+    {
+     "source": "payment-2-02",
+     "situation": "A customer who is not logged in (session expired, deep link) tries to open /success; the router sends them to the login screen."
+    },
+    {
+     "source": "profile-01",
+     "situation": "A customer who is not logged in opens /profile (deep link, header avatar, Motorky menu) and is sent to the login screen instead."
+    },
+    {
+     "source": "reservations-list-detail-01",
+     "situation": "A customer who is not logged in opens the Reservations tab (bottom nav, deep link /reservations or /app/reservations) and is sent to the login screen instead."
+    },
+    {
+     "source": "reservations-list-detail-36",
+     "situation": "A not-logged-in customer opens a reservation detail (deep link, push notification, /app link): redirected to login."
+    },
+    {
+     "source": "branches-loyalty-messages-32",
+     "situation": "A logged-out customer who opens /messages or /messages/<id> (menu, push, deep link) is redirected to login."
+    },
+    {
+     "source": "shell-fabs-04",
+     "situation": "A logged-out customer taps \"Domů\" or \"Rezervace\" (and in v2 also \"Profil\"); the router sends them to the login screen instead of the protected screen."
+    },
+    {
+     "source": "moto-detail-22",
+     "situation": "Pressing REZERVOVAT opens the booking form, which requires a logged-in account; a logged-out customer is redirected to login."
+    },
+    {
+     "source": "global-overlays-51",
+     "situation": "A logged-out customer opening a protected screen (Home, reservations, booking, payment, success, profile, messages, invoices, contracts, all SOS screens, checkout) is sent to /login."
+    },
+    {
+     "source": "booking-form-2-43",
+     "situation": "/booking and /payment require a logged-in session."
+    },
+    {
+     "source": "documents-32",
+     "situation": "Contracts require a signed-in customer; without a session the router redirects to login."
+    },
+    {
+     "source": "documents-26",
+     "situation": "Invoices require a signed-in customer; without a session the router redirects to login."
+    },
+    {
+     "source": "sos-02",
+     "situation": "A logged-out user (or expired session) opens any /sos route; the router sends them to login, and creating an incident without a user throws an auth error."
+    },
+    {
+     "source": "global-overlays-53",
+     "situation": "App Link https://motogo24.cz/app/... opens the same screen without the prefix and then passes the same login check."
+    },
+    {
+     "source": "mx-start-01",
+     "situation": "A customer who is not logged in tries to open Home, Reservations, the booking form, payment, profile, messages, SOS, invoices, contracts or shop checkout, and the app sends them to the login screen instead."
+    },
+    {
+     "source": "mx-start-60",
+     "situation": "Browsing the shop and the cart is open, but checkout needs login (router)."
+    },
+    {
+     "source": "mx-start-63",
+     "situation": "Messages and threads need login (prefix /messages)."
+    },
+    {
+     "source": "mx-start-65",
+     "situation": "In-app SOS needs login; it does NOT require an active rental in either look (phone numbers are always shown)."
+    },
+    {
+     "source": "mx-order-01",
+     "situation": "A customer who is not signed in tries to open the booking form or the payment screen (also via deep link /app/booking or /app/payment) and is sent to the login screen."
+    }
+   ],
+   "visible_by_source": {
+    "auth-06": "clear",
+    "home-search-01": "clear",
+    "reservation-edit-1-01": "clear",
+    "booking-form-1-01": "clear",
+    "shop-21": "clear",
+    "payment-1-01": "clear",
+    "payment-2-02": "clear",
+    "profile-01": "clear",
+    "reservations-list-detail-01": "clear",
+    "reservations-list-detail-36": "clear",
+    "branches-loyalty-messages-32": "clear",
+    "shell-fabs-04": "clear",
+    "moto-detail-22": "clear",
+    "global-overlays-51": "clear",
+    "booking-form-2-43": "clear",
+    "documents-32": "clear",
+    "documents-26": "clear",
+    "sos-02": "clear",
+    "global-overlays-53": "silent",
+    "mx-start-01": "clear",
+    "mx-start-60": "clear",
+    "mx-start-63": "clear",
+    "mx-start-65": "clear",
+    "mx-order-01": "clear"
+   },
+   "notes": [
+    "mx-start-01: The look switch is below the router, so no v2 entry point can reach a protected path without the redirect.",
+    "mx-start-63: The AI agent (/ai-agent) is not protected in either look; v2 adds an AI button on every shell screen (lib/core/v2/shell/app_shell_v2.dart:257-265, MgAiFab), it reaches the same screen.",
+    "mx-order-01: One router for both looks; nothing in v2 opens /booking or /payment outside GoRouter."
+   ]
+  },
+  {
+   "id": "G-048",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen / S-026 Registration screen / S-022 Unknown link page and router redirects / S-030 Password reset screen / Router",
+   "situation": "A logged-in customer cannot stay on the reset screen, except while a password recovery is in progress (verified code, step 3 pending); leaving the screen clears that exception.",
+   "old_where": [
+    "lib/core/router.dart:237-250 (isLoggedIn && isAuthRoute -> Routes.home, except /reset-password while AuthService.recoveryInProgress)",
+    "lib/core/router.dart:237-250 ; lib/features/auth/register_screen.dart:399-413 (context.go(Routes.home) after the welcome overlay)",
+    "core/router.dart:239-246",
+    "lib/core/router.dart:245-250 (exception AuthService.recoveryInProgress) ; lib/features/auth/auth_provider.dart:460-477 (set in verifyOtp) ; lib/features/auth/reset_password_screen.dart:71-74 (dispose clears it)",
+    "lib/core/router.dart:245-250"
+   ],
+   "customer_sees": "Home instead of the reset screen (when not recovering).",
+   "visible": "silent",
+   "server": [
+    "no (navigation rule only)",
+    "no",
+    "no (client routing)"
+   ],
+   "v2_entry_points": [
+    "any"
+   ],
+   "v2_where": [
+    "lib/core/router.dart:237-250 (shared)",
+    "lib/core/router.dart:237-250 (shared) ; lib/features/auth/register_screen.dart:402-412",
+    "Shared redirect",
+    "lib/core/router.dart:245-250 (shared)",
+    "lib/core/router.dart:245-250 shared by both looks"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared router redirect, identical in both looks. The recovery exception was added on this branch (in 4.1.3 the line was a plain `if (isLoggedIn && isAuthRoute) return Routes.home`, git show 70a94933) and applies to both looks.",
+   "evidence": "Shared router rule; v2 only replaces the drawing (reset_password_screen.dart:239-259). Note: in 4.1.3 (70a94933) the router sent every logged-in user away from /reset-password, so after the code was verified the customer landed on Home without step 3; this branch fixed it for both looks.",
+   "sources": [
+    "auth-07",
+    "auth-42",
+    "global-overlays-52",
+    "auth-46",
+    "mx-start-03"
+   ],
+   "merged_situations": [
+    {
+     "source": "auth-07",
+     "situation": "A customer who is already logged in tries to open /login or /register (back gesture, old link); the router sends them home instead."
+    },
+    {
+     "source": "auth-42",
+     "situation": "A logged-in customer cannot open the registration screen (router sends them home); after successful sign-up the customer always continues to Home."
+    },
+    {
+     "source": "global-overlays-52",
+     "situation": "A logged-in customer is sent away from login/register/password-reset to Home, except during a password recovery (step 3 must finish)."
+    },
+    {
+     "source": "mx-start-03",
+     "situation": "A logged-in customer who reaches the login or registration screen is sent to Home (except during password reset recovery)."
+    }
+   ],
+   "visible_by_source": {
+    "auth-07": "silent",
+    "auth-42": "silent",
+    "global-overlays-52": "clear",
+    "auth-46": "silent",
+    "mx-start-03": "clear"
+   }
+  },
+  {
+   "id": "G-049",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-022 Unknown link page and router redirects / S-023 Login screen / Login",
+   "situation": "The app signed the customer out by itself (invalid or revoked session, token refresh failure) and lands them on the login screen; it must explain why once.",
+   "old_where": [
+    "main.dart:363-393 (ForcedSignOut.pending, signOut); features/auth/login_screen.dart:56-72 (toast)",
+    "lib/features/auth/login_screen.dart:59-73 (ForcedSignOut.pending -> toast eoForcedSignOut, 8 s); set in lib/main.dart:372,389 and lib/core/auth_guard.dart:55; token-refresh sign-out in lib/features/auth/auth_provider.dart:25-29",
+    "lib/core/auth_guard.dart:34-62 (isAuthError / handleAuthError); lib/main.dart:363-391 (_listenAuthExpiration sets ForcedSignOut.pending); lib/features/auth/login_screen.dart:59-72"
+   ],
+   "customer_sees": "Toast with a lock: 'eoAuthTitle' + 'eoForcedSignOut' for 8 seconds.",
+   "visible": "small-text",
+   "server": [
+    "yes (Supabase Auth refresh token)",
+    "yes(Supabase Auth invalidates the session)",
+    "yes(Supabase Auth)"
+   ],
+   "v2_entry_points": [
+    "all v2 screens (shared providers call handleAuthError)"
+   ],
+   "v2_where": [
+    "features/auth/login_screen.dart:62-64 (v2 sets _v2SignedOut); features/auth/v2/login_view_v2.dart:76-83 (MgStateBanner with lock icon and title)",
+    "lib/features/auth/login_screen.dart:63-65 -> lib/features/auth/v2/login_view_v2.dart:76-84 (MgStateBanner info, title v2UxAsmSignedOutTitle, text eoForcedSignOut)",
+    "lib/features/auth/login_screen.dart:63-66 (v2: _v2SignedOut -> banner in lib/features/auth/v2/login_view_v2.dart:76)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 shows a persistent banner with a heading, clearer than a toast.",
+   "evidence": "Same one-time flag; v2 shows a persistent info banner with a heading at the top of the form instead of an 8-second toast, which is clearer. Note: ForcedSignOut is new on this branch (not in 70a94933) and exists in both looks.",
+   "sources": [
+    "global-overlays-56",
+    "auth-08",
+    "mx-start-07"
+   ],
+   "merged_situations": [
+    {
+     "source": "global-overlays-56",
+     "situation": "When the session cannot be refreshed (token revoked/expired), the app signs the customer out, the router sends them to login, and login explains once why."
+    },
+    {
+     "source": "mx-start-07",
+     "situation": "The session becomes invalid (refresh token revoked, auth error from an API call); the app signs the customer out, the router sends them to login and the login screen explains once why."
+    }
+   ],
+   "notes": [
+    "mx-start-07: v2 shows a persistent banner instead of a toast."
+   ]
+  },
+  {
+   "id": "G-050",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen",
+   "situation": "A session exists but the profile row is missing (account deleted while logged in) and the account is older than 2 minutes; the app signs the customer out so they cannot use an empty account.",
+   "old_where": "lib/features/auth/auth_provider.dart:55-75 (profileProvider: res == null && !_isFreshlyRegistered -> signOut); grace 2 min :37-45",
+   "customer_sees": "The app falls back to the login screen (router redirect after sign-out); no message from this provider.",
+   "visible": "silent",
+   "server": "no (client backstop; orphaned auth.users can still authenticate)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/auth_provider.dart:55-75 (shared provider, look-independent)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "profileProvider is a data provider used by both looks; v2 views read the same provider. Nothing in v2 bypasses it.",
+   "evidence": "profileProvider is a data provider used by both looks; v2 views read the same provider. Nothing in v2 bypasses it.",
+   "sources": [
+    "auth-09"
+   ]
+  },
+  {
+   "id": "G-051",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen",
+   "situation": "The customer taps Forgot password; the e-mail typed so far travels to the reset screen (the only way into reset from login).",
+   "old_where": "lib/features/auth/login_screen.dart:246-253 (_forgotPassword -> push /reset-password?email=)",
+   "customer_sees": "Reset screen with the e-mail pre-filled.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/v2/login_view_v2.dart:113-116 (MgBtnText onTap: onForgot) and lib/features/auth/v2/login_states_v2.dart:306-309 (failed-login sheet 'Poslat nové heslo' -> onForgot)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Both v2 entry points call the same _forgotPassword handler; the reset screen keeps all its own checks (see S-030/S-031).",
+   "evidence": "Both v2 entry points call the same _forgotPassword handler; the reset screen keeps all its own checks (see S-030/S-031).",
+   "sources": [
+    "auth-10"
+   ]
+  },
+  {
+   "id": "G-052",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-023 Login screen",
+   "situation": "The customer taps Register from login; an e-mail that belongs to the remembered (existing) account is NOT carried into registration, only a newly typed or verified-unknown e-mail is.",
+   "old_where": "lib/features/auth/login_screen.dart:99-105 (_openRegister: carry only if e != _savedEmail or unknown) ; prefill :88-94 only fills an empty field",
+   "customer_sees": "Registration opens empty or with the e-mail just typed.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/v2/login_view_v2.dart:136 (MgBtnGhostLight onTap: onRegister) -> lib/features/auth/login_screen.dart:285 (() => _openRegister()); unknown-email dialog -> _openRegister(unknown: true) :167"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "All v2 entry points use the same _openRegister rule. Note: this carry rule is new on this branch (in 70a94933 the button called context.push(Routes.register) with no e-mail) and is the same in both looks.",
+   "evidence": "All v2 entry points use the same _openRegister rule. Note: this carry rule is new on this branch (in 70a94933 the button called context.push(Routes.register) with no e-mail) and is the same in both looks.",
+   "sources": [
+    "auth-11"
+   ]
+  },
+  {
+   "id": "G-053",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-024 Biometric login button",
+   "situation": "The fingerprint / Face ID button appears only when the phone has biometrics, a stored biometric user exists and biometric login is enabled; otherwise the customer cannot use it.",
+   "old_where": "lib/features/auth/login_screen.dart:107-117 (_checkBiometric: available && hasBioUser; isBioEnabled) and :385-388 (if (_bioAvailable && _bioEnabled))",
+   "customer_sees": "No biometric button at all.",
+   "visible": "silent",
+   "server": "no (device-local)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/login_screen.dart:278 (bioVisible: _bioAvailable && _bioEnabled) -> lib/features/auth/v2/login_view_v2.dart:127-130"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same two flags combined the same way. v2 additionally disables the button while a password login runs (login_view_v2.dart:129 onTap: loading ? null : onBio), which the old look did not (login_buttons.dart:77 always enabled) - stricter, not weaker.",
+   "evidence": "Same two flags combined the same way. v2 additionally disables the button while a password login runs (login_view_v2.dart:129 onTap: loading ? null : onBio), which the old look did not (login_buttons.dart:77 always enabled) - stricter, not weaker.",
+   "sources": [
+    "auth-12"
+   ]
+  },
+  {
+   "id": "G-054",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-024 Biometric login button / Login",
+   "situation": "The biometric prompt is cancelled, fails, is locked out, not enrolled or unavailable; the app does not log in.",
+   "old_where": [
+    "lib/features/auth/login_screen.dart:194-211 (BiometricService.authenticateResult != ok -> message by reason)",
+    "lib/features/auth/login_screen.dart:194-245 (_doBioLogin)"
+   ],
+   "customer_sees": "Toast 'biometricTitle' with the reason (locked / not enrolled / unavailable / cancelled), 3-7 s.",
+   "visible": "small-text",
+   "server": [
+    "no (device-local)",
+    "yes(Supabase Auth refresh)"
+   ],
+   "v2_entry_points": [
+    "v2 biometric button (login_view_v2.dart:129, disabled while loading)"
+   ],
+   "v2_where": [
+    "lib/features/auth/v2/login_view_v2.dart:127-130 (_BioButton onTap: onBio = _doBioLogin, login_screen.dart:283)",
+    "lib/features/auth/login_screen.dart:194-210 shared toast for the first case; :226-229 showBioOfflineV2; :236-238 showBioSessionGoneV2"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 calls the same _doBioLogin; this branch has no v2-specific UI, so the same toast is shown in both looks (same clarity). The reason-specific text is new on this branch (70a94933 showed only 'authCancelled') and applies to both looks.",
+   "evidence": "v2 calls the same _doBioLogin; this branch has no v2-specific UI, so the same toast is shown in both looks (same clarity). The reason-specific text is new on this branch (70a94933 showed only 'authCancelled') and applies to both looks.",
+   "sources": [
+    "auth-13",
+    "mx-start-08"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-08",
+     "situation": "Biometric login is locked out, not set up, offline, or the saved session no longer exists; the app refuses and says why (and forgets the biometric data when the session is gone)."
+    }
+   ]
+  },
+  {
+   "id": "G-055",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-024 Biometric login button",
+   "situation": "Biometrics pass but the stored session cannot be restored because there is no signal; biometric login stays set up and the customer is told to try again.",
+   "old_where": "lib/features/auth/login_screen.dart:220-230 (BioRestore.offline) ; lib/features/auth/auth_provider.dart:578-627 (bioRestoreSession networkFailed)",
+   "customer_sees": "Toast '📡 eoOfflineTitle' + 'eoBioOffline' for 7 s.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/login_screen.dart:222-224 -> lib/features/auth/v2/login_states_v2.dart:329-343 (showBioOfflineV2: warn sheet with wifi-off icon and 'Zkusit znovu' = _doBioLogin)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same restore call and branch; v2 shows a sheet with an offline picture and a retry button that reruns the same handler (biometric prompt first). Clearer than the toast.",
+   "evidence": "Same restore call and branch; v2 shows a sheet with an offline picture and a retry button that reruns the same handler (biometric prompt first). Clearer than the toast.",
+   "sources": [
+    "auth-14"
+   ]
+  }
+ ]
+}

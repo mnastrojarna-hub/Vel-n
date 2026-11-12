@@ -1,0 +1,344 @@
+{
+ "title": "Reservation edit: tabs, calendar, places, times, price - part 3 of 5 (G-585..G-598; mainly reservation_edit_screen.dart, address_picker.dart, reservation_edit_price_calc.dart)",
+ "guards": [
+  {
+   "id": "G-585",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114",
+   "situation": "Pickup place and time can only be changed before pickup (card hidden for an active rental and on move/swap tabs).",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1675 (!_isActive && not move/swap)",
+   "customer_sees": "Card absent.",
+   "visible": "clear",
+   "server": "yes(trg_guard_booking_delivery: active rental → pickup unchangeable, active_pickup_locked)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1564-1565 (pickupPlace/pickupTime null when _isActive or datesOrSwap); lib/features/reservations/v2/res_edit_view_v2.dart:147"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-1-34"
+   ]
+  },
+  {
+   "id": "G-586",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114 / Edit reservation",
+   "situation": "Self-service branch: delivery to an address cannot be newly chosen (feature flag self_service_delivery, default off); the option is shown locked with a reason. A booking that already had delivery keeps it unless the bike is swapped.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1310-1320 (deliveryBlocked, pickupBlocked), lib/features/booking/widgets/address_picker.dart:214-219 (BookingLockedOptionTile ssNoDeliveryShort / ssNoDeliveryInfo)",
+    "lib/features/reservations/reservation_edit_screen.dart:1300-1331 (selfServiceDeliveryBlocked, pickupBlocked / returnBlocked, post-frame reset to store)"
+   ],
+   "customer_sees": "Locked option with short reason, expandable info.",
+   "visible": "clear",
+   "server": [
+    "unknown (no dedicated DB rule found by grep)",
+    "yes(trg_guard_booking_delivery)"
+   ],
+   "v2_entry_points": [
+    "v2 address rows (ResEditAddressRowV2 via AddressPickerWidget rowBuilder)"
+   ],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1467 (same deliveryBlocked passed to the same AddressPickerWidget); lib/core/booking_form_locked_option.dart:40 (v2 rendering of the locked tile)",
+    "lib/features/reservations/reservation_edit_screen.dart:1463-1476 (same deliveryBlocked passed; only rowBuilder differs in v2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget and flag.",
+   "evidence": "Same widget and flag.",
+   "sources": [
+    "reservation-edit-1-35",
+    "mx-rental-35"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-35",
+     "situation": "Self-service branch: delivery to / pick-up from an address cannot be newly chosen while the feature flag self_service_delivery is off; an existing delivery stays only with the same bike; after a swap to a self-service bike the method falls back to the branch."
+    }
+   ]
+  },
+  {
+   "id": "G-587",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114",
+   "situation": "After a swap to a self-service bike, an already chosen delivery is automatically reset to the branch (fee 0).",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1321-1336 (post-frame reset)",
+   "customer_sees": "The option jumps back to \"At branch\".",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Runs in build before the v2 branch (lib/features/reservations/reservation_edit_screen.dart:1546)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared code.",
+   "evidence": "Shared code.",
+   "sources": [
+    "reservation-edit-1-36"
+   ]
+  },
+  {
+   "id": "G-588",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114 / Edit reservation",
+   "situation": "Delivery newly chosen (or address changed) without an entered address / computed route fee: saving is refused (otherwise delivery would be free).",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:799-803 (clickEnterAddress); lib/features/reservations/reservation_edit_price_calc.dart:224-228 (deliveryAddressMissing)",
+    "lib/features/reservations/reservation_edit_screen.dart:786-791 (calc.deliveryAddressMissing -> clickEnterAddress)"
+   ],
+   "customer_sees": "Address row reads \"clickEnterAddress\"; toast on save. Save button stays enabled.",
+   "visible": "small-text",
+   "server": [
+    "yes(trg_guard_booking_delivery delivery_fee_guard, SUPABASE_BACKEND_STATE_4.md:58)",
+    "unknown"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_address_v2.dart:62-68 (\"v2BkEnterAddress\" with chevron, link-colour border); save refusal via shared _save",
+    "Same _save"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 row is at least as prominent as the old placeholder.",
+   "evidence": "v2 row is at least as prominent as the old placeholder.",
+   "sources": [
+    "reservation-edit-1-37",
+    "mx-rental-34"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-34",
+     "situation": "Newly chosen delivery or return to an address without an entered address cannot be saved (otherwise it would be free)."
+    }
+   ]
+  },
+  {
+   "id": "G-589",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114",
+   "situation": "Re-entering the address the booking already has counts as \"no change\" (no fee, no history entry).",
+   "old_where": "lib/features/booking/widgets/address_picker.dart:153-177 (_onSaved unchanged)",
+   "customer_sees": "Address shown unchanged.",
+   "visible": "silent",
+   "server": "yes(trg_guard_booking_delivery)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/widgets/address_picker.dart:232-239 (v2 row uses the same _openAddressSheet/_onSaved)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same state.",
+   "evidence": "Same state.",
+   "sources": [
+    "reservation-edit-1-39"
+   ]
+  },
+  {
+   "id": "G-590",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114 / Edit reservation",
+   "situation": "Delivery to an address: the (new) pickup must be at least 6 h from now when start, pickup time or method changes.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:421-434 (_deliveryLeadError), :791-795",
+    "lib/features/reservations/reservation_edit_screen.dart:422-435 (_deliveryLeadError -> BookingValidator.checkPickupLeadTime), used in _save :781-785 and _saveMove :646-651"
+   ],
+   "customer_sees": "Toast with lead-time message on save.",
+   "visible": "small-text",
+   "server": "unknown",
+   "v2_entry_points": [
+    "v2 dock CTA"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193 (same _save)",
+    "Same _save/_saveMove reached from lib/features/reservations/v2/res_edit_view_v2.dart:190"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-40",
+    "mx-rental-33"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-33",
+     "situation": "Delivery / home pick-up needs at least 6 hours lead time; a change of start, pickup time or switch to delivery that is too soon is refused."
+    }
+   ]
+  },
+  {
+   "id": "G-591",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114",
+   "situation": "Old reservation \"any time on the first day\" (00:01) is not overwritten until the customer touches the time picker; a line explains it.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1360-1363, :1686-1690 (ssPickupAnyTime)",
+   "customer_sees": "Line \"Čas vyzvednutí: kdykoliv…\".",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1566 (pickupLegacyLine); lib/features/reservations/v2/res_edit_notes_v2.dart:89-92"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag.",
+   "evidence": "Same flag.",
+   "sources": [
+    "reservation-edit-1-41"
+   ]
+  },
+  {
+   "id": "G-592",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114",
+   "situation": "Self-service pickup: hint that the late-pickup discount means the kiosk releases from 12:00.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1351-1352, :1694-1698 (ssPickupHint)",
+   "customer_sees": "🌗 hint line.",
+   "visible": "small-text",
+   "server": "yes(_kiosk_release_at / trg_booking_kiosk_release_sync, SUPABASE_BACKEND_STATE_4.md:59)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1567 (pickupSelfServiceHint); lib/features/reservations/v2/res_edit_notes_v2.dart:94-107 (½ badge + same text)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-1-42"
+   ]
+  },
+  {
+   "id": "G-593",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-114",
+   "situation": "Pickup time can only be set in quarter-hours 00–23 h.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_widgets.dart:140-159",
+   "customer_sees": "Two dropdowns.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_sections_v2.dart:61-66 (TimeFieldV2 minutes [0,15,30,45], hours 0–23 per doc :40-41)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same option set.",
+   "evidence": "Same option set.",
+   "sources": [
+    "reservation-edit-1-43"
+   ]
+  },
+  {
+   "id": "G-594",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-115",
+   "situation": "Return place/time card is hidden on move and swap tabs (still editable for an active rental).",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1702",
+   "customer_sees": "Card absent on those tabs.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1568-1569; lib/features/reservations/v2/res_edit_view_v2.dart:162"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-1-44"
+   ]
+  },
+  {
+   "id": "G-595",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-115",
+   "situation": "Self-service return at the branch: return time is not offered (stored 23:59 / kept), so the customer cannot pick an invalid return time.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1353-1356 (hideReturnTime), :1382-1397 (returnFix), :1711",
+   "customer_sees": "Time picker absent (no explanation).",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1559,1569 (returnTime null when hideReturnTime)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-1-45"
+   ]
+  },
+  {
+   "id": "G-596",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-115",
+   "situation": "Self-service branch: return \"pickup from your address\" is locked like the pickup side.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1318-1320 (returnBlocked), lib/features/booking/widgets/address_picker.dart:214-219",
+   "customer_sees": "Locked option with reason.",
+   "visible": "clear",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1484 (same flag to same widget)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget.",
+   "evidence": "Same widget.",
+   "sources": [
+    "reservation-edit-1-46"
+   ]
+  },
+  {
+   "id": "G-597",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-115",
+   "situation": "Switching a side back to the branch removes the old address so it is not read as delivery later.",
+   "old_where": "lib/features/booking/widgets/address_picker.dart:131-146; lib/features/reservations/reservation_edit_screen.dart:860-879",
+   "customer_sees": "Address row disappears.",
+   "visible": "silent",
+   "server": "yes(trg_guard_booking_delivery (a) clears address)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/widgets/address_picker.dart:131-146 shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared state.",
+   "evidence": "Shared state.",
+   "sources": [
+    "reservation-edit-1-47"
+   ]
+  },
+  {
+   "id": "G-598",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-116",
+   "situation": "Shorten tab always shows the storno conditions.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1726-1731 (stornoConditions + stornoRules)",
+   "customer_sees": "Amber text box.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:172-173 (ResEditNoteV2 warn)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same text, same condition.",
+   "evidence": "Same text, same condition.",
+   "sources": [
+    "reservation-edit-1-48"
+   ]
+  }
+ ]
+}

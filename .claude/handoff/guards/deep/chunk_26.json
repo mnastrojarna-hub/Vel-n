@@ -1,0 +1,257 @@
+{
+ "title": "After payment: confirmation, result, saved cards - part 2 of 4 (G-310..G-321; mainly payment_result_screen.dart, payment_confirmation_screen.dart, payment_ui_helpers.dart)",
+ "guards": [
+  {
+   "id": "G-310",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-085",
+   "situation": "Documents verified: the page confirms it (green) and the main button goes to Reservations.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:221-225 and :778-792 (docsVerifiedTitle/Body)",
+   "customer_sees": "Green card \"✓ Doklady ověřeny\".",
+   "visible": "clear",
+   "server": "yes (check_booking_docs_status returns NULL)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:325; lib/features/payment/v2/confirmation_view_v2.dart:207-212"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same.",
+   "evidence": "Same.",
+   "sources": [
+    "payment-2-14"
+   ]
+  },
+  {
+   "id": "G-311",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-085",
+   "situation": "The document status could not be determined (no booking id, network error in the RPC); the page shows no document card at all and offers only \"Moje rezervace\" - a customer whose documents are actually missing is not told here.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:116-139 (no bookingId -> unknown unless child) and :226-236 (catch -> unknown); :504 hides the card for unknown; :600 CTA stays successCta",
+   "customer_sees": "Nothing about documents.",
+   "visible": "silent",
+   "server": "yes (door codes are still withheld server-side by booking_docs_gate)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/confirmation_view_v2.dart:188 (docs step omitted when PayDocsV2.unknown) and :97-99"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical behaviour in both looks (an existing gap of the original, not introduced by v2): the screen does not re-check documents when the customer returns from /docs either, in neither look.",
+   "evidence": "Identical behaviour in both looks (an existing gap of the original, not introduced by v2): the screen does not re-check documents when the customer returns from /docs either, in neither look.",
+   "sources": [
+    "payment-2-15"
+   ]
+  },
+  {
+   "id": "G-312",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "Back or swipe on the payment result must not return to the payment screen (which could lead to paying again); it goes to the CTA destination, or to the secondary destination when there is one.",
+   "old_where": "lib/features/payment/payment_result_screen.dart:209-213 (closeRoute = secondaryRoute ?? ctaRoute), :215-230 (BackButtonListener with isTopmostRoute + PopScope canPop:false -> _goNext(closeRoute)), X button :403-418",
+   "customer_sees": "Back leads to the target of the main/secondary button; X in the top-right does the same.",
+   "visible": "clear",
+   "server": "no (navigation only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_result_screen.dart:232 (v2 view inside the same BackButtonListener/PopScope), :251 onClose -> _goNext(closeRoute); mg_state_screen.dart:136-142"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The back lock wraps both looks; the v2 X calls the same _goNext(closeRoute).",
+   "evidence": "The back lock wraps both looks; the v2 X calls the same _goNext(closeRoute).",
+   "sources": [
+    "payment-2-16"
+   ]
+  },
+  {
+   "id": "G-313",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "A secondary choice such as \"Ponechat současnou motorku\" exists: closing or Back must lead there, not to the primary action that would send the customer into choosing another bike.",
+   "old_where": "lib/features/payment/payment_result_screen.dart:209-213 and :368-379 (OutlinedButton secondary only when label and route exist)",
+   "customer_sees": "Outlined second button; close goes to its destination.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_result_screen.dart:249-251 (secondaryLabel only with route; onClose uses closeRoute); lib/features/payment/v2/result_view_v2.dart:88"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closeRoute and same visibility condition.",
+   "evidence": "Same closeRoute and same visibility condition.",
+   "sources": [
+    "payment-2-17"
+   ]
+  },
+  {
+   "id": "G-314",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "Leaving the result clears the stored outcome so the screen cannot be shown again (empty or stale) later.",
+   "old_where": "lib/features/payment/payment_result_screen.dart:116-120 (_goNext sets paymentOutcomeProvider to null before go)",
+   "customer_sees": "Nothing visible.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_result_screen.dart:248-251 (all v2 callbacks call _goNext)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 exit goes through _goNext.",
+   "evidence": "Every v2 exit goes through _goNext.",
+   "sources": [
+    "payment-2-18"
+   ]
+  },
+  {
+   "id": "G-315",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "\"Platba se ověřuje\" (pending): the bank/server has not confirmed yet; the screen must NOT offer another payment (double charge). It offers only \"Moje rezervace\" (or \"Zpět do e-shopu\") and \"Ověřit znovu\".",
+   "old_where": "payment_ui_helpers.dart:86-104, :112-131, :134-146 (pending outcomes: ctaLabel psMyReservations / psBackToShop, no pay route); lib/features/payment/payment_result_screen.dart:356-367 and :380-397",
+   "customer_sees": "Amber ⏳ badge, title \"Platba se ověřuje\", explanation, buttons \"Moje rezervace\" and \"Ověřit znovu\".",
+   "visible": "clear",
+   "server": "yes (process-payment checkout-guard.ts refuses payment_in_progress; webhook-receiver _shared/duplicate-payment.ts refunds a duplicate)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_result_screen.dart:236-237 (PayResultKindV2.pending), :247-253; lib/features/payment/v2/result_view_v2.dart:62 (MgTone.pending), :87 (primary = same ctaLabel/route), :90-97 (verify button)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same outcome object, same CTA label and route; v2 adds no pay button.",
+   "evidence": "Same outcome object, same CTA label and route; v2 adds no pay button.",
+   "sources": [
+    "payment-2-19"
+   ]
+  },
+  {
+   "id": "G-316",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "\"Ověřit znovu\" cannot be pressed again while a verification is running (no parallel checks).",
+   "old_where": "lib/features/payment/payment_result_screen.dart:122-125 (_verifying guard in _verify) and :383 (onPressed null while _verifying, spinner)",
+   "customer_sees": "Button shows a spinner and is disabled.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_result_screen.dart:252-253; lib/features/payment/v2/result_view_v2.dart:91-96 (MgBtnGhostLight busy: verifying, onTap null while verifying)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag and same handler; the guard inside _verify also protects the v2 path.",
+   "evidence": "Same flag and same handler; the guard inside _verify also protects the v2 path.",
+   "sources": [
+    "payment-2-20"
+   ]
+  },
+  {
+   "id": "G-317",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "While pending, the screen checks by itself every 10 s for at most 3 minutes (18 runs) and switches to success when the webhook confirms; it does not poll forever.",
+   "old_where": "lib/features/payment/payment_result_screen.dart:60-71 (Timer.periodic, _autoRuns > 18 stops), :75-79 (cancel on dispose)",
+   "customer_sees": "The screen flips to success by itself.",
+   "visible": "silent",
+   "server": "yes (webhook-receiver confirms the payment in DB)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same State object for both looks (lib/features/payment/payment_result_screen.dart:40-79); the v2 view only renders the state"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Logic lives in the screen state, not in the view.",
+   "evidence": "Logic lives in the screen state, not in the view.",
+   "sources": [
+    "payment-2-21"
+   ]
+  },
+  {
+   "id": "G-318",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "A verified new booking goes on to the rich thank-you page with the correct flags (not \"re-confirmed\" from an earlier restore, not the form draft).",
+   "old_where": "lib/features/payment/payment_result_screen.dart:144-160 (lastConfirmedBookingProvider, lastConfirmedRestoreProvider = verifiedRestore, lastConfirmedFromDraftProvider = false, _goNext(verifiedRoute))",
+   "customer_sees": "Thank-you page for this booking.",
+   "visible": "silent",
+   "server": "yes (bookings.payment_status via webhook-receiver)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _verify used by the timer and by the v2 verify button (lib/features/payment/payment_result_screen.dart:253)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared logic.",
+   "evidence": "Shared logic.",
+   "sources": [
+    "payment-2-22"
+   ]
+  },
+  {
+   "id": "G-319",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "Extras bought together with the booking (upsell) are ordered only after the payment is verified, never before.",
+   "old_where": "lib/features/payment/payment_result_screen.dart:155-159 (createBookingUpsellOrder only in VerifyState.paid with verifiedRoute)",
+   "customer_sees": "Nothing visible.",
+   "visible": "silent",
+   "server": "unknown (order creation is client-side here; no server-side link to verification found in this trace)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _verify"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared logic.",
+   "evidence": "Shared logic.",
+   "sources": [
+    "payment-2-23"
+   ]
+  },
+  {
+   "id": "G-320",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "Stripe says the payment succeeded but the booking state cannot be read (network); the app keeps \"verifying\" rather than claim success for a possibly cancelled booking.",
+   "old_where": "payment_verify.dart:56-72 (bookingIsCancelled == null -> pending)",
+   "customer_sees": "Stays on \"Platba se ověřuje\".",
+   "visible": "small-text",
+   "server": "yes (webhook-receiver / process-payment confirm_payment)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same verifyPayment called from _verify"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared logic.",
+   "evidence": "Shared logic.",
+   "sources": [
+    "payment-2-24"
+   ]
+  },
+  {
+   "id": "G-321",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-086",
+   "situation": "Verification proves the payment did NOT go through: the screen switches to a red \"not paid\" state with the reason; payment lines, next-step note, pickup block, secondary button and the \"confirmed by server\" badge are hidden so nothing suggests success.",
+   "old_where": "lib/features/payment/payment_result_screen.dart:164-167 (notPaid), :194-213 (title psNotPaidTitle, notPaidMessage, lines/nextStep/secondary cleared), :266-267 (red \"!\" badge), :313 (pickup hidden), :332 (badge hidden)",
+   "customer_sees": "Red \"!\" disc, \"Platba neproběhla\" and what it means for the booking / change / order.",
+   "visible": "clear",
+   "server": "yes (Stripe PaymentIntent status; booking stays unpaid in DB)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_result_screen.dart:234-235 (kind failed when _notPaid), :244 (pickup null), :246 (synced false), :249-250; lib/features/payment/v2/result_view_v2.dart:64 (MgTone.err)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flags drive the v2 view; error tone disc and same title/subtitle.",
+   "evidence": "Same flags drive the v2 view; error tone disc and same title/subtitle.",
+   "sources": [
+    "payment-2-25"
+   ]
+  }
+ ]
+}

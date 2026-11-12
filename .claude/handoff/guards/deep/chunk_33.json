@@ -1,0 +1,561 @@
+{
+ "title": "Reservations list and reservation detail shell - part 3 of 5 (G-398..G-411; mainly cancel_result_dialog.dart, reservation_provider.dart, reservation_detail_screen.dart)",
+ "guards": [
+  {
+   "id": "G-398",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-093",
+   "situation": "Internal guards of the unreachable list dialog: back blocked while cancelling (PopScope canPop !_loading), Zpět and Zrušit disabled with spinner while loading, colour-coded refund preview, result shown in the same dialog.",
+   "old_where": "lib/features/reservations/reservations_screen.dart:249-258, :261-262, :276, :311, :315-318, :325-336",
+   "customer_sees": "Not reachable by the customer.",
+   "visible": "silent",
+   "server": "yes (cancel_booking_tracked)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "No v2 branch exists in _CancelDialog (no MgV2.on); not needed because no v2 entry point opens it"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Dead code in both looks; listed so the coverage is visible.",
+   "evidence": "Dead code in both looks; listed so the coverage is visible.",
+   "sources": [
+    "reservations-list-detail-30"
+   ]
+  },
+  {
+   "id": "G-399",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-094",
+   "situation": "Storno went through (or was already done): confirmation with the money outcome - unpaid (nothing to refund), refund amount and percent, refund not known yet (answer lost), or no refund.",
+   "old_where": "lib/features/reservations/widgets/cancel_result_dialog.dart:152-181",
+   "customer_sees": "Dialog \"✓ Rezervace zrušena\" with the outcome text and \"Zavřít\".",
+   "visible": "clear",
+   "server": "yes (cancel_booking_tracked computes refund; send-cancellation-email handles Stripe refund)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/cancel_result_dialog.dart:165-173 (ResCancelResultV2 ok, same title, same body or the v2 refund wording with the same amount/percent); lib/features/reservations/v2/res_cancel_v2.dart:95-135"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same branch logic before the v2 seam.",
+   "evidence": "Same branch logic before the v2 seam.",
+   "sources": [
+    "reservations-list-detail-31"
+   ]
+  },
+  {
+   "id": "G-400",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-094",
+   "situation": "Storno failed: the reason is translated (not yours, not found, network, uncertain, generic) and Retry is offered only when retrying can help.",
+   "old_where": "lib/features/reservations/widgets/cancel_result_dialog.dart:183-212 (canRetry for network/failed/uncertain)",
+   "customer_sees": "Red heading \"Storno se nepovedlo\" / uncertain heading, reason, Zpět + Zkusit znovu or Zavřít.",
+   "visible": "clear",
+   "server": "yes (cancel_booking_tracked errors)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/cancel_result_dialog.dart:193-201 (same key, same canRetry) + lib/features/reservations/v2/res_cancel_v2.dart:118 and :127 (cross icon + phone support row)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same mapping; v2 adds a support row.",
+   "evidence": "Same mapping; v2 adds a support row.",
+   "sources": [
+    "reservations-list-detail-32"
+   ]
+  },
+  {
+   "id": "G-401",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-094",
+   "situation": "The server refuses storno because the booking is no longer pending/reserved (wrong_status): the app shows the generic failure with Retry, which cannot succeed.",
+   "old_where": "lib/features/reservations/reservation_provider.dart:340-344 (unrecognised error -> failed); lib/features/reservations/widgets/cancel_result_dialog.dart:189 and :191-192",
+   "customer_sees": "Generic \"Storno se nepovedlo\" text with \"Zkusit znovu\".",
+   "visible": "small-text",
+   "server": "yes (cancel_booking_tracked {error:wrong_status}, SUPABASE_BACKEND_STATE_3.md cancel_booking_tracked entry, update 2026-10-23e)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same mapping in v2 (cancel_result_dialog.dart:193-201)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical in both looks (imprecise message in the original, not a v2 regression).",
+   "evidence": "Identical in both looks (imprecise message in the original, not a v2 regression).",
+   "sources": [
+    "reservations-list-detail-33"
+   ]
+  },
+  {
+   "id": "G-402",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-094 / Cancel dialog",
+   "situation": "The storno answer was lost (timeout / dropped connection): before saying \"nothing changed\" the app re-reads the booking status and, if cancelled, the refund from booking_cancellations.",
+   "old_where": [
+    "lib/features/reservations/reservation_provider.dart:294-326 and :345-353 (20 s timeout, network detection)",
+    "lib/features/reservations/reservation_provider.dart:330-353 (cancelBooking error mapping), :287-325 (_cancelOutcomeAfterNetError); widgets/cancel_result_dialog.dart"
+   ],
+   "customer_sees": "Correct outcome dialog (done / uncertain / network).",
+   "visible": "clear",
+   "server": [
+    "yes (booking_cancellations written by cancel_booking_tracked)",
+    "yes(cancel_booking_tracked)"
+   ],
+   "v2_entry_points": [
+    "v2 dialog result"
+   ],
+   "v2_where": [
+    "Shared cancelBooking() called from ResCancelDialog in both looks (lib/features/reservations/widgets/res_cancel_dialog.dart:115-127)",
+    "lib/features/reservations/widgets/res_cancel_dialog.dart:32-37 (result dialog shared, drawn in v2 by lib/features/reservations/v2/res_cancel_v2.dart:129-130)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Same function.",
+   "sources": [
+    "reservations-list-detail-34",
+    "mx-rental-21"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-21",
+     "situation": "The server refuses the cancellation (already cancelled, not owner, not found, network lost but maybe done); the app verifies the real state and tells the customer instead of claiming success."
+    }
+   ]
+  },
+  {
+   "id": "G-403",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-094",
+   "situation": "Which outcome text is chosen depends on wasPaid = paymentStatus == \"paid\" only; a booking in partial_refund or refund_pending is treated as unpaid and gets the \"nothing to refund\" text.",
+   "old_where": "lib/features/reservations/widgets/res_cancel_dialog.dart:34 and lib/features/reservations/reservations_screen.dart:255 (wasPaid); cancel_result_dialog.dart:155-156",
+   "customer_sees": "Possibly the unpaid text after a partly refunded booking.",
+   "visible": "small-text",
+   "server": "yes (refund computed by cancel_booking_tracked regardless)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same wasPaid passed in v2 (res_cancel_dialog.dart:33-36 runs before the v2 branch; cancel_result_dialog.dart:168)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same in both looks; noted as an imprecision of the original.",
+   "evidence": "Same in both looks; noted as an imprecision of the original.",
+   "sources": [
+    "reservations-list-detail-35"
+   ]
+  },
+  {
+   "id": "G-404",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-100 Status header + rental facts + places",
+   "situation": "The booking cannot be found (deleted / not the customer's) or fails to load; the customer gets a reason, back, retry, never a raw exception.",
+   "old_where": [
+    "lib/features/reservations/reservation_detail_screen.dart:111-126 (MgStateScaffold + MgLoadingView / MgErrorView)",
+    "lib/features/reservations/reservation_detail_screen.dart:100-133 (res == null → MgErrorView reservationNotFound; loading → MgLoadingView; error → MgErrorView eoReservationLoadFail)",
+    "lib/features/reservations/reservation_detail_screen.dart:94-106; lib/features/reservations/reservation_provider.dart:121-135 (maybeSingle -> null)"
+   ],
+   "customer_sees": "Error screen with explanation, 'Moje rezervace' / 'Zkusit znovu' / back.",
+   "visible": "clear",
+   "server": [
+    "no",
+    "yes(RLS on bookings: customer only reads own rows — STATE_5, not re-traced)",
+    "yes (bookings owner RLS)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same code path before the v2 branch (reservation_detail_screen.dart:91-127)",
+    "lib/features/reservations/reservation_detail_screen.dart:100-133 run BEFORE the MgV2 branch at :162",
+    "The v2 view is reached only through _buildDetail after a non-null booking (reservation_detail_screen.dart:107-108 and :162-174), so this check runs first for every entry point (list, Home, notification types booking/handover_protocol at lib/core/push/notification_handler.dart:170-177, App Link)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 uses the old state pages unchanged (their own look seams were not traced).",
+   "evidence": "The v2 view is only built from the data branch; not-found/loading/error states are shared (their own v2 look lives in core/widgets/state_views.dart, not traced here).",
+   "sources": [
+    "reservations-list-detail-38",
+    "reservation-detail-blocks-10",
+    "reservations-list-detail-37"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-38",
+     "situation": "The detail is loading or fails to load: back arrow, reason and Retry (no bare spinner, no raw exception)."
+    },
+    {
+     "source": "reservations-list-detail-37",
+     "situation": "The booking does not exist or belongs to someone else (RLS returns nothing): the detail shows \"Rezervace nenalezena\" with an explanation and a way back to My reservations; nothing of the booking is shown."
+    }
+   ]
+  },
+  {
+   "id": "G-405",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-100 Status header + rental facts + places",
+   "situation": "The 5-second refresh or realtime update fails (weak LTE at a self-service branch); the already loaded booking and codes stay visible with a 'data may be old' note and retry, instead of disappearing.",
+   "old_where": [
+    "lib/features/reservations/reservation_detail_screen.dart:88-93 (skipError, stale) and :237",
+    "lib/features/reservations/reservation_detail_screen.dart:94-99 (stale = hasError && hasValue, skipError: true), old sliver :237 'if (stale != null) MgStaleNote'; 5 s timer :52-60 skips when offline"
+   ],
+   "customer_sees": "Thin note 'Data mohou být zastaralá' with 'Zkusit znovu'.",
+   "visible": "small-text",
+   "server": [
+    "no",
+    "n/a"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_detail_screen.dart:167 (onStaleRetry) -> lib/features/reservations/v2/res_detail_view_v2.dart:69 (MgStaleNote)",
+    "lib/features/reservations/v2/res_detail_view_v2.dart:69 (MgStaleNote(onRetry: widget.onStaleRetry)) fed by reservation_detail_screen.dart:162-174"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag.",
+   "evidence": "Same _DetailState computes stale and passes it to the v2 view.",
+   "sources": [
+    "reservations-list-detail-39",
+    "reservation-detail-blocks-09"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-39",
+     "situation": "A refresh of the detail or the door codes fails after they were loaded (weak LTE at a self-service branch): the loaded booking and codes stay visible with a stale strip and Retry."
+    }
+   ]
+  },
+  {
+   "id": "G-406",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-107 State-dependent action buttons / Reservation detail",
+   "situation": "Buttons follow the server state without restart (protocol signed at the kiosk, booking activated by code): detail refreshes every 5 s and on realtime booking changes.",
+   "old_where": [
+    "lib/features/reservations/reservation_detail_screen.dart:50-60 and :70-77",
+    "lib/features/reservations/reservation_detail_screen.dart:52-60 (5 s timer, skipped offline), :70-75 (reservationsProvider listener → invalidate)",
+    "lib/features/reservations/reservation_detail_screen.dart:52-60 (Timer.periodic; if OfflineGuard.offlineNow return), :73-77, :88-91 (skipError + stale strip)"
+   ],
+   "customer_sees": "Status and buttons change by themselves.",
+   "visible": "silent",
+   "server": [
+    "no",
+    "n/a"
+   ],
+   "v2_entry_points": [
+    "v2 detail"
+   ],
+   "v2_where": [
+    "Same State object drives the v2 view (reservation_detail_screen.dart:162-174)",
+    "lib/features/reservations/reservation_detail_screen.dart:162-174 (v2 view built from the same _DetailState)",
+    "lib/features/reservations/reservation_detail_screen.dart:162-173 — the v2 view is built inside the same State; onStaleRetry passed through (lib/features/reservations/v2/res_detail_view_v2.dart:69)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Same state owner.",
+   "sources": [
+    "reservations-list-detail-40",
+    "reservation-detail-blocks-47",
+    "mx-rental-12"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-40",
+     "situation": "Automatic refresh every 5 s (booking, codes, documents) is paused offline; realtime changes of bookings refresh the detail at once."
+    },
+    {
+     "source": "mx-rental-12",
+     "situation": "The detail refreshes every 5 s and on realtime changes so state-dependent buttons (protocol signed, activation) update; offline refresh is skipped so already-loaded codes are not wiped."
+    }
+   ],
+   "visible_by_source": {
+    "reservations-list-detail-40": "silent",
+    "reservation-detail-blocks-47": "silent",
+    "mx-rental-12": "small-text"
+   }
+  },
+  {
+   "id": "G-407",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-101 Self-service 12:00 release note / Reservation detail + confirmation / Reservation detail",
+   "situation": "Customer booked a self-service pickup with the 'pickup from 12:00' discount; the kiosk will not release the locker or bike codes before 12:00 Prague on the start day, and the detail warns about it until that moment.",
+   "old_where": [
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:171-204 (res.kioskReleasePending; CTA only if res.status == reserved -> /reservations/:id/edit); lib/features/reservations/reservation_models.dart:311-324",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:175-204 (if res.kioskReleasePending); reservation_models.dart:309-323 (selfServiceLateGate via _lateGateOf :11-19, kioskReleaseAt = 12:00 Prague of start day, pending while now < at)",
+    "lib/features/reservations/reservation_models.dart:320-323 kioskReleasePending; features/reservations/widgets/res_detail_tab_content.dart:171-205; features/payment/payment_confirmation_screen.dart:264, :485-495",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:171-204 (res.kioskReleasePending; CTA only if res.status == \"reserved\"); lib/features/reservations/reservation_models.dart:311-324"
+   ],
+   "customer_sees": "Amber box '🌗 Výdej na pobočce až od 12:00 dne <datum>…'.",
+   "visible": "small-text",
+   "server": [
+    "yes (_kiosk_release_at; kiosk_resolve_code -> pickup_too_early, per CLAUDE.md CONTRACT §31)",
+    "yes(kiosk_resolve_code → pickup_too_early; offline codes[].release_at; _kiosk_release_at — CLAUDE.md / CONTRACT §31)",
+    "yes(_kiosk_release_at, kiosk_resolve_code pickup_too_early)",
+    "yes(_kiosk_release_at / kiosk_resolve_code -> pickup_too_early, per CLAUDE.md CONTRACT §31)"
+   ],
+   "v2_entry_points": [
+    "v2 detail; v2 confirmation",
+    "v2 detail (same ResDetailTabContent, v2 branch ResLateGateV2)"
+   ],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:175-180 -> lib/features/reservations/v2/res_detail_parts_v2.dart:186-216 (ResLateGateV2, same text, CTA only when ctaLabel and onCta are set, i.e. status reserved)",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:175-180 → lib/features/reservations/v2/res_detail_parts_v2.dart:73-101 (ResLateGateV2: warn-tone box, clock icon, same text)",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:175-180 ResLateGateV2 (same condition, CTA only reserved); features/payment/payment_confirmation_screen.dart:317-320",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:175-180 (same kioskReleasePending and same status==\"reserved\" CTA condition) -> lib/features/reservations/v2/res_detail_parts_v2.dart:73-98"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same conditions; v2 uses a clock icon instead of the emoji.",
+   "evidence": "Same kioskReleasePending condition and same translated text with the same date; v2 adds a clock icon (at least as clear).",
+   "sources": [
+    "reservations-list-detail-42",
+    "reservation-detail-blocks-11",
+    "mx-order-51",
+    "mx-rental-05"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-42",
+     "situation": "Self-service booking with the 12:00 late-pickup discount: before 12:00 Prague time on the start day the kiosk will not release the codes; the detail explains this and, only for a not-yet-collected reserved booking, offers \"change pickup time\" (losing the discount)."
+    },
+    {
+     "source": "mx-order-51",
+     "situation": "A self-service booking with the from-12:00 discount is released by the kiosk only from 12:00 Prague time; the app explains it and offers to change the pickup time (only while reserved)."
+    },
+    {
+     "source": "mx-rental-05",
+     "situation": "A customer on a self-service branch booking with the 12:00 late-pickup discount wants door codes before 12:00 on the first day; the app warns that the kiosk releases codes only from 12:00 and offers to change the pickup time (only while the booking is still \"reserved\")."
+    }
+   ],
+   "visible_by_source": {
+    "reservations-list-detail-42": "clear",
+    "reservation-detail-blocks-11": "small-text",
+    "mx-order-51": "clear",
+    "mx-rental-05": "clear"
+   }
+  },
+  {
+   "id": "G-408",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-102 Financial summary",
+   "situation": "Customer checks whether the booking is paid; an unpaid/pending payment is shown as the raw status, a paid one with a check mark.",
+   "old_where": [
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:231-234",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:231-234 (res.paymentStatus == 'paid' ? '✓ Zaplaceno' : paymentStatus.toUpperCase())"
+   ],
+   "customer_sees": "Row 'Platba: ✓ Zaplaceno' or e.g. 'Platba: UNPAID'.",
+   "visible": "small-text",
+   "server": [
+    "n/a",
+    "yes(payment status is set only by the server/Stripe webhook path — not re-traced)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same ResDetailRow inside the shared ResDetailTabContent (v2 seam in res_detail_row.dart)",
+    "lib/features/reservations/widgets/res_detail_tab_content.dart:231-234 same row → ResDetailRowV2 (res_detail_row.dart:24-26)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition and text.",
+   "evidence": "Same row and value; the unpaid floating button / list flag are inventoried elsewhere.",
+   "sources": [
+    "reservations-list-detail-43",
+    "reservation-detail-blocks-13"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-43",
+     "situation": "Payment state in the price card: \"✓ Zaplaceno\" only when paid, otherwise the raw status in capitals (e.g. UNPAID)."
+    }
+   ]
+  },
+  {
+   "id": "G-409",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-104 Access codes card / Reservation detail – access codes",
+   "situation": "Door codes are shown only during the rental term and only when codes exist; codes held back (missing documents, not yet released) show the reason instead of the number, with a button that tries release_my_door_codes and otherwise sends the customer to upload documents, then retries.",
+   "old_where": [
+    "lib/features/reservations/widgets/res_access_codes_card.dart:35-55, :72, :76, :124-131, :145-160; lib/features/reservations/reservation_provider.dart:175-221",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:72 (codes.isEmpty || !res.inRentalTerm → hidden); loading/error also only if inRentalTerm :166, :179",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:72 (codes.isEmpty || !res.inRentalTerm -> hidden); lib/features/reservations/reservation_provider.dart:141-206 (get_my_door_codes RPC)"
+   ],
+   "customer_sees": "Card \"Přístupové kódy\" with numbers or the hold-back reason, button \"Nahrát doklady pro kódy\".",
+   "visible": "clear",
+   "server": [
+    "yes (get_my_door_codes, release_my_door_codes, booking_docs_gate, trg_zz_door_codes_docs_gate - STATE_6 2026-10-10)",
+    "yes(kiosk validates code validity window server-side: kiosk_resolve_code / auto_deactivate_door_codes — STATE_3)",
+    "yes(get_my_door_codes; RLS on branch_door_codes shows only issued codes)"
+   ],
+   "v2_entry_points": [
+    "v2 detail (same ResAccessCodesCard, v2 branch ResCodesV2)"
+   ],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_access_codes_card.dart:87-103 (ResCodesV2 with the same sorted codes, same value/reason, onRelease only if hasWithheld -> same _handleReleaseCodes); lib/features/reservations/v2/res_codes_v2.dart:115-143",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:72 runs before the MgV2 branch at :87",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:69-104 (the same inRentalTerm check runs before the MgV2.on branch)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same data and handler; detailed codes-card guards may also be covered by another bucket.",
+   "evidence": "Same data and handler; detailed codes-card guards may also be covered by another bucket.",
+   "sources": [
+    "reservations-list-detail-44",
+    "reservation-detail-blocks-20",
+    "mx-rental-13"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-detail-blocks-20",
+     "situation": "Door codes are shown only while the rental term runs (calendar term, also before handover on pickup day) and only when codes exist; outside the term the card is hidden so old/future codes are not used."
+    },
+    {
+     "source": "mx-rental-13",
+     "situation": "Door codes (gate, locker, bike) are shown only during the calendar rental term and only when issued; outside the term the card is hidden."
+    }
+   ],
+   "visible_by_source": {
+    "reservations-list-detail-44": "clear",
+    "reservation-detail-blocks-20": "silent",
+    "mx-rental-13": "silent"
+   }
+  },
+  {
+   "id": "G-410",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-104 Access codes card / Reservation detail / Reservation detail – access codes",
+   "situation": "Bike swap at a self-service branch: the new bike's code is withheld until the original bike is returned; the 'upload documents' button is deliberately NOT offered (it would not help), only the reason 'Vraťte nejdřív původní motorku' is shown.",
+   "old_where": [
+    "lib/features/reservations/widgets/res_access_codes_card.dart:25 and :76",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:24-25 (swapWithheldReason), :76 (hasWithheld ignores it), :127-129 (reason shown)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:74-76 (hasWithheld excludes swapWithheldReason)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:25, :76",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:24-25 (swapWithheldReason), :76"
+   ],
+   "customer_sees": "Code row shows 'Vraťte nejdřív původní motorku' (localized) instead of the number; no button.",
+   "visible": "small-text",
+   "server": [
+    "yes (withhold_swap_next_codes / release_my_door_codes)",
+    "yes(trg_withhold_swap_next_codes / release_swap_next_codes — STATE_4:47,51; admin_release_door_codes also refuses)",
+    "yes(trg_withhold_swap_next_codes)",
+    "yes(withhold_swap_next_codes)",
+    "yes(trg_withhold_swap_next_codes / trg_release_swap_next_codes)"
+   ],
+   "v2_entry_points": [
+    "v2 reservation detail",
+    "v2 codes card",
+    "v2 detail"
+   ],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_access_codes_card.dart:102 (onRelease null when !hasWithheld)",
+    "lib/features/reservations/v2/res_codes_v2.dart:165-166 (reason in warnDark), :141 (no CTA because onRelease null)",
+    "res_access_codes_card.dart:103 (onRelease null when !hasWithheld)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:102",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:96 (same localizeServerReason) and :102 (same hasWithheld)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Logic identical, but the reason is light yellow (#FFD36B) on the near-white page. In the v2 detail this widget is placed directly in ResDetailTabContent (Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:244/247/251), whose sliver sits on MgPage's light canvas background (core/v2/chrome/mg_page.dart:74 background = MgColors.canvas #F4F7F5; ResDetailCardV2 is white, res_detail_bits_v2.dart). The v2 widget was drawn for the dark CO TEĎ hero (res_coted_v2.dart:163 MgDarkHero), but ResCoTedV2 is no longer instantiated anywhere (grep 'ResCoTedV2(' finds only its definition). Colour tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF, onDarkBody #E8F5EE, onDarkSecondary #B8D4C6, warnDark #FFD36B, neon #74FB71, neonText #A8FF9F, starOffDark white 25 %, white(0.06) tile fill. These are light colours on a near-white background, so the text is very hard or impossible to read. Not confirmed by a fresh render (the newest detail renders in scratchpad/uxp/vv are from 2026-11-07, before the 2026-11-08 detail restructure).",
+   "evidence": "Logic identical, but the reason is light yellow (#FFD36B) on the near-white page. In the v2 detail this widget is placed directly in ResDetailTabContent (Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:244/247/251), whose sliver sits on MgPage's light canvas background (core/v2/chrome/mg_page.dart:74 background = MgColors.canvas #F4F7F5; ResDetailCardV2 is white, res_detail_bits_v2.dart). The v2 widget was drawn for the dark CO TEĎ hero (res_coted_v2.dart:163 MgDarkHero), but ResCoTedV2 is no longer instantiated anywhere (grep 'ResCoTedV2(' finds only its definition). Colour tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF, onDarkBody #E8F5EE, onDarkSecondary #B8D4C6, warnDark #FFD36B, neon #74FB71, neonText #A8FF9F, starOffDark white 25 %, white(0.06) tile fill. These are light colours on a near-white background, so the text is very hard or impossible to read. Not confirmed by a fresh render (the newest detail renders in scratchpad/uxp/vv are from 2026-11-07, before the 2026-11-08 detail restructure).",
+   "sources": [
+    "reservations-list-detail-45",
+    "reservation-detail-blocks-23",
+    "mx-start-56",
+    "mx-order-49",
+    "mx-rental-15"
+   ],
+   "verdict_disagreement": {
+    "reservations-list-detail-45": "HOLDS",
+    "reservation-detail-blocks-23": "WEAKER",
+    "mx-start-56": "HOLDS",
+    "mx-order-49": "HOLDS",
+    "mx-rental-15": "HOLDS"
+   },
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-45",
+     "situation": "A motorcycle code held back because of a bike swap (\"return the original bike first\") does not offer the document-upload button, since the server would refuse it."
+    },
+    {
+     "source": "mx-start-56",
+     "situation": "A code held back because of a motorbike swap gets no \"upload documents\" button (it would not help)."
+    },
+    {
+     "source": "mx-order-49",
+     "situation": "A code held because of a bike swap gets no release button (only returning the old bike releases it)."
+    },
+    {
+     "source": "mx-rental-15",
+     "situation": "After a bike swap the next bike code is withheld until the original bike is returned; the \"upload documents\" button is deliberately NOT offered because it would not help."
+    }
+   ]
+  },
+  {
+   "id": "G-411",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-095 / S-104 Access codes card / Reservation detail / Reservation detail (codes card) / Reservation detail – access codes",
+   "situation": "Self-service branch: the bike code is already issued but the handover protocol is not signed; the kiosk will not open the bike box without the signed protocol, so a note under the code says to sign the protocol first (on the branch display).",
+   "old_where": [
+    "lib/features/reservations/widgets/res_access_codes_card.dart:132-137",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:132-137 (codeType motorcycle && sent && isSelfService && !protocolSigned)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:132-140 (protocolFirst)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:132-137 (codeType motorcycle && sentToCustomer && isSelfService && !protocolSigned)"
+   ],
+   "customer_sees": "Amber bold line '📝 Nejdřív podepište předávací protokol…' under the bike code.",
+   "visible": "small-text",
+   "server": [
+    "yes (kiosk protocol_required, CONTRACT §28)",
+    "yes(kiosk protocol_required, kiosk_resolve_code protocol field — CONTRACT §28)",
+    "yes(kiosk protocol_required, kiosk_resolve_code)",
+    "yes(kiosk_resolve_code protocol_required, submit-handover-protocol)",
+    "yes(kiosk protocol_required in kiosk_resolve_code, CONTRACT §28)"
+   ],
+   "v2_entry_points": [
+    "v2 reservation detail",
+    "v2 codes card",
+    "v2 detail"
+   ],
+   "v2_where": [
+    "lib/features/reservations/widgets/res_access_codes_card.dart:98 -> lib/features/reservations/v2/res_codes_v2.dart:119-120 (sub text v2UxRpProtocolFirst, subWarn)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:98 (protocolNote same condition) → lib/features/reservations/v2/res_codes_v2.dart:119-120, 167-168 (sub text 'v2UxRpProtocolFirst' in warnDark)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:98; lib/features/reservations/v2/res_codes_v2.dart:117-119 (warning sub-line)",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:98 protocolNote",
+    "lib/features/reservations/widgets/res_access_codes_card.dart:98 (same condition -> protocolNote) -> lib/features/reservations/v2/res_codes_v2.dart:120 (sub warn line)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Same condition, but the warning is drawn in light yellow on the near-white page and uses a different key (v2UxRpProtocolFirst, text not compared). In the v2 detail this widget is placed directly in ResDetailTabContent (Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:244/247/251), whose sliver sits on MgPage's light canvas background (core/v2/chrome/mg_page.dart:74 background = MgColors.canvas #F4F7F5; ResDetailCardV2 is white, res_detail_bits_v2.dart). The v2 widget was drawn for the dark CO TEĎ hero (res_coted_v2.dart:163 MgDarkHero), but ResCoTedV2 is no longer instantiated anywhere (grep 'ResCoTedV2(' finds only its definition). Colour tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF, onDarkBody #E8F5EE, onDarkSecondary #B8D4C6, warnDark #FFD36B, neon #74FB71, neonText #A8FF9F, starOffDark white 25 %, white(0.06) tile fill. These are light colours on a near-white background, so the text is very hard or impossible to read. Not confirmed by a fresh render (the newest detail renders in scratchpad/uxp/vv are from 2026-11-07, before the 2026-11-08 detail restructure). Compared with 4.1.3 (git show 70a94933), the old note was a link to the in-app protocol (context.push(Routes.protocol)); that link was removed in BOTH looks because the protocol is signed only on the kiosk since 2026-10-10 — not a v2 regression.",
+   "evidence": "Same condition, but the warning is drawn in light yellow on the near-white page and uses a different key (v2UxRpProtocolFirst, text not compared). In the v2 detail this widget is placed directly in ResDetailTabContent (Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/res_detail_tab_content.dart:244/247/251), whose sliver sits on MgPage's light canvas background (core/v2/chrome/mg_page.dart:74 background = MgColors.canvas #F4F7F5; ResDetailCardV2 is white, res_detail_bits_v2.dart). The v2 widget was drawn for the dark CO TEĎ hero (res_coted_v2.dart:163 MgDarkHero), but ResCoTedV2 is no longer instantiated anywhere (grep 'ResCoTedV2(' finds only its definition). Colour tokens (core/v2/tokens/mg_colors.dart): onDark #FFFFFF, onDarkBody #E8F5EE, onDarkSecondary #B8D4C6, warnDark #FFD36B, neon #74FB71, neonText #A8FF9F, starOffDark white 25 %, white(0.06) tile fill. These are light colours on a near-white background, so the text is very hard or impossible to read. Not confirmed by a fresh render (the newest detail renders in scratchpad/uxp/vv are from 2026-11-07, before the 2026-11-08 detail restructure). Compared with 4.1.3 (git show 70a94933), the old note was a link to the in-app protocol (context.push(Routes.protocol)); that link was removed in BOTH looks because the protocol is signed only on the kiosk since 2026-10-10 — not a v2 regression.",
+   "sources": [
+    "reservations-list-detail-46",
+    "reservation-detail-blocks-24",
+    "mx-start-55",
+    "mx-order-50",
+    "mx-rental-16"
+   ],
+   "verdict_disagreement": {
+    "reservations-list-detail-46": "HOLDS",
+    "reservation-detail-blocks-24": "WEAKER",
+    "mx-start-55": "HOLDS",
+    "mx-order-50": "HOLDS",
+    "mx-rental-16": "HOLDS"
+   },
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-46",
+     "situation": "Self-service branch: under an issued motorcycle code, while the handover protocol is not signed, a note says the protocol must be signed on the kiosk first (the box will not open otherwise)."
+    },
+    {
+     "source": "mx-start-55",
+     "situation": "The motorbike code at a self-service branch carries the note \"first sign the protocol on the branch display\" until the protocol is signed."
+    },
+    {
+     "source": "mx-order-50",
+     "situation": "Under the motorcycle code at a self-service branch a note says the handover protocol must be signed on the branch display first; the kiosk refuses the bike box without it."
+    },
+    {
+     "source": "mx-rental-16",
+     "situation": "At a self-service branch the bike code is issued but the kiosk will not open the bike bay until the handover protocol is signed on the kiosk display; the app warns under the code."
+    }
+   ],
+   "notes": [
+    "mx-order-50: Protocol is signed only on the kiosk display (no in-app signing in either look)."
+   ]
+  }
+ ]
+}

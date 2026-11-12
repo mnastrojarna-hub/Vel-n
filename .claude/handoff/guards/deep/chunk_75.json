@@ -1,0 +1,173 @@
+{
+ "title": "Places (Místa) tab, POI sheets and community submissions - part 6 of 6 (G-927..G-934; mainly poi_reviews.dart, submit_common.dart, community_submit.dart)",
+ "guards": [
+  {
+   "id": "G-927",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-200 Submission success sheet",
+   "situation": "After a successful send the confirmation must be closed before the form closes; the customer is told the suggestion waits for approval.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/submit_common.dart (showSubmitSuccess) and community_submit.dart:191-192 / route_submit_screen.dart:178-179 (await then pop)",
+   "customer_sees": "Sheet with big tick, 'submitSuccessTitle', moderation text, OK button.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/submit_common.dart:262-263 -> v2/submit_success_v2.dart:16-40 (dialog, same texts, awaited by the same callers)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same await-then-pop flow; v2 dialog is dismissible like the old sheet (isDismissible true / showMgDialog barrierDismissible default true).",
+   "evidence": "Same await-then-pop flow; v2 dialog is dismissible like the old sheet (isDismissible true / showMgDialog barrierDismissible default true).",
+   "sources": [
+    "places-68"
+   ]
+  },
+  {
+   "id": "G-928",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-201 POI reviews editor",
+   "situation": "Writing or editing a review requires login.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/poi_reviews.dart:76-81 (4.1.3 _openEditor)",
+   "customer_sees": "Snackbar 'routeReviewLogin'.",
+   "visible": "small-text",
+   "server": "yes(submit_poi_review raises 'auth required')",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/poi_reviews.dart:82-86 (shared) <- v2 onWrite: _openEditor (:126-129, route_reviews_v2.dart:183-191)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "places-69"
+   ]
+  },
+  {
+   "id": "G-929",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-201 POI reviews editor",
+   "situation": "A review needs at least one star.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/poi_reviews.dart _submit (rating < 1 -> snackbar)",
+   "customer_sees": "Snackbar 'routeReviewRatingReq'.",
+   "visible": "small-text",
+   "server": "yes(submit_poi_review raises 'rating must be 1..5')",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/poi_reviews.dart:249-255 <- v2/review_editor_v2.dart:87 (onSubmit)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _submit.",
+   "evidence": "Same _submit.",
+   "sources": [
+    "places-70"
+   ]
+  },
+  {
+   "id": "G-930",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-201 POI reviews editor",
+   "situation": "Only one review per customer per place: an existing review is opened for editing (button says 'Edit review').",
+   "old_where": "4.1.3(70a94933) lib/features/routes/poi_reviews.dart (existing: _my; button label edit/add)",
+   "customer_sees": "'Edit review' instead of 'Write review'; editor prefilled.",
+   "visible": "clear",
+   "server": "yes(submit_poi_review upsert ON CONFLICT per user+target)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/poi_reviews.dart:95-97,219-226 and v2/route_reviews_v2.dart:186-190"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _my state.",
+   "evidence": "Same _my state.",
+   "sources": [
+    "places-71"
+   ]
+  },
+  {
+   "id": "G-931",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-201 POI reviews editor",
+   "situation": "While sending, the send button is disabled.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/poi_reviews.dart (ElevatedButton onPressed: _busy ? null)",
+   "customer_sees": "Button shows '…'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/review_editor_v2.dart:87 (MgBtnInk busy, onTap null while busy)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _busy.",
+   "evidence": "Same _busy.",
+   "sources": [
+    "places-72"
+   ]
+  },
+  {
+   "id": "G-932",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-201 POI reviews editor",
+   "situation": "'Delete review' is offered only when the customer has a review; it deletes without confirmation and a failure is silent (logged only).",
+   "old_where": "4.1.3(70a94933) lib/features/routes/poi_reviews.dart (_delete; if (_my != null) TextButton)",
+   "customer_sees": "Red text 'Delete review'.",
+   "visible": "clear",
+   "server": "yes(delete_poi_review requires auth and deletes only own row)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/poi_reviews.dart:110-121 <- v2/route_reviews_v2.dart:193-194 (only if d.my != null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition and handler; no confirmation in either look.",
+   "evidence": "Same condition and handler; no confirmation in either look.",
+   "sources": [
+    "places-73"
+   ]
+  },
+  {
+   "id": "G-933",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-201 POI reviews editor",
+   "situation": "Only approved reviews (plus the customer's own) are listed.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/poi_reviews.dart _load (get_poi_reviews)",
+   "customer_sees": "List or 'routeReviewsNone'.",
+   "visible": "silent",
+   "server": "yes(get_poi_reviews visible only status='approved' or own or admin)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/poi_reviews.dart:59-80 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared loader.",
+   "evidence": "Shared loader.",
+   "sources": [
+    "places-74"
+   ]
+  },
+  {
+   "id": "G-934",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-201 POI reviews editor",
+   "situation": "Star rating on the place requires login; taps are ignored while saving; a failed save reverts the stars and says so.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/poi_rating.dart:80-120",
+   "customer_sees": "Snackbar 'poiRateLogin' / 'poiRateSaved' / 'poiRateErr'; spinner next to stars.",
+   "visible": "small-text",
+   "server": "yes(rate_poi requires auth.uid())",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/poi_rating.dart:128-130 (PoiRatingV2 onRate: _rate) -> v2/review_editor_v2.dart:115-160"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _rate.",
+   "evidence": "Same _rate.",
+   "sources": [
+    "places-75"
+   ]
+  }
+ ]
+}

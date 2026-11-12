@@ -1,0 +1,360 @@
+{
+ "title": "SOS screens and sheets - part 2 of 5 (G-676..G-688; mainly sos_immobile_screen.dart, sos_report_sheet.dart, sos_report_screen.dart)",
+ "guards": [
+  {
+   "id": "G-676",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-181",
+   "situation": "'Bike immobile' and 'Nearest service, I pay the invoice' route to their own screens (free tow/replacement vs. own repair) instead of reporting a minor defect.",
+   "old_where": "lib/features/sos/sos_report_screen.dart:276-279",
+   "customer_sees": "Next SOS screen.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_report_screen.dart:257-260"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same routes.",
+   "evidence": "Same routes.",
+   "sources": [
+    "sos-15"
+   ]
+  },
+  {
+   "id": "G-677",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-182",
+   "situation": "The customer tries to send the report with a description shorter than 3 characters; Send is disabled.",
+   "old_where": "lib/features/sos/sos_report_sheet.dart:95-96 (canSubmit) and :227 (onPressed null)",
+   "customer_sees": "Grey disabled red button; label 'Popis *'.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_report_sheet.dart:120/123 (missingDesc, onSubmit null) -> sos_sheets_v2.dart:177-187 (disabled MgBtnSos + 'Chybí: Popis' line)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same canSubmit; v2 says explicitly what is missing.",
+   "evidence": "Same canSubmit; v2 says explicitly what is missing.",
+   "sources": [
+    "sos-16"
+   ]
+  },
+  {
+   "id": "G-678",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-182 / SOS – minor accident / minor breakdown report",
+   "situation": "The customer tries to send without a photo; Send stays disabled until at least one photo is taken, unless the camera/gallery really failed (then the report may go without photos and is marked '[bez fotek - kamera nedostupná]').",
+   "old_where": [
+    "lib/features/sos/sos_report_sheet.dart:94-96, :102-106, :241-244; marker sos_report_screen.dart:297-298; 70a94933 required a photo with no exception (sos_report_screen.dart@70a94933:309)",
+    "lib/features/sos/sos_report_sheet.dart:95-96 (canSubmit), :59-62 (_cancel confirmDiscard), :106-110 (PopScope canPop: !_dirty)"
+   ],
+   "customer_sees": "Disabled button; after a camera failure the button reads 'Odeslat bez fotky'.",
+   "visible": "small-text",
+   "server": [
+    "no",
+    "no (sos_incidents insert under RLS accepts any description)"
+   ],
+   "v2_entry_points": [
+    "v2 report sheet (SosReportSheetV2)"
+   ],
+   "v2_where": [
+    "sos_report_sheet.dart:121-123 (missingPhoto, submitLabel, onSubmit) -> sos_sheets_v2.dart:134, :177-187",
+    "lib/features/sos/sos_report_sheet.dart:112-128 (same canSubmit -> onSubmit) -> lib/features/sos/v2/sos_sheets_v2.dart:89,177-187 (adds an explicit \"Chybí: popis · fotodokumentace\" line — clearer than before)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition in both looks. Note: the camera-failure exception is a loosening versus released 4.1.3, but it is identical in the old and new look.",
+   "evidence": "Same condition in both looks. Note: the camera-failure exception is a loosening versus released 4.1.3, but it is identical in the old and new look.",
+   "sources": [
+    "sos-17",
+    "mx-rental-50"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-50",
+     "situation": "A report cannot be sent without a description of at least 3 characters AND at least one photo (photo is optional only when the camera really cannot work, with the reason shown); leaving with typed content asks for confirmation."
+    }
+   ]
+  },
+  {
+   "id": "G-679",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-182",
+   "situation": "Camera unavailable or permission denied: the sheet explains why and offers Open settings.",
+   "old_where": "lib/features/sos/sos_report_sheet.dart:66-89 (_capture), :205-224 (amber box + settings button when needsSettings)",
+   "customer_sees": "Amber note with reason + 'Otevřít nastavení'.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_sheets_v2.dart:164-175 (MgStateBanner with title 'v2UxAsmSosNoCamTitle', settings action on same needsSettings)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 adds a heading, so clearer.",
+   "evidence": "v2 adds a heading, so clearer.",
+   "sources": [
+    "sos-18"
+   ]
+  },
+  {
+   "id": "G-680",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-020 Discard confirmation / S-182",
+   "situation": "Closing the sheet (✕, Cancel, system back) with text or photos filled asks for confirmation before discarding.",
+   "old_where": [
+    "features/sos/sos_report_sheet.dart:25-29 (isDismissible:false, enableDrag:false), :58-62 (_cancel), :107-111 (PopScope canPop: !dirty)",
+    "lib/features/sos/sos_report_sheet.dart:28-29 (isDismissible false, enableDrag false)",
+    "lib/features/sos/sos_report_sheet.dart:57-62 (_cancel + confirmDiscard), :107-111 (PopScope canPop: !_dirty)"
+   ],
+   "customer_sees": "Dialog 'Zahodit?' with Discard / Stay.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/sos/sos_report_sheet.dart:112-125 (SosReportSheetV2 onCancel: _cancel); features/sos/v2/sos_sheets_v2.dart:115, :189 (✕ and Zrušit -> onCancel)",
+    "The v2 body is rendered inside the same showModalBottomSheet route (sos_report_sheet.dart:25-35, :112-128); sos_sheets_v2.dart:46-49 has no grabber",
+    "PopScope wraps both looks (sos_report_sheet.dart:107-112); v2 ✕ and Cancel call _cancel (sos_sheets_v2.dart:115, :189); confirmDiscard has its own v2 look (core/widgets/error_feedback.dart:210-211)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same sheet route and handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "global-overlays-42",
+    "sos-19",
+    "sos-20"
+   ],
+   "merged_situations": [
+    {
+     "source": "global-overlays-42",
+     "situation": "SOS report sheet: cancelling with a description or photos asks first; the sheet cannot be dragged away or closed by tapping outside."
+    },
+    {
+     "source": "sos-19",
+     "situation": "The report sheet cannot be closed by dragging or tapping outside (protects a half-written emergency report)."
+    }
+   ]
+  },
+  {
+   "id": "G-681",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-019 Shared error dialog / S-183",
+   "situation": "An SOS action fails (report, tow, replacement, continue riding): the customer is told why and offered the nonstop line, 112 or retry.",
+   "old_where": [
+    "features/sos/sos_feedback.dart:20-44 (showSosActionFailed)",
+    "lib/features/sos/sos_feedback.dart:281-305 (showSosActionFailed)"
+   ],
+   "customer_sees": "Dialog with 📞, 🆘 112 and Zkusit znovu.",
+   "visible": "clear",
+   "server": [
+    "n/a (client message for any failed SOS call)",
+    "no"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/sos/sos_feedback.dart:32-33 (MgV2.peek -> showSosFailSheetV2); features/sos/v2/sos_feedback_v2.dart:18-30 (call/112/retry, same ids)",
+    "sos_feedback.dart:292-293 -> sos_feedback_v2.dart:18-33 (red call first, 112, retry; ✕/swipe = null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 uses a sheet instead of the dialog but returns the same ids handled by the same code (sos_feedback.dart:41-43).",
+   "evidence": "v2 uses a sheet instead of the dialog but returns the same ids handled by the same code (sos_feedback.dart:41-43).",
+   "sources": [
+    "global-overlays-33",
+    "sos-21"
+   ],
+   "merged_situations": [
+    {
+     "source": "sos-21",
+     "situation": "Any SOS action fails (report, tow, replacement, continue); the result always gives the reason plus Call nonstop and 112, and only 'Retry' re-runs the action."
+    }
+   ]
+  },
+  {
+   "id": "G-682",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-019 Shared error dialog / S-183",
+   "situation": "Location share result: success only for SosLocResult.ok; otherwise the reason, plus 'Open settings' only for missing permission / location off.",
+   "old_where": [
+    "features/sos/sos_feedback.dart:48-87",
+    "lib/features/sos/sos_feedback.dart:309-347"
+   ],
+   "customer_sees": "Success toast or reason dialog with call / settings / retry.",
+   "visible": "clear",
+   "server": [
+    "no",
+    "yes (sos_share_location)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/sos/sos_feedback.dart:68-72 (showSosLocFailSheetV2 with settings flag); features/sos/v2/sos_feedback_v2.dart:37-51",
+    "sos_feedback.dart:312-315 (showSosLocSentV2), :328-332 -> sos_feedback_v2.dart:37-55"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same reasons and ids.",
+   "evidence": "Same reason mapping and settings condition.",
+   "sources": [
+    "global-overlays-34",
+    "sos-22"
+   ],
+   "merged_situations": [
+    {
+     "source": "global-overlays-34",
+     "situation": "SOS 'share location' fails: the reason (no permission, location off, no fix, offline) is shown with call, open settings (when it helps) and retry."
+    }
+   ]
+  },
+  {
+   "id": "G-683",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-183",
+   "situation": "The report reached MotoGo but without GPS; the customer is told to tell the dispatcher where they are.",
+   "old_where": "lib/features/sos/sos_feedback.dart:350-357 (showSosSentWithoutLocation); callers sos_report_screen.dart:362-364, sos_immobile_screen.dart:60/97, sos_breakdown_immobile_screen.dart:67/106, sos_theft_screen.dart:52-53",
+   "customer_sees": "Toast 'eoSosNoLocTitle' for 9 s.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared function, no v2 branch (showMotoGoToast)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same calls in both looks.",
+   "evidence": "Same calls in both looks.",
+   "sources": [
+    "sos-23"
+   ]
+  },
+  {
+   "id": "G-684",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-184 / SOS – major accident (immobile)",
+   "situation": "Serious accident: the customer must say whether it was their fault before 'Free replacement' and 'End ride / tow' appear or run.",
+   "old_where": [
+    "lib/features/sos/sos_immobile_screen.dart:168 (if (_fault != null)), :53 and :73 (handlers return when _fault == null)",
+    "lib/features/sos/sos_immobile_screen.dart:51-53 and :71-73 (_fault == null || _submitting -> return), :168 (action cards shown only when _fault != null), :302 (onTap null while submitting)"
+   ],
+   "customer_sees": "The two action cards are simply absent until a fault card is tapped.",
+   "visible": "silent",
+   "server": [
+    "no (customer_fault is written by the client)",
+    "unknown (customer_fault stored on the incident)"
+   ],
+   "v2_entry_points": [
+    "v2 immobile view"
+   ],
+   "v2_where": [
+    "sos_immobile_view_v2.dart:71-91 (SosChoicePairV2 + actions only when fault != null) with hint 'v2UxAsmFaultHint' (sos_actions_v2.dart:145-158); handlers are the same _requestReplacement/_endRide (sos_immobile_screen.dart:125-126)",
+    "lib/features/sos/sos_immobile_screen.dart:117-127 (same handlers) -> lib/features/sos/v2/sos_immobile_view_v2.dart:83-89 (actions only when fault != null, pending while submitting)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is clearer (hint explains the choice unlocks the next step). Value mapping checked: a=true -> onFault(false) = not my fault.",
+   "evidence": "v2 is clearer (hint explains the choice unlocks the next step). Value mapping checked: a=true -> onFault(false) = not my fault.",
+   "sources": [
+    "sos-24",
+    "mx-rental-53"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-53",
+     "situation": "Replacement or tow cannot be requested before the customer states fault (my fault / not my fault); buttons are inactive while sending."
+    }
+   ],
+   "visible_by_source": {
+    "sos-24": "silent",
+    "mx-rental-53": "clear"
+   }
+  },
+  {
+   "id": "G-685",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-184",
+   "situation": "Double tap on replacement or tow while a request runs is ignored.",
+   "old_where": "lib/features/sos/sos_immobile_screen.dart:53-54, :73-74 (_submitting) and :302 (card onTap null while submitting)",
+   "customer_sees": "Nothing visible (cards just do not react).",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_immobile_view_v2.dart:85-90 -> SosReplaceTowV2 (sos_actions_v2.dart:184-207: busy spinner on the tapped one, the other dimmed and onTap null); handler guard shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 shows a spinner, so clearer.",
+   "evidence": "v2 shows a spinner, so clearer.",
+   "sources": [
+    "sos-25"
+   ]
+  },
+  {
+   "id": "G-686",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-184",
+   "situation": "An open incident is reused instead of creating a new one before replacement or tow.",
+   "old_where": "lib/features/sos/sos_immobile_screen.dart:33-35 (_ensureIncident)",
+   "customer_sees": "Nothing.",
+   "visible": "silent",
+   "server": "yes (trg_one_active_sos)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _ensureIncident via onReplacement/onTow (sos_immobile_screen.dart:125-126)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared state class.",
+   "evidence": "Shared state class.",
+   "sources": [
+    "sos-26"
+   ]
+  },
+  {
+   "id": "G-687",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-184",
+   "situation": "Ending the ride with a tow is confirmed only after the request was saved; on failure the customer is told to arrange the tow by phone.",
+   "old_where": "lib/features/sos/sos_immobile_screen.dart:76-99 (try/catch, showSosActionFailed with eoSosTowByPhone); sos_provider.dart:342-356 now throws; 70a94933 ignored the error and always showed 'towOrdered'",
+   "customer_sees": "Toast 'Odtah objednán' and done screen, or failure dialog.",
+   "visible": "clear",
+   "server": "no (direct UPDATE + timeline insert under RLS)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_immobile_view_v2.dart:89 onTow -> same _endRide"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "sos-27"
+   ]
+  },
+  {
+   "id": "G-688",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-184",
+   "situation": "Ordering a replacement first creates/reuses the incident; on failure the replacement screen is not opened.",
+   "old_where": "lib/features/sos/sos_immobile_screen.dart:52-70",
+   "customer_sees": "Failure dialog with retry; otherwise the replacement screen.",
+   "visible": "clear",
+   "server": "yes (replacement itself is checked by sos_swap_bookings)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_immobile_view_v2.dart:88 onReplacement -> same handler"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "sos-28"
+   ]
+  }
+ ]
+}

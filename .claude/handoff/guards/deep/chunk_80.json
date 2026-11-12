@@ -1,0 +1,278 @@
+{
+ "title": "Recommended routes, route detail, builder and navigation - part 5 of 7 (G-987..G-999; mainly route_builder_screen.dart, route_builder_sheets.dart, my_experiences_provider.dart)",
+ "guards": [
+  {
+   "id": "G-987",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "'Navigate' is disabled until there is at least one stop.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:255 (canNav = _stops.isNotEmpty), :789-794 (onTap: canNav ? _navigate : () {}, Opacity 0.45), :237 (_navigate: if _stops.isEmpty return)",
+   "customer_sees": "Faded button, does nothing.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:722-728 (BuilderDockV2 canNav, onNavigate: canNav ? _navigate : (){}) -> v2/builder_parts_v2.dart:404 (MgCta enabled: canNav)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag; v2 CTA rendered disabled; _navigate itself re-checks.",
+   "evidence": "Same flag; v2 CTA rendered disabled; _navigate itself re-checks.",
+   "sources": [
+    "routes-nav-56"
+   ]
+  },
+  {
+   "id": "G-988",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "'Save route' and 'Suggest to community' are disabled until the route has at least 2 stops.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:256 (canSuggest = _stops.length >= 2), :736-777 (onTap no-op + Opacity 0.45 when !canSuggest)",
+   "customer_sees": "Both buttons faded, do nothing.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:724-726 (onSave/onSuggest no-op when !canSuggest) -> v2/builder_parts_v2.dart:329-343 (Opacity canSave ? 1 : 0.45, Semantics enabled: canSave)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag and no-op callbacks.",
+   "evidence": "Same flag and no-op callbacks.",
+   "sources": [
+    "routes-nav-57"
+   ]
+  },
+  {
+   "id": "G-989",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "Saving a route for myself requires login.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:831-835 (_openSaveSheet: currentUser == null -> SnackBar routeSaveLogin)",
+   "customer_sees": "Snackbar asking to log in.",
+   "visible": "small-text",
+   "server": "yes(save_user_route requires auth)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:724 (onSave: _openSaveSheet)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "routes-nav-58"
+   ]
+  },
+  {
+   "id": "G-990",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "Suggesting a route to the community requires login.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:895-899 (_openSuggestSheet: currentUser == null -> SnackBar poiRateLogin); :928-929 (_submitSuggestion uid null -> false)",
+   "customer_sees": "Snackbar asking to log in.",
+   "visible": "small-text",
+   "server": "yes(RLS routes_user_submit created_by = auth.uid())",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:725 (onSuggest: _openSuggestSheet)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "routes-nav-59"
+   ]
+  },
+  {
+   "id": "G-991",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "Save/suggest re-check that the route has at least 2 points.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:836-840 and :900-904 (_stops.length < 2 -> SnackBar routeSubmitNeedPoints)",
+   "customer_sees": "Snackbar 'need at least two points'.",
+   "visible": "small-text",
+   "server": "yes(save_user_route requires waypoints array >= 1; suggestion: unknown)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:724-725"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handlers.",
+   "evidence": "Same handlers.",
+   "sources": [
+    "routes-nav-60"
+   ]
+  },
+  {
+   "id": "G-992",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "The name sheet refuses to send without a name.",
+   "old_where": "lib/features/routes/route_builder_sheets.dart:120-125 (nameCtrl empty -> SnackBar poiSubmitNameReq)",
+   "customer_sees": "Snackbar 'name required'.",
+   "visible": "small-text",
+   "server": "yes(save_user_route: name required) / suggestion insert: unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_sheets.dart:142-155 (RouteNameSheetV2 onSend: submit)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same submit closure.",
+   "evidence": "Same submit closure.",
+   "sources": [
+    "routes-nav-61"
+   ]
+  },
+  {
+   "id": "G-993",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "Send button is disabled while saving/sending; on failure the sheet stays open with an error.",
+   "old_where": "lib/features/routes/route_builder_sheets.dart:126-139 (busy, errKey snackbar), :191 (onPressed: busy ? null : submit)",
+   "customer_sees": "Button shows 'Sending...' and is disabled; error snackbar on failure.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/route_name_sheet_v2.dart:48 (MgBtnInk busy, onTap: busy ? null : onSend)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Null onTap while busy; same submit body.",
+   "evidence": "Null onTap while busy; same submit body.",
+   "sources": [
+    "routes-nav-62"
+   ]
+  },
+  {
+   "id": "G-994",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "The server limit of saved routes (200 per customer) refuses saving; the app shows the generic save error.",
+   "old_where": "lib/features/routes/my_experiences_provider.dart:220-233 (save_user_route -> success false) -> route_builder_sheets.dart:136-139 (routeSaveErr)",
+   "customer_sees": "Snackbar 'could not save' (no specific reason).",
+   "visible": "small-text",
+   "server": "yes(save_user_route limit_reached at 200)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:724 (same _openSaveSheet -> _saveMyRoute)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same server call and same message.",
+   "evidence": "Same server call and same message.",
+   "sources": [
+    "routes-nav-63"
+   ]
+  },
+  {
+   "id": "G-995",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "'Suggest to community' tells the customer the suggestion goes to moderation before anyone sees it.",
+   "old_where": "lib/features/routes/route_builder_sheets.dart:86 (intro SubmitIntroBanner) ; submit_common.dart:25-45 (submitModerationNote)",
+   "customer_sees": "Banner with moderation note above the fields.",
+   "visible": "small-text",
+   "server": "yes(RLS routes_user_submit forces status='pending' AND is_active=false)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/route_name_sheet_v2.dart:50-53 (hintKey null -> const SubmitIntroBanner(), which renders SubmitNoteV2 in v2, submit_common.dart:24)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "For the suggest sheet v2HintKey is null, so v2 shows the same moderation note.",
+   "evidence": "For the suggest sheet v2HintKey is null, so v2 shows the same moderation note.",
+   "sources": [
+    "routes-nav-64"
+   ]
+  },
+  {
+   "id": "G-996",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "Without road routing (no signal / API failure) the builder draws no line and shows no length, never straight lines.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:189-210 (pts.length < 2 -> clear; g = info?.geometry ?? [] ; _distanceM null when info == null), :471-473 (km '-')",
+   "customer_sees": "Length/time show '-'.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:471-479 (BuilderStatsV2 receives the same km string)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same state.",
+   "evidence": "Same state.",
+   "sources": [
+    "routes-nav-65"
+   ]
+  },
+  {
+   "id": "G-997",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "Points already in the route are not offered again in 'nearby suggestions'; the panel is hidden until there is a first stop and caps the number of cards.",
+   "old_where": "lib/features/routes/poi_suggest.dart:53 (stops.isEmpty -> hidden), :80 (excludedPoiIds), :101-102 (_maxCards 40); used at route_builder_screen.dart:283-288",
+   "customer_sees": "Panel absent / only new points listed.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:542-548 (same NearbyPoiPanel in the v2 list header)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget with same inputs.",
+   "evidence": "Same widget with same inputs.",
+   "sources": [
+    "routes-nav-66"
+   ]
+  },
+  {
+   "id": "G-998",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "The builder cannot be opened without a route payload (process restore / deep link); the customer gets an error page with a way home instead of a crash.",
+   "old_where": "lib/core/router.dart:321-333 (/route-build: extra not RouteItem/RouteBuilderArgs -> RouteErrorPage)",
+   "customer_sees": "Error page with a home button.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/router.dart:321-333 (router is look-independent)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "No look branch in the router.",
+   "evidence": "No look branch in the router.",
+   "sources": [
+    "routes-nav-67"
+   ]
+  },
+  {
+   "id": "G-999",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "Picking points from the catalogue and cancelling adds nothing.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:143-146 (picked == null || isEmpty -> return)",
+   "customer_sees": "Nothing changes.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:549 (BuilderStopsHeaderV2 onAdd: _addFromPois)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "routes-nav-68"
+   ]
+  }
+ ]
+}

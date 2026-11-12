@@ -1,0 +1,257 @@
+{
+ "title": "My experiences, ride recording and ride results - part 5 of 6 (G-1074..G-1085; mainly ride_trip_detail_screen.dart, ride_trip_ui.dart, ride_merge_screen.dart)",
+ "guards": [
+  {
+   "id": "G-1074",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-218 Ride share sheet",
+   "situation": "Facebook needs a map link; when there is none, or the target app cannot open, the customer is told sharing failed.",
+   "old_where": "lib/features/routes/ride_share.dart:101-116 (facebook -> null without link), :208-229 (rideShareTap snack rideShareFailed)",
+   "customer_sees": "Snackbar 'sharing failed'.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_share_v2.dart:26 (rideShareTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 tiles call the same rideShareTap.",
+   "evidence": "v2 tiles call the same rideShareTap.",
+   "sources": [
+    "rides-55"
+   ]
+  },
+  {
+   "id": "G-1075",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-219 Trip detail",
+   "situation": "A trip that no longer exists (split / deleted elsewhere) shows a clear message with Back.",
+   "old_where": "lib/features/routes/ride_trip_detail_screen.dart:148-153 (rpTripGone)",
+   "customer_sees": "Error view with back.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_detail_screen_v2.dart:204-215 (MgStateScreen v2RpTripGone)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same lookup by member rides.",
+   "evidence": "Same lookup by member rides.",
+   "sources": [
+    "rides-56"
+   ]
+  },
+  {
+   "id": "G-1076",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-219 Trip detail",
+   "situation": "While a trip operation runs, all actions are locked (rename, split, delete, share, sharing switch).",
+   "old_where": "lib/features/routes/ride_trip_detail_screen.dart:53-61 (_run returns when busy), :196 (switch), :253 (ListTile enabled: !_busy), :289 (title tap), :325 (header buttons onTap null when busy)",
+   "customer_sees": "Greyed actions.",
+   "visible": "clear",
+   "server": "no (client)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_detail_screen_v2.dart:62-76 (_op has no busy check), :108-152 (_delete has no busy check); header actions lib/features/routes/v2/rides/trip_detail_view_v2.dart:86-88 -> lib/features/routes/v2/rides/ride_detail_parts_v2.dart:113-130 are never disabled; only switch (:134-135) and split button (:161) honour busy"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Rename, share and delete stay tappable while another operation is running, so a second operation can start; the old look blocked them.",
+   "evidence": "Rename, share and delete stay tappable while another operation is running, so a second operation can start; the old look blocked them.",
+   "sources": [
+    "rides-57"
+   ]
+  },
+  {
+   "id": "G-1077",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-219 Trip detail",
+   "situation": "Visibility switch for the whole trip is locked while saving; failures are reported.",
+   "old_where": "lib/features/routes/ride_trip_detail_screen.dart:123-128, :192-197",
+   "customer_sees": "Switch greyed; snackbar on failure.",
+   "visible": "small-text",
+   "server": "yes(update_user_ride per ride)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_detail_screen_v2.dart:100-106; lib/features/routes/v2/rides/trip_detail_view_v2.dart:134-135"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same rideTripSetVisibility via seam; busy disables switch.",
+   "evidence": "Same rideTripSetVisibility via seam; busy disables switch.",
+   "sources": [
+    "rides-58"
+   ]
+  },
+  {
+   "id": "G-1078",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-219 Trip detail",
+   "situation": "Trip operation failures (partial / server without trips / offline) are reported; success offers Undo.",
+   "old_where": "ride_trip_ui.dart:15-48 (rideTripSnack / rideTripShowResult)",
+   "customer_sees": "Snackbar with reason or Undo.",
+   "visible": "small-text",
+   "server": "yes(set_user_rides_trip)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_actions_v2.dart:36-65; banner lib/features/routes/v2/rides/trip_detail_view_v2.dart:103-104"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same result mapping rideTripResultOf (ride_trip_api.dart:134-138).",
+   "evidence": "Same result mapping rideTripResultOf (ride_trip_api.dart:134-138).",
+   "sources": [
+    "rides-59"
+   ]
+  },
+  {
+   "id": "G-1079",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-221 Trip name / confirm dialogs, trip delete sheet",
+   "situation": "Splitting a trip asks for confirmation.",
+   "old_where": "lib/features/routes/ride_trip_detail_screen.dart:74-80 -> ride_trip_ui.dart:88-109 (rideConfirm)",
+   "customer_sees": "Dialog with Cancel / Split.",
+   "visible": "clear",
+   "server": "yes(set_user_rides_trip)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_detail_screen_v2.dart:85-96 (showMgConfirm); entry lib/features/routes/v2/rides/trip_detail_view_v2.dart:161"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Confirmation before the plan is applied.",
+   "evidence": "Confirmation before the plan is applied.",
+   "sources": [
+    "rides-60"
+   ]
+  },
+  {
+   "id": "G-1080",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-221 Trip name / confirm dialogs, trip delete sheet",
+   "situation": "Deleting a trip: first choose 'only ungroup' or 'delete all rides', then a red confirmation with the number of rides.",
+   "old_where": "lib/features/routes/ride_trip_detail_screen.dart:90-108 -> ride_trip_ui.dart:114-140 (rideTripDeleteSheet), :88-109 (rideConfirm danger)",
+   "customer_sees": "Choice sheet, then red Delete dialog.",
+   "visible": "clear",
+   "server": "yes(delete_user_ride per ride, owner-only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_detail_screen_v2.dart:108-141 (choice sheet, showMgConfirm destructive)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same two-step flow; ungroup goes to _split(ask:false) as before.",
+   "evidence": "Same two-step flow; ungroup goes to _split(ask:false) as before.",
+   "sources": [
+    "rides-61"
+   ]
+  },
+  {
+   "id": "G-1081",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-221 Trip name / confirm dialogs, trip delete sheet",
+   "situation": "Deleting a trip that contains the ride being recorded warns what happens and detaches the recorder.",
+   "old_where": "lib/features/routes/ride_trip_detail_screen.dart:98-102; ride_trip_api.dart:190-193 (discardCurrent)",
+   "customer_sees": "Extra warning sentence in the dialog.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_detail_screen_v2.dart:128-132,143 (tripDeleteSeamV2 -> rideTripDeleteAll, trip_actions_v2.dart:27)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same warning condition and same delete function.",
+   "evidence": "Same warning condition and same delete function.",
+   "sources": [
+    "rides-62"
+   ]
+  },
+  {
+   "id": "G-1082",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-221 Trip name / confirm dialogs, trip delete sheet",
+   "situation": "Trip name dialog: Cancel aborts the operation; name max 120 characters; empty = default name by dates.",
+   "old_where": "ride_trip_ui.dart:51-85 (maxLength 120, null on cancel)",
+   "customer_sees": "Dialog with counter.",
+   "visible": "small-text",
+   "server": "yes(set_user_rides_trip trims to 120)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/trip_actions_v2.dart:69-115 (maxLength 120, pop null on cancel)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same limits and cancel semantics.",
+   "evidence": "Same limits and cancel semantics.",
+   "sources": [
+    "rides-63"
+   ]
+  },
+  {
+   "id": "G-1083",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-220 Merge rides into a trip",
+   "situation": "Merging needs at least two selected rides/trips.",
+   "old_where": "lib/features/routes/ride_merge_screen.dart:59-65 (snackbar rpMergeMinTwo), :143 (grey button)",
+   "customer_sees": "Grey button; tap explains 'pick at least two'.",
+   "visible": "small-text",
+   "server": "yes(set_user_rides_trip requires 1-300 items; the two-item rule is client only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_merge_v2.dart:67 (_merge returns), :148-159 (dock line v2RpMergeMinTwo, CTA disabled below 2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 states the rule in the dock line before tapping - clearer.",
+   "evidence": "v2 states the rule in the dock line before tapping - clearer.",
+   "sources": [
+    "rides-64"
+   ]
+  },
+  {
+   "id": "G-1084",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-220 Merge rides into a trip",
+   "situation": "When the server does not support trips, the merge screen disables selection and the button and shows an amber note.",
+   "old_where": "lib/features/routes/ride_merge_screen.dart:112-124 (server = any serverV2; rows enabled: server; note rpTripUnavailable), :151 (onPressed null)",
+   "customer_sees": "Amber note, greyed rows and button.",
+   "visible": "clear",
+   "server": "yes(missing set_user_rides_trip -> RideTripOpResult.unavailable)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_merge_v2.dart:118-123,148-159 (no serverV2 check inside the screen); entry points gated: lib/features/routes/v2/rides/moje_lists_v2.dart:161, lib/features/routes/v2/rides/ride_trip_row_v2.dart:101; failure only after naming: :78-80,:113-116"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Both v2 entry points require serverV2, so normally unreachable, but if reached the customer can select and name a trip and only then sees 'unavailable'.",
+   "evidence": "Both v2 entry points require serverV2, so normally unreachable, but if reached the customer can select and name a trip and only then sees 'unavailable'.",
+   "sources": [
+    "rides-65"
+   ]
+  },
+  {
+   "id": "G-1085",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-220 Merge rides into a trip",
+   "situation": "With fewer than two rides there is nothing to merge: a note, no button.",
+   "old_where": "lib/features/routes/ride_merge_screen.dart:111,122,127",
+   "customer_sees": "Amber note 'nothing to merge'.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_merge_v2.dart:118-119 (empty state), :148 (no dock)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same items.length >= 2 rule.",
+   "evidence": "Same items.length >= 2 rule.",
+   "sources": [
+    "rides-66"
+   ]
+  }
+ ]
+}

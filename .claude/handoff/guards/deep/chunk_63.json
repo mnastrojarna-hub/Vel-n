@@ -1,0 +1,299 @@
+{
+ "title": "Branches, loyalty club, messages and AI assistant - part 2 of 4 (G-775..G-788; mainly loyalty_ranks_screen.dart, branch_detail_card.dart, branches_sheet.dart)",
+ "guards": [
+  {
+   "id": "G-775",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-161 Branches / bikes sheet",
+   "situation": "Only bikes with status 'active' are listed under each branch.",
+   "old_where": "lib/features/profile/widgets/branches_sheet.dart:32-40 (.eq('status','active'))",
+   "customer_sees": "Out-of-service bikes do not appear.",
+   "visible": "silent",
+   "server": "yes (booking RPCs reject non-active bikes; not on this sheet)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/widgets/branches_sheet.dart:47-54,62 (same motosByBranch passed to v2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same data.",
+   "evidence": "Same data.",
+   "sources": [
+    "branches-loyalty-messages-15"
+   ]
+  },
+  {
+   "id": "G-776",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-161 Branches / bikes sheet",
+   "situation": "If loading branches or bikes fails, nothing opens and an error toast explains it.",
+   "old_where": "lib/features/profile/widgets/branches_sheet.dart:111-119 (catch -> showMotoGoToast 'branchesLoadFailed')",
+   "customer_sees": "Toast '✗ Chyba – pobočky se nepodařilo načíst'.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/widgets/branches_sheet.dart:58-64 (v2 call is inside the same try)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared error path.",
+   "evidence": "Shared error path.",
+   "sources": [
+    "branches-loyalty-messages-16"
+   ]
+  },
+  {
+   "id": "G-777",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-161 Branches / bikes sheet",
+   "situation": "Open / closed chip on each branch card (green 'Nonstop' or red 'Zavřeno').",
+   "old_where": "lib/features/profile/widgets/branch_detail_card.dart:116-130",
+   "customer_sees": "Coloured chip in the card header.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/branches_sheet_v2.dart:87,113,240-255 (_OpenChip)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same is_open source and labels.",
+   "evidence": "Same is_open source and labels.",
+   "sources": [
+    "branches-loyalty-messages-17"
+   ]
+  },
+  {
+   "id": "G-778",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-161 Branches / bikes sheet",
+   "situation": "The 'Otevřít v mapě' button is hidden when the branch has neither GPS nor an address; 'Navigovat na pobočku' only with GPS; 'Zavolat' only with a phone number.",
+   "old_where": "lib/features/profile/widgets/branch_detail_card.dart:147-149,216,228,249",
+   "customer_sees": "Buttons present or absent.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/branches_sheet_v2.dart:89-90,138-142,154,160-177"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same conditions and the same URLs (maps dir / maps q / tel:).",
+   "evidence": "Same conditions and the same URLs (maps dir / maps q / tel:).",
+   "sources": [
+    "branches-loyalty-messages-18"
+   ]
+  },
+  {
+   "id": "G-779",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-161 Branches / bikes sheet",
+   "situation": "Self-service branches state their capacity (max 8 bikes); the old look shows it twice (detail row and an amber badge next to the bike list title).",
+   "old_where": "lib/features/profile/widgets/branch_detail_card.dart:225-226; branch_moto_list.dart:39-56",
+   "customer_sees": "Row 'Kapacita: max 8 motorek' plus amber badge.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/branches_sheet_v2.dart:159 (row only)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The capacity row stays in the expanded card; only the duplicate amber badge in the bike-list header is not drawn. Informational only, no action depends on it.",
+   "evidence": "The capacity row stays in the expanded card; only the duplicate amber badge in the bike-list header is not drawn. Informational only, no action depends on it.",
+   "sources": [
+    "branches-loyalty-messages-19"
+   ]
+  },
+  {
+   "id": "G-780",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-161 Branches / bikes sheet",
+   "situation": "Tapping a bike in the sheet closes the sheet and opens the bike detail; a bike without an id is not tappable.",
+   "old_where": "lib/features/profile/widgets/branch_moto_list.dart:75-83",
+   "customer_sees": "Bike row; tap opens detail.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/branches_sheet_v2.dart:221-236 (id null -> row hidden; parse error -> row hidden; tap pops + push '/moto/$id')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same navigation. Difference: v2 hides (instead of showing non-tappable) a row whose id is missing or whose data fail Motorcycle.fromJson; nothing is reachable that was blocked before.",
+   "evidence": "Same navigation. Difference: v2 hides (instead of showing non-tappable) a row whose id is missing or whose data fail Motorcycle.fromJson; nothing is reachable that was blocked before.",
+   "sources": [
+    "branches-loyalty-messages-20"
+   ]
+  },
+  {
+   "id": "G-781",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "A logged-out customer (or one for whom get_loyalty_status returns nothing) sees the welcome variant: first rank, 0 %, and the line 'Platí jen pro rezervace vytvořené v aplikaci' instead of a progress line.",
+   "old_where": "lib/features/loyalty/loyalty_ranks_screen.dart:202-208,311-313 (s == null -> loyaltyAppOnly); loyalty_provider.dart:204-211",
+   "customer_sees": "Hero with Startér, 0 % and the app-only sentence.",
+   "visible": "small-text",
+   "server": "yes (get_loyalty_status uses auth.uid(); validate_app_loyalty_discount trigger applies the discount only to app bookings)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_screen_v2.dart:139,198,207-210"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and the same text key.",
+   "evidence": "Same provider and the same text key.",
+   "sources": [
+    "branches-loyalty-messages-21"
+   ]
+  },
+  {
+   "id": "G-782",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "Rank ladder: ranks above the customer's level are locked (dimmed + lock icon), the current rank is highlighted with a 'TY' chip, lower ranks are unlocked.",
+   "old_where": "lib/features/loyalty/loyalty_ranks_screen.dart:139-156 (_TileState current/unlocked/locked), :534-545 (lock icon)",
+   "customer_sees": "Glowing current tile, dimmed locked tiles with a lock.",
+   "visible": "clear",
+   "server": "yes (rank computed server-side in get_loyalty_status)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_ladder_v2.dart:85,94-95,145-158,171-174"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same current = status.level comparison; lock icon and opacity kept.",
+   "evidence": "Same current = status.level comparison; lock icon and opacity kept.",
+   "sources": [
+    "branches-loyalty-messages-22"
+   ]
+  },
+  {
+   "id": "G-783",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "Point threshold shown per rank ('od X bodů').",
+   "old_where": "lib/features/loyalty/loyalty_ranks_screen.dart:452-455 (loyaltyFromBooking with level.minBookingOrder from loyalty_levels.min_booking_order; fallback seed 1,3,5…,39 in loyalty_levels_provider.dart:45-64)",
+   "customer_sees": "Small grey line under each rank name.",
+   "visible": "small-text",
+   "server": "yes (get_loyalty_status: level = ceil((points+1)/2), SUPABASE_BACKEND_STATE_3.md:218)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_ladder_v2.dart:140 and :72-74 (2 * level - 2, computed in the app, NOT from min_booking_order)"
+   ],
+   "verdict": "UNCLEAR",
+   "verdict_evidence": "v2 does not read the DB column: for rank 2 the old look shows the stored value (3 in the seed fallback) while v2 shows 2. v2 matches the server formula; I could not read the live loyalty_levels values, so I cannot say which number customers see today in the old look or whether the two now disagree.",
+   "evidence": "v2 does not read the DB column: for rank 2 the old look shows the stored value (3 in the seed fallback) while v2 shows 2. v2 matches the server formula; I could not read the live loyalty_levels values, so I cannot say which number customers see today in the old look or whether the two now disagree.",
+   "sources": [
+    "branches-loyalty-messages-23"
+   ]
+  },
+  {
+   "id": "G-784",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "From rank 3 the rank tiles state 'Výbava spolujezdce i veškerá obuv zdarma' (dimmed while locked).",
+   "old_where": "lib/features/loyalty/loyalty_ranks_screen.dart:461-482 (level.level >= loyaltyFreeGearLevel); booking_models.dart:421 (= 3)",
+   "customer_sees": "Green line with 🎒 under ranks 3–20.",
+   "visible": "small-text",
+   "server": "yes (free gear from rank 3 gated server-side with booking_source='app', SUPABASE_BACKEND_STATE_3.md:220)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_ladder_v2.dart:176-190"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same constant; locked ranks dimmed.",
+   "evidence": "Same constant; locked ranks dimmed.",
+   "sources": [
+    "branches-loyalty-messages-24"
+   ]
+  },
+  {
+   "id": "G-785",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "Rules card lists the six program rules, including 'discount applies ONLY to bookings made in the app' and how it combines with promo codes and vouchers.",
+   "old_where": "lib/features/loyalty/loyalty_ranks_screen.dart:609-616 (_RulesCard keys loyaltyRulePoints…loyaltyRuleCombo)",
+   "customer_sees": "Card '🏅 Jak věrnost funguje' with six lines.",
+   "visible": "small-text",
+   "server": "yes (validate_app_loyalty_discount BEFORE INSERT trigger on bookings)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_screen_v2.dart:86-104 (same six keys, same order); loyalty_info_sheet_v2.dart:11-17 (extra 'O programu' sheet)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same keys and order; v2 adds an info-sheet button on top.",
+   "evidence": "Same keys and order; v2 adds an info-sheet button on top.",
+   "sources": [
+    "branches-loyalty-messages-25"
+   ]
+  },
+  {
+   "id": "G-786",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "Next-rank / max-rank line: shows how many points to the next rank and its %, or 'max rank' at the top.",
+   "old_where": "lib/features/loyalty/loyalty_ranks_screen.dart:311-319,327-332",
+   "customer_sees": "White line under the progress bar plus 'level x/20 · n bodů'.",
+   "visible": "small-text",
+   "server": "yes (bookings_to_next from get_loyalty_status)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_status_parts_v2.dart:96-110 (RankStatusLinesV2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same keys; v2 additionally falls back to the max-rank text when bookings_to_next is null (old would print an empty number).",
+   "evidence": "Same keys; v2 additionally falls back to the max-rank text when bookings_to_next is null (old would print an empty number).",
+   "sources": [
+    "branches-loyalty-messages-26"
+   ]
+  },
+  {
+   "id": "G-787",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "Levels still loading or failed: the screen keeps a back arrow and shows a spinner, or an error explaining the reason with 'Zkusit znovu'.",
+   "old_where": "lib/features/loyalty/loyalty_ranks_screen.dart:58-78 (loading/error with _topBar, MgErrorView eoLoyaltyLoadFail, invalidate)",
+   "customer_sees": "Spinner or error card with retry; back arrow always present.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_screen_v2.dart:52-80,117-119 (top row always first in the ListView)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider, same retry; back always visible. (Note: in 4.1.3, 70a94933, the error state was an empty box without back; both looks now improve on that.)",
+   "evidence": "Same provider, same retry; back always visible. (Note: in 4.1.3, 70a94933, the error state was an empty box without back; both looks now improve on that.)",
+   "sources": [
+    "branches-loyalty-messages-27"
+   ]
+  },
+  {
+   "id": "G-788",
+   "step": "branches-loyalty-messages",
+   "step_title": "Branches, loyalty club, messages and AI assistant",
+   "surface": "S-162 Loyalty ranks",
+   "situation": "Monthly leaderboard is hidden unless the Velín feature flag loyalty_leaderboard is on, and hidden when the RPC returns nothing.",
+   "old_where": "lib/features/loyalty/loyalty_leaderboard_section.dart:31-39; core/feature_flags.dart:48-55; loyalty_leaderboard_provider.dart:100-119",
+   "customer_sees": "No leaderboard section at all (default).",
+   "visible": "silent",
+   "server": "yes (get_loyalty_leaderboard returns {error:'unauthenticated'} without login; section is a UI flag, STATE_3:227)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/loyalty/v2/loyalty_leaderboard_v2.dart:29-33"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag provider and null check.",
+   "evidence": "Same flag provider and null check.",
+   "sources": [
+    "branches-loyalty-messages-28"
+   ]
+  }
+ ]
+}

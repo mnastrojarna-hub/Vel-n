@@ -1,0 +1,308 @@
+{
+ "title": "Profile tab and settings - part 2 of 3 (G-737..G-749; mainly consent_sheet.dart, settings_sheets.dart, profile_screen.dart)",
+ "guards": [
+  {
+   "id": "G-737",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-149 My account menu",
+   "situation": "Unread messages from MotoGo are flagged with a red count badge on \"Zprávy\" (9+ above nine).",
+   "old_where": "lib/features/profile/profile_screen.dart:366 (badge: ref.watch(adminUnreadCountProvider)); lib/features/profile/widgets/profile_menu_item.dart:60-65",
+   "customer_sees": "A red number badge on the Messages row.",
+   "visible": "clear",
+   "server": "n/a (display of admin_messages read flags)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_tiles_v2.dart:37, 62-67 (badge: unread) and :181-204 (red badge, 9+)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and same 9+ rule; the v2 badge sits on the tile icon.",
+   "evidence": "Same provider and same 9+ rule; the v2 badge sits on the tile icon.",
+   "sources": [
+    "profile-18"
+   ]
+  },
+  {
+   "id": "G-738",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-149 My account menu / S-168 E-shop",
+   "situation": "A customer looks for the e-shop in the Profile menu, but the e-shop entry is hidden while the feature flag eshop_visible is off (and also when the flag cannot be loaded or the row is missing).",
+   "old_where": [
+    "lib/features/profile/profile_screen.dart:358-359 (if eshopVisibleProvider.valueOrNull ?? false); lib/core/feature_flags.dart:64-72",
+    "lib/features/profile/profile_screen.dart:358-359 (if ref.watch(eshopVisibleProvider).valueOrNull ?? false); provider lib/core/feature_flags.dart:64-75 (default false on missing row / error)"
+   ],
+   "customer_sees": "No 'E-shop' row in the Profile menu at all; only 'Pobocky' is shown in its place.",
+   "visible": "silent",
+   "server": [
+    "yes(feature_flags row eshop_visible)",
+    "no (the flag only hides the menu entry; the /shop route and create_shop_order stay usable — migration supabase/migrations/20261001_feature_flag_eshop_visible.sql)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_tiles_v2.dart:38 and :50-58 (if (eshop))",
+    "lib/features/profile/v2/profile_tiles_v2.dart:38 and :50-57 (tile only when eshop == true, same eshopVisibleProvider, same '?? false' default); used in the branches variant at lib/features/profile/v2/profile_hub_v2.dart:153. No other v2 widget pushes Routes.shop (grep of features/*/v2 and core/v2)."
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider, same default false.",
+   "evidence": "Same provider and default in both looks. Note (look-independent, unchanged): a push notification of type 'shop_order' opens /shop even when the flag is off (Motogo-app-main/motogo-app-flutter/lib/core/push/notification_handler.dart:191-192), and the payment-result CTA goes to Routes.shop (Motogo-app-main/motogo-app-flutter/lib/features/payment/payment_ui_helpers.dart:142); both behave identically in both looks.",
+   "sources": [
+    "profile-19",
+    "shop-01"
+   ],
+   "merged_situations": [
+    {
+     "source": "profile-19",
+     "situation": "The e-shop entry is hidden unless the feature flag eshop_visible is on (temporarily hidden since 2026-10-01)."
+    }
+   ]
+  },
+  {
+   "id": "G-739",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-149 My account menu",
+   "situation": "Payment methods opens the saved-cards screen through the same push (its own guards are on that screen).",
+   "old_where": "lib/features/profile/profile_screen.dart:226-230 (onPaymentMethods: Navigator.push PaymentMethodsScreen) and :370",
+   "customer_sees": "The payment methods screen.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_tiles_v2.dart:93-100 (onTap: onPaymentMethods passed from profile_screen.dart:247)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure object.",
+   "evidence": "Same closure object.",
+   "sources": [
+    "profile-21"
+   ]
+  },
+  {
+   "id": "G-740",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-151 Consent sheet / Profile – consents",
+   "situation": "During an active or paid upcoming reservation the customer tries to switch off a notification or privacy consent; it is refused.",
+   "old_where": [
+    "lib/features/profile/widgets/consent_sheet.dart:87 (locked = hasActiveReservationProvider), :153-159 (_toggle: if _locked -> toast consentsLockedActive; return) and :193-214 (lock banner); provider at features/reservations/reservation_provider.dart:109-118",
+    "lib/features/profile/widgets/consent_sheet.dart:87-110 (locked = hasActiveReservationProvider; all forced on), :154-156 (toast consentsLockedActive), :193-210 (hint); lib/features/reservations/reservation_provider.dart:107-117"
+   ],
+   "customer_sees": "A green banner with a lock \"consents are required during the rental\" and, on tap, a lock toast; the ticks stay on.",
+   "visible": "clear",
+   "server": [
+    "no (no trigger or RPC refusing consent changes found in SUPABASE_BACKEND_STATE_3/_4; a direct profiles update would be accepted)",
+    "unknown"
+   ],
+   "v2_entry_points": [
+    "v2 consent sheet"
+   ],
+   "v2_where": [
+    "lib/features/profile/v2/sheets/consent_sheet_v2.dart:101-110 (lock banner) and :69-73 (MgSwitchRow onChanged -> onToggle = _toggle from consent_sheet.dart:174)",
+    "lib/features/profile/widgets/consent_sheet.dart:165-170 (ConsentSheetV2View with the same locked flag and toggle handler) -> lib/features/profile/v2/sheets/consent_sheet_v2.dart:101-106"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _toggle, same toast, same banner text; the switch value is bound to _consents so it cannot flip. Shared weakness in BOTH looks: the lock is decided once from reservationsProvider.valueOrNull, so if reservations are not loaded yet (offline) the lock is off; the server does not enforce it.",
+   "evidence": "Same _toggle, same toast, same banner text; the switch value is bound to _consents so it cannot flip. Shared weakness in BOTH looks: the lock is decided once from reservationsProvider.valueOrNull, so if reservations are not loaded yet (offline) the lock is off; the server does not enforce it.",
+   "sources": [
+    "profile-23",
+    "mx-rental-65"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-65",
+     "situation": "During a running rental or a paid upcoming booking, consents (notifications / privacy) cannot be withdrawn."
+    }
+   ]
+  },
+  {
+   "id": "G-741",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-151 Consent sheet",
+   "situation": "When the sheet opens during a rental, any consent that was switched off in the database is silently switched back on.",
+   "old_where": "lib/features/profile/widgets/consent_sheet.dart:93-107 (toEnable -> profiles.update)",
+   "customer_sees": "All ticks on.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same _load (consent_sheet.dart:52, 60-114) runs before the MgV2.on branch at :165"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same State, same load.",
+   "evidence": "Same State, same load.",
+   "sources": [
+    "profile-24"
+   ]
+  },
+  {
+   "id": "G-742",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-151 Consent sheet",
+   "situation": "The consents cannot be loaded (offline, no profile); an error with Retry and Close is shown and Save is hidden so nothing wrong is saved.",
+   "old_where": "lib/features/profile/widgets/consent_sheet.dart:60-85 (timeout 25 s, null profile -> not_authenticated), :217-225 (MgErrorView) and :270 (Save only if _loadError == null)",
+   "customer_sees": "An error card with Retry and Close; no Save button.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/sheets/consent_sheet_v2.dart:56-64 (MgErrorView, same retry) and :80-81 (footer null when loadError != null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same state flags. Branch addition (4.1.3 spun forever and kept Save enabled), present in both looks.",
+   "evidence": "Same state flags. Branch addition (4.1.3 spun forever and kept Save enabled), present in both looks.",
+   "sources": [
+    "profile-25"
+   ]
+  },
+  {
+   "id": "G-743",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-151 Consent sheet",
+   "situation": "Save is disabled while the consents are loading or while saving, so an empty or double save cannot happen.",
+   "old_where": "lib/features/profile/widgets/consent_sheet.dart:119 (if _saving return) and :272 (onPressed: _loading || _saving ? null : _save)",
+   "customer_sees": "A disabled button / spinner on the button.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/sheets/consent_sheet_v2.dart:92-98 (busy: saving, onTap: loading || saving ? null : onSave)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "profile-26"
+   ]
+  },
+  {
+   "id": "G-744",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-151 Consent sheet",
+   "situation": "Saving the consents fails; the reason is shown inside the sheet, which stays open with the chosen ticks.",
+   "old_where": "lib/features/profile/widgets/consent_sheet.dart:125-143 (catch -> _saveError) and :264-269",
+   "customer_sees": "A red line of text above Save.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/sheets/consent_sheet_v2.dart:83-91 (error icon + text)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same message; v2 adds an error icon.",
+   "evidence": "Same message; v2 adds an error icon.",
+   "sources": [
+    "profile-27"
+   ]
+  },
+  {
+   "id": "G-745",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-152 Change password sheet",
+   "situation": "The new password is shorter than 8 characters; it is refused.",
+   "old_where": "lib/features/profile/widgets/settings_sheets.dart:36-39 (passCtrl.text.length < 8 -> error min8chars)",
+   "customer_sees": "A red message in the sheet.",
+   "visible": "small-text",
+   "server": "partly(Supabase Auth applies its own policy and returns weak_password, mapped in features/auth/password_flow_errors.dart:55-57; no minimum_password_length in supabase/config.toml, so the 8-character rule is client-only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/widgets/settings_sheets.dart:62-70 (PasswordSheetV2View onSubmit: submit) and v2/sheets/settings_sheets_v2.dart:52 (helper text passwordMinLengthMsg shown up front)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same submit closure; v2 is clearer because the rule is visible under the field before submitting.",
+   "evidence": "Same submit closure; v2 is clearer because the rule is visible under the field before submitting.",
+   "sources": [
+    "profile-28"
+   ]
+  },
+  {
+   "id": "G-746",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-152 Change password sheet",
+   "situation": "The confirmation does not match the new password; it is refused.",
+   "old_where": "lib/features/profile/widgets/settings_sheets.dart:40-43 (passwordsDoNotMatch)",
+   "customer_sees": "A red message in the sheet.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same submit via settings_sheets.dart:68 -> v2/sheets/settings_sheets_v2.dart:61-70"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure; v2 shows the error with an icon and a shake.",
+   "evidence": "Same closure; v2 shows the error with an icon and a shake.",
+   "sources": [
+    "profile-29"
+   ]
+  },
+  {
+   "id": "G-747",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-152 Change password sheet",
+   "situation": "While the password is being saved the button is disabled, so it cannot be sent twice.",
+   "old_where": "lib/features/profile/widgets/settings_sheets.dart:44-47 (busy = true) and :93-96 (onPressed: busy ? null : submit)",
+   "customer_sees": "A spinner on the disabled button.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/sheets/settings_sheets_v2.dart:38-44 (busy: busy, onTap: busy ? null : onSubmit)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag.",
+   "evidence": "Same flag.",
+   "sources": [
+    "profile-30"
+   ]
+  },
+  {
+   "id": "G-748",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-152 Change password sheet",
+   "situation": "The server refuses the change (same password, weak password, re-authentication needed, session gone, offline); the reason stays in the open sheet.",
+   "old_where": "lib/features/profile/widgets/settings_sheets.dart:48-56; lib/features/auth/auth_provider.dart:480-487; features/auth/password_flow_errors.dart:46-64",
+   "customer_sees": "A red, translated reason in the sheet.",
+   "visible": "small-text",
+   "server": "yes(Supabase Auth updateUser)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same submit -> v2/sheets/settings_sheets_v2.dart:61-70"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler. Branch improvement over 4.1.3 (which closed the sheet and toasted the raw error) in both looks.",
+   "evidence": "Same handler. Branch improvement over 4.1.3 (which closed the sheet and toasted the raw error) in both looks.",
+   "sources": [
+    "profile-31"
+   ]
+  },
+  {
+   "id": "G-749",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-153 Language picker sheet",
+   "situation": "No blocking guard: choosing a language saves it, closes the sheet and sends the customer to Home so every screen is rebuilt in the new language.",
+   "old_where": "lib/features/profile/widgets/settings_sheets.dart:134-142 (pick -> setLocale, pop, toast, context.go(Routes.home))",
+   "customer_sees": "A toast and the Home screen.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/widgets/settings_sheets.dart:143-150 (ChoiceSheetV2View onPick: pick(langs[i]))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same pick closure, same list of eight languages, current one marked.",
+   "evidence": "Same pick closure, same list of eight languages, current one marked.",
+   "sources": [
+    "profile-32"
+   ]
+  }
+ ]
+}

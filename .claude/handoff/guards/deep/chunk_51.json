@@ -1,0 +1,324 @@
+{
+ "title": "Reservation edit: bike change, swap, gear, results - part 1 of 3 (G-626..G-638; mainly reservation_edit_moto_section.dart, reservation_edit_screen.dart, reservation_swap_section.dart)",
+ "guards": [
+  {
+   "id": "G-626",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "A customer whose booking is already picked up (active), or who is on the 'move' or 'swap' tab, tries to change the bike in the edit form; the 'Change bike' section is simply not shown, so the bike cannot be changed this way.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1718 (old build, condition !_isActive && _tab != 'move' && _tab != 'swap'; same at 70a94933 reservation_edit_screen.dart:1378) and the save handler only writes moto_id when !_isActive, lib/features/reservations/reservation_edit_screen.dart:877-879",
+   "customer_sees": "No 'Change bike' card at all on an active booking or on the move/swap tabs.",
+   "visible": "silent",
+   "server": "unknown (no customer-side moto lock on active bookings found in STATE_4; trg_check_booking_overlap / trg_check_trailer_overlap only check collisions)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1570 (moto: !_isActive && !datesOrSwap ? motoSection : null) -> lib/features/reservations/v2/res_edit_view_v2.dart:170"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 receives the same section only under the same condition; the save path is the same _save (saveAction Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1536-1538 passed as onSave Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1582), which keeps the !_isActive guard at :877.",
+   "evidence": "v2 receives the same section only under the same condition; the save path is the same _save (saveAction Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1536-1538 passed as onSave Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1582), which keeps the !_isActive guard at :877.",
+   "sources": [
+    "reservation-edit-2-01"
+   ]
+  },
+  {
+   "id": "G-627",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "The customer tries to pick another bike that is already booked in the (possibly changed) rental dates; the bike is greyed out, marked 'Obsazeno' and cannot be tapped.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:62-84 (_recomputeAvail via checkMotoAvailability with excludeBookingId) and :219-233, :265-267 (selectable = free == true && !trailerBlocked; onTap null otherwise)",
+   "customer_sees": "Row at 45 % opacity with red 'Obsazeno' on the right; tapping does nothing.",
+   "visible": "clear",
+   "server": "yes(trg_check_booking_overlap on bookings start_date/end_date/moto_id)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_moto_v2.dart:121-140 (onTap: free == true && !blocked ? ... : null, status busy) and lib/features/reservations/v2/res_edit_moto_rows_v2.dart:50-58 (orange 'Obsazeno' pill, opacity 0.5)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _avail map and same selectable rule handed to the v2 view (moto section :146-152); EditMotoRowV2 passes onTap null to MgPress, which disables taps (core/v2/motion/mg_anim.dart:42-53).",
+   "evidence": "Same _avail map and same selectable rule handed to the v2 view (moto section :146-152); EditMotoRowV2 passes onTap null to MgPress, which disables taps (core/v2/motion/mg_anim.dart:42-53).",
+   "sources": [
+    "reservation-edit-2-02"
+   ]
+  },
+  {
+   "id": "G-628",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "Availability is still being checked or the check failed (no connection); the bike cannot be picked until the check says it is free.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:163-167, :268-270 (spinner) and catalog_provider.dart:121-124 (checkMotoAvailability is true only for MotoAvailability.free, so an unknown result counts as not free)",
+   "customer_sees": "Small spinner in the header and on each row while checking; after a failed check the bike shows 'Obsazeno'.",
+   "visible": "clear",
+   "server": "n/a (client-side availability preview; save is re-checked, see the save-time record)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_moto_v2.dart:75-79 (header spinner), :134-139 (loading status, onTap only when free == true); lib/features/reservations/v2/res_edit_moto_rows_v2.dart:59-60"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 view reads the same _avail / _availLoading state from the old State; nothing in v2 makes an unchecked bike tappable.",
+   "evidence": "The v2 view reads the same _avail / _availLoading state from the old State; nothing in v2 makes an unchecked bike tappable.",
+   "sources": [
+    "reservation-edit-2-03"
+   ]
+  },
+  {
+   "id": "G-629",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "The customer first picks a new bike and then changes the dates so that this bike is no longer free; the choice is silently cancelled.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:80-83 (newMotoId reset when _avail[newMotoId] == false) and :127-135 (re-check on every date change)",
+   "customer_sees": "The before/after row and the 'Změna' badge disappear; the bike row shows 'Obsazeno'. No message explains why.",
+   "visible": "silent",
+   "server": "yes(trg_check_booking_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1494-1507 (same EditMotoChangeSection with rangeStart/rangeEnd from _newStart/_newEnd) -> lib/features/reservations/widgets/reservation_edit_moto_section.dart:138-153 (v2 branch after the same recompute)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The reset runs in the shared State before the MgV2.on branch, so it fires the same in both looks; v2 is equally silent (no worse).",
+   "evidence": "The reset runs in the shared State before the MgV2.on branch, so it fires the same in both looks; v2 is equally silent (no worse).",
+   "sources": [
+    "reservation-edit-2-04"
+   ]
+  },
+  {
+   "id": "G-630",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section / Reservation edit (bike list) / Edit reservation",
+   "situation": "The customer's driving licence group does not cover a bike (e.g. A2 licence, A bike); that bike is not offered in the list at all.",
+   "old_where": [
+    "lib/features/reservations/widgets/reservation_edit_moto_section.dart:98-110 (_available: BookingValidator.checkLicense with userLicenseGroups); licence groups read from profiles.license_group in lib/features/reservations/reservation_edit_screen.dart:1404-1408; empty profile list = no filtering",
+    "lib/features/reservations/widgets/reservation_edit_moto_section.dart:98-113",
+    "lib/features/reservations/widgets/reservation_edit_moto_section.dart:98-113 (_available: BookingValidator.checkLicense; _trailerBlocked), :217-233 (selectable = free == true && !trailerBlocked); lib/features/reservations/reservation_edit_screen.dart:1401-1408 (license groups)"
+   ],
+   "customer_sees": "Bike is missing from the list; nothing says why.",
+   "visible": "silent",
+   "server": [
+    "partial: yes(_apply_booking_changes_core returns license_insufficient, supabase/migrations/20261023e_refund_unify_c_core.sql:172) for the paid-edit path; no licence trigger on a direct bookings UPDATE found in STATE_4",
+    "partial (split_booking_moto_swap invalid_new_moto; licence not checked server-side - not found)",
+    "yes(license_insufficient in _apply_booking_changes_core for paid edits; trg_check_trailer_overlap); direct-update path: unknown for licence"
+   ],
+   "v2_entry_points": [
+    "v2 edit bike rows",
+    "v2 moto section (EditMotoChangeViewV2)"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_moto_v2.dart:121 (for m in available(list)) with available: _available passed from lib/features/reservations/widgets/reservation_edit_moto_section.dart:148",
+    "lib/features/reservations/widgets/reservation_edit_moto_section.dart:138-151 (v2 gets _available/_trailerBlocked)",
+    "lib/features/reservations/widgets/reservation_edit_moto_section.dart:138-153 (same _available, _avail, _trailerBlocked passed) -> lib/features/reservations/v2/res_edit_moto_v2.dart:123-139 (onTap only if free == true && !blocked)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 iterates the very same _available function, so the same licence filter (and the same 'empty licence list = no filter' default) applies.",
+   "evidence": "v2 iterates the very same _available function, so the same licence filter (and the same 'empty licence list = no filter' default) applies.",
+   "sources": [
+    "reservation-edit-2-05",
+    "mx-order-60",
+    "mx-rental-37"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-60",
+     "situation": "Only bikes the customer licence covers are offered; with a trailer, bikes from a self-service branch are blocked."
+    },
+    {
+     "source": "mx-rental-37",
+     "situation": "Changing the bike in the edit screen offers only bikes the customer may ride with the licence groups in the profile (profiles.license_group), only bikes free for the new range, and with a trailer no self-service bikes."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-2-05": "silent",
+    "mx-order-60": "silent",
+    "mx-rental-37": "clear"
+   }
+  },
+  {
+   "id": "G-631",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "The booking has a trailer and the customer tries to switch to a bike from a self-service branch; the bike is greyed out with 'Vozík jen na obslužné' and cannot be selected.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:112-113 (_trailerBlocked = hasTrailer && branchType == 'samoobslužná'), :225-233, :254-264; hasTrailer from lib/features/reservations/reservation_edit_screen.dart:1504",
+   "customer_sees": "Dimmed row with red 'Vozík jen na obslužné' text; tap does nothing.",
+   "visible": "clear",
+   "server": "yes(trg_check_trailer_overlap 23514 'obslužné pobočky'; process-payment for the paid path)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_moto_v2.dart:124-139 (status trailer, onTap null when blocked); lib/features/reservations/v2/res_edit_moto_rows_v2.dart:45-49 (text in warning colour)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _trailerBlocked closure passed in (Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_moto_section.dart:151); the label is shown in orange instead of red but still as a label on the row.",
+   "evidence": "Same _trailerBlocked closure passed in (Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_moto_section.dart:151); the label is shown in orange instead of red but still as a label on the row.",
+   "sources": [
+    "reservation-edit-2-06"
+   ]
+  },
+  {
+   "id": "G-632",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "The customer's current bike is never offered as a 'new' bike.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:99 (_available drops m.id == currentMotoId) and :65",
+   "customer_sees": "The current bike appears only in the 'Aktuální motorka' line, not in the list.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_moto_v2.dart:96-113 (current bike shown with photo) and :121 (same _available)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same filter function.",
+   "evidence": "Same filter function.",
+   "sources": [
+    "reservation-edit-2-07"
+   ]
+  },
+  {
+   "id": "G-633",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "The customer narrows the list by branch; a bike already chosen at a different branch is silently unselected.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:88-96 (_onBranch: onMotoSelected(null) when the chosen bike is not at the branch); lib/features/reservations/widgets/reservation_edit_widgets.dart:316-328 (safe value when branch has no bikes)",
+   "customer_sees": "Dropdown changes; the chosen bike disappears from the list and the before/after row goes away.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_widgets.dart:328 -> lib/features/reservations/v2/res_edit_moto_rows_v2.dart:122-151 (EditBranchFilterV2 chips call the same onChanged); lib/features/reservations/widgets/reservation_edit_moto_section.dart:146"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 chips call the same _onBranch; re-tapping the chosen chip does nothing, like re-picking the same dropdown value.",
+   "evidence": "v2 chips call the same _onBranch; re-tapping the chosen chip does nothing, like re-picking the same dropdown value.",
+   "sources": [
+    "reservation-edit-2-08"
+   ]
+  },
+  {
+   "id": "G-634",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "The customer switches to a bike standing at a self-service branch while delivery/collection to an address is selected and the feature flag self_service_delivery is off; delivery is switched back to the branch and the address option is locked.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1310-1336 (deliveryBlocked = selfServiceDeliveryBlocked(...); pickupBlocked/returnBlocked when motoChanged; post-frame reset of _pickupMethod/_returnMethod to 'store' and fees to 0)",
+   "customer_sees": "The address choice in pickup/return is shown folded with an explanation (drawn by AddressPickerWidget, deliveryBlocked) and the method jumps back to the branch.",
+   "visible": "small-text",
+   "server": "yes(trg on bookings via _delivery_guard_violation / check_booking_delivery_change, 20261001e)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1465-1491 (pickupPlace/returnPlace built with deliveryBlocked before the v2 branch) -> lib/features/reservations/reservation_edit_screen.dart:1564-1568 -> lib/features/reservations/v2/res_edit_view_v2.dart:146-169"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The block and the reset are computed in build() above the MgV2.on branch, so both looks get them; the explanation text itself is rendered by the shared AddressPickerWidget (rowBuilder only restyles rows) - its v2 wording belongs to the place/address surface of another bucket.",
+   "evidence": "The block and the reset are computed in build() above the MgV2.on branch, so both looks get them; the explanation text itself is rendered by the shared AddressPickerWidget (rowBuilder only restyles rows) - its v2 wording belongs to the place/address surface of another bucket.",
+   "sources": [
+    "reservation-edit-2-09"
+   ]
+  },
+  {
+   "id": "G-635",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "After picking a new bike and folding the card, the customer is reminded that a bike change is pending (before -> after) so it is not saved by accident.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:168-197 ('Změna' badge in the header and the struck-through current bike -> new bike row)",
+   "customer_sees": "Green 'ZMĚNA' badge and a 'Aktuální motorka (crossed out) -> NOVÁ MOTORKA' box.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_moto_v2.dart:80-86 (badge) and :93-94 + :157-193 (_BeforeAfter)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition (newMotoName != null && !expanded), same texts.",
+   "evidence": "Same condition (newMotoName != null && !expanded), same texts.",
+   "sources": [
+    "reservation-edit-2-11"
+   ]
+  },
+  {
+   "id": "G-636",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-120 Change bike section",
+   "situation": "The bike list cannot be loaded; the customer cannot choose any bike.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_moto_section.dart:279-280 (loading spinner / red 'loadingError' text)",
+   "customer_sees": "Spinner, or a red error line instead of the list.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_moto_v2.dart:143-148 (skeleton rows / error text in error colour)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same AsyncValue from motorcyclesProvider; error and loading states both present.",
+   "evidence": "Same AsyncValue from motorcyclesProvider; error and loading states both present.",
+   "sources": [
+    "reservation-edit-2-12"
+   ]
+  },
+  {
+   "id": "G-637",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-121 Swap bike tab (Výměna) / Edit reservation – bike swap",
+   "situation": "The customer tries to choose a swap date in the past or after the end of the rental; those days cannot be picked.",
+   "old_where": [
+    "lib/features/reservations/widgets/reservation_swap_section.dart:71-84 (_rangeStart = max(booking start, today), _rangeEnd = booking end) and :171-195 (showDatePicker firstDate/lastDate)",
+    "lib/features/reservations/widgets/reservation_swap_section.dart:71-83 (_rangeStart / _rangeEnd), :171-191 (_pickDate first/last)"
+   ],
+   "customer_sees": "Material date dialog with only the allowed days enabled.",
+   "visible": "clear",
+   "server": [
+    "yes(split_booking_moto_swap: swap_date_out_of_range)",
+    "yes(split_booking_moto_swap)"
+   ],
+   "v2_entry_points": [
+    "v2 swap date sheet"
+   ],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_swap_section.dart:173-176 (v2 calls showSwapDateSheetV2 with the same first/last) -> lib/features/reservations/v2/res_swap_date_sheet_v2.dart:46-71 (_inRange, enabled: ok, out-of-range days marked past/outOfLimit, month arrows limited)",
+    "lib/features/reservations/v2/res_swap_date_sheet_v2.dart:46,61-64 (cells outside first/last disabled); called from lib/features/reservations/widgets/reservation_swap_section.dart:173-176"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same range values; the v2 calendar only returns a day that passes _inRange; the result runs through the same code after the picker.",
+   "evidence": "Same range values; the v2 calendar only returns a day that passes _inRange; the result runs through the same code after the picker.",
+   "sources": [
+    "reservation-edit-2-14",
+    "mx-rental-46"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-46",
+     "situation": "Swap date can only be chosen between today (or the start) and the end of the booking; changing the date clears the chosen bike."
+    }
+   ]
+  },
+  {
+   "id": "G-638",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-121 Swap bike tab (Výměna)",
+   "situation": "The customer changes the swap date after choosing a bike; the chosen bike and the price preview are cleared and availability is re-checked from the new date.",
+   "old_where": "lib/features/reservations/widgets/reservation_swap_section.dart:184-194 (_newMotoId = null; _recomputeNet(); _recomputeAvail)",
+   "customer_sees": "The selected bike is unselected, price row disappears, spinner while re-checking.",
+   "visible": "silent",
+   "server": "yes(split_booking_moto_swap: new_moto_unavailable)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_swap_section.dart:171-195 (shared _pickDate for both looks)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler; v2 only changes which picker opens.",
+   "evidence": "Same handler; v2 only changes which picker opens.",
+   "sources": [
+    "reservation-edit-2-15"
+   ]
+  }
+ ]
+}

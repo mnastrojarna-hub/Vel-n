@@ -1,0 +1,272 @@
+{
+ "title": "Documents screen, invoices, contracts and document viewers - part 2 of 4 (G-488..G-498; mainly documents_screen.dart, docs_gate_provider.dart, docs_gate_widgets.dart)",
+ "guards": [
+  {
+   "id": "G-488",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-128 Scan buttons",
+   "situation": "Gallery result: success only if the photo row really exists on the server; network/server failure -> real reason + retry with the same photo; OCR/upload failure -> steer to the camera scanner.",
+   "old_where": "lib/features/documents/documents_screen.dart:399-416; lib/features/documents/document_provider.dart:512-515 (document_id null = not counted)",
+   "customer_sees": "Toast '✅ Nahráno', or error snack with retry, or toast '⚠️ Sken selhal – naskenuj doklad kamerou'.",
+   "visible": "clear",
+   "server": "yes(save-verification-document: user_id must exist, booking must belong to user, max 8 MB, MIME whitelist, supabase/functions/save-verification-document/index.ts:57,92,99-101,122)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/documents_screen.dart:61"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared handler.",
+   "evidence": "Shared handler.",
+   "sources": [
+    "documents-13"
+   ]
+  },
+  {
+   "id": "G-489",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-129 Verification status card",
+   "situation": "Top status banner: 'Doklady ověřeny' only when ID/passport AND licence are complete per gate; otherwise 'Doklady neověřeny — Chybí: …'.",
+   "old_where": "lib/features/documents/documents_screen.dart:124-130, :456-501 (_VerificationBanner: isComplete -> green ✅; else amber ⚠ docsNotVerified + missing list)",
+   "customer_sees": "Green or amber banner with heading.",
+   "visible": "clear",
+   "server": "yes(get_docs_gate_checklist identity_ok/license_ok)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/v2/docs_view_v2.dart:73, :222-244 (_Banner: MgStateBanner ok 'docsVerified' / warn 'docsNotVerified' + 'Chybí: …')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition (v.isComplete) and same keys; MgStateBanner has heading + tone icon.",
+   "evidence": "Same condition (v.isComplete) and same keys; MgStateBanner has heading + tone icon.",
+   "sources": [
+    "documents-14"
+   ]
+  },
+  {
+   "id": "G-490",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-129 Verification status card",
+   "situation": "Nothing uploaded at all (no ID/passport and no licence): explicit warning that the motorcycle can be booked but the key-box code comes only after verification, plus the gate's 'Chybí' line.",
+   "old_where": "lib/features/documents/documents_screen.dart:226-240 (amber box, heading '⚠ docsNotVerified', body docsNotVerifiedDesc, DocsGateMissingLine if gate not ok)",
+   "customer_sees": "Amber block headed '⚠ Doklady neověřeny' + 'Kód k boxu dostaneš až po ověření dokladů'.",
+   "visible": "clear",
+   "server": "yes(trg_zz_door_codes_docs_gate withholds codes, STATE_4:42)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/v2/docs_view_v2.dart:136-149 (if none -> MgStateBanner tone INFO, title 'docsStatus' = 'Stav dokladů', text docsNotVerifiedDesc + 'Chybí: …')"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Same condition and body text, but v2 uses the neutral info tone (grey well, info icon, MgStateBanner _bg info = MgColors.well, mg_state_banner.dart:51) and the neutral heading 'Stav dokladů' instead of the amber '⚠ Doklady neověřeny'. The 'codes only after verification' consequence now sits under a neutral heading. The top warn banner (docs_view_v2.dart:238-242) still says 'Doklady neověřeny', so the state is not hidden.",
+   "evidence": "Same condition and body text, but v2 uses the neutral info tone (grey well, info icon, MgStateBanner _bg info = MgColors.well, mg_state_banner.dart:51) and the neutral heading 'Stav dokladů' instead of the amber '⚠ Doklady neověřeny'. The 'codes only after verification' consequence now sits under a neutral heading. The top warn banner (docs_view_v2.dart:238-242) still says 'Doklady neověřeny', so the state is not hidden.",
+   "sources": [
+    "documents-15"
+   ]
+  },
+  {
+   "id": "G-491",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-129 Verification status card",
+   "situation": "Sides uploaded but the gate still withholds codes (missing back side, no date of birth, under 18, licence expired / no expiry, licence group too low): one 'Chybí: …' line from the gate.",
+   "old_where": "lib/features/documents/documents_screen.dart:261-264 (if gate != null && !gate.ok -> DocsGateMissingLine); lib/features/documents/docs_gate_widgets.dart:56-70; lib/features/documents/docs_gate_provider.dart:115-146 (docsGateMissingLabels)",
+   "customer_sees": "Small 11 px brown line 'Chybí: rub ŘP, platnost ŘP …' under the rows (no heading); the top banner may even say 'Doklady ověřeny' when only age/expiry/group fail.",
+   "visible": "small-text",
+   "server": "yes(_docs_gate_checklist missing[]/reason; check_booking_docs_status reasons, STATE_3:186-187)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/v2/docs_view_v2.dart:132-135, :150-154 (missing = docsGateMissingLabels when gate not ok -> MgStateBanner WARN title 'Stav dokladů' + 'Chybí: …')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and label function; v2 shows it as a warn banner with heading and icon — clearer than the old 11 px line.",
+   "evidence": "Same provider and label function; v2 shows it as a warn banner with heading and icon — clearer than the old 11 px line.",
+   "sources": [
+    "documents-16"
+   ]
+  },
+  {
+   "id": "G-492",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-129 Verification status card / My documents",
+   "situation": "Green 'codes ready' confirmation is shown only when the server gate says ok (never on profile fallback alone).",
+   "old_where": [
+    "lib/features/documents/documents_screen.dart:266-282 (if v.codesReady); lib/features/documents/docs_gate_provider.dart:92 (codesReady = gate?.ok ?? false)",
+    "lib/features/documents/documents_screen.dart:266-283; lib/features/documents/docs_gate_provider.dart:90-92 (codesReady = gate?.ok ?? false)"
+   ],
+   "customer_sees": "Green box '✅ Doklady ověřeny — kódy k vyzvednutí'.",
+   "visible": "clear",
+   "server": [
+    "yes(get_docs_gate_checklist ok)",
+    "yes(get_docs_gate_checklist)"
+   ],
+   "v2_entry_points": [
+    "v2 My documents"
+   ],
+   "v2_where": [
+    "lib/features/documents/v2/docs_view_v2.dart:155-168 (if !none && v.codesReady -> MgTintOk v2UxRpDocsVerified)",
+    "lib/features/documents/v2/docs_view_v2.dart:155-168"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag, same 'not in the nothing-uploaded branch' condition as old (old box lives in the else branch :242-283).",
+   "evidence": "Same flag, same 'not in the nothing-uploaded branch' condition as old (old box lives in the else branch :242-283).",
+   "sources": [
+    "documents-17",
+    "mx-start-50"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-50",
+     "situation": "The green \"codes ready\" box appears ONLY when the server gate says everything is fine; without a gate answer the app does not promise codes."
+    }
+   ]
+  },
+  {
+   "id": "G-493",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-130 Document rows",
+   "situation": "Delete is offered only on a document that is verified; an unverified row has no delete.",
+   "old_where": "lib/features/documents/documents_screen.dart:533-550 (if verified -> red 'Smazat' chip with onReset), :247-260",
+   "customer_sees": "Red 'Smazat' chip + ✓ on verified rows only.",
+   "visible": "clear",
+   "server": "unknown (STATE_5 'documents' lists only customer SELECT/INSERT, no customer DELETE policy found; profiles UPDATE id=uid)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/v2/docs_parts_v2.dart:288,327-348 (_hasAction; onTap: verified ? onReset : onScan); lib/features/documents/v2/docs_view_v2.dart:186-202"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same verified flag from the same status; v2 action is delete only when verified.",
+   "evidence": "Same verified flag from the same status; v2 action is delete only when verified.",
+   "sources": [
+    "documents-18"
+   ]
+  },
+  {
+   "id": "G-494",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-130 Document rows",
+   "situation": "Scan shortcut on a row is offered only when that document is NOT verified (ID row -> scan, licence row -> licence scan).",
+   "old_where": "lib/features/documents/documents_screen.dart:252 (onScan: hasIdOrPassport ? null : push docScan), :259 (hasLicense ? null : push ?mode=dl_only), :551-574 (tap only when onScan != null)",
+   "customer_sees": "Green 'Skenovat' chip; tapping the row opens the scanner.",
+   "visible": "clear",
+   "server": "yes(gate re-check at scanner finalisation)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/v2/docs_view_v2.dart:192,200 (onScan: verified ? null : onScanId / onScanDl -> documents_screen.dart:59-60 ?mode=missing_id / missing_dl)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same null conditions. v2 scans only the missing sides (doc_scan_plan.dart:67-72) but finishes in the same gate-checked _finalize.",
+   "evidence": "Same null conditions. v2 scans only the missing sides (doc_scan_plan.dart:67-72) but finishes in the same gate-checked _finalize.",
+   "sources": [
+    "documents-19"
+   ]
+  },
+  {
+   "id": "G-495",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-130 Document rows",
+   "situation": "Row state is shown per document (Ověřeno / Neověřeno) from the gate, so an ID with only one side counts as NOT verified.",
+   "old_where": "lib/features/documents/documents_screen.dart:526-531 (verified ? 'Ověřeno' : 'Neověřeno'); lib/features/documents/docs_gate_provider.dart:86-87 (hasIdOrPassport/hasLicense from gate identityOk / licenseOk)",
+   "customer_sees": "Row text 'Neověřeno' in grey, green tint when verified.",
+   "visible": "small-text",
+   "server": "yes(_docs_gate_checklist identity_ok/license_ok)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/v2/docs_parts_v2.dart:308-326 (chip with ✓/⚠ icon + Ověřeno/Neověřeno, orange border when not verified :355)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag; v2 adds a warning icon and coloured border (clearer).",
+   "evidence": "Same flag; v2 adds a warning icon and coloured border (clearer).",
+   "sources": [
+    "documents-20"
+   ]
+  },
+  {
+   "id": "G-496",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-131 Docs gate missing line / My documents",
+   "situation": "The 'Chybí' line lists exactly what still holds the access codes, in a fixed order: identity side(s), licence side(s), date of birth / 18+, licence expiry / expired on DATE, licence group (with required group).",
+   "old_where": [
+    "lib/features/documents/docs_gate_provider.dart:115-146 (docsGateMissingLabels), lib/features/documents/docs_gate_widgets.dart:56-70 (hidden when the list is empty)",
+    "lib/features/documents/documents_screen.dart:97-131, :223-290, :456-501; lib/features/documents/docs_gate_provider.dart:113-146"
+   ],
+   "customer_sees": "One small brown line 'Chybí: …'.",
+   "visible": "small-text",
+   "server": [
+    "yes(_docs_gate_checklist missing[], STATE_3:187)",
+    "yes(get_docs_gate_checklist / _docs_gate_checklist)"
+   ],
+   "v2_entry_points": [
+    "v2 My documents (from strip, profile, door-code CTA, scan finish)"
+   ],
+   "v2_where": [
+    "lib/features/documents/v2/docs_view_v2.dart:135 (same docsGateMissingLabels), :116-121 (docsOnly variant in the CTA hint)",
+    "lib/features/documents/documents_screen.dart:52-64 (DocsViewV2 same provider); lib/features/documents/v2/docs_view_v2.dart:73-84, :107-170, :224-243 (warn banner docsNotVerified + gate missing labels)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical function and inputs; v2 puts it in a warn banner with heading.",
+   "evidence": "Identical function and inputs; v2 puts it in a warn banner with heading.",
+   "sources": [
+    "documents-21",
+    "mx-start-49"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-49",
+     "situation": "Documents are incomplete: an amber banner says they are not verified and lists what is missing; per-document status; a line from the server gate says exactly what still blocks the codes (side of a document, birth date / 18+, licence expiry, licence group)."
+    }
+   ],
+   "visible_by_source": {
+    "documents-21": "small-text",
+    "mx-start-49": "clear"
+   }
+  },
+  {
+   "id": "G-497",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-131 Docs gate missing line",
+   "situation": "Child motorcycle (licence not required) in a booking query: gate answer marks all requirements as met so nothing is listed as missing.",
+   "old_where": "lib/features/documents/docs_gate_provider.dart:33-53 (child :38 -> identityOk..groupsOk true)",
+   "customer_sees": "No 'Chybí' line for that case.",
+   "visible": "silent",
+   "server": "yes(_docs_gate_checklist child:true, STATE_3:187)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/docs_gate_provider.dart (shared model, used by both views)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared parsing; no v2-specific path.",
+   "evidence": "Shared parsing; no v2-specific path.",
+   "sources": [
+    "documents-22"
+   ]
+  },
+  {
+   "id": "G-498",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-132 Gallery kind sheet",
+   "situation": "Passport is offered as one side only; ID card and licence must be chosen with front/back, so a gallery photo always lands with a side (needed by the gate).",
+   "old_where": "lib/features/documents/docs_gate_widgets.dart:19-25 (5 fixed options with ScanDocType, side, stepKey)",
+   "customer_sees": "List: OP – líc, OP – rub, Pas, ŘP – líc, ŘP – rub.",
+   "visible": "clear",
+   "server": "yes(gate requires two different side files for ID and licence, STATE_3:187)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/docs_gate_widgets.dart:31-36 (labels/kinds from the same options list, onPick pops options[i] tuple); lib/features/documents/v2/doc_kind_sheet_v2.dart:28-34"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is built from the same options list and pops the same tuple.",
+   "evidence": "v2 is built from the same options list and pops the same tuple.",
+   "sources": [
+    "documents-23"
+   ]
+  }
+ ]
+}

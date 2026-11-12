@@ -1,0 +1,15 @@
+{"file":"chunk_51.json","verdicts":[
+{"id":"G-626","verdict":"HOLDS","visible_v2":"silent","note":"old reservation_edit_screen.dart:1718 (70a94933:1378) !_isActive && tab not move/swap; v2 :1570 moto only when !_isActive && !datesOrSwap -> res_edit_view_v2.dart:170; save guard :866; edit screen only route router.dart:429; no other moto_id writer"},
+{"id":"G-627","verdict":"HOLDS","visible_v2":"clear","note":"moto_section.dart:62-84,226-231; v2 res_edit_moto_v2.dart:139 onTap only free==true && !blocked; MgPress mg_anim.dart:42-53 null onTap = no tap; rows_v2:50-58 Obsazeno pill"},
+{"id":"G-628","verdict":"HOLDS","visible_v2":"clear","note":"same _avail/_availLoading; v2 :75-79,:134-139"},
+{"id":"G-629","verdict":"HOLDS","visible_v2":"silent","note":"reset moto_section.dart:81-83 in shared State before MgV2 branch :138"},
+{"id":"G-630","verdict":"HOLDS","visible_v2":"silent","note":"v2 :121 iterates the same _available (:98-110) passed at :148"},
+{"id":"G-631","verdict":"HOLDS","visible_v2":"clear","note":"_trailerBlocked :113 passed at :151; v2 :124,:139; label rows_v2:45-49 in warn colour"},
+{"id":"G-632","verdict":"HOLDS","visible_v2":"clear","note":"same _available :99"},
+{"id":"G-633","verdict":"HOLDS","visible_v2":"silent","note":"EditBranchFilter reservation_edit_widgets.dart:323-325 -> EditBranchFilterV2 same onChanged -> _onBranch :89-96"},
+{"id":"G-634","verdict":"HOLDS","visible_v2":"small-text","note":"reservation_edit_screen.dart:1307-1336 above MgV2 branch :1538; AddressPickerWidget address_picker.dart:214-219 BookingLockedOptionTile shared by both looks"},
+{"id":"G-635","verdict":"HOLDS","visible_v2":"clear","note":"v2 :80-86,:93-94 same condition as old :168,:179"},
+{"id":"G-636","verdict":"HOLDS","visible_v2":"small-text","note":"v2 :143-148 skeleton/error text"},
+{"id":"G-637","verdict":"HOLDS","visible_v2":"clear","note":"swap_section.dart:71-83 range; :173-176 v2 sheet with same first/last; res_swap_date_sheet_v2.dart:46,58-64,67-68,70-71"},
+{"id":"G-638","verdict":"HOLDS","visible_v2":"silent","note":"swap_section.dart:183-193 shared; SwapMotoViewV2 onPickDate=_pickDate :416 (res_edit_swap_v2.dart:94,97)"}
+]}

@@ -1,0 +1,351 @@
+{
+ "title": "SOS screens and sheets - part 1 of 5 (G-663..G-675; mainly sos_report_screen.dart, sos_provider.dart, sos_feedback.dart)",
+ "guards": [
+  {
+   "id": "G-663",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178",
+   "situation": "The customer wants to open SOS when no rental is running; every in-app SOS entry is hidden unless a reservation is sosAllowed (picked up, or paid and inside its term, and not ended by SOS).",
+   "old_where": "lib/features/reservations/reservation_models.dart:423 (sosAllowed); lib/features/sos/sos_provider.dart:13 (hasActiveRentalProvider); entries: home_reservations_section.dart:108, reservation_card.dart:164, res_detail_tab_content.dart:303, profile_screen.dart:383, ai_agent_screen.dart:155-160/181-188 (SOS hint only if canSos), core/push/notification_handler.dart:133 (no rental -> Messages)",
+   "customer_sees": "The red SOS button / menu row simply is not there; a push of type sos opens Messages instead.",
+   "visible": "silent",
+   "server": "no (sos_incidents RLS only checks user_id = auth.uid(), SUPABASE_BACKEND_STATE_5.md:46; no INSERT trigger in STATE_4 checks for a running rental). The route /sos itself has no rental check in either look.",
+   "v2_entry_points": [],
+   "v2_where": [
+    "home_bookings_v2.dart:63 (active.any(sosAllowed)); home_ticket_v2.dart:48/291 (hasActiveRentalProvider, SOS circle only if sosAllowed); res_card_actions_v2.dart:123/156/180 (aktivni && sosAllowed); res_coted_v2.dart:179 (ResCoState.active && sosAllowed); profile_groups_v2.dart:55/76 and profile_attention_v2.dart:29-56 (hasActiveRentalProvider); ai_chat_view_v2.dart:107 (SOS card only for isSosHint messages built by the shared screen logic); notification handler shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 entry found by grep for Routes.sos uses the same sosAllowed / hasActiveRentalProvider condition. res_coted_v2 additionally requires ResCoState.active, which can only differ when a pending unpaid-payment record exists for the same booking (res_status_v2.dart:56-58) - stricter, not looser. home_ticket s1 (openPendingSos) is never produced because home_screen_v2.dart:99 does not pass sos to deriveHomeState.",
+   "evidence": "Every v2 entry found by grep for Routes.sos uses the same sosAllowed / hasActiveRentalProvider condition. res_coted_v2 additionally requires ResCoState.active, which can only differ when a pending unpaid-payment record exists for the same booking (res_status_v2.dart:56-58) - stricter, not looser. home_ticket s1 (openPendingSos) is never produced because home_screen_v2.dart:99 does not pass sos to deriveHomeState.",
+   "sources": [
+    "sos-01"
+   ]
+  },
+  {
+   "id": "G-664",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178",
+   "situation": "The active-incident status cannot be loaded (outage); instead of silently hiding the incident, the start screen shows an error card with Retry and Call nonstop.",
+   "old_where": "lib/features/sos/sos_report_screen.dart:36-47 (statusError) and :105 (error branch); 70a94933 hid it silently (sos_report_screen.dart@70a94933:69)",
+   "customer_sees": "Compact error card 'eoSosStatusFail' + retry + red call button.",
+   "visible": "clear",
+   "server": "no (client-side read state)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_report_screen.dart:51 passes the same statusError widget; sos_start_view_v2.dart:57 renders it"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical widget instance in both looks.",
+   "evidence": "Identical widget instance in both looks.",
+   "sources": [
+    "sos-03"
+   ]
+  },
+  {
+   "id": "G-665",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178 / SOS – any report",
+   "situation": "The customer reports a second serious incident while one (theft / accident_minor / accident_major / breakdown_major) is still open; the app silently reuses the open incident instead of creating a new one.",
+   "old_where": [
+    "lib/features/sos/sos_provider.dart:225-237 (createSosIncident existing check)",
+    "lib/features/sos/sos_provider.dart:219-237 (existing open serious incident -> return its id)"
+   ],
+   "customer_sees": "Normal 'incident reported' result; photos and text go to the existing incident.",
+   "visible": "silent",
+   "server": [
+    "yes (trigger trg_one_active_sos -> check_one_active_sos, STATE_4:93; per booking since 2026-03-11 and fails open on errors, STATE_6:541/544)",
+    "yes(trg_one_active_sos)"
+   ],
+   "v2_entry_points": [
+    "all v2 SOS screens call the same createSosIncident"
+   ],
+   "v2_where": [
+    "All v2 paths call the same createSosIncident (sos_report_screen.dart:320, sos_immobile_screen.dart:44, sos_breakdown_immobile_screen.dart:46, sos_theft_screen.dart:42, sos_service_screen.dart:47, sos_location.dart:432)",
+    "Shared provider function"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "No v2 file inserts into sos_incidents directly (grep of features/sos/v2 shows no Supabase calls).",
+   "evidence": "No v2 file inserts into sos_incidents directly (grep of features/sos/v2 shows no Supabase calls).",
+   "sources": [
+    "sos-04",
+    "mx-rental-51"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-51",
+     "situation": "Only one serious incident (theft, accidents, major breakdown) can be open: a new serious report re-uses the open one instead of creating a duplicate."
+    }
+   ]
+  },
+  {
+   "id": "G-666",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178",
+   "situation": "The incident is attached only to the rental that is running right now (status active, or paid and today inside the term, not ended by SOS), never to an upcoming booking.",
+   "old_where": "lib/features/sos/sos_provider.dart:268-293 (_findActiveBookingId) and :240-243",
+   "customer_sees": "Nothing; the booking link is invisible.",
+   "visible": "silent",
+   "server": "unknown for INSERT (no trigger found that validates booking_id); sos_swap_bookings re-resolves and checks booking ownership (20261011c_rpc_owner_admin_checks_b_sos_swap.sql:115-119)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared provider function; no v2 code passes bookingId"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "createSosIncident is the only caller of _findActiveBookingId.",
+   "evidence": "createSosIncident is the only caller of _findActiveBookingId.",
+   "sources": [
+    "sos-05"
+   ]
+  },
+  {
+   "id": "G-667",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178",
+   "situation": "While the report is being sent (GPS up to 20 s, insert up to 45 s, photos up to 40 s) the customer cannot close the progress or send twice.",
+   "old_where": "lib/features/sos/sos_report_screen.dart:307-352 (SosProgress.show without cancelAfter); lib/core/widgets/error_feedback.dart:263-265 (barrierDismissible false) and :326-327 (PopScope canPop false)",
+   "customer_sees": "Blocking progress dialog 'Odesílám hlášení... (zjišťuji polohu)'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _submitReport is called from the v2 type sheet (sos_report_screen.dart:220-221, :255-256); MgProgress is look-independent"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "70a94933 only showed a toast and had no lock; the current lock applies to both looks.",
+   "evidence": "70a94933 only showed a toast and had no lock; the current lock applies to both looks.",
+   "sources": [
+    "sos-06"
+   ]
+  },
+  {
+   "id": "G-668",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178",
+   "situation": "Creating the incident fails (offline, auth, server); the app never claims success and offers Call nonstop, 112 and Retry.",
+   "old_where": "lib/features/sos/sos_report_screen.dart:327-336 -> sos_feedback.dart:281-305 (showSosActionFailed)",
+   "customer_sees": "Error dialog with reason + 'Zavolat nonstop', '112', 'Zkusit znovu'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_feedback.dart:292-293 -> showSosFailSheetV2 (sos_feedback_v2.dart:18-33) with the same three return ids"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Caller logic is shared; only the dialog look differs. Swipe-down/close returns null = no retry, same as closing the old dialog.",
+   "evidence": "Caller logic is shared; only the dialog look differs. Swipe-down/close returns null = no retry, same as closing the old dialog.",
+   "sources": [
+    "sos-07"
+   ]
+  },
+  {
+   "id": "G-669",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178",
+   "situation": "Some photos could not be uploaded after the incident was created; the customer is warned to send the rest in Messages.",
+   "old_where": "lib/features/sos/sos_report_screen.dart:338-361",
+   "customer_sees": "Warning toast 'photoUploadFailed' + 'eoSosPhotosLater' (8 s).",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared _submitReport; showMotoGoToast used in both looks"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "No v2 branch in this step.",
+   "evidence": "No v2 branch in this step.",
+   "sources": [
+    "sos-08"
+   ]
+  },
+  {
+   "id": "G-670",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-178 / SOS",
+   "situation": "Share location: success is reported only when the position really reached MotoGo; without permission, GPS off, no fix or offline the customer gets the reason with Settings / Call / Retry.",
+   "old_where": [
+    "lib/features/sos/sos_report_screen.dart:383-393; sos_location.dart:404-446; sos_feedback.dart:309-347",
+    "lib/features/sos/sos_location.dart:16; lib/features/sos/sos_report_screen.dart:385-390"
+   ],
+   "customer_sees": "Progress dialog, then either a success toast or a reason dialog.",
+   "visible": "clear",
+   "server": [
+    "yes (RPC sos_share_location returns true only for the caller's own incident, 20261011c, STATE_3:66)",
+    "n/a"
+   ],
+   "v2_entry_points": [
+    "v2 SOS \"Sdílet polohu\""
+   ],
+   "v2_where": [
+    "sos_start_view_v2.dart:74-80 row -> onShareLocation = same _shareLocation (sos_report_screen.dart:55); v2 result via showSosLocSentV2 / showSosLocFailSheetV2 (sos_feedback.dart:312-332)",
+    "lib/features/sos/sos_report_screen.dart:54 (onShareLocation: same _shareLocation)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler and same SosLocResult mapping; settings action shown on the same condition (sos_feedback_v2.dart:45-48). 70a94933 always claimed 'Poloha sdílena'.",
+   "evidence": "Same handler and same SosLocResult mapping; settings action shown on the same condition (sos_feedback_v2.dart:45-48). 70a94933 always claimed 'Poloha sdílena'.",
+   "sources": [
+    "sos-09",
+    "mx-start-68"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-68",
+     "situation": "Sharing the position without location permission / with GPS off ends with an explanation instead of silently sending nothing."
+    }
+   ]
+  },
+  {
+   "id": "G-671",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-179 / SOS start / SOS – start screen",
+   "situation": "An open incident exists; the start screen shows a tappable 'Active SOS incident' banner only while status is not resolved/closed, so the customer goes to the existing incident instead of starting over.",
+   "old_where": [
+    "lib/features/sos/sos_report_screen.dart:96-103 (inc == null || !inc.isActive -> hidden); SosIncident.isActive sos_provider.dart:112",
+    "lib/features/sos/sos_report_screen.dart:95-100",
+    "lib/features/sos/sos_report_screen.dart:95-104 (inc == null || !inc.isActive -> hidden), :36-46 (statusError)"
+   ],
+   "customer_sees": "Amber banner with status, short id and 'tap to open detail'.",
+   "visible": "clear",
+   "server": [
+    "no (display only)",
+    "yes(trg_one_active_sos)",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 SOS start, v2 SOS strip",
+    "v2 SOS start (SosStartViewV2)"
+   ],
+   "v2_where": [
+    "sos_start_view_v2.dart:56 (inc != null && inc.isActive) -> SosActiveBannerV2 :87-135, onTap -> Routes.sosDone (sos_report_screen.dart:57)",
+    "lib/features/sos/sos_report_screen.dart:48-59 (SosStartViewV2 active + onOpenIncident); lib/features/sos/v2/sos_start_view_v2.dart:16-38; strip lib/core/shell_fab_layer.dart:270-277, :295-303",
+    "lib/features/sos/sos_report_screen.dart:48-59 (same activeAsync, statusError, onOpenIncident)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition; v2 banner has heading + status + tap hint.",
+   "evidence": "Same condition; v2 banner has heading + status + tap hint.",
+   "sources": [
+    "sos-10",
+    "mx-start-66",
+    "mx-rental-52"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-66",
+     "situation": "An active incident is shown on top with a way to its detail; the server refuses a second active incident."
+    },
+    {
+     "source": "mx-rental-52",
+     "situation": "An open incident is shown as a tappable banner on the SOS screen; status that fails to load is reported instead of being hidden."
+    }
+   ]
+  },
+  {
+   "id": "G-672",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-179",
+   "situation": "Only the newest open incident is considered and the banner is hidden while the state is loading.",
+   "old_where": "lib/features/sos/sos_provider.dart:163-172 (limit 1, newest); sos_report_screen.dart:104 (loading -> nothing)",
+   "customer_sees": "No banner until the state is known.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_start_view_v2.dart:45 uses active.valueOrNull (null while loading)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Minor difference: if a refresh fails after data was loaded, v2 shows both the last banner and the error card, the old look only the error card; this shows more, not less.",
+   "evidence": "Minor difference: if a refresh fails after data was loaded, v2 shows both the last banner and the error card, the old look only the error card; this shows more, not less.",
+   "sources": [
+    "sos-11"
+   ]
+  },
+  {
+   "id": "G-673",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-180 / SOS report sheet",
+   "situation": "'Minor accident, I continue' does not create anything until the mandatory description/photo sheet is completed.",
+   "old_where": [
+    "lib/features/sos/sos_report_screen.dart:239-240 -> _report :287-292 (collectSosReport, null = abort)",
+    "lib/features/sos/sos_report_screen.dart:287-293; lib/features/sos/sos_report_sheet.dart:24"
+   ],
+   "customer_sees": "Report sheet opens; cancelling it leaves no incident.",
+   "visible": "clear",
+   "server": [
+    "no",
+    "unknown"
+   ],
+   "v2_entry_points": [
+    "v2 SOS type sheets"
+   ],
+   "v2_where": [
+    "sos_report_screen.dart:218-221 showSosTypeSheetV2 choice -> same _report",
+    "lib/features/sos/sos_report_screen.dart:217-226, :252-261 (v2 sheets call the same _report)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "sos_sheets_v2.dart:35-38 pops the sheet then runs the same callback.",
+   "evidence": "sos_sheets_v2.dart:35-38 pops the sheet then runs the same callback.",
+   "sources": [
+    "sos-12",
+    "mx-start-67"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-67",
+     "situation": "A minor accident / defect cannot be reported without a description and photos (photos only if the camera works)."
+    }
+   ]
+  },
+  {
+   "id": "G-674",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-180",
+   "situation": "'Serious accident / bike immobile' and 'Theft' never create a minor report directly; they lead to the dedicated screens where fault / secured decisions are required.",
+   "old_where": "lib/features/sos/sos_report_screen.dart:241-244 (push sosAccident / sosTheft)",
+   "customer_sees": "Next SOS screen.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_report_screen.dart:222-225 (same routes)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same Routes constants.",
+   "evidence": "Same Routes constants.",
+   "sources": [
+    "sos-13"
+   ]
+  },
+  {
+   "id": "G-675",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-181",
+   "situation": "'Minor defect, I continue' goes through the same mandatory report sheet before any incident exists.",
+   "old_where": "lib/features/sos/sos_report_screen.dart:274-275 -> _report",
+   "customer_sees": "Report sheet.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_report_screen.dart:255-256 -> same _report"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "sos-14"
+   ]
+  }
+ ]
+}

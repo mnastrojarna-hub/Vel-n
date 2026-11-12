@@ -1,0 +1,273 @@
+{
+ "title": "After payment: confirmation, result, saved cards - part 1 of 4 (G-298..G-309; mainly payment_confirmation_screen.dart, router.dart)",
+ "guards": [
+  {
+   "id": "G-298",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "The customer presses the system Back button or swipes back on the thank-you page; they must not fall back into the payment screen or onto an empty stack (app closed / \"restart the app\"), they are always sent to Reservations and the reservation list is refreshed.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:279-301 (close() invalidates reservationsProvider and go(Routes.reservations); BackButtonListener :284-292 with isTopmostRoute; PopScope canPop:false :293-301); router.dart:280-284 wraps the route in MgBackGuard",
+   "customer_sees": "Back always lands on the Reservations tab; the X in the top-right corner (:644-655) does the same.",
+   "visible": "clear",
+   "server": "no (navigation only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:303 (the v2 view is the child of the same BackButtonListener/PopScope); lib/features/payment/v2/confirmation_view_v2.dart:94 onClose -> close(); mg_state_screen.dart:136-142 X button calls onClose"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The back lock is built around both looks (MgV2.on branch sits inside the PopScope), and the v2 X button and the secondary dock button call the very same close() callback.",
+   "evidence": "The back lock is built around both looks (MgV2.on branch sits inside the PopScope), and the v2 X button and the secondary dock button call the very same close() callback.",
+   "sources": [
+    "payment-2-01"
+   ]
+  },
+  {
+   "id": "G-299",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "After \"Dokončit rezervaci\" from the floating button or after a restore, the in-memory booking form belongs to another booking; the screen must not show a foreign motorbike, dates or times, so it uses the DB row first and the draft only when it belongs to this booking.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:249-261 (bk from DB; useDraft only when no DB id or lastConfirmedFromDraftProvider; noDetails otherwise); data loaded at :142-192",
+   "customer_sees": "Either the correct booking data, or a \"loading\" line instead of wrong data.",
+   "visible": "silent",
+   "server": "no (display rule)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:305-316 passes the already-filtered motoName/start/end/branchName/pickupTime/returnTime to ConfirmationViewV2; lib/features/payment/v2/confirmation_view_v2.dart:96 shows _noDetails when noDetails"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 receives the values computed by the same code; it has no own data source. v2 adds \"Zaplaceno\" only when the draft is this booking (paidTotal lib/features/payment/payment_confirmation_screen.dart:330-332, lib/features/payment/v2/confirmation_view_v2.dart:173-174).",
+   "evidence": "v2 receives the values computed by the same code; it has no own data source. v2 adds \"Zaplaceno\" only when the draft is this booking (paidTotal lib/features/payment/payment_confirmation_screen.dart:330-332, lib/features/payment/v2/confirmation_view_v2.dart:173-174).",
+   "sources": [
+    "payment-2-03"
+   ]
+  },
+  {
+   "id": "G-300",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "The booking details cannot be loaded right after payment (offline, timeout 15 s, row not found); the customer is told so and can retry instead of seeing an empty or wrong summary.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:154 (timeout), :156-164 and :226-236 (_bkFailed), :382-418 (message fxConfirmLoadFail + \"Zkusit znovu\" -> _retryLoad :96-99)",
+   "customer_sees": "\"📡 Údaje rezervace se nepodařilo načíst\" with an explanation and a retry text button; while loading \"⏳ Načítám\".",
+   "visible": "small-text",
+   "server": "no (client state)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/confirmation_view_v2.dart:96 and :122-131 (MgStateBanner with signal-off icon, title fxConfirmLoadFail, body, MgBtnText eoRetry -> onRetry = _retryLoad lib/features/payment/payment_confirmation_screen.dart:333); skeleton row while loading"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag (_bkFailed) and same retry handler; v2 shows it as a banner with a heading and icon, at least as clear as before.",
+   "evidence": "Same flag (_bkFailed) and same retry handler; v2 shows it as a banner with a heading and icon, at least as clear as before.",
+   "sources": [
+    "payment-2-04"
+   ]
+  },
+  {
+   "id": "G-301",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "The customer leaves the thank-you page via the main green CTA \"Moje rezervace\" (successCta) when documents are fine.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:618-628 (_AnimatedCta successCta -> close)",
+   "customer_sees": "Big green button that leads to Reservations.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/confirmation_view_v2.dart:97-99 (primary = MgStateAction(successCta, onClose)) when docs != missing"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same label key and the same close() callback.",
+   "evidence": "Same label key and the same close() callback.",
+   "sources": [
+    "payment-2-05"
+   ]
+  },
+  {
+   "id": "G-302",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "A safety / liability warning is shown after every booking: never leave keys in the ignition, always lock the handlebars, the customer is liable for damage if the terms are broken.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:540-572 (amber card with \"⚠️ successSafetyTitle\" and successSafetyTips)",
+   "customer_sees": "Amber card with a warning heading and three bullet points, always visible.",
+   "visible": "clear",
+   "server": "no (information only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/confirmation_view_v2.dart:103-116 (MgDisclosure \"successSafetyTitle\", initiallyExpanded: true, text v2UxPsSafetyTips - same three points incl. the liability line, translations_ext_60_v2_ux_pay_shop_b.dart:10)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The warning is open at first glance with the same heading and the same three points; the customer can fold it, which the old look did not allow, but nothing is hidden by default.",
+   "evidence": "The warning is open at first glance with the same heading and the same three points; the customer can fold it, which the old look did not allow, but nothing is hidden by default.",
+   "sources": [
+    "payment-2-06"
+   ]
+  },
+  {
+   "id": "G-303",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "Self-service branch with the \"pickup from 12:00\" discount: the kiosk releases the bike only from 12:00 Prague time on the start day, so the page warns the customer and tells how to change it.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:262-278 (selfServiceLateGate from DB row or own draft) and :485-495 (row \"🌗 ssLateGateNote\" only while now < kioskReleaseAtUtc(start))",
+   "customer_sees": "One detail row with a half-moon emoji and a sentence about release from 12:00 and how to change the pickup time.",
+   "visible": "small-text",
+   "server": "yes (_kiosk_release_at / kiosk_resolve_code -> pickup_too_early, CONTRACT §31)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:317-321 (lateGateDate computed with the same lateGate and time check); lib/features/payment/v2/confirmation_view_v2.dart:189-193 (MgStateBanner info with clock icon, title v2UxPsKioskNote under the pickup step)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition; v2 shows it as a banner with a clock icon and its own heading - clearer than the old body row. The banner sits inside the step that needs a start date, which the condition already requires.",
+   "evidence": "Same condition; v2 shows it as a banner with a clock icon and its own heading - clearer than the old body row. The banner sits inside the step that needs a start date, which the condition already requires.",
+   "sources": [
+    "payment-2-07"
+   ]
+  },
+  {
+   "id": "G-304",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "Self-service branch with return to the branch: the return time is not chosen (23:59), so the return-time row must not be shown (no false promise of a time).",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:470-481 (selfServiceHidesReturnTime)",
+   "customer_sees": "No return-time row.",
+   "visible": "silent",
+   "server": "no (display rule)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:313-316 (returnTime passed as null under the same condition); lib/features/payment/v2/confirmation_view_v2.dart:172"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same helper and arguments.",
+   "evidence": "Same helper and arguments.",
+   "sources": [
+    "payment-2-08"
+   ]
+  },
+  {
+   "id": "G-305",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-084",
+   "situation": "Pickup location with map link is shown only when the bike is picked up at a branch; for delivery to an address the branch map block is hidden (only the branch name).",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:101-107 (_setPickup, _hasPickupBlock) and :451-460",
+   "customer_sees": "Branch name, address and map link for branch pickup; for delivery only the branch name.",
+   "visible": "clear",
+   "server": "no (display rule)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:310 (pickup: _hasPickupBlock ? _pickup : null); lib/features/payment/v2/confirmation_view_v2.dart:134-169 and :178-195 (PayPickupActionsV2 only when pickup != null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same decision passed in; v2 does not compute it again.",
+   "evidence": "Same decision passed in; v2 does not compute it again.",
+   "sources": [
+    "payment-2-09"
+   ]
+  },
+  {
+   "id": "G-306",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-085 / Confirmation page",
+   "situation": "The customer has paid but their documents (driving licence, ID) are missing, expired or not verified for this booking; the page must say so and push them to upload documents.",
+   "old_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:207-225 (RPC check_booking_docs_status -> _DocsStatus.missing with reason), :502-507 and :771-796 (_DocsStatusCard: orange border, ⚠ icon, docsMissingTitle, translated server reason + docsMissingBody)",
+    "lib/features/payment/payment_confirmation_screen.dart:207-233 check_booking_docs_status, :600-632 docs CTA, :286-300 PopScope(canPop:false)"
+   ],
+   "customer_sees": "Orange card \"⚠ Doklady chybí\" with the reason from the server and what to do.",
+   "visible": "clear",
+   "server": [
+    "yes (check_booking_docs_status / booking_docs_gate - door codes and contract e-mail withheld until docs are verified, STATE_3:25,38,109)",
+    "yes(check_booking_docs_status / booking_docs_gate)"
+   ],
+   "v2_entry_points": [
+    "v2 confirmation view"
+   ],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:322-327 (same status and localized reason mapped to PayDocsV2.missing); lib/features/payment/v2/confirmation_view_v2.dart:188 and :198-205 (MgStateBanner warn tone, title docsMissingTitle, reason + docsMissingBody, in the step \"Doklady\")",
+    "lib/features/payment/payment_confirmation_screen.dart:303-338; features/payment/v2/confirmation_view_v2.dart:89-100 (primary action = upload docs when missing)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same RPC result and the same texts; v2 shows a warning-tone banner with the same heading inside the \"Co bude dál\" card, and the dock CTA (next record) still points to documents.",
+   "evidence": "Same RPC result and the same texts; v2 shows a warning-tone banner with the same heading inside the \"Co bude dál\" card, and the dock CTA (next record) still points to documents.",
+   "sources": [
+    "payment-2-10",
+    "mx-order-46"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-46",
+     "situation": "After payment the confirmation asks the server for the document status; when documents are missing it says so and offers upload. Back is locked to a defined exit."
+    }
+   ]
+  },
+  {
+   "id": "G-307",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-085",
+   "situation": "When documents are missing the main button changes from \"Moje rezervace\" to \"Nahrát doklady\" and leads to the documents screen.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:599-617 (_AnimatedCta orange \"📄 uploadDocumentsCta\" -> invalidate reservations + context.push(Routes.docs))",
+   "customer_sees": "Large orange pulsing button \"Nahrát doklady\".",
+   "visible": "clear",
+   "server": "yes (booking_docs_gate withholds door codes until verified)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/confirmation_view_v2.dart:89 and :97-98 (primary = uploadDocumentsCta -> onDocs); lib/features/payment/payment_confirmation_screen.dart:335-338 (onDocs = same invalidate + push(Routes.docs))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition (docs == missing), same destination and the same push (not go), so Back from Documents returns to the thank-you page in both looks.",
+   "evidence": "Same condition (docs == missing), same destination and the same push (not go), so Back from Documents returns to the thank-you page in both looks.",
+   "sources": [
+    "payment-2-11"
+   ]
+  },
+  {
+   "id": "G-308",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-085",
+   "situation": "When documents are missing, leaving to Reservations is only the secondary choice.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:629-638 (TextButton successCta -> close, only when missing)",
+   "customer_sees": "Small white text button under the orange CTA.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/confirmation_view_v2.dart:100 (secondary = successCta -> onClose only when missing); mg_state_screen.dart:208-213 renders it as MgBtnText under the CTA"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same order of priority: documents first, reservations second.",
+   "evidence": "Same order of priority: documents first, reservations second.",
+   "sources": [
+    "payment-2-12"
+   ]
+  },
+  {
+   "id": "G-309",
+   "step": "payment-2",
+   "step_title": "After payment: confirmation, result, saved cards",
+   "surface": "S-085",
+   "situation": "Children's motorbike (license_required = N) needs no documents; the page must not ask for them and shows a green \"no documents needed\" note.",
+   "old_where": "lib/features/payment/payment_confirmation_screen.dart:193-205 (isChild -> verified without RPC) and :785-791 (docsChildBikeTitle/Body)",
+   "customer_sees": "Green card with the child-bike title and body.",
+   "visible": "clear",
+   "server": "yes (_docs_gate_checklist in check_booking_docs_status treats license N; STATE_3:38)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_confirmation_screen.dart:325 (verified + isChildBike -> PayDocsV2.child); lib/features/payment/v2/confirmation_view_v2.dart:207-212"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same status and texts.",
+   "evidence": "Same status and texts.",
+   "sources": [
+    "payment-2-13"
+   ]
+  }
+ ]
+}

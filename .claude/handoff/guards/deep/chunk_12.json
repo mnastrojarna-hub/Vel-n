@@ -1,0 +1,358 @@
+{
+ "title": "Motorcycle detail (entry into booking) - part 1 of 2 (G-141..G-152; mainly moto_detail_page.dart, catalog_provider.dart, state_views.dart)",
+ "guards": [
+  {
+   "id": "G-141",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-043",
+   "situation": "The customer opens the detail from a deep link or notification (nothing to pop) and presses back; instead of crashing ('nothing to pop') the app falls back to the catalogue.",
+   "old_where": "lib/features/catalog/moto_detail_screen.dart:63 (_back = context.backOr(Routes.search)); single page back lib/features/catalog/moto_detail_page.dart:222/:532",
+   "customer_sees": "Green back arrow top left; goes back or to the bike list.",
+   "visible": "clear",
+   "server": "no (navigation only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/v2/detail/detail_pager_v2.dart:115 (MgV2Back onTap: w.onBack = the same _back); single page: moto_detail_page.dart:261 onBack: _back -> v2/detail/detail_hero_v2.dart:175-176 and MgPage pinnedBack (v2/detail/moto_detail_view_v2.dart:137)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 back control receives the same _back callback (backOr(Routes.search)).",
+   "evidence": "Every v2 back control receives the same _back callback (backOr(Routes.search)).",
+   "sources": [
+    "moto-detail-02"
+   ]
+  },
+  {
+   "id": "G-142",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-043",
+   "situation": "Availability badge: the detail says 'available now' only when the bike is confirmed free today (booked/service day or failed check = badge hidden, never a false promise).",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:297 (if moto.availableToday == true); value from motoFreeToday lib/features/catalog/catalog_provider.dart (get_moto_booked_dates, error -> false)",
+   "customer_sees": "Green tick + 'Dostupná ihned' under the photo, only when free today.",
+   "visible": "clear",
+   "server": "yes(get_moto_booked_dates is the data source; booking blocked by trg_check_booking_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/v2/detail/detail_hero_v2.dart:183-187 (range pill only if hasDates && rangeFree, else availableToday == true); rangeFree computed in v2/detail/moto_detail_view_v2.dart:150 = loaded && !busy && no booked day (_noBookedDay :103-111)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same availableToday condition; the extra 'free in your dates' pill appears only when the loaded calendar has no booked day in the range, otherwise falls back to the old badge.",
+   "evidence": "Same availableToday condition; the extra 'free in your dates' pill appears only when the loaded calendar has no booked day in the range, otherwise falls back to the old badge.",
+   "sources": [
+    "moto-detail-03"
+   ]
+  },
+  {
+   "id": "G-143",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-050 / Bike detail",
+   "situation": "The bike no longer exists in the offer (removed, retired, old link from a reservation, unknown id); the customer cannot book it and is sent to choose another bike.",
+   "old_where": [
+    "lib/features/catalog/moto_detail_page.dart:151-180 (moto == null -> MgErrorView r3MotoGoneTitle/r3MotoGoneBody + button -> context.go(Routes.search)); motorcyclesProvider only status active/maintenance (catalog_provider.dart _fetchMotorcycles .inFilter('status',…))",
+    "lib/features/catalog/moto_detail_page.dart:151-178"
+   ],
+   "customer_sees": "Error page 'bike is no longer offered' with explanation and button 'Vybrat jinou motorku'. (Released 4.1.3 showed only plain text detailNotFoundMessage.)",
+   "visible": "clear",
+   "server": [
+    "unknown (no booking path exists from this state; server rule for retired bikes not traced)",
+    "n/a"
+   ],
+   "v2_entry_points": [
+    "v2 detail pager, deep link"
+   ],
+   "v2_where": [
+    "lib/features/catalog/moto_detail_page.dart:156-167 (same MgErrorView, same texts, MgBtnInk -> context.go(Routes.search))",
+    "lib/features/catalog/moto_detail_page.dart:155-166 (v2 MgErrorView with the same go(Routes.search))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch uses the same MgErrorView with the same title/body; only the button widget differs.",
+   "evidence": "The v2 branch uses the same MgErrorView with the same title/body; only the button widget differs.",
+   "sources": [
+    "moto-detail-04",
+    "mx-start-24"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-24",
+     "situation": "The bike from an old link is no longer offered (retired / withdrawn); the page explains it and offers another bike instead of a dead page."
+    }
+   ]
+  },
+  {
+   "id": "G-144",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-050",
+   "situation": "The bike list is still loading; after 15 s the customer is told it takes longer and gets Retry / Back instead of an endless spinner.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:185-190 (MgLoadingView onRetry invalidate(motorcyclesProvider), onBack _back; 15 s timer core/widgets/state_views.dart MgLoadingView)",
+   "customer_sees": "Spinner, after 15 s 'trvá to déle' + 'Zkusit znovu' / 'Zpět'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/v2/detail/detail_states_v2.dart:16-33,95 (DetailLoadingV2, Timer 15 s -> slow look with the same onRetry/onBack passed from moto_detail_page.dart:186)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same 15 s threshold and same retry/back callbacks.",
+   "evidence": "Same 15 s threshold and same retry/back callbacks.",
+   "sources": [
+    "moto-detail-05"
+   ]
+  },
+  {
+   "id": "G-145",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-050",
+   "situation": "Loading the bikes fails (offline, timeout, server, permission); the customer gets the reason, Retry, Back, 'open settings' for permission problems and a 'Call MotoGo' button for server/unknown errors.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:211-216 (MgErrorView error: e, onRetry, onBack) -> core/widgets/state_views.dart:250-265 (Retry, Open settings if needsSettings, Back, '📞 Zavolat' if contact && suggestContact)",
+   "customer_sees": "Error page with emoji, reason sentence, Retry, Back, optional Settings and Call buttons.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/moto_detail_page.dart:194-210 (MgStateScreen: title v2DetLoadFail, why = friendly reason + body, primary Retry, secondary 'Zpět na Motorky', settings button if needsSettings)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Retry/back/settings are kept, but the v2 MgStateScreen has no 'Zavolat' (call) button for server/unknown errors that the old MgErrorView shows (state_views.dart:261-265); the body text may still mention contact (FriendlyError.body default). Minor; compared with released 4.1.3 (raw '$e' text) v2 is still much better.",
+   "evidence": "Retry/back/settings are kept, but the v2 MgStateScreen has no 'Zavolat' (call) button for server/unknown errors that the old MgErrorView shows (state_views.dart:261-265); the body text may still mention contact (FriendlyError.body default). Minor; compared with released 4.1.3 (raw '$e' text) v2 is still much better.",
+   "sources": [
+    "moto-detail-06"
+   ]
+  },
+  {
+   "id": "G-146",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-044 / S-054 / S-042 Search date tabs + availability calendar / Availability calendar (detail, form, filters) / Moto detail calendar",
+   "situation": "Occupied days cannot be tapped and a range over an occupied day is refused (only where the calendar gets booked days: detail, calculator; Home/Search calendars get none).",
+   "old_where": [
+    "lib/features/catalog/widgets/availability_calendar.dart:95-100,119 (_isOccupied over bookedDates from bookedDatesProvider = RPC get_moto_booked_dates, catalog_provider.dart:83-95); legend Volné/Obsazené",
+    "lib/features/catalog/widgets/availability_calendar.dart:95-97 (_isOccupied from bookedDates), :119 and :406; data from features/catalog/catalog_provider.dart:83-94 (bookedDatesProvider = RPC get_moto_booked_dates)",
+    "lib/features/catalog/widgets/availability_calendar.dart:95-97, :146-164 (SnackBar 'calRangeOccupied')",
+    "lib/features/catalog/widgets/availability_calendar.dart:117-119 (_isPast/_isOccupied), :145-164 (range check, SnackBar calRangeOccupied)",
+    "lib/features/catalog/widgets/availability_calendar.dart:94-104 _isOccupied/_isPast, :116-160 _onDayTap (refuses range over occupied day)"
+   ],
+   "customer_sees": "Dark occupied days; snackbar \"Rozsah obsahuje obsazené dny\".",
+   "visible": "small-text",
+   "server": [
+    "yes(trg_check_booking_overlap, trg_check_booking_branch_open; get_moto_booked_dates)",
+    "yes(trg_check_booking_overlap STATE_4:85, trg_check_booking_branch_open STATE_4:86)",
+    "yes(trg_check_booking_overlap)",
+    "yes(trg_check_booking_overlap, check_moto_availability)",
+    "yes(trg_check_booking_overlap at insert)"
+   ],
+   "v2_entry_points": [
+    "v2 detail trip card, v2 booking date card, v2 catalogue date sheet, v2 Motorky dates card, v2 calculator, v2 Home date sheet",
+    "v2 detail calendar (same AvailabilityCalendar widget with v2 skin); booking form v2 date card"
+   ],
+   "v2_where": [
+    "v2/availability_calendar_v2.dart:80-96 (busy / pending kinds, enabled false), legend free/yours/busy/pending :145; detail passes the same bookedAsync (v2/detail/detail_trip_card_v2.dart AvailabilityCalendar bookedDates: b.valueOrNull)",
+    "lib/features/catalog/v2/availability_calendar_v2.dart:80-96 (busy/pending kinds, enabled false) -> same _onDayTap",
+    "lib/features/catalog/widgets/availability_calendar.dart:151-157 (v2 keeps the start, sets _blockedDay) -> lib/features/catalog/v2/availability_calendar_v2.dart:136-142 (inline banner 'v2UxCbRangeBusy' with the first busy date)",
+    "every v2 picker instantiates the same AvailabilityCalendar (grep: detail_trip_card_v2.dart, booking_date_v2.dart:108, catalog_date_sheet_v2.dart, motorky_dates_card_v2.dart, calc_step_dates_v2.dart, home_date_sheet_v2.dart); same _onDayTap, v2 inline shaking note at availability_calendar.dart:150-157",
+    "lib/features/catalog/widgets/availability_calendar.dart:118,141-148 (v2 branch: inline note under the grid that shakes, start kept)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same data and same tap refusal; v2 even distinguishes pending in the legend.",
+   "evidence": "Same check; the v2 note stays under the grid and names the date - clearer than a 2-second snackbar.",
+   "sources": [
+    "moto-detail-08",
+    "booking-form-1-15",
+    "home-search-42",
+    "mx-start-26",
+    "mx-order-03"
+   ],
+   "merged_situations": [
+    {
+     "source": "moto-detail-08",
+     "situation": "The customer taps a booked day (other customers' booking, unconfirmed 'pending' booking, service block, branch closure, still-unreturned bike before a swap); it cannot be picked."
+    },
+    {
+     "source": "booking-form-1-15",
+     "situation": "The customer taps a day on which the bike is already booked, in service or the branch is closed; nothing happens."
+    },
+    {
+     "source": "mx-start-26",
+     "situation": "Past days and booked/service days cannot be tapped, and a range that crosses a booked day is refused."
+    },
+    {
+     "source": "mx-order-03",
+     "situation": "In the bike detail calendar past days and occupied days cannot be tapped, and a range that crosses an occupied day is refused."
+    }
+   ],
+   "visible_by_source": {
+    "moto-detail-08": "clear",
+    "booking-form-1-15": "clear",
+    "home-search-42": "small-text",
+    "mx-start-26": "clear",
+    "mx-order-03": "small-text"
+   },
+   "notes": [
+    "mx-order-03: Same widget and same tap logic; v2 message is inline and more visible than the 2-second snackbar."
+   ]
+  },
+  {
+   "id": "G-147",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-044 / S-054",
+   "situation": "The customer picks a return day so that the range would cross a booked day; the range is refused.",
+   "old_where": [
+    "lib/features/catalog/widgets/availability_calendar.dart:147-163 (loop _isOccupied -> SnackBar calRangeOccupied 2 s, return)",
+    "lib/features/catalog/widgets/availability_calendar.dart:146-164 (loop over range; SnackBar \"calRangeOccupied\" at :159-162)"
+   ],
+   "customer_sees": "A short snackbar \"calRangeOccupied\" for 2 s; the start stays selected.",
+   "visible": "small-text",
+   "server": "yes(trg_check_booking_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/widgets/availability_calendar.dart:150-156 (v2: _blockedDay/_blockedTry, return) -> v2/availability_calendar_v2.dart:136-143 (amber MgStateBanner titled v2UxCbRangeBusy with the busy date, shakes on every try)",
+    "lib/features/catalog/widgets/availability_calendar.dart:151-157 (v2: _blockedDay) -> features/catalog/v2/availability_calendar_v2.dart:136-145 (amber MgStateBanner \"v2UxCbRangeBusy\" with the date, shakes on every try)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same refusal in the same handler; v2 tells it more clearly (inline titled banner with the date instead of a 2 s snackbar).",
+   "evidence": "Same refusal in the same method; v2 shows a lasting banner with the blocked date instead of a 2 s snackbar, which is clearer.",
+   "sources": [
+    "moto-detail-09",
+    "booking-form-1-16"
+   ],
+   "merged_situations": [
+    {
+     "source": "moto-detail-09",
+     "situation": "The customer picks a pickup day and then a return day so that the range crosses a booked day; the range is refused and the start stays."
+    }
+   ]
+  },
+  {
+   "id": "G-148",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-044",
+   "situation": "The booked-days list is still loading or failed to load; the calendar would show every day as free.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:755 (bookedDates: bookedAsync.valueOrNull ?? [])",
+   "customer_sees": "Nothing: all days look free, no loading or error message, no retry (the provider has a 15 s timeout).",
+   "visible": "silent",
+   "server": "yes(trg_check_booking_overlap refuses an overlapping booking at creation)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2/detail/detail_trip_card_v2.dart:180-190 (TripAvailabilityBanner loading / error with onRetry -> ref.invalidate(bookedDatesProvider))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is stronger: it shows a loading banner and an error banner with Retry; the old look was silent.",
+   "evidence": "v2 is stronger: it shows a loading banner and an error banner with Retry; the old look was silent.",
+   "sources": [
+    "moto-detail-11"
+   ]
+  },
+  {
+   "id": "G-149",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-044",
+   "situation": "Dates are carried into the detail from the catalogue filter (or in v2 from a draft) and the carried range contains a booked day; the detail must not offer booking of an impossible range.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:66-77 (old look: filter dates via detailStartDates, v2/detail/detail_dates_carry_v2.dart:24 returns filter only) — no check against booked days; CTA :775 only needs a start date",
+   "customer_sees": "Old look: nothing in the detail; REZERVOVAT active; the clash is refused later (booking form / payment / trg_check_booking_overlap).",
+   "visible": "silent",
+   "server": "yes(trg_check_booking_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/moto_detail_page.dart:252,267,275 (busy = detailRangeBusy, calendar forced open, onReserve null when busy); v2/detail/detail_dates_carry_v2.dart:68-81; v2/detail/detail_trip_card_v2.dart:203-206 (CalcHint v2CalcRangeBusy warn); v2/detail/detail_dock_v2.dart:65-95 (busy -> amber dates + 'Změnit termín' instead of REZERVOVAT); dock price hidden when busy (moto_detail_view_v2.dart:204)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 adds a block the old look did not have; every v2 path to _reserve goes through onReserve which is null when busy.",
+   "evidence": "v2 adds a block the old look did not have; every v2 path to _reserve goes through onReserve which is null when busy.",
+   "sources": [
+    "moto-detail-12"
+   ]
+  },
+  {
+   "id": "G-150",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-044",
+   "situation": "Dates carried from the filter start in the past (app left open over midnight).",
+   "old_where": "v2/detail/detail_dates_carry_v2.dart:24 (old look returns filter dates unchanged) used by lib/features/catalog/moto_detail_page.dart:69",
+   "customer_sees": "Old look: past dates preselected, REZERVOVAT active; the booking form then refuses the pickup time (pickupLeadTimeValidationProvider).",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2/detail/detail_dates_carry_v2.dart:25-28 (v2 drops a carried range whose start is before today)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is stricter: a past carried start is not preselected at all.",
+   "evidence": "v2 is stricter: a past carried start is not preselected at all.",
+   "sources": [
+    "moto-detail-13"
+   ]
+  },
+  {
+   "id": "G-151",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-044",
+   "situation": "The customer picks only a pickup day; the booking is then a single-day rental (pickup day = return day). A hint above the calendar explains this.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:749-752 (hint searchSingleDayHint), :141 (_selEnd ?? _selStart), :775 canProceed = _selStart != null",
+   "customer_sees": "Grey hint under the calendar heading; REZERVOVAT active after one tap.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2/detail/detail_trip_card_v2.dart:190 (hint v2BkSingleDayHint); v2/detail/detail_dock_v2.dart:58-64 (dock line shows the single date); onReserve lib/features/catalog/moto_detail_page.dart:275 -> same _reserve :141"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same single-day rule through the same _reserve.",
+   "evidence": "Same single-day rule through the same _reserve.",
+   "sources": [
+    "moto-detail-14"
+   ]
+  },
+  {
+   "id": "G-152",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-045 / Bike detail",
+   "situation": "The customer has no licence group in the profile, or a group that does not cover the bike (A/A2/A1/AM/B hierarchy, OR of bike groups, kids bike 'N' exempt); once both dates are chosen a warning appears. The detail CTA itself is NOT disabled; the hard block is in the booking form (bookingValidationErrorProvider).",
+   "old_where": [
+    "lib/features/catalog/widgets/validation_banner.dart:24-35 (profileProvider license_group -> BookingValidator.checkLicense, features/booking/booking_validator.dart:20-50); shown by moto_detail_page.dart:390-397 directly above the CTA",
+    "lib/features/catalog/widgets/validation_banner.dart:28-72; lib/features/catalog/moto_detail_page.dart:389-397"
+   ],
+   "customer_sees": "Red box with warning icon: 'Nemáš řidičské oprávnění …' / 'Tvoje skupina … nestačí na …', placed right above REZERVOVAT, so the customer scrolls past it to reach the button.",
+   "visible": "clear",
+   "server": [
+    "unknown (no licence check on new-booking INSERT found in SUPABASE_BACKEND_STATE_4.md; license_insufficient exists only for swap/edit RPCs, process-payment/refusals.ts:103; RPC check_license_for_moto exists)",
+    "yes for overlap (trg_check_user_booking_overlap); no for licence/length at booking"
+   ],
+   "v2_entry_points": [
+    "v2 detail trip card, v2 calculator date step"
+   ],
+   "v2_where": [
+    "v2/detail/detail_trip_card_v2.dart:207 (same ValidationBanner, same checks) -> lib/features/catalog/widgets/validation_banner.dart:72-81 (amber MgStateBanner, first error as title); CTA = sticky dock v2/detail/detail_dock_v2.dart:89-95, active whenever a date is chosen and not busy (moto_detail_page.dart:275)",
+    "lib/features/catalog/v2/detail/detail_trip_card_v2.dart:207 and lib/features/catalog/v2/calc/calc_step_dates_v2.dart:108 use the same ValidationBanner; v2 face at validation_banner.dart:76-85 (amber MgStateBanner, first error as bold title, rest as text)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Same check, but in v2 the warning is amber instead of red and sits in the middle of the sheet (below the 60 % hero, video, description, parameters, price table – moto_detail_view_v2.dart:134-171), while REZERVOVAT is a sticky dock always on screen: with carried dates the customer can press it without ever seeing the warning. Old look forced the customer to scroll past the red box. The booking form still blocks.",
+   "evidence": "Same check, but in v2 the warning is amber instead of red and sits in the middle of the sheet (below the 60 % hero, video, description, parameters, price table – moto_detail_view_v2.dart:134-171), while REZERVOVAT is a sticky dock always on screen: with carried dates the customer can press it without ever seeing the warning. Old look forced the customer to scroll past the red box. The booking form still blocks.",
+   "sources": [
+    "moto-detail-15",
+    "mx-start-27"
+   ],
+   "verdict_disagreement": {
+    "moto-detail-15": "WEAKER",
+    "mx-start-27": "HOLDS"
+   },
+   "merged_situations": [
+    {
+     "source": "mx-start-27",
+     "situation": "After picking dates the detail warns that the licence is not enough, that the customer already has a booking in that time, or that the rental is shorter/longer than allowed. In the detail it is only a warning; the booking form then blocks."
+    }
+   ],
+   "notes": [
+    "mx-start-27: Tone changes from red to amber; the first problem becomes a heading, so it is not less visible, but the colour reads as \"warning\" rather than \"stop\"."
+   ]
+  }
+ ]
+}

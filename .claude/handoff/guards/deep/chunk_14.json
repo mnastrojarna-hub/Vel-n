@@ -1,0 +1,580 @@
+{
+ "title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart) - part 1 of 3 (G-165..G-177; mainly booking_form_widget.dart, booking_provider.dart, payment_screen.dart)",
+ "guards": [
+  {
+   "id": "G-165",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051 / S-072",
+   "situation": "The customer taps \"Pokračovat k platbě\" while anything is still missing: no dates, unknown availability, a validation error (licence, overlap, rental length, pickup time), an incomplete profile, missing gear sizes or unticked consents. The button is disabled.",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:536-556 (canProceedNow: dates + missingSizes.isEmpty + err==null + profileErr==null + consentsOk + datesKnown), CTA at :880-920 (onPressed null when !canProceed)",
+    "lib/core/booking_form_widget.dart:536-556 (canProceedNow) ; :884-891 (onPressed: canProceed ? push('/payment') : null)"
+   ],
+   "customer_sees": "A greyed-out \"Pokračovat k platbě\" button; the reasons are spread as separate hints/boxes above it (warning box, red error box, profile box, consents hint, availability hint).",
+   "visible": "small-text",
+   "server": [
+    "partly (server re-checks only some parts: trg_check_booking_overlap, trg_check_user_booking_overlap, trg_check_booking_branch_open, trg_check_trailer_overlap; payment_screen.dart:603 re-checks profile completeness client-side)",
+    "partly (see records above; payment_screen.dart:592-608 re-checks only dates and profile)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_widget.dart:582 (canProceed: canProceedNow() && !rangeBusy) -> features/booking/v2/booking_dock_v2.dart:138-145 (MgCta onTap: canProceed ? onProceed : null, enabled: canProceed); first reason in the dock: features/booking/v2/booking_form_view_v2.dart:162-176 (_blocker)",
+    "lib/core/booking_form_widget.dart:582 (canProceed: canProceedNow() && !rangeBusy) ; :603 onProceed ; lib/features/booking/v2/booking_dock_v2.dart:138-145 (MgCta onTap: canProceed ? onProceed : null, enabled: canProceed) ; lib/core/v2/widgets/mg_cta.dart (active = enabled && onTap != null; Semantics/MgPress onTap null when inactive)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 uses the SAME canProceedNow() closure plus an extra rangeBusy lock, so it is stricter. The only way from the v2 form to /payment is onProceed (booking_form_widget.dart:603) wired to the dock CTA; grep finds no other push of /payment in features/booking/v2. The dock shows the first blocker in amber next to the locked button (clearer than the old scattered hints). When the keyboard is open the dock is hidden (booking_form_view_v2.dart:288-289), which hides the button rather than enabling it.",
+   "evidence": "v2 uses the SAME canProceedNow() closure plus an extra rangeBusy lock, so it is stricter. The only way from the v2 form to /payment is onProceed (booking_form_widget.dart:603) wired to the dock CTA; grep finds no other push of /payment in features/booking/v2. The dock shows the first blocker in amber next to the locked button (clearer than the old scattered hints). When the keyboard is open the dock is hidden (booking_form_view_v2.dart:288-289), which hides the button rather than enabling it.",
+   "sources": [
+    "booking-form-1-02",
+    "booking-form-2-41"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-2-41",
+     "situation": "'POKRAČOVAT K PLATBĚ' is enabled only when dates are chosen, no gear size missing, no validation error, profile complete, consents ticked and availability known; it opens /payment (the booking row itself is inserted on the payment screen)."
+    }
+   ]
+  },
+  {
+   "id": "G-166",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051 / Booking form / Booking form (error banner + CTA)",
+   "situation": "The customer's driving licence groups do not cover the bike (or the profile has no licence group at all); the form shows an error and locks the payment button.",
+   "old_where": [
+    "lib/features/booking/booking_provider.dart:212-233 (licenseValidationProvider) -> features/booking/booking_validator.dart:20-48 (checkLicense, A>A2>A1>AM, B>AM, N = anyone); combined in bookingValidationErrorProvider :299-304; shown at core/booking_form_widget.dart:736-769",
+    "lib/features/booking/booking_provider.dart:212-233 (licenseValidationProvider), :299-304; lib/features/booking/booking_validator.dart:20-48; lib/core/booking_form_widget.dart:415, :536-556, :736-769, :885-891",
+    "lib/features/booking/booking_provider.dart:212-233 licenseValidationProvider -> features/booking/booking_validator.dart:20-48 checkLicense; :299-304 bookingValidationErrorProvider; core/booking_form_widget.dart:736-770 red banner, :551 err == null"
+   ],
+   "customer_sees": "A red box with the text \"validationNoLicense\" / \"validationInsufficientLicense\" (needed group vs. held groups) above a disabled payment button.",
+   "visible": "small-text",
+   "server": [
+    "no for a new booking (grep: process-payment license_insufficient exists only among the moto-swap dry-run codes, refusals.ts:103/123; no bookings insert trigger checks the licence group in STATE_4). Door codes are withheld later by the documents logic (release_withheld_door_codes_for_user, STATE_4:127), which is not a booking refusal.",
+    "no at booking insert (no trigger found in SUPABASE_BACKEND_STATE_4.md); door codes withheld later (trg_zz_door_codes_docs_gate, _docs_gate_checklist groups_ok, _license_groups_cover)",
+    "no (no booking insert trigger on licence found in STATE_3/4; only the docs gate withholds door codes when the group does not cover the bike: booking_docs_gate/_license_groups_cover, supabase/migrations/20261010_docs_gate_core.sql)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA (the only v2 push to /payment for a new booking), keyboard-hidden dock",
+    "v2 warnings block, v2 dock"
+   ],
+   "v2_where": [
+    "lib/features/booking/v2/booking_warning_v2.dart:53-65 (red MgStateBanner \"v2BkErrTitle\" + same err text), actions from booking_form_view_v2.dart:150-153 (\"pdPickOtherMoto\" -> onBack, \"completeProfileBtn\" -> /profile); dock blocker \"v2BkBlockError\" booking_form_view_v2.dart:171",
+    "lib/core/booking_form_widget.dart:571, :582 (canProceed: canProceedNow() && !rangeBusy), :603; lib/features/booking/v2/booking_dock_v2.dart:141-144 (onTap only when canProceed); lib/features/booking/v2/booking_warning_v2.dart (red banner) with fixes \"Vybrat jinou motorku\"/\"Doplnit v profilu\" (booking_form_view_v2.dart:150-155); blocker line booking_form_view_v2.dart:171",
+    "lib/core/booking_form_widget.dart:571 err passed; features/booking/v2/booking_form_view_v2.dart:150-153 actions \"Vybrat jinou motorku\"/\"Doplnit profil\", :171 blocker v2BkBlockError; features/booking/v2/booking_warning_v2.dart:47-58"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider value (err) is passed into BookingFormV2View (booking_form_widget.dart:571); the kind is resolved by bookingErrKind (booking_sync_v2.dart:78-85) in the same order. v2 adds a heading, a shake, two fix buttons and the dock line, so it is at least as clear.",
+   "evidence": "Same provider value (err) is passed into BookingFormV2View (booking_form_widget.dart:571); the kind is resolved by bookingErrKind (booking_sync_v2.dart:78-85) in the same order. v2 adds a heading, a shake, two fix buttons and the dock line, so it is at least as clear.",
+   "sources": [
+    "booking-form-1-03",
+    "mx-start-29",
+    "mx-order-08"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-29",
+     "situation": "The customer's licence groups do not cover the bike (or no group is stored); \"Pokračovat k platbě\" is disabled and a red error names the required group."
+    },
+    {
+     "source": "mx-order-08",
+     "situation": "A customer whose profile licence groups do not cover the bike (or who has no licence group) cannot continue: a red error explains which group is needed."
+    }
+   ],
+   "visible_by_source": {
+    "booking-form-1-03": "small-text",
+    "mx-start-29": "clear",
+    "mx-order-08": "small-text"
+   },
+   "notes": [
+    "mx-start-29: The app is the ONLY place that stops a too-low licence before payment; both looks share the same provider and CTA rule.",
+    "mx-order-08: v2 adds working fix buttons. Note: the payment screen does NOT re-check the licence (only profile completeness) in either look - deep link /payment with an old draft relies on the form; server does not refuse the booking, only the door codes."
+   ]
+  },
+  {
+   "id": "G-167",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051 / S-070 / Booking form / Booking form (amber banner)",
+   "situation": "The customer's profile lacks the address (street, city, ZIP) or, for a bike that needs a licence, the licence number or expiry; the form refuses to continue and offers \"Doplnit v profilu\".",
+   "old_where": [
+    "lib/features/booking/booking_provider.dart:312-352 (profileCompletenessValidationProvider, missing fields :327-337); shown at core/booking_form_widget.dart:772-832 with button -> /profile (:811-812); payment re-check payment_screen.dart:603-608",
+    "lib/core/booking_form_widget.dart:772-832 (profileErr box + 'Doplnit v profilu' -> push('/profile')) ; lib/features/booking/booking_provider.dart:312-355 ; canProceedNow :552",
+    "lib/features/booking/booking_provider.dart:306-338 (profileCompletenessValidationProvider); lib/core/booking_form_widget.dart:418, :772-832",
+    "lib/features/booking/booking_provider.dart:312-338 profileCompletenessValidationProvider; core/booking_form_widget.dart:772-831 amber banner + \"Doplnit profil\" -> /profile; :553"
+   ],
+   "customer_sees": "An amber box listing the missing fields and a brown \"Doplnit v profilu\" button; payment button disabled.",
+   "visible": "clear",
+   "server": [
+    "no (no server rule found; payment_screen.dart:603 repeats the same client provider before the insert)",
+    "no on INSERT (client re-check in payment_screen.dart:603-608; door codes later held by _docs_gate_checklist)",
+    "no (client only; payment repeats it, see below)",
+    "no (insert does not check; payment re-checks client-side payment_screen.dart:604-608)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA, v2 profile \"booking fix\" banner",
+    "v2 warnings + dock"
+   ],
+   "v2_where": [
+    "lib/features/booking/v2/booking_warning_v2.dart:66-75 (amber banner \"v2BkProfileTitle\" + profileErr text + \"completeProfileBtn\" -> onCompleteProfile = push /profile, booking_form_widget.dart:605); dock blocker \"v2BkBlockProfile\" booking_form_view_v2.dart:172",
+    "lib/features/booking/v2/booking_warning_v2.dart:66-75 (amber banner 'Chybí údaje pro smlouvu' + 'Doplnit v profilu' -> onCompleteProfile = push('/profile') at booking_form_widget.dart:605) ; lib/features/booking/v2/booking_form_view_v2.dart:172 ; lib/features/booking/v2/booking_dock_v2.dart:57-65",
+    "lib/core/booking_form_widget.dart:572, :582, :605; lib/features/booking/v2/booking_warning_v2.dart (amber + \"Doplnit v profilu\"); lib/features/profile/v2/profile_booking_fix_v2.dart:52-90 (same providers, names the missing fields)",
+    "lib/core/booking_form_widget.dart:572, :605 onCompleteProfile -> /profile; features/booking/v2/booking_form_view_v2.dart:172; booking_warning_v2.dart:60-68"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "profileErr is computed once in _BDWState (booking_form_widget.dart:418) and passed to v2 (:572); canProceedNow includes it for both looks; payment re-check is look-independent.",
+   "evidence": "profileErr is computed once in _BDWState (booking_form_widget.dart:418) and passed to v2 (:572); canProceedNow includes it for both looks; payment re-check is look-independent.",
+   "sources": [
+    "booking-form-1-04",
+    "booking-form-2-37",
+    "mx-start-33",
+    "mx-order-12"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-2-37",
+     "situation": "Profile incomplete (street, city, ZIP; licence number and expiry for bikes that need a licence) or licence expires before the end of the rental: booking blocked, button leads to the profile."
+    },
+    {
+     "source": "mx-start-33",
+     "situation": "Street, city or ZIP is empty, or (bike needs a licence) licence number or expiry is empty; the CTA is disabled and an amber box lists the missing fields with \"Doplnit profil\". Phone and birth date are NOT checked here."
+    },
+    {
+     "source": "mx-order-12",
+     "situation": "Without street, city, ZIP (always) and licence number + expiry (adult bikes) the booking cannot be sent; a button leads to the profile."
+    }
+   ],
+   "notes": [
+    "mx-start-33: v2 adds a banner in the profile telling what to fill and how to get back."
+   ]
+  },
+  {
+   "id": "G-168",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051 / Booking form / Booking form (amber banner)",
+   "situation": "The customer's driving licence expires before the last rental day (or before today when no dates yet); the form refuses to continue.",
+   "old_where": [
+    "lib/features/booking/booking_provider.dart:340-349 (needsLicense && license_expiry before endDate -> validationLicenseExpired)",
+    "lib/features/booking/booking_provider.dart:340-350",
+    "lib/features/booking/booking_provider.dart:340-350 (validationLicenseExpired)"
+   ],
+   "customer_sees": "The same amber profile box with the \"licence expired\" text and the \"Doplnit v profilu\" button; payment button disabled.",
+   "visible": "clear",
+   "server": [
+    "no for the booking itself; later the door codes are withheld when ŘP is not valid until end_date (release_withheld_door_codes_for_user, STATE_4:127)",
+    "partly: door codes withheld (expiry_ok in _docs_gate_checklist)",
+    "yes(docs gate withholds codes when licence expires before end: 20261010_docs_gate_core.sql)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA",
+    "v2 warnings + dock"
+   ],
+   "v2_where": [
+    "lib/features/booking/v2/booking_warning_v2.dart:66-75 (same profileErr banner); booking_form_view_v2.dart:172",
+    "same profileErr path; lib/features/profile/v2/profile_booking_fix_v2.dart:76-77 (PfFixKind.expired)",
+    "lib/features/booking/v2/booking_form_view_v2.dart:172"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider, same value, same CTA rule in both looks.",
+   "evidence": "Same provider, same value, same CTA rule in both looks.",
+   "sources": [
+    "booking-form-1-05",
+    "mx-start-34",
+    "mx-order-13"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-34",
+     "situation": "The stored licence expires before the end of the rental; CTA disabled."
+    },
+    {
+     "source": "mx-order-13",
+     "situation": "If the licence expiry in the profile is before the rental end the booking is blocked."
+    }
+   ]
+  },
+  {
+   "id": "G-169",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051 / S-061 / Booking form (extras) / Booking form (extras) + payment insert",
+   "situation": "The bike is from a self-service branch but the draft still carries a trailer from a previously chosen staffed-branch bike; the form silently removes the trailer.",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:424-438 (selfService && (trailerMotoId!=null || extra-vozik) -> post-frame _upd removes them)",
+    "lib/core/booking_form_widget.dart:428-438 (post-frame strip of extra-vozik and trailerMotoId) ; payment pojistka lib/features/payment/payment_screen.dart:589-591",
+    "lib/core/booking_form_widget.dart:422-438; lib/features/payment/payment_screen.dart:573-583",
+    "lib/core/booking_form_widget.dart:428-438; core/booking_form_extras_section.dart:361 (!isKids && !selfService); features/payment/payment_screen.dart:583-590"
+   ],
+   "customer_sees": "Nothing; the trailer just disappears from the draft (the trailer tile is not offered at a self-service branch).",
+   "visible": "silent",
+   "server": [
+    "yes(trg_check_trailer_overlap refuses a trailer with a self-service bike, STATE_4:87; payment_screen.dart maps it to fxTrailerStaffedOnly)",
+    "yes(trg_check_trailer_overlap)",
+    "yes(get_trailer_availability returns 0 for self-service; trg_check_trailer_overlap)",
+    "yes(get_trailer_availability returns 0 for self-service; trg_check_trailer_overlap 23514 \"obslužné pobočky\")"
+   ],
+   "v2_entry_points": [
+    "v2 extras section",
+    "v2 extras"
+   ],
+   "v2_where": [
+    "lib/core/booking_form_widget.dart:428-438 runs before the MgV2.on branch at :560",
+    "lib/core/booking_form_widget.dart:428-438 runs before v2 branch :560",
+    "lib/core/booking_form_extras_section.dart:52, :394-400 (same section widget with selfService); form normalisation runs before the v2 branch (booking_form_widget.dart:428-438 precede :560)",
+    "lib/core/booking_form_extras_section.dart:245 (v2: trailer only if !isKids && !selfService)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The normalisation is in build() above the v2 branch, so it runs for both looks.",
+   "evidence": "The normalisation is in build() above the v2 branch, so it runs for both looks.",
+   "sources": [
+    "booking-form-1-06",
+    "booking-form-2-09",
+    "mx-start-39",
+    "mx-order-18"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-2-09",
+     "situation": "Trailer left in the draft from a bike on a staffed branch is removed when the bike is on a self-service branch (DB would reject the whole booking)."
+    },
+    {
+     "source": "mx-start-39",
+     "situation": "A self-service branch cannot hand out a trailer; the trailer tile is not offered and a leftover trailer is removed from the draft and from the insert."
+    },
+    {
+     "source": "mx-order-18",
+     "situation": "A self-service branch never offers the trailer and a leftover trailer is removed from the draft and from the insert."
+    }
+   ]
+  },
+  {
+   "id": "G-170",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051 / S-061 / Booking form (extras)",
+   "situation": "Kids bike: passenger gear and passenger boots are not offered at all, and any left over from a previous adult bike are removed.",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:483-497",
+    "lib/core/booking_form_extras_section.dart:66-70 (extraTiles filter when isKids) ; lib/core/booking_form_widget.dart:485-497 (post-frame strip of extra-spolujezdec / extra-boty-spolu)",
+    "lib/core/booking_form_widget.dart:485-498; core/booking_form_extras_section.dart:66-70"
+   ],
+   "customer_sees": "The passenger tiles are not shown.",
+   "visible": "silent",
+   "server": [
+    "no",
+    "unknown"
+   ],
+   "v2_entry_points": [
+    "v2 extras rows"
+   ],
+   "v2_where": [
+    "lib/core/booking_form_widget.dart:485-497 runs before the v2 branch at :560",
+    "lib/core/booking_form_extras_section.dart:66-125 (same extraTiles list, v2 rows built inside the same map) ; lib/core/booking_form_widget.dart:485-497 before v2 branch",
+    "lib/core/booking_form_extras_section.dart:66-70 shared before v2 branch :108"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared normalisation in build() before the look split.",
+   "evidence": "v2 items are the same filtered extraTiles list (extras section :244 items: extraTiles).",
+   "sources": [
+    "booking-form-1-07",
+    "booking-form-2-05",
+    "mx-order-17"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-1-07",
+     "situation": "The bike is a children's bike (licence N) but the draft still carries passenger gear or passenger boots; the form silently removes them."
+    },
+    {
+     "source": "mx-order-17",
+     "situation": "A children bike never offers passenger gear/boots; leftovers from an adult bike are removed."
+    }
+   ]
+  },
+  {
+   "id": "G-171",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051 / S-061 / Booking form",
+   "situation": "A size that is not in the offered range (pre-filled from the profile after switching kids <-> adult bike, or XS/5XL+ helmet on a self-service branch) is silently cleared so a size the customer never saw is not saved.",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:498-514 (offList -> post-frame clears helmet/jacket/pants/gloves)",
+    "lib/core/booking_form_widget.dart:501-514 (offList -> post-frame reset of helmet/jacket/pants/gloves)",
+    "lib/core/booking_form_widget.dart:500-514"
+   ],
+   "customer_sees": "Nothing; the chip is simply not selected and the missing-size rule applies again.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [
+    "shared normalisation before v2 branch"
+   ],
+   "v2_where": [
+    "lib/core/booking_form_widget.dart:501-514 runs before the v2 branch at :560",
+    "lib/core/booking_form_widget.dart:501-514 run before the v2 branch at :560",
+    "lib/core/booking_form_widget.dart:500-514 (runs before MgV2.on at :560)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared normalisation; the resulting missingSizes list is passed to v2 (:581).",
+   "evidence": "The normalisation is in the shared build() above `if (MgV2.on(context))`, so it runs for both looks.",
+   "sources": [
+    "booking-form-1-08",
+    "booking-form-2-04",
+    "mx-order-22"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-1-08",
+     "situation": "A rider gear size pre-filled from the profile is not in the size range the form offers (kids vs adult bike, self-service range); the form silently clears it so a size the customer never saw is not saved."
+    },
+    {
+     "source": "mx-order-22",
+     "situation": "Sizes outside the offered range (children vs adult, self-service limits) are cleared so a size the customer never saw is not saved."
+    }
+   ]
+  },
+  {
+   "id": "G-172",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-051",
+   "situation": "New v2-only entry points start the booking form: the Home funnel \"Rezervovat\" and the calculator. They hand the bike and dates to the same form, which then applies every form guard.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:140-141 (old look only entry: detail REZERVOVAT -> startBookingFromSelection)",
+   "customer_sees": "Old look: the form opens only from the bike detail.",
+   "visible": "clear",
+   "server": "yes(the same insert triggers as above apply to whatever the form submits)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_funnel_v2.dart:216 and features/catalog/v2/calc/calc_body_v2.dart:148-149 (book() offered only when availability is loaded and the range is free: blocked = loading/failed/busyInRange at :139-146) -> features/booking/booking_entry.dart:27-91 -> push /booking"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Both new entries only open /booking; they do not reach /payment. The form then recomputes err, profileErr, missingSizes, datesKnown and rangeBusy for the passed bike/dates, so no guard is skipped.",
+   "evidence": "Both new entries only open /booking; they do not reach /payment. The form then recomputes err, profileErr, missingSizes, datesKnown and rangeBusy for the passed bike/dates, so no guard is skipped.",
+   "sources": [
+    "booking-form-1-11"
+   ]
+  },
+  {
+   "id": "G-173",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-053 / S-072 / Booking form",
+   "situation": "The booking form is opened without a selected bike (bookingMotoProvider is null, e.g. after an app restart or a deep link). The form is not shown at all; the customer is sent to pick a bike.",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:357-405 (moto == null -> \"selectMotoFirst\" + button GoRouter.go(/search) at :387-390 + back arrow at :395-401)",
+    "lib/core/booking_form_widget.dart:357-405 (moto == null -> info + button go('/search'))",
+    "lib/core/booking_form_widget.dart:357-405",
+    "lib/core/booking_form_widget.dart:357-399 (moto == null early return)"
+   ],
+   "customer_sees": "Bike icon, \"Nejprve vyberte motorku\" and the \"Vybrat motorku\" button; back arrow top-left.",
+   "visible": "clear",
+   "server": [
+    "not applicable (no booking can be built without a bike in the client)",
+    "no",
+    "n/a"
+   ],
+   "v2_entry_points": [
+    "v2 /booking",
+    "v2 booking route"
+   ],
+   "v2_where": [
+    "lib/core/booking_form_widget.dart:360-364 -> features/booking/v2/booking_form_view_v2.dart:303-323 (BookingNoMotoV2: MgStateScreen title v2BkNoMotoTitle, primary \"selectMotoBtn\" -> go /search, close = back)",
+    "lib/core/booking_form_widget.dart:360-365 -> lib/features/booking/v2/booking_form_view_v2.dart:303-323 (BookingNoMotoV2, same targets)",
+    "lib/core/booking_form_widget.dart:360-365 (BookingNoMotoV2, same targets); lib/features/booking/v2/booking_form_view_v2.dart:305-330",
+    "lib/core/booking_form_widget.dart:360-365 -> features/booking/v2/booking_form_view_v2.dart:303-324 BookingNoMotoV2 (same targets)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 early return happens inside the same moto == null check before any form state is read, with the same two targets.",
+   "evidence": "The v2 early return happens inside the same moto == null check before any form state is read, with the same two targets.",
+   "sources": [
+    "booking-form-1-13",
+    "booking-form-2-44",
+    "mx-start-28",
+    "mx-order-05"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-2-44",
+     "situation": "No bike in the booking (e.g. opened /booking directly): form not shown, only 'Vybrat motorku'."
+    },
+    {
+     "source": "mx-start-28",
+     "situation": "The booking form is opened without a chosen bike (restart, deep link); it shows \"Nejdřív vyber motorku\" and a button to the list instead of an empty form."
+    },
+    {
+     "source": "mx-order-05",
+     "situation": "If the booking form is opened without a selected bike (deep link, restored app) it shows only \"no bike\" with a button to the catalog."
+    }
+   ]
+  },
+  {
+   "id": "G-174",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-054 / S-071 / Booking form / Booking form (calendar + CTA)",
+   "situation": "The bike's booked days could not be loaded (offline, slow LTE, server); the calendar is replaced by an error with \"Zkusit znovu\" and the payment button stays locked, so the customer cannot pay for dates that may be taken.",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:293-301 (MgErrorView fxBookedDatesFail + retry), :541-547 (datesKnown in canProceedNow), :850-876 (red hint fxBookedDatesWait + retry). Note: added on this branch to the old look too; 4.1.3 (70a94933) showed the calendar with all days free and had no datesKnown lock.",
+    "lib/core/booking_form_widget.dart:850-876 (if b.hasError && !b.hasValue: text fxBookedDatesWait + 'Zkusit znovu') ; canProceedNow :542-547,554 (datesKnown)",
+    "lib/core/booking_form_widget.dart:288-301, :540-547 (datesKnown), :849-876",
+    "lib/core/booking_form_widget.dart:288-301 (MgErrorView instead of calendar), :543-554 datesKnown, :848-866 hint fxBookedDatesWait + retry; features/catalog/catalog_provider.dart:83-95 bookedDatesProvider (15 s timeout)"
+   ],
+   "customer_sees": "A compact error box in the date card, a red line \"fxBookedDatesWait\" with \"Zkusit znovu\" above a disabled payment button.",
+   "visible": "clear",
+   "server": [
+    "yes(trg_check_booking_overlap refuses an overlapping insert at payment)",
+    "yes(trg_check_booking_overlap)",
+    "yes(trg_check_booking_overlap at insert)"
+   ],
+   "v2_entry_points": [
+    "v2 booking date card, v2 dock",
+    "v2 date card, v2 warnings block, v2 dock"
+   ],
+   "v2_where": [
+    "lib/features/booking/v2/booking_date_v2.dart:96-104 (same MgErrorView), features/booking/v2/booking_warning_v2.dart:76-85 (red banner fxBookedDatesFail + retry), dock blocker v2BkBlockAvailFail booking_form_view_v2.dart:169",
+    "lib/features/booking/v2/booking_warning_v2.dart:76-85 (red banner 'Obsazenost motorky se nepodařilo načíst' + retry) ; lib/features/booking/v2/booking_form_view_v2.dart:169 ; lib/core/booking_form_widget.dart:595 (same invalidate)",
+    "lib/features/booking/v2/booking_date_v2.dart:96-110; booking_warning_v2.dart (bookedFailed banner); booking_form_view_v2.dart:167-168 (blockers v2BkBlockAvail / AvailFail); v2 also locks a carried range with a booked day: lib/core/booking_form_widget.dart:565, :582",
+    "lib/features/booking/v2/booking_form_view_v2.dart:168-169 (v2BkBlockAvail / v2BkBlockAvailFail in dock), :269-271 BookingWarningsV2 bookedFailed + onRetryBooked; booking_form_widget.dart:582 same canProceedNow"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 receives the same AsyncValue (booking_form_widget.dart:562) and the CTA uses the same canProceedNow (datesKnown).",
+   "evidence": "v2 receives the same AsyncValue (booking_form_widget.dart:562) and the CTA uses the same canProceedNow (datesKnown).",
+   "sources": [
+    "booking-form-1-18",
+    "booking-form-2-39",
+    "mx-start-37",
+    "mx-order-07"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-2-39",
+     "situation": "Booked dates of the bike could not be loaded (offline, weak signal): proceeding is blocked because the chosen days might be taken; retry offered."
+    },
+    {
+     "source": "mx-start-37",
+     "situation": "The bike's occupancy could not be loaded; the calendar is replaced by an error with retry and the CTA stays disabled, so nobody pays for a possibly taken date."
+    },
+    {
+     "source": "mx-order-07",
+     "situation": "If the bike occupancy failed to load (offline, weak LTE) the calendar is replaced by an error with \"Zkusit znovu\" and the CTA stays locked, because the app cannot know the dates are free."
+    }
+   ],
+   "visible_by_source": {
+    "booking-form-1-18": "clear",
+    "booking-form-2-39": "small-text",
+    "mx-start-37": "clear",
+    "mx-order-07": "small-text"
+   },
+   "notes": [
+    "mx-start-37: Stricter in v2 (carried busy range).",
+    "mx-order-07: Added on this branch to BOTH looks (datesKnown / fxBookedDatesWait not present in 70a94933 booking_form_widget.dart:718-726)."
+   ]
+  },
+  {
+   "id": "G-175",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-054 / S-071",
+   "situation": "The bike's booked days are still loading; the payment button stays locked until they arrive.",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:541-547 (datesKnown = hasValue) ; calendar meanwhile drawn with an empty booked list (:302-303)",
+    "lib/core/booking_form_widget.dart:546-547,554 (datesKnown = bookedAsync.hasValue)"
+   ],
+   "customer_sees": "A disabled payment button with no explanation while loading; the calendar briefly shows all days as free.",
+   "visible": "silent",
+   "server": "yes(trg_check_booking_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/booking_date_v2.dart:106-107 (TripAvailabilityBanner loading), dock blocker v2BkBlockAvail booking_form_view_v2.dart:168",
+    "lib/features/booking/v2/booking_form_view_v2.dart:168 (dock 'Ověřujeme obsazenost motorky')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same lock; v2 explains it (loading banner + dock text) where the old look was silent.",
+   "evidence": "Same lock; v2 explains it (loading banner + dock text) where the old look was silent.",
+   "sources": [
+    "booking-form-1-19",
+    "booking-form-2-40"
+   ],
+   "merged_situations": [
+    {
+     "source": "booking-form-2-40",
+     "situation": "Booked dates still loading: CTA stays locked until availability is known."
+    }
+   ]
+  },
+  {
+   "id": "G-176",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-054",
+   "situation": "The date range carried into the form (from the catalog filter, Home or a previous draft) contains a day the bike's calendar shows booked. The old look has no client check and relies on the database refusal at payment; v2 keeps the calendar open and locks the payment button.",
+   "old_where": "Old look: no client guard; DB refusal surfaced at payment (features/payment/payment_screen.dart, trg_check_booking_overlap -> _DraftKind.motoTaken around :860-865)",
+   "customer_sees": "Old look: the form allows \"Pokračovat k platbě\"; the payment screen then reports the bike as taken.",
+   "visible": "small-text",
+   "server": "yes(trg_check_booking_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_widget.dart:565 and :582/:586 (rangeBusy -> canProceed false, calendar forced open) -> features/booking/v2/booking_sync_v2.dart:41-72 (bookingRangeBusy, own unpaid draft excluded like checkOverlap), booking_date_v2.dart:78-88 (red \"v2CalcRangeBusy\"), dock v2BkBlockBusy booking_form_view_v2.dart:170"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is stricter than the old look here (an extra client lock on top of the same server refusal).",
+   "evidence": "v2 is stricter than the old look here (an extra client lock on top of the same server refusal).",
+   "sources": [
+    "booking-form-1-20"
+   ]
+  },
+  {
+   "id": "G-177",
+   "step": "booking-form-1",
+   "step_title": "Booking form part 1: route, bike, dates, times, pickup and return (core/booking_form_widget.dart)",
+   "surface": "S-054 / Booking form / Booking form (error banner + CTA)",
+   "situation": "The customer already has another active or upcoming (non-children's, not own unpaid draft) reservation overlapping the chosen dates; the form shows an error and locks payment.",
+   "old_where": [
+    "lib/features/booking/booking_provider.dart:237-256 (overlapValidationProvider) -> features/booking/booking_validator.dart:54-101 (skip cancelled/completed :70, own pending+unpaid :79, children's bikes :62/:82); shown at core/booking_form_widget.dart:736-769",
+    "lib/features/booking/booking_provider.dart:237-256; lib/features/booking/booking_validator.dart:54-101; lib/core/booking_form_widget.dart:736-769",
+    "lib/features/booking/booking_provider.dart:237-256 overlapValidationProvider -> booking_validator.dart:54-101 checkOverlap; booking_form_widget.dart:736-770"
+   ],
+   "customer_sees": "Red box \"validationOverlap\" naming the other bike and its dates; payment disabled.",
+   "visible": "small-text",
+   "server": [
+    "yes(trg_check_user_booking_overlap, STATE_4:189)",
+    "yes(trg_check_user_booking_overlap)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA",
+    "v2 warnings + dock; v2 date card busy lock"
+   ],
+   "v2_where": [
+    "lib/features/booking/v2/booking_warning_v2.dart:53-65 (red banner + text) with action \"psChangeDates\" -> _openDates (booking_form_view_v2.dart:154, :141-146 opens and scrolls to the calendar); dock v2BkBlockError",
+    "same err/canProceed as above; v2 fix \"Změnit termín\" (booking_form_view_v2.dart:154)",
+    "lib/features/booking/v2/booking_form_view_v2.dart:154 action \"Změnit termín\", :170-171; features/booking/v2/booking_sync_v2.dart:65-72 bookingDraftRangeBusy also counts own reservations"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider via err; v2 adds a heading and a working \"change dates\" button.",
+   "evidence": "Same provider via err; v2 adds a heading and a working \"change dates\" button.",
+   "sources": [
+    "booking-form-1-21",
+    "mx-start-30",
+    "mx-order-09"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-30",
+     "situation": "The new dates overlap the customer's own paid/upcoming booking (children's bikes excepted, own unpaid draft excepted); the CTA is disabled with a red error naming the other booking."
+    },
+    {
+     "source": "mx-order-09",
+     "situation": "A customer who already has an active/upcoming adult-bike booking overlapping the chosen dates cannot continue (children bikes and his own unpaid draft are exempt)."
+    }
+   ],
+   "visible_by_source": {
+    "booking-form-1-21": "small-text",
+    "mx-start-30": "clear",
+    "mx-order-09": "small-text"
+   },
+   "notes": [
+    "mx-order-09: v2 is stricter (range lock)."
+   ]
+  }
+ ]
+}

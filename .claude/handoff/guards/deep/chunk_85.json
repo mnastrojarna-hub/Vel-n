@@ -1,0 +1,257 @@
+{
+ "title": "My experiences, ride recording and ride results - part 3 of 6 (G-1050..G-1061; mainly ride_detail_screen.dart, ride_pause_sheet.dart, ride_rec_controls.dart)",
+ "guards": [
+  {
+   "id": "G-1050",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "v2 asks 'End the recording?' before stopping an own ride (the old card stopped at once).",
+   "old_where": "lib/features/routes/ride_rec_controls.dart:282 (onStop -> toggleManualRide(running: true) without question)",
+   "customer_sees": "No confirmation in the old look.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_pause_actions_v2.dart:61-98 (trasyConfirmStop sheet), used by lib/features/routes/v2/record_dock_v2.dart:70,81, lib/features/routes/v2/rides/recorder_screen_v2.dart:62-66, lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:42-47, home/v2/home_record_row_v2.dart:42-45"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is stricter; no entry point skips the stop function itself.",
+   "evidence": "v2 is stricter; no entry point skips the stop function itself.",
+   "sources": [
+    "rides-29"
+   ]
+  },
+  {
+   "id": "G-1051",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-214 Ride pause / recording status sheet",
+   "situation": "In the sheet, Stop is offered only for an own manual ride; a rental shows why it cannot be stopped.",
+   "old_where": "lib/features/routes/ride_pause_sheet.dart:109-117 -> lib/features/routes/ride_rec_controls.dart:79; rental hint lib/features/routes/ride_pause_sheet.dart:120-122 (rpRentalEndsHint)",
+   "customer_sees": "Only Pause/Continue for a rental, with a grey hint.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:63-66 (rec.canStop), :108-111 (v2RpRentalEnds)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same canStop condition and the same hint.",
+   "evidence": "Same canStop condition and the same hint.",
+   "sources": [
+    "rides-31"
+   ]
+  },
+  {
+   "id": "G-1052",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-214 Ride pause / recording status sheet",
+   "situation": "After a safety pause the sheet asks Continue trip / End and save.",
+   "old_where": "lib/features/routes/ride_pause_sheet.dart:107 (RideRecDecisionNote), labels via lib/features/routes/ride_rec_controls.dart:74,82",
+   "customer_sees": "Amber question box.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:51-54 (CTA v2RpResumeTripCta + End and save) and :104-107 (hint well)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same needsDecision condition; question text shown in the well.",
+   "evidence": "Same needsDecision condition; question text shown in the well.",
+   "sources": [
+    "rides-32"
+   ]
+  },
+  {
+   "id": "G-1053",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-214 Ride pause / recording status sheet",
+   "situation": "Continue from the sheet re-runs the location checks; a failure is explained.",
+   "old_where": "lib/features/routes/ride_pause_sheet.dart:111-113 -> lib/features/routes/ride_pause_actions.dart:28-32",
+   "customer_sees": "Snackbar with settings action.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:52,61 -> lib/features/routes/v2/rides/ride_pause_actions_v2.dart:32-44"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same resume() and result mapping.",
+   "evidence": "Same resume() and result mapping.",
+   "sources": [
+    "rides-33"
+   ]
+  },
+  {
+   "id": "G-1054",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-214 Ride pause / recording status sheet",
+   "situation": "Stop from the sheet uses the same stop and reports saved / too short / offline.",
+   "old_where": "lib/features/routes/ride_pause_sheet.dart:115-117 -> lib/features/routes/ride_pause_actions.dart:40-53 (rideStopWithFeedback)",
+   "customer_sees": "Snackbar result.",
+   "visible": "small-text",
+   "server": "yes(finish_user_ride)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:42-47 (confirm, then trasyStopNowV2 = toggleManualRide(running: true))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same n.stop(); v2 adds a confirmation and result sheet.",
+   "evidence": "Same n.stop(); v2 adds a confirmation and result sheet.",
+   "sources": [
+    "rides-34"
+   ]
+  },
+  {
+   "id": "G-1055",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-215 Delete saved route confirmation",
+   "situation": "Deleting a saved route requires confirmation (Cancel / red Delete).",
+   "old_where": "lib/features/routes/my_experiences_screen.dart:707-713 (trash) -> :783-808 (_confirmDelete AlertDialog, return unless ok == true)",
+   "customer_sees": "Dialog 'Delete route?' with the route name.",
+   "visible": "clear",
+   "server": "yes(delete_user_route WHERE user_id = auth.uid())",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/moje_cards_v2.dart:87 -> lib/features/routes/v2/rides/moje_lists_v2.dart:211 -> onDeleteSaved (my_experiences_screen.dart:94) -> :786-787 rideConfirmDeleteV2 (lib/features/routes/v2/rides/ride_dialogs_v2.dart:11-21)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Only entry in v2 is the trash button; it calls the old _confirmDelete; the v2 dialog returns the same pop values.",
+   "evidence": "Only entry in v2 is the trash button; it calls the old _confirmDelete; the v2 dialog returns the same pop values.",
+   "sources": [
+    "rides-35"
+   ]
+  },
+  {
+   "id": "G-1056",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-215 Delete saved route confirmation",
+   "situation": "A failed delete is reported instead of pretending success.",
+   "old_where": "lib/features/routes/my_experiences_screen.dart:809-815 (showErrorSnack eoRouteDeleteFail)",
+   "customer_sees": "Error snackbar.",
+   "visible": "small-text",
+   "server": "yes(delete_user_route returns success:found)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same handler (my_experiences_screen.dart:94)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 reuses the old function.",
+   "evidence": "v2 reuses the old function.",
+   "sources": [
+    "rides-36"
+   ]
+  },
+  {
+   "id": "G-1057",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "Only the customer's own rides can be opened; a foreign or deleted ride id (or signed-out user) shows 'Ride not found' with a way back.",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:99-104 (ride lookup in myRidesProvider), :128-171 (_missing); ride_provider.dart:15-16",
+   "customer_sees": "Bike emoji, 'Ride not found', green back button.",
+   "visible": "clear",
+   "server": "yes(get_my_rides returns only the caller's rides; RLS user_rides_owner)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/ride_detail_screen.dart:104,128-129 -> lib/features/routes/v2/rides/ride_detail_view_v2.dart:286 (RideMissingV2). All v2 openers go through /ride/:id or RideDetailScreen: lib/features/routes/v2/rides/ride_card_v2.dart:48, lib/features/routes/v2/rides/moje_tracks_v2.dart:77"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Lookup happens before the v2 branch.",
+   "evidence": "Lookup happens before the v2 branch.",
+   "sources": [
+    "rides-37"
+   ]
+  },
+  {
+   "id": "G-1058",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "A load error is not shown as 'not found': reason + Try again + Back.",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:89-98",
+   "customer_sees": "Error view.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same code path (before the MgV2 branch at :105)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared by both looks.",
+   "evidence": "Shared by both looks.",
+   "sources": [
+    "rides-38"
+   ]
+  },
+  {
+   "id": "G-1059",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "Sharing switch (private / public) is locked while saving; a failed save is reported with retry. A ride stays private until the rider turns it on.",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:193-207 (_busy, _saveFailed), :530-534 (Switch onChanged null when busy)",
+   "customer_sees": "Switch greyed while saving; error snackbar with retry.",
+   "visible": "small-text",
+   "server": "yes(update_user_ride owner-only; public only via get_public_rides)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_detail_view_v2.dart:127 -> lib/features/routes/v2/rides/ride_detail_parts_v2.dart:232-234 (onChanged: busy ? null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _toggleVisibility handler and busy flag (ride_detail_screen.dart:322,330).",
+   "evidence": "Same _toggleVisibility handler and busy flag (ride_detail_screen.dart:322,330).",
+   "sources": [
+    "rides-39"
+   ]
+  },
+  {
+   "id": "G-1060",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "Editing name/description: Cancel discards, a failed save is reported with retry.",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:209-255",
+   "customer_sees": "Dialog; error snackbar.",
+   "visible": "small-text",
+   "server": "yes(update_user_ride)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/ride_detail_screen.dart:214-215 (rideEditDialogV2, lib/features/routes/v2/rides/ride_dialogs_v2.dart:25-38); entry lib/features/routes/v2/rides/ride_detail_parts_v2.dart:130 (onEdit)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same controllers and pop values; same save path.",
+   "evidence": "Same controllers and pop values; same save path.",
+   "sources": [
+    "rides-40"
+   ]
+  },
+  {
+   "id": "G-1061",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-216 Ride detail",
+   "situation": "Deleting a ride requires confirmation.",
+   "old_where": "lib/features/routes/ride_detail_screen.dart:257-293 (showDialog; return unless ok == true)",
+   "customer_sees": "Dialog 'Delete ride?' with name.",
+   "visible": "clear",
+   "server": "yes(delete_user_ride owner-only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_detail_parts_v2.dart:115 (trash) -> onDelete = _delete (ride_detail_screen.dart:326) -> :271-272 rideConfirmDeleteV2"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "rides-41"
+   ]
+  }
+ ]
+}

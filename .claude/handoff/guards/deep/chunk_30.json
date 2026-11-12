@@ -1,0 +1,401 @@
+{
+ "title": "App shell: bottom navigation, floating buttons and header banner (old look) - part 2 of 2 (G-358..G-369; mainly shell_fab_layer.dart, shell_fabs.dart, app_shell.dart)",
+ "guards": [
+  {
+   "id": "G-358",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-005 / S-086 / S-073 Payment screen / Floating button",
+   "situation": "The customer already submitted a payment that the bank/server has not confirmed yet (local marker, or the last PaymentIntent is still processing on Stripe); the app does NOT offer \"Dokončit rezervaci\" again (double payment) but only opens \"Platba se ověřuje\".",
+   "old_where": [
+    "lib/core/pending_booking_fab_provider.dart:112-113,122-132 (verifying = PaymentPendingMarker or Stripe intent still running), lib/core/shell_fabs.dart:96-98 (switch to ShellVerifyingFab), :184-242 (tap -> pendingBookingOutcome -> /payment-result, no pay action, no ✕). NOTE: added on this branch; 4.1.3 offered payment again.",
+    "core/shell_fabs.dart:182-205 (ShellVerifyingFab.open: pendingBookingOutcome + push(Routes.paymentResult))",
+    "lib/core/shell_fabs.dart:96-98 (booking.verifying -> ShellVerifyingFab), marker set at lib/features/payment/payment_screen_problems.dart:471-474",
+    "lib/core/shell_fabs.dart:96-98, :190-230 ShellVerifyingFab; core/pending_booking_fab_provider.dart:103-131"
+   ],
+   "customer_sees": "Yellow pill \"⏳ Ověřujeme platbu\" without a cancel ✕.",
+   "visible": "clear",
+   "server": [
+    "partly (confirm_payment deduplicates a second webhook; no server rule found that blocks a second card charge)",
+    "yes (process-payment checkout-guard.ts payment_in_progress)",
+    "yes(process-payment payment_in_progress)",
+    "yes(webhook state)"
+   ],
+   "v2_entry_points": [
+    "v2 strip verifying; v2 Home ticket"
+   ],
+   "v2_where": [
+    "lib/core/shell_fabs.dart:96-98,207-218 (v2 verifying strip, same open(), no onDismiss), lib/features/home/v2/home_ticket_v2.dart:73,273-275 (Domů ticket shows TkPendingBlock instead of the pay CTA when verifying), lib/core/v2/shell/app_shell_v2.dart:174 (Rezervace dot not lit for verifying).",
+    "core/shell_fabs.dart:207-215 (v2 MgStatusStrip verifying -> same open())",
+    "lib/core/shell_fabs.dart:96-110 (v2 strip shares ShellBookingFab), lib/features/home/v2/home_ticket_v2.dart:271-273 (TkPendingBlock when p.verifying)",
+    "lib/core/shell_fabs.dart:207-218 (v2 strip); features/home/v2/home_ticket_v2.dart:270-273 TkPendingBlock (no pay CTA), :73"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 path checks booking.verifying before offering payment; the strip has a title and a sub line and no cancel.",
+   "evidence": "Every v2 path checks booking.verifying before offering payment; the strip has a title and a sub line and no cancel.",
+   "sources": [
+    "shell-fabs-15",
+    "payment-2-33",
+    "payment-1-30",
+    "mx-order-42"
+   ],
+   "merged_situations": [
+    {
+     "source": "payment-2-33",
+     "situation": "A booking whose payment was already sent and is being verified must not offer a second payment from the floating button; tapping it opens this result screen in pending state."
+    },
+    {
+     "source": "payment-1-30",
+     "situation": "An unpaid booking whose payment is being verified cannot be paid again from outside: the unpaid strip/FAB switches to 'Platba se ověřuje' and the v2 Home ticket shows a verifying block instead of the pay button."
+    },
+    {
+     "source": "mx-order-42",
+     "situation": "If the payment was already sent and is being verified, the floating button offers only \"Platba se ověřuje\", never a new payment."
+    }
+   ],
+   "notes": [
+    "mx-order-42: Added on branch (ShellVerifyingFab absent in 70a94933)."
+   ]
+  },
+  {
+   "id": "G-359",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-006 / Floating button X",
+   "situation": "The customer taps ✕ next to the unpaid-booking button; because cancelling is irreversible and the ✕ sits right next to \"pay\", a confirmation dialog must be accepted first.",
+   "old_where": [
+    "lib/core/shell_fabs.dart:36-66 (cancelPendingBookingFlow, AlertDialog \"cancelReservationQ\" with \"Zpět\" / red \"Zrušit rezervaci\", dismiss = no); same dialog in 70a94933 app_shell.dart:589-611.",
+    "lib/core/shell_fabs.dart:36-80 cancelPendingBookingFlow"
+   ],
+   "customer_sees": "Dialog \"Zrušit rezervaci?\" with Zpět and a red Zrušit rezervaci.",
+   "visible": "clear",
+   "server": [
+    "partly (_trg_guard_customer_booking_status lets the customer write only status=cancelled; the \"only unpaid\" rule is the client filter .eq(payment_status, unpaid))",
+    "yes(cancelPendingBooking RPC/update under RLS)"
+   ],
+   "v2_entry_points": [
+    "v2 strip X; v2 Home ticket cancel link"
+   ],
+   "v2_where": [
+    "lib/core/shell_fabs.dart:40-47 (v2 showMgConfirm, destructive red action, safe \"Zpět\"), entry points: v2 strip ✕ shell_fabs.dart:112-113, Domů ticket lib/features/home/v2/home_ticket_v2.dart:278 (onCancel -> cancelPendingBookingFlow)",
+    "lib/core/shell_fabs.dart:39-46 (v2 showMgConfirm destructive); features/home/v2/home_ticket_v2.dart:278"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Both v2 entry points call the same function, which always shows the confirm; barrier dismiss returns null -> false.",
+   "evidence": "Both v2 entry points call the same function, which always shows the confirm; barrier dismiss returns null -> false.",
+   "sources": [
+    "shell-fabs-16",
+    "mx-order-43"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-43",
+     "situation": "Cancelling the unpaid booking needs a confirmation; failure offers retry."
+    }
+   ]
+  },
+  {
+   "id": "G-360",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-006",
+   "situation": "The cancel request only cancels a booking that is still unpaid, and if it fails (offline/timeout) the customer gets an explanation with \"Zkusit znovu\" instead of a silent failure.",
+   "old_where": "lib/core/pending_booking_fab_provider.dart:193-202 (update ... .eq(payment_status, unpaid), 15 s timeout), lib/core/shell_fabs.dart:67-80 (showErrorSnack psCancelFailTitle + onRetry).",
+   "customer_sees": "Error snackbar with title, reason and \"Zkusit znovu\".",
+   "visible": "clear",
+   "server": "partly (see previous record)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same cancelPendingBookingFlow for every v2 entry (shell_fabs.dart:101,112; home_ticket_v2.dart:278)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared code; the error helper is the same.",
+   "evidence": "Shared code; the error helper is the same.",
+   "sources": [
+    "shell-fabs-17"
+   ]
+  },
+  {
+   "id": "G-361",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-007 / S-188 / Shell – floating strips",
+   "situation": "After reporting an SOS incident whose replacement bike is not chosen yet (replacement_status selecting or pending_payment, incident not resolved/closed), a floating \"SOS dokončit\" button keeps leading the customer back to choosing the replacement.",
+   "old_where": [
+    "lib/core/pending_sos_fab_provider.dart:28-83 (query + realtime re-check), lib/core/shell_fab_layer.dart:212-224, lib/core/shell_fabs.dart:283-285 -> lib/core/shell_actions.dart:23-25 (push /sos/replacement).",
+    "lib/core/pending_sos_fab_provider.dart:53-101; lib/core/shell_fab_layer.dart:88-96 and :212-219 (ShellSosFab)",
+    "lib/core/shell_fab_layer.dart:88-95 (hideSosFabOn, pendingSosFabProvider); lib/core/pending_sos_fab_provider.dart:26-60"
+   ],
+   "customer_sees": "Green pill \"🆘 SOS dokončit\" with red ✕.",
+   "visible": "clear",
+   "server": [
+    "no (the pending state lives in sos_incidents; no server reminder found)",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 status strips (ShellStripHostV2) — all strips stacked"
+   ],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:295-302 (v2 SOS strip, first in priority), lib/core/shell_fabs.dart:264-276 (tap -> openPendingSos), lib/features/home/v2/home_ticket_v2.dart:264-268 (Domů ticket S1 red SOS button -> openPendingSos)",
+    "lib/core/shell_fab_layer.dart:271-277, :298-302 (v2 strip with same provider, same hide list, same ShellSosFab closures incl. dismiss, shell_fabs.dart:254-285); openPendingSos core/shell_actions.dart:29-31",
+    "lib/core/shell_fab_layer.dart:270-277,296-302 (same lists and provider) and lib/features/shell/v2/strip_stack_v2.dart:19-25 (every active strip stacked)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and the same openPendingSos on both v2 entry points; the v2 strip is red with an alert icon and allows 3 title lines so the SOS text is never cut.",
+   "evidence": "Same provider and the same openPendingSos on both v2 entry points; the v2 strip is red with an alert icon and allows 3 title lines so the SOS text is never cut.",
+   "sources": [
+    "shell-fabs-18",
+    "sos-55",
+    "mx-rental-57"
+   ],
+   "merged_situations": [
+    {
+     "source": "sos-55",
+     "situation": "Entry via the floating SOS button: it appears only when an open incident has replacement_status 'selecting'/'pending_payment', it was not dismissed in the last 7 days, and never on login/register/docs, SOS screens or payment screens."
+    },
+    {
+     "source": "mx-rental-57",
+     "situation": "An SOS replacement waiting for selection / payment shows a floating SOS pill on every screen (except login, documents, the SOS flow and payment)."
+    }
+   ]
+  },
+  {
+   "id": "G-362",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-007",
+   "situation": "The SOS reminder is hidden on the SOS screens themselves, on login/registration, documents and the SOS payment, and whenever a payment screen is active.",
+   "old_where": "lib/core/shell_fab_layer.dart:88-94 (hideSosFabOn + !onPaymentScreen); identical to 70a94933 app_shell.dart:105-111.",
+   "customer_sees": "No SOS pill there.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:270-276"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "List copied 1:1.",
+   "evidence": "List copied 1:1.",
+   "sources": [
+    "shell-fabs-19"
+   ]
+  },
+  {
+   "id": "G-363",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-007",
+   "situation": "The customer closes the SOS reminder with ✕; it stays hidden for that incident for 7 days (then comes back), without a confirmation.",
+   "old_where": "lib/core/pending_sos_fab_provider.dart:87-113 (SharedPreferences sos_fab_dismissed_<id>, 7-day expiry), lib/core/shell_fabs.dart:259-262,314-315.",
+   "customer_sees": "The pill disappears.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fabs.dart:259-262,273 (same onDismiss on the v2 strip ✕)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure; the Domů ticket SOS state still reads the same provider, so a dismissed incident disappears there too (as in the old look).",
+   "evidence": "Same closure; the Domů ticket SOS state still reads the same provider, so a dismissed incident disappears there too (as in the old look).",
+   "sources": [
+    "shell-fabs-20"
+   ]
+  },
+  {
+   "id": "G-364",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-008 / S-127 Documents screen / Shell (floating panel) / Shell – floating strips / Anywhere (floating button)",
+   "situation": "The customer has a paid active or upcoming booking but the identity document (ID card or passport, both sides) or the driving licence is missing/unverified; a floating \"Nahrajte doklady\" button sends them to Moje doklady (without documents no door codes are issued).",
+   "old_where": [
+    "lib/core/shell_fab_layer.dart:97-113 (hasActiveBooking aktivni/nadchazejici + paid, !docsComplete), :226-234 (tap -> /docs); completeness from lib/features/documents/docs_gate_provider.dart:106-111 (docsFabStatusProvider = get_docs_gate_checklist, fallback profile *_verified_at). NOTE: 4.1.3 used only docsVerifiedProvider (profile verified_at, 70a94933 app_shell.dart:117-124); the gate RPC was added on this branch for both looks.",
+    "lib/core/shell_fab_layer.dart:97-113 (hasActiveBooking = aktivni|nadchazejici && paymentStatus=='paid'; docsComplete from docsFabStatusProvider ?? true; not on docs screens; not dismissed; not on payment), :225-234 (ShellDocsFab -> push /docs); lib/features/documents/docs_gate_provider.dart:106-111 (docsFabStatusProvider)",
+    "lib/core/shell_fab_layer.dart:99-114, :225-233; lib/features/documents/docs_gate_provider.dart:102-111",
+    "lib/core/shell_fab_layer.dart:97-113 (showDocsFab)",
+    "lib/core/shell_fab_layer.dart:97-112, :220-232"
+   ],
+   "customer_sees": "Green pill \"📋 Nahrajte doklady\" with red ✕.",
+   "visible": "clear",
+   "server": [
+    "yes (get_docs_gate_checklist / booking_docs_gate; auto_generate_door_codes withholds codes until the gate is ok)",
+    "yes(codes withheld by booking_docs_gate / trg_zz_door_codes_docs_gate, STATE_3:189, STATE_4:42)",
+    "yes(trg_zz_door_codes_docs_gate withholds codes)",
+    "yes(trg_zz_door_codes_docs_gate keeps codes withheld)",
+    "yes(booking_docs_gate withholds codes)"
+   ],
+   "v2_entry_points": [
+    "v2 status strip \"docs\", v2 Home ticket checklist row",
+    "v2 docs strip, v2 Home ticket s3",
+    "v2 docs strip; v2 Home ticket S3"
+   ],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:278-286,306-316 (v2 docs strip, same conditions, tap -> context.push(Routes.docs)), lib/features/home/v2/home_ticket_v2.dart:47,280 (Domů ticket S3 \"doklady\" CTA -> /docs), lib/features/profile/v2/profile_attention_v2.dart:30, lib/core/v2/shell/app_shell_v2.dart:175-181 (Rezervace dot).",
+    "lib/core/shell_fab_layer.dart:262-286 (_v2Strips recomputes the identical condition), :306-316 (ShellDocsFab v2 strip -> push /docs, same dismiss provider); lib/core/shell_fabs_b.dart:129-138 (MgStatusStrip docs, title docsBlockingBtn + sub v2StripDocsSub); lib/features/shell/v2/strip_stack_v2.dart:20-25 (ALL strips stacked, none hidden behind '+n')",
+    "lib/core/shell_fab_layer.dart:278-286, :306-316 (same condition and the same /docs target), lib/features/home/v2/home_ticket_checklist.dart:50-53",
+    "lib/core/shell_fab_layer.dart:279-286,308-319",
+    "lib/core/shell_fab_layer.dart:278-283, :310-322; features/home/v2/home_state.dart:134-135; home_ticket_v2.dart:281"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and conditions; v2 adds more places that point to the missing documents.",
+   "evidence": "Same provider and conditions; v2 adds more places that point to the missing documents.",
+   "sources": [
+    "shell-fabs-21",
+    "documents-05",
+    "mx-start-48",
+    "mx-rental-58",
+    "mx-order-47"
+   ],
+   "merged_situations": [
+    {
+     "source": "documents-05",
+     "situation": "Docs FAB: a customer with a PAID active or upcoming booking whose documents are not complete gets a floating 'upload documents' button on every shell screen (hidden on /docs, /docs/scan and payment screens; can be dismissed for the session)."
+    },
+    {
+     "source": "mx-start-48",
+     "situation": "With a paid upcoming/active booking and documents not complete, a floating \"Nahraj doklady\" panel leads to My documents (can be dismissed)."
+    },
+    {
+     "source": "mx-rental-58",
+     "situation": "A paid active / upcoming booking without verified documents shows a \"Nahraj doklady\" floating pill (dismissable) outside the document screens."
+    },
+    {
+     "source": "mx-order-47",
+     "situation": "While a paid upcoming/active booking exists and documents are incomplete a floating \"Nahrát doklady\" is shown (can be hidden for the session)."
+    }
+   ]
+  },
+  {
+   "id": "G-365",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-008",
+   "situation": "The documents reminder is hidden on Moje doklady and the scanner (the customer is already there) and on any payment screen; while the status is unknown (loading/error) it is hidden rather than shown wrongly.",
+   "old_where": "lib/core/shell_fab_layer.dart:99,108-113 (docsScreens, isComplete ?? true, !onPaymentScreen).",
+   "customer_sees": "No pill there.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:283-286"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Copied 1:1, including the \"?? true\" default.",
+   "evidence": "Copied 1:1, including the \"?? true\" default.",
+   "sources": [
+    "shell-fabs-22"
+   ]
+  },
+  {
+   "id": "G-366",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-008",
+   "situation": "The customer closes the documents reminder with ✕; it stays hidden only for the current app session (it comes back after a restart).",
+   "old_where": "lib/core/shell_fab_layer.dart:23 (_docsFabDismissedProvider, in-memory), :231-232.",
+   "customer_sees": "The pill disappears.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:286,315 (same file-level provider for the v2 strip)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider object for both looks.",
+   "evidence": "Same provider object for both looks.",
+   "sources": [
+    "shell-fabs-23"
+   ]
+  },
+  {
+   "id": "G-367",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-009",
+   "situation": "The customer left a running route navigation (back arrow or closed app); a floating \"Pokračovat v trase\" button takes them back into it, and ✕ ends the ride (moves it to history) — the only way to close it.",
+   "old_where": "lib/core/shell_fab_layer.dart:83-85,237-244, lib/core/shell_fabs_b.dart:18-115 (tap -> openRide, features/routes/active_ride_provider.dart:307-317; ✕ -> endRide :270-277, no confirmation).",
+   "customer_sees": "Green pill \"🧭 Pokračovat v trase · <name>\" with red ✕.",
+   "visible": "clear",
+   "server": "no (local state in SharedPreferences)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:268-269,317-319 (v2 route strip), lib/core/shell_fabs_b.dart:31-44 (tap -> openRide, ✕ -> endRide with label routeEndBtn)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closures; in v2 the ✕ has the accessible label \"Ukončit trasu\", so ending is at least as clear.",
+   "evidence": "Same closures; in v2 the ✕ has the accessible label \"Ukončit trasu\", so ending is at least as clear.",
+   "sources": [
+    "shell-fabs-24"
+   ]
+  },
+  {
+   "id": "G-368",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-009 / S-209 Route navigation / Shell – floating strips",
+   "situation": "'Continue route' floating pill appears in the app while a ride is active, hidden on payment, login, register, document scan and success screens; its X ends the ride (no confirmation in either look).",
+   "old_where": [
+    "lib/core/shell_fab_layer.dart:84-85 (hideBookingFabOn + !onPaymentScreen).",
+    "lib/core/shell_fab_layer.dart:83-85 (showRouteFab) and :237-244; lib/core/shell_fabs_b.dart:59-100 (_RouteFab tap openRide / X endRide)",
+    "lib/core/shell_fab_layer.dart:83-85 (showRouteFab)"
+   ],
+   "customer_sees": "Green pill 'Continue route - name' with red X.",
+   "visible": "clear",
+   "server": [
+    "n/a",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 route strip"
+   ],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:265,269",
+    "lib/core/shell_fab_layer.dart:268-269, :317-319 (v2 strip with the same conditions) ; lib/features/shell/v2/strip_stack_v2.dart:13-17 (every active strip stacked, none hidden) ; shell_fabs_b.dart:31-45 (MgStatusStrip onTap openRide, onDismiss endRide)",
+    "lib/core/shell_fab_layer.dart:268-269,316-319"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Copied 1:1.",
+   "evidence": "Same visibility formula and same actions; all strips stacked so the route strip is never hidden behind others.",
+   "sources": [
+    "shell-fabs-25",
+    "routes-nav-77",
+    "mx-rental-62"
+   ],
+   "merged_situations": [
+    {
+     "source": "shell-fabs-25",
+     "situation": "The route reminder is hidden on login, registration, document scanning, payment and payment-success screens and while a payment screen is active."
+    },
+    {
+     "source": "mx-rental-62",
+     "situation": "An active booking-linked ride (navigation / recording) shows a floating ride pill outside login, scan and payment."
+    }
+   ],
+   "visible_by_source": {
+    "shell-fabs-25": "silent",
+    "routes-nav-77": "clear",
+    "mx-rental-62": "clear"
+   }
+  },
+  {
+   "id": "G-369",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-010",
+   "situation": "A payment sent just before the app was killed got confirmed (or the paid change was thwarted because another booking took the bike) while the app was closed; after restart the customer is told once, so they do not pay again or wonder.",
+   "old_where": "lib/core/shell_paid_listener.dart:12-31 (listens to paidAfterRestartProvider), text and action from lib/features/payment/paid_change_outcomes.dart:122-155 (8 s / 12 s, action \"Zobrazit\" -> /reservations/<id>). NOTE: added on this branch; 4.1.3 had no such notice.",
+   "customer_sees": "A snackbar with the result and a \"Zobrazit\" action.",
+   "visible": "clear",
+   "server": "n/a (notice of a server-side result)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_paid_listener.dart:25-27 -> lib/features/shell/v2/paid_toast_v2.dart:9-35 (same title/message/action/duration from the same SnackBar; falls back to the SnackBar when the content shape is unknown); AppShellV2 wraps its Scaffold in ShellPaidListener (app_shell_v2.dart:200)."
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same listener and texts; the v2 rich toast uses a warning tone for failures and keeps the action and duration.",
+   "evidence": "Same listener and texts; the v2 rich toast uses a warning tone for failures and keeps the action and duration.",
+   "sources": [
+    "shell-fabs-26"
+   ]
+  }
+ ]
+}

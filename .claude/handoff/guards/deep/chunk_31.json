@@ -1,0 +1,367 @@
+{
+ "title": "Reservations list and reservation detail shell - part 1 of 5 (G-370..G-383; mainly reservations_screen.dart, reservation_provider.dart, reservation_models.dart)",
+ "guards": [
+  {
+   "id": "G-370",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "The session disappears while the list is open (no current user): the provider yields an empty list rather than someone else's data, and an auth error from the server logs the customer out.",
+   "old_where": "lib/features/reservations/reservation_provider.dart:59-63 (user == null -> yield []), :80-85 and :99-101 (handleAuthError)",
+   "customer_sees": "The empty state \"Žádné rezervace\" (or the login screen once the auth error is handled).",
+   "visible": "small-text",
+   "server": "yes (owner RLS on bookings)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:109-110 watches the same filteredReservationsProvider / reservationsProvider"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider in both looks.",
+   "evidence": "Same provider in both looks.",
+   "sources": [
+    "reservations-list-detail-02"
+   ]
+  },
+  {
+   "id": "G-371",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "Only the customer's own bookings are offered in the list.",
+   "old_where": "lib/features/reservations/reservation_provider.dart:88-94 (_fetchBookings .eq(user_id)) and :73-79 (realtime stream .eq(user_id))",
+   "customer_sees": "Only own reservations.",
+   "visible": "silent",
+   "server": "yes (bookings owner RLS; exact policy name not looked up)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:109"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared provider.",
+   "evidence": "Shared provider.",
+   "sources": [
+    "reservations-list-detail-03"
+   ]
+  },
+  {
+   "id": "G-372",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-014 Offline full-screen overlay / S-090",
+   "situation": "While offline, the 5-second automatic refresh of the reservations list and reservation detail is skipped so loaded data stays visible instead of turning into errors.",
+   "old_where": [
+    "features/reservations/reservations_screen.dart:43; features/reservations/reservation_detail_screen.dart:53-55 (if OfflineGuard.offlineNow return)",
+    "lib/features/reservations/reservations_screen.dart:41-45 (Timer.periodic, OfflineGuard.offlineNow)"
+   ],
+   "customer_sees": "Last loaded data stays on screen.",
+   "visible": "silent",
+   "server": [
+    "no",
+    "no (client behaviour)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/reservations/v2/reservations_screen_v2.dart:63 (same check); reservation_detail_screen.dart:162-163 (v2 view is built inside the same screen state whose timer has the check)",
+    "lib/features/reservations/v2/reservations_screen_v2.dart:61-65 (same timer and offline check)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag consulted in both looks.",
+   "evidence": "Same flag consulted in both looks.",
+   "sources": [
+    "global-overlays-15",
+    "reservations-list-detail-04"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-04",
+     "situation": "While offline, the 5-second automatic refresh is skipped so a failed refresh does not wipe the loaded list."
+    }
+   ]
+  },
+  {
+   "id": "G-373",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "A refresh fails (weak signal) after the list was already loaded: the list stays and a \"stale data\" strip with Retry is shown, instead of an error page.",
+   "old_where": "lib/features/reservations/reservations_screen.dart:68-71 and :149 (MgStaleNote); lib/features/reservations/reservation_provider.dart:264-270 (cached value kept)",
+   "customer_sees": "A thin strip saying the data may be old, with \"Zkusit znovu\".",
+   "visible": "small-text",
+   "server": "no (client behaviour)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:110-112 and :225 (same MgStaleNote)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget and condition.",
+   "evidence": "Same widget and condition.",
+   "sources": [
+    "reservations-list-detail-05"
+   ]
+  },
+  {
+   "id": "G-374",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "The list is still loading: never a bare spinner; after 15 s a \"takes longer\" block with Retry appears.",
+   "old_where": "lib/features/reservations/reservations_screen.dart:201-204 (MgLoadingView(onRetry))",
+   "customer_sees": "Spinner, then after 15 s an explanation and \"Zkusit znovu\".",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:184-187 -> lib/features/reservations/v2/res_skeletons_v2.dart:24-43 (skeleton cards, same 15 s timer, v2LoadingLook(slow: true, onRetry))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 shows a skeleton instead of a spinner but keeps the 15 s slow message and the retry.",
+   "evidence": "v2 shows a skeleton instead of a spinner but keeps the 15 s slow message and the retry.",
+   "sources": [
+    "reservations-list-detail-06"
+   ]
+  },
+  {
+   "id": "G-375",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "Loading the list fails with nothing cached: an error view explains what happened and offers Retry and Back to Home.",
+   "old_where": "lib/features/reservations/reservations_screen.dart:206-215 (MgErrorView what=fxReservationsLoadFail, onRetry, onBack -> Routes.home)",
+   "customer_sees": "Error page with reason, \"Zkusit znovu\" and back.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:188-201 (same MgErrorView, same arguments)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget.",
+   "evidence": "Same widget.",
+   "sources": [
+    "reservations-list-detail-07"
+   ]
+  },
+  {
+   "id": "G-376",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "The customer has no reservation (or none in the chosen filter): an empty block with a \"book\" button that leads to the motorcycle search.",
+   "old_where": "lib/features/reservations/reservations_screen.dart:154-177 (reservations.isEmpty -> noReservations + ElevatedButton -> Routes.search)",
+   "customer_sees": "\"Žádné rezervace\", short text, button to the bike search.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:133-139 and :237-266 (_EmptyAll, same texts, MgCta -> Routes.search)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same texts and target.",
+   "evidence": "Same texts and target.",
+   "sources": [
+    "reservations-list-detail-08"
+   ]
+  },
+  {
+   "id": "G-377",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "The back arrow at the top of the tab always leads to Home (tab root).",
+   "old_where": "lib/features/reservations/reservations_screen.dart:98 (MgBackArrow -> context.go(Routes.home))",
+   "customer_sees": "Back arrow in the header.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_list_header_v2.dart:51 (MgV2Back -> context.go(Routes.home))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same target.",
+   "evidence": "Same target.",
+   "sources": [
+    "reservations-list-detail-09"
+   ]
+  },
+  {
+   "id": "G-378",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090 / Reservations list / detail",
+   "situation": "An unpaid booking whose 30-minute payment window has passed is shown as \"Zrušená\" (not as upcoming), matching the server auto-cancel.",
+   "old_where": [
+    "lib/features/reservations/reservation_models.dart:399-408 (_calendarStatus: pending+unpaid and age >= paymentTimeoutDuration -> cancelled); lib/core/booking_rules.dart:13 (30 min)",
+    "lib/features/reservations/reservation_models.dart:399-408 _calendarStatus; core/pending_booking_fab_provider.dart:65"
+   ],
+   "customer_sees": "Status badge \"Zrušená\", grey photo, Restore button.",
+   "visible": "clear",
+   "server": [
+    "yes (auto_cancel_expired_pending cron, per comment at reservation_models.dart:402-405)",
+    "yes(auto_cancel_expired_pending)"
+   ],
+   "v2_entry_points": [
+    "v2 list/detail/Home"
+   ],
+   "v2_where": [
+    "v2 card uses the same Reservation.displayStatus (lib/features/reservations/v2/reservation_card_v2.dart:53, res_card_actions_v2.dart:305)",
+    "shared model (displayStatus)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Status is computed in the shared model.",
+   "evidence": "Status is computed in the shared model.",
+   "sources": [
+    "reservations-list-detail-10",
+    "mx-order-44"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-44",
+     "situation": "After 30 minutes an unpaid app booking is shown as cancelled and cannot be paid; the floating button is gone."
+    }
+   ]
+  },
+  {
+   "id": "G-379",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090 / S-100 Status header + rental facts + places / S-095",
+   "situation": "Customer looks at the status of the booking; the badge says 'Nadcházející' until the bike is actually handed over (signed protocol / DB active), even when the term has started, so the customer does not think they can already ride.",
+   "old_where": [
+    "lib/features/reservations/reservation_models.dart:388-393 (displayStatus) and :361 (isHandedOver)",
+    "lib/features/reservations/reservation_models.dart:388-393 (displayStatus: calendar aktivni but !isHandedOver → nadchazejici) ; badge lib/features/reservations/widgets/res_detail_tab_content.dart:98-113; title also in header reservation_detail_screen.dart:209",
+    "lib/features/reservations/reservation_detail_screen.dart:208-213 (header \"Detail rezervace – {status}\") and lib/features/reservations/widgets/res_detail_tab_content.dart:97-113 (status badge)"
+   ],
+   "customer_sees": "Coloured pill with the status name (green Aktivní, amber Nadcházející, grey Dokončené, red Zrušené) under the bike name; header 'Detail rezervace – <status>'.",
+   "visible": "clear",
+   "server": [
+    "yes (_gate_obsluzna_activation keeps status reserved until protocol, per comment reservation_models.dart:356-360)",
+    "yes(_gate_obsluzna_activation trigger lets a branch booking become active only after the protocol is signed — per reservation_models.dart:354 comment / STATE_4)",
+    "n/a"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same model getter in v2 (reservation_card_v2.dart:53; res_status_v2.dart ResStatusPill)",
+    "lib/features/reservations/v2/res_detail_parts_v2.dart:39-69 (ResDetailHeadV2 → ResStatusPill(status: res.displayStatus)) used at lib/features/reservations/widgets/res_detail_tab_content.dart:90; hero lib/features/reservations/v2/res_detail_hero_v2.dart",
+    "lib/features/reservations/v2/res_detail_hero_v2.dart:40 (status pill with day suffix); lib/features/reservations/v2/res_detail_parts_v2.dart:153-183 (ResDetailHeadV2 pill)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared model.",
+   "evidence": "Same res.displayStatus feeds the v2 pill; statusTitle passed from res_detail_view_v2.dart:101 resStatusLabel(tr, res.displayStatus). Colour of pill from res_status_v2.dart (not traced per status, label text is the same).",
+   "sources": [
+    "reservations-list-detail-11",
+    "reservation-detail-blocks-05",
+    "reservations-list-detail-41"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservations-list-detail-11",
+     "situation": "A booking whose rental term has started but the motorcycle is not yet handed over (no signed protocol / DB not active) stays \"Nadcházející\", so active-only actions (SOS on the card, no-storno rule) do not appear too early."
+    },
+    {
+     "source": "reservations-list-detail-41",
+     "situation": "Status of the booking is stated at the top of the detail."
+    }
+   ]
+  },
+  {
+   "id": "G-380",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-090",
+   "situation": "A booking that waits for payment (pending payment from the shell provider) is flagged on the list card.",
+   "old_where": "Old card: nothing on the card (lib/features/reservations/widgets/reservation_card.dart:105-128 shows only status and SOS badges); the old look relies on the shell floating button (lib/core/shell_fabs.dart, outside this bucket)",
+   "customer_sees": "No unpaid marker on the card itself.",
+   "visible": "silent",
+   "server": "yes (auto_cancel_expired_pending after the window)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:113 and :147; lib/features/reservations/v2/reservation_card_v2.dart:55-60 and :150-157 (orange border + \"Nezaplaceno\"/\"ověřování\" chip); lib/features/reservations/v2/res_status_v2.dart:56-59"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is clearer than the old look here (extra chip); the shell floating button itself is outside this bucket and was not traced.",
+   "evidence": "v2 is clearer than the old look here (extra chip); the shell floating button itself is outside this bucket and was not traced.",
+   "sources": [
+    "reservations-list-detail-12"
+   ]
+  },
+  {
+   "id": "G-381",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-091",
+   "situation": "The customer filters the list (Vše / Aktivní / Nadcházející / Dokončené / Zrušené); only bookings with that display status are shown, and swiping past the first or last filter does nothing.",
+   "old_where": "lib/features/reservations/reservation_provider.dart:252-271 (resFilterProvider, filteredReservationsProvider by displayStatus.name); lib/features/reservations/reservations_screen.dart:23-28, :54-62 (swipe clamp), :124-145 (chips)",
+   "customer_sees": "Five chips; the selected one is green.",
+   "visible": "clear",
+   "server": "no (display filter)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_filter_tabs_v2.dart:15-16 (same five keys); lib/features/reservations/v2/reservations_screen_v2.dart:78-94 (_step clamps, _setFilter writes resFilterProvider), :118-128 (swipe), :216-223 (tabs)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same keys, same provider, same clamp; v2 adds arrows and a following-finger swipe that call the same _setFilter.",
+   "evidence": "Same keys, same provider, same clamp; v2 adds arrows and a following-finger swipe that call the same _setFilter.",
+   "sources": [
+    "reservations-list-detail-13"
+   ]
+  },
+  {
+   "id": "G-382",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-091",
+   "situation": "A filter with no matching bookings shows the same \"Žádné rezervace\" block as an empty account, and the chosen filter is remembered across visits (StateProvider, not auto-disposed), so a customer can return to the tab and see \"no reservations\" although bookings exist under another filter.",
+   "old_where": "lib/features/reservations/reservation_provider.dart:252 (StateProvider, no autoDispose); lib/features/reservations/reservations_screen.dart:154-177",
+   "customer_sees": "Empty block with the highlighted filter chip above it.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/reservations_screen_v2.dart:133-139 (same _EmptyAll for filtered results, comment :136-137)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical behaviour in both looks (a weakness of the original, not of v2).",
+   "evidence": "Identical behaviour in both looks (a weakness of the original, not of v2).",
+   "sources": [
+    "reservations-list-detail-14"
+   ]
+  },
+  {
+   "id": "G-383",
+   "step": "reservations-list-detail",
+   "step_title": "Reservations list and reservation detail shell",
+   "surface": "S-092 / Reservations list",
+   "situation": "Active (handed-over) booking on the list: the card offers Detail, Upravit and, only when SOS is allowed, a red SOS button to /sos.",
+   "old_where": [
+    "lib/features/reservations/widgets/reservation_card.dart:160-166 (_buildActions aktivni; SOS if reservation.sosAllowed); lib/features/reservations/reservation_models.dart:423-426 (sosAllowed = !endedBySos && (status active || inRentalTerm && paid))",
+    "lib/features/reservations/widgets/reservation_card.dart:158-182"
+   ],
+   "customer_sees": "Buttons \"Detail\", \"Upravit\", red \"Porucha\" only when allowed.",
+   "visible": "clear",
+   "server": [
+    "unknown (create_sos_incident exists in STATE_3; whether it checks that the booking is active was not verified)",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 list card (ResCardActionsV2) incl. narrow-phone stacked layout"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_card_actions_v2.dart:343-354 (row) and :401-408 (stacked): SOS only if reservation.sosAllowed; _SosButton :437-465 -> Routes.sos",
+    "lib/features/reservations/v2/res_card_actions_v2.dart:115-139 and :175-193 (same per-status set and same sosAllowed)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same getter in both layouts of the v2 strip. Observation for both looks: sosAllowed does not exclude gear-only bookings (Reservation.isGearOnly, reservation_models.dart:285).",
+   "evidence": "Same getter in both layouts of the v2 strip. Observation for both looks: sosAllowed does not exclude gear-only bookings (Reservation.isGearOnly, reservation_models.dart:285).",
+   "sources": [
+    "reservations-list-detail-15",
+    "mx-rental-69"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-69",
+     "situation": "The list card shows actions per state: Active (Detail, Upravit, SOS if sosAllowed), Upcoming (Detail, Upravit), Completed (Detail jízdy, Hodnotit -> detail), Cancelled (Detail, Obnovit)."
+    }
+   ]
+  }
+ ]
+}

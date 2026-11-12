@@ -1,0 +1,330 @@
+{
+ "title": "Places (Místa) tab, POI sheets and community submissions - part 4 of 6 (G-901..G-913; mainly places_map_screen.dart, community_submit.dart, routes_screen.dart)",
+ "guards": [
+  {
+   "id": "G-901",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "The map shows only places that pass the same filter as the list (shared filter), without catalogue route lines.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:113-131",
+   "customer_sees": "Subtitle 'Places · n · active filters'.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:122-141 (not branched)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared build; only header widgets differ.",
+   "evidence": "Shared build; only header widgets differ.",
+   "sources": [
+    "places-40"
+   ]
+  },
+  {
+   "id": "G-902",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "A road route through the selected places is computed only from two selected places; while computing or if routing fails the subtitle says so; with one place selected it says to pick another.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:136-150 and :242-260",
+   "customer_sees": "Subtitle text: computing / route failed / select one more.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:145-159 and :252-270 (same _subtitle in both looks, :326-328)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Same function.",
+   "sources": [
+    "places-41"
+   ]
+  },
+  {
+   "id": "G-903",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "The 'Continue' bar to build a ride appears only when something is selected; empty or unresolvable selection does nothing; after building, the selection is cleared.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:93-111 and :212",
+   "customer_sees": "'n selected ✕' + 'Continue'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:222 and :395-405 (TrasyRecordDockV2 showRecord:false, onContinue: _buildRoute)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _buildRoute with the empty check at :112.",
+   "evidence": "Same _buildRoute with the empty check at :112.",
+   "sources": [
+    "places-42"
+   ]
+  },
+  {
+   "id": "G-904",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "'My location' needs location: without it the app asks and does not centre if refused.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:189-195",
+   "customer_sees": "Location request.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:199-205 and :474 (MapRoundV2 with the same onTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure.",
+   "evidence": "Same closure.",
+   "sources": [
+    "places-43"
+   ]
+  },
+  {
+   "id": "G-905",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "'Add place here' button needs the customer's location; without it the customer is told to long-press the map instead.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:197-206",
+   "customer_sees": "Snackbar 'placesMapAddHint'.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:207-216 and :474"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure; login is checked later on submit (see S-198).",
+   "evidence": "Same closure; login is checked later on submit (see S-198).",
+   "sources": [
+    "places-44"
+   ]
+  },
+  {
+   "id": "G-906",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "Long-press on an empty spot opens 'Add place' at that point without a login check up front (login is checked only when sending).",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:84-89 and :171",
+   "customer_sees": "The submit form opens.",
+   "visible": "silent",
+   "server": "yes(RLS user_pois_user_insert requires auth)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:93-98 and :181 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same as 4.1.3; the submit screen refuses without login (community_submit.dart:233-238).",
+   "evidence": "Same as 4.1.3; the submit screen refuses without login (community_submit.dart:233-238).",
+   "sources": [
+    "places-45"
+   ]
+  },
+  {
+   "id": "G-907",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "'Clear filter' on the map is offered only when a filter is active.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:347-359",
+   "customer_sees": "Filter-off icon in the header.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:376-388 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Not branched.",
+   "evidence": "Not branched.",
+   "sources": [
+    "places-46"
+   ]
+  },
+  {
+   "id": "G-908",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-196 Places map",
+   "situation": "On opening, 4.1.3 actively asked for location (ensureLocation, could lead to settings); current code in BOTH looks only asks quietly and never opens settings.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/places_map_screen.dart:76-82 (ensureLocation on open)",
+   "customer_sees": "4.1.3: system permission/settings prompt on open.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/places_map_screen.dart:84-91 (requestLocationQuietly, shared by both looks)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Not a v2 difference: the branch changed this for both looks; the 'My location' button still runs ensureLocation with an explanation.",
+   "evidence": "Not a v2 difference: the branch changed this for both looks; the 'My location' button still runs ensureLocation with an explanation.",
+   "sources": [
+    "places-47"
+   ]
+  },
+  {
+   "id": "G-909",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-197 Community add menu / S-202 Recommended routes list",
+   "situation": "The '+' action menu: proposing a route or adding a place requires login; a logged-out customer is stopped with a message instead of opening the form.",
+   "old_where": [
+    "4.1.3(70a94933) lib/features/routes/community_submit.dart:50-57",
+    "4.1.3(70a94933) lib/features/routes/community_submit.dart:58-65",
+    "lib/features/routes/community_submit.dart:86-101 (_menuItem routeSubmitTitle / poiAddPlace: if MotoGoSupabase.currentUser == null -> SnackBar poiRateLogin); opened from routes_screen.dart:318 (green FAB)"
+   ],
+   "customer_sees": "Menu closes and a snackbar says to log in.",
+   "visible": "small-text",
+   "server": [
+    "yes(RLS routes_user_submit: created_by=auth.uid(), status pending, is_active false)",
+    "yes(RLS user_pois_user_insert: user_id=auth.uid(), status pending)",
+    "yes(RLS routes_user_submit INSERT requires created_by=auth.uid(); user_pois_user_insert requires user_id=auth.uid())"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/community_submit.dart:86-93 (shared) rendered through CommunityMenuRowV2 (:151-154)",
+    "lib/features/routes/community_submit.dart:94-101 (shared)",
+    "lib/features/routes/v2/routes_list_parts_v2.dart RoutesHubHeaderV2 onAdd: () => showCommunityAddMenu(context) (rendered as '+' MgIconButton in v2/trasy_hub_header_v2.dart:135-143)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same onTap closure for both looks; all v2 entry points (all_pois_screen.dart:504, routes_list_parts_v2.dart:35, moje_view_v2.dart:185) call showCommunityAddMenu.",
+   "evidence": "v2 opens the very same showCommunityAddMenu; only _menuItem rows are restyled (community_submit.dart:151-153 CommunityMenuRowV2) with the same onTap closures containing the login check.",
+   "sources": [
+    "places-48",
+    "places-49",
+    "routes-nav-09"
+   ],
+   "merged_situations": [
+    {
+     "source": "places-48",
+     "situation": "'Suggest a route' requires login: without login the menu closes and the customer is told to log in."
+    },
+    {
+     "source": "places-49",
+     "situation": "'Add a place' requires login: without login the menu closes and the customer is told to log in."
+    }
+   ]
+  },
+  {
+   "id": "G-910",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-197 Community add menu / S-202 Recommended routes list / S-213 Recording controls card / Ride recording",
+   "situation": "Stopping a manual ride from the list: the old '+' menu stopped immediately; rides under 1 km are discarded and an offline stop is retried, with a message.",
+   "old_where": [
+    "4.1.3(70a94933) lib/features/routes/community_submit.dart:77-91 (_toggleManualRide snackbars)",
+    "lib/features/routes/community_submit.dart:72-84 and :116-130 (_toggleManualRide stop -> n.stop(); snackbar rideManualStopFailed / rideManualSaved / rideManualTooShort)",
+    "ride_actions.dart:27-33 (kept false -> rideManualTooShort)",
+    "lib/features/routes/ride_actions.dart:19-34"
+   ],
+   "customer_sees": "Snackbar: saved / too short / will retry.",
+   "visible": "small-text",
+   "server": [
+    "unknown",
+    "yes(finish_user_ride / _ride_finalize delete rides under 1 km)"
+   ],
+   "v2_entry_points": [
+    "v2 stop (Home row, recorder screen, pause sheet)"
+   ],
+   "v2_where": [
+    "lib/features/routes/community_submit.dart:116-149 (v2 shows the same outcome as a result sheet via showRideStopResultV2 / showRideStartResultV2)",
+    "lib/features/routes/v2/record_dock_v2.dart:67-70, :80-82 (RecStopButtonV2 / RecLiveBarV2 onStop -> trasyConfirmStopRide, v2/rides/ride_pause_actions_v2.dart:93-97 confirm first) ; menu path community_submit.dart:125-128 (showRideStopResultV2)",
+    "ride_actions.dart:23-26 -> lib/features/routes/v2/rides/ride_results_v2.dart:102-109; reached from lib/features/routes/v2/rides/ride_pause_actions_v2.dart:89-98, lib/features/routes/v2/rides/recorder_screen_v2.dart:62-66, home/v2/home_record_row_v2.dart:42-45",
+    "lib/features/routes/ride_actions.dart:22-26 (same stop result shown as v2 sheet); v2 adds a stop confirmation lib/features/home/v2/home_record_row_v2.dart:42-45, lib/features/routes/v2/rides/ride_pause_actions_v2.dart:92-97"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same notifier calls; v2 result sheet is more visible than a snackbar.",
+   "evidence": "v2 adds a confirmation before stopping and shows the same kept/too-short/failed outcome as a result sheet; the stop itself runs through the same notifier stop().",
+   "sources": [
+    "places-51",
+    "routes-nav-12",
+    "rides-25",
+    "mx-rental-60"
+   ],
+   "merged_situations": [
+    {
+     "source": "places-51",
+     "situation": "Stopping a manual ride shorter than 1 km discards it, and an offline stop is retried; the customer is told the outcome."
+    },
+    {
+     "source": "rides-25",
+     "situation": "A ride shorter than 1 km is not saved; the customer is told it was too short."
+    },
+    {
+     "source": "mx-rental-60",
+     "situation": "Stopping a ride shorter than 1 km discards it, and a stop that the server did not accept (offline) is not reported as \"too short\"."
+    }
+   ]
+  },
+  {
+   "id": "G-911",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-198 Submit a place",
+   "situation": "Sending a place requires login; without it the form refuses.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/community_submit.dart:166-171",
+   "customer_sees": "Snackbar 'poiRateLogin'.",
+   "visible": "small-text",
+   "server": "yes(RLS user_pois_user_insert; storage media_user_poi_upload)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/community_submit.dart:233-238 (_submit) called from v2 dock (submit_form_v2.dart:62)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _submit.",
+   "evidence": "Same _submit.",
+   "sources": [
+    "places-52"
+   ]
+  },
+  {
+   "id": "G-912",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-198 Submit a place",
+   "situation": "The place name is required.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/community_submit.dart:172-176",
+   "customer_sees": "Snackbar 'poiSubmitNameReq'.",
+   "visible": "small-text",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/community_submit.dart:239-243 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _submit; whether user_pois.name is NOT NULL on the server was not verified.",
+   "evidence": "Same _submit; whether user_pois.name is NOT NULL on the server was not verified.",
+   "sources": [
+    "places-53"
+   ]
+  },
+  {
+   "id": "G-913",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-198 Submit a place",
+   "situation": "While sending, the button is disabled and shows 'Uploading photos' / 'Sending', so the place cannot be sent twice.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/community_submit.dart:280 (onPressed: _busy ? null) and :286-300",
+   "customer_sees": "Spinner with phase text in the button.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/community_submit.dart:328-332 -> v2/submit_form_v2.dart:57-63 (busy line + MgCta onTap null while busy)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _busy/_uploading flags.",
+   "evidence": "Same _busy/_uploading flags.",
+   "sources": [
+    "places-54"
+   ]
+  }
+ ]
+}

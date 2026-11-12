@@ -1,0 +1,314 @@
+{
+ "title": "Places (Místa) tab, POI sheets and community submissions - part 2 of 6 (G-875..G-887; mainly all_pois_screen.dart, route_poi_sheet.dart, community_submit.dart)",
+ "guards": [
+  {
+   "id": "G-875",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-190 Places tab (Místa)",
+   "situation": "When the search text also matches routes, the customer is offered a jump to the route list; otherwise no banner.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:548-554",
+   "customer_sees": "Green banner 'searchAlsoRoutes · n'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:540-543 (PlacesRoutesBannerV2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition q.isNotEmpty && routeHits > 0 and same target Routes.routesList.",
+   "evidence": "Same condition q.isNotEmpty && routeHits > 0 and same target Routes.routesList.",
+   "sources": [
+    "places-14"
+   ]
+  },
+  {
+   "id": "G-876",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-190 Places tab (Místa)",
+   "situation": "When no place matches, the list is replaced by an empty message.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:589-595 and :1996-2015",
+   "customer_sees": "Map emoji + 'poiEmpty' heading.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:544-545 and :2270-2276 (TrasyEmptyV2 with title poiEmpty and a clear action when filters are on)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same list.isEmpty condition; v2 adds a way out.",
+   "evidence": "Same list.isEmpty condition; v2 adds a way out.",
+   "sources": [
+    "places-15"
+   ]
+  },
+  {
+   "id": "G-877",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-190 Places tab (Místa)",
+   "situation": "Selecting a place (for the custom ride) happens only by the + disc, by long-press on the card, or by tapping the place on the map preview; a normal tap opens the detail instead.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:1741-1748 (long-press toggles, tap opens detail) and :1866-1868 (+ disc)",
+   "customer_sees": "Card border turns green and the disc shows a tick.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:1994-2006 (PlaceCardV2 onTap=_openPoiDetail, onToggle=_toggleSel) -> v2/place_card_v2.dart:126-127 (onLongPress: onToggle) and :210 (_ToggleDisc)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handlers; v2 also shows the stop order number.",
+   "evidence": "Same handlers; v2 also shows the stop order number.",
+   "sources": [
+    "places-16"
+   ]
+  },
+  {
+   "id": "G-878",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-190 Places tab (Místa)",
+   "situation": "The map preview inside the list cannot be dragged (so the list scrolls); tap opens the full map, tap on a place toggles it, long-press on a place opens its detail, long-press on empty map opens 'Add place' at that point.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:709-732 (allowDrag:false, onMapTap, onPlaceTap, onPlaceLongPress, onLongPress -> PoiSubmitScreen)",
+   "customer_sees": "Small map with hint text 'placesMapOpenHint'.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:816-849 (the same PlacesMapView instance passed into PlacesMapCardV2 with the same hint)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The map widget and all callbacks are built once at :816 and only wrapped differently.",
+   "evidence": "The map widget and all callbacks are built once at :816 and only wrapped differently.",
+   "sources": [
+    "places-17"
+   ]
+  },
+  {
+   "id": "G-879",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-190 Places tab (Místa)",
+   "situation": "The map preview and the location prompt are shown only on the tab root, never in the route-editor pick mode or on /pois.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:532-538",
+   "customer_sees": "No map preview in pick mode.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:485,534-535 (hub = asTab && !pickMode)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "places-18"
+   ]
+  },
+  {
+   "id": "G-880",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-197 Community add menu / S-202 Recommended routes list / S-212 My experiences / S-190 Places tab (Místa)",
+   "situation": "Places tab in v2 has a record-ride dock; old Places tab had no recording control there (recording was in the Trasy '+' menu). Starting a manual ride is not offered while any recording (including the automatic rental recording) is running; stop is offered only for a manual ride.",
+   "old_where": [
+    "4.1.3(70a94933) lib/features/routes/community_submit.dart:27-49",
+    "lib/features/routes/community_submit.dart:40-44 (manual/auto), :54 (if rec.recording -> pause row), :72 (if (!auto) -> start/stop row)",
+    "community_submit.dart:41-44,72 (if (!auto) start/stop item) - old look did not offer this menu on My experiences",
+    "4.1.3(70a94933) lib/features/routes/community_submit.dart:27-49 (old add menu: manual start hidden when auto recording runs)"
+   ],
+   "customer_sees": "Old: in the '+' menu a 'Start recording' row only when no automatic recording is running.",
+   "visible": "clear",
+   "server": [
+    "unknown",
+    "yes(start_user_ride idempotent / uq_user_rides_recording one recording per user)",
+    "no",
+    "yes(server side of rides not checked in this job; recorder guards belong to the recording bucket)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/community_submit.dart:40-85 (shared)",
+    "lib/features/routes/v2/record_dock_v2.dart:55-103 (dock on the list: live -> RecLiveBarV2 without a start action; idle start only when !rec.recording) and the same showCommunityAddMenu from the header '+'",
+    "lib/features/routes/v2/rides/moje_view_v2.dart:185 (onAdd: showCommunityAddMenu)",
+    "lib/features/routes/all_pois_screen.dart:563-565 -> v2/record_dock_v2.dart:54-97 (live = rec.recording -> live bar; idle CTA -> toggleManualRide in ride_actions.dart:16-46); stop only when rec.canStop (ride_recorder_state.dart:73, rec_live_bar_v2.dart:86)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same conditions; current code also adds a pause/resume row while recording, in both looks.",
+   "evidence": "New v2 entry point, but it calls the same recorder notifier (startManualResult / stop) and hides start while recording; deeper recorder guards (permissions, background, offline) were not traced here - see recording bucket.",
+   "sources": [
+    "places-50",
+    "routes-nav-10",
+    "rides-13",
+    "places-19"
+   ],
+   "merged_situations": [
+    {
+     "source": "places-50",
+     "situation": "'Start recording' is not offered while an automatic (rental) recording runs; while a manual ride runs the row becomes 'Stop recording' in red."
+    },
+    {
+     "source": "routes-nav-10",
+     "situation": "The '+' menu does not offer starting or stopping a manual ride while an automatic (rental) recording is running; the pause row only appears while something is recording."
+    },
+    {
+     "source": "rides-13",
+     "situation": "New v2 entry: the + (Add) button in the Moje header opens the community menu, whose Start/Stop own ride item is hidden while a rental is being recorded."
+    }
+   ],
+   "visible_by_source": {
+    "places-50": "clear",
+    "routes-nav-10": "small-text",
+    "rides-13": "silent",
+    "places-19": "clear"
+   }
+  },
+  {
+   "id": "G-881",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-190 Places tab (Místa)",
+   "situation": "In v2 the Places tab header has a '+' button that opens the community add menu (old Places tab had no such button; the menu was reached from the Trasy FAB).",
+   "old_where": "4.1.3(70a94933) lib/features/routes/routes_screen.dart:293 (old only entry to showCommunityAddMenu)",
+   "customer_sees": "Old: '+' FAB on the Trasy list.",
+   "visible": "clear",
+   "server": "yes(RLS routes_user_submit / user_pois_user_insert)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:504 (onAdd: hub ? showCommunityAddMenu) ; also v2/routes_list_parts_v2.dart:35, v2/rides/moje_view_v2.dart:185"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "All new entry points call the same showCommunityAddMenu, which keeps the login checks (community_submit.dart:86-101).",
+   "evidence": "All new entry points call the same showCommunityAddMenu, which keeps the login checks (community_submit.dart:86-101).",
+   "sources": [
+    "places-20"
+   ]
+  },
+  {
+   "id": "G-882",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-191 POI picker for route builder",
+   "situation": "In pick mode the customer can return places to the route editor only after selecting at least one; nothing selected = no 'Add to route' button.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:610 and :1979-1986 (pickMode -> Navigator.pop(pois) only when pois not empty); route_builder_screen.dart _addFromPois ignores null/empty",
+   "customer_sees": "No bottom bar until a place is selected; then 'Add to route'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:486-494 (TrasySelection pick: widget.pickMode) and :565 (dock without record) -> v2/record_dock_v2.dart:143-153 (label v2RtSelAdd, no record disc when pick); route_builder_screen.dart:142-147"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _navigate; record disc explicitly suppressed for pick (record_dock_v2.dart:145).",
+   "evidence": "Same _navigate; record disc explicitly suppressed for pick (record_dock_v2.dart:145).",
+   "sources": [
+    "places-21"
+   ]
+  },
+  {
+   "id": "G-883",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-191 POI picker for route builder",
+   "situation": "In pick mode the filter and selection are local, so filters or selections set in the Places tab do not leak into the route editor and vice versa; the shared search text is ignored.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:75-109 and :396-404",
+   "customer_sees": "Nothing visible.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:107 (_localSel), :412-419 (listener ignores when _localSel)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "State logic is above the v2 branch.",
+   "evidence": "State logic is above the v2 branch.",
+   "sources": [
+    "places-22"
+   ]
+  },
+  {
+   "id": "G-884",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-191 POI picker for route builder",
+   "situation": "Pick mode hides the quick links / segments, the map preview, the add '+' and the map button, so the customer stays on choosing places; back closes the picker without changes.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/all_pois_screen.dart:483-487 (back pops in pickMode) and :493 (quick links only in tab mode)",
+   "customer_sees": "Plain header with back arrow.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/all_pois_screen.dart:499-511 (onSegment/onMap/onAdd null unless hub; onBack pickMode -> Navigator.pop)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same conditions.",
+   "evidence": "Same conditions.",
+   "sources": [
+    "places-23"
+   ]
+  },
+  {
+   "id": "G-885",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-191 POI picker for route builder",
+   "situation": "/pois opened with preselected places (edit this route) uses the same local selection and only offers 'Continue' once something is selected.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/core/router.dart:270-274 (old /pois) and all_pois_screen.dart:158-159",
+   "customer_sees": "Preselected places shown ticked; Continue bar.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/router.dart:310-315 (MgBackGuard wraps AllPoisScreen) and all_pois_screen.dart:565 (non-hub dock with selection)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "MgBackGuard only changes system back handling; selection logic unchanged.",
+   "evidence": "MgBackGuard only changes system back handling; selection logic unchanged.",
+   "sources": [
+    "places-24"
+   ]
+  },
+  {
+   "id": "G-886",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-192 POI detail sheet",
+   "situation": "The 'Add to my ride / Remove from ride' button in the place detail exists only when the sheet was opened from the Places list or Places map; from a route detail or navigation there is no such button.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/route_poi_sheet.dart:173-185 (if widget.onToggleSelect != null)",
+   "customer_sees": "Big green button at the bottom; turns white with a tick when selected.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_poi_sheet.dart:177-189 and :548 (PoiTripButtonV2) -> v2/poi_sheet_v2.dart:84-110"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition; v2 uses an outline button with check icon when selected and a filled CTA otherwise.",
+   "evidence": "Same condition; v2 uses an outline button with check icon when selected and a filled CTA otherwise.",
+   "sources": [
+    "places-25"
+   ]
+  },
+  {
+   "id": "G-887",
+   "step": "places",
+   "step_title": "Places (Místa) tab, POI sheets and community submissions",
+   "surface": "S-192 POI detail sheet",
+   "situation": "Swiping to the next/previous place only works when the sheet was opened with more than one place, and stops at the first/last; the list of neighbours is limited to a window of 150 on each side.",
+   "old_where": "4.1.3(70a94933) lib/features/routes/route_poi_sheet.dart:111-117 (_go bounds) and :135-146 (drag only when many); all_pois_screen.dart:782 (siblingWindow, places_filter.dart radius 150)",
+   "customer_sees": "'n / m' counter; swipe does nothing at the end.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_poi_sheet.dart:115-150 and :206-207 (PoiSheetCounterV2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Pager logic is not branched by look.",
+   "evidence": "Pager logic is not branched by look.",
+   "sources": [
+    "places-26"
+   ]
+  }
+ ]
+}

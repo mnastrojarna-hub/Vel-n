@@ -1,0 +1,390 @@
+{
+ "title": "Login, registration and password reset - part 2 of 4 (G-056..G-069; mainly register_screen.dart, auth_provider.dart, login_screen.dart)",
+ "guards": [
+  {
+   "id": "G-056",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-024 Biometric login button",
+   "situation": "Biometrics pass but the stored session is gone for good (refresh token and stored password refused); biometric data are wiped and the button disappears so the customer must log in with e-mail.",
+   "old_where": "lib/features/auth/login_screen.dart:231-243 (else: clearBioData, _bioAvailable = _bioEnabled = false) ; lib/features/auth/auth_provider.dart:626, 655-664",
+   "customer_sees": "Toast 'biometricTitle' + 'sessionExpired'; the biometric button vanishes.",
+   "visible": "small-text",
+   "server": "yes(Supabase Auth rejects the expired refresh token / changed password)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/login_screen.dart:234-242 -> lib/features/auth/v2/login_states_v2.dart:346-357 (showBioSessionGoneV2: info sheet 'Přihlas se e-mailem')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same branch, same data wipe and flag reset (the setState at :239-242 runs in both looks); v2 shows a titled sheet instead of a toast.",
+   "evidence": "Same branch, same data wipe and flag reset (the setState at :239-242 runs in both looks); v2 shows a titled sheet instead of a toast.",
+   "sources": [
+    "auth-15"
+   ]
+  },
+  {
+   "id": "G-057",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-024 Biometric login button",
+   "situation": "Biometric restore succeeds but the profile row no longer exists (deleted account); the app signs out instead of letting the customer in.",
+   "old_where": "lib/features/auth/auth_provider.dart:582-583, 632-636 (_guardRestoredProfile -> signOut, BioRestore.invalid)",
+   "customer_sees": "Same as the previous record: 'sessionExpired' toast, biometric button removed.",
+   "visible": "small-text",
+   "server": "no (client check)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/auth_provider.dart:582-636 (shared service) via lib/features/auth/login_screen.dart:215"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The guard sits inside AuthService.bioRestoreSession, called by the one _doBioLogin used by both looks; the invalid result goes to the v2 'session gone' sheet.",
+   "evidence": "The guard sits inside AuthService.bioRestoreSession, called by the one _doBioLogin used by both looks; the invalid result goes to the v2 'session gone' sheet.",
+   "sources": [
+    "auth-16"
+   ]
+  },
+  {
+   "id": "G-058",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-025 'Neznámý e-mail' dialog",
+   "situation": "After a failed login with an e-mail that has no account, the customer must choose: Cancel (stay on login, nothing happens) or Register (opens registration with the e-mail).",
+   "old_where": "lib/features/auth/login_screen.dart:165-192 (AlertDialog Cancel / Register -> _openRegister(unknown: true))",
+   "customer_sees": "Dialog with heading 'loginUnknownEmailTitle', body text and two buttons.",
+   "visible": "clear",
+   "server": "yes(check_web_booking_email)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/v2/login_states_v2.dart:315-325 (showMgConfirm: safe 'Zrušit' -> false, action 'Zaregistrovat se' -> onRegister) ; lib/core/v2/widgets/mg_dialog.dart:53-66"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same two outcomes; only an explicit tap on the action opens registration (go == true). Tapping outside closes both dialogs without registering (AlertDialog default and showMgConfirm barrierDismissible: true). Registration itself re-checks the e-mail in step 1.",
+   "evidence": "Same two outcomes; only an explicit tap on the action opens registration (go == true). Tapping outside closes both dialogs without registering (AlertDialog default and showMgConfirm barrierDismissible: true). Registration itself re-checks the e-mail in step 1.",
+   "sources": [
+    "auth-17"
+   ]
+  },
+  {
+   "id": "G-059",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen / Registration step 1",
+   "situation": "Step 1: first name shorter than 2, with digits/symbols, or with 3+ identical letters in a row; registration cannot continue.",
+   "old_where": [
+    "lib/features/auth/register_screen.dart:253-256 (_isNameValid :213-220) (_validateStep* via _next :120-142)",
+    "lib/features/auth/register_screen.dart:213-220 (_isNameValid), :252-259"
+   ],
+   "customer_sees": "Toast with ⚠️, field name as title and 'validNameMsg' text; the step does not advance.",
+   "visible": "small-text",
+   "server": [
+    "no (client only; app_save_full_profile stores the value without validating it, SUPABASE_BACKEND_STATE_3.md:132)",
+    "unknown (app_save_full_profile not checked for names)"
+   ],
+   "v2_entry_points": [
+    "v2 \"Pokračovat\" button"
+   ],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)",
+    "lib/features/auth/register_screen.dart:74-88 (_invalid: v2 = error under the field + scroll to it); :446-480 (RegisterViewV2 onNext: _next)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrName'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrName'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-18",
+    "mx-start-09"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-09",
+     "situation": "First or last name is shorter than 2 letters, contains digits/symbols or 3 identical letters in a row; the wizard does not move on."
+    }
+   ],
+   "notes": [
+    "mx-start-09: v2 is clearer (error at the field)."
+   ]
+  },
+  {
+   "id": "G-060",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen",
+   "situation": "Step 1: surname fails the same name rule.",
+   "old_where": "lib/features/auth/register_screen.dart:257-260 (_validateStep* via _next :120-142)",
+   "customer_sees": "Toast with ⚠️, field name as title and 'validSurnameMsg' text; the step does not advance.",
+   "visible": "small-text",
+   "server": "no (client only; app_save_full_profile stores the value without validating it, SUPABASE_BACKEND_STATE_3.md:132)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrSurname'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrSurname'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-19"
+   ]
+  },
+  {
+   "id": "G-061",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen",
+   "situation": "Step 1: e-mail not in the form x@y.z.",
+   "old_where": "lib/features/auth/register_screen.dart:261-264 (_validateStep* via _next :120-142)",
+   "customer_sees": "Toast with ⚠️, field name as title and 'validEmailMsg' text; the step does not advance.",
+   "visible": "small-text",
+   "server": "partly (Supabase Auth signUp also rejects invalid e-mails -> mapped invalid_email, auth_error_mapper.dart:107-117)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrEmail'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrEmail'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-20"
+   ]
+  },
+  {
+   "id": "G-062",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen / Registration step 1",
+   "situation": "Step 1: phone not '+' followed by 8-14 digits (spaces, dashes, brackets ignored).",
+   "old_where": [
+    "lib/features/auth/register_screen.dart:265-269 (_validateStep* via _next :120-142)",
+    "lib/features/auth/register_screen.dart:264-269"
+   ],
+   "customer_sees": "Toast with ⚠️, field name as title and 'validPhoneMsg' text; the step does not advance.",
+   "visible": "small-text",
+   "server": [
+    "no (client only; app_save_full_profile stores the value without validating it, SUPABASE_BACKEND_STATE_3.md:132)",
+    "unknown"
+   ],
+   "v2_entry_points": [
+    "v2 \"Pokračovat\""
+   ],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)",
+    "lib/features/auth/register_screen.dart:74-88 (field error v2UxAsmErrPhone)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrPhone'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrPhone'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-21",
+    "mx-start-11"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-11",
+     "situation": "The phone number is not in the international format + 8-14 digits; the wizard does not move on."
+    }
+   ]
+  },
+  {
+   "id": "G-063",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen",
+   "situation": "Step 1: date of birth not chosen (all three of day/month/year needed).",
+   "old_where": "lib/features/auth/register_screen.dart:271-275 (_validateStep* via _next :120-142)",
+   "customer_sees": "Toast with ⚠️, field name as title and 'selectDob' text; the step does not advance.",
+   "visible": "small-text",
+   "server": "no (client only; app_save_full_profile stores the value without validating it, SUPABASE_BACKEND_STATE_3.md:132)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrDob'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrDob'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-22"
+   ]
+  },
+  {
+   "id": "G-064",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen / Registration step 1",
+   "situation": "Step 1: customer younger than 18 years; registration is refused.",
+   "old_where": [
+    "lib/features/auth/register_screen.dart:276-283 (_validateStep* via _next :120-142)",
+    "lib/features/auth/register_screen.dart:270-287"
+   ],
+   "customer_sees": "Toast with ⚠️, field name as title and 'mustBe18' text; the step does not advance.",
+   "visible": "small-text",
+   "server": [
+    "no (no server age check at registration found; app_save_full_profile only stores date_of_birth)",
+    "partly: the docs gate withholds door codes for under-18 (_docs_gate_checklist age_ok, trg_zz_door_codes_docs_gate); the account write itself was not checked"
+   ],
+   "v2_entry_points": [
+    "v2 \"Pokračovat\", v2 date field (lib/features/auth/v2/date_field_v2.dart)"
+   ],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)",
+    "lib/features/auth/register_screen.dart:280-287 (v2 keys v2UxAsmErr18 / v2UxAsmErrDobInvalid under the field)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErr18'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErr18'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-23",
+    "mx-start-12"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-12",
+     "situation": "The birth date is missing, the customer is younger than 18, older than 99 or the date is in the future; registration cannot continue."
+    }
+   ]
+  },
+  {
+   "id": "G-065",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen",
+   "situation": "Step 1: date of birth gives an age above 99 or lies in the future.",
+   "old_where": "lib/features/auth/register_screen.dart:284-287 (_validateStep* via _next :120-142)",
+   "customer_sees": "Toast with ⚠️, field name as title and 'validDobMsg' text; the step does not advance.",
+   "visible": "small-text",
+   "server": "no (client only; app_save_full_profile stores the value without validating it, SUPABASE_BACKEND_STATE_3.md:132)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrDobInvalid'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it ('v2UxAsmErrDobInvalid'), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-24"
+   ]
+  },
+  {
+   "id": "G-066",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen / Registration step 1",
+   "situation": "Step 1: password shorter than 8 characters.",
+   "old_where": [
+    "lib/features/auth/register_screen.dart:288-291 (_validateStep* via _next :120-142)",
+    "lib/features/auth/register_screen.dart:288-296"
+   ],
+   "customer_sees": "Toast with ⚠️, field name as title and 'passwordMinLengthMsg' text; the step does not advance.",
+   "visible": "small-text",
+   "server": [
+    "partly (Supabase Auth has its own minimum; weak_password is mapped back to step 1, auth_error_mapper.dart:95-104; the configured minimum is not visible in the repo)",
+    "yes(Supabase Auth password policy, exact minimum not checked)"
+   ],
+   "v2_entry_points": [
+    "v2 \"Pokračovat\""
+   ],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)",
+    "lib/features/auth/register_screen.dart:74-88 (v2 shows the same old message under the field)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it (same text), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it (same text), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-25",
+    "mx-start-13"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-13",
+     "situation": "The password is shorter than 8 characters or the confirmation differs; the wizard does not move on."
+    }
+   ]
+  },
+  {
+   "id": "G-067",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen",
+   "situation": "Step 1: password and confirmation differ.",
+   "old_where": "lib/features/auth/register_screen.dart:292-295 (_validateStep* via _next :120-142)",
+   "customer_sees": "Toast with ⚠️, field name as title and 'passwordsDoNotMatch' text; the step does not advance.",
+   "visible": "small-text",
+   "server": "no (client only; app_save_full_profile stores the value without validating it, SUPABASE_BACKEND_STATE_3.md:132)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:74-89 (_invalid v2 branch: red error under the field, scroll to it) -> lib/features/auth/v2/register_steps_v2.dart (_f/_date keyed fields), CTA lib/features/auth/v2/register_view_v2.dart:107-114 (onTap: m.onNext = _next)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it (same text), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "evidence": "The v2 CTA calls the same _next and the same validator; only the presentation of the refusal changes: red field + message under it (same text), screen scrolls to the field. That is clearer than the toast. Validators unchanged vs 70a94933 (diff only swaps showMotoGoToast for _invalid).",
+   "sources": [
+    "auth-26"
+   ]
+  },
+  {
+   "id": "G-068",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen / S-027 'E-mail už je registrovaný' dialog / Registration step 1",
+   "situation": "Step 1: the e-mail already has an account (also accounts created automatically by a web booking); the customer cannot go to step 2 and is offered login instead.",
+   "old_where": [
+    "lib/features/auth/register_screen.dart:129 and 147-157 (_checkEmailFree -> AuthService.emailExists == true -> _showEmailTakenDialog)",
+    "lib/features/auth/register_screen.dart:168-197 (AlertDialog Cancel / Log in -> context.go(/login?email=))",
+    "lib/features/auth/register_screen.dart:121-130 (_next), :146-157 (_checkEmailFree), :168-192 (email-taken dialog), :261-263 (format)"
+   ],
+   "customer_sees": "Dialog 'emailTakenTitle' / 'emailTakenBody' with Cancel / Log in (see S-027).",
+   "visible": "clear",
+   "server": [
+    "yes(check_web_booking_email; Supabase Auth rejects duplicate sign-up)",
+    "yes(check_web_booking_email)",
+    "yes(check_web_booking_email; Supabase Auth refuses duplicates)"
+   ],
+   "v2_entry_points": [
+    "v2 \"Pokračovat\""
+   ],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:169 -> lib/features/auth/v2/login_states_v2.dart:362-372 (showEmailTakenV2)",
+    "lib/features/auth/v2/login_states_v2.dart:362-372 (showMgConfirm, action 'v2UxAsmLoginAction' -> _goLoginWithEmail register_screen.dart:161-166)",
+    "lib/features/auth/register_screen.dart:169 (showEmailTakenV2, same _goLoginWithEmail)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _next -> _checkEmailFree path from the v2 CTA; same RPC and outcome. When the RPC cannot answer (offline) both looks let the customer continue (register_screen.dart:152) and the server duplicate check at sign-up (auth-31) catches it.",
+   "evidence": "Same _next -> _checkEmailFree path from the v2 CTA; same RPC and outcome. When the RPC cannot answer (offline) both looks let the customer continue (register_screen.dart:152) and the server duplicate check at sign-up (auth-31) catches it.",
+   "sources": [
+    "auth-27",
+    "auth-43",
+    "mx-start-10"
+   ],
+   "merged_situations": [
+    {
+     "source": "auth-43",
+     "situation": "In registration step 1 the e-mail already has an account; the customer must choose Cancel (stay, fix the e-mail) or Log in (go to login with the e-mail filled in). There is no way to continue registering with that e-mail."
+    },
+    {
+     "source": "mx-start-10",
+     "situation": "The e-mail has a wrong format, or it already has an account (also accounts created automatically by a web booking); the wizard stops at step 1 and offers login. If the check cannot run (offline) registration is NOT blocked."
+    }
+   ]
+  },
+  {
+   "id": "G-069",
+   "step": "auth",
+   "step_title": "Login, registration and password reset",
+   "surface": "S-026 Registration screen",
+   "situation": "Continue / Finish is pressed again while the e-mail check or the sign-up is running; the extra tap is ignored.",
+   "old_where": "lib/features/auth/register_screen.dart:609-612 (PressableScale enabled: !_loading; onPressed: _loading ? null : _next); _loading set :148/:337",
+   "customer_sees": "Button shows a spinner and cannot be pressed.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/auth/register_screen.dart:478 (onNext: _loading ? () {} : _next) + lib/features/auth/v2/register_view_v2.dart:108-114 (MgCta busy: m.loading -> mg_cta.dart:215-217)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Double protection in v2: the callback is a no-op while loading and MgCta drops taps while busy.",
+   "evidence": "Double protection in v2: the callback is a no-op while loading and MgCta drops taps while busy.",
+   "sources": [
+    "auth-28"
+   ]
+  }
+ ]
+}

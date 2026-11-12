@@ -1,0 +1,277 @@
+{
+ "title": "My experiences, ride recording and ride results - part 2 of 6 (G-1038..G-1049; mainly ride_recorder.dart, ride_rec_controls.dart, ride_start_feedback.dart)",
+ "guards": [
+  {
+   "id": "G-1038",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-212 My experiences",
+   "situation": "Ride and trip cards show a recording badge while that ride is being recorded.",
+   "old_where": "ride_card.dart:48-54 (recBadge), ride_trip_card.dart:104-106 (tone chip / Recording chip)",
+   "customer_sees": "Red/amber chip on the card.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_card_v2.dart:39,73,138-154; lib/features/routes/v2/rides/ride_trip_card_v2.dart:45,70"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Live badge driven by ride.isRecording plus recorder phase; same information.",
+   "evidence": "Live badge driven by ride.isRecording plus recorder phase; same information.",
+   "sources": [
+    "rides-14"
+   ]
+  },
+  {
+   "id": "G-1039",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "On iOS with only approximate location the start is refused (precise location required).",
+   "old_where": "ride_recorder.dart:297-300 (_ensurePreciseOnIos -> imprecise) -> ride_start_feedback.dart:19",
+   "customer_sees": "Snackbar with Open settings.",
+   "visible": "small-text",
+   "server": "no (device)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_results_v2.dart:70-78"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same result, v2 sheet with heading v2UxRrPreciseT.",
+   "evidence": "Same result, v2 sheet with heading v2UxRrPreciseT.",
+   "sources": [
+    "rides-17"
+   ]
+  },
+  {
+   "id": "G-1040",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "The server does not accept the new ride (offline / error): start is rolled back, points of the failed attempt are dropped, customer told it failed.",
+   "old_where": "ride_recorder.dart:317-331 (_startFail = failed, detach, restore points) -> ride_start_feedback.dart:20 (eoRideStartFailed)",
+   "customer_sees": "Snackbar 'could not start'.",
+   "visible": "small-text",
+   "server": "yes(start_user_ride / create_manual_ride)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_results_v2.dart:79-85 (error sheet + Try again = same toggleManualRide)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider path; v2 sheet with heading and retry.",
+   "evidence": "Same provider path; v2 sheet with heading and retry.",
+   "sources": [
+    "rides-18"
+   ]
+  },
+  {
+   "id": "G-1041",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "A new ride cannot start while the previous ride's stop is still unsaved (offline): the app first tries to save it, otherwise refuses.",
+   "old_where": "ride_recorder.dart:231-237 (stopPending || _stopping -> stop(); still pending -> failed)",
+   "customer_sees": "Generic 'could not start' message.",
+   "visible": "small-text",
+   "server": "no (client ordering)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same provider method startManualResult from every v2 start entry (ride_actions.dart:37)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Logic is inside the notifier; v2 message is the generic failure sheet, same as old generic snackbar.",
+   "evidence": "Logic is inside the notifier; v2 message is the generic failure sheet, same as old generic snackbar.",
+   "sources": [
+    "rides-19"
+   ]
+  },
+  {
+   "id": "G-1042",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "While a recording runs, the start card is replaced by the status and Pause/Continue controls; a second start is ignored.",
+   "old_where": "lib/features/routes/ride_rec_controls.dart:261 (!rec.recording -> _idle), ride_recorder.dart:230 (recording -> ok)",
+   "customer_sees": "Status card with red/amber/grey state and buttons.",
+   "visible": "clear",
+   "server": "yes(start_user_ride is idempotent - returns the running ride)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/record_dock_v2.dart:55,74-84 (live -> RecLiveBarV2), lib/features/routes/v2/rides/recorder_screen_v2.dart:69-98"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Dock and recorder switch to live controls on rec.recording.",
+   "evidence": "Dock and recorder switch to live controls on rec.recording.",
+   "sources": [
+    "rides-20"
+   ]
+  },
+  {
+   "id": "G-1043",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card / Ride recording",
+   "situation": "Double tap lock: in the old card the start/stop/pause buttons are locked while an action runs (busy, half-transparent).",
+   "old_where": [
+    "lib/features/routes/ride_rec_controls.dart:245-256 (_run/_busy), :77,84 (onTap null when busy), :343",
+    "lib/features/routes/ride_rec_controls.dart:77,84 (onTap: busy ? null : …)"
+   ],
+   "customer_sees": "Buttons fade to 50 % and ignore taps while working.",
+   "visible": "clear",
+   "server": [
+    "no (client)",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 recorder controls"
+   ],
+   "v2_where": [
+    "lib/features/routes/v2/record_dock_v2.dart:67,70,80-81,94,146 and home/v2/home_record_row_v2.dart:116,174 have NO busy lock; only lib/features/routes/v2/rides/recorder_screen_v2.dart:49-58 has one. Provider re-entry guards: ride_recorder.dart:295 (_starting), :402 (single-flight stop), ride_recorder_pause.dart:237 (pause idempotent)",
+    "lib/features/routes/v2/rides/recorder_screen_v2.dart:49-57 (_run returns while _busy; CTA busy/disabled at :74-77); old controls lib/features/routes/ride_rec_controls.dart:245-254 use the same _busy pattern"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "The dock CTA / record disc / pause disc can be tapped again while the first action is still running. The notifier stops a second ride from being created, but the customer gets no 'busy' state and a racing second start can surface a spurious result message. The old card blocked this visibly.",
+   "evidence": "The dock CTA / record disc / pause disc can be tapped again while the first action is still running. The notifier stops a second ride from being created, but the customer gets no 'busy' state and a racing second start can surface a spurious result message. The old card blocked this visibly.",
+   "sources": [
+    "rides-21",
+    "mx-rental-61"
+   ],
+   "verdict_disagreement": {
+    "rides-21": "WEAKER",
+    "mx-rental-61": "HOLDS"
+   },
+   "merged_situations": [
+    {
+     "source": "mx-rental-61",
+     "situation": "Pause / resume / stop controls are disabled while an operation is busy."
+    }
+   ]
+  },
+  {
+   "id": "G-1044",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "A rental (automatic) recording cannot be stopped by the customer: the Stop button exists only for an own manual ride.",
+   "old_where": "ride_recorder_state.dart:73 (canStop = recording && manual) -> lib/features/routes/ride_rec_controls.dart:79-85",
+   "customer_sees": "No Stop button during a rental.",
+   "visible": "silent",
+   "server": "no (finish_user_ride accepts any own ride; rental rides are closed by close_stale_user_rides when the rental ends)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/record_dock_v2.dart:68; lib/features/routes/v2/rides/rec_live_bar_v2.dart:86-87; lib/features/routes/v2/rides/recorder_screen_v2.dart:82-97 (needsDecision implies manual, ride_recorder_state.dart:68-71); lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:51-66; home/v2/home_record_row_v2.dart:175"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 stop button is behind rec.canStop or rec.needsDecision (manual only).",
+   "evidence": "Every v2 stop button is behind rec.canStop or rec.needsDecision (manual only).",
+   "sources": [
+    "rides-22"
+   ]
+  },
+  {
+   "id": "G-1045",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "The card explains that a rental recording ends by itself when the motorbike is returned.",
+   "old_where": "lib/features/routes/ride_rec_controls.dart:284-287 (if (!rec.manual) rpRentalEndsHint) - shown inline on My experiences",
+   "customer_sees": "Grey hint under the buttons on the page.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "On the v2 Moje page the dock (lib/features/routes/v2/rides/rec_live_bar_v2.dart, lib/features/routes/v2/rides/moje_tabs_v2.dart:120-124) shows only the mode word (v2RtRecAuto); the explanation is one tap deeper: lib/features/routes/v2/rides/recorder_screen_v2.dart:208-213 and lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:108-111"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "The block itself holds, but the reason why there is no Stop button is no longer on the page where the customer looks; it appears only after opening the recorder screen.",
+   "evidence": "The block itself holds, but the reason why there is no Stop button is no longer on the page where the customer looks; it appears only after opening the recorder screen.",
+   "sources": [
+    "rides-23"
+   ]
+  },
+  {
+   "id": "G-1046",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "After a safety pause (phone at home / long pause) the recording asks the customer to decide: continue the trip or end and save.",
+   "old_where": "ride_recorder_state.dart:68-71 (needsDecision) -> lib/features/routes/ride_rec_controls.dart:276 (RideRecDecisionNote amber box :207-229), buttons relabelled rpResumeTrip / rpEndSave :74,82",
+   "customer_sees": "Amber box with battery emoji and the question, buttons 'Continue trip' / 'End and save'.",
+   "visible": "clear",
+   "server": "no (client)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Moje page dock: lib/features/routes/v2/rides/rec_live_bar_v2.dart (chip 'Paused' + since, lib/features/routes/v2/rides/ride_phase_v2.dart:60-67) with play disc and Stop; full question only in lib/features/routes/v2/rides/recorder_screen_v2.dart:82-89,190-199 and lib/features/routes/v2/rides/ride_pause_sheet_v2.dart:51-54"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Both actions remain available, but on the Moje page the amber question is reduced to a 'Paused' chip; the explanation is only on the recorder screen / sheet.",
+   "evidence": "Both actions remain available, but on the Moje page the amber question is reduced to a 'Paused' chip; the explanation is only on the recorder screen / sheet.",
+   "sources": [
+    "rides-24"
+   ]
+  },
+  {
+   "id": "G-1047",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "Stopping while offline is not reported as 'too short'; the app retries saving.",
+   "old_where": "ride_actions.dart:27-33 (kept == null -> rideManualStopFailed)",
+   "customer_sees": "Snackbar 'could not finish, will retry'.",
+   "visible": "small-text",
+   "server": "yes(finish_user_ride)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_results_v2.dart:111-117 (pending sheet, wifi-off icon)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same null result handled separately.",
+   "evidence": "Same null result handled separately.",
+   "sources": [
+    "rides-26"
+   ]
+  },
+  {
+   "id": "G-1048",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "Continue after a manual pause runs the same checks as a start (signed in, location on, permission, precise).",
+   "old_where": "ride_recorder_pause.dart:246-251 -> lib/features/routes/ride_pause_actions.dart:28-32 (showRideStartResult on failure)",
+   "customer_sees": "Same snackbars as start.",
+   "visible": "small-text",
+   "server": "no (device)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/ride_pause_actions_v2.dart:32-44 (n.resume(); failure -> showRideStartResultV2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same notifier.resume(); v2 failure sheet.",
+   "evidence": "Same notifier.resume(); v2 failure sheet.",
+   "sources": [
+    "rides-27"
+   ]
+  },
+  {
+   "id": "G-1049",
+   "step": "rides",
+   "step_title": "My experiences, ride recording and ride results",
+   "surface": "S-213 Recording controls card",
+   "situation": "Switching off automatic recording immediately ends a running rental recording, without a question.",
+   "old_where": "ride_recorder.dart:214-220 (setEnabled: !value && !manual -> stop()); switch lib/features/routes/my_experiences_screen.dart:583-587",
+   "customer_sees": "Switch flips; recording ends silently.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/rides/moje_tabs_v2.dart:182-184 (onEnabled = _setAutoRecord, my_experiences_screen.dart:91,602-603); lib/features/routes/v2/rides/recorder_screen_v2.dart:227-233"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same setEnabled; same (absent) warning in both looks.",
+   "evidence": "Same setEnabled; same (absent) warning in both looks.",
+   "sources": [
+    "rides-28"
+   ]
+  }
+ ]
+}

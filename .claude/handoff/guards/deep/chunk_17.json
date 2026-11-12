@@ -1,0 +1,303 @@
+{
+ "title": "Booking form part 2: gear, price, promo, note, consents, proceed - part 1 of 3 (G-202..G-213; mainly booking_form_extras_section.dart, booking_size_dialogs.dart, booking_form_widget.dart)",
+ "guards": [
+  {
+   "id": "G-202",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061 / Booking form / Booking form (gear warning + CTA)",
+   "situation": "Customer leaves the basic free gear empty (no helmet, gloves, jacket or pants size) and does not tick 'Mám vlastní výbavu'; the booking cannot go on until at least one size is picked (not required when the main item is a trailer).",
+   "old_where": [
+    "lib/core/booking_form_widget.dart:195-198 (_missingGearSizes, rule !trailer && !ownGear && all four sizes off-list/empty) -> missingSizes :515-516 -> canProceedNow :550",
+    "lib/core/booking_form_widget.dart:188-214 (_missingGearSizes), :515-516, :548-551, :683-733",
+    "lib/core/booking_form_widget.dart:188-214 _missingGearSizes, :515-516, :684-733 amber warning, :551 missingSizes.isEmpty"
+   ],
+   "customer_sees": "Yellow warning box 'Vyplňte velikosti výbavy' with 'Chybí: základní výbava — vyberte aspoň jednu velikost, nebo zaškrtněte „Mám vlastní výbavu“'; 'POKRAČOVAT K PLATBĚ' greyed out.",
+   "visible": "clear",
+   "server": [
+    "no (DB accepts NULL sizes; per CLAUDE.md the kiosk then simply issues no locker code)",
+    "partly (trg_bookings_own_gear_normalize derives own gear; no size check found)",
+    "no (DB only decides locker code from sizes, _booking_needs_locker)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA, v2 sizes sheet",
+    "v2 warnings + dock + v2 extras rows"
+   ],
+   "v2_where": [
+    "lib/core/booking_form_widget.dart:515-516,581-582 (same missingSizes and canProceedNow passed into BookingFormV2View); lib/features/booking/v2/booking_warning_v2.dart:46-52; lib/features/booking/v2/booking_form_view_v2.dart:173; lib/features/booking/v2/booking_dock_v2.dart:57-65,138-145; lib/features/booking/v2/sections/extras_v2.dart:82-86",
+    "lib/core/booking_form_widget.dart:581; booking_warning_v2.dart (amber helmet banner); booking_form_view_v2.dart:172 (blocker v2BkBlockSizes)",
+    "lib/core/booking_form_widget.dart:581 missingSizes; features/booking/v2/booking_form_view_v2.dart:173; booking_warning_v2.dart:40-46"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 is built from the same list computed before the v2 branch (booking_form_widget.dart:515 runs before :560). The CTA in the dock is MgCta with onTap: canProceed ? onProceed : null (booking_dock_v2.dart:141) and canProceed = canProceedNow() && !rangeBusy (:582). The customer sees an amber banner 'Doplň velikosti výbavy' with the same 'Chybí: …' list, the dock line 'Chybí velikosti výbavy' and an extra hint 'Vyber aspoň jednu velikost' above the size chips - at least as clear as before.",
+   "evidence": "v2 is built from the same list computed before the v2 branch (booking_form_widget.dart:515 runs before :560). The CTA in the dock is MgCta with onTap: canProceed ? onProceed : null (booking_dock_v2.dart:141) and canProceed = canProceedNow() && !rangeBusy (:582). The customer sees an amber banner 'Doplň velikosti výbavy' with the same 'Chybí: …' list, the dock line 'Chybí velikosti výbavy' and an extra hint 'Vyber aspoň jednu velikost' above the size chips - at least as clear as before.",
+   "sources": [
+    "booking-form-2-01",
+    "mx-start-36",
+    "mx-order-16"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-36",
+     "situation": "No basic gear piece chosen and \"Mám vlastní výbavu\" not ticked, or a paid boots/passenger extra without a size; CTA disabled with the list of what is missing."
+    },
+    {
+     "source": "mx-order-16",
+     "situation": "Without \"Mám vlastní výbavu\" the customer must choose at least one basic gear piece; chosen driver boots and passenger gear need a size."
+    }
+   ],
+   "visible_by_source": {
+    "booking-form-2-01": "clear",
+    "mx-start-36": "clear",
+    "mx-order-16": "small-text"
+   }
+  },
+  {
+   "id": "G-203",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061",
+   "situation": "Customer ticks 'Mám vlastní výbavu': all four basic-gear sizes are wiped and the size rows disappear, so no rental gear is booked by mistake.",
+   "old_where": "lib/core/booking_form_extras_section.dart:55-61 (onOwnGear clears helmet/gloves/jacket/pants) ; checkbox :295-299 ; rows only if !draft.ownGear :300-326",
+   "customer_sees": "Checkbox ticked, the four size rows vanish.",
+   "visible": "clear",
+   "server": "yes(trg_bookings_own_gear_normalize — own_gear=true nulls the four size columns on INSERT)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_extras_section.dart:212-243 (BookingExtrasV2 gets the same onOwnGear closure and gearRows: ownGear ? [] : …); lib/features/booking/v2/sections/extras_v2.dart:74-90"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure onOwnGear (extras section :55) is passed to MgCheckRow (extras_v2.dart:74); rows hidden when ownGear (extras_v2.dart:77).",
+   "evidence": "Same closure onOwnGear (extras section :55) is passed to MgCheckRow (extras_v2.dart:74); rows hidden when ownGear (extras_v2.dart:77).",
+   "sources": [
+    "booking-form-2-02"
+   ]
+  },
+  {
+   "id": "G-204",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061",
+   "situation": "Customer can only pick a size from the offered range: children's sizes for a kids bike, a narrower adult range on a self-service branch (helmet S–3XL, others max 4XL).",
+   "old_where": "lib/core/booking_form_extras_section.dart:306,312,318,324 (gearSizesFor(type, kids:isKids, selfService:selfService)) ; lib/features/booking/booking_models.dart:319-338",
+   "customer_sees": "Only the allowed size chips are shown.",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_extras_section.dart:223,229,235,241 (same gearSizesFor calls feed BookingGearRowV2.sizes); lib/features/booking/v2/sections/extras_rows_v2.dart:54-61"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 rows receive the identical size lists from the same section build; no other v2 entry sets helmetSize/jacketSize etc.",
+   "evidence": "The v2 rows receive the identical size lists from the same section build; no other v2 entry sets helmetSize/jacketSize etc.",
+   "sources": [
+    "booking-form-2-03"
+   ]
+  },
+  {
+   "id": "G-205",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061",
+   "situation": "Customer taps an added extra that has sizes (passenger gear, boots) - it opens the size sheet with 'Odebrat' instead of removing silently; extra without sizes toggles off.",
+   "old_where": "lib/core/booking_form_extras_section.dart:83-105 (onTap: remove only when sel && !isSpolujezdec && sizes empty; else passenger sheet / size dialog / add)",
+   "customer_sees": "Tile opens the size sheet; tile shows 'Velikost: …'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_extras_section.dart:111-125 (BookingExtraRowV2 onTap: onTap - the same closure)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same onTap closure; note: in released 4.1.3 a tap on any selected tile removed it (git 70a94933 booking_form_extras_section.dart:175-179) - this branch changed that for both looks, not only v2.",
+   "evidence": "Same onTap closure; note: in released 4.1.3 a tap on any selected tile removed it (git 70a94933 booking_form_extras_section.dart:175-179) - this branch changed that for both looks, not only v2.",
+   "sources": [
+    "booking-form-2-06"
+   ]
+  },
+  {
+   "id": "G-206",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061",
+   "situation": "An extra with sizes that was added but has no size yet is flagged and blocks the booking (driver boots, passenger gear, passenger boots each need a size).",
+   "old_where": "lib/core/booking_form_extras_section.dart:77-78 (needSize) + :180-189 ('⚠ Klepněte pro výběr velikosti' in amber) ; lib/core/booking_form_widget.dart:199-212 (missing list gearBootsDriver/gearPassenger/gearBootsPassenger) -> canProceedNow :550",
+   "customer_sees": "Amber '⚠ Klepněte pro výběr velikosti' (clickSelectSize) under the tile, yellow missing-sizes box, CTA greyed.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_extras_section.dart:116-118 (sub/needSize to BookingExtraRowV2); lib/features/booking/v2/sections/extras_rows_v2.dart:113,150,185 (amber border + warn icon + 'Vyber velikost'); lib/features/booking/v2/booking_warning_v2.dart:46-52"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same needSize and same missingSizes; v2 adds an amber border and warning icon.",
+   "evidence": "Same needSize and same missingSizes; v2 adds an amber border and warning icon.",
+   "sources": [
+    "booking-form-2-07"
+   ]
+  },
+  {
+   "id": "G-207",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061 / Booking form (extras)",
+   "situation": "Trailer is offered only when a free trailer exists for the dates, never for a kids bike and never on a self-service branch.",
+   "old_where": [
+    "lib/core/booking_form_extras_section.dart:361 (if !isKids && !selfService) ; :367-375 (_buildTrailerTile hides unless selected or candidate.hasFree via trailerAvailabilityProvider -> RPC get_trailer_availability, lib/features/booking/booking_provider.dart:387-411)",
+    "lib/core/booking_form_extras_section.dart:366-376 trailerAvailabilityProvider; features/booking/booking_provider.dart:387-403"
+   ],
+   "customer_sees": "The trailer tile is simply absent.",
+   "visible": "silent",
+   "server": [
+    "yes(get_trailer_availability RPC + trg_check_trailer_overlap)",
+    "yes(check_trailer_overlap / trg_check_trailer_overlap)"
+   ],
+   "v2_entry_points": [
+    "v2 extras"
+   ],
+   "v2_where": [
+    "lib/core/booking_form_extras_section.dart:245 (trailer: !isKids && !selfService ? _buildTrailerTile : null); :394-403 (v2 row inside the same _buildTrailerTile after the same hide check)",
+    "lib/core/booking_form_extras_section.dart:394-403 (v2 row, same avail + onTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 row is returned from the same method after the same availability check (:373-375).",
+   "evidence": "The v2 row is returned from the same method after the same availability check (:373-375).",
+   "sources": [
+    "booking-form-2-08",
+    "mx-order-19"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-19",
+     "situation": "The trailer tile is shown only when a free trailer exists for the dates."
+    }
+   ]
+  },
+  {
+   "id": "G-208",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061",
+   "situation": "Trailer chosen for one date range is not carried to a different date range (the assigned piece belonged to the old dates).",
+   "old_where": "Old look: lib/features/booking/booking_entry.dart:63-67 always builds a fresh draft without trailer",
+   "customer_sees": "Trailer not selected on re-entry.",
+   "visible": "silent",
+   "server": "yes(trg_check_trailer_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/booking_carry_v2.dart:35-43 (same bike: extras/trailer dropped when dates differ) and :74 (_noTrailer for other bike)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 carries the draft but explicitly drops the trailer whenever the dates change or the bike changes.",
+   "evidence": "v2 carries the draft but explicitly drops the trailer whenever the dates change or the bike changes.",
+   "sources": [
+    "booking-form-2-10"
+   ]
+  },
+  {
+   "id": "G-209",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-061",
+   "situation": "Free gear by loyalty rank: from the free-gear level the paid gear extras cost 0 Kč; below it they are charged.",
+   "old_where": "lib/core/booking_form_extras_section.dart:49-51,79-81 (isGearFreeAt / effectiveExtraPrice -> 'Zdarma' or '+price'); :330-356 banner loyaltyGearBenefit ; lib/features/booking/booking_provider.dart:41-45 effectiveExtrasProvider",
+   "customer_sees": "Price label on each tile, green rank banner when free.",
+   "visible": "clear",
+   "server": "unknown (trg_validate_app_loyalty validates the loyalty discount; no trigger found that re-prices gear extras)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_form_extras_section.dart:109-121 (same effectiveExtraPrice, struck list price + 'zdarma s rankem' badge); lib/features/booking/v2/sections/extras_v2.dart:93-106"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same price function; v2 shows the struck original price in addition.",
+   "evidence": "Same price function; v2 shows the struck original price in addition.",
+   "sources": [
+    "booking-form-2-11"
+   ]
+  },
+  {
+   "id": "G-210",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-062",
+   "situation": "Passenger gear sheet: 'Potvrdit' stays disabled until at least one passenger size is chosen.",
+   "old_where": "lib/core/booking_size_dialogs.dart:127-139 (onPressed: anySelected ? … : null; label 'VYBERTE ALESPOŇ JEDNU VELIKOST' when none)",
+   "customer_sees": "Grey button with the text 'VYBERTE ALESPOŇ JEDNU VELIKOST'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_size_dialogs.dart:43-55 -> lib/features/booking/v2/sizes_sheet_v2.dart:59-71 (onConfirm: any ? … : null) and :151-160 (amber hint 'Vyber aspoň jednu velikost' + MgBtnInk disabled)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same rule m.values.any(v != null); disabled button plus an amber hint line.",
+   "evidence": "Same rule m.values.any(v != null); disabled button plus an amber hint line.",
+   "sources": [
+    "booking-form-2-12"
+   ]
+  },
+  {
+   "id": "G-211",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-062",
+   "situation": "Passenger sizes are limited to the adult range (narrower on a self-service branch).",
+   "old_where": "lib/core/booking_size_dialogs.dart:100 and :252-260 (_passengerGearSizes(key, selfService))",
+   "customer_sees": "Only allowed chips shown.",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_size_dialogs.dart:50 (options: {k: _passengerGearSizes(k, selfService)}) -> lib/features/booking/v2/sizes_sheet_v2.dart:43-55"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function feeds the v2 chips.",
+   "evidence": "Same function feeds the v2 chips.",
+   "sources": [
+    "booking-form-2-13"
+   ]
+  },
+  {
+   "id": "G-212",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-062",
+   "situation": "Pre-fill from the previous booking or from the already chosen passenger gear only uses sizes that are in the offered range.",
+   "old_where": "lib/core/booking_size_dialogs.dart:41,193-212 (_prefillPassenger with valid())",
+   "customer_sees": "Note 'Velikosti jsme předvyplnili podle minulé rezervace…' when pre-filled.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/booking_size_dialogs.dart:41-48 (same prefill before the v2 branch) -> lib/features/booking/v2/sizes_sheet_v2.dart:39-42 (green banner 'Z minula')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Prefill runs before the MgV2.peek branch; v2 shows it as a titled banner.",
+   "evidence": "Prefill runs before the MgV2.peek branch; v2 shows it as a titled banner.",
+   "sources": [
+    "booking-form-2-14"
+   ]
+  },
+  {
+   "id": "G-213",
+   "step": "booking-form-2",
+   "step_title": "Booking form part 2: gear, price, promo, note, consents, proceed",
+   "surface": "S-062",
+   "situation": "Closing the passenger sheet (swipe down, tap outside) saves nothing; only 'Potvrdit' writes the sizes, only 'Odebrat' (shown only when already chosen) removes the extra.",
+   "old_where": "lib/core/booking_size_dialogs.dart:125-141 (_applyPassenger only on confirm; _RemoveExtraButton only if current != null)",
+   "customer_sees": "Sheet closes, draft unchanged.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/booking/v2/sizes_sheet_v2.dart:31 (works on a copy Map.of(sizes)), :66-77 (confirm / remove only), lib/core/booking_size_dialogs.dart:53 (onRemove null when current == null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _applyPassenger/_removeExtra helpers; the v2 sheet edits a copy.",
+   "evidence": "Same _applyPassenger/_removeExtra helpers; the v2 sheet edits a copy.",
+   "sources": [
+    "booking-form-2-15"
+   ]
+  }
+ ]
+}

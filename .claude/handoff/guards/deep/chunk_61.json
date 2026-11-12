@@ -1,0 +1,316 @@
+{
+ "title": "Profile tab and settings - part 3 of 3 (G-750..G-760; mainly profile_screen.dart, permissions_screen.dart, settings_sheets.dart)",
+ "guards": [
+  {
+   "id": "G-750",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-154 Currency picker sheet",
+   "situation": "The customer is warned that prices are only shown converted (CNB rate) and that card payments are always charged in CZK; choosing a currency returns to Home.",
+   "old_where": "lib/features/profile/widgets/settings_sheets.dart:220-222 (currencyNote) and :182-191 (pick -> setCurrency, go home)",
+   "customer_sees": "A small grey note under the title.",
+   "visible": "small-text",
+   "server": "unknown (not traced into the payment edge functions in this job)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/widgets/settings_sheets.dart:193-211 (note: currencyNote, onPick: same pick) and v2/sheets/settings_sheets_v2.dart:111-118 (note with info icon)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same note text and same closure; v2 note has an info icon and larger text.",
+   "evidence": "Same note text and same closure; v2 note has an info icon and larger text.",
+   "sources": [
+    "profile-33"
+   ]
+  },
+  {
+   "id": "G-751",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-155 Permissions sheet",
+   "situation": "No reachable guard: showPermissionsSheet (bottom sheet) has no caller; the profile row opens the full Permissions screen (/permissions) instead.",
+   "old_where": "lib/features/profile/widgets/settings_sheets.dart:247-472 (defined, never called; grep finds no call site); lib/features/profile/profile_screen.dart:374 and :571 (context.push(Routes.permissions)); same in 4.1.3 (profile_screen.dart:252/:428 at 70a94933)",
+   "customer_sees": "n/a (never shown).",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "not used in v2 either (profile_groups_v2.dart:235 -> onPermissions -> _showPermissions -> /permissions)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Dead code in both looks; the inventory entry (\"profile_screen.dart:374\") in the surface list is wrong - row :374 opens S-156. Note that this dead sheet lacks the rental \"required\" labels, so it must not be revived.",
+   "evidence": "Dead code in both looks; the inventory entry (\"profile_screen.dart:374\") in the surface list is wrong - row :374 opens S-156. Note that this dead sheet lacks the rental \"required\" labels, so it must not be revived.",
+   "sources": [
+    "profile-34"
+   ]
+  },
+  {
+   "id": "G-752",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-156 Permissions screen / Profile – permissions",
+   "situation": "During an active or paid upcoming reservation every permission except photos is marked as required, and a denied required permission is highlighted.",
+   "old_where": [
+    "lib/features/profile/permissions_screen.dart:31 (_photoExemptKeys), :74 (requiredActive = hasActiveReservationProvider), :156-176 (lock banner permsRequiredActive), :185 and :284-338 (_permRow: red 1.5 border + RED \"Vyžadováno\" label when required && !granted; row background red tint when denied)",
+    "lib/features/profile/permissions_screen.dart:74 (requiredActive)"
+   ],
+   "customer_sees": "A lock banner, a red \"Required\" label and a red frame around the denied row, plus a red \"Denied\" badge.",
+   "visible": "clear",
+   "server": [
+    "no (device permissions)",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 permissions view"
+   ],
+   "v2_where": [
+    "lib/features/profile/v2/permissions_view_v2.dart:68-78 (lock banner), :104-106 in permissions_screen.dart (same required flag), :118-151 (chips: \"Zakázáno\" red err tone, \"Vyžadováno\" chip AMBER warn tone when attention, no red frame, white row)",
+    "lib/features/profile/permissions_screen.dart:102-108 -> lib/features/profile/v2/permissions_view_v2.dart:68"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Same data and same banner, but the picture-level alarm is softer: the old look framed a required-but-denied permission in red and painted the \"Required\" label red; v2 puts the row on white with an amber \"Required\" chip next to a red \"Denied\" chip. Customers who look at colours rather than text get a milder signal. Nothing is blocked in either look (it is a warning only).",
+   "evidence": "Same data and same banner, but the picture-level alarm is softer: the old look framed a required-but-denied permission in red and painted the \"Required\" label red; v2 puts the row on white with an amber \"Required\" chip next to a red \"Denied\" chip. Customers who look at colours rather than text get a milder signal. Nothing is blocked in either look (it is a warning only).",
+   "sources": [
+    "profile-35",
+    "mx-rental-66"
+   ],
+   "verdict_disagreement": {
+    "profile-35": "WEAKER",
+    "mx-rental-66": "HOLDS"
+   },
+   "merged_situations": [
+    {
+     "source": "mx-rental-66",
+     "situation": "During an active / paid upcoming booking the core permissions are marked as required."
+    }
+   ],
+   "visible_by_source": {
+    "profile-35": "clear",
+    "mx-rental-66": "small-text"
+   }
+  },
+  {
+   "id": "G-753",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-019 Shared error dialog / S-156 Permissions screen",
+   "situation": "\"Allow all again\": the permissions are requested again and, if some are still missing (permanently denied), the customer gets a dialog naming them with a button to open phone settings instead of a false \"done\".",
+   "old_where": [
+    "features/profile/widgets/perm_result.dart:11-27",
+    "lib/features/profile/widgets/perm_result.dart:11-27 (missingTitles -> showErrorDialog eoPermsMissingBody + Open settings); permissions_screen.dart:98-101"
+   ],
+   "customer_sees": "A success toast, or a dialog listing the missing permissions.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/profile/permissions_screen.dart:97-114 (PermissionsViewV2 onAllowAll -> requestAllPermissionsAndReport)",
+    "lib/features/profile/v2/permissions_view_v2.dart:111 (onTap: onAllowAll from permissions_screen.dart:115)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Same closure.",
+   "sources": [
+    "global-overlays-37",
+    "profile-36"
+   ],
+   "merged_situations": [
+    {
+     "source": "global-overlays-37",
+     "situation": "'Allow all' permissions in Profile: if some are still missing the customer gets a dialog naming them and offering system settings (instead of a false success)."
+    }
+   ]
+  },
+  {
+   "id": "G-754",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-156 Permissions screen",
+   "situation": "Turning on fingerprint/Face ID requires a successful biometric check; if the login data cannot be stored the customer is told the session expired; the option is shown only on devices that support it.",
+   "old_where": "lib/features/profile/permissions_screen.dart:61-70 (_bioAvailable), :76-97 (onBioTap: authenticate -> enableBiometric -> toast activated/sessionExpired; off -> clearBioData) and :186",
+   "customer_sees": "A toast; the checkbox stays off if the check fails.",
+   "visible": "small-text",
+   "server": "no (device-local)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/permissions_view_v2.dart:89-102 (only if bioAvailable; MgSwitchRow value: bioEnabled, onChanged -> onBioTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure; the switch is bound to _bioEnabled reloaded by _loadBio, so it cannot show \"on\" after a failed check.",
+   "evidence": "Same closure; the switch is bound to _bioEnabled reloaded by _loadBio, so it cannot show \"on\" after a failed check.",
+   "sources": [
+    "profile-37"
+   ]
+  },
+  {
+   "id": "G-755",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-156 Permissions screen",
+   "situation": "Permission statuses are re-read when the customer returns from phone settings; a spinner shows until they are known.",
+   "old_where": "lib/features/profile/permissions_screen.dart:50-59 (didChangeAppLifecycleState resumed -> _load) and :178-183",
+   "customer_sees": "A spinner, then the current statuses.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/permissions_view_v2.dart:80-84 (spinner while perms == null); same State"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same State object; tapping a row opens phone settings in both (permissions_screen.dart:288-290, permissions_view_v2.dart:126).",
+   "evidence": "Same State object; tapping a row opens phone settings in both (permissions_screen.dart:288-290, permissions_view_v2.dart:126).",
+   "sources": [
+    "profile-38"
+   ]
+  },
+  {
+   "id": "G-756",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-157 Help and other: SOS, FAQ, logout",
+   "situation": "The SOS entry is offered only while the customer has a rental in which SOS is allowed (active, or paid and in the rental term, not already ended by SOS).",
+   "old_where": "lib/features/profile/profile_screen.dart:383-384 (if hasActiveRentalProvider); lib/features/sos/sos_provider.dart:13-16; features/reservations/reservation_models.dart:423-426 (sosAllowed)",
+   "customer_sees": "A red SOS row appears only during a rental.",
+   "visible": "clear",
+   "server": "unknown (SOS creation checks were not traced in this job; they belong to the SOS bucket)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_groups_v2.dart:226 and :247 (if (sos) PfRow tone sos -> context.push(Routes.sos))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and condition; v2 row uses the SOS tone. (ProfileAttentionV2 with an extra SOS chip exists but is not used anywhere - grep finds no instantiation.)",
+   "evidence": "Same provider and condition; v2 row uses the SOS tone. (ProfileAttentionV2 with an extra SOS chip exists but is not used anywhere - grep finds no instantiation.)",
+   "sources": [
+    "profile-39"
+   ]
+  },
+  {
+   "id": "G-757",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-157 Help and other: SOS, FAQ, logout / Profile – log out",
+   "situation": "Logging out first clears the booking draft, the selected bike and the catalogue filter, so the next person on the phone does not inherit a half-made booking; there is no confirmation dialog.",
+   "old_where": [
+    "lib/features/profile/profile_screen.dart:178-188 (_logout: reset bookingDraftProvider, bookingMotoProvider, catalogFilterProvider, signOut, toast, go(Routes.login))",
+    "lib/features/profile/profile_screen.dart:178-187 (_logout)"
+   ],
+   "customer_sees": "A goodbye toast and the login screen.",
+   "visible": "small-text",
+   "server": [
+    "n/a",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 Profile row \"Odhlásit\""
+   ],
+   "v2_where": [
+    "lib/features/profile/v2/profile_groups_v2.dart:260 (onTap: a.onLogout = _logout from profile_screen.dart:284)",
+    "lib/features/profile/profile_screen.dart:284 (same _logout) ; lib/features/profile/v2/profile_groups_v2.dart:89"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure; neither look asks for confirmation (unchanged).",
+   "evidence": "Same closure; neither look asks for confirmation (unchanged).",
+   "sources": [
+    "profile-40",
+    "mx-rental-68"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-68",
+     "situation": "Logging out clears the booking draft and filter and returns to login; there is no confirmation and no block during an active rental or ride recording."
+    }
+   ],
+   "visible_by_source": {
+    "profile-40": "small-text",
+    "mx-rental-68": "clear"
+   }
+  },
+  {
+   "id": "G-758",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-158 Delete account dialog / Profile / Profile – delete account",
+   "situation": "Deleting the account needs an explicit confirmation in a dialog that says it cannot be undone.",
+   "old_where": [
+    "lib/features/profile/profile_screen.dart:494-559 (showDialog; AlertDialog with Cancel and red Delete, content deleteAccountDesc)",
+    "lib/features/profile/profile_screen.dart:500-556",
+    "lib/features/profile/profile_screen.dart:494-556 (_showDeleteAccountDialog; delete_customer_account; active_bookings -> deleteAccountHasBookings)"
+   ],
+   "customer_sees": "A dialog \"Delete account?\" with Cancel and a red Delete.",
+   "visible": "clear",
+   "server": [
+    "n/a",
+    "yes(delete_customer_account RPC, active_bookings)",
+    "yes(delete_customer_account)"
+   ],
+   "v2_entry_points": [
+    "v2 profile actions",
+    "v2 Profile row \"Smazat účet\""
+   ],
+   "v2_where": [
+    "lib/features/profile/profile_screen.dart:535-545 (DestructiveDialogV2, body v2UxRpDeleteDesc, onDelete = same onDelete) and lib/features/profile/v2/sheets/profile_dialogs_v2.dart:11-37",
+    "lib/features/profile/profile_screen.dart:284 (onDelete: same dialog), :536-545 (v2 dialog face)",
+    "lib/features/profile/profile_screen.dart:536-544 (DestructiveDialogV2 with the same onDelete) ; row lib/features/profile/v2/profile_groups_v2.dart:90-95"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same action closure; the v2 text (cs \"Tohle nejde vrátit. Všechna tvoje data, rezervace a doklady trvale smažeme.\") carries the same irreversibility warning as deleteAccountDesc; the delete button is red (MgBtnDestructive). Entry only via profile_groups_v2.dart:261-267 -> _showDeleteAccountDialog.",
+   "evidence": "Same action closure; the v2 text (cs \"Tohle nejde vrátit. Všechna tvoje data, rezervace a doklady trvale smažeme.\") carries the same irreversibility warning as deleteAccountDesc; the delete button is red (MgBtnDestructive). Entry only via profile_groups_v2.dart:261-267 -> _showDeleteAccountDialog.",
+   "sources": [
+    "profile-42",
+    "mx-start-59",
+    "mx-rental-67"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-59",
+     "situation": "Deleting the account asks for confirmation and the server refuses while bookings exist."
+    },
+    {
+     "source": "mx-rental-67",
+     "situation": "Deleting the account needs a confirmation dialog; the server refuses while an active or upcoming booking exists and the app says so instead of pretending success."
+    }
+   ]
+  },
+  {
+   "id": "G-759",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-158 Delete account dialog",
+   "situation": "The customer has an active or upcoming reservation; the account is not deleted and the app says why instead of claiming success.",
+   "old_where": "lib/features/profile/profile_screen.dart:507-521 (rpc delete_customer_account; result.success != true -> toast deleteAccountHasBookings for error active_bookings, else deleteAccountFailed; no sign-out)",
+   "customer_sees": "A warning toast \"Account cannot be deleted - you have an active or upcoming reservation\".",
+   "visible": "small-text",
+   "server": "yes(delete_customer_account returns {error:active_bookings}, SUPABASE_BACKEND_STATE_3.md:344)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same onDelete closure passed to DestructiveDialogV2 at lib/features/profile/profile_screen.dart:543"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical code path; only the dialog chrome differs.",
+   "evidence": "Identical code path; only the dialog chrome differs.",
+   "sources": [
+    "profile-43"
+   ]
+  },
+  {
+   "id": "G-760",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-158 Delete account dialog",
+   "situation": "Deletion fails for another reason or the session has expired; the account is not reported as deleted (auth error signs out, other errors show a message).",
+   "old_where": "lib/features/profile/profile_screen.dart:527-533 (handleAuthError; showErrorSnack eoDeleteAccountWhat) and :500-501 (user null -> return)",
+   "customer_sees": "An error snack, or the login screen.",
+   "visible": "small-text",
+   "server": "yes(delete_customer_account: is_admin() or auth.uid() = p_user_id, else not_authorized)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same onDelete closure (lib/features/profile/profile_screen.dart:543)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "profile-44"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,278 @@
+{
+ "title": "Recommended routes, route detail, builder and navigation - part 6 of 7 (G-1000..G-1012; mainly route_navigation_screen.dart, route_nav_status.dart, active_ride_provider.dart)",
+ "guards": [
+  {
+   "id": "G-1000",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-208 Route builder",
+   "situation": "After a successful save the 'unsaved changes' lock is released, so leaving no longer asks.",
+   "old_where": "lib/features/routes/route_builder_screen.dart:887-890 (ok -> _edited = false)",
+   "customer_sees": "No discard dialog after saving.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_builder_screen.dart:724 (same save path)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "routes-nav-69"
+   ]
+  },
+  {
+   "id": "G-1001",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "Navigation needs location: if permission is denied or location services are off, the map shows a banner with 'Allow location' (when the system can still ask) or 'Open settings', and stop/fork pills are hidden.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:254-260 (_start: GpsStatus != ok -> _denied), :1689-1698 (NavStatusBanner with onRequest when denied), :1772 / :1783 (!_denied); route_nav_status.dart:34-43, :85-93",
+   "customer_sees": "White banner with pin icon, reason text and an 'Allow' or 'Open settings' button.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_nav_status.dart:44-66 (v2 branch of the same NavStatusBanner: allow -> onRequest else openFixSettings, warn tone)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The banner is placed by the shared _content code; its v2 face keeps the same action logic.",
+   "evidence": "The banner is placed by the shared _content code; its v2 face keeps the same action logic.",
+   "sources": [
+    "routes-nav-70"
+   ]
+  },
+  {
+   "id": "G-1002",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "After returning from Settings the navigation re-checks location by itself (without asking again).",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:247-250 (resumed && _denied -> _start())",
+   "customer_sees": "Banner disappears when location becomes available.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_navigation_screen.dart:247-250 (lifecycle observer, not look-branched)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "routes-nav-71"
+   ]
+  },
+  {
+   "id": "G-1003",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "Lost GPS, weak signal or no road routing (offline: only joining lines) is announced on the map.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:1700-1708 (!v2 && !_denied && (_gpsLost || _weakGps || _straightLine)); route_nav_status.dart:16-43",
+   "customer_sees": "Banner at the top with the reason.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_navigation_screen.dart:1710-1726 (v2: same banner + map-tile error strip)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same three flags; v2 adds the tiles strip.",
+   "evidence": "Same three flags; v2 adds the tiles strip.",
+   "sources": [
+    "routes-nav-72"
+   ]
+  },
+  {
+   "id": "G-1004",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "A route that no longer exists cannot be navigated: 'Route not found' with explanation and Back.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:1395 (listRoute.id.isEmpty -> _exit), :1890-1898",
+   "customer_sees": "Error view with heading and Back.",
+   "visible": "clear",
+   "server": "yes(get_branch_routes_lite / get_route_detail only active approved routes)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_navigation_screen.dart:1395 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Not look-branched.",
+   "evidence": "Not look-branched.",
+   "sources": [
+    "routes-nav-73"
+   ]
+  },
+  {
+   "id": "G-1005",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "A custom navigation cannot start without its route payload (deep link / restore).",
+   "old_where": "lib/core/router.dart:354-365 (/route-nav-custom: extra not CustomNavArgs/RouteItem -> RouteErrorPage)",
+   "customer_sees": "Error page.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/router.dart:354-365"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Router is look-independent.",
+   "evidence": "Router is look-independent.",
+   "sources": [
+    "routes-nav-74"
+   ]
+  },
+  {
+   "id": "G-1006",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "Ending the ride with the red X asks for confirmation; only then the ride moves to history and the screen closes.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:1126-1153 (_endRide showDialog routeEndConfirmTitle/routeEndConfirm; if ok != true return), button :1673",
+   "customer_sees": "Dialog 'End route?' with Cancel and red 'End'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_navigation_screen.dart:1129 (MgV2.on(dc) ? navEndDialogV2) -> v2/nav/nav_sheets_v2.dart:103-114 (Cancel left, red destructive End); X button via _circleBtn -> NavCircleV2(end:true) :1853-1855"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same dialog result handling; v2 dialog pops false/true identically.",
+   "evidence": "Same dialog result handling; v2 dialog pops false/true identically.",
+   "sources": [
+    "routes-nav-75"
+   ]
+  },
+  {
+   "id": "G-1007",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "The back arrow does not end the ride; the ride stays active and can be continued later (shell strip / app relaunch).",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:1618-1619 (back -> backOr without endRide); active_ride_provider.dart:306-316 (openRide)",
+   "customer_sees": "Screen closes; 'Continue route' pill appears in the app.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_navigation_screen.dart:1618 (shared) -> NavCircleV2(end:false)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same callback.",
+   "evidence": "Same callback.",
+   "sources": [
+    "routes-nav-76"
+   ]
+  },
+  {
+   "id": "G-1008",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "On app launch a still-active (not finished) ride reopens the navigation automatically; a finished ride does not.",
+   "old_where": "lib/features/routes/active_ride_provider.dart:320-335 (maybeResumeActiveRideOnLaunch: ride.done -> return); lib/main.dart:274-279",
+   "customer_sees": "App opens straight into navigation.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/main.dart:274-279 (called regardless of look)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Not look-branched.",
+   "evidence": "Not look-branched.",
+   "sources": [
+    "routes-nav-78"
+   ]
+  },
+  {
+   "id": "G-1009",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "Reopening the same route restores the stops already reached instead of starting over.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:1061-1110 (_syncRideStart: existing.key == key -> restore reached)",
+   "customer_sees": "Ticks on already reached stops.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_navigation_screen.dart:701-702 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "routes-nav-79"
+   ]
+  },
+  {
+   "id": "G-1010",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "A stop is only ticked off when the customer presses 'Continue' on the arrival card; closing the card does not confirm it; named stops are never ticked automatically when passed.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:947-961 (_confirmReached), :1750 (onClose does not confirm), :673-694 (_autoPassStops only unnamed points silently)",
+   "customer_sees": "Arrival card with name, 'Continue to next', 'Stops', X.",
+   "visible": "clear",
+   "server": "yes(mark_place_visited records the visit server-side; dojezd confirmation is client-side)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_nav_widgets.dart:411-427 (StopReachedCardV2 with the same onNext/onChoose/onClose/onRate) ; v2/nav/nav_cards_v2.dart:69, :78-86"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same callbacks passed through.",
+   "evidence": "Same callbacks passed through.",
+   "sources": [
+    "routes-nav-80"
+   ]
+  },
+  {
+   "id": "G-1011",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "'Rate this place' on the arrival card is only offered when the stop is a point of interest.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:1740-1748 (onRate null when poi == null); route_nav_widgets.dart:537",
+   "customer_sees": "Star button only for POI stops.",
+   "visible": "clear",
+   "server": "yes(rate_poi RPC for ratings)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/v2/nav/nav_cards_v2.dart:85 (if (onRate != null))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same null condition.",
+   "evidence": "Same null condition.",
+   "sources": [
+    "routes-nav-81"
+   ]
+  },
+  {
+   "id": "G-1012",
+   "step": "routes-nav",
+   "step_title": "Recommended routes, route detail, builder and navigation",
+   "surface": "S-209 Route navigation",
+   "situation": "A place visit is recorded only once per point per navigation session.",
+   "old_where": "lib/features/routes/route_navigation_screen.dart:952-955 (_visitSent guard) -> :655-659 (markPlaceVisited)",
+   "customer_sees": "'Place discovered' badge on the card.",
+   "visible": "small-text",
+   "server": "yes(mark_place_visited upsert, needs auth)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/routes/route_navigation_screen.dart:952-955 (shared)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "routes-nav-82"
+   ]
+  }
+ ]
+}

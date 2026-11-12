@@ -1,0 +1,299 @@
+{
+ "title": "App shell: bottom navigation, floating buttons and header banner (old look) - part 1 of 2 (G-346..G-357; mainly app_shell.dart, shell_fab_layer.dart, pending_booking_fab_provider.dart)",
+ "guards": [
+  {
+   "id": "G-346",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-001",
+   "situation": "The customer taps the tab that is already highlighted (for example \"Rezervovat\" while filling the booking form at /booking or sitting on /payment, or \"Rezervace\" inside a reservation detail); in the old look the tap does nothing, so an accidental tap never throws them out of the form or payment.",
+   "old_where": "lib/core/shell_tab_action.dart:39-44 (only `!isActive || goHome` navigates); highlight from app_shell.dart:30-43 (_currentIndex: /booking and /payment = tab 1); same rule in 70a94933 app_shell.dart:307-308.",
+   "customer_sees": "Nothing happens; the customer stays on the form / payment.",
+   "visible": "silent",
+   "server": "no (navigation only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/v2/shell/app_shell_v2.dart:137-149: _onTab treats a tap as a reselect ONLY when the path equals the tab root; otherwise it calls onShellTabTap with isActive:false, so on /booking or /payment a tap on \"Motorky\" goes to /search, and inside /reservations/<id> a tap on \"Rezervace\" goes to the list."
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "v2 passes isActive:false unconditionally (app_shell_v2.dart:149). A running payment is still protected by the confirm (record shell-fabs-01) and the booking draft is kept in memory (no Home reset), but an idle payment screen or the booking form can be left by one tap on the highlighted tab, which the old look ignored. Low impact: other tabs could always leave the form in both looks.",
+   "evidence": "v2 passes isActive:false unconditionally (app_shell_v2.dart:149). A running payment is still protected by the confirm (record shell-fabs-01) and the booking draft is kept in memory (no Home reset), but an idle payment screen or the booking form can be left by one tap on the highlighted tab, which the old look ignored. Low impact: other tabs could always leave the form in both looks.",
+   "sources": [
+    "shell-fabs-02"
+   ]
+  },
+  {
+   "id": "G-347",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-001",
+   "situation": "The customer taps \"Domů\": the old look throws away the half-filled booking (draft, chosen bike and catalogue date filter), so a later booking never continues with stale choices.",
+   "old_where": "lib/core/shell_tab_action.dart:45 -> _resetOnHome :60-73 (v1 branch: BookingDraft(), bookingMotoProvider=null, CatalogFilter()); identical to 70a94933 app_shell.dart:310-314.",
+   "customer_sees": "Silently a fresh start: Domů, and the next booking starts empty.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_tab_action.dart:61-83 (v2 branch of _resetOnHome: returns without clearing while the draft belongs to this account and no booking has been paid since; clears after a paid booking or for another account's draft)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Deliberate owner decision 2026-10-22 (\"nikdy nic nevyplňovat dvakrát\", comment at shell_tab_action.dart:50-59): v2 keeps the draft, chosen bike and dates on Domů. Draft of another (logged-out) account and the draft of a booking already paid are still dropped. Whether every booking-form validation re-runs on the kept draft is outside this bucket and was not traced here.",
+   "evidence": "Deliberate owner decision 2026-10-22 (\"nikdy nic nevyplňovat dvakrát\", comment at shell_tab_action.dart:50-59): v2 keeps the draft, chosen bike and dates on Domů. Draft of another (logged-out) account and the draft of a booking already paid are still dropped. Whether every booking-form validation re-runs on the kept draft is outside this bucket and was not traced here.",
+   "sources": [
+    "shell-fabs-03"
+   ]
+  },
+  {
+   "id": "G-348",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-001",
+   "situation": "Login, registration, password reset, payment success, documents and document scanning are full-screen steps without the bottom navigation, so the customer cannot jump away by tabs in the middle of them.",
+   "old_where": "lib/core/router.dart:262-300 (these GoRoutes sit outside the ShellRoute at :371, so no AppShell and no nav). The constant _noNavRoutes at :174 is not referenced anywhere (grep), the real mechanism is route placement.",
+   "customer_sees": "No bottom bar on those screens; only the screen's own back.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same route tree for both looks: the ShellRoute builder at router.dart:376-377 switches only AppShell/AppShellV2; the routes at :262-300 stay outside it."
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Placement in the route tree is shared, so v2 also shows no nav there.",
+   "evidence": "Placement in the route tree is shared, so v2 also shows no nav there.",
+   "sources": [
+    "shell-fabs-05"
+   ]
+  },
+  {
+   "id": "G-349",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-001",
+   "situation": "The customer has unread messages from MotoGo24 (admin_messages); a red badge with the count (max \"9+\") warns them.",
+   "old_where": "lib/core/app_shell.dart:55 (adminUnreadCountProvider) and :177-198 (badge on the Domů tab).",
+   "customer_sees": "Red circle with a number on the Domů icon.",
+   "visible": "clear",
+   "server": "n/a (information, not a block)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/v2/shell/app_shell_v2.dart:172,193 (profileBadge: unread) -> lib/core/v2/chrome/v2_nav_bar.dart:122 (count on tab 4 Profil, where Zprávy live in v2)."
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider; the badge moved from Domů to the new Profil tab, which is where messages open in v2. v2 additionally puts a dot on Rezervace when a booking needs action (app_shell_v2.dart:173-181).",
+   "evidence": "Same provider; the badge moved from Domů to the new Profil tab, which is where messages open in v2. v2 additionally puts a dot on Rezervace when a booking needs action (app_shell_v2.dart:173-181).",
+   "sources": [
+    "shell-fabs-06"
+   ]
+  },
+  {
+   "id": "G-350",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-002",
+   "situation": "MotoGo24 publishes an announcement in Velín (app_settings.header_banner, e.g. closure, weather, outage); the old look shows it as a scrolling coloured band at the very top of every shell screen, in the colours chosen in Velín.",
+   "old_where": "lib/core/app_shell.dart:74-80 (banner.when -> ShellHeaderBanner when enabled), lib/core/shell_banner.dart:9-26 (bg/colour from Velín, fixed 28 px band, marquee) ; data lib/core/banner_provider.dart:120-202 (realtime + 30 s polling, translation only when fresh).",
+   "customer_sees": "A fixed coloured marquee strip above the content, always on screen.",
+   "visible": "clear",
+   "server": "n/a (informational)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/v2/shell/app_shell_v2.dart:157-160,215 (MgTopBanner band, not on / and /search), lib/features/home/v2/home_header_v2.dart:43-44,125-129 and lib/features/catalog/v2/motorky_header_v2.dart:41,70-78 (banner as last line of the header), lib/core/v2/chrome/mg_top_banner.dart:23-67 (text only, tap = full text sheet, folds with hide-on-scroll)."
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Same provider and the same enabled flag, so every announcement still appears, and v2 adds a tap to read the whole text. But: v2 ignores the Velín background/text colours (MgTopBanner takes only text), so a red warning looks like an ordinary line; the band folds away when the content is scrolled (folded: _bars.hidden, app_shell_v2.dart:166,215); on Domů and Motorky it is inside the header and scrolls away with it; it is not drawn when the text is empty (trim().isNotEmpty).",
+   "evidence": "Same provider and the same enabled flag, so every announcement still appears, and v2 adds a tap to read the whole text. But: v2 ignores the Velín background/text colours (MgTopBanner takes only text), so a red warning looks like an ordinary line; the band folds away when the content is scrolled (folded: _bars.hidden, app_shell_v2.dart:166,215); on Domů and Motorky it is inside the header and scrolls away with it; it is not drawn when the text is empty (trim().isNotEmpty).",
+   "sources": [
+    "shell-fabs-07"
+   ]
+  },
+  {
+   "id": "G-351",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-003",
+   "situation": "The customer has items in the e-shop cart and leaves the shop; a floating button reminds them (count + total) and leads to the cart.",
+   "old_where": "lib/core/shell_fab_layer.dart:57-67 (cartCount > 0), :138-171 (tap -> context.push(Routes.cart)); identical to 70a94933 app_shell.dart:74-84,173-206.",
+   "customer_sees": "Green pill \"🛒 n položek · X Kč\" with a red ✕.",
+   "visible": "clear",
+   "server": "n/a (reminder)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:258-264,320-332 (_v2Strips cart strip, same conditions, tap -> context.push(Routes.cart))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider, same count/total text (cartFab) plus a subtitle; same target.",
+   "evidence": "Same provider, same count/total text (cartFab) plus a subtitle; same target.",
+   "sources": [
+    "shell-fabs-08"
+   ]
+  },
+  {
+   "id": "G-352",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-003 / S-170 Cart",
+   "situation": "Outside the shop, a cart reminder floating button appears only when the cart has items, is hidden on shop/cart/checkout/voucher screens and on the payment screen, and stays away after the customer dismisses it.",
+   "old_where": [
+    "lib/core/shell_fab_layer.dart:52-54 (onPaymentScreen = paymentScreenActiveProvider or /payment or /sos-payment) and :62-67 (onShopFlow).",
+    "lib/core/shell_fab_layer.dart:56-67 (showCartFab = cartCount > 0 && !onShopFlow && !onPaymentScreen && !fabDismissed), pill :138-194, dismiss :173-174"
+   ],
+   "customer_sees": "Green pill 'cart: N items / total' with a red X.",
+   "visible": "clear",
+   "server": [
+    "n/a",
+    "no"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:255-264 (same onPaymentScreen and onShopFlow conditions in _v2Strips); the v2 AI button is hidden on payment as well (app_shell_v2.dart:167).",
+    "lib/core/shell_fab_layer.dart:261-264 (same condition) and :320-332 (MgStatusStrip kind cart, tap -> push(Routes.cart), dismiss -> same provider); all strips stacked, none collapsed (lib/features/shell/v2/strip_stack_v2.dart:19-24)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Conditions copied 1:1.",
+   "evidence": "Identical condition; v2 renders it as a strip in the shell strip stack.",
+   "sources": [
+    "shell-fabs-09",
+    "shop-20"
+   ],
+   "merged_situations": [
+    {
+     "source": "shell-fabs-09",
+     "situation": "The cart reminder is hidden on the shop, cart, checkout and voucher screens and on any payment screen, so it never covers the \"Zaplatit\" button or duplicates the cart."
+    }
+   ],
+   "visible_by_source": {
+    "shell-fabs-09": "silent",
+    "shop-20": "clear"
+   }
+  },
+  {
+   "id": "G-353",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-003",
+   "situation": "The customer closes the cart reminder with ✕; it stays hidden until they add a product again (product detail resets the flag).",
+   "old_where": "lib/core/shell_fab_layer.dart:66,173-174 (cartFabDismissedProvider = true); reset in lib/features/shop/product_detail_screen.dart:54.",
+   "customer_sees": "The pill disappears.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:264,329 (same cartFabDismissedProvider)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and reset.",
+   "evidence": "Same provider and reset.",
+   "sources": [
+    "shell-fabs-10"
+   ]
+  },
+  {
+   "id": "G-354",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-004 / Shell (floating panel) / Anywhere in app (floating button)",
+   "situation": "The customer created a booking in the app but has not paid; a floating button \"Dokončit rezervaci · M:SS\" with a 30-minute countdown brings them back to payment of exactly that booking (amount and id from the database, not from a possibly empty draft).",
+   "old_where": [
+    "lib/core/pending_booking_fab_provider.dart:90-115,150-188 (status reserved/pending + payment_status unpaid + booking_source app, newest one; re-check every 5 s), lib/core/shell_fab_layer.dart:197-210 (shown while data and not expired), lib/core/shell_actions.dart:7-20 (openPendingPayment builds PaymentContext from the DB row).",
+    "lib/core/shell_fab_layer.dart:75-82, :195-209; lib/core/pending_booking_fab_provider.dart:43-65, :160-185",
+    "lib/core/pending_booking_fab_provider.dart:88-112 (only booking_source app, unpaid), :152-200 stream; core/shell_fab_layer.dart:189-203; core/shell_fabs.dart:89-170 ShellBookingFab; core/shell_actions.dart:13-26 openPendingPayment"
+   ],
+   "customer_sees": "Green pill \"💳 Dokončit rezervaci · 12:34\" with red ✕.",
+   "visible": "clear",
+   "server": [
+    "yes (auto_cancel_expired_pending() cron every 2 min cancels app pending+unpaid after 30 min; _trg_guard_customer_booking_status stops the customer from flipping status/payment_status to paid)",
+    "yes(auto_cancel_expired_pending)"
+   ],
+   "v2_entry_points": [
+    "v2 status strip \"pay\", v2 Home ticket (unpaid state)",
+    "v2 status strip \"pay\"; v2 Home ticket S2 pay block (new v2 entry)"
+   ],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:288-305 (v2 pay strip from the same provider), lib/core/shell_fabs.dart:103-116 (tap -> openPendingPayment), second entry lib/features/home/v2/home_ticket_v2.dart:272-279 (Domů ticket S2 CTA -> openPendingPayment), state built in lib/features/home/v2/home_state.dart:112-117 (only when !isExpired).",
+    "lib/core/shell_fab_layer.dart:265-266, :288-294, :303-305 (same ShellBookingFab, v2: true; strips are always all stacked, lib/features/shell/v2/strip_stack_v2.dart:19-24); lib/features/home/v2/home_ticket_checklist.dart:41-47",
+    "lib/core/shell_fab_layer.dart:285-308 (same provider, ShellBookingFab v2: true); features/home/v2/home_state.dart:112-117 (only if !isExpired); features/home/v2/home_ticket_v2.dart:268-279 (openPendingPayment)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Both v2 entry points call the same openPendingPayment with the DB amount; the strip shows the title and \"time left\" countdown, the Domů ticket shows a countdown ring and the price.",
+   "evidence": "Both v2 entry points call the same openPendingPayment with the DB amount; the strip shows the title and \"time left\" countdown, the Domů ticket shows a countdown ring and the price.",
+   "sources": [
+    "shell-fabs-11",
+    "mx-start-47",
+    "mx-order-41"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-47",
+     "situation": "An unpaid app booking shows a floating panel with the remaining time and actions pay / cancel until it is paid or expires."
+    },
+    {
+     "source": "mx-order-41",
+     "situation": "An unpaid app booking shows a floating \"Dokončit rezervaci · M:SS\" with countdown and a red cancel; it disappears when the window ends or the booking is paid/cancelled (DB re-checked every 5 s). Web bookings are excluded."
+    }
+   ]
+  },
+  {
+   "id": "G-355",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-004",
+   "situation": "The unpaid-booking button disappears exactly when the 30-minute payment window runs out (window restarts from restored_at for a booking restored in Velín), mirroring the server auto-cancel, so the customer is not offered payment for a booking about to be cancelled.",
+   "old_where": "lib/core/pending_booking_fab_provider.dart:58-65 (remainingMs 1800000, isExpired), :77-82 (pendingWindowStart), shell_fab_layer.dart:200 (hidden when isExpired).",
+   "customer_sees": "The pill vanishes when the countdown reaches 0.",
+   "visible": "small-text",
+   "server": "yes (auto_cancel_expired_pending(), SUPABASE_BACKEND_STATE_3.md:125)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:288-294 (null when isExpired), lib/features/home/v2/home_state.dart:112"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same isExpired check on both v2 entry points.",
+   "evidence": "Same isExpired check on both v2 entry points.",
+   "sources": [
+    "shell-fabs-12"
+   ]
+  },
+  {
+   "id": "G-356",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-004",
+   "situation": "A booking made on the WEB that waits for a bank transfer (QR) is never offered for card payment in the app, which would cause a double payment.",
+   "old_where": "lib/core/pending_booking_fab_provider.dart:97-99 (.eq(booking_source, app)). NOTE: added on this branch; 4.1.3 had no such filter.",
+   "customer_sees": "No pill for web bookings.",
+   "visible": "silent",
+   "server": "partly (set_booking_qr_payment / qr-payment only for web; no server rule found that refuses an app card payment on a web booking)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same provider feeds the v2 strip (shell_fab_layer.dart:267), the Domů ticket and the Rezervace dot (app_shell_v2.dart:173)."
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Single provider for every look and entry point.",
+   "evidence": "Single provider for every look and entry point.",
+   "sources": [
+    "shell-fabs-13"
+   ]
+  },
+  {
+   "id": "G-357",
+   "step": "shell-fabs",
+   "step_title": "App shell: bottom navigation, floating buttons and header banner (old look)",
+   "surface": "S-004",
+   "situation": "The unpaid-booking button is hidden on login, registration, document scanning, payment and payment-success screens (and whenever the payment screen is active), so it never covers the pay button or interrupts sign-in.",
+   "old_where": "lib/core/shell_fab_layer.dart:70-75 (hideBookingFabOn + !onPaymentScreen); identical to 70a94933 app_shell.dart:87-92.",
+   "customer_sees": "No pill there.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/core/shell_fab_layer.dart:265-266 (same list and onPaymentScreen in _v2Strips)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Copied 1:1; v2 reads the location from the router delegate (app_shell_v2.dart:84-96), which also sees pushed routes, so it hides at least as reliably.",
+   "evidence": "Copied 1:1; v2 reads the location from the router delegate (app_shell_v2.dart:84-96), which also sees pushed routes, so it hides at least as reliably.",
+   "sources": [
+    "shell-fabs-14"
+   ]
+  }
+ ]
+}

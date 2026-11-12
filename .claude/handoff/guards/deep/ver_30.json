@@ -1,0 +1,90 @@
+{
+ "file": "chunk_30.json",
+ "verdicts": [
+  {
+   "id": "G-358",
+   "verdict": "HOLDS",
+   "proof": "Old: shell_fabs.dart:96-98 switches ShellBookingFab to ShellVerifyingFab when booking.verifying (pending_booking_fab_provider.dart:112-113 = PaymentPendingMarker or Stripe intent still running); ShellVerifyingFab.open (shell_fabs.dart:198-205) only pushes /payment-result with pendingBookingOutcome, no pay action, no X. v2: the ONLY customer path to paying the pending booking is openPendingPayment (grep: callers only shell_fabs.dart:110,125; shell_actions.dart:13). The v2 strip is built from the same ShellBookingFab (shell_fab_layer.dart:303-305) so the verifying switch at shell_fabs.dart:96 runs first; v2 verifying strip shell_fabs.dart:207-218 calls the same open() and has no onDismiss. Other v2 surfaces only display state: reservation_card_v2.dart:150-153 (label 'psPendingTitle' with clock icon, card tap -> detail), app_shell_v2.dart:174 (Rezervace dot excludes verifying). NOTE: the claimed Domu ticket entry (features/home/v2/home_ticket_v2.dart) does not exist any more, so it is not an entry point. All strips are stacked, none hidden behind '+n' (strip_stack_v2.dart:108-121 builds every entry with defaults). Old look and v2 share the same provider; rule was added on this branch for both looks.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-359",
+   "verdict": "HOLDS",
+   "proof": "Old: cancelPendingBookingFlow shell_fabs.dart:36-66 AlertDialog 'cancelReservationQ' Zpet / red Zrusit; dismiss -> null -> false. v2: the only v2 entry is the pay strip X (shell_fabs.dart:112 onDismiss: onCancel -> same cancelPendingBookingFlow, dismissLabel cancelReservationBtn); in v2 the same function shows showMgConfirm (shell_fabs.dart:40-47) with safe 'back' and destructive red action; showMgConfirm (core/v2/widgets/mg_dialog.dart:46-70) pops false on safe and returns null on barrier tap -> '?? false' (shell_fabs.dart:64-66) -> nothing cancelled. The claimed Domu ticket cancel link (home_ticket_v2.dart:278) no longer exists; grep finds no other caller of cancelPendingBookingFlow.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-360",
+   "verdict": "HOLDS",
+   "proof": "Old: cancelPendingBooking pending_booking_fab_provider.dart:192-202 (.eq payment_status unpaid, 15 s timeout); failure -> showErrorSnack psCancelFailTitle + onRetry (shell_fabs.dart:69-80). v2 strip X runs the identical function (shell_fabs.dart:101,112), so the same unpaid filter and the same error snack with 'Zkusit znovu' are used. Server: bookings update under RLS + _trg_guard_customer_booking_status (STATE_4 line 9); the 'only unpaid' filter is client-side.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-361",
+   "verdict": "HOLDS",
+   "proof": "Old: pendingSosFabProvider (pending_sos_fab_provider.dart:28) shown by shell_fab_layer.dart:212-224 -> ShellSosFab tap openPendingSos (shell_fabs.dart:285 -> shell_actions.dart:29-31 push /sos/replacement). v2: _v2Strips watches the same provider (shell_fab_layer.dart:277,295-302) and builds ShellSosFab(v2:true); v2 strip tap shell_fabs.dart:269-272 -> same openPendingSos. Grep: openPendingSos has no other caller; the claimed Domu ticket SOS button file (home_ticket_v2.dart) no longer exists. v2 strip is first in order, red disc with alert icon (mg_status_strip.dart:72) and 3 title lines for SOS (:90). AppShellV2 places the layer on every shell route (app_shell_v2.dart:238-255).",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-362",
+   "verdict": "HOLDS",
+   "proof": "Old hide list shell_fab_layer.dart:88-94 (+ !onPaymentScreen). v2 list shell_fab_layer.dart:270-276 is identical, same onPaymentScreen formula (:255-257). v2 location comes from the router delegate's last match (app_shell_v2.dart:84-96, mg_back.dart:78-88), so a pushed SOS/payment route is recognised at least as reliably as the old shell's matchedLocation. Hiding is silent in both looks by design.",
+   "visible_v2": "silent",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-363",
+   "verdict": "HOLDS",
+   "proof": "Old: ShellSosFab onDismiss (shell_fabs.dart:259-262) -> dismissSosFab (pending_sos_fab_provider.dart, 7-day SharedPreferences key) + invalidate, no confirmation. v2 strip ✕ uses the same closure (shell_fabs.dart:273). No other v2 SOS reminder surface exists to keep showing a dismissed incident.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-364",
+   "verdict": "HOLDS",
+   "proof": "Old: shell_fab_layer.dart:97-113 (paid aktivni/nadchazejici booking, docsFabStatusProvider.isComplete ?? true, not on docs/scan, not dismissed, not on payment) -> ShellDocsFab tap push /docs (:226-234). v2: _v2Strips recomputes the identical condition (shell_fab_layer.dart:278-286) and the v2 docs strip taps context.push(Routes.docs) (:306-316); strip title docsBlockingBtn + sub v2StripDocsSub with docs icon (shell_fabs_b.dart:129-138). Extra v2 hints: Rezervace nav dot with the same condition (app_shell_v2.dart:175-181), Profil tile -> /docs (profile_tiles_v2.dart:75). The claimed home_ticket_v2 / home_ticket_checklist entries do not exist any more. Server: booking_docs_gate / trg_zz_door_codes_docs_gate withhold codes (STATE_3:200,172).",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-365",
+   "verdict": "HOLDS",
+   "proof": "Old: shell_fab_layer.dart:99,108-113 (docsScreens, '?? true', !onPaymentScreen). v2: shell_fab_layer.dart:283-286 same list, same '?? true' default, same onPaymentScreen. Silent by design in both looks.",
+   "visible_v2": "silent",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-366",
+   "verdict": "HOLDS",
+   "proof": "Old: _docsFabDismissedProvider (shell_fab_layer.dart:23, in-memory StateProvider) set at :231-232. v2 strip reads/sets the same file-level provider (shell_fab_layer.dart:286,315); session-only behaviour identical.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-367",
+   "verdict": "HOLDS",
+   "proof": "Old: showRouteFab shell_fab_layer.dart:83-85 -> ShellRouteFab tap openRide, X endRide (shell_fabs_b.dart non-v2 branch). v2: shell_fab_layer.dart:268-269,317-319 same condition; v2 strip shell_fabs_b.dart:31-44 onTap openRide(context, ride), onDismiss activeRideProvider.endRide() with dismissLabel routeEndBtn; no confirmation in either look. Title routeFabContinue + ride name as sub.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-368",
+   "verdict": "HOLDS",
+   "proof": "Old visibility shell_fab_layer.dart:70-73,84-85 (hideBookingFabOn login/register/docScan/payment/success + !onPaymentScreen). v2 shell_fab_layer.dart:265,269 identical list and formula; strip actions as in G-367 (shell_fabs_b.dart:31-44); every active strip stacked (strip_stack_v2.dart:108-121), so the route strip is never hidden by others.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  },
+  {
+   "id": "G-369",
+   "verdict": "HOLDS",
+   "proof": "Old: ShellPaidListener (shell_paid_listener.dart:22-29) shows paidAfterRestartSnackBar (paid_change_outcomes.dart:122-155: failed = Column[title, text], 12 s; ok = Text, 8 s; action psShow -> /reservations/<id>). v2: AppShellV2 wraps its Scaffold in the same ShellPaidListener (app_shell_v2.dart:200); showPaidToastV2 (paid_toast_v2.dart:12-35) takes title/message from the direct Text children of that exact Column, the same action and duration, warn tone + warn icon on failure; if the shape is unknown it returns false and the original SnackBar is shown.",
+   "visible_v2": "clear",
+   "fix_idea": ""
+  }
+ ],
+ "note": "Claimed evidence referencing lib/features/home/v2/home_ticket_v2.dart and home_ticket_checklist.dart is stale: these files do not exist in the current tree; the only v2 entry points to the guarded actions are the shell status strips (ShellFabLayer v2). Verdicts hold on the strips."
+}

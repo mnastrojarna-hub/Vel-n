@@ -1,0 +1,278 @@
+{
+ "title": "App-wide overlays, dialogs and system screens (old look) - part 3 of 3 (G-029..G-041; mainly error_feedback.dart, main.dart, router.dart)",
+ "guards": [
+  {
+   "id": "G-029",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-018 Loyalty level-up celebration",
+   "situation": "Only one celebration can open at a time, and background rank polling pauses while it plays.",
+   "old_where": "features/loyalty/loyalty_levelup_overlay.dart:135-142 (_showing latch, loyaltyPollPaused), :214-219",
+   "customer_sees": "Nothing.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same code"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Unchanged.",
+   "evidence": "Unchanged.",
+   "sources": [
+    "global-overlays-30"
+   ]
+  },
+  {
+   "id": "G-030",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-019 Shared error dialog",
+   "situation": "An error dialog stops the flow and asks the customer to pick an action (e.g. Zavolat / Zkusit znovu / Otevřít nastavení) or close; tapping outside closes it without an action.",
+   "old_where": "core/widgets/error_feedback.dart:132-162 (showErrorDialog; returns chosen id)",
+   "customer_sees": "Dialog with bold title, explanation and buttons.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/widgets/error_feedback.dart:142-143 (MgV2.on -> v2ErrorDialogLook); core/v2/states/legacy_dialog_looks.dart:19-41 (first action = primary, others ghost, 'Zavřít' text; same ids popped)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same showDialog route and the same returned ids; v2 makes the first action the visual primary.",
+   "evidence": "Same showDialog route and the same returned ids; v2 makes the first action the visual primary.",
+   "sources": [
+    "global-overlays-31"
+   ]
+  },
+  {
+   "id": "G-031",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-019 Shared error dialog",
+   "situation": "When a caller passes showClose:false the dialog has no 'Zavřít' and the customer must pick an action.",
+   "old_where": "core/widgets/error_feedback.dart:137, :148",
+   "customer_sees": "Only action buttons.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/v2/states/legacy_dialog_looks.dart:28-30, :38 (close shown only if showClose)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Respected in v2. No caller currently passes showClose:false (grep), so this is latent in both looks.",
+   "evidence": "Respected in v2. No caller currently passes showClose:false (grep), so this is latent in both looks.",
+   "sources": [
+    "global-overlays-32"
+   ]
+  },
+  {
+   "id": "G-032",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-019 Shared error dialog",
+   "situation": "Location unavailable when the customer asked for it: dialog explaining why (off / denied / no fix); settings open only on tap.",
+   "old_where": "core/widgets/error_feedback.dart:169-201 (explainLocation)",
+   "customer_sees": "Dialog or toast with reason and 'Otevřít nastavení'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same function; the dialog look switches inside showErrorDialog (error_feedback.dart:142-143) and the toast inside showErrorSnack (:67-69)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "global-overlays-38"
+   ]
+  },
+  {
+   "id": "G-033",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-019 Shared error dialog",
+   "situation": "Error toast: what failed + why + one action, chosen in a fixed order (settings, retry, call); for payments/bookings the call action is suppressed (contact:false).",
+   "old_where": "core/widgets/error_feedback.dart:52-91",
+   "customer_sees": "Snackbar for 7 s with one action.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/widgets/error_feedback.dart:67-69, :95-128 (_v2ErrorToast: same precedence and contact flag, titled toast)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same rules; v2 toast has a title line, clearer.",
+   "evidence": "Same rules; v2 toast has a title line, clearer.",
+   "sources": [
+    "global-overlays-39"
+   ]
+  },
+  {
+   "id": "G-034",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-020 Discard confirmation",
+   "situation": "Leaving a form with unsaved input asks 'Zahodit rozpracované?' with Zahodit / Zůstat; tapping outside means stay.",
+   "old_where": "core/widgets/error_feedback.dart:205-230 (confirmDiscard returns r == true)",
+   "customer_sees": "Dialog with red 'Zahodit' and 'Zůstat'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/widgets/error_feedback.dart:210-211 (MgV2.on -> v2DiscardDialogLook); core/v2/states/legacy_dialog_looks.dart:44-54 (Zůstat=false, Zahodit=true)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same return values.",
+   "evidence": "Same return values.",
+   "sources": [
+    "global-overlays-40"
+   ]
+  },
+  {
+   "id": "G-035",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-021 Blocking progress dialog (MgProgress)",
+   "situation": "During document upload or document opening a progress dialog blocks the screen: it cannot be closed by tapping outside, and back does nothing unless the operation is cancellable.",
+   "old_where": "core/widgets/error_feedback.dart:252-270 (DialogRoute barrierDismissible:false), :326-332 (PopScope canPop:false, back = cancel only if cancelAfter != null)",
+   "customer_sees": "Dialog with spinner and live text ('Zpracovávám doklad…').",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/widgets/error_feedback.dart:326-335 (the same PopScope wraps v2ProgressDialogLook)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared route and PopScope.",
+   "evidence": "Shared route and PopScope.",
+   "sources": [
+    "global-overlays-46"
+   ]
+  },
+  {
+   "id": "G-036",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-021 Blocking progress dialog (MgProgress)",
+   "situation": "'Zrušit' and the 'takes longer' hint appear only after a limit (20 s upload, 15 s opening); a cancelled result is discarded.",
+   "old_where": "core/widgets/error_feedback.dart:302-315, :350-364; :277-283 (guard -> MgCancelled)",
+   "customer_sees": "Hint text + Zrušit after the limit.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/widgets/error_feedback.dart:334-335 (slow/_canCancel passed); core/v2/states/legacy_dialog_looks.dart:58-92"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same timing state.",
+   "evidence": "Same timing state.",
+   "sources": [
+    "global-overlays-47"
+   ]
+  },
+  {
+   "id": "G-037",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-022 Unknown link page and router redirects",
+   "situation": "An unknown or outdated link opens a clear error page whose only action is 'Domů'; back also leads Home.",
+   "old_where": "core/router.dart:225 (errorBuilder); core/widgets/route_error_page.dart:42-59 (MgBackGuard parent '/', Domů)",
+   "customer_sees": "Error view 'Tahle stránka v aplikaci neexistuje' + 'Domů'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/widgets/route_error_page.dart:28-40 (MgStateScreen with Domů, MgBackGuard parent '/')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same actions. The page is new on this branch (4.1.3 showed go_router's default page) in both looks.",
+   "evidence": "Same actions. The page is new on this branch (4.1.3 showed go_router's default page) in both looks.",
+   "sources": [
+    "global-overlays-50"
+   ]
+  },
+  {
+   "id": "G-038",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-022 Unknown link page and router redirects",
+   "situation": "A foreign-scheme link (motogo24://payment returning from bank 3-D Secure) does not navigate: the current screen, including a running payment, stays.",
+   "old_where": "core/safe_router_config.dart (MgSafeRouteParser: foreign scheme -> keep current configuration); main.dart:449",
+   "customer_sees": "Nothing changes.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "main.dart:449 used for both looks"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Look-independent.",
+   "evidence": "Look-independent.",
+   "sources": [
+    "global-overlays-54"
+   ]
+  },
+  {
+   "id": "G-039",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-022 Unknown link page and router redirects",
+   "situation": "Released 4.1.3 had a global watcher that pushed the customer into the handover-protocol screen (/protocol, login required) when the kiosk asked for it. It is gone from BOTH looks on this branch; the protocol is now signed only on the branch display.",
+   "old_where": "70a94933 main.dart (HandoverPromptWatcher in builder Stack), 70a94933 core/router.dart:171, :254-259 (/protocol); removed by commit 3e872afe",
+   "customer_sees": "Now: nothing in the app.",
+   "visible": "silent",
+   "server": "yes (kiosk will not open the bike bay without a signed protocol: protocol_required, CLAUDE.md / CONTRACT §28)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Not present in either look"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Deliberate removal in commit 3e872afe ('protokol jen na displeji'), not a v2 difference; recorded so the change from 4.1.3 is visible.",
+   "evidence": "Deliberate removal in commit 3e872afe ('protokol jen na displeji'), not a v2 difference; recorded so the change from 4.1.3 is visible.",
+   "sources": [
+    "global-overlays-55"
+   ]
+  },
+  {
+   "id": "G-040",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-022 Unknown link page and router redirects",
+   "situation": "If a screen crashes while building, a friendly page with 'Zpět' and 'Domů' replaces the red error screen.",
+   "old_where": "main.dart:93-156 (ErrorWidget.builder)",
+   "customer_sees": "'Tady se něco pokazilo' with Zpět / Domů.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "main.dart:103-116 (MgV2.applied -> CrashViewV2 with the same goBack/goHome; falls back to the old widget if it fails)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same two actions.",
+   "evidence": "Same two actions.",
+   "sources": [
+    "global-overlays-57"
+   ]
+  },
+  {
+   "id": "G-041",
+   "step": "global-overlays",
+   "step_title": "App-wide overlays, dialogs and system screens (old look)",
+   "surface": "S-022 Unknown link page and router redirects",
+   "situation": "The kill-switch changes the look only at a safe moment (tab root with nothing pushed, after cold start, on resume) - never in the middle of a booking, edit or payment.",
+   "old_where": "core/v2/flag/v2_gate.dart:17-22, :66-104 (_location null when a page is pushed; applyPendingIfSafe)",
+   "customer_sees": "Nothing.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "core/v2/flag/v2_gate.dart (one gate for both looks, main.dart:496)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Protects running flows from a look switch in either direction.",
+   "evidence": "Protects running flows from a look switch in either direction.",
+   "sources": [
+    "global-overlays-58"
+   ]
+  }
+ ]
+}

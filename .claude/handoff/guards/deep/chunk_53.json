@@ -1,0 +1,236 @@
+{
+ "title": "Reservation edit: bike change, swap, gear, results - part 3 of 3 (G-652..G-662; mainly reservation_edit_extras_section.dart, reservation_edit_screen.dart, pickup_location_link.dart)",
+ "guards": [
+  {
+   "id": "G-652",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-122 Edit gear / extras section",
+   "situation": "A customer with a picked-up (active) booking, or on the move/swap tab, wants to change gear or paid add-ons; the gear section is not shown.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1722 (!_isActive && _tab != 'move' && _tab != 'swap'), _missingGearSizes returns [] for active lib/features/reservations/reservation_edit_screen.dart:551",
+   "customer_sees": "No 'Doplňky' card.",
+   "visible": "silent",
+   "server": "unknown (trg_protect_handover_columns protects handover columns; no general gear lock on active bookings found)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1571 (extras: !_isActive && !datesOrSwap ? extrasSection : null) -> lib/features/reservations/v2/res_edit_view_v2.dart:171"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-2-30"
+   ]
+  },
+  {
+   "id": "G-653",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-122 Edit gear / extras section",
+   "situation": "A children's bike (licence 'N') booking tries to add passenger gear or passenger boots; these options are not offered.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:331 (passengerSelected requires !isKids), :378, :406; isKids from lib/features/reservations/reservation_edit_screen.dart:1512",
+   "customer_sees": "Only driver boots are listed.",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:279-327 (_v2Addons: if (!isKids) around passenger gear and passenger boots)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same isKids condition in the v2 add-on list.",
+   "evidence": "Same isKids condition in the v2 add-on list.",
+   "sources": [
+    "reservation-edit-2-31"
+   ]
+  },
+  {
+   "id": "G-654",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-122 Edit gear / extras section",
+   "situation": "The bike (also after a bike change) stands at a self-service branch; only the narrower size ranges are offered (helmet S–3XL, jacket/pants/gloves max 4XL).",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:30-33, :96, :429-486 (gearSizesFor(..., selfService: selfService)); selfService from lib/features/reservations/reservation_edit_screen.dart:1513 (_effBranchType). Note: added on this branch after 4.1.3 (at 70a94933 gearSizesFor had no selfService), applies to both looks",
+   "customer_sees": "Size chips simply do not include XS/5XL/6XL.",
+   "visible": "silent",
+   "server": "unknown (_gear_ss_size_ok exists for gear-only rentals and the kiosk; no bookings-edit trigger found)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:149-154 (v2 passenger sheet rows), :100 (v2 boots sheet sizes), EditGearSizePicker -> lib/features/reservations/v2/res_edit_sizes_v2.dart (EditGearSizePickerV2 renders the same sizes list)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 receives the same size lists.",
+   "evidence": "v2 receives the same size lists.",
+   "sources": [
+    "reservation-edit-2-32"
+   ]
+  },
+  {
+   "id": "G-655",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-122 Edit gear / extras section",
+   "situation": "Delivery or collection to an address is selected; the customer is warned that sizes are needed for delivery.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:349-360 ('deliverySizeInfo' amber banner)",
+   "customer_sees": "Amber info banner at the top of the add-ons.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_extras_v2.dart:57-61 (MgStateBanner warn, same text)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition (deliveryInfo = pickup or return is delivery, Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_extras_section.dart:337).",
+   "evidence": "Same condition (deliveryInfo = pickup or return is delivery, Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_extras_section.dart:337).",
+   "sources": [
+    "reservation-edit-2-34"
+   ]
+  },
+  {
+   "id": "G-656",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-122 Edit gear / extras section",
+   "situation": "The customer taps the ticked passenger gear card; the add-on and all passenger sizes (including gloves) are removed at once, without a confirmation.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:384-395",
+   "customer_sees": "Card becomes unticked and the inline passenger sizes disappear.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:287-298 (_v2Addons, same closure)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closure.",
+   "evidence": "Same closure.",
+   "sources": [
+    "reservation-edit-2-36"
+   ]
+  },
+  {
+   "id": "G-657",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-122 Edit gear / extras section",
+   "situation": "The customer ticks 'Mám vlastní výbavu' (own gear); the rider's free size pickers are hidden and no rider sizes are saved.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:454-470 (checkbox icon check_box / check_box_outline_blank), :470 (pickers only if !ownGear); lib/features/reservations/reservation_edit_screen.dart:629 (_riderSize returns null when own gear)",
+   "customer_sees": "Checkbox ticked/empty next to 'Mám vlastní výbavu'; the four rider pickers vanish when ticked.",
+   "visible": "clear",
+   "server": "yes(trg_bookings_own_gear_normalize on INSERT; trg_sync_locker_code on own_gear/sizes)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_sections_v2.dart:201-256 (EditRiderHeaderV2, same onToggle) and lib/features/reservations/widgets/reservation_edit_extras_section.dart:470"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Logic is the same, but the v2 toggle shows MgIcons.check (a tick) when NOT ticked and MgIcons.checkCircle when ticked (res_edit_sections_v2.dart:241); the old look showed an empty box vs a ticked box. A customer who looks at pictures can read the unticked state as 'own gear selected'.",
+   "evidence": "Logic is the same, but the v2 toggle shows MgIcons.check (a tick) when NOT ticked and MgIcons.checkCircle when ticked (res_edit_sections_v2.dart:241); the old look showed an empty box vs a ticked box. A customer who looks at pictures can read the unticked state as 'own gear selected'.",
+   "sources": [
+    "reservation-edit-2-37"
+   ]
+  },
+  {
+   "id": "G-658",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-123 Boot size sheet (edit)",
+   "situation": "The customer taps driver or passenger boots; a size sheet opens with only the allowed sizes (children / self-service ranges); picking a size adds the boots, closing without a pick adds nothing; 'Odebrat doplněk' appears only when the boots are already ticked.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:89-137 (_showBootSizeSheet: sizes = gearSizesFor('boots', kids, selfService); onPick then pop; remove only if isSelected)",
+   "customer_sees": "White sheet 'Vyber velikost – Boty řidiče' with size chips and, if ticked, a red 'Odebrat doplněk'.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:98-101 -> features/booking/v2/sizes_sheet_v2.dart:87-137 (showSingleSizeSheetV2: same sizes, onPick + pop, footer only when onRemove != null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same sizes, same onPick/onRemove closures, remove passed only when isSelected. Only the title loses the 'Vyber velikost –' prefix.",
+   "evidence": "Same sizes, same onPick/onRemove closures, remove passed only when isSelected. Only the title loses the 'Vyber velikost –' prefix.",
+   "sources": [
+    "reservation-edit-2-43"
+   ]
+  },
+  {
+   "id": "G-659",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-124 Passenger gear sheet (edit)",
+   "situation": "The customer ticks passenger gear; a sheet asks for passenger helmet/jacket/pants sizes (allowed ranges only); each tap is saved at once; 'Odebrat doplněk' removes the add-on and clears all passenger sizes including gloves.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:142-216 (_showPassengerGearSheet; Hotovo closes; remove clears spolujezdec + 4 sizes)",
+   "customer_sees": "Sheet with three size pickers, green 'Hotovo' and red 'Odebrat doplněk'.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:144-164 -> lib/features/reservations/v2/res_edit_sizes_v2.dart:85-129 (showEditPassengerSheetV2: same callbacks, Hotovo = pop, remove = same closure)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same size lists and the same write/remove callbacks.",
+   "evidence": "Same size lists and the same write/remove callbacks.",
+   "sources": [
+    "reservation-edit-2-44"
+   ]
+  },
+  {
+   "id": "G-660",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-124 Passenger gear sheet (edit)",
+   "situation": "The customer closes the passenger sheet (Hotovo, swipe or back) without choosing any size; the add-on stays ticked and saving is blocked until a size is chosen inline.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_extras_section.dart:420-439 (inline passenger pickers while ticked) and lib/features/reservations/reservation_edit_screen.dart:589-599 ('gearPassenger')",
+   "customer_sees": "Inline 'VÝBAVA SPOLUJEZDCE' pickers, amber missing-sizes banner, grey save button.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_extras_section.dart:420-439 (EditPassengerLabelV2 + EditGearSizePickerV2) and lib/features/reservations/v2/res_edit_view_v2.dart:178, :194"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same inline pickers and the same save lock.",
+   "evidence": "Same inline pickers and the same save lock.",
+   "sources": [
+    "reservation-edit-2-45"
+   ]
+  },
+  {
+   "id": "G-661",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-125 Edit confirmation page",
+   "situation": "The confirmation shows where to pick up the bike (branch of the new bike after a change) and, where the branch has a gate, the gate notice.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1269-1275 (loadMotoPickupInfo / loadBookingPickupInfo) and core/widgets/pickup_location_link.dart:150-185 (branchHasGateProvider -> _GateNotice)",
+   "customer_sees": "'K vyzvednutí' link with branch and address, and the gate notice box when relevant.",
+   "visible": "clear",
+   "server": "yes(branch_has_gate RPC)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_states_v2.dart:86-123 (EditPickupCardV2 with the same branchHasGateProvider and texts)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and texts.",
+   "evidence": "Same provider and texts.",
+   "sources": [
+    "reservation-edit-2-48"
+   ]
+  },
+  {
+   "id": "G-662",
+   "step": "reservation-edit-2",
+   "step_title": "Reservation edit: bike change, swap, gear, results",
+   "surface": "S-126 Edit failure / uncertain-result sheets",
+   "situation": "Saving an edit or a date move fails (DB rule: trailer only at staffed branch, trailer taken, overlapping booking; network; other); the customer gets a sheet with a translated reason and 'Zkusit znovu' that reruns the same save.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_states.dart:176-199 (editFailureText + showEditFailure via PaymentErrorSheet); called from lib/features/reservations/reservation_edit_screen.dart:692 (_saveMove) and :1252 (_save)",
+   "customer_sees": "Bottom sheet 'Úpravu se nepodařilo uložit' with the reason and 'Zkusit znovu'. (At 70a94933 this was a toast with the raw error, old reservation_edit_screen.dart:611, :1049.)",
+   "visible": "clear",
+   "server": "yes(trg_check_booking_overlap, trg_check_trailer_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/payment/widgets/payment_error_sheet.dart:32-58 (v2 branch PaymentErrorSheetV2 with the same title, message, button, onButton)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same callers and texts; only the sheet chrome differs.",
+   "evidence": "Same callers and texts; only the sheet chrome differs.",
+   "sources": [
+    "reservation-edit-2-49"
+   ]
+  }
+ ]
+}

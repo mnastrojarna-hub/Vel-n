@@ -1,0 +1,475 @@
+{
+ "title": "Reservation edit: tabs, calendar, places, times, price - part 1 of 5 (G-557..G-570; mainly reservation_edit_screen.dart, edit_reservation_calendar.dart, reservation_edit_states.dart)",
+ "guards": [
+  {
+   "id": "G-557",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-110",
+   "situation": "The reservation cannot be loaded (no network, timeout 15 s) or does not exist; the screen shows an error with \"Try again\" and a back arrow instead of an endless spinner.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:143-166 (_loadBooking, _loadError psResLoadFail / psResNotFound), :1290-1300 (EditStateScaffold)",
+   "customer_sees": "Error state with the message, retry button and back arrow.",
+   "visible": "clear",
+   "server": "n/a (client read)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_states.dart:30 (EditStateScaffold returns EditStateV2 with the same onBack/error/onRetry)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Look switch happens inside EditStateScaffold with identical callbacks.",
+   "evidence": "Look switch happens inside EditStateScaffold with identical callbacks.",
+   "sources": [
+    "reservation-edit-1-03"
+   ]
+  },
+  {
+   "id": "G-558",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-110",
+   "situation": "The screen always re-reads the reservation from the database when opened, so an edit made on the web or another device is not overwritten with stale data.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:147 (ref.invalidate(reservationByIdProvider))",
+   "customer_sees": "Nothing (silent correctness guard).",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:143-217 shared loader, used before the v2 branch at :1546"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-04"
+   ]
+  },
+  {
+   "id": "G-559",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-110 / Reservation edit / Edit reservation",
+   "situation": "After the bike is physically picked up (DB status active) the customer can no longer change the start date, pickup place/time, motorcycle or paid extras; only end date, return place and return time stay editable.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:177 (_isActive = status=='active'); hidden sections :1675,1718,1722; start lock :782-790",
+    "lib/features/reservations/reservation_edit_screen.dart:178 _isActive (DB status), :772-778 cannotChangePickupActive",
+    "lib/features/reservations/reservation_edit_screen.dart:173-178 (_isActive = res.status == \"active\"), :1675-1723 (pickup, moto, extras sections hidden when _isActive), :772-779 (save refuses a changed start: cannotChangePickupActive), :835-866 (pickup_time/start/moto not written)"
+   ],
+   "customer_sees": "Pickup, motorcycle and extras sections are absent; header says \"Aktivní\"; a changed start gives toast cannotChangePickupActive.",
+   "visible": "clear",
+   "server": [
+    "partly: yes(trg_guard_booking_delivery active_pickup_locked for pickup place/time, SUPABASE_BACKEND_STATE_3.md:116); start_date/moto on the direct UPDATE path: unknown",
+    "yes(server locks start and bike at status active)",
+    "yes(active_pickup_time_locked in _apply_booking_changes_core / process-payment; direct table update path not verified)"
+   ],
+   "v2_entry_points": [
+    "v2 edit sections",
+    "v2 edit (ResEditV2View)"
+   ],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1564-1571 (pickupPlace, pickupTime, moto, extras = null when _isActive); lib/features/reservations/v2/res_edit_header_v2.dart:83 (status Aktivní/Nadcházející in header)",
+    "lib/features/reservations/reservation_edit_screen.dart:1560-1572 (sections null when _isActive)",
+    "lib/features/reservations/reservation_edit_screen.dart:1564-1571 (pickupPlace / pickupTime / moto / extras passed as null when _isActive); lib/features/reservations/v2/res_edit_view_v2.dart:147-171"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _isActive flag and the same section nulling; save guard is the shared _save.",
+   "evidence": "Same _isActive flag and the same section nulling; save guard is the shared _save.",
+   "sources": [
+    "reservation-edit-1-05",
+    "mx-order-56",
+    "mx-rental-24"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-56",
+     "situation": "After handover the start date cannot change and pickup place/time, bike and extras are not offered."
+    },
+    {
+     "source": "mx-rental-24",
+     "situation": "The edit screen locks start date, pickup time, pickup place, bike change and extras once the bike is handed over (DB status active); only the end, return place and return time can change."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-1-05": "clear",
+    "mx-order-56": "small-text",
+    "mx-rental-24": "silent"
+   }
+  },
+  {
+   "id": "G-560",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-110",
+   "situation": "Before any save the app re-checks that the reservation in the DB is still the one the price was computed against (dates, pickup time, bike, price, late discount, status); if not, it reloads and refuses.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:441-473 (_baselineStillValid), called at :1097 (surcharge) and :1150 (no surcharge)",
+   "customer_sees": "Toast editStaleTitle / editStaleReloaded and the screen reloads.",
+   "visible": "small-text",
+   "server": "yes(process-payment refuses a stale surcharge with 409 stale_booking per the comment at Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1116-1118); direct UPDATE path: no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193 onTap: onSave = the same saveAction (_save)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-06"
+   ]
+  },
+  {
+   "id": "G-561",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-110 / S-126 Edit failure / uncertain-result sheets / Edit reservation",
+   "situation": "A previous paid change / surcharge of this reservation is still being confirmed; a second change or second surcharge is refused.",
+   "old_where": [
+    "lib/features/reservations/widgets/reservation_edit_states.dart:155-175 (blockIfSurchargePending), called at lib/features/reservations/reservation_edit_screen.dart:1102 and :1157",
+    "lib/features/reservations/reservation_edit_screen.dart:1102 (edit with surcharge, before payment) and :1157 (edit without surcharge, before the write) -> lib/features/reservations/widgets/reservation_edit_states.dart:232-252 (blockIfSurchargePending)",
+    "lib/features/reservations/reservation_edit_screen.dart:1089-1093 and :1145-1148 (blockIfSurchargePending); lib/features/reservations/widgets/reservation_edit_states.dart:165-188"
+   ],
+   "customer_sees": "Error sheet psPendingTitle / pdEditCompletingTitle / pdSwapCompletingTitle with button to open the reservation.",
+   "visible": "clear",
+   "server": [
+    "yes(per the comment at Motogo-app-main/motogo-app-flutter/lib/features/reservations/widgets/reservation_edit_states.dart:150-153: process-payment payment_in_progress / stale_booking; not re-read in edge code)",
+    "yes(per code comment: payment_in_progress / stale_booking; not re-verified in SQL)",
+    "yes(process-payment payment_in_progress / stale_booking)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA, v2 swap confirm"
+   ],
+   "v2_where": [
+    "lib/features/payment/widgets/payment_error_sheet.dart:32 (v2 rendering of the same sheet); reached via the shared _save",
+    "lib/features/reservations/reservation_edit_screen.dart:1582 (same _save via saveAction) and payment_error_sheet.dart:32-58",
+    "Same _save and SwapMotoSection._confirm; PaymentErrorSheet draws its own v2 face"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-07",
+    "reservation-edit-2-51",
+    "mx-rental-41"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-2-51",
+     "situation": "A previous paid change of this booking is still being verified or completed; saving another edit (before the surcharge payment and before a free/refund write) is blocked so it cannot be overwritten or paid twice."
+    },
+    {
+     "source": "mx-rental-41",
+     "situation": "A second surcharge / change is blocked while a previous paid change of the same booking is still being verified or written."
+    }
+   ]
+  },
+  {
+   "id": "G-562",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-111 / S-121 Swap bike tab (Výměna) / S-110 / Edit reservation",
+   "situation": "A customer whose booking is not reserved/active or not paid wants to swap the bike mid-rental; the 'Výměna motorky' tab is not offered. Opening the edit through the link ?tab=swap also only lands on the swap tab under the same condition.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1419-1420 (canSwap), :1644-1648",
+    "lib/features/reservations/reservation_edit_screen.dart:1419-1420 (canSwap = (status reserved || active) && paymentStatus == 'paid'), v1 tab lib/features/reservations/reservation_edit_screen.dart:1644-1648 (same at 70a94933 reservation_edit_screen.dart:1250-1255); deep link lib/features/reservations/reservation_edit_screen.dart:199-205",
+    "lib/features/reservations/reservation_edit_screen.dart:133-141 (read query), :199-204",
+    "lib/features/reservations/reservation_edit_screen.dart:1419-1420 (canSwap), :1644-1648; deep link ?tab=swap honoured only under the same condition :199-205"
+   ],
+   "customer_sees": "No swap tab; the link opens the normal 'Prodloužit' tab.",
+   "visible": "silent",
+   "server": [
+    "yes(split_booking_moto_swap, SUPABASE_BACKEND_STATE_3.md:82)",
+    "yes(split_booking_moto_swap: wrong_status / not_paid)",
+    "yes(split_booking_moto_swap validates the swap server-side, SUPABASE_BACKEND_STATE_3.md:82)",
+    "yes(split_booking_moto_swap)"
+   ],
+   "v2_entry_points": [
+    "v2 edit segmented control, ?tab=swap deep link from the paid-change banner"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:138 (MgSegment swap only if canSwap)",
+    "lib/features/reservations/v2/res_edit_view_v2.dart:138 (if (canSwap) MgSegment 'swap') with canSwap from lib/features/reservations/reservation_edit_screen.dart:1558; deep link handled in the shared _loadBooking",
+    "lib/features/reservations/v2/res_edit_view_v2.dart:140 (value: tab from the same State)",
+    "lib/features/reservations/reservation_edit_screen.dart:1558 canSwap -> lib/features/reservations/v2/res_edit_view_v2.dart:138; deep link handled in the shared State lib/features/reservations/reservation_edit_screen.dart:199-205"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag.",
+   "evidence": "The only v2 ways to reach the swap tab are the segment (shown only if canSwap) and the shared deep-link code. The v2 chooser grid (res_edit_chooser_v2.dart) is not used anywhere in lib/ (grep finds no ResEditChooserV2 use).",
+   "sources": [
+    "reservation-edit-1-12",
+    "reservation-edit-2-13",
+    "reservation-edit-1-08",
+    "mx-rental-26"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-12",
+     "situation": "The \"Výměna motorky\" tab is offered only for reserved/active AND paid reservations."
+    },
+    {
+     "source": "reservation-edit-1-08",
+     "situation": "Deep link ?tab=swap (from \"Vybrat jinou motorku\" after an unwritten swap) opens the swap tab only if the reservation is reserved/active AND paid; otherwise the default extend tab opens."
+    },
+    {
+     "source": "mx-rental-26",
+     "situation": "Bike swap in the middle of the rental is offered only for status reserved/active AND payment paid (not refund_pending / partial_refund / unpaid)."
+    }
+   ]
+  },
+  {
+   "id": "G-563",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-110 / S-125 Edit confirmation page",
+   "situation": "After a successful save the edit form is replaced by a confirmation page, so the same change cannot be submitted twice; the way out goes to the reservations list (go, not back into the form).",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1258-1277 (_showConfirmation), :1281-1288",
+    "lib/features/reservations/reservation_edit_screen.dart:1259-1288 (_showConfirmation sets _confirmed; build returns EditConfirmPage), lib/features/reservations/widgets/reservation_edit_confirm_page.dart:58 and :72 (context.go(Routes.reservations))"
+   ],
+   "customer_sees": "Big tick (or refund icon), title, message, 'Zpět na rezervace' button and a close ✕.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/widgets/reservation_edit_confirm_page.dart:22 (v2 branch of the same EditConfirmPage)",
+    "lib/features/reservations/widgets/reservation_edit_confirm_page.dart:22-29 -> lib/features/reservations/v2/res_edit_states_v2.dart:49-79 (EditConfirmV2: onDone = context.go(Routes.reservations) for button and ✕)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The _confirmed switch is evaluated before the v2 branch.",
+   "evidence": "Same _confirmed switch; v2 has the same single exit. Neither look adds a PopScope; system back pops the edit route in both.",
+   "sources": [
+    "reservation-edit-1-09",
+    "reservation-edit-2-46"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-09",
+     "situation": "After a successful save the form is replaced by a confirmation page, so the same change cannot be submitted twice by tapping again."
+    }
+   ]
+  },
+  {
+   "id": "G-564",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-111 / Reservation edit (tabs) / Edit reservation",
+   "situation": "The \"Posunout\" (free reschedule) tab is offered only for a reservation with status reserved, fully paid, and whose start is not in the past; otherwise the tab is simply missing.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1416-1418 (canMove), :1638-1642",
+    "lib/features/reservations/reservation_edit_screen.dart:1416-1420 canMove/canSwap, :1638-1650",
+    "lib/features/reservations/reservation_edit_screen.dart:1416-1418 (canMove), :1636-1642 (tab shown only if canMove)"
+   ],
+   "customer_sees": "Tab absent (no explanation why).",
+   "visible": "silent",
+   "server": [
+    "yes(reschedule_booking_free requires payment_status='paid' and returns past_date, SUPABASE_BACKEND_STATE_3.md:50,207)",
+    "yes(reschedule_booking_free wrong_status/not_paid/term_started; split_booking_moto_swap)",
+    "yes(reschedule_booking_free)"
+   ],
+   "v2_entry_points": [
+    "v2 edit segments",
+    "v2 edit segmented control"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:137 (MgSegment move only if canMove, canMove passed from lib/features/reservations/reservation_edit_screen.dart:1557)",
+    "lib/features/reservations/v2/res_edit_view_v2.dart:137-138",
+    "lib/features/reservations/reservation_edit_screen.dart:1416 same canMove passed to lib/features/reservations/v2/res_edit_view_v2.dart:137 (segment only if canMove)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Identical condition, identical (silent) presentation.",
+   "evidence": "Identical condition, identical (silent) presentation.",
+   "sources": [
+    "reservation-edit-1-11",
+    "mx-order-55",
+    "mx-rental-25"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-55",
+     "situation": "\"Posunout\" is offered only for reserved+paid bookings whose start is not past; \"Výměna\" only for reserved/active+paid."
+    },
+    {
+     "source": "mx-rental-25",
+     "situation": "Free date shift (\"Posunout\") is offered only for a paid, not yet handed-over booking (status reserved) and at the latest on the start day."
+    }
+   ]
+  },
+  {
+   "id": "G-565",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-111",
+   "situation": "Switching tabs throws away a half-made date selection and the shorten direction, so a selection made on one tab is never saved under another tab.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1421-1424 (selectExtend/Shorten/Move/Swap reset _newStart/_newEnd/_shortenDir)",
+   "customer_sees": "Calendar returns to the original dates.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:109-121 (_select calls the same closures; re-tap on the active tab ignored), :141"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same closures.",
+   "evidence": "Same closures.",
+   "sources": [
+    "reservation-edit-1-13"
+   ]
+  },
+  {
+   "id": "G-566",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-111 / S-121 Swap bike tab (Výměna)",
+   "situation": "On the swap tab the normal save button, the calendar, the place/time, bike and gear sections are hidden so the customer cannot mix a swap with another change.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1652-1656, :1803-1804 (CTA only if _tab != 'swap')",
+    "lib/features/reservations/reservation_edit_screen.dart:1652-1656 (swap section vs calendar), :1675/:1702/:1718/:1722 (sections only when tab != swap), :1804 (main CTA only when tab != swap)"
+   ],
+   "customer_sees": "Only the swap content and its own confirm button.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1562-1563,1577 (swap only / saveLabel null on swap); lib/features/reservations/v2/res_edit_view_v2.dart:181 (no dock when saveLabel == null)",
+    "lib/features/reservations/reservation_edit_screen.dart:1562-1563 (swap / calendar), :1564-1571 (!datesOrSwap), :1577 (saveLabel null on swap) -> lib/features/reservations/v2/res_edit_view_v2.dart:180-198 (no dock when saveLabel == null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Swap section internals (license filter, availability, swap date) are a separate surface (reservation_swap_section.dart) and are not inventoried in this bucket.",
+   "evidence": "Same tab conditions; v2 dock is not built on the swap tab.",
+   "sources": [
+    "reservation-edit-1-14",
+    "reservation-edit-2-29"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-14",
+     "situation": "On the swap tab the general save button, calendar and place/price sections are not shown; the swap has its own section and button."
+    }
+   ]
+  },
+  {
+   "id": "G-567",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-111",
+   "situation": "On the move tab only the dates can change: pickup, return, motorcycle, extras and price card are hidden (move keeps length and price).",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1675,1702,1718,1722,1737 (all exclude move)",
+   "customer_sees": "Only calendar + green \"free\" note + button.",
+   "visible": "clear",
+   "server": "yes(reschedule_booking_free keeps price, returns length_mismatch)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1547 (datesOrSwap) and :1564-1571 nulls; lib/features/reservations/v2/res_edit_view_v2.dart:127 (showPrice excludes move)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same conditions.",
+   "evidence": "Same conditions.",
+   "sources": [
+    "reservation-edit-1-15"
+   ]
+  },
+  {
+   "id": "G-568",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-112 / Reservation edit calendar",
+   "situation": "Customer taps a day in the past; it is refused with a message.",
+   "old_where": [
+    "lib/features/reservations/widgets/edit_reservation_calendar.dart:106-109 (_onDayTap → cannotSelectPast); cells painted dark :382-384",
+    "lib/features/reservations/widgets/edit_reservation_calendar.dart:73, :101-..."
+   ],
+   "customer_sees": "Past days dark; snackbar \"cannotSelectPast\" on tap.",
+   "visible": "clear",
+   "server": [
+    "yes(reschedule_booking_free past_date for move; direct UPDATE: unknown)",
+    "yes(overlap triggers)"
+   ],
+   "v2_entry_points": [
+    "v2 edit calendar"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_calendar_v2.dart:50-52,68 (past → TripDayKind.past, enabled false); lib/core/v2/calendar/trip_day_cell.dart:160 (onTap null when disabled)",
+    "lib/features/reservations/widgets/edit_reservation_calendar.dart:295-305 (v2 uses the same _onDayTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Block holds (the day cannot be picked). Difference: in v2 the tap does nothing and the snackbar text is no longer shown; the past day is drawn as a disabled past day instead. Picture is at least as clear, the explanatory text on tap is gone.",
+   "evidence": "Block holds (the day cannot be picked). Difference: in v2 the tap does nothing and the snackbar text is no longer shown; the past day is drawn as a disabled past day instead. Picture is at least as clear, the explanatory text on tap is gone.",
+   "sources": [
+    "reservation-edit-1-16",
+    "mx-order-59"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-59",
+     "situation": "Occupied and past days cannot be chosen in the edit calendar."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-1-16": "clear",
+    "mx-order-59": "silent"
+   }
+  },
+  {
+   "id": "G-569",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-112 / Edit reservation – calendar",
+   "situation": "Customer taps a day occupied by another booking (or pending) of this motorcycle; it is refused.",
+   "old_where": [
+    "lib/features/reservations/widgets/edit_reservation_calendar.dart:110-113 (dayOccupied), cell :386-389",
+    "lib/features/reservations/widgets/edit_reservation_calendar.dart:106-113 (cannotSelectPast / dayOccupied snack bar)"
+   ],
+   "customer_sees": "Day dark (same colour as own reservation days in extend mode); snackbar \"dayOccupied\" on tap.",
+   "visible": "clear",
+   "server": [
+    "yes(trg_check_booking_overlap, SUPABASE_BACKEND_STATE_4.md:85)",
+    "yes(trg_check_booking_overlap on save)"
+   ],
+   "v2_entry_points": [
+    "v2 calendar (EditReservationCalendarV2View)"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_calendar_v2.dart:51,55,68 (busy, enabled false) + legend busy :74-77",
+    "lib/features/reservations/v2/res_edit_calendar_v2.dart:50-69 (past / busy cells drawn greyed or busy and enabled:false) + lib/core/v2/calendar/trip_day_cell.dart:160 (onTap null when disabled)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 draws occupied days as \"busy\" with a legend and disables them; the tap snackbar is no longer shown (tap is swallowed). Visual distinction from own days is clearer than old.",
+   "evidence": "v2 draws occupied days as \"busy\" with a legend and disables them; the tap snackbar is no longer shown (tap is swallowed). Visual distinction from own days is clearer than old.",
+   "sources": [
+    "reservation-edit-1-17",
+    "mx-rental-27"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-27",
+     "situation": "Tapping a past day, or an occupied day outside the own booking, is refused."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-1-17": "clear",
+    "mx-rental-27": "small-text"
+   },
+   "notes": [
+    "mx-rental-27: v2 blocks the tap on the cell itself (the day is visibly drawn as past / busy) instead of showing a snack bar; still blocked, explained by the picture and the legend."
+   ]
+  },
+  {
+   "id": "G-570",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-112",
+   "situation": "Running rental (active): a tap before the original start is ignored — an active rental can only be extended at the end.",
+   "old_where": "lib/features/reservations/widgets/edit_reservation_calendar.dart:173 (only !isActive may extend start); falls through silently",
+   "customer_sees": "Nothing happens.",
+   "visible": "silent",
+   "server": "start change also refused at save: Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:782-790",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same State handles taps: lib/features/reservations/widgets/edit_reservation_calendar.dart:306 (onDayTap: _onDayTap passed to v2 view)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "reservation-edit-1-18"
+   ]
+  }
+ ]
+}

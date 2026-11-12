@@ -1,0 +1,310 @@
+{
+ "title": "Profile tab and settings - part 1 of 3 (G-724..G-736; mainly profile_screen.dart, date_dropdown_field.dart, loyalty_rank_card.dart)",
+ "guards": [
+  {
+   "id": "G-724",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-147 Profile",
+   "situation": "When the profile screen opens, the cached profile is thrown away and reloaded so that a stale or empty cache (right after registration) is never shown or edited.",
+   "old_where": "lib/features/profile/profile_screen.dart:73-83 (initState: ref.invalidate(profileProvider), ref.invalidate(loyaltyStatusProvider))",
+   "customer_sees": "A short loading state, then fresh data.",
+   "visible": "silent",
+   "server": "no (client cache behaviour)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/profile_screen.dart:73-83 (same State object feeds ProfileHubV2View at :237)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "initState runs before the MgV2.on branch at :234, so v2 gets the same reload. v2 adds pull-to-refresh that calls the same invalidate (profile_hub_v2.dart:120-125).",
+   "evidence": "initState runs before the MgV2.on branch at :234, so v2 gets the same reload. v2 adds pull-to-refresh that calls the same invalidate (profile_hub_v2.dart:120-125).",
+   "sources": [
+    "profile-02"
+   ]
+  },
+  {
+   "id": "G-725",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-147 Profile",
+   "situation": "While the profile is still loading the menu stays usable but personal data cannot be edited yet.",
+   "old_where": "lib/features/profile/profile_screen.dart:197-209 (loading -> _buildProfile(loading:true); ready = !loading && error == null && _loaded) and :336-340 (LinearProgressIndicator)",
+   "customer_sees": "A thin green progress bar above the menu.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_hub_v2.dart:141 (header skeleton) and profile_personal_v2.dart:133 (summary skeleton), ready passed at profile_screen.dart:243"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same ready flag. v2 shows skeleton bars in the header and the personal card instead of the progress bar, which is at least as visible. Note: in released 4.1.3 the whole screen was a spinner (git show 70a94933, profile_screen.dart loading branch); the menu-while-loading behaviour is a branch change in BOTH looks.",
+   "evidence": "Same ready flag. v2 shows skeleton bars in the header and the personal card instead of the progress bar, which is at least as visible. Note: in released 4.1.3 the whole screen was a spinner (git show 70a94933, profile_screen.dart loading branch); the menu-while-loading behaviour is a branch change in BOTH looks.",
+   "sources": [
+    "profile-03"
+   ]
+  },
+  {
+   "id": "G-726",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-147 Profile",
+   "situation": "The profile fails to load (offline, server error); the customer gets an error panel with a retry instead of an empty form.",
+   "old_where": "lib/features/profile/profile_screen.dart:341-350 (MgErrorView compact, what=eoProfileLoadFail, onRetry invalidates profileProvider)",
+   "customer_sees": "A compact error card \"Profile could not be loaded\" with a Retry button above the menu.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_hub_v2.dart:144-148 (same MgErrorView, same onRetry from profile_screen.dart:245)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget, same text key, same retry closure.",
+   "evidence": "Same widget, same text key, same retry closure.",
+   "sources": [
+    "profile-04"
+   ]
+  },
+  {
+   "id": "G-727",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-147 Profile",
+   "situation": "The loyalty rank card (discount 1-20 % for app bookings) is hidden until the backend returns a rank, so no wrong discount is shown.",
+   "old_where": "lib/features/loyalty/loyalty_rank_card.dart:17-18 (status == null -> SizedBox.shrink), used at lib/features/profile/profile_screen.dart:353",
+   "customer_sees": "Nothing until the rank is known.",
+   "visible": "silent",
+   "server": "yes(loyalty status computed server-side; the card only displays it)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_header_v2.dart:107 (_RankStrip only if status != null) and :59 (avatar tap to ranks only if status != null)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider (loyaltyStatusProvider) and same null check.",
+   "evidence": "Same provider (loyaltyStatusProvider) and same null check.",
+   "sources": [
+    "profile-05"
+   ]
+  },
+  {
+   "id": "G-728",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-147 Profile",
+   "situation": "Back from the profile goes to the previous screen or Home, never out of the app.",
+   "old_where": "lib/features/profile/profile_screen.dart:307 (MgBackArrow -> context.backOr(Routes.home))",
+   "customer_sees": "A back arrow in the dark header.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_header_v2.dart:68-73 (MgV2Back -> onBack ?? backOr(Routes.home))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same target. When the profile is pushed over another page v2 uses pfPushedBack (profile_booking_fix_v2.dart:36-41) which goes back or to /profile.",
+   "evidence": "Same target. When the profile is pushed over another page v2 uses pfPushedBack (profile_booking_fix_v2.dart:36-41) which goes back or to /profile.",
+   "sources": [
+    "profile-07"
+   ]
+  },
+  {
+   "id": "G-729",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form",
+   "situation": "The customer taps \"Osobní údaje\" before the profile has loaded (or after a load error); the form does not open, because an empty form saved would wipe the data.",
+   "old_where": "lib/features/profile/profile_screen.dart:211-225 (onPersonal: if !ready -> error snack eoProfileLoadFail with retry, or toast eoProfileStillLoading; return) and :365 (form only if _personalExpanded && ready)",
+   "customer_sees": "A toast \"Profile is still loading - give it a moment\" or an error snack with Retry; the form stays closed.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_personal_v2.dart:87 (open = expanded && ready) and :101 (Upravit button onTap: onToggle = onPersonal passed at profile_screen.dart:246); profile_hub_v2.dart:88 (booking-fix auto-open also calls widget.onTogglePersonal and only when widget.ready, :84)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Every v2 way to open the form (Upravit button, unreachable booking-fix auto-open) goes through the same onPersonal closure and the same ready condition. This guard is a branch addition (4.1.3 toggled the form without the ready check, git diff 70a94933), present in both looks.",
+   "evidence": "Every v2 way to open the form (Upravit button, unreachable booking-fix auto-open) goes through the same onPersonal closure and the same ready condition. This guard is a branch addition (4.1.3 toggled the form without the ready check, git diff 70a94933), present in both looks.",
+   "sources": [
+    "profile-09"
+   ]
+  },
+  {
+   "id": "G-730",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form / Profile",
+   "situation": "The customer wants to change the e-mail address; the e-mail field is read-only (it is the login identity).",
+   "old_where": [
+    "lib/features/profile/profile_screen.dart:409-410 (ProfileField(readOnly: true)); _save never sends email (lib/features/profile/profile_screen.dart:137-150); lib/features/profile/widgets/profile_field.dart:24-26",
+    "lib/features/profile/profile_screen.dart:410 (readOnly: true)"
+   ],
+   "customer_sees": "A greyed field that cannot be typed into.",
+   "visible": "silent",
+   "server": [
+    "yes(_trg_guard_customer_profile_columns keeps profiles.email on a direct customer write, SUPABASE_BACKEND_STATE_4.md:30)",
+    "yes(_guard_customer_profile_columns keeps email)"
+   ],
+   "v2_entry_points": [
+    "v2 personal form"
+   ],
+   "v2_where": [
+    "lib/features/profile/v2/profile_personal_form_v2.dart:404-417 (TextField readOnly + lock icon + note v2PfEmailNote) and profile_personal_v2.dart:197 (summary with lock icon)",
+    "lib/features/profile/v2/profile_personal_form_v2.dart:75-76 (readOnly: true)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same controller, still read-only; v2 is clearer (lock icon and an explanatory note).",
+   "evidence": "Same controller, still read-only; v2 is clearer (lock icon and an explanatory note).",
+   "sources": [
+    "profile-10",
+    "mx-start-58"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-58",
+     "situation": "The e-mail cannot be edited in the profile."
+    }
+   ]
+  },
+  {
+   "id": "G-731",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form / Profile",
+   "situation": "The customer tries to enter a date of birth that makes them younger than 18; the year list simply ends at (this year - 18). An already saved younger year stays in the list.",
+   "old_where": [
+    "lib/features/profile/profile_screen.dart:416-427 (DateDropdownField lastYear = _dob.year if > now-18 else now-18); lib/core/widgets/date_dropdown_field.dart:105-116 (range widened to the saved year)",
+    "lib/features/profile/profile_screen.dart:416-427"
+   ],
+   "customer_sees": "No year under 18 is offered.",
+   "visible": "silent",
+   "server": [
+    "yes(_docs_gate_checklist 18+ withholds door codes; trg_release_codes_on_profile_verify re-checks on date_of_birth change, SUPABASE_BACKEND_STATE_3.md:187, _4.md:190)",
+    "yes for codes (age_ok in _docs_gate_checklist)"
+   ],
+   "v2_entry_points": [
+    "v2 personal form"
+   ],
+   "v2_where": [
+    "lib/features/profile/profile_screen.dart:254-257 (dobFirstYear/dobLastYear, same formula) -> lib/features/profile/v2/profile_personal_form_v2.dart:419-426 (same DateDropdownField) -> date_dropdown_field.dart:192-212 (DateFieldRowV2 gets the same years list)",
+    "lib/features/profile/profile_screen.dart:252-257 (same range passed to PfFormData)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same numbers, same widget; v2 only swaps the three dropdowns for sheets fed by the same years list (features/auth/v2/date_field_v2.dart:130). Note: 4.1.3 allowed down to 15 years (lastYear = now-15); the 18 limit is a branch change in both looks.",
+   "evidence": "Same numbers, same widget; v2 only swaps the three dropdowns for sheets fed by the same years list (features/auth/v2/date_field_v2.dart:130). Note: 4.1.3 allowed down to 15 years (lastYear = now-15); the 18 limit is a branch change in both looks.",
+   "sources": [
+    "profile-11",
+    "mx-start-57"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-57",
+     "situation": "The birth-date picker does not offer years that would make the customer younger than 18."
+    }
+   ]
+  },
+  {
+   "id": "G-732",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form",
+   "situation": "The customer picks a driving-licence expiry: years start at the current year (an already saved expired year stays visible so it can be corrected).",
+   "old_where": "lib/features/profile/profile_screen.dart:430-436 (firstYear = now.year, lastYear = now+20) and date_dropdown_field.dart:105-106",
+   "customer_sees": "Only current and future years are offered.",
+   "visible": "silent",
+   "server": "yes(_docs_gate_checklist checks licence validity before door codes are released, SUPABASE_BACKEND_STATE_3.md:187)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/profile_screen.dart:259-262 (licFirstYear = expired saved year or now; licLastYear = now+20) -> profile_personal_form_v2.dart:435-441"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The effective list is identical: the old widget itself widens the range to a saved past year (date_dropdown_field.dart:105), v2 passes that year explicitly.",
+   "evidence": "The effective list is identical: the old widget itself widens the range to a saved past year (date_dropdown_field.dart:105), v2 passes that year explicitly.",
+   "sources": [
+    "profile-12"
+   ]
+  },
+  {
+   "id": "G-733",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form",
+   "situation": "The customer can choose only the licence categories AM, A1, A2, A and B.",
+   "old_where": "lib/features/profile/profile_screen.dart:70 (_licCategoryOptions) and :445-492 (_categoryPicker chips)",
+   "customer_sees": "Five toggle chips.",
+   "visible": "silent",
+   "server": "yes(set_my_license_group keeps only AM/A1/A2/A/B/N, SUPABASE_BACKEND_STATE_3.md:131)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/profile_screen.dart:263-273 (licCategories, licOptions, onToggleCategory) -> profile_personal_form_v2.dart:449-452 (PfLicenceChip onTap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same option list and same set; the summary chips (profile_personal_v2.dart:207-209) are display-only.",
+   "evidence": "Same option list and same set; the summary chips (profile_personal_v2.dart:207-209) are display-only.",
+   "sources": [
+    "profile-13"
+   ]
+  },
+  {
+   "id": "G-734",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form",
+   "situation": "Saving: the licence group is saved by a separate RPC; if that RPC fails the app does NOT say \"Saved\" but shows an error with Retry (the group decides door-code release).",
+   "old_where": "lib/features/profile/profile_screen.dart:151-167 (groupError -> showErrorSnack eoLicenseGroupNotSaved, onRetry: _save)",
+   "customer_sees": "An error snack \"We saved your details, but not your licence category\" with Retry.",
+   "visible": "small-text",
+   "server": "yes(set_my_license_group SECURITY DEFINER; door-code gate reads license_group)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/profile_personal_form_v2.dart:455 (MgBtnInk onTap: d.onSave) with onSave: _save at lib/features/profile/profile_screen.dart:274"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _save. Branch addition (4.1.3 swallowed the RPC error and said Saved); present in both looks.",
+   "evidence": "Same _save. Branch addition (4.1.3 swallowed the RPC error and said Saved); present in both looks.",
+   "sources": [
+    "profile-14"
+   ]
+  },
+  {
+   "id": "G-735",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form",
+   "situation": "Saving fails (offline, server error) or the session has expired; an expired session signs the customer out, other errors show a message with Retry.",
+   "old_where": "lib/features/profile/profile_screen.dart:169-175 (handleAuthError -> signOut; else showErrorSnack eoProfileSaveFail with Retry); lib/core/auth_guard.dart:52-63",
+   "customer_sees": "An error snack with Retry, or the login screen.",
+   "visible": "small-text",
+   "server": "yes(profiles RLS UPDATE id = auth.uid(), SUPABASE_BACKEND_STATE_5.md:44)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same _save via lib/features/profile/profile_screen.dart:274 and profile_personal_form_v2.dart:455"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "profile-15"
+   ]
+  },
+  {
+   "id": "G-736",
+   "step": "profile",
+   "step_title": "Profile tab and settings",
+   "surface": "S-148 Personal info form",
+   "situation": "Save is pressed with no logged-in user (session gone between frames); nothing is written.",
+   "old_where": "lib/features/profile/profile_screen.dart:128-129 (if user == null return)",
+   "customer_sees": "Nothing happens.",
+   "visible": "silent",
+   "server": "yes(RLS)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same _save via lib/features/profile/profile_screen.dart:274"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "profile-16"
+   ]
+  }
+ ]
+}

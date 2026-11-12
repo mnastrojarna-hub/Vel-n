@@ -1,0 +1,210 @@
+{
+ "title": "SOS screens and sheets - part 5 of 5 (G-715..G-723; mainly sos_detail_screen.dart, sos_provider.dart, sos_here_address.dart)",
+ "guards": [
+  {
+   "id": "G-715",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-188",
+   "situation": "'Where you are now' fills the address only with location permission and GPS; otherwise it explains why.",
+   "old_where": "lib/features/sos/sos_here_address.dart:110-136",
+   "customer_sees": "Row with spinner, then address or an explanation snackbar.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_here_address.dart:170-171 (SosHereAddressV2 with the same _tap)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same state class.",
+   "evidence": "Same state class.",
+   "sources": [
+    "sos-56"
+   ]
+  },
+  {
+   "id": "G-716",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189",
+   "situation": "Incident state still loading or failed: the screen says so with Retry and Call instead of claiming 'resolved / all good'.",
+   "old_where": "lib/features/sos/sos_detail_screen.dart:40-55; 70a94933 showed the done view on error (sos_detail_screen.dart@70a94933 error: _doneView)",
+   "customer_sees": "Loading view or error view with call button, both with back arrow.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Built before the MgV2 branch (shared MgStateScaffold / MgErrorView)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same code for both looks.",
+   "evidence": "Same code for both looks.",
+   "sources": [
+    "sos-57"
+   ]
+  },
+  {
+   "id": "G-717",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189 / SOS – incident detail",
+   "situation": "'Replacement bike' is offered only for an active incident of type accident_major, breakdown_major or theft.",
+   "old_where": [
+    "lib/features/sos/sos_detail_screen.dart:471; SosIncident.offersReplacement sos_provider.dart:117-118",
+    "lib/features/sos/sos_detail_screen.dart:471-489 (inc.isActive && offersReplacement / isMinorContinue); lib/features/sos/sos_provider.dart:118-125"
+   ],
+   "customer_sees": "Button absent otherwise.",
+   "visible": "silent",
+   "server": [
+    "yes (sos_swap_bookings refuses closed incidents)",
+    "unknown"
+   ],
+   "v2_entry_points": [
+    "v2 incident view"
+   ],
+   "v2_where": [
+    "sos_detail_screen.dart:338 (onReplacement null unless same condition) -> sos_incident_view_v2.dart:129-130",
+    "lib/features/sos/sos_detail_screen.dart:338-339 (same conditions -> null) -> lib/features/sos/v2/sos_incident_view_v2.dart:129-130"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "sos-58",
+    "mx-rental-56"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-56",
+     "situation": "\"Náhradní motorka\" is offered only for an open theft / major accident / major breakdown; \"Jedu dál\" only for an open minor accident / minor breakdown."
+    }
+   ]
+  },
+  {
+   "id": "G-718",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189",
+   "situation": "'I continue riding' is offered only for an active minor incident (accident_minor / breakdown_minor).",
+   "old_where": "lib/features/sos/sos_detail_screen.dart:484; isMinorContinue sos_provider.dart:122-123",
+   "customer_sees": "Button absent otherwise.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_detail_screen.dart:339 -> sos_incident_view_v2.dart:131-132"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "sos-59"
+   ]
+  },
+  {
+   "id": "G-719",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189",
+   "situation": "'I continue riding' is confirmed only after the decision was saved; the progress cannot be closed; failure gives reason + phone fallback.",
+   "old_where": "lib/features/sos/sos_detail_screen.dart:523-545; 70a94933 ignored errors (sos_detail_screen.dart@70a94933:436-445)",
+   "customer_sees": "Progress, then toast + Home, or failure dialog.",
+   "visible": "clear",
+   "server": "no (direct UPDATE under RLS)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "onContinue -> same _continueRide"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "sos-60"
+   ]
+  },
+  {
+   "id": "G-720",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189",
+   "situation": "Only the newest open incident is shown; without one the contextual done view (by SosDoneType) appears.",
+   "old_where": "lib/features/sos/sos_detail_screen.dart:33-37",
+   "customer_sees": "Done view or incident detail.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_detail_screen.dart:68-90 (SosDoneViewV2) and :316-341 (SosIncidentViewV2)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same branching.",
+   "evidence": "Same branching.",
+   "sources": [
+    "sos-61"
+   ]
+  },
+  {
+   "id": "G-721",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189",
+   "situation": "Timeline cannot be loaded: error with retry instead of an empty list.",
+   "old_where": "lib/features/sos/sos_detail_screen.dart:459-464",
+   "customer_sees": "Compact error view.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_detail_screen.dart:331-336 -> sos_incident_view_v2.dart:125"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget.",
+   "evidence": "Same widget.",
+   "sources": [
+    "sos-62"
+   ]
+  },
+  {
+   "id": "G-722",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189",
+   "situation": "A push of type 'sos' opens SOS only during a running rental, otherwise Messages (the task listed /sos/done; the code opens /sos or Messages).",
+   "old_where": "lib/core/push/notification_handler.dart:124-134, :183-185",
+   "customer_sees": "SOS start screen or Messages.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared handler for both looks"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "No v2 branch.",
+   "evidence": "No v2 branch.",
+   "sources": [
+    "sos-63"
+   ]
+  },
+  {
+   "id": "G-723",
+   "step": "sos",
+   "step_title": "SOS screens and sheets",
+   "surface": "S-189",
+   "situation": "After a finished SOS action the done screen is reached with go() so back leads Home, not back into the action (no repeated tow/replacement).",
+   "old_where": "lib/features/sos/sos_detail_screen.dart:100-104 (back -> Routes.home); callers use context.go(Routes.sosDone) e.g. sos_replacement_screen.dart:166, sos_immobile_screen.dart:98",
+   "customer_sees": "Back arrow to Home.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "sos_detail_screen.dart:85 onBack -> backOr(Routes.home); sos_done_view_v2.dart:44-47"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same navigation.",
+   "evidence": "Same navigation.",
+   "sources": [
+    "sos-64"
+   ]
+  }
+ ]
+}

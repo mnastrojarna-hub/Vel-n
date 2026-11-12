@@ -1,0 +1,326 @@
+{
+ "title": "Motorcycle detail (entry into booking) - part 2 of 2 (G-153..G-164; mainly moto_detail_page.dart, validation_banner.dart, booking_entry.dart)",
+ "guards": [
+  {
+   "id": "G-153",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-045",
+   "situation": "The chosen range overlaps the customer's own active or upcoming reservation (cancelled/completed and own unpaid pending draft ignored; kids bike exempt).",
+   "old_where": "lib/features/catalog/widgets/validation_banner.dart:43-50 (reservationsProvider -> BookingValidator.checkOverlap, booking_validator.dart:52-)",
+   "customer_sees": "Red box with the overlap message above REZERVOVAT; CTA still active, booking form blocks.",
+   "visible": "clear",
+   "server": "yes(trg_check_user_booking_overlap)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2/detail/detail_trip_card_v2.dart:207 -> validation_banner.dart:72-81 (amber banner); sticky dock CTA v2/detail/detail_dock_v2.dart:89-95"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Same check and text; weaker placement/colour as for the licence warning (sticky active CTA, warning possibly off-screen).",
+   "evidence": "Same check and text; weaker placement/colour as for the licence warning (sticky active CTA, warning possibly off-screen).",
+   "sources": [
+    "moto-detail-16"
+   ]
+  },
+  {
+   "id": "G-154",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-045",
+   "situation": "The chosen range is shorter than the bike's minimum or longer than its maximum rental length.",
+   "old_where": "lib/features/catalog/widgets/validation_banner.dart:52-62 (moto.minRentalDays / maxRentalDays -> validationMinDays / validationMaxDays)",
+   "customer_sees": "Red box 'Minimální délka pronájmu je N dní' / 'Maximální …' above REZERVOVAT; booking form blocks (rentalLengthValidationProvider).",
+   "visible": "clear",
+   "server": "no (no server rule on min/max rental days found in supabase/migrations; app-side rentalLengthValidationProvider only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2/detail/detail_trip_card_v2.dart:207 -> validation_banner.dart:72-81; sticky dock CTA v2/detail/detail_dock_v2.dart:89-95"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Same check; weaker visibility as above. Because the server does not enforce length, the booking-form check is the only hard stop in both looks.",
+   "evidence": "Same check; weaker visibility as above. Because the server does not enforce length, the booking-form check is the only hard stop in both looks.",
+   "sources": [
+    "moto-detail-17"
+   ]
+  },
+  {
+   "id": "G-155",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-045",
+   "situation": "Only a pickup day is chosen (single-day booking); the licence / overlap / length warning is not evaluated in the detail at all.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:390 (if (hasDates) — needs both start and end)",
+   "customer_sees": "No warning; the booking form evaluates it later.",
+   "visible": "silent",
+   "server": "see licence/overlap records",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2/detail/detail_trip_card_v2.dart:207 (if (w.hasDates))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition in both looks.",
+   "evidence": "Same condition in both looks.",
+   "sources": [
+    "moto-detail-18"
+   ]
+  },
+  {
+   "id": "G-156",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-045",
+   "situation": "Logged-out visitor or profile not yet loaded: the licence check sees an empty group list and warns 'no licence' (false warning but never a false all-clear).",
+   "old_where": "lib/features/catalog/widgets/validation_banner.dart:24-35 (profile == null -> userGroups empty -> validationNoLicense)",
+   "customer_sees": "Red 'no licence' warning.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "same widget in v2 (detail_trip_card_v2.dart:207)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same widget and data.",
+   "evidence": "Same widget and data.",
+   "sources": [
+    "moto-detail-19"
+   ]
+  },
+  {
+   "id": "G-157",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-046",
+   "situation": "Price card: the total is shown only for a complete range with a price list; without a price list the price is '–'; it is the list price (no rank discount, no deposit).",
+   "old_where": "lib/features/catalog/widgets/price_footer.dart:43 (prices != null ? … : '–'), :81 (if dayCount > 0 && totalPrice > 0); total moto_detail_page.dart:244-246",
+   "customer_sees": "'Cena od …' and 'Celkem za N dní …' card.",
+   "visible": "clear",
+   "server": "n/a (price is recomputed in the booking form / process-payment)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "v2/detail/detail_trip_card_v2.dart:212-224 (MgTotalBox total only if hasDates && listTotal > 0, else 'od … /den' or '–'); dock price only if !busy && hasDates && totalPrice > 0 (moto_detail_view_v2.dart:204)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same list total from the page state (totalPrice passed as listTotal); v2 additionally hides the price when the range is busy.",
+   "evidence": "Same list total from the page state (totalPrice passed as listTotal); v2 additionally hides the price when the range is busy.",
+   "sources": [
+    "moto-detail-20"
+   ]
+  },
+  {
+   "id": "G-158",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-047 / Bike detail / Moto detail",
+   "situation": "The customer has not chosen any date; REZERVOVAT is disabled and a hint says to choose dates.",
+   "old_where": [
+    "lib/features/catalog/moto_detail_page.dart:775 (canProceed = _selStart != null), :780-787 hint detailSelectDatesHint, :791/:795 PressableScale enabled + onPressed null",
+    "lib/features/catalog/moto_detail_page.dart:775-796 (_buildCtaButton canProceed = _selStart != null) + hint detailSelectDatesHint",
+    "lib/features/catalog/moto_detail_page.dart:775-800 (canProceed = _selStart != null, button onPressed null otherwise, hint shown)"
+   ],
+   "customer_sees": "Grey disabled button with grey hint above it.",
+   "visible": "clear",
+   "server": [
+    "n/a",
+    "n/a (client step)"
+   ],
+   "v2_entry_points": [
+    "v2 detail dock REZERVOVAT, v2 trip card, v2 calculator BOOK, v2 Home funnel CTA",
+    "v2 detail dock button"
+   ],
+   "v2_where": [
+    "lib/features/catalog/moto_detail_page.dart:275 (onReserve: _selStart != null && !busy ? … : null) -> v2/detail/detail_dock_v2.dart:65-88 (s == null -> CTA 'VYBRAT TERMÍN · od …' that only opens the calendar via onPickDates; dock line v2DetDockHint)",
+    "lib/features/catalog/moto_detail_page.dart:275 (onReserve null when no start OR carried range busy); lib/features/catalog/v2/detail/detail_dock_v2.dart:18-21,65; calculator blocks while availability loads/fails/busy: lib/features/catalog/v2/calc/calc_body_v2.dart:138-161; funnel offers only free bikes (funnel_provider.dart:149-165)",
+    "lib/features/catalog/moto_detail_page.dart:252-276 (v2: onReserve only if _selStart != null && !detailRangeBusy) - stricter"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 never reaches _reserve without a start date; instead of a dead button the customer gets a clearly labelled 'choose dates' button.",
+   "evidence": "v2 never reaches _reserve without a start date; instead of a dead button the customer gets a clearly labelled 'choose dates' button.",
+   "sources": [
+    "moto-detail-21",
+    "mx-start-25",
+    "mx-order-04"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-25",
+     "situation": "REZERVOVAT is disabled until at least a start day is picked (start only = one-day booking)."
+    },
+    {
+     "source": "mx-order-04",
+     "situation": "The REZERVOVAT button in the bike detail stays disabled until at least a start day is chosen."
+    }
+   ],
+   "notes": [
+    "mx-start-25: v2 is stricter (also locks a carried busy range).",
+    "mx-order-04: v2 additionally locks the button when the carried range contains a busy day."
+   ]
+  },
+  {
+   "id": "G-159",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-047 / S-051 / S-065 / Booking form",
+   "situation": "The customer re-enters the booking form for the SAME bike after leaving it unpaid. In the old look every entry starts a fresh draft, so the consents (VOP, GDPR, guardian) must be ticked again; in v2 the earlier draft is carried over with the consents still ticked.",
+   "old_where": [
+    "features/booking/booking_entry.dart:44-69 (fresh BookingDraft; old look !MgV2.peek -> state = fresh, push); released 4.1.3 had the same body inline in moto_detail_page.dart (git show 70a94933)",
+    "lib/features/booking/booking_entry.dart:65-69 (old look: bookingDraftProvider = fresh BookingDraft, consentVop/Gdpr/Kids default false per booking_models.dart:84-86)",
+    "Old look: lib/features/booking/booking_entry.dart:63-67 (fresh BookingDraft, discounts empty)",
+    "lib/features/booking/booking_entry.dart:63-68 (old path: fresh BookingDraft, discounts empty)"
+   ],
+   "customer_sees": "Old look: unticked consent checkboxes and the grey \"consentsRequired\" hint; the payment button stays disabled until they are ticked again.",
+   "visible": "small-text",
+   "server": [
+    "unknown (consents are client-side; promo codes re-validated via RPC validate_promo_code in booking_provider.dart:90, server-side re-validation at payment not traced)",
+    "no (consents are not enforced by the server for the app insert)",
+    "unknown (validate_* RPCs are not called again; use_promo_code / redeem_booking_discounts run only after payment)",
+    "unknown (insert does not re-validate; process-payment/due-verify.ts:44-95 checks active promo/voucher only for the price floor of small remainders)"
+   ],
+   "v2_entry_points": [
+    "v2 startBookingFromSelection from detail / Home funnel / calculator"
+   ],
+   "v2_where": [
+    "features/booking/booking_entry.dart:71-90 -> features/booking/v2/booking_carry_v2.dart:27-77 (same account & not paid meanwhile: SAME bike -> whole previous draft kept incl. consentVop/consentGdpr/consentKids, codes, extras, delivery; only dates replaced; OTHER bike -> times, notes, discount codes, own-gear, sizes carried, consents reset)",
+    "lib/features/booking/booking_entry.dart:71-90 -> features/booking/v2/booking_carry_v2.dart:34-45 (same bike: prev.copyWith(...) keeps consentVop/consentGdpr/consentKids and discounts); fresh draft only when submitted/foreign (booking_entry.dart:76) or another bike (booking_carry_v2.dart:50-77, consents reset)",
+    "lib/features/booking/booking_entry.dart:69-94 + lib/features/booking/v2/booking_carry_v2.dart:35-43 (same bike keeps prev.discounts) and :53 (other bike: discounts: List.of(prev.discounts))",
+    "lib/features/booking/v2/booking_carry_v2.dart:33-46 (same bike keeps discounts), :57 discounts: List.of(prev.discounts) (other bike keeps codes)"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "Owner decision 2026-10-22 ('nic nevyplňovat dvakrát'), but compared with the old look the re-confirmation of VOP/GDPR/guardian consent is skipped when returning to the same bike, and discount codes from an earlier draft are carried to another bike. Guarded by account ownership (bookingDraftForeign) and 'paid meanwhile' (lastConfirmedBookingProvider). Whether every carried item is re-validated in the form is outside this bucket.",
+   "evidence": "The consent check itself still exists (canProceedNow), but its default differs on re-entry: the v2 entry keeps the consents the same account ticked earlier for the same unpaid bike, so the customer is not asked again. Protections that remain: a paid booking in between or another logged-in account forces a fresh draft (booking_entry.dart:74-77, booking_carry_v2.dart:90-115); a different bike resets the consents. The code comments say this is the owner's \"nic nevyplňovat dvakrát\" decision (booking_carry_v2.dart:9-26), but by the task rule a changed default counts as WEAKER.",
+   "sources": [
+    "moto-detail-23",
+    "booking-form-1-09",
+    "booking-form-2-29",
+    "mx-order-24"
+   ],
+   "merged_situations": [
+    {
+     "source": "moto-detail-23",
+     "situation": "Pressing REZERVOVAT starts a CLEAN booking draft: consents (VOP, GDPR, legal guardian) unticked, no promo/voucher codes, no delivery fees, gear sizes only from the profile, boots never prefilled (incident 2026-09-28). The booking form then runs all its validators."
+    },
+    {
+     "source": "booking-form-2-29",
+     "situation": "Promo codes start empty on every new booking entry, so a code validated for an earlier draft is not silently reused."
+    },
+    {
+     "source": "mx-order-24",
+     "situation": "In the old look every new entry into the booking starts with no discount codes, so each code is validated by the server right before it is used for this booking."
+    }
+   ],
+   "visible_by_source": {
+    "moto-detail-23": "clear",
+    "booking-form-1-09": "small-text",
+    "booking-form-2-29": "silent",
+    "mx-order-24": "silent"
+   },
+   "notes": [
+    "mx-order-24: v2 carries already-validated codes into a later booking (possibly hours later or another bike) without calling validate_promo_code again. If the code expired or was used up meanwhile, the app still shows the discount; server behaviour at insert/payment not proven."
+   ]
+  },
+  {
+   "id": "G-160",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-047",
+   "situation": "Boots are never prefilled from the profile (paid add-on chosen only by the customer in the form).",
+   "old_where": "features/booking/booking_entry.dart:55-59 (fresh draft without bootsSize)",
+   "customer_sees": "No boots preselected.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "features/booking/v2/booking_carry_v2.dart:73 (bootsSize carried only from the previous draft, i.e. a choice the customer made in the form, and only for same branch / same kids-adult type)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The profile is still never used for boots; only an explicit earlier choice is carried.",
+   "evidence": "The profile is still never used for boots; only an explicit earlier choice is carried.",
+   "sources": [
+    "moto-detail-24"
+   ]
+  },
+  {
+   "id": "G-161",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-048",
+   "situation": "Fullscreen gallery opens only when the bike has photos; a bike without photos shows a placeholder and tapping does nothing.",
+   "old_where": "lib/features/catalog/moto_detail_page.dart:425 (onTap: images.isNotEmpty ? _openGallery : null)",
+   "customer_sees": "Motorcycle icon placeholder; no reaction.",
+   "visible": "silent",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/moto_detail_page.dart:260 (onOpenGallery: images.isNotEmpty ? … : null) -> v2/detail/detail_hero_v2.dart:133-137,190-197; gallery itself widgets/fullscreen_gallery.dart:86-95 (same route, same pop)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition; inside the gallery there is no guard in either look (close by X or swipe-down).",
+   "evidence": "Same condition; inside the gallery there is no guard in either look (close by X or swipe-down).",
+   "sources": [
+    "moto-detail-25"
+   ]
+  },
+  {
+   "id": "G-162",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-049",
+   "situation": "The customer opens the manual but the bike has none; a message says it is not available (the card is always shown).",
+   "old_where": "lib/features/catalog/widgets/manual_card.dart:23-31 (activeUrl == null -> SnackBar manualNotAvailable)",
+   "customer_sees": "Snackbar 'Manuál není k dispozici' for 2 s.",
+   "visible": "small-text",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/widgets/manual_card.dart:35-42 (v2 ManualCardV2Look buttons call the same openManual) via v2/detail/detail_more_v2.dart:82-90"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler and message.",
+   "evidence": "Same handler and message.",
+   "sources": [
+    "moto-detail-26"
+   ]
+  },
+  {
+   "id": "G-163",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-049",
+   "situation": "Manual link modes: a PDF opens in the in-app browser (view/search) or externally (download); an external link opens outside the app.",
+   "old_where": "lib/features/catalog/widgets/manual_card.dart:81-114 (isPdf buttons inAppBrowserView / externalApplication)",
+   "customer_sees": "Buttons Zobrazit / Hledat / Stáhnout (PDF) or one 'Zobrazit' (link).",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/widgets/manual_card.dart:39-41 -> v2/detail/detail_manual_v2.dart:49-63"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same modes per button.",
+   "evidence": "Same modes per button.",
+   "sources": [
+    "moto-detail-27"
+   ]
+  },
+  {
+   "id": "G-164",
+   "step": "moto-detail",
+   "step_title": "Motorcycle detail (entry into booking)",
+   "surface": "S-049",
+   "situation": "Bike videos autoplay muted (volume 0) until the customer unmutes; a video that fails to load is skipped to the next one.",
+   "old_where": "lib/features/catalog/widgets/moto_video_player.dart:24 (_muted = true), :44 setVolume, :48-52 catch -> next",
+   "customer_sees": "Silent autoplaying video with a mute toggle.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/catalog/widgets/moto_video_player.dart:92-114 (v2 chrome, same controller, _muted, _toggleMute) via v2/detail/detail_more_v2.dart:35-40"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same state object; only the chrome differs.",
+   "evidence": "Same state object; only the chrome differs.",
+   "sources": [
+    "moto-detail-28"
+   ]
+  }
+ ]
+}

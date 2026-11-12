@@ -1,0 +1,236 @@
+{
+ "title": "Documents screen, invoices, contracts and document viewers - part 4 of 4 (G-510..G-520; mainly doc_webview_screen.dart, booking_doc_viewer.dart, contracts_screen.dart)",
+ "guards": [
+  {
+   "id": "G-510",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-135 Contracts",
+   "situation": "VOP / GDPR open with the legal note 'consent given at booking'; load failure shows a localized message page instead of an outdated text.",
+   "old_where": "lib/features/documents/contracts_screen.dart:155-161,407-421 (showLegalDocument; consentNote only when loaded)",
+   "customer_sees": "Web view with the text and a green '✓ souhlas udělen při rezervaci' note, or the message 'legalLoadFailed'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/contracts_screen.dart:60-61 (v2 onVop/onGdpr -> same _showVop/_showGdpr)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same functions. Note: these opens (and the damage sample :166-182) have no double-tap lock or progress in either look.",
+   "evidence": "Same functions. Note: these opens (and the damage sample :166-182) have no double-tap lock or progress in either look.",
+   "sources": [
+    "documents-38"
+   ]
+  },
+  {
+   "id": "G-511",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-135 Contracts",
+   "situation": "Damage-protocol sample: placeholders are blanked so no raw {{customer_name}} is shown; failure shows a message page.",
+   "old_where": "lib/features/documents/contracts_screen.dart:166-182,386-389",
+   "customer_sees": "Sample with '—' in empty fields.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/contracts_screen.dart:62 (v2 onDamageSample -> same _showTemplateSample)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same function.",
+   "evidence": "Same function.",
+   "sources": [
+    "documents-39"
+   ]
+  },
+  {
+   "id": "G-512",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-136 Document web view",
+   "situation": "Main-frame load error is shown with a reason (offline / timeout / server) and retry; errors of images or fonts inside the document do not hide it.",
+   "old_where": "lib/features/documents/doc_webview_screen.dart:74-79 (isForMainFrame false -> ignore), :46-60 (_asError), :144-150 (MgErrorView eoDocLoadFail, retry, back)",
+   "customer_sees": "Error page 'Dokument se nepodařilo načíst' + why + 'Zkusit znovu' / 'Zpět'.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/doc_webview_screen.dart:115-128 (v2 branch: same _error, same MgErrorView, same _retry)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same state object; only the scaffold differs.",
+   "evidence": "Same state object; only the scaffold differs.",
+   "sources": [
+    "documents-40"
+   ]
+  },
+  {
+   "id": "G-513",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-136 Document web view",
+   "situation": "Retry of a stored file asks for a NEW signed URL (old one valid 10 min); failure to refresh shows the error again.",
+   "old_where": "lib/features/documents/doc_webview_screen.dart:96-109",
+   "customer_sees": "Error page again if the refresh fails.",
+   "visible": "clear",
+   "server": "yes(storage createSignedUrl 600 s, RLS bucket documents, STATE_5:252)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/doc_webview_screen.dart:123,126 (v2 uses _retry)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same method.",
+   "evidence": "Same method.",
+   "sources": [
+    "documents-41"
+   ]
+  },
+  {
+   "id": "G-514",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-136 Document web view",
+   "situation": "Loading never hangs silently: after 15 s 'trvá to déle' with retry and back.",
+   "old_where": "lib/features/documents/doc_webview_screen.dart:153-154 (MgLoadingView)",
+   "customer_sees": "Spinner, then slow-state text with buttons.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/doc_webview_screen.dart:126 (DocA4SkeletonV2 onRetry/onBack); lib/features/documents/v2/doc_viewer_chrome_v2.dart:59-84 (15 s timer -> v2LoadingLook slow with retry/back)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same 15 s rule and callbacks.",
+   "evidence": "Same 15 s rule and callbacks.",
+   "sources": [
+    "documents-42"
+   ]
+  },
+  {
+   "id": "G-515",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-136 Document web view",
+   "situation": "Close/back pops only the viewer (maybePop).",
+   "old_where": "lib/features/documents/doc_webview_screen.dart:137",
+   "customer_sees": "Back arrow.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/doc_webview_screen.dart:116-119 (✕ -> maybePop); lib/features/documents/v2/doc_viewer_chrome_v2.dart:39"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same close.",
+   "evidence": "Same close.",
+   "sources": [
+    "documents-43"
+   ]
+  },
+  {
+   "id": "G-516",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-137 PDF pages viewer",
+   "situation": "PDF render failures (HTTP not 200 incl. expired link, 30 s download limit, PDF without pages) show reason + retry (with a fresh signed URL) + 'Otevřít mimo aplikaci' so the customer is never stuck.",
+   "old_where": "lib/features/documents/pdf_pages_screen.dart:209-230 (_load checks, _retry refreshes URL), :293-296,:332-351 (MgErrorView + openOutsideApp)",
+   "customer_sees": "Error page with 'Zkusit znovu', 'Zpět' and 'Otevřít mimo aplikaci'.",
+   "visible": "clear",
+   "server": "yes(storage signed URL 600 s)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/pdf_pages_screen.dart:236-248 (v2 branch uses the same _pages future and _error), :338-343 (v2 ghost button openOutsideApp)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same future, same error builder.",
+   "evidence": "Same future, same error builder.",
+   "sources": [
+    "documents-44"
+   ]
+  },
+  {
+   "id": "G-517",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-137 PDF pages viewer",
+   "situation": "Loading shows the slow state after 15 s with retry/back.",
+   "old_where": "lib/features/documents/pdf_pages_screen.dart:290-292",
+   "customer_sees": "Spinner then slow state.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/pdf_pages_screen.dart:244 (DocA4SkeletonV2 onRetry/onBack)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same timing (doc_viewer_chrome_v2.dart:66).",
+   "evidence": "Same timing (doc_viewer_chrome_v2.dart:66).",
+   "sources": [
+    "documents-45"
+   ]
+  },
+  {
+   "id": "G-518",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-137 PDF pages viewer",
+   "situation": "Native PDF rendering only on Android; on iOS the PDF goes to the web view.",
+   "old_where": "lib/features/documents/booking_doc_viewer.dart:213-223",
+   "customer_sees": "PDF pages (Android) or web view (iOS).",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/booking_doc_viewer.dart (shared, not look-dependent)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared routing function.",
+   "evidence": "Shared routing function.",
+   "sources": [
+    "documents-46"
+   ]
+  },
+  {
+   "id": "G-519",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-138 Booking document opening flow",
+   "situation": "Only REAL documents open: a template-prefilled protocol (generated when Velín switches a booking to active) and marker paths 'mindee_verified/…' are never shown as the customer's protocol.",
+   "old_where": "lib/features/documents/booking_doc_viewer.dart:69-81 (real = electronic or not protocol type), :97-99, :202-205",
+   "customer_sees": "Nothing or 'zatím není k dispozici' instead of a fake protocol.",
+   "visible": "silent",
+   "server": "yes(submit-handover-protocol writes _doc_type electronic protocols; generated_documents_handover_once index, STATE_5:172)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/booking_doc_viewer.dart (shared by both looks)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "No v2 copy of this logic.",
+   "evidence": "No v2 copy of this logic.",
+   "sources": [
+    "documents-48"
+   ]
+  },
+  {
+   "id": "G-520",
+   "step": "documents",
+   "step_title": "Documents screen, invoices, contracts and document viewers",
+   "surface": "S-138 Booking document opening flow",
+   "situation": "Customer cancelled the wait: a late result must not suddenly open a document.",
+   "old_where": "lib/features/documents/doc_open_runner.dart:32 (wanted), lib/features/documents/booking_doc_viewer.dart:130,182,212; lib/features/documents/doc_open_runner.dart:93",
+   "customer_sees": "Nothing opens after 'Zrušit'.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/documents/(shared by both looks)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared code.",
+   "evidence": "Shared code.",
+   "sources": [
+    "documents-52"
+   ]
+  }
+ ]
+}

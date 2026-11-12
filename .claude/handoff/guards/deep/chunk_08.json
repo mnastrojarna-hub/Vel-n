@@ -1,0 +1,275 @@
+{
+ "title": "Home tab and Rezervovat (search) tab - part 1 of 4 (G-098..G-108; mainly home_screen.dart, nickname_provider.dart, catalog_provider.dart)",
+ "guards": [
+  {
+   "id": "G-098",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-032 Home screen (Domů) / Bike list / Home list / Bike list",
+   "situation": "The customer sees only bikes that may be offered: status active or maintenance, and never bikes of a permanently closed branch.",
+   "old_where": [
+    "lib/features/home/home_screen.dart:57 and :132-156 (filteredMotorcyclesProvider); lib/features/catalog/catalog_provider.dart:12-15 (status in active/maintenance) and :401-410 (branchIsOpen != false)",
+    "lib/features/catalog/catalog_provider.dart:12-20 (_fetchMotorcycles .inFilter status)",
+    "lib/features/catalog/catalog_provider.dart:401-410 (filteredMotorcyclesProvider, branchIsOpen)"
+   ],
+   "customer_sees": "Such bikes are simply not in the list.",
+   "visible": "silent",
+   "server": [
+    "yes(trg_check_booking_branch_open / branch_is_closed refuse a booking at a closed branch); the active/maintenance status filter itself: unknown",
+    "unknown (RLS on motorcycles not checked)",
+    "yes(trg_check_booking_branch_open / branch_is_closed)"
+   ],
+   "v2_entry_points": [
+    "v2 Motorky list, v2 Home funnel, v2 calculator, v2 bike pager",
+    "v2 Motorky list, v2 calculator, v2 Home funnel"
+   ],
+   "v2_where": [
+    "lib/features/home/v2/home_bike_list_v2.dart:69 and :36 (same filteredMotorcyclesProvider for the list and the count)",
+    "all use the same motorcyclesProvider fetch: lib/features/catalog/v2/motorky_screen_v2.dart:160, lib/features/catalog/v2/calc/calc_state.dart:96, lib/features/home/v2/funnel_provider.dart:151",
+    "lib/features/catalog/v2/motorky_screen_v2.dart:160 (same provider); lib/features/catalog/v2/calc/calc_state.dart:87-90 (calcOffered keeps branchIsOpen != false); lib/features/home/v2/funnel_provider.dart:117 (homeEligibleMotos)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "v2 list and count watch the same provider; no other v2 bike list on Domů except the funnel (see home-search-07), whose candidate list also drops closed branches (funnel_provider.dart:118).",
+   "evidence": "v2 list and count watch the same provider; no other v2 bike list on Domů except the funnel (see home-search-07), whose candidate list also drops closed branches (funnel_provider.dart:118).",
+   "sources": [
+    "home-search-02",
+    "mx-start-20",
+    "mx-start-21"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-20",
+     "situation": "Only bikes with status active or maintenance are offered; unavailable and retired bikes never appear."
+    },
+    {
+     "source": "mx-start-21",
+     "situation": "Bikes of a permanently closed branch are hidden from browsing (they could never be booked)."
+    }
+   ]
+  },
+  {
+   "id": "G-099",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-032 Home screen (Domů)",
+   "situation": "After filtering, the count line tells the customer how many bikes are left (or that they are loading / failed).",
+   "old_where": "lib/features/home/home_screen.dart:104-129 ('homeMotorcycleCount', 'homeLoadingMotorcycles', 'homeLoadingError')",
+   "customer_sees": "\"Zobrazeno n motorek\", or a loading / red error line.",
+   "visible": "small-text",
+   "server": "no (display only)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_bike_list_v2.dart:30-49 (HomeBikeCountV2, same keys, error in MgColors.err)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider, same three texts, same skipLoadingOnReload.",
+   "evidence": "Same provider, same three texts, same skipLoadingOnReload.",
+   "sources": [
+    "home-search-03"
+   ]
+  },
+  {
+   "id": "G-100",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-032 Home screen (Domů)",
+   "situation": "Loading the bikes fails (offline / server); the customer gets a reason and a retry instead of a raw exception.",
+   "old_where": "lib/features/home/home_screen.dart:163-170 (MgErrorView + retry; at 70a94933 home_screen.dart showed red 'homeErrorPrefix'+exception text)",
+   "customer_sees": "Error view with an explanation and \"Zkusit znovu\".",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_bike_list_v2.dart:114-131 (skeleton with retry while loading, MgErrorView with the same 'eoMotosLoadFail' + invalidate(motorcyclesProvider))"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same message key and the same retry action.",
+   "evidence": "Same message key and the same retry action.",
+   "sources": [
+    "home-search-04"
+   ]
+  },
+  {
+   "id": "G-101",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-032 Home screen (Domů)",
+   "situation": "Only PAID active or upcoming bookings appear on Domů; an unpaid / pending, cancelled or finished booking is not shown as an active booking.",
+   "old_where": "lib/features/home/home_screen.dart:61-66 (displayStatus aktivni|nadchazejici AND paymentStatus=='paid'); lib/features/reservations/reservation_models.dart:388-393 (displayStatus)",
+   "customer_sees": "Unpaid bookings are not listed in \"Aktivní rezervace\" (the unpaid reminder is the shell's floating button, not this section).",
+   "visible": "silent",
+   "server": "no (display filter)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_screen_v2.dart:91-94 (identical predicate) passed to HomeBookingsV2 at :133-146"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same predicate on the same reservationsProvider; the same list also drives the SOS card (home-search-24).",
+   "evidence": "Same predicate on the same reservationsProvider; the same list also drives the SOS card (home-search-24).",
+   "sources": [
+    "home-search-05"
+   ]
+  },
+  {
+   "id": "G-102",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-032 Home screen (Domů)",
+   "situation": "From Domů the customer can only reach the booking form through the bike detail, where REZERVOVAT stays disabled until a date is chosen and a red ValidationBanner warns about licence, overlap with own bookings and min/max rental days.",
+   "old_where": "lib/features/home/home_screen.dart:145-149 (card tap -> /moto/:id); 70a94933 lib/features/catalog/moto_detail_page.dart:228 (ValidationBanner), :627 (canProceed = _selStart != null), :632-637 (hint 'detailSelectDatesHint'), :644-648 (button disabled); lib/features/catalog/widgets/validation_banner.dart:27-66",
+   "customer_sees": "Grey disabled REZERVOVAT with \"first select dates\" hint; red banner with the licence / overlap / length problem before the form.",
+   "visible": "clear",
+   "server": "yes(trg_check_booking_overlap, trg_check_user_booking_overlap, trg_check_booking_branch_open); licence on a NEW booking: unknown (license_insufficient found only in swap/modify RPCs, e.g. supabase/migrations/20260912_moto_swap_no_storno.sql:141); min/max rental days: unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_funnel_v2.dart:209-217 (funnel REZERVOVAT -> startBookingFromSelection) -> lib/features/booking/booking_entry.dart:27-91 (pushes /booking directly); funnel shown when no paid active booking: lib/features/home/v2/home_screen_v2.dart:98, :116"
+   ],
+   "verdict": "WEAKER",
+   "verdict_evidence": "The v2 Home funnel is a NEW entry that reaches /booking without the bike detail, so the detail's ValidationBanner (overlap with the customer's own bookings, min/max rental days, licence) is not shown before the form. Mitigations verified: dates are always set (funnel_provider.dart:47 nearest weekend, :64-69 past ranges dropped), each bike is pre-checked with the same motoAvailableForRange as the catalogue date filter (funnel_provider.dart:149-165), licence-ineligible bikes, trailers, closed branches and kids' bikes (unless rented before) are filtered out (funnel_provider.dart:108-126), REZERVOVAT is disabled while loading (home_funnel_v2.dart:196-197). The booking form still computes bookingValidationErrorProvider (booking_provider.dart:298-302, used in core/booking_form_widget.dart:415; v2 maps it in features/booking/v2/booking_sync_v2.dart:77-80) - its blocking in the v2 form is another bucket and was not re-traced here. A customer whose own booking overlaps the weekend, or whose bike has min_rental_days > 3, is told only inside the form, not before. The other v2 entries hold: the funnel card tap opens the detail (home_funnel_v2.dart:183-189), and the calculator shows ValidationBanner (calc_step_dates_v2.dart:108) and disables REZERVOVAT when busy / loading / failed (calc_body_v2.dart:112-161).",
+   "evidence": "The v2 Home funnel is a NEW entry that reaches /booking without the bike detail, so the detail's ValidationBanner (overlap with the customer's own bookings, min/max rental days, licence) is not shown before the form. Mitigations verified: dates are always set (funnel_provider.dart:47 nearest weekend, :64-69 past ranges dropped), each bike is pre-checked with the same motoAvailableForRange as the catalogue date filter (funnel_provider.dart:149-165), licence-ineligible bikes, trailers, closed branches and kids' bikes (unless rented before) are filtered out (funnel_provider.dart:108-126), REZERVOVAT is disabled while loading (home_funnel_v2.dart:196-197). The booking form still computes bookingValidationErrorProvider (booking_provider.dart:298-302, used in core/booking_form_widget.dart:415; v2 maps it in features/booking/v2/booking_sync_v2.dart:77-80) - its blocking in the v2 form is another bucket and was not re-traced here. A customer whose own booking overlaps the weekend, or whose bike has min_rental_days > 3, is told only inside the form, not before. The other v2 entries hold: the funnel card tap opens the detail (home_funnel_v2.dart:183-189), and the calculator shows ValidationBanner (calc_step_dates_v2.dart:108) and disables REZERVOVAT when busy / loading / failed (calc_body_v2.dart:112-161).",
+   "sources": [
+    "home-search-06"
+   ]
+  },
+  {
+   "id": "G-103",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-032 Home screen (Domů)",
+   "situation": "The v2 Home funnel offers bikes for a date range; the old Home had no such offer (owner-requested v2 addition). Check that it does not offer bikes the customer may not rent.",
+   "old_where": "n/a in old look (old Home offered only the full filtered list + detail); reference rule lib/features/booking/booking_validator.dart (checkLicense) used by the booking form",
+   "customer_sees": "Old look: no offer card.",
+   "visible": "silent",
+   "server": "yes(trg_check_booking_overlap / trg_check_booking_branch_open at booking time)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/funnel_provider.dart:108-133 (open branch, no trailer, kids' bikes only after a kids' rental, BookingValidator.checkLicense when the profile has licence groups), :149-165 (max 5 bikes, motoAvailableForRange per bike)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Stricter than the catalogue: the funnel filters by the customer's own licence; with no licence groups in the profile it does not filter (same as old catalogue). Empty / error states say so and offer other dates or retry (home_funnel_v2.dart:158-163, :198-207).",
+   "evidence": "Stricter than the catalogue: the funnel filters by the customer's own licence; with no licence groups in the profile it does not filter (same as old catalogue). Empty / error states say so and offer other dates or retry (home_funnel_v2.dart:158-163, :198-207).",
+   "sources": [
+    "home-search-07"
+   ]
+  },
+  {
+   "id": "G-104",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-033 Home header with nickname",
+   "situation": "The menu button opens Profil and shows a red unread-messages badge (capped at 9+).",
+   "old_where": "lib/features/home/widgets/home_header.dart:55-57 (go Routes.profile) and :88-105 (badge when unread > 0, '9+')",
+   "customer_sees": "Green menu button with red number badge.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_header_v2.dart:58-66 (MgIconButton, badge: unread, go Routes.profile); lib/core/v2/widgets/mg_buttons.dart:328-341 (badge > 0, '9+')"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same adminUnreadCountProvider (home_header_v2.dart:40), same target.",
+   "evidence": "Same adminUnreadCountProvider (home_header_v2.dart:40), same target.",
+   "sources": [
+    "home-search-08"
+   ]
+  },
+  {
+   "id": "G-105",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-033 Home header with nickname",
+   "situation": "Tapping the logo opens the ranks overview only when the backend returned a loyalty rank; without a rank the logo does nothing.",
+   "old_where": "lib/core/widgets/logo_header.dart:44, :65 (if loyalty != null) and :91-95 (PressableScale -> openLoyaltyRanks)",
+   "customer_sees": "Logo with rank ring is tappable; plain logo is not.",
+   "visible": "silent",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_header_v2.dart:143-144 (MgLogoRing onTap: status == null ? null : openLoyaltyRanks)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition on loyaltyStatusProvider.",
+   "evidence": "Same condition on loyaltyStatusProvider.",
+   "sources": [
+    "home-search-09"
+   ]
+  },
+  {
+   "id": "G-106",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-034 Nickname dialog / S-147 Profile",
+   "situation": "The customer clears the nickname field and presses OK; an empty or blank nickname is not saved.",
+   "old_where": [
+    "lib/features/home/nickname_provider.dart:75-81 (onOk: value.trim().isNotEmpty before setNickname) and :30-32 (setNickname returns on empty); same bodies at 70a94933",
+    "lib/features/home/nickname_provider.dart:75-80 (onOk trims, only saves when not empty) and :31-32 (setNickname returns on empty); chip at lib/features/profile/profile_screen.dart:588"
+   ],
+   "customer_sees": "The dialog closes and the old name stays.",
+   "visible": "silent",
+   "server": [
+    "yes(set_loyalty_nickname stores NULLIF(btrim(p_nickname),'') - SUPABASE_BACKEND_STATE_3.md:230)",
+    "no (nickname is local; leaderboard sync is fail-open)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/nickname_provider.dart:82-93 (v2 branch passes the same onOk / onReset closures to NicknameDialogV2); lib/features/profile/v2/sheets/profile_dialogs_v2.dart:64-78",
+    "lib/features/profile/v2/profile_header_v2.dart:130 (same showNicknameDialog) -> nickname_provider.dart:82-92 (NicknameDialogV2 gets the same onOk/onReset)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Both v2 entry points call the same showNicknameDialog: Home header (home_header_v2.dart:82) and profile header (features/profile/v2/profile_header_v2.dart:130). Only the widget differs.",
+   "evidence": "Both v2 entry points call the same showNicknameDialog: Home header (home_header_v2.dart:82) and profile header (features/profile/v2/profile_header_v2.dart:130). Only the widget differs.",
+   "sources": [
+    "home-search-10",
+    "profile-06"
+   ],
+   "merged_situations": [
+    {
+     "source": "profile-06",
+     "situation": "Editing the pilot nickname: an empty or blank nickname is ignored (the old one stays); Reset removes it."
+    }
+   ]
+  },
+  {
+   "id": "G-107",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-034 Nickname dialog",
+   "situation": "Reset removes the nickname locally and from the public leaderboard; the leaderboard write happens only when logged in and fails silently.",
+   "old_where": "lib/features/home/nickname_provider.dart:71-74 (onReset) and :40-46 (clearNickname -> syncLeaderboardNickname(null)); lib/features/loyalty/loyalty_leaderboard_provider.dart:136-143 (currentUser == null -> return; errors ignored)",
+   "customer_sees": "Name returns to the first name; the customer is no longer on the leaderboard.",
+   "visible": "clear",
+   "server": "yes(set_loyalty_nickname, updates only the caller's own profile)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/profile/v2/sheets/profile_dialogs_v2.dart:77 (MgBtnText resetLabel -> onReset, the same closure)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same notifier, same RPC. Note: the old look now also has a Cancel button (nickname_provider.dart:343-348 in the current old branch) that 4.1.3 did not have; v2 has it too (profile_dialogs_v2.dart:73).",
+   "evidence": "Same notifier, same RPC. Note: the old look now also has a Cancel button (nickname_provider.dart:343-348 in the current old branch) that 4.1.3 did not have; v2 has it too (profile_dialogs_v2.dart:73).",
+   "sources": [
+    "home-search-11"
+   ]
+  },
+  {
+   "id": "G-108",
+   "step": "home-search",
+   "step_title": "Home tab and Rezervovat (search) tab",
+   "surface": "S-035 Loyalty rank card on Home",
+   "situation": "The rank card (and its heading) is hidden while the backend returns no loyalty rank.",
+   "old_where": "lib/features/loyalty/loyalty_rank_card.dart:17-18",
+   "customer_sees": "No card at all.",
+   "visible": "silent",
+   "server": "unknown (rank comes from loyaltyStatusProvider; backend RPC not traced)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/home/v2/home_rank_card_v2.dart:28-29"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider and same null check.",
+   "evidence": "Same provider and same null check.",
+   "sources": [
+    "home-search-12"
+   ]
+  }
+ ]
+}

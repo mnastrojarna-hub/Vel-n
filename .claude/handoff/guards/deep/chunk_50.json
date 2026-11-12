@@ -1,0 +1,424 @@
+{
+ "title": "Reservation edit: tabs, calendar, places, times, price - part 5 of 5 (G-613..G-625; mainly reservation_edit_screen.dart, reservation_edit_states.dart, reservation_edit_price_calc.dart)",
+ "guards": [
+  {
+   "id": "G-613",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-118",
+   "situation": "The missing-sizes banner is shown only on extend/shorten tabs.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1784",
+   "customer_sees": "Banner.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1576 (const [] on move/swap); lib/features/reservations/v2/res_edit_view_v2.dart:178"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "reservation-edit-1-63"
+   ]
+  },
+  {
+   "id": "G-614",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119 / Reservation edit (save) / Edit reservation",
+   "situation": "Save button disabled when nothing changed (no date/place/time/bike/gear/extras change and own-gear switch unchanged).",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1538 (calc.hasChanges || _ownGearChanged); lib/features/reservations/reservation_edit_price_calc.dart:461",
+    "lib/features/reservations/reservation_edit_screen.dart:1536-1538 saveAction, :765-817 _save checks, :1086-1094 and :1139-1149 baseline/surcharge",
+    "lib/features/reservations/reservation_edit_screen.dart:1536-1538 (saveAction null when _saving, no change, or _missingGearSizes not empty)"
+   ],
+   "customer_sees": "Grey button, no explanation.",
+   "visible": "clear",
+   "server": [
+    "n/a",
+    "yes(check_moto_availability, trg_check_booking_overlap, trg_check_user_booking_overlap, process-payment stale_booking)",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 edit dock",
+    "v2 dock CTA"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193-194; lib/core/v2/widgets/mg_cta.dart:90,215",
+    "lib/features/reservations/reservation_edit_screen.dart:1582 onSave: saveAction; features/reservations/v2/res_edit_view_v2.dart:193-196",
+    "lib/features/reservations/v2/res_edit_view_v2.dart:189-196 (enabled: onSave != null, busy: saving)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same saveAction.",
+   "evidence": "Same saveAction.",
+   "sources": [
+    "reservation-edit-1-64",
+    "mx-order-57",
+    "mx-rental-32"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-order-57",
+     "situation": "Save is disabled until there is a change and gear sizes are complete; at save the app refuses invalid ranges, delivery lead time, missing delivery address, missing sizes, a busy or unknown bike availability, a changed booking, or a pending earlier surcharge."
+    },
+    {
+     "source": "mx-rental-32",
+     "situation": "The save button stays disabled until something really changed and no required gear size is missing; in the move tab until a new start is chosen."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-1-64": "clear",
+    "mx-order-57": "small-text",
+    "mx-rental-32": "clear"
+   }
+  },
+  {
+   "id": "G-615",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119",
+   "situation": "While saving the button is disabled and shows a spinner (no double submit).",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1536-1538 (!_saving), :1807,1814",
+   "customer_sees": "Spinner.",
+   "visible": "clear",
+   "server": "n/a",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:195 (busy); lib/core/v2/widgets/mg_cta.dart:137,215"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag.",
+   "evidence": "Same flag.",
+   "sources": [
+    "reservation-edit-1-65"
+   ]
+  },
+  {
+   "id": "G-616",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119",
+   "situation": "New end before new start is refused.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:778-781 (invalidDateRange)",
+   "customer_sees": "Toast.",
+   "visible": "small-text",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-66"
+   ]
+  },
+  {
+   "id": "G-617",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119",
+   "situation": "Active rental: changing the start date is refused.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:782-790 (cannotChangePickupActive)",
+   "customer_sees": "Toast.",
+   "visible": "small-text",
+   "server": "unknown for start_date on direct UPDATE",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-67"
+   ]
+  },
+  {
+   "id": "G-618",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119 / S-120 Change bike section / Edit reservation",
+   "situation": "The customer saves a bike change but meanwhile someone else booked that bike (or the availability check fails); the save is refused.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:815-829 (checkMotoAvailabilityTri busy / unknown)",
+    "lib/features/reservations/reservation_edit_screen.dart:813-829 (_save: checkMotoAvailabilityTri; busy -> toast occupiedTitle/fxMotoOccupied; unknown -> toast psAvailUnknown)",
+    "lib/features/reservations/reservation_edit_screen.dart:800-818 (checkMotoAvailabilityTri: busy -> fxMotoOccupied, unknown -> psAvailUnknown)"
+   ],
+   "customer_sees": "Toast 'Obsazeno' / 'Motorka je v tomto termínu už rezervovaná...' or the connection message; nothing is saved.",
+   "visible": "small-text",
+   "server": "yes(trg_check_booking_overlap)",
+   "v2_entry_points": [
+    "v2 dock CTA"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193",
+    "lib/features/reservations/reservation_edit_screen.dart:1582 (onSave: saveAction = _save) -> lib/features/reservations/v2/res_edit_view_v2.dart:190-196 (MgCta onTap: onSave)",
+    "Same _save"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "v2 save button calls the same _save handler; the check and toasts are unchanged.",
+   "sources": [
+    "reservation-edit-1-68",
+    "reservation-edit-2-10",
+    "mx-rental-38"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-68",
+     "situation": "Bike availability is re-checked at save; occupied → refused; no connection → \"cannot verify\" instead of a false \"occupied\"."
+    },
+    {
+     "source": "mx-rental-38",
+     "situation": "Before saving, availability of the bike for the new range is checked again; busy or unknown (no connection) stops the save with the real reason."
+    }
+   ]
+  },
+  {
+   "id": "G-619",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119",
+   "situation": "The customer's own other overlapping booking or a branch closure on the new days is not checked in the app; the server refuses and the app shows a generic edit failure sheet.",
+   "old_where": "lib/features/reservations/widgets/reservation_edit_states.dart:99-108 (editFailureText maps only moto/trailer texts), lib/features/reservations/reservation_edit_screen.dart:1242-1253",
+   "customer_sees": "Error sheet psEditFailTitle / pdEditFail with retry.",
+   "visible": "small-text",
+   "server": "yes(trg_check_user_booking_overlap SUPABASE_BACKEND_STATE_4.md:189; trg_check_booking_branch_open :86)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler; same (generic) message in both looks.",
+   "evidence": "Same handler; same (generic) message in both looks.",
+   "sources": [
+    "reservation-edit-1-69"
+   ]
+  },
+  {
+   "id": "G-620",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119 / S-122 Edit gear / extras section / Edit reservation",
+   "situation": "Extras change refused when the original paid extras could not be loaded (prevents charging an extra twice).",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:925-934 (extrasBaselineFailed)",
+    "lib/features/reservations/reservation_edit_screen.dart:267-311 (_loadOriginalExtras with one retry) and :926-935 (extrasChanged && !_extrasBaselineOk -> toast 'extrasBaselineFailed')",
+    "lib/features/reservations/reservation_edit_screen.dart:911-924 (extrasChanged && !_extrasBaselineOk -> extrasBaselineFailed)"
+   ],
+   "customer_sees": "Toast.",
+   "visible": "small-text",
+   "server": [
+    "n/a",
+    "no"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193",
+    "lib/features/reservations/reservation_edit_screen.dart:1582 (onSave = _save)",
+    "Same _save"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-70",
+    "reservation-edit-2-41",
+    "mx-rental-39"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-2-41",
+     "situation": "The original paid add-ons of the booking could not be loaded; any change of add-ons is refused at save so the customer is not charged twice."
+    },
+    {
+     "source": "mx-rental-39",
+     "situation": "A change of add-ons is not saved when the original paid add-ons could not be loaded (to avoid charging them twice)."
+    }
+   ]
+  },
+  {
+   "id": "G-621",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119 / Edit reservation",
+   "situation": "Positive difference: nothing is written; the customer is redirected to the payment screen and the change is applied only after payment.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1089-1139 (PaymentContext extension, pendingEditChanges, _base; context.push(Routes.payment))",
+    "lib/features/reservations/reservation_edit_screen.dart:1076-1128 (effDiff > 0 -> _baselineStillValid -> PaymentContext extension -> push Routes.payment), :441-472"
+   ],
+   "customer_sees": "Button \"proceedToPayment (+X Kč)\"; then payment screen.",
+   "visible": "clear",
+   "server": [
+    "yes(process-payment stale_booking 409 / check_booking_delivery_change, SUPABASE_BACKEND_STATE_3.md:116)",
+    "yes(process-payment refuses stale_booking (409) against the _base snapshot)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA \"ZAPLATIT DOPLATEK · X Kč\""
+   ],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1550-1552,1577-1581 (label v2UxRpPayDiffCta + price + \"from → to\" line); onSave same _save",
+    "lib/features/reservations/reservation_edit_screen.dart:1546-1585 (same saveAction; label only) -> lib/features/reservations/v2/res_edit_view_v2.dart:189-198"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler; v2 label is clearer (amount separate, from→to line).",
+   "evidence": "Same handler; v2 label is clearer (amount separate, from→to line).",
+   "sources": [
+    "reservation-edit-1-71",
+    "mx-rental-40"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-40",
+     "situation": "A surcharge (extension, dearer bike, delivery) is never written before payment: the customer is sent to the payment screen; before that the app re-reads the booking and refuses if it changed meanwhile (web / other device)."
+    }
+   ]
+  },
+  {
+   "id": "G-622",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119",
+   "situation": "Difference up to 1 Kč is waived: the button says save for free instead of pay.",
+   "old_where": "lib/features/reservations/reservation_edit_screen.dart:1541-1545 (pdSaveFree)",
+   "customer_sees": "Button text.",
+   "visible": "clear",
+   "server": "yes(per comment server writes without payment)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1550-1552 (payCharge null when isWaive → saveLabel used)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same label.",
+   "evidence": "Same label.",
+   "sources": [
+    "reservation-edit-1-72"
+   ]
+  },
+  {
+   "id": "G-623",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119 / S-126 Edit failure / uncertain-result sheets / Edit reservation",
+   "situation": "The answer to a save or move was lost and the app cannot verify whether it was stored; instead of 'nothing changed' or a blind retry the customer must reload the booking.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1160-1180 (_editAppliedAfterNetError, showEditUncertain)",
+    "lib/features/reservations/widgets/reservation_edit_states.dart:204-213 (showEditUncertain, button psReload); lib/features/reservations/reservation_edit_screen.dart:684 and :1176 (after _moveAppliedAfterNetError / _editAppliedAfterNetError return null)",
+    "lib/features/reservations/reservation_edit_screen.dart:1149-1182 (_editAppliedAfterNetError == false -> showEditPinned; null -> showEditUncertain)"
+   ],
+   "customer_sees": "Sheet 'Nevíme jistě...' with the only button 'Načíst znovu'.",
+   "visible": "clear",
+   "server": [
+    "n/a",
+    "yes(paid-booking price safeguard trigger — name not determined)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193",
+    "features/payment/widgets/payment_error_sheet.dart:32-58 (v2 branch, same onButton)",
+    "Same _save"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "Same handler and texts.",
+   "sources": [
+    "reservation-edit-1-73",
+    "reservation-edit-2-50",
+    "mx-rental-44"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-1-73",
+     "situation": "Lost network answer after writing: the app verifies instead of claiming nothing changed; if it cannot verify it shows \"reload\"."
+    },
+    {
+     "source": "mx-rental-44",
+     "situation": "A write that the server silently ignored (paid-booking price safeguard kept old dates / bike / price) or a lost answer is detected; the customer is told nothing changed or that it is uncertain, and no refund is sent."
+    }
+   ]
+  },
+  {
+   "id": "G-624",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119 / S-122 Edit gear / extras section",
+   "situation": "Removing an extra failed on the server → told to the customer (staff will fix).",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1214-1222 (extrasRemoveFailed)",
+    "lib/features/reservations/reservation_edit_screen.dart:1213-1222 (_replaceModeledExtras false -> toast 'extrasRemoveFailed')"
+   ],
+   "customer_sees": "Toast.",
+   "visible": "small-text",
+   "server": [
+    "n/a",
+    "n/a (client-side delete of booking_extras rows)"
+   ],
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193",
+    "lib/features/reservations/reservation_edit_screen.dart:1582 (same _save)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-74",
+    "reservation-edit-2-42"
+   ],
+   "merged_situations": [
+    {
+     "source": "reservation-edit-2-42",
+     "situation": "After saving, removing an add-on fails on the server; the customer is told staff will handle it instead of a silent success."
+    }
+   ]
+  },
+  {
+   "id": "G-625",
+   "step": "reservation-edit-1",
+   "step_title": "Reservation edit: tabs, calendar, places, times, price",
+   "surface": "S-119 / Edit reservation",
+   "situation": "Trailer rules (trailer only with a bike from a staffed branch; trailer occupied on new dates) refused by DB trigger and translated.",
+   "old_where": [
+    "lib/features/reservations/reservation_edit_screen.dart:1242-1253; lib/features/reservations/widgets/reservation_edit_states.dart:101-103",
+    "lib/features/reservations/widgets/reservation_edit_states.dart:97-121 (editFailureText / showEditFailure)"
+   ],
+   "customer_sees": "Error sheet fxTrailerStaffedOnly / swap.trailerOccupied.",
+   "visible": "small-text",
+   "server": [
+    "yes(trg_check_trailer_overlap, SUPABASE_BACKEND_STATE_4.md:87)",
+    "yes(trg_check_trailer_overlap, trg_check_booking_overlap)"
+   ],
+   "v2_entry_points": [
+    "v2 dock CTA"
+   ],
+   "v2_where": [
+    "lib/features/reservations/v2/res_edit_view_v2.dart:193",
+    "Same _save catch lib/features/reservations/reservation_edit_screen.dart:1240-1253"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "evidence": "The v2 branch is taken inside the same State after all closures are built (Motogo-app-main/motogo-app-flutter/lib/features/reservations/reservation_edit_screen.dart:1546); v2 receives the identical widget/closure, so the check runs in the same code.",
+   "sources": [
+    "reservation-edit-1-75",
+    "mx-rental-45"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-rental-45",
+     "situation": "Database refusals (trailer only at staffed branch, trailer piece occupied, overlapping booking) are translated instead of showing a raw error with UUIDs."
+    }
+   ],
+   "visible_by_source": {
+    "reservation-edit-1-75": "small-text",
+    "mx-rental-45": "clear"
+   }
+  }
+ ]
+}

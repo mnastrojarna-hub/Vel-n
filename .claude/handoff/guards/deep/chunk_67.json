@@ -1,0 +1,273 @@
+{
+ "title": "E-shop, cart, checkout and vouchers - part 2 of 4 (G-829..G-840; mainly shop_checkout_screen.dart, cart_screen.dart, product_detail_screen.dart)",
+ "guards": [
+  {
+   "id": "G-829",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-169 Product detail",
+   "situation": "After adding, the cart floating button is un-dismissed so the customer is reminded of the cart on other screens.",
+   "old_where": "lib/features/shop/product_detail_screen.dart:54 (cartFabDismissedProvider = false)",
+   "customer_sees": "Toast 'Pridano' with '<qty>x <name>'; outside the shop the cart pill reappears.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/product_detail_screen.dart:54-61 (same line runs before the v2 toast showMgToastRich)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "shop-14"
+   ]
+  },
+  {
+   "id": "G-830",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-170 Cart",
+   "situation": "The cart is empty; there is no checkout button, only a way back to the shop.",
+   "old_where": "lib/features/shop/cart_screen.dart:87-106 (items.isEmpty -> cart emoji, 'cartEmpty', 'addProductsFromShop', button 'backToShop' -> context.go(Routes.shop))",
+   "customer_sees": "Big cart emoji, 'Kosik je prazdny', button back to the shop; no 'K pokladne'.",
+   "visible": "clear",
+   "server": "yes (create_shop_order refuses an empty item list, 20260924d:56-57)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/cart_screen.dart:34-52 (same items); lib/features/shop/v2/cart_view_v2.dart:69-88 (empty -> MgStateBanner cartEmpty + 'v2UxPsToShop' button, no dock / no checkout CTA)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition; checkout entry exists only in the non-empty branch in both looks.",
+   "evidence": "Same condition; checkout entry exists only in the non-empty branch in both looks.",
+   "sources": [
+    "shop-15"
+   ]
+  },
+  {
+   "id": "G-831",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-170 Cart",
+   "situation": "The 'Vyprazdnit' (empty cart) action is offered only when there is something in the cart; it empties without a confirmation.",
+   "old_where": "lib/features/shop/cart_screen.dart:76-84 (if items.isNotEmpty TextButton -> notifier.clear() + toast 'emptied')",
+   "customer_sees": "Small grey 'Vyprazdnit' in the app bar; toast after emptying.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/cart_screen.dart:47 (same clear + toast); lib/features/shop/v2/cart_view_v2.dart:93 (red 'emptyBtn' text button in the list card header, only in the non-empty branch)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same action, same lack of confirmation, same toast.",
+   "evidence": "Same action, same lack of confirmation, same toast.",
+   "sources": [
+    "shop-16"
+   ]
+  },
+  {
+   "id": "G-832",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-170 Cart",
+   "situation": "Lowering a line's quantity from 1 removes the line (there is no 0 pieces line).",
+   "old_where": "lib/features/shop/shop_provider.dart:47-53 (changeQty: newQty <= 0 -> line removed); old minus lib/features/shop/cart_screen.dart:116 and :211",
+   "customer_sees": "The line disappears.",
+   "visible": "silent",
+   "server": "yes (qty 1-99 enforced, 20260924d:69)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/cart_screen.dart:45 (onMinus -> notifier.changeQty(id,-1)); lib/features/shop/v2/cart_view_v2.dart:167 (QtyStepperV2 onMinus always enabled -> same changeQty)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same provider method; same behaviour.",
+   "evidence": "Same provider method; same behaviour.",
+   "sources": [
+    "shop-17"
+   ]
+  },
+  {
+   "id": "G-833",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-170 Cart",
+   "situation": "The cart only shows a shipping line when the cart is not vouchers-only (vouchers are digital, no postage).",
+   "old_where": "lib/features/shop/cart_screen.dart:28-31 and :140-146 (digitalOnly = isCartDigitalOnly(items); shipping 0 when digital; line hidden)",
+   "customer_sees": "No shipping line for a vouchers-only cart; otherwise 'Posta +99 Kc' or 'Osobni odber zdarma'.",
+   "visible": "small-text",
+   "server": "yes (create_shop_order: voucher-only cart shipping 0, other methods -> bad_shipping, 20260924d:148)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/cart_screen.dart:39-43 (same digitalOnly / shipping / total passed in); lib/features/shop/v2/cart_view_v2.dart:104"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Numbers are computed once in CartScreen and passed to both looks.",
+   "evidence": "Numbers are computed once in CartScreen and passed to both looks.",
+   "sources": [
+    "shop-18"
+   ]
+  },
+  {
+   "id": "G-834",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-170 Cart",
+   "situation": "The cart shows the note that the final price is confirmed at checkout (shopPriceNote) under the total.",
+   "old_where": "lib/features/shop/cart_screen.dart:165-169",
+   "customer_sees": "Small grey note under the total.",
+   "visible": "small-text",
+   "server": "yes (server pricing in create_shop_order; process-payment checks the amount against shop_orders.total, supabase/functions/process-payment/index.ts:331-369)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/v2/cart_view_v2.dart:115"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same text key in both.",
+   "evidence": "Same text key in both.",
+   "sources": [
+    "shop-19"
+   ]
+  },
+  {
+   "id": "G-835",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-171 Shop checkout",
+   "situation": "The customer presses Pay a second time while an order / payment is already running; the second press is ignored.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:415 (if (_processing) return) and :821-823 (button disabled + spinner while _processing)",
+   "customer_sees": "Pay button shows a spinner and cannot be pressed.",
+   "visible": "clear",
+   "server": "yes (process-payment reuses / guards the stored intent per order, supabase/functions/process-payment/index.ts:355; attemptId)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/shop_checkout_screen.dart:728-729 (processing: _processing, onPay: _finalize); lib/features/shop/v2/checkout_view_v2.dart:110-111 (busy spinner, onTap null while processing); lib/core/v2/widgets/mg_cta.dart:212-217"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same flag and the same _finalize guard.",
+   "evidence": "Same flag and the same _finalize guard.",
+   "sources": [
+    "shop-22"
+   ]
+  },
+  {
+   "id": "G-836",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-171 Shop checkout / Shop checkout",
+   "situation": "During a payment that may already have gone to the bank, the back button / back gesture / app-bar arrow does not leave silently; the customer must confirm and then lands on 'Platba se overuje' (cart cleared so they do not pay twice).",
+   "old_where": [
+    "lib/features/shop/shop_checkout_screen.dart:680-694 (BackButtonListener + PopScope canPop: !_processing -> _onBack) and :652-666 (_onBack: confirmLeaveRunningPayment, then _goPending)",
+    "lib/features/shop/shop_checkout_screen.dart:650-662, :690-694 (PopScope canPop: !_processing)"
+   ],
+   "customer_sees": "Dialog 'Opustit platbu?' with 'Odejit' / 'Zustat a pockat'.",
+   "visible": "clear",
+   "server": [
+    "partly (the server keeps the order/payment state; the webhook confirms payment; no server rule about leaving)",
+    "n/a"
+   ],
+   "v2_entry_points": [
+    "v2 back"
+   ],
+   "v2_where": [
+    "lib/features/shop/shop_checkout_screen.dart:680-731 (the same BackButtonListener/PopScope wrap the v2 CheckoutViewV2); v2 app-bar back = onBack: _onBack (lib/features/shop/shop_checkout_screen.dart:730, lib/features/shop/v2/checkout_view_v2.dart:93); dialog v2 face in lib/features/payment/payment_ui_helpers.dart:19-27 (dismiss = stay)",
+    "PopScope wraps both faces (shop_checkout_screen.dart:690-696)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "One wrapper around both looks; the only v2 back control calls the same _onBack. (4.1.3 had no such lock at all — git show 70a94933 shop_checkout_screen.dart:405-406 popped directly.)",
+   "evidence": "One wrapper around both looks; the only v2 back control calls the same _onBack. (4.1.3 had no such lock at all — git show 70a94933 shop_checkout_screen.dart:405-406 popped directly.)",
+   "sources": [
+    "shop-23",
+    "mx-start-62"
+   ],
+   "merged_situations": [
+    {
+     "source": "mx-start-62",
+     "situation": "While the shop payment runs, back asks for confirmation."
+    }
+   ]
+  },
+  {
+   "id": "G-837",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-171 Shop checkout",
+   "situation": "Checkout opened without history (deep link / after go) -> back leads to the cart, not out of the app.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:684-686 and :665 (context.backOr(Routes.cart)); shell parent map lib/core/widgets/mg_back.dart:41-42 ('checkout' -> '/cart')",
+   "customer_sees": "Back goes to the cart.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same wrapper and _onBack for v2 (lib/features/shop/shop_checkout_screen.dart:680-731)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "shop-25"
+   ]
+  },
+  {
+   "id": "G-838",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-171 Shop checkout",
+   "situation": "A retry after a failed payment reuses the already created unpaid order as long as cart, codes, shipping and address are unchanged, so no duplicate orders appear.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:316-321 (_signature) and :470-473 (reuse _orderId when _orderSig == sig); reset on toCart :609-614",
+   "customer_sees": "Nothing visible; only one order in history.",
+   "visible": "silent",
+   "server": "partly (process-payment guards the stored intent per order, index.ts:355; no server de-duplication of orders found)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _finalize used by v2 (onPay: _finalize, lib/features/shop/shop_checkout_screen.dart:729)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared handler.",
+   "evidence": "Shared handler.",
+   "sources": [
+    "shop-26"
+   ]
+  },
+  {
+   "id": "G-839",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-171 Shop checkout",
+   "situation": "The amount charged is the SERVER's order total, not the total the app computed (stale discount, changed price).",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:497 (total = order.total ?? clientTotal) and :510-519 (cardCharge(total) -> createPaymentIntent)",
+   "customer_sees": "The card sheet shows the server amount; the summary on the page shows the app's own computation.",
+   "visible": "small-text",
+   "server": "yes (create_shop_order computes price; process-payment refuses a different amount with 409 amount_mismatch, supabase/functions/process-payment/index.ts:369)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _finalize. v2 dock price label lib/features/shop/shop_checkout_screen.dart:727 shows cardCharge(client total) — the same client total the old summary shows"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Observation for both looks: _recalcShopDiscount runs only on code apply/remove (Motogo-app-main/motogo-app-flutter/lib/features/shop/shop_checkout_screen.dart:192-193, :233), so a percent code applied before switching post/pickup leaves a stale on-screen discount; the server total decides. v2 puts that client figure on the pay button itself, the old look only in the summary — same number, not a weaker block.",
+   "evidence": "Observation for both looks: _recalcShopDiscount runs only on code apply/remove (Motogo-app-main/motogo-app-flutter/lib/features/shop/shop_checkout_screen.dart:192-193, :233), so a percent code applied before switching post/pickup leaves a stale on-screen discount; the server total decides. v2 puts that client figure on the pay button itself, the old look only in the summary — same number, not a weaker block.",
+   "sources": [
+    "shop-27"
+   ]
+  },
+  {
+   "id": "G-840",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-171 Shop checkout",
+   "situation": "An order that the server prices at 0 Kc (discount covers everything) is confirmed without any card payment.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:498-502 (autoConfirmed || total <= 0 -> _onSuccess(free: true)); button label :838-839 'confirmOrderFree'",
+   "customer_sees": "Button reads 'Potvrdit objednavku zdarma'; result screen 'Objednavka zdarma'.",
+   "visible": "clear",
+   "server": "yes (create_shop_order auto-confirms total 0, SUPABASE_BACKEND_STATE_3.md:97)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/shop_checkout_screen.dart:720-727 (same label key when total <= 0, no price)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition, same handler.",
+   "evidence": "Same condition, same handler.",
+   "sources": [
+    "shop-28"
+   ]
+  }
+ ]
+}

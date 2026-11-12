@@ -1,0 +1,313 @@
+{
+ "title": "Payment screen (booking, edit surcharge, SOS, restore) - part 4 of 5 (G-275..G-287; mainly payment_screen.dart, card_payment_sheet.dart, payment_screen_problems.dart)",
+ "guards": [
+  {
+   "id": "G-275",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-077 Card rounding / minimum charge note",
+   "situation": "The server refuses a too small amount or cannot waive a remainder up to 1 Kč; the customer is asked to pay 15 Kč with explanation instead of looping on the waiver.",
+   "old_where": "lib/features/payment/payment_refusals.dart:100-110, lib/features/payment/payment_screen_problems.dart:92-107 (forceMin)",
+   "customer_sees": "Sheet 'Minimální platba kartou' with 'Zaplatit 15 Kč'.",
+   "visible": "clear",
+   "server": "yes(process-payment below_minimum, waiver_unverified)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared; the v2 note and dock receive forceMin lib/features/payment/payment_screen.dart:1533"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same state.",
+   "evidence": "Same state.",
+   "sources": [
+    "payment-1-43"
+   ]
+  },
+  {
+   "id": "G-276",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-078 Upsell products on payment",
+   "situation": "E-shop add-ons are offered only when the 'reservation_upsell' feature flag is on and the booking itself meets the 15 Kč card minimum.",
+   "old_where": "lib/features/payment/payment_screen.dart:1609-1614, lib/core/feature_flags.dart:13-24, lib/features/payment/widgets/upsell_section.dart:32",
+   "customer_sees": "Section hidden.",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/payment_screen.dart:1540-1541 (upsellProducts same condition), lib/features/payment/v2/payment_view_v2.dart:152-155"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition.",
+   "evidence": "Same condition.",
+   "sources": [
+    "payment-1-44"
+   ]
+  },
+  {
+   "id": "G-277",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-078 Upsell products on payment",
+   "situation": "Add-ons are bundled into the charge and ordered only if the booking alone meets the card minimum; otherwise they are neither charged nor ordered.",
+   "old_where": "lib/features/payment/payment_screen.dart:403-410 (_upsellBundled), :1363-1369",
+   "customer_sees": "Nothing.",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same getter.",
+   "evidence": "Same getter.",
+   "sources": [
+    "payment-1-45"
+   ]
+  },
+  {
+   "id": "G-278",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-078 Upsell products on payment",
+   "situation": "A product that needs a size cannot be added by tapping the row; a size must be chosen.",
+   "old_where": "lib/features/payment/widgets/upsell_section.dart:160-167, :250-258",
+   "customer_sees": "Size chips; the row tap does nothing until a size is chosen.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/upsell_row_v2.dart:95 (_rowTap null when needsSize and not selected), :151-166"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same rule.",
+   "evidence": "Same rule.",
+   "sources": [
+    "payment-1-46"
+   ]
+  },
+  {
+   "id": "G-279",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-078 Upsell products on payment",
+   "situation": "The add-on order is created only after the booking payment is confirmed (also after 'Platba se ověřuje').",
+   "old_where": "lib/features/payment/payment_screen.dart:1363-1369, lib/features/payment/payment_screen_problems.dart:421",
+   "customer_sees": "Nothing.",
+   "visible": "silent",
+   "server": "unknown",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same code path.",
+   "evidence": "Same code path.",
+   "sources": [
+    "payment-1-47"
+   ]
+  },
+  {
+   "id": "G-280",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-079 Saved card preview + encryption note",
+   "situation": "Before paying with a saved card the customer sees which card will be charged (last 4 digits, brand, expiry, holder) - the saved card is charged without opening the card form.",
+   "old_where": "lib/features/payment/payment_screen.dart:1619-1620, lib/features/payment/widgets/saved_card_preview.dart:14-47",
+   "customer_sees": "Green bordered card '•••• 1234 VISA · 12/27 · NAME · Uložená karta'.",
+   "visible": "clear",
+   "server": "yes(process-payment uses payment_method_id of the customer's Stripe customer)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/pay_parts_v2.dart:91-123 (PayMethodCardV2: brand •••• last4, 'výchozí karta' · expiry · holder), lib/features/payment/v2/payment_view_v2.dart:156-159"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same defaultCardProvider value; v2 also shows the method when there is no saved card.",
+   "evidence": "Same defaultCardProvider value; v2 also shows the method when there is no saved card.",
+   "sources": [
+    "payment-1-48"
+   ]
+  },
+  {
+   "id": "G-281",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-079 Saved card preview + encryption note",
+   "situation": "The encryption / Stripe note appears only when something is charged.",
+   "old_where": "lib/features/payment/payment_screen.dart:1622-1629",
+   "customer_sees": "'🔒 Šifrovaná platba · Stripe PCI DSS Level 1'.",
+   "visible": "small-text",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/payment_view_v2.dart:161, lib/features/payment/v2/pay_parts_v2.dart:148"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition !charge.noCharge.",
+   "evidence": "Same condition !charge.noCharge.",
+   "sources": [
+    "payment-1-49"
+   ]
+  },
+  {
+   "id": "G-282",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-080 Pay button",
+   "situation": "The pay button is disabled while processing or after expiry, shows a spinner and, while verifying, 'Ověřujeme platbu…' plus a permanent note not to pay again.",
+   "old_where": "lib/features/payment/widgets/payment_header_widgets.dart:276-326, lib/features/payment/payment_screen.dart:1637-1646",
+   "customer_sees": "Disabled button, spinner, '⏳ fxVerifyingNote'.",
+   "visible": "clear",
+   "server": "yes(process-payment payment_in_progress)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/pay_dock_v2.dart:121-131 (MgCta enabled/busy), :133-140 (status + note under the CTA), SOS light dock :85-101; lib/features/payment/v2/payment_view_v2.dart:171-182"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same processing/expired/verifying flags; the status texts are shown under the CTA instead of inside it.",
+   "evidence": "Same processing/expired/verifying flags; the status texts are shown under the CTA instead of inside it.",
+   "sources": [
+    "payment-1-50"
+   ]
+  },
+  {
+   "id": "G-283",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-080 Pay button",
+   "situation": "When nothing is charged the button says 'Potvrdit objednávku zdarma' / 'Potvrdit bez platby' instead of a pay amount.",
+   "old_where": "lib/features/payment/widgets/payment_header_widgets.dart:305-310, lib/features/payment/payment_screen.dart:1639-1640",
+   "customer_sees": "Button with check icon and the free label.",
+   "visible": "clear",
+   "server": "yes(process-payment free confirm)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/payment_view_v2.dart:166-167, :175 (arrow, no price)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same keys and charge object.",
+   "evidence": "Same keys and charge object.",
+   "sources": [
+    "payment-1-51"
+   ]
+  },
+  {
+   "id": "G-284",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-080 Pay button",
+   "situation": "The amount on the button is what the card will really be charged (15 Kč minimum applied).",
+   "old_where": "lib/features/payment/payment_screen.dart:1638",
+   "customer_sees": "'Zaplatit 15 Kč →'.",
+   "visible": "clear",
+   "server": "yes(card-minimum.ts)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/payment_view_v2.dart:174 (price: charge.charge)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same charge.",
+   "evidence": "Same charge.",
+   "sources": [
+    "payment-1-52"
+   ]
+  },
+  {
+   "id": "G-285",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-081 Card payment sheet / S-176 Checkout pay button / Card payment sheet",
+   "situation": "In the card sheet the Pay button stays disabled until the card number, date and CVC are complete.",
+   "old_where": [
+    "lib/features/payment/widgets/card_payment_sheet.dart:228, :311-313, :421-423",
+    "lib/features/payment/widgets/card_payment_sheet.dart:422-423 (onPressed: (_processing || !_cardComplete) ? null : _payWithCard); _cardComplete :312",
+    "lib/features/payment/widgets/card_payment_sheet.dart:86-88, :331 (onPay null if processing or !cardComplete), :319 wallet button disabled, :468 PopScope(canPop: !_processing)"
+   ],
+   "customer_sees": "Greyed pay button until the card is complete.",
+   "visible": "clear",
+   "server": [
+    "yes(Stripe validates the card)",
+    "yes (Stripe refuses an incomplete card)",
+    "yes(Stripe PaymentIntent)"
+   ],
+   "v2_entry_points": [
+    "v2 card sheet"
+   ],
+   "v2_where": [
+    "lib/features/payment/widgets/card_payment_sheet.dart:331 (onPay null), lib/features/payment/v2/pay_ink_button_v2.dart (disabled at 45 % opacity when onTap null)",
+    "lib/features/payment/widgets/card_payment_sheet.dart:316-333 (v2 CardSheetV2 onPay: (_processing || !_cardComplete) ? null : _payWithCard)",
+    "lib/features/payment/widgets/card_payment_sheet.dart:316-335 (CardSheetV2 gets the same onPay/processing; wrapped by the same PopScope :468)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _cardComplete flag in the shared state; only the view differs.",
+   "evidence": "Same condition inside the same sheet state.",
+   "sources": [
+    "payment-1-53",
+    "shop-47",
+    "mx-order-34"
+   ],
+   "merged_situations": [
+    {
+     "source": "payment-1-53",
+     "situation": "The card sheet pay button stays disabled until the card number, expiry and CVC are complete."
+    },
+    {
+     "source": "mx-order-34",
+     "situation": "Card Pay is disabled until the card number is complete; while processing all buttons are disabled and the sheet cannot be closed; closing after submit counts as \"processing\", not cancel."
+    }
+   ]
+  },
+  {
+   "id": "G-286",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-081 Card payment sheet / S-176 Checkout pay button",
+   "situation": "While the card payment is being confirmed the sheet cannot be closed (back, tap outside, drag down, close button).",
+   "old_where": [
+    "lib/features/payment/widgets/card_payment_sheet.dart:369-373, :462-475 (PopScope canPop: !_processing, drag absorbed)",
+    "lib/features/payment/widgets/card_payment_sheet.dart:462-475 (PopScope canPop: !_processing + drag absorb), old close button disabled :370"
+   ],
+   "customer_sees": "Sheet stays, 'psSheetProcessing' status line.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/payment/v2/card_sheet_v2.dart:121-125 (✕ onTap null and 40 % opacity while processing); PopScope/drag absorb at card_payment_sheet.dart:467-475 wraps the v2 sheet too",
+    "lib/features/payment/widgets/card_payment_sheet.dart:323 (v2 onClose: maybePop, blocked by the same PopScope) and :467-475 (shared wrapper)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same wrapper for both looks.",
+   "evidence": "Same wrapper around both faces; maybePop respects PopScope.",
+   "sources": [
+    "payment-1-54",
+    "shop-48"
+   ],
+   "merged_situations": [
+    {
+     "source": "payment-1-54",
+     "situation": "While the card or Google Pay payment is being sent, the sheet cannot be closed (✕ disabled, back and tap outside blocked, swipe down absorbed), so the result is not lost."
+    }
+   ]
+  },
+  {
+   "id": "G-287",
+   "step": "payment-1",
+   "step_title": "Payment screen (booking, edit surcharge, SOS, restore)",
+   "surface": "S-081 Card payment sheet",
+   "situation": "If the sheet is closed anyway while paying, the result is treated as 'processing' and verified, never as 'cancelled'.",
+   "old_where": "lib/features/payment/widgets/card_payment_sheet.dart:86-89 (_SubmitGuard)",
+   "customer_sees": "'Platba se ověřuje' path.",
+   "visible": "silent",
+   "server": "yes(webhook-receiver confirms)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Shared show()"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Look-independent.",
+   "evidence": "Look-independent.",
+   "sources": [
+    "payment-1-55"
+   ]
+  }
+ ]
+}

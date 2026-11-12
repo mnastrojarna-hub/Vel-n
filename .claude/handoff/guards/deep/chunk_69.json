@@ -1,0 +1,194 @@
+{
+ "title": "E-shop, cart, checkout and vouchers - part 4 of 4 (G-853..G-861; mainly shop_checkout_screen.dart, voucher_screen.dart, shop_provider.dart)",
+ "guards": [
+  {
+   "id": "G-853",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-175 Checkout promo codes",
+   "situation": "The code is invalid, expired, used up, a gift / Slevomat voucher, or there is no internet; it is refused with the concrete reason.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:169-181 (validateShopPromoCode -> reasonKey); lib/features/shop/shop_provider.dart:170-188 (validate_promo_code, network -> psCodeNet)",
+   "customer_sees": "Red line with the reason under the field.",
+   "visible": "small-text",
+   "server": "yes (validate_promo_code; create_shop_order code_invalid / voucher_not_allowed, 20260924d:164-181)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _applyPromo; red msg lib/features/shop/v2/checkout_parts_v2.dart:192-197"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "shop-43"
+   ]
+  },
+  {
+   "id": "G-854",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-175 Checkout promo codes",
+   "situation": "A second percentage code is added; two percent codes cannot be combined.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:182-190 ('promoNoCombinePercent')",
+   "customer_sees": "Red line 'Nelze kombinovat dva procentni kody'.",
+   "visible": "small-text",
+   "server": "yes (create_shop_order multiple_percent, 20260924d:168)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _applyPromo"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "shop-44"
+   ]
+  },
+  {
+   "id": "G-855",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-175 Checkout promo codes",
+   "situation": "While a code is being checked, the Apply button is disabled so the code is not sent twice; an empty field does nothing.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:956 (onPressed: _promoLoading ? null : _applyPromo) and :147 (code.isEmpty -> return)",
+   "customer_sees": "Spinner in the Apply button.",
+   "visible": "clear",
+   "server": "no",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/v2/checkout_parts_v2.dart:190 (MgBtnGhostLight busy: loading, onTap: loading ? null : onApply); onSubmitted :185 calls onApply directly (old :932 did the same)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same. In both looks pressing Enter while loading calls _applyPromo again (no loading check inside _applyPromo) — identical.",
+   "evidence": "Same. In both looks pressing Enter while loading calls _applyPromo again (no loading check inside _applyPromo) — identical.",
+   "sources": [
+    "shop-45"
+   ]
+  },
+  {
+   "id": "G-856",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-175 Checkout promo codes",
+   "situation": "Applied codes are listed and can be removed with an X; the discount is recalculated.",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:995-1031 (list, X -> _removeCode :227-235)",
+   "customer_sees": "Green chips with code and value, red X.",
+   "visible": "clear",
+   "server": "yes (server recomputes the discount from the codes it receives)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/v2/checkout_parts_v2.dart:199-229 (MgTintOk rows, 44 px X -> onRemove = _removeCode)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "shop-46"
+   ]
+  },
+  {
+   "id": "G-857",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-176 Checkout pay button",
+   "situation": "The card is declined or the payment fails with a known reason; the customer gets a translated error and can retry (the pending marker is cleared).",
+   "old_where": "lib/features/shop/shop_checkout_screen.dart:565-591 (PaymentErrorMapper.fromStripeException -> PaymentErrorSheet retry -> _finalize)",
+   "customer_sees": "Error sheet with the reason and 'Zkusit znovu'.",
+   "visible": "clear",
+   "server": "yes (Stripe decline)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "Same _finalize; sheet v2 face lib/features/payment/widgets/payment_error_sheet.dart:32-66"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Shared.",
+   "evidence": "Shared.",
+   "sources": [
+    "shop-50"
+   ]
+  },
+  {
+   "id": "G-858",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-177 Gift voucher purchase",
+   "situation": "The customer enters a custom voucher value below 100 Kc; the buy button is blocked.",
+   "old_where": "lib/features/shop/voucher_screen.dart:185-186 (PressableScale enabled: _amount >= 100; onPressed: _amount < 100 ? null)",
+   "customer_sees": "Greyed 'Koupit poukaz' button; the field label 'amountMin' is the only hint.",
+   "visible": "small-text",
+   "server": "yes (create_shop_order bad_voucher_item when N < 100, 20260924d:77)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/voucher_screen.dart:82 (onBuy: _amount < 100 ? null); lib/features/shop/v2/voucher_view_v2.dart:132 and :164-180 (dock CTA enabled:false, no price, warning line with 'amountMin' in the dock)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same condition; v2 explains it next to the button, clearer than the old look.",
+   "evidence": "Same condition; v2 explains it next to the button, clearer than the old look.",
+   "sources": [
+    "shop-51"
+   ]
+  },
+  {
+   "id": "G-859",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-177 Gift voucher purchase",
+   "situation": "The custom value is clamped to 100-99 999 Kc and written back into the field when the customer leaves the field, so the shown number equals what is bought.",
+   "old_where": "lib/features/shop/voucher_screen.dart:32-41 (_normalizeAmount), field :160-165 (onChanged sets _amount; onEditingComplete / onTapOutside -> _normalizeAmount)",
+   "customer_sees": "The number in the field jumps to 100 or 99 999.",
+   "visible": "small-text",
+   "server": "yes (create_shop_order accepts only voucher_<1-5 digits>, N >= 100, 20260924d:77; regex in 20260924b:101)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/voucher_screen.dart:76-80 (same onCustomChanged / onNormalize); lib/features/shop/v2/voucher_view_v2.dart:88-96 (onChanged, onEditingComplete, onTapOutside on the same controller)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handlers wired to the same events.",
+   "evidence": "Same handlers wired to the same events.",
+   "sources": [
+    "shop-52"
+   ]
+  },
+  {
+   "id": "G-860",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-177 Gift voucher purchase",
+   "situation": "A printed voucher adds 180 Kc for print and postage; the price on the button includes it.",
+   "old_where": "lib/features/shop/voucher_screen.dart:44 (_total = _amount + printedVoucherShipping when _printed), button :191",
+   "customer_sees": "Type card '+180 Kc' and the button 'Koupit poukaz - <total>'.",
+   "visible": "clear",
+   "server": "yes (create_shop_order prices printed voucher N + 180, 20260924d / SUPABASE_BACKEND_STATE_3.md:97)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/v2/voucher_view_v2.dart:109-115 (printed card '+ 180 Kc') and :175 (dock price = total)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same _total getter.",
+   "evidence": "Same _total getter.",
+   "sources": [
+    "shop-53"
+   ]
+  },
+  {
+   "id": "G-861",
+   "step": "shop",
+   "step_title": "E-shop, cart, checkout and vouchers",
+   "surface": "S-177 Gift voucher purchase",
+   "situation": "Buying a voucher only puts it into the cart and opens the cart; payment still goes through the guarded checkout (login, no promo codes for vouchers).",
+   "old_where": "lib/features/shop/voucher_screen.dart:53-61 (_buy: addItem 'voucher_<N>_<p|d>_<ts>', toast, push(Routes.cart))",
+   "customer_sees": "Toast 'Pridano do kosiku' and the cart.",
+   "visible": "clear",
+   "server": "yes (create_shop_order: login-only, code_not_allowed_for_voucher)",
+   "v2_entry_points": [],
+   "v2_where": [
+    "lib/features/shop/voucher_screen.dart:82 (v2 onBuy -> same _buy)"
+   ],
+   "verdict": "HOLDS",
+   "verdict_evidence": "Same handler.",
+   "evidence": "Same handler.",
+   "sources": [
+    "shop-54"
+   ]
+  }
+ ]
+}
