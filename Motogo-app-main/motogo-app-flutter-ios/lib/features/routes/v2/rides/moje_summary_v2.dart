@@ -35,7 +35,7 @@ class MojeSummaryV2 extends ConsumerWidget {
 
   /// Rides not loaded yet → the count shows "—", not a false 0 (F-18).
   final bool ridesLoading;
-  final void Function(MojeSub sub, RideFilter? filter) onSub;
+  final ValueChanged<MojeSub> onSub;
   final VoidCallback onCreateRoute;
   final VoidCallback onLogin;
 
@@ -110,8 +110,8 @@ class MojeSummaryV2 extends ConsumerWidget {
           _SplitBar(a: mgKm, b: pvKm),
           const SizedBox(height: 4),
           Wrap(alignment: WrapAlignment.spaceBetween, spacing: 8, children: [
-            _SplitKey(color: MgColors.neonLo, label: tr.tr('v2RideFilterMg'), km: mgKm, onTap: () => onSub(MojeSub.rides, RideFilter.motogo)),
-            _SplitKey(color: MgColors.ink, label: tr.tr('v2RideFilterPriv'), km: pvKm, onTap: () => onSub(MojeSub.rides, RideFilter.private)),
+            _SplitKey(color: MgColors.neonLo, label: tr.tr('v2RideFilterMg'), km: mgKm, onTap: () => onSub(MojeSub.rides)),
+            _SplitKey(color: MgColors.ink, label: tr.tr('v2RideFilterPriv'), km: pvKm, onTap: () => onSub(MojeSub.rides)),
           ]),
         ],
         const SizedBox(height: 12),
@@ -123,9 +123,9 @@ class MojeSummaryV2 extends ConsumerWidget {
               icon: MgIcons.bike,
               value: ridesLoading ? null : groupRides(rides).length,
               label: tr.tr('v2RideSubRides'),
-              onTap: () => onSub(MojeSub.rides, RideFilter.all)),
-          _CountTile(icon: MgIcons.bookmark, value: savedCount, label: tr.tr('v2RideSubSaved'), onTap: () => onSub(MojeSub.saved, null)),
-          _CountTile(icon: MgIcons.pin, value: placesCount, label: tr.tr('v2RideSubPlaces'), onTap: () => onSub(MojeSub.places, null)),
+              onTap: () => onSub(MojeSub.rides)),
+          _CountTile(icon: MgIcons.bookmark, value: savedCount, label: tr.tr('v2RideSubSaved'), onTap: () => onSub(MojeSub.saved)),
+          _CountTile(icon: MgIcons.pin, value: placesCount, label: tr.tr('v2RideSubPlaces'), onTap: () => onSub(MojeSub.places)),
         ]),
         if (status != null) ...[
           const SizedBox(height: 10),
@@ -311,7 +311,7 @@ class _RankRow extends StatelessWidget {
   final RankTokens rank;
   const _RankRow({required this.status, required this.rank});
 
-  // Qualifying points where each league starts (HomeClubCardV2._tierStartPts).
+  // Qualifying points where each league starts.
   static const _tierStartPts = [0, 10, 18, 32, 38];
 
   @override

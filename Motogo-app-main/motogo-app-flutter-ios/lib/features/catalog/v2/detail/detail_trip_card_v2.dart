@@ -12,7 +12,6 @@ import '../../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../../core/v2/widgets/mg_price.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
-import '../../../booking/booking_models.dart';
 import '../../catalog_provider.dart';
 import '../../moto_model.dart';
 import '../../widgets/availability_calendar.dart';
@@ -25,11 +24,9 @@ import '../catalog_price.dart';
 /// one dark total box). ① Termín = the page's own date state and
 /// `AvailabilityCalendar` callbacks (expand / collapse, range, start,
 /// reset — all owned by `_MotoDetailPageState`), availability banner,
-/// `ValidationBanner`, a busy warning for carried dates ([busy]); ②
-/// Předání a výbava = info only (chosen in the booking form; "i" tile +
-/// the 12:00 saving from [quote12]); total = [quote] (the booking form's
-/// price for a fresh draft) with the old list total struck, no deposit,
-/// breakdown.
+/// `ValidationBanner`, a busy warning for carried dates ([busy]); then
+/// the total box = the old `PriceFooter` list price ([listTotal], or
+/// "od … / den" without dates), no deposit.
 class DetailTripCardV2 extends ConsumerStatefulWidget {
   final Motorcycle moto;
   final DateTime? selStart;
@@ -40,20 +37,11 @@ class DetailTripCardV2 extends ConsumerStatefulWidget {
   /// The old `PriceFooter` total (list price, no rank) — struck when the
   /// rank price is lower.
   final double listTotal;
-  final PriceBreakdown? quote;
-
-  /// The same trip with pickup from 12:00 (2+ days) — information only.
-  final PriceBreakdown? quote12;
   final bool busy;
   final bool calendarExpanded;
   final VoidCallback onToggleCalendar;
   final void Function(DateTime, DateTime) onRangeSelected;
 
-  /// CB-17: the detail dock's "Rozpis" opens the same breakdown — the
-  /// open flag lives in the view then (null = this card's own, as before);
-  /// [totalKey] marks the total box the dock scrolls to.
-  final ValueNotifier<bool>? breakdown;
-  final Key? totalKey;
   final void Function(DateTime) onStartSelected;
   final VoidCallback onReset;
   final AsyncValue<List<BookedDateRange>> bookedAsync;
@@ -66,16 +54,12 @@ class DetailTripCardV2 extends ConsumerStatefulWidget {
     required this.hasDates,
     required this.dayCount,
     required this.listTotal,
-    required this.quote,
     required this.calendarExpanded,
     required this.onToggleCalendar,
     required this.onRangeSelected,
-    this.breakdown,
-    this.totalKey,
     required this.onStartSelected,
     required this.onReset,
     required this.bookedAsync,
-    this.quote12,
     this.busy = false,
   });
 
@@ -211,7 +195,6 @@ class _DetailTripCardV2State extends ConsumerState<DetailTripCardV2> {
         // bez kauce; sleva za rank a vyzvednutí od 12:00 až v rezervaci.
         if (w.hasDates && w.listTotal > 0)
           MgTotalBox(
-            key: w.totalKey,
             eyebrow: '${tr.tr('priceTotalFor')}${catDays(tr, w.dayCount)}',
             value: catMoney(w.listTotal),
             sub: tr.tr('v2DetNoDeposit'),

@@ -6,8 +6,6 @@ import '../../../../core/v2/chrome/mg_page.dart';
 import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
-import '../../../booking/booking_quote.dart';
-import '../../../loyalty/loyalty_provider.dart';
 import '../../moto_model.dart';
 import '../catalog_text.dart';
 import 'detail_dock_v2.dart';
@@ -19,10 +17,9 @@ import 'detail_trip_card_v2.dart';
 /// — `_MotoDetailPageState` keeps the photo index / pager controller, the
 /// selected dates, the calendar expansion, the booked-dates watch and the
 /// REZERVOVAT action (PM-3) and hands values + its own callbacks in here.
-/// The only things derived here are the display prices ([quoteFor] = the
-/// booking form's own calculation for a fresh draft; the 12:00 variant is
-/// information only) and the scroll to the date step ("VYBRAT TERMÍN").
-class MotoDetailV2View extends ConsumerStatefulWidget {
+/// The only things derived here are the display prices (list prices, as
+/// the old detail) and the scroll to the date step ("VYBRAT TERMÍN").
+class MotoDetailV2View extends StatefulWidget {
   final Motorcycle moto;
   final List<String> images;
   final String branchInfo;
@@ -82,21 +79,11 @@ class MotoDetailV2View extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<MotoDetailV2View> createState() => _MotoDetailV2ViewState();
+  State<MotoDetailV2View> createState() => _MotoDetailV2ViewState();
 }
 
-class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
+class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
   final GlobalKey _tripKey = GlobalKey();
-  final GlobalKey _totalKey = GlobalKey();
-
-  /// CB-17: the trip card's breakdown flag, shared with the dock "Rozpis".
-  final ValueNotifier<bool> _breakdown = ValueNotifier(false);
-
-  @override
-  void dispose() {
-    _breakdown.dispose();
-    super.dispose();
-  }
 
   /// The pill claims "free" only when the loaded calendar has no booked day
   /// in the range at all (the busy rule waits for the own reservations).
@@ -124,10 +111,6 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
   Widget build(BuildContext context) {
     final w = widget;
     final moto = w.moto;
-    final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
-    final dated = w.hasDates && moto.prices != null;
-    final q = dated ? quoteFor(moto, w.selStart!, w.selEnd!, loyalty: loyalty) : null;
-    final q12 = dated && w.dayCount >= 2 ? quoteFor(moto, w.selStart!, w.selEnd!, pickupTime: '12:00', loyalty: loyalty) : null;
     final cheapest = moto.prices?.cheapest ?? 0;
     // „jen vzhled“: ceníková cena jako v původním detailu (sleva za rank až v rezervaci).
     final from = cheapest > 0 ? t(context).trArgs('v2CatGridFrom', {'amount': catMoney(cheapest)}) : null;
@@ -170,20 +153,14 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
             // parameters → prices → calendar (+ total) → manual.
             DetailMoreV2(moto: moto, branchInfo: w.branchInfo),
             const SizedBox(height: 20),
-            ValueListenableBuilder<bool>(
-              valueListenable: _breakdown,
-              builder: (_, __, ___) => DetailTripCardV2(
+            DetailTripCardV2(
               key: _tripKey,
-              breakdown: _breakdown,
-              totalKey: _totalKey,
               moto: moto,
               selStart: w.selStart,
               selEnd: w.selEnd,
               hasDates: w.hasDates,
               dayCount: w.dayCount,
               listTotal: w.totalPrice,
-              quote: q,
-              quote12: q12,
               busy: w.busy,
               calendarExpanded: w.calendarExpanded,
               onToggleCalendar: w.onToggleCalendar,
@@ -191,7 +168,6 @@ class _MotoDetailV2ViewState extends ConsumerState<MotoDetailV2View> {
               onStartSelected: w.onStartSelected,
               onReset: w.onReset,
               bookedAsync: w.bookedAsync,
-            ),
             ),
             DetailManualSectionV2(moto: moto),
           ]),

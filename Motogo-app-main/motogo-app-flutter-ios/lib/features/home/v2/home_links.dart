@@ -36,12 +36,3 @@ void homeGiveDates(WidgetRef ref, FunnelRange? range) {
   ref.read(catalogFilterProvider.notifier).state =
       f.copyWith(startDate: () => range?.start, endDate: () => range?.end);
 }
-
-/// "Všechny motorky ›" / "Kdy jedeš příště?": Motorky in find mode with
-/// the range (when given).
-void homeOpenBikes(BuildContext context, WidgetRef ref, {FunnelRange? range}) {
-  ref.read(catalogModeProvider.notifier).state = CatalogMode.find;
-  ref.read(catalogCalcRequestProvider.notifier).state = false;
-  if (range != null) homeGiveDates(ref, range);
-  _goSearch(context, ref);
-}

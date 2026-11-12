@@ -41,7 +41,7 @@ Future<void> mojeNavTab(BuildContext context, WidgetRef ref, int i) async {
 /// navigace (swipe still switches), the record dock and the v2 nav (the
 /// route lives outside the shell). A dumb view: data + callbacks from
 /// `_MyExperiencesScreenState` (seam); local state = UI only (sub-chip
-/// within the old first tab, ride filter, hint open).
+/// within the old first tab, hint open).
 class MojeViewV2 extends StatefulWidget {
   final bool loggedIn;
   final int tab;
@@ -106,7 +106,6 @@ class MojeViewV2 extends StatefulWidget {
 
 class _MojeViewV2State extends State<MojeViewV2> {
   final MgShellChrome _chrome = MgShellChrome();
-  RideFilter _filter = RideFilter.all;
   bool _hint = false;
   int _dir = 0; // směr posledního přepnutí podzáložky (animace obsahu)
 
@@ -126,14 +125,11 @@ class _MojeViewV2State extends State<MojeViewV2> {
         _ => MojeSub.history,
       };
 
-  void _select(MojeSub s, [RideFilter? f]) {
+  void _select(MojeSub s) {
     // "Uložené trasy" live on the first tab's page (under the rides).
     if (s == MojeSub.saved) s = MojeSub.rides;
     final d = MojeSub.values.indexOf(s) - MojeSub.values.indexOf(_sub);
-    setState(() {
-      _dir = d.sign;
-      if (f != null) _filter = f;
-    });
+    setState(() => _dir = d.sign);
     widget.onTab(switch (s) {
       MojeSub.rides || MojeSub.saved => 0,
       MojeSub.places => 1,
@@ -159,8 +155,6 @@ class _MojeViewV2State extends State<MojeViewV2> {
       data: w,
       rides: rides,
       historyItems: historyItems,
-      filter: _filter,
-      onFilter: (f) => setState(() => _filter = f),
       hintOpen: _hint,
       onHint: () => setState(() => _hint = !_hint),
       onOpenRecorder: () => openRideRecorderV2(context),

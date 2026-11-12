@@ -16,7 +16,6 @@ import 'package:motogo_app/core/v2/widgets/mg_skeleton.dart';
 import 'package:motogo_app/features/messages/messages_provider.dart';
 import 'package:motogo_app/features/messages/v2/messages_view_v2.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
-import 'package:motogo_app/features/reservations/v2/res_edit_chooser_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_view_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_filter_tabs_v2.dart';
 import 'package:motogo_app/features/reservations/v2/reservations_screen_v2.dart';

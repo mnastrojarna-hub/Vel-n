@@ -2,20 +2,11 @@ import 'dart:math' as math;
 import 'dart:ui' show PathMetric;
 
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
-
-/// Ride detail with swipe siblings (same push + extra as `RideCard`).
-void homePushRide(BuildContext context, String id, List<String> siblings) =>
-    GoRouter.maybeOf(context)?.push('/ride/$id', extra: siblings);
-
-/// Route detail with swipe siblings (same push + extra as the routes list).
-void homePushRoute(BuildContext context, String id, List<String> siblings) =>
-    GoRouter.maybeOf(context)?.push('/routes/$id', extra: siblings);
 
 /// Little route sketch from track / waypoint coordinates on a dark tile,
 /// drawn once (900 ms; instant under reduced motion). No points → glyph.

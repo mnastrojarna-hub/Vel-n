@@ -6,10 +6,8 @@ import '../../../core/v2/chrome/mg_photo_hero.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
-import '../../../core/v2/tokens/mg_type.dart';
 import '../reservation_models.dart';
 import 'res_status_v2.dart';
-import 'res_detail_bits_v2.dart';
 
 /// Photo hero of the reservation detail (V22 `.rph`): the bike contained
 /// over a dark ground, back disc (photo style → the SAME `backOr` as
@@ -76,39 +74,5 @@ String? resStatusSuffix(AppTranslations tr, Reservation r) {
     case ResStatus.dokoncene:
     case ResStatus.cancelled:
       return null;
-  }
-}
-
-/// Title block on the canvas sheet: "REZERVACE #ID", bike and "Supermoto ·
-/// branch · samoobsluha / s obsluhou" (Reservation board; the date range and
-/// length live once in the "Tvoje cesta" header).
-class ResTitleBlockV2 extends StatelessWidget {
-  final Reservation res;
-  const ResTitleBlockV2({super.key, required this.res});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final cat = (res.category ?? '').trim();
-    final type = res.isSelfService
-        ? tr.tr('v2UxRpTypeSelf')
-        : (res.branchType == 'obslužná' ? tr.tr('v2UxRpTypeStaffed') : null);
-    final meta = [
-      if (cat.isNotEmpty) cat[0].toUpperCase() + cat.substring(1),
-      if ((res.branchName ?? '').isNotEmpty) res.branchName!,
-      if (type != null && !res.isGearOnly) type,
-    ].join(' · ');
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      ResSectionEyebrowV2(tr.trArgs('v2ResEyebrowId', {'id': res.shortId})),
-      const SizedBox(height: 8),
-      Semantics(
-        header: true,
-        child: Text(res.motoName, style: MgType.h1.copyWith(color: MgColors.ink)),
-      ),
-      if (meta.isNotEmpty) ...[
-        const SizedBox(height: 4),
-        Text(meta, style: MgType.small.copyWith(color: MgColors.lead)),
-      ],
-    ]);
   }
 }

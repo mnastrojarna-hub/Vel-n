@@ -110,29 +110,6 @@ class PoiTripButtonV2 extends StatelessWidget {
   }
 }
 
-/// ‹ › 44 discs of the sibling swipe (board "1 / 12 ‹ ›") — the same `_go`
-/// as the swipe; disabled at the ends.
-class PoiSheetNavV2 extends StatelessWidget {
-  final VoidCallback? onPrev;
-  final VoidCallback? onNext;
-  const PoiSheetNavV2({super.key, required this.onPrev, required this.onNext});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    Widget disc(String icon, VoidCallback? tap, String label) => Opacity(
-          opacity: tap == null ? 0.45 : 1,
-          child: MgIconButton(icon: icon, onTap: tap, semanticLabel: label, style: MgIconButtonStyle.photo),
-        );
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      disc(MgIcons.chevronLeft, onPrev, tr.tr('v2UxRrPrevPlace')),
-      const SizedBox(width: 8),
-      disc(MgIcons.chevronRight, onNext, tr.tr('v2UxRrNextPlace')),
-      const SizedBox(width: 8),
-    ]);
-  }
-}
-
 /// The 44 px ✕ over the place photo (V22 §6.1, photo style) — the same
 /// `maybePop` as the old 32 px cross.
 class PoiSheetCloseV2 extends StatelessWidget {

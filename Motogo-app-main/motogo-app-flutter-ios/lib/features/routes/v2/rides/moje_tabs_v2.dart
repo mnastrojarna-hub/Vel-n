@@ -27,10 +27,6 @@ enum MojeSub { rides, saved, places, history }
 /// The selectable sub-screens = the old three tabs.
 const kMojeTabs = [MojeSub.rides, MojeSub.places, MojeSub.history];
 
-/// Ride list filter (UI only, on the same list): all / with a MotoGo
-/// rental / own bike.
-enum RideFilter { all, motogo, private }
-
 /// Horizontal chip row of the sub-screens with counts (null = unknown).
 class MojeSubChipsV2 extends StatefulWidget {
   final MojeSub value;

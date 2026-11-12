@@ -27,7 +27,6 @@ import 'package:motogo_app/features/booking/v2/sections/handover_v2.dart';
 import 'package:motogo_app/core/v2/widgets/mg_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/v2_harness.dart';
 
@@ -74,7 +73,6 @@ Future<ProviderContainer> _pump(WidgetTester t, List<Override> overrides, {List<
   ));
   await t.pump();
   await t.pump(const Duration(milliseconds: 500));
-  await openBookingExpress(t); // CB-11 express sections
   return c;
 }
 

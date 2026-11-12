@@ -16,13 +16,10 @@ import 'package:motogo_app/features/booking/booking_quote.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
-import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/fakes_catalog.dart' show catalogOverrides;
-import '../support/fakes_home.dart' as fh;
 import '../support/v2_harness.dart';
 
 String _cs(String key, [Map<String, String> args = const {}]) {
@@ -90,7 +87,6 @@ void main() {
       await pumpV2(t, const BookingDebugWrapper(), size: const Size(412, 915), overrides: overrides);
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
-      await openBookingExpress(t); // CB-11: the time card sits in "Termín a předání"
       return ProviderScope.containerOf(t.element(find.byType(BookingDebugWrapper)));
     }
 

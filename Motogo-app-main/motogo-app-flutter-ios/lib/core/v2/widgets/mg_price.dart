@@ -10,56 +10,6 @@ import '../tokens/mg_shadows.dart';
 import '../tokens/mg_space.dart';
 import '../tokens/mg_type.dart';
 
-/// Price block: "Tvoje cena" label + value (neon on dark / `#0D6E0D` on
-/// light) + struck list price + optional delta chip. Values come formatted
-/// from the caller (existing `Money` / price helpers) — never computed here.
-class MgPrice extends StatelessWidget {
-  final String value;
-  final String? label;
-  final String? struck;
-  final String? suffix;
-  final Widget? chip;
-  final bool dark;
-  final bool large;
-  const MgPrice({
-    super.key,
-    required this.value,
-    this.label,
-    this.struck,
-    this.suffix,
-    this.chip,
-    this.dark = false,
-    this.large = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final valueStyle = MgType.tab((large ? MgType.h2 : MgType.section)
-        .copyWith(fontWeight: FontWeight.w900, color: dark ? MgColors.neon : MgColors.price));
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      if (label != null)
-        Text(label!, style: MgType.meta.copyWith(color: dark ? MgColors.onDarkMeta : MgColors.meta)),
-      Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 8, runSpacing: 4, children: [
-        Text.rich(TextSpan(children: [
-          TextSpan(text: value, style: valueStyle),
-          if (suffix != null)
-            TextSpan(
-              text: ' $suffix',
-              style: MgType.small.copyWith(color: dark ? MgColors.onDarkSecondary : MgColors.lead),
-            ),
-        ])),
-        if (struck != null)
-          Text(struck!,
-              style: MgType.tab(MgType.small.copyWith(
-                decoration: TextDecoration.lineThrough,
-                color: dark ? MgColors.white(0.5) : MgColors.meta,
-              ))),
-        if (chip != null) chip!,
-      ]),
-    ]);
-  }
-}
-
 /// Dark total box (`gDarkCta`, r14): "TVOJE CENA · n dny" eyebrow, value
 /// 32/900 neon (bumps when it changes), avg / day line, rank savings chip,
 /// "Rozpis ▾" toggle owned by the caller.

@@ -26,7 +26,6 @@ import 'package:motogo_app/features/catalog/v2/detail/detail_specs_v2.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_trip_card_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
-import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 
 import '../render/render_harness.dart' show loadRenderFonts;
 import '../render/render_inspect.dart';

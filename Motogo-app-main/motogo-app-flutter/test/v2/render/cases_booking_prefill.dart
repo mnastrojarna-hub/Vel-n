@@ -13,7 +13,6 @@ import 'package:motogo_app/features/booking/v2/sections/extras_rows_v2.dart';
 import 'package:motogo_app/features/booking/v2/sections/handover_v2.dart';
 import 'package:motogo_app/features/booking/v2/sections/promo_v2.dart';
 
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import 'render_harness.dart';
 
@@ -27,7 +26,6 @@ const _gear = {
 const _vouchers = [MyVoucher(code: 'DAR1000', amount: 1000), MyVoucher(code: 'VANOCE2026', amount: 2500)];
 
 Future<void> _tapIn(WidgetTester t, Finder f) async {
-  await openBookingExpress(t); // CB-11 express sections
   await t.ensureVisible(f);
   await t.pump();
   await t.tap(f, warnIfMissed: false);

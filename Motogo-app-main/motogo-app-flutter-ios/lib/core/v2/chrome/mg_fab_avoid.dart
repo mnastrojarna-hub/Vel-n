@@ -71,23 +71,6 @@ class _MgFabAvoidState extends State<MgFabAvoid> {
 /// Placement decision of the floating AI button.
 enum MgFabState { rest, peek, off, lift }
 
-/// Pure placement rule (unit-tested): the button slot (disc inflated by 8)
-/// against the avoid zones — any `cta` / `sos` overlap → off, only `tap`
-/// overlaps → peek, otherwise rest.
-MgFabState mgFabStateFor(Rect slot, List<(Rect, MgAvoidKind)> zones) {
-  final s = slot.inflate(8);
-  var peek = false;
-  for (final z in zones) {
-    if (!z.$1.overlaps(s)) continue;
-    if (z.$2 == MgAvoidKind.tap || z.$2 == MgAvoidKind.keep) {
-      peek = true;
-    } else {
-      return MgFabState.off;
-    }
-  }
-  return peek ? MgFabState.peek : MgFabState.rest;
-}
-
 /// Full placement rule with the lift option (V2 §4.2, first free wins):
 /// **rest** (slot clear) → **lift** (bottom = top of the zones under the
 /// slot − 12, at most [maxLift], lifted slot clear of EVERY zone) → **off**

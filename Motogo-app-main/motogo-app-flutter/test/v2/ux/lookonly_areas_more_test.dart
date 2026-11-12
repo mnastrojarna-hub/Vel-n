@@ -9,7 +9,6 @@ import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
-import 'package:motogo_app/features/booking/v2/booking_header_v2.dart';
 import 'package:motogo_app/features/payment/card_minimum.dart';
 import 'package:motogo_app/features/payment/v2/pay_gallery_v2.dart';
 import 'package:motogo_app/features/payment/v2/pay_receipt_v2.dart';
@@ -93,7 +92,6 @@ void main() {
       expect(find.textContaining('Mezná, Pelhřimov'), findsOneWidget);
       expect(find.byType(PayBreakdownV2), findsOneWidget);
       expect(find.text(_cs('v2Breakdown')), findsNothing);
-      expect(find.byType(BookingStepsV2), findsNothing);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(seconds: 4));
     });

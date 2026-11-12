@@ -5,15 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
-import 'package:motogo_app/features/home/v2/home_club_card_v2.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
-import 'package:motogo_app/features/home/v2/home_tier_preview_v2.dart';
 import 'package:motogo_app/features/shell/v2/crash_view_v2.dart';
 import 'package:motogo_app/features/shell/v2/offline_view_v2.dart';
 import 'package:motogo_app/features/shell/v2/onboarding_lang_v2.dart';
 import 'package:motogo_app/features/shell/v2/onboarding_perm_v2.dart';
 import 'package:motogo_app/features/shell/v2/update_dialog_v2.dart';
-import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../render/cases_ux_shell_home.dart' show kOnbLangs, kOnbPerms;
@@ -48,7 +45,6 @@ Map<String, Widget Function()> _views() => {
           child: SingleChildScrollView(
               child: UpdateForceDialogV2(version: '4.3.0', storeFailed: true, onUpdate: () {}, onCall: () {}, onCall112: () {}))),
       'offer': () => Center(child: UpdateOfferDialogV2(version: '4.3.0', onLater: () {}, onUpdate: () {})),
-      'tier': () => SingleChildScrollView(padding: const EdgeInsets.all(16), child: TierPreviewV2(rank: RankTokens.forLevel(17))),
     };
 
 void _expectFits(WidgetTester tester, String id, String lang, Size size) {
@@ -75,7 +71,7 @@ void main() {
       for (final v in _views().entries) {
         for (final lang in kV2Langs) {
           for (final size in _sizes) {
-            await pumpV2(tester, _scaled(scale, v.value()), lang: lang, size: size, scaffold: v.key == 'tier' || v.key == 'force' || v.key == 'offer', reducedMotion: true);
+            await pumpV2(tester, _scaled(scale, v.value()), lang: lang, size: size, scaffold: v.key == 'force' || v.key == 'offer', reducedMotion: true);
             await tester.pump(const Duration(milliseconds: 50));
             _expectFits(tester, v.key, lang, size);
           }
@@ -83,7 +79,7 @@ void main() {
       }
     });
 
-    testWidgets('Home S2 / S6 / S8 / club fit · 8 langs × 320/360/412 · scale $scale', (tester) async {
+    testWidgets('Home S2 / S6 / S8 fit · 8 langs × 320/360/412 · scale $scale', (tester) async {
       final cases = homeCases();
       for (final state in ['s2', 's6', 's8-rec', 's7']) {
         for (final lang in kV2Langs) {
@@ -96,15 +92,6 @@ void main() {
             _expectFits(tester, state, lang, size);
           }
         }
-      }
-      for (final lang in kV2Langs) {
-        await tester.pumpWidget(const SizedBox());
-        await pumpV2(tester, _scaled(scale, const SingleChildScrollView(child: HomeClubCardV2())),
-            lang: lang, size: const Size(320, 690), overrides: homeOverrides(), reducedMotion: true);
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.tap(find.byKey(const ValueKey('home-club-more')).first, warnIfMissed: false);
-        await tester.pump(const Duration(milliseconds: 300));
-        _expectFits(tester, 'club', lang, const Size(320, 690));
       }
     });
   }

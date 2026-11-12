@@ -11,14 +11,12 @@ import 'package:motogo_app/features/booking/booking_models.dart';
 import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/v2_harness.dart';
 
 typedef _Case = ({String name, List<Override> Function() overrides, Future<void> Function(WidgetTester)? after});
 
 Future<void> _openCalendar(WidgetTester t) async {
-  await openBookingExpress(t); // CB-11: the date card sits in "Termín a předání"
   final change = find.descendant(of: find.byType(BookingDateCardV2), matching: find.byType(MgPress)).first;
   await t.ensureVisible(change);
   await t.pump();

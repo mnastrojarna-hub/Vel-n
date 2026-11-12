@@ -18,7 +18,6 @@ import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
-import 'package:motogo_app/core/v2/widgets/mg_chips.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
 import 'package:motogo_app/features/booking/booking_provider.dart';

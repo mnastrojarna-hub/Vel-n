@@ -21,7 +21,6 @@ import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
 import 'package:motogo_app/features/catalog/widgets/fullscreen_gallery.dart';
 
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/fakes_catalog.dart';
 import 'render_harness.dart';
@@ -87,16 +86,14 @@ List<RenderCase> uxCatalogBookingRenderCases() {
           ),
         ), after: _busyRange),
     bk('express_folded', () => bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw, extras: [passenger]))),
-    bk('express_open', () => bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)), after: openBookingExpress),
+    bk('express_open', () => bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw))),
     bk('sizes_sheet', () => [
           ...bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw), profile: gear),
           myVouchersProvider.overrideWith((ref) async => const <MyVoucher>[]),
         ], after: (t) async {
-      await openBookingExpress(t);
       await _tapIn(t, find.byType(BookingExtraRowV2).at(0));
     }),
     bk('boots_sheet', () => bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw), profile: gear), after: (t) async {
-      await openBookingExpress(t);
       await _tapIn(t, find.byType(BookingExtraRowV2).at(1));
     }),
     bk('promo_sheet', () => [
@@ -104,7 +101,6 @@ List<RenderCase> uxCatalogBookingRenderCases() {
           myVouchersProvider.overrideWith((ref) async => const [MyVoucher(code: 'DAR1000', amount: 1000)]),
         ], after: (t) => _tapIn(t, find.descendant(of: find.byType(BookingPromoV2), matching: find.byType(MgPress)).first)),
     bk('time_sheet', () => bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)), after: (t) async {
-      await openBookingExpress(t);
       await _tapIn(t, find.byType(TimeFieldV2).first);
     }),
   ];

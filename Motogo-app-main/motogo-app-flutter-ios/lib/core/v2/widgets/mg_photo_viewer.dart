@@ -11,32 +11,6 @@ import '../tokens/mg_type.dart';
 import 'mg_back_v2.dart';
 import 'mg_skeleton.dart';
 
-/// Opens the v2 full-screen photo viewer over the current page (black, fade
-/// 180 ms; design G6 / M1). [overlayBuilder] adds e.g. a © credit (return a
-/// `Positioned` / `Align`).
-Future<void> showMgPhotoViewer(
-  BuildContext context, {
-  required List<String> urls,
-  int initial = 0,
-  ValueChanged<int>? onPage,
-  Widget Function(BuildContext, int)? overlayBuilder,
-}) {
-  final d = MgMotion.of(context, MgMotion.dialog);
-  return Navigator.of(context, rootNavigator: true).push<void>(PageRouteBuilder<void>(
-    opaque: false,
-    transitionDuration: d,
-    reverseTransitionDuration: d,
-    pageBuilder: (ctx, _, __) => MgPhotoViewerView(
-      urls: urls,
-      initial: initial,
-      onPage: onPage,
-      overlayBuilder: overlayBuilder,
-      onClose: () => Navigator.of(ctx).maybePop(),
-    ),
-    transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
-  ));
-}
-
 /// The viewer body (usable inside an existing route): swipe = next photo,
 /// pinch 1–4×, double-tap 1× ↔ 2.5× (300 ms), swipe-down closes (100 px /
 /// 800 px/s) — page swipe and swipe-down only at scale ≤ 1.01 and with one

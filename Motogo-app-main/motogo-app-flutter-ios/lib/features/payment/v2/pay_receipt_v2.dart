@@ -8,7 +8,6 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_emoji_map.dart';
-import '../../../core/v2/widgets/mg_sheet.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../booking/booking_models.dart';
@@ -118,36 +117,4 @@ class PayBreakdownV2 extends StatelessWidget {
       ],
     ]);
   }
-}
-
-/// "Rozpis ▴" sheet variant of [PayBreakdownV2] (kept for callers outside
-/// the payment page).
-Future<void> showPayBreakdownV2(
-  BuildContext context, {
-  required BookingDraft draft,
-  required PriceBreakdown breakdown,
-  required List<SelectedExtra> extras,
-  required List<BookingUpsellItem> upsell,
-}) {
-  return showMgSheet<void>(
-    context,
-    builder: (ctx) {
-      final tr = t(ctx);
-      final upsellTotal = upsell.fold<double>(0, (s, i) => s + i.price);
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        BookingPriceV2(draft: draft, bd: breakdown, dayCount: breakdown.days, pricedExtras: extras),
-        if (upsell.isNotEmpty) ...[
-          const SizedBox(height: MgSpace.s12),
-          PayCardV2(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              for (final u in upsell)
-                PayRowV2(label: u.name, value: '+${Money.czk(u.price)}'),
-              const Divider(height: 12, color: MgColors.line),
-              PayRowV2(label: tr.tr('totalLabel'), value: Money.czk(breakdown.total + upsellTotal)),
-            ]),
-          ),
-        ],
-      ]);
-    },
-  );
 }

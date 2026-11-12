@@ -1,20 +1,14 @@
-// Home v2 fidelity (board Main): SH-25 countdown ring value, SH-10 club
-// disclosure, SH-18 Hero, SH-20 Ken Burns, SH-21 eyebrow, SH-23 skeleton,
-// SH-24 record row, SH-39 tier preview, SH-40. (Ticket / offer / routes /
-// Moje zážitky blocks left Domů with the "jen vzhled" restore —
-// lookonly-fix:core; see test/v2/ux/lookonly_core_test.dart.)
+// Home v2 fidelity (board Main): SH-18 Hero, SH-20 Ken Burns, SH-21
+// eyebrow, SH-23 skeleton, SH-24 record row, SH-40. (Ticket / offer /
+// routes / Moje zážitky / club blocks left Domů with the "jen vzhled"
+// restore — lookonly-fix:core; see test/v2/ux/lookonly_core_test.dart.)
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:motogo_app/core/i18n/i18n_provider.dart';
-import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/features/home/v2/home_bike_list_v2.dart';
-import 'package:motogo_app/features/home/v2/home_club_card_v2.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
-import 'package:motogo_app/features/home/v2/home_ticket_pay_v2.dart';
-import 'package:motogo_app/features/home/v2/home_tier_preview_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/home_test.dart' show homeCases;
@@ -40,45 +34,6 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     MgMotion.resetSession();
-  });
-
-  testWidgets('SH-25 ring drains with the existing countdown value', (tester) async {
-    final p = PendingBooking(id: 'x', totalPrice: 1, createdAt: DateTime.now().subtract(const Duration(minutes: 15)));
-    expect(TkCountdownRing.fraction(p), closeTo(0.5, 0.01));
-  });
-
-  testWidgets('SH-10 club: collapsed shows points total, app-only note, all ranks (old Domů card); tap opens perks + rail', (tester) async {
-    await pumpV2(tester, const SingleChildScrollView(child: HomeClubCardV2()), overrides: homeOverrides(), reducedMotion: true);
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(tester.getSize(find.byType(HomeClubCardV2)).height, lessThanOrEqualTo(380));
-    expect(find.text('TVŮJ KLUB · LEVEL 3 Z 20'), findsOneWidget);
-    // Never behind the disclosure: total points, app-only rule, all ranks.
-    expect(find.text('5 b. · rezervace z appky i webu'), findsOneWidget);
-    final tr = AppTranslations.of('cs');
-    expect(find.text(tr.tr('loyaltyAppOnly')), findsOneWidget);
-    expect(find.text(tr.tr('v2HomeClubAll')), findsOneWidget);
-    for (final k in ['loyaltyAppOnly', 'v2HomeClubAll']) {
-      expect(find.descendant(of: find.byKey(const ValueKey('home-club-more')), matching: find.text(tr.tr(k))), findsNothing,
-          reason: '$k outside the disclosure');
-    }
-    expect(find.text('na každou jízdu v appce'), findsNothing);
-    await tester.tap(find.text('Výhody a ligy'));
-    await tester.pump();
-    expect(tester.binding.transientCallbackCount, 0);
-    expect(find.text('Skrýt výhody'), findsOneWidget);
-    expect(find.byKey(const ValueKey('club-tier-0')), findsOneWidget);
-  });
-
-  testWidgets('SH-39 league disc → tier preview sheet (no data, inert CTA)', (tester) async {
-    await pumpV2(tester, const SingleChildScrollView(child: HomeClubCardV2()), overrides: homeOverrides(), reducedMotion: true);
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Výhody a ligy'));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('club-tier-3')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(TierPreviewV2), findsOneWidget);
-    expect(find.text('Takhle bude vypadat tvoje appka'), findsOneWidget);
   });
 
   testWidgets('SH-18 Hero tags unique on every Home state; centred funnel card = moto-img, list heroes off beside it', (tester) async {

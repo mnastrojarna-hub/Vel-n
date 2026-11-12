@@ -9,7 +9,6 @@ import 'package:motogo_app/core/v2/states/mg_support_row.dart';
 import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/core/v2/widgets/mg_segmented.dart';
-import 'package:motogo_app/features/reservations/v2/res_edit_chooser_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_view_v2.dart';
 import 'package:motogo_app/features/reservations/v2/reservations_screen_v2.dart';
 import 'package:motogo_app/features/reservations/widgets/res_detail_tab_content.dart';

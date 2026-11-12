@@ -24,17 +24,6 @@ String resStatusLabel(AppTranslations tr, ResStatus st) => switch (st) {
       ResStatus.cancelled => tr.cancelled,
     };
 
-/// Payment status label — the same mapping as the payment details tab
-/// (`ResPaymentDetailsTab._statusLabel`), never the raw DB value.
-String resPayStatusLabel(AppTranslations tr, Reservation r) => switch (r.paymentStatus) {
-      'paid' when r.status == 'cancelled' => tr.tr('payStatusRefundPending'),
-      'paid' => tr.tr('paid'),
-      'refunded' => tr.tr('payStatusRefunded'),
-      'partial_refund' => tr.tr('payStatusPartialRefund'),
-      'refund_pending' => tr.tr('payStatusRefundPending'),
-      _ => tr.tr('payStatusUnpaid'),
-    };
-
 /// "3 dny" in the app language.
 String resDays(AppTranslations tr, int n) => '$n ${tr.daysWord(n)}';
 

@@ -22,7 +22,6 @@ import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:motogo_app/features/booking/v2/booking_date_v2.dart';
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/v2_harness.dart';
 
@@ -32,7 +31,6 @@ Future<ProviderContainer> _form(WidgetTester t, List<Override> o, {String lang =
   await pumpV2(t, const BookingDebugWrapper(), lang: lang, size: const Size(412, 915), overrides: o);
   await t.pump();
   await t.pump(const Duration(milliseconds: 600));
-  await openBookingExpress(t); // CB-11 express sections
   return ProviderScope.containerOf(t.element(find.byType(BookingDebugWrapper)));
 }
 

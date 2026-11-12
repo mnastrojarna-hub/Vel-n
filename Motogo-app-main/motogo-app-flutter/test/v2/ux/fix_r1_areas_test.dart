@@ -3,7 +3,6 @@
 // the edit / SOS / date surfaces that were still the old look inside v2.
 // Every test drives the SAME callbacks the old widgets used.
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/motion/mg_anim.dart';
@@ -23,7 +22,6 @@ import 'package:motogo_app/features/reservations/v2/res_swap_date_sheet_v2.dart'
 import 'package:motogo_app/features/routes/animated_route_icon.dart';
 import 'package:motogo_app/features/sos/v2/sos_here_address_v2.dart';
 
-import '../support/fakes_reservations.dart';
 import '../support/v2_harness.dart';
 
 Motorcycle _moto(String id, String model, {String branchType = 'obslužná'}) => Motorcycle.fromJson({

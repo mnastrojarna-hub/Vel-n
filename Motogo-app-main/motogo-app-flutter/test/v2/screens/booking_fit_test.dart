@@ -8,7 +8,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/icons/mg_icon.dart';
 import 'package:motogo_app/features/booking/v2/booking_dock_v2.dart';
-import 'package:motogo_app/features/booking/v2/booking_header_v2.dart';
 import 'package:motogo_app/features/booking/v2/booking_v2_parts.dart';
 import 'package:motogo_app/features/booking/v2/sections/extras_rows_v2.dart';
 
@@ -171,15 +170,5 @@ void main() {
     final p = _para(t, 'Tailles d’équipement manquantes');
     expect(p.maxLines, 3);
     expect(p.didExceedMaxLines, isFalse);
-  });
-
-  testWidgets('step pill: long label is never cut', (t) async {
-    await pumpV2(t, _host(const BookingStepsV2(current: 2), width: 288, scale: 1.3),
-        lang: 'fr', size: const Size(320, 690));
-    await t.pump(const Duration(milliseconds: 500));
-    expect(t.takeException(), isNull);
-    final p = _para(t, 'Vérification et paiement');
-    expect(p.didExceedMaxLines, isFalse);
-    expect(p.textSize.width, lessThanOrEqualTo(p.size.width + 1));
   });
 }

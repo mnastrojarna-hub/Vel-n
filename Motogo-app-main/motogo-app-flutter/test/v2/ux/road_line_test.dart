@@ -3,7 +3,6 @@
 // zastávek se nebere, náhledy karet kreslí jen čáru po silnici a bez ní nic.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:motogo_app/features/home/v2/home_sketch.dart';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart' show SizedBox;
@@ -12,7 +11,6 @@ import 'package:motogo_app/features/routes/my_experiences_provider.dart';
 import 'package:motogo_app/features/routes/ride_map.dart';
 import 'package:motogo_app/features/routes/ride_model.dart';
 import 'package:motogo_app/features/routes/road_line.dart';
-import 'package:motogo_app/features/routes/routes_map_provider.dart';
 import 'package:motogo_app/features/routes/routes_model.dart';
 import 'package:motogo_app/features/routes/routes_provider.dart' show RouteProfile;
 import 'package:motogo_app/features/routes/v2/rides/ride_track_sketch_v2.dart';
@@ -67,23 +65,6 @@ void main() {
   });
 
   group('sketches', () {
-    const route = RouteItem(id: 'r1', name: 'Okruh', waypoints: [_a, _b, _c]);
-
-    testWidgets('catalog card draws the road line, never the waypoints', (t) async {
-      final road = fakeRoadLine(const [_a, _b, _c]);
-      await pumpV2(t, const RouteRoadSketchV2(route: route, width: 104, height: 76),
-          overrides: [routeRoadLineProvider.overrideWith((ref, id) async => road)]);
-      await t.pumpAndSettle();
-      expect(t.widget<HomeSketch>(find.byType(HomeSketch)).points, road);
-    });
-
-    testWidgets('no road line yet / routing failed → nothing over the photo', (t) async {
-      await pumpV2(t, const RouteRoadSketchV2(route: route, width: 300, height: 120, tile: false),
-          overrides: [routeRoadLineProvider.overrideWith((ref, id) async => const <LatLng>[])]);
-      await t.pumpAndSettle();
-      expect(find.byType(HomeSketch), findsNothing);
-    });
-
     testWidgets('saved route sketch routes its stops in the chosen profile', (t) async {
       RoadLineKey? asked;
       final road = fakeRoadLine(const [_a, _b, _c]);

@@ -11,7 +11,6 @@ import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/v2/chrome/mg_fab_avoid.dart';
 import 'package:motogo_app/core/v2/icons/mg_icon.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
-import 'package:motogo_app/core/v2/widgets/mg_section.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_parts.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
@@ -33,12 +32,6 @@ Future<void> _end(WidgetTester t) async {
   await t.pumpWidget(const SizedBox());
   await t.pump(const Duration(seconds: 3));
 }
-
-MgAvoidKind _zoneOf(WidgetTester t, String icon) => t
-    .widget<MgFabAvoid>(find
-        .ancestor(of: find.byWidgetPredicate((w) => w is MgIcon && w.name == icon), matching: find.byType(MgFabAvoid))
-        .first)
-    .kind;
 
 void main() {
   setUpAll(() async {
@@ -108,11 +101,10 @@ void main() {
     });
   }
 
-  testWidgets('calculator disc and funnel calendar = CTA zones', (t) async {
+  testWidgets('funnel calendar = CTA zone', (t) async {
     await pumpV2(t, const SingleChildScrollView(child: Column(children: [HomeFunnelV2()])),
         overrides: homeOverrides(funnel: kMotos.take(2).toList()));
     await _frames(t);
-    expect(_zoneOf(t, MgIcons.calc), MgAvoidKind.cta);
     expect(
         t
             .widgetList<MgFabAvoid>(find.ancestor(

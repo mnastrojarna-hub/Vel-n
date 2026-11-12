@@ -26,7 +26,6 @@ import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
 import 'package:motogo_app/core/v2/shell/mg_origin_chip.dart';
 import 'package:motogo_app/core/v2/shell/shell_nav_map.dart';
-import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/features/branches/branches_info_provider.dart';
 import 'package:motogo_app/features/branches/v2/branch_texts_v2.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';

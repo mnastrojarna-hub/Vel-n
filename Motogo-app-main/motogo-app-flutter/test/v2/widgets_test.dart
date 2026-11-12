@@ -15,9 +15,7 @@ import 'package:motogo_app/core/v2/widgets/mg_row.dart';
 import 'package:motogo_app/core/v2/widgets/mg_section.dart';
 import 'package:motogo_app/core/v2/widgets/mg_segmented.dart';
 import 'package:motogo_app/core/v2/widgets/mg_skeleton.dart';
-import 'package:motogo_app/core/v2/widgets/mg_stat_tile.dart';
 import 'package:motogo_app/core/v2/widgets/mg_surfaces.dart';
-import 'package:motogo_app/core/v2/widgets/mg_timeline.dart';
 
 import 'support/v2_harness.dart';
 
@@ -64,14 +62,6 @@ class _Gallery extends StatelessWidget {
           TextField(decoration: mgInputDecoration(context, label: tr.tr('v2StWrite'), error: tr.tr('v2CalError'))),
           MgSwitchRow(title: tr.tr('v2CalLegYours'), sub: tr.tr('v2CalNote'), value: true, onChanged: (_) {}),
           MgCheckRow(value: false, label: tr.tr('v2CalPickEnd'), onChanged: (_) {}),
-          Row(children: [
-            Expanded(child: MgStatTile(value: '12', label: tr.tr('v2TabRoutes'), icon: MgIcons.route)),
-            const SizedBox(width: 10),
-            Expanded(child: MgStatTile(value: '1 284 km', label: tr.tr('v2CalLegOther'), onTap: () {})),
-          ]),
-          const SizedBox(height: 12),
-          MgPrice(label: tr.tr('v2YourPrice'), value: '10 189 Kč', struck: '11 893 Kč', suffix: tr.tr('v2PerDay').replaceAll('{amount}', '')),
-          const SizedBox(height: 12),
           MgBtnInk(label: tr.tr('v2StWrite'), onTap: () {}, icon: MgIcons.chat),
           const SizedBox(height: 8),
           MgBtnGhostLight(label: tr.tr('v2CalPickEnd'), onTap: () {}),
@@ -96,12 +86,6 @@ class _Gallery extends StatelessWidget {
             breakdownOpen: true,
             breakdown: const Text('…'),
           ),
-          const SizedBox(height: 12),
-          MgTimeline(dark: true, steps: [
-            MgTimelineStep(title: tr.tr('v2CalPickup'), sub: 'pá 23. 10.', state: MgStepState.done),
-            MgTimelineStep(title: tr.tr('v2TabRoutes'), state: MgStepState.current, live: true),
-            MgTimelineStep(title: tr.tr('v2CalReturn'), state: MgStepState.future),
-          ]),
           const SizedBox(height: 12),
           MgCta(label: tr.tr('v2TabBookings'), price: '10 189 Kč', onTap: () {}, loop: true, size: MgCtaSize.lg60),
           const SizedBox(height: 8),

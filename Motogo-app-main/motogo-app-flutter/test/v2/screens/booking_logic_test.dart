@@ -25,7 +25,6 @@ import 'package:motogo_app/features/booking/v2/sections/extras_rows_v2.dart';
 import 'package:motogo_app/features/booking/v2/sections/promo_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../support/booking_express.dart';
 import '../support/fakes_booking.dart';
 import '../support/v2_harness.dart';
 
@@ -72,8 +71,6 @@ Future<ProviderContainer> _pumpRouted(WidgetTester tester, List<Override> overri
   ));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 500));
-  // CB-11: the parity checks drive controls inside the express sections.
-  if (v2) await openBookingExpress(tester);
   return container;
 }
 

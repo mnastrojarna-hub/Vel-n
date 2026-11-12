@@ -34,8 +34,6 @@ class MojeListsV2 extends StatelessWidget {
   final MojeViewV2 data;
   final List<UserRide> rides;
   final List<ActiveRide> historyItems;
-  final RideFilter filter;
-  final ValueChanged<RideFilter> onFilter;
   final bool hintOpen;
   final VoidCallback onHint;
   final VoidCallback onOpenRecorder;
@@ -54,8 +52,6 @@ class MojeListsV2 extends StatelessWidget {
     required this.data,
     required this.rides,
     required this.historyItems,
-    required this.filter,
-    required this.onFilter,
     required this.hintOpen,
     required this.onHint,
     required this.onOpenRecorder,

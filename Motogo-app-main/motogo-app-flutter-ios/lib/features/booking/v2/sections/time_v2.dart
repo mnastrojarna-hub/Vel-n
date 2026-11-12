@@ -6,7 +6,6 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_space.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/widgets/time_dropdown_field.dart';
-import '../../booking_models.dart' show PriceBreakdown;
 import '../booking_v2_parts.dart';
 
 /// v2 look of `BookingFormTimeSection` (V branch): the SAME
@@ -87,14 +86,6 @@ class BookingTimeV2 extends StatelessWidget {
       ]),
     );
   }
-}
-
-/// What picking up from 12:00 saves: standard minus 12:00 total — the one
-/// definition the calculator (`CalcTotalV2`) and Home (`HomeOfferBlockV2`)
-/// use too, so the customer sees one number everywhere. Display only.
-double lateSaving(PriceBreakdown std, PriceBreakdown at12) {
-  final d = std.total - at12.total;
-  return d > 0 ? d : 0;
 }
 
 /// The old card's one hint (🌗 ½ first day from 12:00 / self-service

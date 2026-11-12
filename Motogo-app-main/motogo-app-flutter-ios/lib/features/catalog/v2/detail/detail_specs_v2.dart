@@ -1,114 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
-import '../../../../core/v2/icons/mg_icon.dart';
-import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
-import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../moto_model.dart';
 import '../catalog_fit.dart';
-
-/// Up to 4 key spec tiles (board `.sg4`): value 17/800 ink + unit + label
-/// from the bike's existing fields (power, engine, weight, seat height,
-/// torque, tank — first four present). Labels = the old spec keys.
-class DetailKeyTilesV2 extends StatelessWidget {
-  final Motorcycle moto;
-  const DetailKeyTilesV2({super.key, required this.moto});
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final m = moto;
-    // Locale grouping (D4 mgNum): "1 170" ccm; decimals as the value has them.
-    String n(num v) => v == v.roundToDouble() ? mgNum(v, tr.lang) : mgNum(v, tr.lang, decimals: 1);
-    final tiles = <(String, String, String, String)>[
-      if (m.powerKw != null) (MgIcons.gauge, n(m.powerKw!), 'kW', tr.tr('specPower')),
-      if (m.engineCc != null) (MgIcons.moto, n(m.engineCc!), 'ccm', tr.tr('specEngine')),
-      if (m.weightKg != null) (MgIcons.scale, n(m.weightKg!), 'kg', tr.tr('specWeight')),
-      if (m.seatHeightMm != null && m.seatHeightMm! > 0) (MgIcons.ruler, n(m.seatHeightMm!), 'mm', tr.tr('specSeatHeight')),
-      if (m.torqueNm != null) (MgIcons.speed, n(m.torqueNm!), 'Nm', tr.tr('specTorque')),
-      if (m.fuelTankL != null) (MgIcons.fuel, n(m.fuelTankL!), 'l', tr.tr('specFuelTank')),
-    ].take(4).toList();
-    if (tiles.isEmpty) return const SizedBox.shrink();
-    final unitStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta);
-    // 2 × 2 fallback: lower tiles (72) so all four clear the dock at 360 × 780.
-    var minH = 96.0;
-    Widget tile(int i) => MgReveal(
-          index: i,
-          child: Semantics(
-            container: true,
-            label: '${tiles[i].$4}: ${tiles[i].$2} ${tiles[i].$3}',
-            excludeSemantics: true,
-            child: Container(
-              constraints: BoxConstraints(minHeight: minH),
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-              decoration: BoxDecoration(
-                color: MgColors.well,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: MgColors.line),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Icon + unit never overflow a narrow tile: the unit takes
-                // the rest of the row and scales down instead.
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(color: MgColors.panel, borderRadius: BorderRadius.circular(8)),
-                    child: Center(child: MgIcon(tiles[i].$1, size: 16, color: MgColors.neon)),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Align(
-                      alignment: AlignmentDirectional.topEnd,
-                      child: FittedBox(fit: BoxFit.scaleDown, child: Text(tiles[i].$3, maxLines: 1, style: unitStyle)),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 6),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(tiles[i].$2, style: MgType.tab(MgType.section.copyWith(color: MgColors.ink, height: 1.1))),
-                ),
-                const SizedBox(height: 2),
-                MgWordFit(minScale: 0.75, child: Text(tiles[i].$4, style: MgType.micro.copyWith(color: MgColors.meta))),
-              ]),
-            ),
-          ),
-        );
-    return LayoutBuilder(builder: (context, c) {
-      // 4 in a row only when every label word and "icon + unit" fit a tile
-      // (never a word broken in half — "Hmotnost", "Потужність" — nor an
-      // overflowing unit); otherwise 2 × 2. Inner = tile − padding − border.
-      final inner = (c.maxWidth - 24) / 4 - 18;
-      final base = DefaultTextStyle.of(context).style.merge(MgType.micro);
-      var fits = inner >= 48;
-      for (final tl in tiles) {
-        if (!fits) break;
-        if (32 + catWordWidth(context, tl.$3, base.merge(unitStyle)) > inner) fits = false;
-        if (catWordWidth(context, tl.$4, base) > inner) fits = false;
-      }
-      final cols = fits ? 4 : 2;
-      if (!fits) minH = 72;
-      final rows = <Widget>[];
-      for (var r = 0; r * cols < 4 && r * cols < tiles.length; r++) {
-        if (r > 0) rows.add(const SizedBox(height: 8));
-        rows.add(IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            for (var k = 0; k < cols; k++) ...[
-              if (k > 0) const SizedBox(width: 8),
-              Expanded(child: r * cols + k < tiles.length ? tile(r * cols + k) : const SizedBox.shrink()),
-            ],
-          ]),
-        ));
-      }
-      return Column(children: rows);
-    });
-  }
-}
 
 /// "Všechny parametry" — the old `SpecsSection` data (`moto.specList`) as
 /// a 2-column grid of well tiles (label caps + value), light.

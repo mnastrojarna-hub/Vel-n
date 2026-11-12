@@ -6,7 +6,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
-import 'package:motogo_app/features/booking/v2/booking_header_v2.dart';
 import 'package:motogo_app/features/booking/v2/sections/price_v2.dart';
 import 'package:motogo_app/features/payment/card_minimum.dart';
 import 'package:motogo_app/features/payment/payment_provider.dart';
@@ -59,7 +58,6 @@ void main() {
   testWidgets('flag ON: /payment shows the v2 view (old header without a step bar, chip, CTA); OFF the old screen', (tester) async {
     var router = await pumpPs(tester, const PaymentScreen(), overrides: psPayOverrides());
     expect(find.byType(PaymentViewV2), findsOneWidget);
-    expect(find.byType(BookingStepsV2), findsNothing);
     expect(find.byType(PayCountdownChipV2), findsOneWidget);
     expect(find.byType(PaymentHeader), findsNothing);
     await psLeaveRoute(tester, router);

@@ -30,7 +30,6 @@ import 'package:motogo_app/features/routes/v2/rides/ride_detail_parts_v2.dart';
 import 'package:motogo_app/features/routes/v2/rides/ride_pause_actions_v2.dart';
 import 'package:motogo_app/features/routes/v2/rides/ride_results_v2.dart';
 import 'package:motogo_app/features/routes/v2/rides/ride_trip_card_v2.dart';
-import 'package:motogo_app/features/routes/v2/rt_v2_text.dart';
 import 'package:motogo_app/features/routes/v2/trasy_hub_header_v2.dart';
 
 import '../screens/rides_cases.dart';
@@ -268,13 +267,6 @@ void main() {
   });
 
   group('F-14 / F-31 / F-34 small', () {
-    test('floored live counts (V21 T2)', () {
-      expect(rtFloorCount(null), isNull);
-      expect(rtFloorCount(57), '57');
-      expect(rtFloorCount(1174), '1 100');
-      expect(rtFloorCount(49948), '49 000');
-    });
-
     testWidgets('hub header: logo ring (→ ranks) + stats line, route icon plays once', (t) async {
       await pumpV2(t, TrasyHubHeaderV2(seg: TrasySeg.places, onSegment: (_) {}, stats: ('1 100', '49 000')),
           overrides: ridesOverrides());

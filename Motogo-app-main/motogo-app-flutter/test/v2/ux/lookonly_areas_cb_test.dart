@@ -9,8 +9,6 @@ import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/states/mg_support_row.dart';
 import 'package:motogo_app/features/booking/v2/booking_dock_v2.dart';
-import 'package:motogo_app/features/booking/v2/booking_express_v2.dart';
-import 'package:motogo_app/features/booking/v2/booking_header_v2.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_page.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
@@ -111,9 +109,6 @@ void main() {
 
     testWidgets('every section open, no folds / steps / support row; dock without extra links', (t) async {
       await pumpForm(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
-      expect(find.byType(BookingHandoverRowV2), findsNothing);
-      expect(find.byType(BookingReadyCardV2), findsNothing);
-      expect(find.byType(BookingStepsV2), findsNothing);
       expect(find.byType(MgSupportRow), findsNothing);
       // Moto card: "od {price}" + the branch WITH its city.
       expect(find.textContaining('Mezná, Pelhřimov'), findsOneWidget);
