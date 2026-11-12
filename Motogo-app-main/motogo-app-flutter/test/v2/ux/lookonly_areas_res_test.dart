@@ -9,10 +9,8 @@ import 'package:motogo_app/core/v2/states/mg_support_row.dart';
 import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/core/v2/widgets/mg_segmented.dart';
-import 'package:motogo_app/features/reservations/v2/res_coted_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_chooser_v2.dart';
 import 'package:motogo_app/features/reservations/v2/res_edit_view_v2.dart';
-import 'package:motogo_app/features/reservations/v2/res_timeline_v2.dart';
 import 'package:motogo_app/features/reservations/v2/reservations_screen_v2.dart';
 import 'package:motogo_app/features/reservations/widgets/res_detail_tab_content.dart';
 import 'package:motogo_app/features/reservations/widgets/res_payment_details_tab.dart';
@@ -89,8 +87,6 @@ void main() {
       await t.pump(const Duration(milliseconds: 800));
       expect(find.byKey(const ValueKey('res-detail-tabs')), findsOneWidget);
       expect(find.byType(ResDetailTabContent), findsOneWidget);
-      expect(find.byType(ResJourneyV2), findsNothing);
-      expect(find.byType(ResCoTedV2), findsNothing);
       expect(find.byType(MgSupportRow), findsNothing);
       // The old info rows incl. "Kategorie" and the old edit / cancel buttons.
       expect(find.text(_cs('resCategory')), findsOneWidget);

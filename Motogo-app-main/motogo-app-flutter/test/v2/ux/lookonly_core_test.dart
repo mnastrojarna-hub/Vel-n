@@ -32,7 +32,6 @@ import 'package:motogo_app/features/home/v2/home_bookings_v2.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
 import 'package:motogo_app/features/home/v2/home_record_row_v2.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
-import 'package:motogo_app/features/home/v2/home_ticket_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/home_test.dart' show homeCases;
@@ -182,7 +181,6 @@ void main() {
         expect(ys[i], greaterThan(ys[i - 1]), reason: 'block $i');
       }
       // No v2-only Home blocks (ticket, funnel with a paid booking).
-      expect(find.byType(HomeTicketV2), findsNothing);
       expect(find.byType(HomeFunnelV2), findsNothing);
 
       await t.pumpWidget(const SizedBox());

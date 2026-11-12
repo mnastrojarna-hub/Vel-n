@@ -15,7 +15,6 @@ import 'package:motogo_app/features/payment/v2/pay_gallery_v2.dart';
 import 'package:motogo_app/features/payment/v2/pay_receipt_v2.dart';
 import 'package:motogo_app/features/payment/v2/payment_view_v2.dart';
 import 'package:motogo_app/features/payment/v2/upsell_row_v2.dart';
-import 'package:motogo_app/features/profile/v2/profile_attention_v2.dart';
 import 'package:motogo_app/features/routes/v2/record_dock_v2.dart';
 import 'package:motogo_app/features/routes/v2/route_detail_parts_v2.dart';
 import 'package:motogo_app/features/routes/v2/rides/moje_tabs_v2.dart';
@@ -48,7 +47,6 @@ void main() {
   testWidgets('Profil: the old order and entry points (no attention chips, AI row, gear; back always)', (t) async {
     await pumpV2(t, const PfHubHarness(), size: const Size(412, 4000), overrides: profileOverrides(), reducedMotion: true);
     await t.pump(const Duration(milliseconds: 600));
-    expect(find.byType(ProfileAttentionV2), findsNothing);
     expect(find.text(_cs('aiServiceAgent')), findsNothing);
     expect(find.byKey(const ValueKey('pf-back')), findsOneWidget);
     // Section labels are drawn in caps → match case-insensitively.
