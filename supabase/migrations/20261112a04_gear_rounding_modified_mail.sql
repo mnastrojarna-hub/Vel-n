@@ -26,7 +26,8 @@
 --     PostgREST nastavit nemůže) jde do total_price i card_rounding; odpověď navíc vrací
 --     card_rounding. Zákaznická volání (appka, web) beze změny (dorovnání 0).
 --  3) trg_send_booking_modified_email: deduplikace (5 min message_log / 60 s
---     http_post_queued) platí jen pro zápis, který NEMĚNÍ total_price.
+--     http_post_queued) platí jen pro zápis, který NEMĚNÍ total_price; stopu
+--     customer_remove_gear_item (via = 'gear_remove') respektuje vždy.
 --
 -- Kompatibilita: jmenná volání (živé edge funkce: apply_paid_gear_change(p_booking_id,
 -- p_sizes); appka, web: update_booking_gear) zůstávají platná. Stará 2parametrová
@@ -492,6 +493,20 @@ BEGIN
               jsonb_build_object('booking_id',NEW.id));
       RETURN NEW;
     END IF;
+  -- Výjimka: customer_remove_gear_item zapíše před svým UPDATE stopu 'http_post_queued'
+  -- s via = 'gear_remove' a mail (s řádkem kusů) + zprávu do appky pošle sám → trigger
+  -- ji musí respektovat i při změně ceny, jinak 2 maily a 2 zprávy.
+  ELSIF EXISTS(
+    SELECT 1 FROM debug_log
+     WHERE created_at > now() - interval '60 seconds'
+       AND source = 'trg_booking_modified_email' AND action = 'http_post_queued'
+       AND request_data->>'booking_id' = NEW.id::text
+       AND request_data->>'via' = 'gear_remove' LIMIT 1
+  ) THEN
+    INSERT INTO debug_log(source, action, status, request_data)
+    VALUES ('trg_booking_modified_email','skipped_gear_remove_marker','info',
+            jsonb_build_object('booking_id',NEW.id));
+    RETURN NEW;
   END IF;
 
   SELECT value #>> '{}' INTO v_url FROM app_settings WHERE key = 'supabase_url';
