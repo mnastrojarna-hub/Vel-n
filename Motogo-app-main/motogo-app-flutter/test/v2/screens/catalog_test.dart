@@ -16,8 +16,6 @@ import 'package:motogo_app/features/catalog/moto_detail_page.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_filter_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 
@@ -46,12 +44,6 @@ void main() {
   Widget motorky() => const MotorkyScreenV2();
   Widget detail([String id = 'm-bmw']) => MotoDetailPage(motoId: id, showBackButton: true);
 
-  Future<void> openSheet(WidgetTester t, Future<void> Function(BuildContext) open) async {
-    open(t.element(find.byType(MotorkyScreenV2)));
-    await t.pump();
-    await t.pump(const Duration(milliseconds: 400));
-  }
-
   Future<void> expandCalendar(WidgetTester t) async {
     // Detail with dates starts collapsed; "Změnit" expands the calendar.
     await t.pump(const Duration(milliseconds: 50));
@@ -75,18 +67,6 @@ void main() {
     (name: 'motorky__empty', build: motorky, overrides: () => catalogOverrides(filter: dated, filtered: const []), after: null),
     (name: 'motorky__error', build: motorky, overrides: () => catalogOverrides(filteredError: Exception('net')), after: null),
     (name: 'motorky__loading', build: motorky, overrides: () => catalogOverrides(filteredLoading: true), after: null),
-    (
-      name: 'sheet__dates',
-      build: motorky,
-      overrides: () => catalogOverrides(filter: dated, filtered: available),
-      after: (t) => openSheet(t, showCatalogDateSheet),
-    ),
-    (
-      name: 'sheet__filters',
-      build: motorky,
-      overrides: () => catalogOverrides(),
-      after: (t) => openSheet(t, showCatalogFilterSheet),
-    ),
     (name: 'calc__none', build: motorky, overrides: () => [...catalogOverrides(), calcMode], after: null),
     (
       name: 'calc__all_selected',

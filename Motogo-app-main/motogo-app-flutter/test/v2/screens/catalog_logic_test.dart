@@ -28,7 +28,6 @@ import 'package:motogo_app/features/catalog/moto_detail_page.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_total_v2.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_pager_v2.dart';
@@ -120,24 +119,6 @@ void main() {
     expect(c.read(filteredMotoIdsProvider), ['m-bmw', 'm-husq', 'm-kid']);
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 2));
-  });
-
-  testWidgets('date sheet: preset writes the filter, ✕ in the pill clears it', (t) async {
-    final (_, c) = await _pumpRouted(t,
-        initial: '/search', path: '/search', screen: (_) => const MotorkyScreenV2(), overrides: catalogOverrides());
-    showCatalogDateSheet(t.element(find.byType(MotorkyScreenV2)));
-    await t.pump();
-    await t.pump(const Duration(milliseconds: 400));
-    final tr = AppTranslations.of('cs');
-    await t.tap(find.widgetWithText(MgChoiceChip, tr.tr('v2CatPresetWeekend')));
-    await t.pump();
-    final w = catWeekend(DateTime.now());
-    expect(c.read(catalogFilterProvider).startDate, w.$1);
-    expect(c.read(catalogFilterProvider).endDate, w.$2);
-    await t.tap(find.widgetWithText(MgChoiceChip, tr.tr('v2CatPresetNone')));
-    await t.pump();
-    expect(c.read(catalogFilterProvider).startDate, isNull);
-    expect(c.read(catalogFilterProvider).endDate, isNull);
   });
 
   Future<BookingDraft> reserveFromDetail(WidgetTester t, {required bool v2}) async {
@@ -266,12 +247,6 @@ void main() {
   });
 
   group('helpers', () {
-    test('weekend presets', () {
-      expect(catWeekend(DateTime(2026, 10, 21)), (DateTime(2026, 10, 23), DateTime(2026, 10, 25))); // Wed
-      expect(catWeekend(DateTime(2026, 10, 24)), (DateTime(2026, 10, 24), DateTime(2026, 10, 25))); // Sat
-      expect(catWeekend(DateTime(2026, 10, 21), skip: 1), (DateTime(2026, 10, 30), DateTime(2026, 11, 1)));
-      expect(catWeekend(DateTime(2026, 10, 25), skip: 1), (DateTime(2026, 10, 30), DateTime(2026, 11, 1))); // Sun, DST end
-    });
     test('count plurals', () {
       final cs = AppTranslations.of('cs');
       expect([catCount(cs, 1), catCount(cs, 3), catCount(cs, 12)], ['1 motorka', '3 motorky', '12 motorek']);

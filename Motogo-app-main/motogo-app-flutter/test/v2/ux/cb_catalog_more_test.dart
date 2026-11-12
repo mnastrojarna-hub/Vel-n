@@ -113,24 +113,6 @@ void main() {
   });
 
   // lookonly-fix: no dock "Rozpis" (the old detail had no such action).
-  testWidgets('CB-19: date sheet footer "POUŽÍT TERMÍN · 3 DNY" + "Zrušit termín" (= clear), "Hotovo" without', (t) async {
-    final (ws, we) = futureWeekend();
-    await pumpV2(t, const MotorkyScreenV2(),
-        overrides: catalogOverrides(filter: CatalogFilter(startDate: ws, endDate: we), filtered: [kBmw]), reducedMotion: true);
-    await t.pump(const Duration(milliseconds: 400));
-    final ctx = t.element(find.byType(MotorkyScreenV2));
-    showCatalogDateSheet(ctx);
-    await t.pump(const Duration(milliseconds: 500));
-    final use = _cs.trArgs('v2UxCbUseDates', {'days': catDays(_cs, catDayCount(ws, we))}).toUpperCase();
-    expect(find.text(use), findsOneWidget);
-    await t.tap(find.text(_cs.tr('v2CatDateClear')).last);
-    await t.pump(const Duration(milliseconds: 300));
-    final c = ProviderScope.containerOf(ctx);
-    expect(c.read(catalogFilterProvider).startDate, isNull);
-    expect(find.text(_cs.tr('v2CatDone')), findsOneWidget);
-    await _drain(t);
-  });
-
   // lookonly-fix: no header chips — the old filter panel is inline (lookonly_areas_cb_test).
   testWidgets('CB-23: video chrome — skeleton while loading, 44 mute disc calls the player toggle, pill counter', (t) async {
     var toggles = 0;

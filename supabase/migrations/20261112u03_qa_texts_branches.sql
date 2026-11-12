@@ -12,7 +12,8 @@
 --     (nastavuje ho 20261112t*); jinak beze změny.
 --  4) Blog „12 hlavních výhod MotoGo24“: odkaz motogo24.cz/motorky (404) → /katalog; v bodě 9 nový odstavec
 --     o samoobslužné pobočce Velké Němčice (cs + en, es, fr, nl; de/pl/uk článek nepřeložen → zobrazí cs).
--- Bezpečnost: každý text se mění jen když má přesně ověřené znění (živá DB 2026-11-12 po 20261112t*);
+-- Bezpečnost: každý text se mění jen když má přesně ověřené znění (živá DB 2026-11-12 po 20261112t*;
+-- u kroků 2 a 3 otisk md5 češtiny / překladů);
 -- překlad jen když čeština už má nové znění; co mezitím někdo upravil ve Velínu, se přeskočí s NOTICE.
 -- Idempotentní (2. běh nic nezmění). Bez BEGIN/COMMIT. Pořadí: za 20261112u02.
 -- =============================================================================
@@ -88,23 +89,25 @@ BEGIN
   UPDATE public.cms_variables
      SET value = to_jsonb(regexp_replace(value #>> '{}', '(\s|&nbsp;)+$', '') || ' ' || $q$V Jihomoravském kraji si motorku můžeš vyzvednout i sám na naší samoobslužné pobočce ve Velkých Němčicích u Brna (nonstop, kódem z aplikace nebo e-mailu); přistavení nabízíme u motorek z Mezné.$q$), updated_at = now()
    WHERE key = 'web.oblasti.region.jihomoravsky_kraj.intro' AND jsonb_typeof(value) = 'string'
+     AND md5(value #>> '{}') = '8ac5eb1d9a83fb978861bc08c2e94156'  -- ověřené živé znění 2026-11-12
      AND strpos(value #>> '{}', 'Němčic') = 0;
   GET DIAGNOSTICS n = ROW_COUNT; n2 := n2 + n;
   SELECT value #>> '{}' INTO v_cs FROM public.cms_variables WHERE key = 'web.oblasti.region.jihomoravsky_kraj.intro';
   IF strpos(coalesce(v_cs, ''), $q$V Jihomoravském kraji si motorku můžeš vyzvednout i sám na naší samoobslužné pobočce ve Velkých Němčicích u Brna (nonstop, kódem z aplikace nebo e-mailu); přistavení nabízíme u motorek z Mezné.$q$) > 0 THEN
     FOR r IN SELECT * FROM (VALUES
-    ('en', $q$In the South Moravian Region you can also pick up a bike yourself at our self-service branch in Velké Němčice near Brno (24/7, with a code from the app or e-mail); delivery is available for bikes from Mezná.$q$),
-    ('de', $q$In der Region Südmähren kannst du ein Motorrad auch selbst in unserer Selbstbedienungsfiliale in Velké Němčice bei Brno abholen (rund um die Uhr, mit einem Code aus der App oder E-Mail); die Lieferung bieten wir für Motorräder aus Mezná an.$q$),
-    ('es', $q$En la región de Moravia del Sur también puedes recoger la moto tú mismo en nuestra sucursal de autoservicio de Velké Němčice, cerca de Brno (24/7, con un código de la app o del correo electrónico); la entrega la ofrecemos para las motos de Mezná.$q$),
-    ('fr', $q$En Moravie-du-Sud, tu peux aussi retirer une moto toi-même dans notre agence en libre-service de Velké Němčice près de Brno (24h/24, avec un code de l'application ou de l'e-mail) ; la livraison est proposée pour les motos de Mezná.$q$),
-    ('nl', $q$In de regio Zuid-Moravië kun je een motor ook zelf ophalen bij onze zelfbedieningsvestiging in Velké Němčice bij Brno (24/7, met een code uit de app of de e-mail); bezorging bieden we aan voor motoren uit Mezná.$q$),
-    ('pl', $q$W kraju południowomorawskim możesz też sam odebrać motocykl w naszym samoobsługowym oddziale w Velké Němčice koło Brna (całodobowo, z kodem z aplikacji lub e-maila); podstawienie oferujemy dla motocykli z Mezná.$q$)
-    ) AS v(lang, sent) LOOP
+    ('en', 'ba8c54cd67d5a7ad6dff1fcb40238700', $q$In the South Moravian Region you can also pick up a bike yourself at our self-service branch in Velké Němčice near Brno (24/7, with a code from the app or e-mail); delivery is available for bikes from Mezná.$q$),
+    ('de', '5320dbf1645a76c8ecb487566b2d4cce', $q$In der Region Südmähren kannst du ein Motorrad auch selbst in unserer Selbstbedienungsfiliale in Velké Němčice bei Brno abholen (rund um die Uhr, mit einem Code aus der App oder E-Mail); die Lieferung bieten wir für Motorräder aus Mezná an.$q$),
+    ('es', '9244597053a92d54fca6e58136e7a3bb', $q$En la región de Moravia del Sur también puedes recoger la moto tú mismo en nuestra sucursal de autoservicio de Velké Němčice, cerca de Brno (24/7, con un código de la app o del correo electrónico); la entrega la ofrecemos para las motos de Mezná.$q$),
+    ('fr', '548b4fe97c776e0fce0432b56c156a5c', $q$En Moravie-du-Sud, tu peux aussi retirer une moto toi-même dans notre agence en libre-service de Velké Němčice près de Brno (24h/24, avec un code de l'application ou de l'e-mail) ; la livraison est proposée pour les motos de Mezná.$q$),
+    ('nl', '3ff53ec60eae4318e811c15b995b92b5', $q$In de regio Zuid-Moravië kun je een motor ook zelf ophalen bij onze zelfbedieningsvestiging in Velké Němčice bij Brno (24/7, met een code uit de app of de e-mail); bezorging bieden we aan voor motoren uit Mezná.$q$),
+    ('pl', '0e7607e07ac3457cbe06cf24cb9464a2', $q$W kraju południowomorawskim możesz też sam odebrać motocykl w naszym samoobsługowym oddziale w Velké Němčice koło Brna (całodobowo, z kodem z aplikacji lub e-maila); podstawienie oferujemy dla motocykli z Mezná.$q$)
+    ) AS v(lang, fp, sent) LOOP
       UPDATE public.cms_variables
          SET translations = jsonb_set(translations, ARRAY[r.lang, 'value'],
                to_jsonb(regexp_replace(translations -> r.lang ->> 'value', '(\s|&nbsp;)+$', '') || ' ' || r.sent)), updated_at = now()
        WHERE key = 'web.oblasti.region.jihomoravsky_kraj.intro'
          AND jsonb_typeof(translations -> r.lang -> 'value') = 'string'
+         AND md5(translations -> r.lang ->> 'value') = r.fp  -- ověřené znění (po opravách v kroku 2 výše)
          AND strpos(translations -> r.lang ->> 'value', 'Němčic') = 0;
       GET DIAGNOSTICS n = ROW_COUNT; n2 := n2 + n;
     END LOOP;
@@ -118,6 +121,7 @@ BEGIN
     FROM public.cms_variables s
    WHERE o.key = 'web.postup.step.5.text' AND s.key = 'web.jak_pujcit_postup.process.steps.4.text'
      AND o.value #>> '{}' = 'Vyber způsob převzetí - osobně v Pelhřimově, nebo přistavení kamkoliv v ČR.'
+     AND md5(o.translations::text) = '329a761f8b12831a1884a8c9f745f8d9'  -- ověřené živé překlady 2026-11-12
      AND strpos(s.value #>> '{}', 'Němčic') > 0;
   GET DIAGNOSTICS n3 = ROW_COUNT;
 

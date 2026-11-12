@@ -82,7 +82,6 @@ void main() {
     testWidgets('initial swap intent: the swap section at once, no chooser tap', (t) async {
       await pumpV2(t, view(ResEditIntent.swap), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
-      expect(find.byType(ResEditChooserV2), findsNothing);
       expect(find.byKey(const ValueKey('swap-section')), findsOneWidget);
       expect(find.text(_t('swap.tab')), findsWidgets);
     });
@@ -90,7 +89,6 @@ void main() {
     testWidgets('extend tab: the old page at once (tab row, no chooser)', (t) async {
       await pumpV2(t, view(null), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
-      expect(find.byType(ResEditChooserV2), findsNothing);
       expect(find.byKey(const ValueKey('res-edit-tabs')), findsOneWidget);
     });
   });
@@ -121,7 +119,6 @@ void main() {
     testWidgets('missing sizes: warning + disabled CTA at first glance', (t) async {
       await pumpV2(t, edit(missing: const ['Helma', 'Boty']), overrides: resOverrides());
       await t.pump(const Duration(milliseconds: 400));
-      expect(find.byType(ResEditChooserV2), findsNothing);
       expect(find.text(_t('fillGearSizesOnDelivery')), findsOneWidget);
       expect(find.text('${_t('missingLabel')}: Helma, Boty'), findsOneWidget);
       final cta = t.widget<MgCta>(find.byType(MgCta));

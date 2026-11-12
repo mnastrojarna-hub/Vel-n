@@ -58,7 +58,6 @@ void main() {
       final b = resv('d1', status: 'reserved', from: 5, to: 7);
       await pumpV2(t, editView(b), size: const Size(412, 4000));
       await t.pump(const Duration(milliseconds: 600));
-      expect(find.byType(ResEditChooserV2), findsNothing);
       expect(find.byKey(const ValueKey('res-edit-tabs')), findsOneWidget);
       // Calendar, pickup (place + time), return, moto, extras on ONE page.
       expect(find.text(_cs('pickupMotorcycle')), findsOneWidget);

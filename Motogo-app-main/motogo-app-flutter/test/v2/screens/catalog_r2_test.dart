@@ -30,7 +30,6 @@ import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_dock_v2.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_states_v2.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_trip_card_v2.dart';
-import 'package:motogo_app/features/catalog/v2/detail/detail_trip_parts_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
 import 'package:motogo_app/features/payment/payment_provider.dart' show lastConfirmedBookingProvider;
@@ -267,7 +266,6 @@ void main() {
 
     testWidgets('trip card = the old price card: list total, no rank, no 12:00 info', (t) async {
       await _pump(t, '/moto/m-bmw', catalogOverrides(filter: dated));
-      expect(find.byType(DetailHandoverInfoV2), findsNothing);
       expect(find.byType(CalcHalfInfo), findsNothing);
       expect(find.textContaining(RegExp(_cs.tr('priceTotalFor').trim(), caseSensitive: false)), findsOneWidget);
       await _unmount(t);

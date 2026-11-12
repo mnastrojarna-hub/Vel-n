@@ -200,7 +200,6 @@ void main() {
       await t.enterText(find.byKey(const ValueKey('note')), 'Zvonek 2');
       await t.pump();
       expect(find.text('Zvonek 2'), findsOneWidget);
-      expect(find.byType(ResEditChooserV2), findsNothing);
     });
 
     for (final (lang, size) in [('cs', const Size(360, 780)), ('de', const Size(320, 690))]) {
