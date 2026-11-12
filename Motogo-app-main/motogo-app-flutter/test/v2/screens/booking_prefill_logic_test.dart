@@ -154,17 +154,71 @@ void main() {
       expect(c.read(bookingDraftProvider).returnCity, 'Brno');
     });
 
-    testWidgets('pickup address change: a linked return follows, a different one stays', (t) async {
+    testWidgets('pickup address change never overwrites a return address of its own (4.1.3)', (t) async {
       final same = pickupOnly.copyWith(returnMethod: 'delivery', returnCity: () => 'Jihlava', returnAddress: () => 'Masarykovo náměstí 1');
       await pump(t, same, fee: 900);
+      c.read(returnDelivFeeProvider.notifier).state = 700;
       handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: true, city: 'Třebíč', addr: 'Karlovo nám. 2');
       var d = c.read(bookingDraftProvider);
-      expect([d.pickupCity, d.returnCity, d.returnAddress], ['Třebíč', 'Třebíč', 'Karlovo nám. 2']);
-      expect(c.read(returnDelivFeeProvider), 900);
+      expect([d.pickupCity, d.pickupAddress], ['Třebíč', 'Karlovo nám. 2']);
+      expect([d.returnCity, d.returnAddress], ['Jihlava', 'Masarykovo náměstí 1']);
+      expect(c.read(returnDelivFeeProvider), 700);
       upd((x) => x.copyWith(returnCity: () => 'Brno', returnAddress: () => 'Husova 5'));
       handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: true, city: 'Jihlava', addr: 'Fritzova 3');
       d = c.read(bookingDraftProvider);
       expect([d.pickupCity, d.returnCity], ['Jihlava', 'Brno']);
+    });
+
+    testWidgets('A, copied, B: delivery and collection at two different addresses', (t) async {
+      await pump(t, pickupOnly, fee: 1200, km: 25);
+      handoverToDelivery(ref, upd, c.read(bookingDraftProvider), pickup: false);
+      expect(c.read(bookingDraftProvider).returnCity, 'Jihlava');
+      // The address sheet has already computed the Brno fee for the return side.
+      c.read(returnDelivFeeProvider.notifier).state = 1500;
+      handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: false, city: 'Brno', addr: 'Husova 5');
+      var d = c.read(bookingDraftProvider);
+      expect([d.pickupCity, d.pickupAddress], ['Jihlava', 'Masarykovo náměstí 1']);
+      expect([d.returnCity, d.returnAddress], ['Brno', 'Husova 5']);
+      expect(c.read(pickupDelivFeeProvider), 1200);
+      expect(c.read(returnDelivFeeProvider), 1500);
+      expect(handoverSameAddress(d), isFalse);
+      // Saving the pickup again (same Jihlava address) leaves the return at Brno.
+      handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: true, city: 'Jihlava', addr: 'Masarykovo náměstí 1');
+      d = c.read(bookingDraftProvider);
+      expect([d.pickupCity, d.returnCity, d.returnAddress], ['Jihlava', 'Brno', 'Husova 5']);
+      expect([c.read(pickupDelivFeeProvider), c.read(returnDelivFeeProvider)], [1200, 1500]);
+    });
+
+    testWidgets('mirrored: return address first, copied to pickup, then pickup changed', (t) async {
+      final returnOnly = BookingDraft(returnMethod: 'delivery', returnCity: 'Brno', returnAddress: 'Husova 5');
+      await pump(t, returnOnly);
+      c.read(returnDelivFeeProvider.notifier).state = 1500;
+      c.read(returnDistKmProvider.notifier).state = 40;
+      handoverToDelivery(ref, upd, c.read(bookingDraftProvider), pickup: true);
+      var d = c.read(bookingDraftProvider);
+      expect([d.pickupMethod, d.pickupCity, d.pickupAddress], ['delivery', 'Brno', 'Husova 5']);
+      expect([c.read(pickupDelivFeeProvider), c.read(pickupDistKmProvider)], [1500, 40]);
+      c.read(pickupDelivFeeProvider.notifier).state = 1200;
+      handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: true, city: 'Jihlava', addr: 'Fritzova 3');
+      d = c.read(bookingDraftProvider);
+      expect([d.pickupCity, d.returnCity, d.returnAddress], ['Jihlava', 'Brno', 'Husova 5']);
+      expect([c.read(pickupDelivFeeProvider), c.read(returnDelivFeeProvider)], [1200, 1500]);
+      handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: false, city: 'Brno', addr: 'Husova 5');
+      expect(c.read(bookingDraftProvider).pickupCity, 'Jihlava');
+    });
+
+    testWidgets('other side on delivery with an empty address takes the new address and fee', (t) async {
+      await pump(t, BookingDraft(pickupMethod: 'delivery', returnMethod: 'delivery'), fee: 800, km: 12);
+      handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: true, city: 'Třebíč', addr: 'Karlovo nám. 2');
+      var d = c.read(bookingDraftProvider);
+      expect([d.pickupCity, d.returnCity, d.returnAddress], ['Třebíč', 'Třebíč', 'Karlovo nám. 2']);
+      expect([c.read(returnDelivFeeProvider), c.read(returnDistKmProvider)], [800, 12]);
+      // The other side at the branch never takes it.
+      await pump(t, BookingDraft(pickupMethod: 'delivery'), fee: 800);
+      handoverSaveAddress(ref, upd, c.read(bookingDraftProvider), pickup: true, city: 'Třebíč', addr: 'Karlovo nám. 2');
+      d = c.read(bookingDraftProvider);
+      expect(d.returnCity, isNull);
+      expect(c.read(returnDelivFeeProvider), 0);
     });
   });
 

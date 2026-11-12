@@ -53,25 +53,6 @@ class MgCard extends StatelessWidget {
   }
 }
 
-/// Full-bleed white band (one dense section of a long light screen).
-class MgBand extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  const MgBand({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.symmetric(horizontal: MgSpace.gutter, vertical: MgSpace.s24),
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        color: MgColors.surface,
-        padding: padding,
-        child: child,
-      );
-}
-
 /// Well `#F2F5F3` + 1 px line — tiles, tracks, inputs inside white cards.
 class MgWell extends StatelessWidget {
   final Widget child;
@@ -157,32 +138,5 @@ class MgTintOk extends StatelessWidget {
           border: Border.all(color: MgColors.tintOkBorder),
         ),
         child: DefaultTextStyle.merge(style: const TextStyle(color: MgColors.onTintOk), child: child),
-      );
-}
-
-/// At most ONE per screen: mint feature gradient, or the offer box (dashed
-/// look approximated by a 1 px solid `#37CF63` border).
-class MgTintFeature extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final bool offer;
-  final double radius;
-  const MgTintFeature({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(MgSpace.card),
-    this.offer = false,
-    this.radius = MgRadius.card,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          gradient: offer ? MgGradients.offer : MgGradients.tintFeature,
-          borderRadius: BorderRadius.circular(radius),
-          border: offer ? Border.all(color: MgColors.tintOkBorder) : null,
-        ),
-        child: child,
       );
 }

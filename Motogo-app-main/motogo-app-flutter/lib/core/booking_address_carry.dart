@@ -70,18 +70,16 @@ void handoverToDelivery(WidgetRef ref, BookingDraftUpd onUpd, BookingDraft draft
   });
 }
 
-/// Uložení adresy přistavení ([pickup]) nebo odvozu. Druhá strana na adrese,
-/// která adresu nemá nebo měla stejnou jako dosud tahle, převezme novou
-/// (cenu už spočítal list adresy přes `onDistCalc`).
+/// Uložení adresy přistavení ([pickup]) nebo odvozu. Druhá strana na adrese
+/// převezme novou adresu (i cenu, kterou už spočítal list adresy přes
+/// `onDistCalc`) JEN dokud nemá vlastní adresu. Jakmile ji má (i převzatou),
+/// každá strana zapisuje jen svou adresu — přistavení a odvoz na dvě různé
+/// adresy musí jít zadat jako ve 4.1.3.
 void handoverSaveAddress(WidgetRef ref, BookingDraftUpd onUpd, BookingDraft draft,
     {required bool pickup, required String city, required String addr}) {
   final otherDelivery = (pickup ? draft.returnMethod : draft.pickupMethod) == 'delivery';
   final otherCity = pickup ? draft.returnCity : draft.pickupCity;
-  final otherAddr = pickup ? draft.returnAddress : draft.pickupAddress;
-  final myCity = pickup ? draft.pickupCity : draft.returnCity;
-  final myAddr = pickup ? draft.pickupAddress : draft.returnAddress;
-  final linked = !_filled(otherCity) || (_n(otherCity) == _n(myCity) && _n(otherAddr) == _n(myAddr));
-  final follow = otherDelivery && linked;
+  final follow = otherDelivery && !_filled(otherCity);
   if (follow) _copyFee(ref, toReturn: pickup);
   onUpd((d) {
     final m = pickup

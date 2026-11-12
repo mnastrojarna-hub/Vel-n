@@ -121,6 +121,21 @@ void showEditFailure(BuildContext context, Object e,
   );
 }
 
+/// Zápis úpravy prošel bez chyby, ale rezervace má pořád původní termín,
+/// motorku i cenu (pojistka ceny zaplacené rezervace ho tiše vrátila —
+/// např. +1 den a zároveň levnější přistavení). Nic se nestrhlo ani
+/// nevrátilo; poradit, jak změnu provést ([onReload] načte rezervaci).
+void showEditPinned(BuildContext context, {required VoidCallback onReload}) {
+  final tr = t(context);
+  PaymentErrorSheet.show(
+    context,
+    title: tr.tr('psEditFailTitle'),
+    message: tr.tr('fxEditPinned'),
+    buttonLabel: tr.tr('psReload'),
+    onButton: onReload,
+  );
+}
+
 /// Odpověď na uložení se ztratila a stav nejde ověřit (pořád bez spojení) —
 /// změna se možná uložila. Žádné „nic se nezměnilo" ani slepé opakování:
 /// nejdřív načíst aktuální stav rezervace ([onReload]).

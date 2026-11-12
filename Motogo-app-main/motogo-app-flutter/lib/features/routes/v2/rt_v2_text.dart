@@ -32,15 +32,6 @@ String rtThousands(int n) {
   return b.toString();
 }
 
-/// Floored live count (V21 T2 "nothing fake"): < 10 000 → hundreds,
-/// ≥ 10 000 → thousands ("1 100", "49 000"); under 100 the exact number;
-/// null when nothing is loaded (the caller keeps its old text).
-String? rtFloorCount(int? n) {
-  if (n == null || n <= 0) return null;
-  final f = n < 100 ? n : (n < 10000 ? n ~/ 100 * 100 : n ~/ 1000 * 1000);
-  return rtThousands(f);
-}
-
 /// Ride time as the old route cards print it: "55 min", "2 h", "2 h 54 min".
 String rtDur(int min) {
   if (min < 60) return '$min min';

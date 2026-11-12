@@ -237,9 +237,11 @@ Future<bool> deleteRidePoint(String id) async {
 }
 
 /// Nahraje fotky zastávky do bucketu `media`, prefix `rides/<uid>/…`
-/// (jediný povolený prefix pro fotky jízd). Vadná fotka se tiše přeskočí.
-Future<List<String>> uploadRidePhotos(String uid, List<XFile> photos) async {
-  final urls = <String>[];
+/// (jediný povolený prefix pro fotky jízd). Výsledek je zarovnaný se vstupem:
+/// URL nahrané fotky, null = tahle fotka se nenahrála (volající tak ví, KTERÁ
+/// fotka chybí, a při dalším pokusu nenahraje znovu ty, které už prošly).
+Future<List<String?>> uploadRidePhotosEach(String uid, List<XFile> photos) async {
+  final urls = <String?>[];
   final ts = DateTime.now().millisecondsSinceEpoch;
   for (var i = 0; i < photos.length; i++) {
     try {
@@ -251,7 +253,12 @@ Future<List<String>> uploadRidePhotos(String uid, List<XFile> photos) async {
       urls.add(MotoGoSupabase.client.storage.from('media').getPublicUrl(path));
     } catch (e) {
       debugPrint('[rides] upload fotky selhal: $e');
+      urls.add(null);
     }
   }
   return urls;
 }
+
+/// Nahraje fotky zastávky; vadná fotka se tiše přeskočí (jen úspěšné URL).
+Future<List<String>> uploadRidePhotos(String uid, List<XFile> photos) async =>
+    [for (final u in await uploadRidePhotosEach(uid, photos)) if (u != null) u];

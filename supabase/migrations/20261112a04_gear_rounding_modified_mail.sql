@@ -36,7 +36,8 @@
 --
 -- Ověřeno 2026-11-12 proti živému schématu (snapshot e5d5b0f7): těla update_booking_gear
 -- a trg_send_booking_modified_email = živá těla + jen řádky „D1 20261112a04“ / blok
--- deduplikace.
+-- deduplikace; trg_send_booking_modified_email nově má SET search_path TO 'public' (živě
+-- chybí; tělo volá jen objekty public, pg_catalog a kvalifikované net.http_post).
 -- Idempotentní (DROP … IF EXISTS na starou signaturu, CREATE OR REPLACE).
 -- Záměrně se nemění: výpůjčka jen výbavy (booking_kind 'gear' má vlastní RPC), ceník.
 -- =============================================================================
@@ -359,6 +360,7 @@ CREATE OR REPLACE FUNCTION public.trg_send_booking_modified_email()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $$
 DECLARE
   v_url text;

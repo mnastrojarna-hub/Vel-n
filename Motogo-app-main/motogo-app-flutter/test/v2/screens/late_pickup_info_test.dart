@@ -13,12 +13,10 @@ import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/widgets/mg_chips.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/booking/booking_quote.dart';
-import 'package:motogo_app/features/booking/v2/sections/time_v2.dart' show lateSaving;
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
-import 'package:motogo_app/features/home/v2/home_offer_block_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/booking_express.dart';
@@ -87,19 +85,6 @@ void main() {
     });
   });
 
-  testWidgets('Home offer: the centred bike saving, not a price to choose', (t) async {
-    final two = fh.kMotos.take(2).toList();
-    await pumpV2(t, const SingleChildScrollView(child: HomeOfferBlockV2()),
-        size: const Size(412, 900), overrides: fh.homeOverrides(funnel: two));
-    await t.pump(const Duration(milliseconds: 600));
-    final r = funnelPresets(DateTime.now()).$1;
-    final m = two.first;
-    final std = quoteFor(m, r.start, r.end, loyalty: fh.kLoyalty3).total;
-    final late = quoteFor(m, r.start, r.end, pickupTime: '12:00', loyalty: fh.kLoyalty3).total;
-    expect(find.text(_cs('v2LpHomeSave', {'bike': m.model, 'amount': Money.czk(std - late)})), findsOneWidget);
-    await t.pump(const Duration(seconds: 2));
-  });
-
   group('booking form time card', () {
     Future<ProviderContainer> pumpForm(WidgetTester t, List<Override> overrides) async {
       await pumpV2(t, const BookingDebugWrapper(), size: const Size(412, 915), overrides: overrides);
@@ -112,13 +97,9 @@ void main() {
     // lookonly-fix (owner 2026-11-07 "jen upgrade vzhledu" + 2026-10-22
     // "12:00 = info"): the time card shows the OLD single hint only — no
     // computed saving, no "Nastavit 12:00"; the time is chosen in the
-    // dropdown as before. The saving helper stays the calculator's / Home's.
-    testWidgets('09:00: the old hint, no quick set; lateSaving = standard − 12:00 total', (t) async {
+    // dropdown as before.
+    testWidgets('09:00: the old hint, no quick set', (t) async {
       await pumpForm(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
-      final (s, e) = futureWeekend();
-      final q = quoteFor(kBmw, s, e, loyalty: kLoyalty3);
-      final q12 = quoteFor(kBmw, s, e, pickupTime: '12:00', loyalty: kLoyalty3);
-      expect(lateSaving(q, q12), q.total - q12.total);
       expect(find.text(_cs('latePickupHint12')), findsOneWidget);
       expect(find.text(_cs('v2CalcLateSet')), findsNothing);
       expect(find.textContaining(_cs('v2LpFormSaveNet').split('{').first), findsNothing);

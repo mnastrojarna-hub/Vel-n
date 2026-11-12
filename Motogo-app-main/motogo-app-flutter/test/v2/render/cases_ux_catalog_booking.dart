@@ -17,7 +17,6 @@ import 'package:motogo_app/features/booking/v2/time_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_filter_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:motogo_app/features/catalog/widgets/availability_calendar.dart';
 import 'package:motogo_app/features/catalog/widgets/fullscreen_gallery.dart';
@@ -38,15 +37,6 @@ Future<void> _tapIn(WidgetTester t, Finder f) async {
 
 Future<void> _scrollList(WidgetTester t) async {
   await t.drag(find.byType(CustomScrollView).first, const Offset(0, -700));
-  await t.pump(const Duration(milliseconds: 500));
-}
-
-Future<void> _openFilters(WidgetTester t) async {
-  final ctx = t.element(find.byType(MotorkyScreenV2));
-  ProviderScope.containerOf(ctx).read(catalogFilterProvider.notifier).state = const CatalogFilter(category: 'naked');
-  await t.pump();
-  showCatalogFilterSheet(ctx);
-  await t.pump();
   await t.pump(const Duration(milliseconds: 500));
 }
 
@@ -84,7 +74,6 @@ List<RenderCase> uxCatalogBookingRenderCases() {
       RenderCase('uxcb', 'booking', state, () => const BookingDebugWrapper(), o, after: after);
   return [
     cat('compact_bar', () => catalogOverrides(filter: dated, filtered: [kBmw, kHusq, kKids]), after: _scrollList),
-    cat('filters_active', () => catalogOverrides(), after: _openFilters),
     cat('pager_pill', () => [...catalogOverrides(filter: dated), filteredMotoIdsProvider.overrideWith((ref) => ['m-bmw', 'm-husq', 'm-shot'])],
         build: () => const MotoDetailScreen(motoId: 'm-husq')),
     cat('gallery', () => [...catalogOverrides(), filteredMotoIdsProvider.overrideWith((ref) => ['m-bmw', 'm-husq'])],

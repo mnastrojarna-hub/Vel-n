@@ -61,21 +61,6 @@ String catMoney(num czk) => Money.czk(czk);
 double catFromPerDay(Motorcycle m, int pct) =>
     ((m.prices?.cheapest ?? 0) * (100 - pct) / 100).roundToDouble();
 
-/// Nearest weekend (Fri–Sun; from today when it is already the weekend)
-/// and the one after — the two date presets of the v2 date sheets.
-(DateTime, DateTime) catWeekend(DateTime today, {int skip = 0}) {
-  // Day arithmetic through the DateTime constructor (DST-safe).
-  final wd = today.weekday; // 1 = Mon … 7 = Sun
-  // Sat / Sun: the rest of this weekend; otherwise the coming Friday.
-  final start = DateTime(today.year, today.month, today.day + (wd <= 5 ? 5 - wd : 0));
-  final sunday = DateTime(start.year, start.month, start.day + (7 - start.weekday));
-  if (skip == 0) return (start, sunday);
-  return (
-    DateTime(sunday.year, sunday.month, sunday.day + 5),
-    DateTime(sunday.year, sunday.month, sunday.day + 7),
-  );
-}
-
 /// Branch type label ("s obsluhou" / "samoobsluha nonstop", the calculator's
 /// keys); null when the branch type is unknown (never guessed).
 String? catBranchType(AppTranslations tr, Motorcycle m) => m.branchType == null

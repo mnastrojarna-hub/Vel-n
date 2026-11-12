@@ -32,11 +32,15 @@
 --         (čerstvých 30 min, poukazy znovu uplatněné); neprojde → rezervace zůstane
 --         zrušená (debug_log customer_restore_refused) a platba v appce skončí
 --         hláškou process-payment `booking_cancelled` (nic se nestrhne);
---       • restored_at / restored_by_source / restore_count / checkout_started_at
---         zákazník přímým zápisem nezmění (dřív šlo nastavit restored_at a blokovat
---         motorku bez platby navždy — cron obnovené ve Velínu neruší).
+--       • restored_at / restored_by_source / restore_count / checkout_started_at,
+--         booking_source a created_at (okno cronu) a u zrušené rezervace
+--         cancelled_by / cancelled_by_source zákazník přímým zápisem nezmění (dřív šlo
+--         nastavit restored_at a blokovat motorku bez platby navždy — cron obnovené
+--         ve Velínu neruší).
 --     Velín (admin), service_role, kiosk (anon bez uid) i RPC customer_restore_booking
---     (příznak motogo.customer_restore) beze změny.
+--     (příznak motogo.customer_restore) beze změny; obnoví-li zrušenou rezervaci
+--     Velín / server, pojistka smaže značku restored_by_source 'app' z dřívějšího
+--     obnovení zákazníkem (cron ji pak neruší).
 --  6) auto_cancel_expired_pending(): obnovené v appce mají 30 min od restored_at;
 --     probíhající platba (process-payment zapíše checkout_started_at při vytvoření
 --     PaymentIntentu) dostane 10 min navíc, nejvýš 60 min od začátku okna. Obnovené
@@ -47,7 +51,9 @@
 --     pro zaplacenou X a šel použít znovu.
 --
 -- Ověřeno 2026-11-12 proti živému schématu (snapshot e5d5b0f7): těla
--- auto_cancel_expired_pending a restore_vouchers_on_cancel = živá těla + jen řádky „D3“.
+-- auto_cancel_expired_pending a restore_vouchers_on_cancel = živá těla + jen řádky „D3“;
+-- obě SECURITY DEFINER funkce nově mají SET search_path TO 'public' (živě chybí; těla
+-- volají jen objekty public, pg_catalog a schématem kvalifikované net.http_post).
 -- Data: nové sloupce s konstantní výchozí hodnotou (bez přepisu tabulky), žádný backfill.
 -- Idempotentní (ADD COLUMN IF NOT EXISTS, CREATE OR REPLACE, DROP TRIGGER IF EXISTS).
 -- Záměrně se nemění: obnovení ve Velínu, web, kiosk; cron job samotný (jen tělo funkce).
@@ -337,6 +343,13 @@ BEGIN
   -- Jen běžný JWT zákazníka. service_role (auth.uid() NULL), Velín (admin),
   -- kiosk (anon) a přímé spojení k DB beze změny.
   IF v_uid IS NULL OR COALESCE(public.is_admin(), false) THEN
+    -- Obnovení mimo appku (Velín, server): značka 'app' z dřívějšího obnovení
+    -- zákazníkem se ruší, jinak by cron rezervaci obnovenou obsluhou za 30 min
+    -- znovu zrušil (a process-payment by vynucoval spodní mez ceny).
+    IF TG_OP = 'UPDATE' AND OLD.status = 'cancelled' AND NEW.status IS DISTINCT FROM 'cancelled'
+       AND NEW.restored_by_source IS NOT DISTINCT FROM OLD.restored_by_source THEN
+      NEW.restored_by_source := NULL;
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -358,6 +371,14 @@ BEGIN
   NEW.restored_by_source  := OLD.restored_by_source;
   NEW.restore_count       := OLD.restore_count;
   NEW.checkout_started_at := OLD.checkout_started_at;
+  -- Okno cronu (booking_source, created_at) zákazník také nemění; u zrušené
+  -- rezervace ani to, kdo ji zrušil (kontrola cancelled_by_staff čte OLD).
+  NEW.booking_source      := OLD.booking_source;
+  NEW.created_at          := OLD.created_at;
+  IF OLD.status = 'cancelled' THEN
+    NEW.cancelled_by        := OLD.cancelled_by;
+    NEW.cancelled_by_source := OLD.cancelled_by_source;
+  END IF;
 
   -- Přímé obnovení appkou ≤ 4.1.3: UPDATE status cancelled → pending.
   IF OLD.status = 'cancelled' AND NEW.status = 'pending' THEN
@@ -415,7 +436,8 @@ GRANT EXECUTE ON FUNCTION public._customer_restore_guard() TO service_role;
 -- výsledný stav (odmítnuté obnovení = zůstává cancelled = bez kontroly).
 DROP TRIGGER IF EXISTS trg_a_customer_restore_guard ON public.bookings;
 CREATE TRIGGER trg_a_customer_restore_guard
-  BEFORE INSERT OR UPDATE OF status, restored_at, restored_by_source, restore_count, checkout_started_at
+  BEFORE INSERT OR UPDATE OF status, restored_at, restored_by_source, restore_count, checkout_started_at,
+                             cancelled_by, cancelled_by_source, booking_source, created_at
   ON public.bookings
   FOR EACH ROW EXECUTE FUNCTION public._customer_restore_guard();
 
@@ -424,6 +446,7 @@ CREATE OR REPLACE FUNCTION public.auto_cancel_expired_pending()
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE
   v_url text;
@@ -518,6 +541,7 @@ CREATE OR REPLACE FUNCTION public.restore_vouchers_on_cancel()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 DECLARE v_code text; v_codes text[];
 BEGIN

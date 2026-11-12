@@ -19,7 +19,8 @@
 -- „Jízda skončila“ = zrcadlo appky (ResStatus.dokoncene: status completed NEBO
 -- ended_by_sos NEBO konec nájmu minul) s rezervou: datum konce (Praha) <= dnešek
 -- (Praha) — server pouští už v den konce, aby nikdy nezahodil hodnocení, které
--- appka nabídla.
+-- appka nabídla. Stav / konec / ended_by_sos se čtou z původního řádku (OLD), aby je
+-- zákazník nemohl „ukončit“ týmž zápisem (např. ended_by_sos = true).
 -- Admin (Velín, update_test_booking_fields) a service role beze změny. Žádná
 -- chyba se nevyhazuje (stávající appky beze změny), jiný sloupec se nemění.
 --
@@ -37,13 +38,14 @@ BEGIN
   IF auth.uid() IS NULL OR public.is_admin() THEN
     RETURN NEW;
   END IF;
-  -- Hodnotit jde jen skončenou nezrušenou jízdu (zrcadlo appky, viz hlavička).
+  -- Hodnotit jde jen skončenou nezrušenou jízdu (zrcadlo appky, viz hlavička); stav,
+  -- konec a SOS se berou z OLD (zákazník je nepřepíše týmž zápisem).
   IF NEW.rating IS DISTINCT FROM OLD.rating
      AND NEW.rating IS NOT NULL
-     AND (NEW.status::text = 'cancelled'
-          OR NOT (NEW.status::text = 'completed'
-                  OR COALESCE(NEW.ended_by_sos, false)
-                  OR (NEW.end_date AT TIME ZONE 'Europe/Prague')::date
+     AND (OLD.status::text = 'cancelled'
+          OR NOT (OLD.status::text = 'completed'
+                  OR COALESCE(OLD.ended_by_sos, false)
+                  OR (OLD.end_date AT TIME ZONE 'Europe/Prague')::date
                      <= (now() AT TIME ZONE 'Europe/Prague')::date)) THEN
     NEW.rating := OLD.rating;
     NEW.rated_at := OLD.rated_at;

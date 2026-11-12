@@ -46,13 +46,17 @@ COMMENT ON COLUMN public.booking_rating_reviews.rated_at_seen IS
   'bookings.rated_at v okamžiku označení; změní-li zákazník hodnocení, značka přestane platit (Velín ji ignoruje).';
 
 -- Kdo označil = vždy přihlášený admin (klient handled_by neposílá; upsert ho přepíše).
+-- Výjimka: akce cizího klíče ON DELETE SET NULL (smazání admina) je také UPDATE pod JWT —
+-- ta (handled_by z hodnoty na NULL) se nepřerazítkuje, jinak by se značky smazaného admina
+-- připsaly mazajícímu a smazání vlastního účtu adminem se značkami by spadlo na FK.
 CREATE OR REPLACE FUNCTION public._booking_rating_reviews_stamp()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-  IF auth.uid() IS NOT NULL THEN
+  IF auth.uid() IS NOT NULL
+     AND (TG_OP = 'INSERT' OR NEW.handled_by IS NOT NULL OR OLD.handled_by IS NULL) THEN
     NEW.handled_by := auth.uid();
   END IF;
   IF NEW.handled_at IS NULL THEN

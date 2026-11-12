@@ -30,6 +30,7 @@ import 'widgets/reservation_edit_moto_section.dart';
 import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
+import 'edit_write_check.dart';
 import 'widgets/reservation_edit_states.dart';
 import '../payment/card_minimum.dart';
 import '../payment/widgets/card_rounding_note.dart';
@@ -715,38 +716,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     );
   }
 
-  /// Po ztracené odpovědi uložení úpravy: true = rezervace už nese nové
-  /// údaje (termín + cena), false = prokazatelně původní, null = nejde ověřit.
+  /// Po ztracené odpovědi uložení úpravy (i po zápisu bez chyby — pojistka
+  /// ceny u zaplacené rezervace ho může tiše vrátit): true = rezervace už
+  /// nese nové údaje (termín, motorka, cena), false = prokazatelně původní,
+  /// null = nejde ověřit ([editWriteApplied]).
   Future<bool?> _editAppliedAfterNetError(Map<String, dynamic> changes) async {
     try {
       final row = await MotoGoSupabase.client
           .from('bookings')
-          .select('start_date, end_date, total_price')
+          .select('start_date, end_date, moto_id, total_price')
           .eq('id', widget.bookingId)
           .maybeSingle()
           .timeout(const Duration(seconds: 10));
       final orig = _booking;
       if (row == null || orig == null) return null;
-      String d(Object? v) => '${v ?? ''}'.length >= 10 ? '$v'.substring(0, 10) : '$v';
-      // Rozhodují jen údaje, které se úpravou opravdu mění (jinak by
-      // „sedí" platilo i pro neuloženou změnu).
-      var distinguishing = 0;
-      final origDates = {
+      return editWriteApplied(row, changes, {
         'start_date': orig.startDate.toIso8601String().substring(0, 10),
         'end_date': orig.endDate.toIso8601String().substring(0, 10),
-      };
-      for (final k in const ['start_date', 'end_date']) {
-        if (!changes.containsKey(k) || d(changes[k]) == origDates[k]) continue;
-        distinguishing++;
-        if (d(row[k]) != d(changes[k])) return false;
-      }
-      final want = (changes['total_price'] as num?)?.toDouble();
-      final have = (row['total_price'] as num?)?.toDouble();
-      if (want != null && (want - orig.totalPrice).abs() > 0.5) {
-        distinguishing++;
-        if (have == null || (have - want).abs() > 0.5) return false;
-      }
-      return distinguishing > 0 ? true : null;
+        'moto_id': orig.motoId,
+        'total_price': orig.totalPrice,
+      });
     } catch (_) {
       return null;
     }
@@ -1164,6 +1153,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               .update(changes)
               .eq('id', widget.bookingId)
               .timeout(const Duration(seconds: 20));
+          // Zápis bez chyby ještě neznamená uloženo: pojistka ceny zaplacené
+          // rezervace (víc dní / vyšší ceníková hodnota) termín, motorku i cenu
+          // tiše ponechá. Pak NEvolat vratku, NEměnit doplňky a říct pravdu.
+          if (await _editAppliedAfterNetError(changes) == false) {
+            if (mounted) {
+              setState(() => _saving = false);
+              showEditPinned(context, onReload: _loadBooking);
+            }
+            await _loadBooking();
+            return;
+          }
         } catch (e) {
           if (!isNetworkError(e)) rethrow;
           // Odpověď se ztratila — úprava se mohla uložit. Ověřit, než řekneme

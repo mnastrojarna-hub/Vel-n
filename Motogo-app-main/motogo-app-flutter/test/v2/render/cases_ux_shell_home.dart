@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/widgets/mg_dialog.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
-import 'package:motogo_app/features/home/v2/home_tier_preview_v2.dart';
 import 'package:motogo_app/features/shell/v2/crash_view_v2.dart';
 import 'package:motogo_app/features/shell/v2/intro_v2.dart';
 import 'package:motogo_app/features/shell/v2/offline_view_v2.dart';
@@ -114,6 +113,4 @@ List<RenderCase> shellHomeUxCases() => [
       RenderCase('shux', 'push', 'codes', () => launcher((c) => shOpenPush(c, codes: true)), () => const [], after: tapOpen),
       RenderCase('shux', 'push', 'message', () => launcher((c) => shOpenPush(c, codes: false)), () => const [], after: tapOpen),
       RenderCase('shux', 'home', 'club_open', () => const HomeScreenV2(), () => homeOverrides(), after: _openClub),
-      RenderCase('shux', 'sheet', 'tier_preview', () => launcher((c) => showTierPreviewSheet(c, 17)), () => homeOverrides(),
-          after: tapOpen, level: 17),
     ];

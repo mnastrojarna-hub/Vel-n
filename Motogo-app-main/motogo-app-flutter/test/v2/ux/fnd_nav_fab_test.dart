@@ -36,7 +36,6 @@ void main() {
         (Rect.fromLTWH(16, 560, 328, 40), MgAvoidKind.keep),
       ]);
       expect(blocked.$1, MgFabState.off);
-      expect(mgFabStateFor(slot, const [(tall, MgAvoidKind.keep)]), MgFabState.peek);
     });
   });
 

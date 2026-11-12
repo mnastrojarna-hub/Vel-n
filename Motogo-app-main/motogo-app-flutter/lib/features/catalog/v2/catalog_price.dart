@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/icons/mg_svg_path.dart';
 import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../booking/booking_quote.dart';
@@ -78,56 +77,6 @@ CatCardPrice catCardPrice(
     sub: tr.tr('v2CatPickDatesHint'),
     grid: tr.trArgs('v2CatGridFrom', {'amount': catMoney(from)}),
   );
-}
-
-/// Small line glyph from board path data (24 grid) for the two view
-/// toggles the shared icon set does not have (big photos / grid).
-class CatPathIcon extends StatelessWidget {
-  final String d;
-  final double size;
-  final Color color;
-  const CatPathIcon(this.d, {super.key, this.size = 20, required this.color});
-
-  static const fullCards = 'M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z';
-  static const grid = 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z';
-
-  @override
-  Widget build(BuildContext context) => ExcludeSemantics(
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: CustomPaint(painter: _PathPainter(d, color)),
-        ),
-      );
-}
-
-class _PathPainter extends CustomPainter {
-  final String d;
-  final Color color;
-  _PathPainter(this.d, this.color);
-
-  static final Map<String, Path> _cache = {};
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = _cache.putIfAbsent(d, () => parseSvgPath(d));
-    final k = size.shortestSide / 24;
-    canvas.save();
-    canvas.scale(k, k);
-    canvas.drawPath(
-      p,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeJoin = StrokeJoin.round
-        ..isAntiAlias = true,
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_PathPainter o) => o.d != d || o.color != color;
 }
 
 /// `AnimatedSize` 300 ms — or the plain child under reduced motion (a

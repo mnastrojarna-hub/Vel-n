@@ -15,9 +15,7 @@ import 'package:motogo_app/core/v2/widgets/mg_section.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_parts.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
-import 'package:motogo_app/features/home/v2/home_next_pill_v2.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
-import 'package:motogo_app/features/home/v2/home_section_head.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fakes_home.dart';
@@ -110,41 +108,11 @@ void main() {
     });
   }
 
-  testWidgets('"Všechny trasy ›" goes under the title instead of splitting a word', (t) async {
-    late bool fr, cs;
-    await pumpV2(t, Builder(builder: (c) {
-      cs = HomeSectionHead.linkInline(c, _s('cs', 'v2HomeRoutesPopular'), _s('cs', 'v2HomeRoutesAll'), 390);
-      return const SizedBox();
-    }));
-    expect(cs, isTrue);
-    await pumpV2(
-        t,
-        Builder(
-          builder: (c) => MediaQuery(
-            data: MediaQuery.of(c).copyWith(textScaler: const TextScaler.linear(1.3)),
-            child: Builder(builder: (c) {
-              fr = HomeSectionHead.linkInline(c, _s('fr', 'v2HomeRoutesPopular'), _s('fr', 'v2HomeRoutesAll'), 320);
-              return HomeSectionHead(
-                  title: _s('fr', 'v2HomeRoutesPopular'), link: _s('fr', 'v2HomeRoutesAll'), onLink: () {});
-            }),
-          ),
-        ),
-        lang: 'fr',
-        size: const Size(320, 690));
-    await t.pump();
-    expect(fr, isFalse);
-    final title = t.getRect(find.text(_s('fr', 'v2HomeRoutesPopular')));
-    final link = t.getRect(find.byType(MgTextLink));
-    expect(link.top, greaterThanOrEqualTo(title.bottom - 1));
-    expect(t.takeException(), isNull);
-  });
-
-  testWidgets('calculator disc and funnel calendar = CTA zones, the pill a tap zone', (t) async {
-    await pumpV2(t, const SingleChildScrollView(child: Column(children: [HomeNextPillV2(), HomeFunnelV2()])),
+  testWidgets('calculator disc and funnel calendar = CTA zones', (t) async {
+    await pumpV2(t, const SingleChildScrollView(child: Column(children: [HomeFunnelV2()])),
         overrides: homeOverrides(funnel: kMotos.take(2).toList()));
     await _frames(t);
     expect(_zoneOf(t, MgIcons.calc), MgAvoidKind.cta);
-    expect(_zoneOf(t, MgIcons.chevronRight), MgAvoidKind.tap); // the pill
     expect(
         t
             .widgetList<MgFabAvoid>(find.ancestor(

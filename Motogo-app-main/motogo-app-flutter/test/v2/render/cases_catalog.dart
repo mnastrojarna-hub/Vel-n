@@ -20,19 +20,11 @@ import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_step_moto_v2.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_filter_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 
 import '../support/fakes_catalog.dart';
 import 'render_harness.dart';
-
-Future<void> _openSheet(WidgetTester t, Future<void> Function(BuildContext) open) async {
-  open(t.element(find.byType(MotorkyScreenV2)));
-  await t.pump();
-  await t.pump(const Duration(milliseconds: 400));
-}
 
 
 Future<void> _expandCalendar(WidgetTester t) async {
@@ -80,8 +72,6 @@ List<RenderCase> catalogRenderCases() {
     m('empty', () => catalogOverrides(filter: dated, filtered: const [])),
     m('error', () => catalogOverrides(filteredError: Exception('net'))),
     m('loading', () => catalogOverrides(filteredLoading: true), loading: true),
-    m('sheet_dates', () => catalogOverrides(filter: dated, filtered: available), after: (t) => _openSheet(t, showCatalogDateSheet)),
-    m('sheet_filters', () => catalogOverrides(), after: (t) => _openSheet(t, showCatalogFilterSheet)),
     calc('none', null),
     calc('all_selected', CalcState(motoId: 'm-bmw', start: ws, end: we)),
     calc('one_day', CalcState(motoId: 'm-bmw', start: ws, end: ws)),

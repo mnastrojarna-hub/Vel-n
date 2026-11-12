@@ -106,8 +106,6 @@ class PaymentViewV2 extends StatelessWidget {
       title: _isNew ? tr.tr('v2BkTitle') : c!.label,
       sub: _isNew ? (m?.model ?? draft.motoName) : _shortId(),
       onBack: onBack,
-      // The old payment header had no step bar.
-      steps: false,
       chip: chip,
       rank: !_sos,
     );

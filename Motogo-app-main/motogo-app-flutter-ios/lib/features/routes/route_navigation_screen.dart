@@ -17,6 +17,7 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import 'active_ride_provider.dart';
 import 'route_nav_status.dart';
+import 'nav_gps_health.dart';
 import 'ride_pause_sheet.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
@@ -283,7 +284,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     }
   }
 
-  /// Hlídá vypnutí polohy a stáří posledního fixu (> 20 s = slabý signál) a
+  /// Hlídá vypnutí polohy a stáří posledního fixu (> 20 s v pohybu = slabý
+  /// signál, stojící telefon fixy neposílá — [navGpsWeak]) a
   /// bez internetu (spojnice bodů) zkouší trasu přepočítat znovu.
   void _watchGpsHealth() {
     _svcSub ??= () {
@@ -301,7 +303,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     _statusTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
       final at = _fixAt;
-      final weak = at != null && DateTime.now().difference(at) > const Duration(seconds: 20);
+      final weak = navGpsWeak(sinceFix: at == null ? null : DateTime.now().difference(at), lastSpeedKmh: _speedKmh);
       if (weak != _weakGps) setState(() => _weakGps = weak);
       // Přepočet po silnicích zkoušet jen každých ~30 s (šetří baterii offline).
       if (_straightLine && !_navLoading && ++_straightTicks % 6 == 0) {

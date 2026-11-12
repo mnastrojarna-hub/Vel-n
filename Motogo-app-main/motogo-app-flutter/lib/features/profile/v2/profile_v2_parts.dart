@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/v2/motion/mg_animated_size.dart';
-import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -177,27 +176,6 @@ class PfRow extends StatelessWidget {
         ),
         child: Center(child: MgIcon(icon, size: 20, color: fg)),
       );
-}
-
-/// Plural helper for the v2 profile strings: keys `<base>One/Few/Many`
-/// (Few only differs in cs / pl / uk).
-String pfPlural(AppTranslations tr, String base, int n) {
-  final a = n.abs();
-  final lang = tr.lang;
-  String suffix;
-  if (lang == 'cs') {
-    suffix = a == 1 ? 'One' : (a >= 2 && a <= 4 ? 'Few' : 'Many');
-  } else if (lang == 'pl' || lang == 'uk') {
-    final m10 = a % 10, m100 = a % 100;
-    if (a == 1 || (lang == 'uk' && m10 == 1 && m100 != 11)) {
-      suffix = 'One';
-    } else {
-      suffix = (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'Few' : 'Many';
-    }
-  } else {
-    suffix = a == 1 ? 'One' : 'Many';
-  }
-  return tr.trArgs('$base$suffix', {'n': n});
 }
 
 /// "d. m. yyyy" from an ISO date string of the profile (null / invalid → null).

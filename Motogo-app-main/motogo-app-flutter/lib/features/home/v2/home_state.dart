@@ -78,9 +78,6 @@ DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 bool homeIsDelivery(Reservation r) =>
     r.pickupMethod == 'delivery' || (r.pickupAddress ?? '').trim().isNotEmpty;
 
-/// Days from today to the booking start (0 = today).
-int homeDaysUntil(Reservation r, DateTime now) => _day(r.startDate).difference(_day(now)).inDays;
-
 /// Pure derivation (PLAN §2.1): S1 > S2 > S8/S9 > S7 > soonest upcoming
 /// (S3/S4/S5/S6) > S10 > S0. [docsComplete] null = unknown (treated as OK,
 /// exactly like the shell docs FAB). [hiddenReviews] = review cards the

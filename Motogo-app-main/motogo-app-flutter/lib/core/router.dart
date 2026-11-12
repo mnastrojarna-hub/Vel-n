@@ -168,7 +168,7 @@ Page<void> routerSwipeBackPage(LocalKey key, Widget child, [BuildContext? contex
 /// změny okamžitě.
 Page<void> routerTabPage(BuildContext context, GoRouterState state, Widget child) => MgV2.peek(context)
     ? mgTabPage(key: state.pageKey, child: child)
-    : NoTransitionPage<void>(key: state.pageKey, child: child);
+    : NoTransitionPage<void>(child: child);
 
 /// Screens that do NOT show bottom navigation — matches noNav in router.js.
 const _noNavRoutes = {
