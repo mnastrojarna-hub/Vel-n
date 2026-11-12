@@ -194,7 +194,7 @@ void main() {
       );
       await pumpV2(
         t,
-        SingleChildScrollView(child: ProfileGroupsV2(actions: actions, settingsKey: GlobalKey(), version: '4.2.0')),
+        SingleChildScrollView(child: ProfileGroupsV2(actions: actions, settingsKey: GlobalKey(), version: '5.0.0')),
         overrides: profileOverrides(profile: {...kProfileFull, 'consent_push': true, 'consent_email': true, 'consent_sms': false}),
       );
       await t.pump(const Duration(milliseconds: 300));

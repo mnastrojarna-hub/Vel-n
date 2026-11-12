@@ -7,7 +7,7 @@ import 'mg_back_v2.dart';
 
 /// Token pass for the screens that keep their v1 body inside the v2 look
 /// (PLAN "T": SOS flow, registration — r2 2026-10-29, owner decides on a
-/// full SOS / Přihlášení board port before 4.2.0): v2 page canvas instead
+/// full SOS / Přihlášení board port before 5.0.0): v2 page canvas instead
 /// of the v1 mint and the v2 back disc with the SAME onTap. Old look (and
 /// the iOS tree, which has no v2) unchanged.
 

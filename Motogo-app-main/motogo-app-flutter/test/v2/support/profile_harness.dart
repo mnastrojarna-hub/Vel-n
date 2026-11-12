@@ -72,7 +72,7 @@ class _PfHubHarnessState extends ConsumerState<PfHubHarness> {
       onRetry: widget.onRetry ?? noop,
       onTogglePersonal: () => setState(() => open = !open),
       onPaymentMethods: noop,
-      version: 'v4.2.0',
+      version: 'v5.0.0',
       form: PfFormData(
         name: c[0], email: c[1], phone: c[2], city: c[3], zip: c[4], street: c[5], country: c[6], idNum: c[7], licNum: c[8],
         dob: dob,

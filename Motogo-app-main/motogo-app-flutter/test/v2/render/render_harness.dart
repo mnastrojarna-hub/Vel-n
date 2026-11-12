@@ -296,7 +296,7 @@ bool get renderEnabled => _env('MG_VERIFY_RENDER') != null;
 /// Always-on smoke subset (runs in the default `flutter test` too): key
 /// screens at the narrowest phone in cs / de / uk at the app's text scale
 /// (main.dart forces no system scaling) — a render regression there fails
-/// CI without the opt-in matrix. The full matrix stays the 4.2.0 release
+/// CI without the opt-in matrix. The full matrix stays the 5.0.0 release
 /// gate: `MG_VERIFY_RENDER=1 flutter test test/v2/render/` (+ MG_VERIFY_SCALE=1.0).
 const kRenderSmokeCases = {
   'reservations__list__all',
