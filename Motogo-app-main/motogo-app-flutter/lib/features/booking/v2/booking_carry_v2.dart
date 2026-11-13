@@ -15,7 +15,9 @@ import '../booking_provider.dart' show bookingDraftProvider;
 /// a „vlastní výbava“ z profilu). Vrací, co má formulář dostat:
 /// * žádný rozpracovaný draft / už odeslaný ([submitted]) → [fresh];
 /// * STEJNÁ motorka → celý rozpracovaný draft, jen nový termín (při změně
-///   termínu se pouští vozík — kus byl přidělený na starý termín);
+///   termínu se pouští vozík — kus byl přidělený na starý termín); souhlasy
+///   VOP/GDPR/zákonného zástupce se potvrzují znovu jako ve starém vzhledu
+///   (každý vstup = čerstvý draft, G-159/G-228–G-231);
 /// * JINÁ motorka → to, co na motorce nezávisí: čas vyzvednutí a návratu,
 ///   poznámka, slevové kódy, „vlastní výbava“, velikosti řidiče. Souhlasy
 ///   VOP/GDPR se u jiné motorky potvrzují znovu (patří k rezervaci —
@@ -41,6 +43,9 @@ BookingDraft carryBookingDraft({
       endDate: () => fresh.endDate,
       extras: sameDates ? null : _noTrailer(prev.extras),
       trailerMotoId: sameDates ? null : () => null,
+      consentVop: false,
+      consentGdpr: false,
+      consentKids: false,
     );
   }
   final pm = prevMoto != null && prevMoto.id == prev.motoId ? prevMoto : null;

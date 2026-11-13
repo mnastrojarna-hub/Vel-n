@@ -67,7 +67,9 @@ void main() {
       expect([d.pickupTime, d.returnTime, d.notes, d.pickupCity, d.returnAddress, d.trailerMotoId],
           ['12:00', '18:00', 'Přijedu vlakem', 'Jihlava', 'Masarykovo náměstí 1', 'tr-1']);
       expect(d.extras.map((x) => x.id), ['extra-spolujezdec', 'extra-boty-ridic', 'extra-vozik']);
-      expect([d.helmetSize, d.consentVop, d.consentGdpr, d.discounts.single.code], ['M', true, true, 'POUKAZ500']);
+      // Souhlasy se potvrzují znovu jako ve starém vzhledu (G-159/G-230).
+      expect([d.helmetSize, d.consentVop, d.consentGdpr, d.consentKids, d.discounts.single.code],
+          ['M', false, false, false, 'POUKAZ500']);
     });
 
     test('same bike, new dates → only the dates move; the trailer piece is released', () {

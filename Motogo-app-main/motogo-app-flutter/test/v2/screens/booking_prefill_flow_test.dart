@@ -136,8 +136,9 @@ BookingDraft _fill(BookingDraft d) => d.copyWith(
     );
 
 void _expectKept(BookingDraft d) {
+  // Consents are asked again on every entry, as in the old look (G-159).
   expect([d.pickupTime, d.pickupMethod, d.pickupCity, d.notes, d.consentVop, d.consentGdpr],
-      ['12:00', 'delivery', 'Jihlava', 'Přijedu vlakem', true, true]);
+      ['12:00', 'delivery', 'Jihlava', 'Přijedu vlakem', false, false]);
   expect(d.discounts.map((x) => x.code), ['JARO10']);
 }
 
