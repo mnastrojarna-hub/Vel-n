@@ -149,7 +149,9 @@ class DocsViewV2 extends StatelessWidget {
           child: MgStateBanner(
             key: const ValueKey('docs-none-warn'),
             tone: MgTone.warn,
-            title: tr.tr('docsNotVerified'),
+            // K4-08: own heading — "Doklady neověřeny" already heads the
+            // status card at the top of the page.
+            title: tr.tr('elDocsCodesAfter'),
             text: [
               tr.tr('efoDocsNotVerified'),
               if (missing.isNotEmpty) '${tr.tr('missing')}: ${missing.join(', ')}',

@@ -86,7 +86,7 @@ class EditReservationCalendarV2View extends StatelessWidget {
       onPrevMonth: onPrevMonth,
       onNextMonth: onNextMonth,
       boxed: false,
-      legend: TripLegend(items: legend),
+      legend: TripLegend(items: legend, hatchBusy: true),
     );
     // E3-01: the day after the end is taken — say so for good (the refusal
     // itself stays the toast of the SAME tap rule).

@@ -202,15 +202,26 @@ class _Summary extends StatelessWidget {
       f(tr.tr('v2PfAddress'), addr.isEmpty ? null : addr, wide: true),
       _Pair(f(tr.tr('idNumberFull'), _s('id_number')), f(tr.tr('licenseNumberFull'), _s('license_number'))),
       f(tr.tr('licenseExpiry'), pfDate(profile['license_expiry']), wide: true),
-      Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(tr.tr('licenseCategory'), style: MgType.meta.copyWith(color: MgColors.meta)),
-      ),
-      const SizedBox(height: 6),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final c in form.licOptions) PfLicenceChip(label: c, on: form.licCategories.contains(c)),
-      ]),
+      // K4-06: no category yet → an amber "Doplnit" like the other empty
+      // values, and the chips open the same form (the card's own toggle).
+      if (form.licCategories.isEmpty)
+        f(tr.tr('licenseCategory'), null, wide: true)
+      else
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(tr.tr('licenseCategory'), style: MgType.meta.copyWith(color: MgColors.meta)),
+        ),
+      if (form.licCategories.isNotEmpty) const SizedBox(height: 6),
+      _chips(),
     ]);
+  }
+
+  Widget _chips() {
+    final row = Wrap(spacing: 6, runSpacing: 6, children: [
+      for (final c in form.licOptions) PfLicenceChip(label: c, on: form.licCategories.contains(c)),
+    ]);
+    if (form.licCategories.isNotEmpty) return row;
+    return Semantics(button: true, child: MgPress(key: const ValueKey('pf-fill-cats'), onTap: onFill, child: row));
   }
 }
 

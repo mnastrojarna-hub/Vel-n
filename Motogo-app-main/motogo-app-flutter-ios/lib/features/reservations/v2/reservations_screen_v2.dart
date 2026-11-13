@@ -266,11 +266,14 @@ class _EmptyAll extends StatelessWidget {
         Text(tr.tr('noReservations'),
             textAlign: TextAlign.center, style: MgType.h3.copyWith(color: MgColors.onDark)),
         const SizedBox(height: 8),
-        Text(tr.tr('noReservationsDesc'),
+        // K4-03: with other bookings behind the filter the old "no booking
+        // yet" would read as "my booking is gone" — say where they are and
+        // make "show all" a real button above the booking CTA.
+        Text(tr.tr(onShowAll != null ? 'elNoResInFilter' : 'noReservationsDesc'),
             textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.onDarkLead)),
         if (onShowAll != null) ...[
-          const SizedBox(height: 4),
-          MgBtnText(key: const ValueKey('ea-show-all'), label: tr.tr('eaShowAllRes'), dark: true, onTap: onShowAll),
+          const SizedBox(height: 16),
+          MgBtnGhostDark(key: const ValueKey('ea-show-all'), label: tr.tr('eaShowAllRes'), onTap: onShowAll),
         ],
         const SizedBox(height: 20),
         MgCta(label: tr.tr('noResBookCta'), onTap: () => context.go(Routes.search), loop: true, arrow: true),

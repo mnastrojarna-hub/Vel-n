@@ -86,10 +86,15 @@ enum TripLegendKind { free, yours, busy, pending, other, added, removed }
 class TripLegend extends StatelessWidget {
   final List<TripLegendKind> items;
   final TripSkin skin;
+
+  /// Draw the "busy" swatch with the taken cells' hatch (off = the plain
+  /// swatch as before; the reservation edit calendar turns it on, K4-10).
+  final bool hatchBusy;
   const TripLegend({
     super.key,
     this.items = const [TripLegendKind.free, TripLegendKind.yours, TripLegendKind.busy, TripLegendKind.pending],
     this.skin = TripSkin.light,
+    this.hatchBusy = false,
   });
 
   @override
@@ -115,6 +120,13 @@ class TripLegend extends StatelessWidget {
         TripLegendKind.added => (MgColors.calBand, MgColors.calContour),
         TripLegendKind.removed => (const Color(0x00000000), MgColors.err),
       };
+      if (k == TripLegendKind.busy && hatchBusy) {
+        return CustomPaint(
+          key: const ValueKey('trip-legend-busy-hatch'),
+          size: const Size(14, 14),
+          painter: _HatchSwatch(dark: dark),
+        );
+      }
       return Container(
         width: 14,
         height: 14,
@@ -141,6 +153,43 @@ class TripLegend extends StatelessWidget {
         ]),
     ]);
   }
+}
+
+/// The taken day cell's hatch (`TripDayCell`) in a 14 px legend swatch.
+class _HatchSwatch extends CustomPainter {
+  final bool dark;
+  const _HatchSwatch({required this.dark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final box = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(4));
+    canvas.save();
+    canvas.clipRRect(box);
+    canvas.drawRRect(box, Paint()..color = dark ? MgColors.white(0.04) : MgColors.hatchB);
+    final p = Paint()
+      ..color = dark ? MgColors.white(0.18) : MgColors.line
+      ..strokeWidth = 2.5;
+    for (double x = -size.height; x < size.width + size.height; x += 5) {
+      canvas.drawLine(Offset(x, size.height), Offset(x + size.height, 0), p);
+    }
+    canvas.restore();
+    canvas.drawRRect(
+        box.deflate(0.75),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5
+          ..color = dark ? MgColors.white(0.2) : MgColors.line);
+    // The taken day's number is struck through: the same line here.
+    canvas.drawLine(
+        Offset(2, size.height / 2),
+        Offset(size.width - 2, size.height / 2),
+        Paint()
+          ..strokeWidth = 1.5
+          ..color = dark ? MgColors.onDarkMeta : MgColors.meta);
+  }
+
+  @override
+  bool shouldRepaint(_HatchSwatch old) => old.dark != dark;
 }
 
 /// "Vyzvednutí pá 23. 10. → Vrácení ne 25. 10. · 3 dny" (the days chip in

@@ -49,7 +49,19 @@ class ResDetailRowV2 extends StatelessWidget {
   const ResDetailRowV2({super.key, required this.label, this.value, this.child, this.bold = false, this.valueColor});
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    // K4-12: a line without a value (category – branch) reads as one
+    // full-width line, not as a label missing its value.
+    if (child == null && (value ?? '').isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
+      );
+    }
+    return _row();
+  }
+
+  Widget _row() => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // A long word (es "Complementos" at 320 / large text) scales a

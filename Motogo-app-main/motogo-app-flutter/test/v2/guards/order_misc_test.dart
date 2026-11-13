@@ -75,7 +75,10 @@ void main() {
         size: const Size(412, 3000));
     await t.pump(const Duration(milliseconds: 50));
     final b = t.widget<MgStateBanner>(find.byKey(const ValueKey('docs-none-warn')));
-    expect([b.tone, b.title], [MgTone.warn, _cs.tr('docsNotVerified')]);
+    // K4-08: the bottom card has its own heading; "Doklady neověřeny" stays
+    // as the heading of the status card at the top (shown once).
+    expect([b.tone, b.title], [MgTone.warn, _cs.tr('elDocsCodesAfter')]);
+    expect(find.text(_cs.tr('docsNotVerified')), findsOneWidget);
   });
 
   testWidgets('G-545/G-546: a scanner warning is a warning row, the disc turns amber', (t) async {

@@ -72,6 +72,8 @@ class SwapMotoViewV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final n = net;
+    final loaded = motos.valueOrNull;
+    final hasCands = loaded != null && candidates(loaded).isNotEmpty;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -88,8 +90,9 @@ class SwapMotoViewV2 extends StatelessWidget {
           Text(rangeText, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead))),
           const SizedBox(height: 10),
           // E3-03: this tab swaps from a day on (the whole-term change is "Změna motorky").
+          // K4-09: the date box's field label, not one more heading.
           Text(tr.tr('jxSwapMidTitle'),
-              key: const ValueKey('swap-v2-mid-title'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+              key: const ValueKey('swap-v2-mid-title'), style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
           const SizedBox(height: 6),
           Semantics(
             button: true,
@@ -189,8 +192,19 @@ class SwapMotoViewV2 extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: PayRoundingNoteV2(due: n!, roundKey: 'pdRoundSwapHint', waiveKey: 'pdWaiveSwapHint', showLine: false),
         ),
+      // K4-04: the locked confirm says what comes first (the lock stays).
+      if (selectedId == null && hasCands)
+        Padding(
+          key: const ValueKey('swap-v2-pick-first'),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+          child: Row(children: [
+            const MgIcon(MgIcons.info, size: 16, color: MgColors.meta),
+            const SizedBox(width: 6),
+            Expanded(child: Text(tr.tr('elSwapPickFirst'), style: MgType.small.copyWith(color: MgColors.meta))),
+          ]),
+        ),
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        padding: EdgeInsets.fromLTRB(16, selectedId == null ? 8 : 16, 16, 0),
         child: MgBtnInk(
           key: const ValueKey('swap-v2-confirm'),
           label: tr.tr('swap.confirm').toUpperCase(),

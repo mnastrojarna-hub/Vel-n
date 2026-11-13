@@ -17,6 +17,7 @@ import '../../../core/v2/states/mg_state_screen.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../catalog/moto_model.dart';
 import '../booking_models.dart';
+import '../booking_validator.dart';
 import 'booking_consents_v2.dart';
 import 'booking_date_v2.dart';
 import 'booking_dock_v2.dart';
@@ -149,6 +150,22 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     });
   }
 
+  /// K4-01: the pickup-time error, and not even the picker's last slot
+  /// (23:45) passes the SAME lead-time check on the start day — no later
+  /// time exists, the fix is another date. Display only (the validator,
+  /// the lock and the error text stay as they are).
+  bool get _noTimeLeft {
+    final w = widget;
+    if (w.err == null || w.errKind != BookingErrKind.time) return false;
+    return BookingValidator.checkPickupLeadTime(
+          startDate: w.draft.startDate,
+          pickupTime: '23:45',
+          isDelivery: w.draft.pickupMethod == 'delivery',
+          branchType: w.moto.branchType,
+        ) !=
+        null;
+  }
+
   /// The error banner's working actions (navigation only).
   List<(String, VoidCallback)> _errActions(AppTranslations tr) => switch (widget.errKind) {
         // J2 / P2-03: the profile fix first (the one way on with no fitting
@@ -160,7 +177,9 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
             (tr.tr('pdPickOtherMoto'), widget.onBack),
           ],
         BookingErrKind.dates => [(tr.tr('psChangeDates'), _openDates)],
-        BookingErrKind.time => [(tr.tr('v2BkFixTime'), () => _scrollTo(_timeKey))],
+        BookingErrKind.time => _noTimeLeft
+            ? [(tr.tr('psChangeDates'), _openDates)]
+            : [(tr.tr('v2BkFixTime'), () => _scrollTo(_timeKey))],
         null => const [],
       };
 
@@ -180,7 +199,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
       return tr.tr(switch (w.errKind) {
         BookingErrKind.licence => 'coBkBlockLicence',
         BookingErrKind.dates => 'coBkBlockDatesBad',
-        BookingErrKind.time => 'coBkBlockTime',
+        BookingErrKind.time => _noTimeLeft ? 'elBkNoTimeLeft' : 'coBkBlockTime',
         null => 'v2BkBlockError',
       });
     }
@@ -199,7 +218,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     if (b != null && !b.hasValue && !b.hasError) return _dateKey;
     if (b != null && !b.hasValue && b.hasError) return _warnKey;
     if (w.rangeBusy) return _dateKey;
-    if (w.err != null) return w.errKind == BookingErrKind.time ? _timeKey : _warnKey;
+    if (w.err != null) return w.errKind == BookingErrKind.time ? (_noTimeLeft ? _dateKey : _timeKey) : _warnKey;
     if (w.profileErr != null) return _warnKey;
     // P2-05: missing sizes → the gear block with the size buttons itself
     // (the amber card at the bottom only names them).
@@ -269,7 +288,12 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
             Padding(
               key: const ValueKey('bk-time-err'),
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              child: MgStateBanner(tone: MgTone.err, icon: MgIcons.clock, title: w.err!),
+              child: MgStateBanner(
+                tone: MgTone.err,
+                icon: MgIcons.clock,
+                title: w.err!,
+                text: _noTimeLeft ? tr.tr('elBkNoTimeLeft') : null,
+              ),
             ),
         ]),
       ),

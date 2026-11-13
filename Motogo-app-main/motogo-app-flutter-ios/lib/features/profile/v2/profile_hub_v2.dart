@@ -97,10 +97,15 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
     return [f.street, f.zip, f.city].any((c) => c.text.trim().isEmpty) ? _addressKey : _docsKey;
   }
 
-  Future<void> _toFix([bool again = false]) async {
+  Future<void> _toFix([bool again = false, int tries = 0]) async {
     if (!mounted) return;
     final c = _fixTarget().currentContext;
-    if (c == null) return;
+    if (c == null) {
+      // The form is not built yet (slow first frame): look again shortly
+      // instead of leaving the customer at the top of the page (K4-02).
+      if (tries < 20) _fixTimer = Timer(const Duration(milliseconds: 100), () => _toFix(again, tries + 1));
+      return;
+    }
     await MgPinnedBack.reveal(
       c,
       duration: MgMotion.reduced(context) ? Duration.zero : MgMotion.sheet,
@@ -133,6 +138,7 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
       tabIndex: 4,
       overlapHero: false,
       onRefresh: w.personalExpanded ? null : _refresh,
+      keepScrollOnRefreshToggle: true,
       pinnedBack: w.onBack,
       pinnedTitle: _fix ? tr.tr('v2PfFixTitle') : null,
       header: ProfileHeaderV2(

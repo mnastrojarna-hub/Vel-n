@@ -3,7 +3,8 @@
 // pull-to-refresh wrapper that switches off while the form is open no longer
 // remounts the scroll view), and the booking-fix path from the booking form
 // still lands on the group with the missing field when the form is built
-// late (reduced motion / slow first frame).
+// late (reduced motion / slow first frame). K4-06: empty licence categories
+// show the amber "Doplnit" and the chips open the same form.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,6 +61,29 @@ void main() {
       expect(t.takeException(), isNull);
     });
   }
+
+  testWidgets('K4-06 no licence category: amber "Doplnit" and the chips open the form', (t) async {
+    final profile = {...kProfileFull, 'license_group': <String>[]};
+    await pumpV2(t, const PfHubHarness(), overrides: profileOverrides(profile: profile), size: const Size(360, 780));
+    await _frames(t);
+    final chips = find.byKey(const ValueKey('pf-fill-cats'));
+    expect(chips, findsOneWidget);
+    expect(find.byKey(ValueKey('pf-fill-${_cs('licenseCategory')}')), findsOneWidget);
+    await t.ensureVisible(chips);
+    await _frames(t, 10);
+    final before = t.getTopLeft(find.text(_cs('personalInfo'))).dy;
+    await t.tap(chips);
+    await _frames(t);
+    expect(find.text(_cs('saveChanges')), findsOneWidget, reason: 'the same form as "Upravit"');
+    expect((t.getTopLeft(find.text(_cs('personalInfo'))).dy - before).abs(), lessThan(2));
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('K4-06 with a category the chips stay static', (t) async {
+    await pumpV2(t, const PfHubHarness(), overrides: profileOverrides(), size: const Size(360, 780));
+    await _frames(t);
+    expect(find.byKey(const ValueKey('pf-fill-cats')), findsNothing);
+  });
 
   testWidgets('K4-02 booking fix with reduced motion lands on Adresa, not the top', (t) async {
     final profile = {...kProfileFull, 'street': '', 'zip': null};

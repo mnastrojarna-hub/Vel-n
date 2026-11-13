@@ -38,7 +38,10 @@ void main() {
           size: const Size(412, 1600), overrides: resOverrides(list: list, filter: 'cancelled'));
       await t.pump(const Duration(milliseconds: 600));
       expect(find.text(_cs('noReservations')), findsOneWidget);
-      expect(find.text(_cs('noReservationsDesc')), findsOneWidget);
+      // K4-03: other bookings exist behind the filter → the line says where
+      // they are (the old "no booking yet" only when there is none at all).
+      expect(find.text(_cs('elNoResInFilter')), findsOneWidget);
+      expect(find.text(_cs('noReservationsDesc')), findsNothing);
       expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('noResBookCta')), findsOneWidget);
       expect(find.text(_cs('v2ResShowAll')), findsNothing);
       // The old header: always visible back, no live pill.
@@ -89,6 +92,9 @@ void main() {
       expect(find.byType(MgSupportRow), findsNothing);
       // The old info rows incl. "Kategorie" and the old edit / cancel buttons.
       expect(find.text(_cs('resCategory')), findsOneWidget);
+      // K4-12: the length once (the old second row repeated the same number).
+      expect(find.text(_cs('resDuration')), findsWidgets);
+      expect(find.text(_cs('resDurationTotal')), findsNothing);
       expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('editReservation')), findsOneWidget);
       expect(find.byWidgetPredicate((w) => w is MgBtnDestructive && w.label == _cs('cancelReservationBtn')), findsOneWidget);
       // Second tab = the old payment details.

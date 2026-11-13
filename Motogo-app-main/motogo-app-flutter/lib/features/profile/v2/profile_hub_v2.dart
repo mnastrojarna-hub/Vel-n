@@ -138,6 +138,7 @@ class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
       tabIndex: 4,
       overlapHero: false,
       onRefresh: w.personalExpanded ? null : _refresh,
+      keepScrollOnRefreshToggle: true,
       pinnedBack: w.onBack,
       pinnedTitle: _fix ? tr.tr('v2PfFixTitle') : null,
       header: ProfileHeaderV2(

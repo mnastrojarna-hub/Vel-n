@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
@@ -220,8 +221,12 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
       void reserve() => startBookingFromSelection(context, ref, m, range.start, range.end);
       // J3: with a warning the bike's action stays (same tap, same target)
       // but is secondary — the eye goes to the warning and its fix first.
+      // K4-05: the same while an unpaid booking waits in the pay strip
+      // (the M3-10 condition) — "Zaplatit rezervaci" is the first thing.
+      final pb = ref.watch(pendingBookingFabProvider).valueOrNull;
+      final unpaid = pb != null && !pb.isExpired && !pb.verifying;
       action = MgFabAvoid(
-        child: errs.isNotEmpty
+        child: errs.isNotEmpty || unpaid
             ? MgBtnGhostDark(
                 key: const ValueKey('home-funnel-reserve-ghost'),
                 label: '${tr.tr('v2HomeCtaReserve').toUpperCase()} · ${total(m)}',

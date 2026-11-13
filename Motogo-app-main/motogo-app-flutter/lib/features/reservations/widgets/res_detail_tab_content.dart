@@ -141,7 +141,9 @@ class ResDetailTabContent extends ConsumerWidget {
             ResDetailRow(label: '${res.category ?? ""} – ${res.branchName ?? ""}', value: ''),
             ResDetailRow(label: t(context).date, value: res.dateRange),
             ResDetailRow(label: t(context).tr('resDuration'), value: '${res.dayCount} ${res.dayCount == 1 ? t(context).tr("day1") : res.dayCount < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
-            ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
+            // K4-12: v2 shows the length once (the same number as above).
+            if (!MgV2.on(context))
+              ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
             // Čas vyzvednutí (HH:MM) i na samoobsluze (zadání 2026-10-01 večer);
             // stará značka 00:01 = „kdykoliv během prvního dne“.
             if (res.pickupAllDayLegacy)

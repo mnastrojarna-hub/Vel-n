@@ -65,6 +65,11 @@ class MgPage extends ConsumerStatefulWidget {
   final double? pinnedBarAfter;
   final MgSnapZone? snap;
 
+  /// Opt-in (Profil only): keep the scroll position when [onRefresh]
+  /// switches on / off. Off by default, so pages whose refresh follows a
+  /// mode (Motorky, Moje jízdy) still open the new mode at the top.
+  final bool keepScrollOnRefreshToggle;
+
   const MgPage({
     super.key,
     this.header,
@@ -85,6 +90,7 @@ class MgPage extends ConsumerStatefulWidget {
     this.pinnedBar,
     this.pinnedBarAfter,
     this.snap,
+    this.keepScrollOnRefreshToggle = false,
   }) : assert(pinnedBar == null || pinnedBack == null, 'pinnedBar and pinnedBack exclude each other');
 
   @override
@@ -97,10 +103,9 @@ class _MgPageState extends ConsumerState<MgPage> {
   double _headerH = 0;
   double _heroH = 0;
 
-  /// Keeps the scroll view (and its position) when [MgPage.onRefresh]
-  /// switches on / off — the pull-to-refresh wrapper comes and goes above
-  /// it (e.g. Profil while the personal form is open), and without the key
-  /// the page would jump back to the top (K4-02).
+  /// With [MgPage.keepScrollOnRefreshToggle]: keeps the scroll view (and
+  /// its position) when [MgPage.onRefresh] switches on / off — Profil while
+  /// the personal form is open would otherwise jump to the top (K4-02).
   final _scrollKey = GlobalKey(debugLabel: 'mg-page-scroll');
 
   ScrollController get _ctrl => widget.controller ?? (_own ??= ScrollController());
@@ -179,7 +184,7 @@ class _MgPageState extends ConsumerState<MgPage> {
       SliverToBoxAdapter(child: SizedBox(height: bottomPad < 0 ? 0 : bottomPad)),
     ];
     Widget scroll = CustomScrollView(
-      key: _scrollKey,
+      key: widget.keepScrollOnRefreshToggle ? _scrollKey : null,
       controller: _ctrl,
       physics: widget.snap == null
           ? const AlwaysScrollableScrollPhysics()
