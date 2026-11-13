@@ -50,7 +50,7 @@ const _card = SavedCard(
 /// Adventure (Mezná, staffed, licence A), Husqvarna 701 SM (Velké Němčice,
 /// self-service, A2/A), Royal Enfield Shotgun 650 (A2, in service = busy
 /// 60 days), Yamaha PW50 (kids' bike).
-List<Override> journeyOverrides(JourneyData d) {
+List<Override> journeyOverrides(JourneyData d, {bool v2 = true}) {
   final list = d.reservations;
   final profile = d.loggedIn ? d.profile : null;
   final level = d.loyalty?.level ?? 1;
@@ -69,7 +69,7 @@ List<Override> journeyOverrides(JourneyData d) {
     localeProvider.overrideWith((ref) => _CsLocale()),
     rankTokensProvider.overrideWithValue(RankTokens.forLevel(level)),
     rankArcPctProvider.overrideWithValue(50),
-    appV2UiProvider.overrideWith((ref) => AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: true)),
+    appV2UiProvider.overrideWith((ref) => AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: v2)),
     paidAfterRestartProvider.overrideWith((ref) async => null),
     bannerProvider.overrideWithValue(const AsyncData(null)),
     pendingBookingFabProvider.overrideWith((ref) => Stream.value(d.pending)),

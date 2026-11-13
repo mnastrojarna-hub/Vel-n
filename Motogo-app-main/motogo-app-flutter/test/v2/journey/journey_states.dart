@@ -3,6 +3,8 @@
 // documents (gate + OCR stamps), licence groups, bookings, door codes,
 // pending payment. The rig turns it into provider overrides
 // (journey_overrides.dart) and fake backend answers (journey_backend.dart).
+import 'dart:convert';
+
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/documents/document_provider.dart';
@@ -22,7 +24,14 @@ enum JourneyState {
   paidUpcoming('paid_upcoming'),
   paidUpcomingNoDocs('paid_upcoming_no_docs'),
   activeRental('active_rental'),
-  completed('completed');
+  completed('completed'),
+  // Changing a booking (README "Changing a booking").
+  paidUpcomingExtFree('paid_upcoming_ext_free'),
+  paidUpcomingExtTaken('paid_upcoming_ext_taken'),
+  activeRentalExtFree('active_rental_ext_free'),
+  activeRentalExtTaken('active_rental_ext_taken'),
+  paidUpcomingSwap('paid_upcoming_swap'),
+  paidUpcomingSurchargePending('paid_upcoming_surcharge_pending');
 
   final String id;
   const JourneyState(this.id);
@@ -83,6 +92,15 @@ class JourneyData {
   final Map<String, List<DoorCode>> codes;
   final PendingBooking? pending;
   final LoyaltyStatus? loyalty;
+
+  /// Other customers' bookings: (bike id, first day, last day) as day
+  /// offsets from today. The fake backend answers them in
+  /// `get_moto_booked_dates` / `check_moto_availability` like the server.
+  final List<(String, int, int)> others;
+
+  /// Extra SharedPreferences values on the phone (e.g. a surcharge payment
+  /// that was sent and is still being verified).
+  final Map<String, Object> prefs;
   const JourneyData({
     required this.state,
     required this.loggedIn,
@@ -93,6 +111,8 @@ class JourneyData {
     this.codes = const {},
     this.pending,
     this.loyalty,
+    this.others = const [],
+    this.prefs = const {},
   });
 
   DocsScreenStatus get docsStatus => DocsScreenStatus(verification, gate);
@@ -118,6 +138,11 @@ List<DoorCode> _held() => [
       code('accessories', '', sent: false, reason: 'docs_missing'),
       code('motorcycle', '', sent: false, reason: 'docs_missing'),
     ];
+
+/// Pickup 09:00 in the booking-change states: a self-service pickup from
+/// 12:00 earns a late-pickup discount that `resv` does not store, so the
+/// edit page would show a refund nobody asked for (fixture mismatch).
+const _t9 = '09:00:00';
 
 JourneyData journeyData(JourneyState s) {
   final ok = _verified();
@@ -164,6 +189,48 @@ JourneyData journeyData(JourneyState s) {
       return JourneyData(
           state: s, loggedIn: true, profile: _fullProfile(['A', 'B']), gate: _gateOk, verification: ok,
           reservations: [b], codes: {b.id: _sent()}, loyalty: loyaltyAt(3));
+    case JourneyState.paidUpcomingExtFree:
+    case JourneyState.paidUpcomingExtTaken:
+    case JourneyState.paidUpcomingSurchargePending:
+      // Husqvarna in 3–6 days (4 days: room to shorten). Taken = the same
+      // bike is booked by someone else on days 7–10 (right after).
+      final b = resv('e1', status: 'reserved', from: 3, to: 6, pickupTime: _t9);
+      final pendingPay = s == JourneyState.paidUpcomingSurchargePending;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      return JourneyData(
+          state: s, loggedIn: true, profile: _fullProfile(['A', 'B']), gate: _gateOk, verification: ok,
+          reservations: [b], codes: {b.id: _sent()}, loyalty: loyaltyAt(3),
+          others: s == JourneyState.paidUpcomingExtTaken ? const [('m-husq', 7, 10)] : const [],
+          // An extension surcharge of this booking was paid 2 min ago and the
+          // server has not confirmed it yet (PaymentPendingMarker, kind edit).
+          prefs: pendingPay
+              ? {
+                  'mg_payment_submitted_v2': jsonEncode({
+                    b.id: {'at': now - 120000, 'att': now - 120000, 'k': 'edit', 'exp': 16200},
+                  }),
+                }
+              : const {});
+    case JourneyState.activeRentalExtFree:
+    case JourneyState.activeRentalExtTaken:
+      // Riding since yesterday until day 2; taken = days 3–6 booked by someone else.
+      final b = resv('x1', status: 'active', from: -1, to: 2, handedOver: rday(-1), pickupTime: _t9);
+      return JourneyData(
+          state: s, loggedIn: true, profile: _fullProfile(['A', 'B']), gate: _gateOk, verification: ok,
+          reservations: [b], codes: {b.id: _sent()}, loyalty: loyaltyAt(3),
+          others: s == JourneyState.activeRentalExtTaken ? const [('m-husq', 3, 6)] : const []);
+    case JourneyState.paidUpcomingSwap:
+      // Licence A2+B. Swap candidates: BMW needs A (licence filter), the
+      // Shotgun is booked by someone else on days 4–5, the Yamaha is free.
+      final b = resv('w1', status: 'reserved', from: 3, to: 6, pickupTime: _t9);
+      return JourneyData(
+          state: s, loggedIn: true, profile: _fullProfile(['A2', 'B']),
+          gate: const DocsGateChecklist(
+            ok: true, idFront: true, idBack: true, passport: false, dlFront: true, dlBack: true,
+            identityOk: true, licenseOk: true, hasDob: true, ageOk: true, expiryOk: true, groupsOk: true,
+            licenseExpiry: '2034-05-01', licenseGroups: ['A2', 'B'],
+          ),
+          verification: ok, reservations: [b], codes: {b.id: _sent()}, loyalty: loyaltyAt(3),
+          others: const [('m-shot', 4, 5)]);
     case JourneyState.completed:
       final b = resv('c1', status: 'completed', from: -6, to: -4, self: false, bike: 'BMW R 1200 GS Adventure');
       return JourneyData(

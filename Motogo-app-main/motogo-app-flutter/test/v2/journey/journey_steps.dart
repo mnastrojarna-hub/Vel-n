@@ -119,10 +119,12 @@ Future<void> runJourney(JourneyRig rig, List<dynamic> steps, String dir) async {
   Directory(dir).createSync(recursive: true);
   final log = File('$dir/log.txt')..writeAsStringSync('');
   void line(String s) => log.writeAsStringSync('$s\n', mode: FileMode.append);
-  line('state=${rig.data.state.id} size=360x780 lang=cs textScale=1.0 reducedMotion=on flag=v2');
+  line('state=${rig.data.state.id} size=360x780 lang=cs textScale=1.0 reducedMotion=on flag=${rig.v2 ? 'v2' : 'old'}');
   String err() {
     final e = t.takeException();
-    return e == null ? '' : ' | EXCEPTION ${'$e'.split('\n').first}';
+    final dbg = rig.debugAsserts.toSet().map((a) => ' | DEBUG-ASSERT $a').join();
+    rig.debugAsserts.clear();
+    return (e == null ? '' : ' | EXCEPTION ${'$e'.split('\n').first}') + dbg;
   }
 
   await rig.shot('$dir/00.png');
@@ -133,36 +135,7 @@ Future<void> runJourney(JourneyRig rig, List<dynamic> steps, String dir) async {
     final before = journeyRequests.length;
     var what = '';
     try {
-      if (s['tap'] is List) {
-        final p = Offset((s['tap'][0] as num).toDouble(), (s['tap'][1] as num).toDouble());
-        what = probe(t, p);
-        await t.tapAt(p);
-      } else if (s['tapText'] is String) {
-        what = await _tapText(rig, s['tapText'] as String, (s['index'] as num?)?.toInt() ?? 0);
-      } else if (s['type'] is String) {
-        if (!t.testTextInput.hasAnyClients) {
-          what = 'NO FOCUSED FIELD (tap a field first)';
-        } else {
-          t.testTextInput.enterText(s['type'] as String);
-          what = 'typed';
-        }
-      } else if (s['scroll'] is List) {
-        final a = s['scroll'] as List;
-        await _scroll(t, Offset((a[0] as num).toDouble(), (a[1] as num).toDouble()), (a[2] as num).toDouble());
-        what = 'scrolled';
-      } else if (s['back'] == true) {
-        // ignore: invalid_use_of_protected_member
-        final handled = await t.binding.handlePopRoute();
-        what = 'system back${handled ? '' : ' (not handled → app would close)'}';
-      } else if (s['wait'] is num) {
-        await t.pump(Duration(milliseconds: (s['wait'] as num).toInt()));
-        what = 'waited';
-      } else if (s['go'] is String) {
-        rig.router.go(s['go'] as String);
-        what = 'JUMP (router.go, not a click)';
-      } else {
-        what = 'UNKNOWN STEP';
-      }
+      what = await rig.guard(() => _step(rig, s));
       await rig.settle();
     } catch (e) {
       what = '$what | STEP FAILED ${'$e'.split('\n').first}';
@@ -174,4 +147,41 @@ Future<void> runJourney(JourneyRig rig, List<dynamic> steps, String dir) async {
     line('$n | $step | $what | route=${rig.location} | modal=${modalOpen() ? 'yes' : 'no'}'
         '${calls.isEmpty ? '' : ' | server=[$calls]'}$note${err()}');
   }
+}
+
+/// One step's action; returns what it hit / did.
+Future<String> _step(JourneyRig rig, Map<String, dynamic> s) async {
+  final t = rig.tester;
+  var what = '';
+  if (s['tap'] is List) {
+    final p = Offset((s['tap'][0] as num).toDouble(), (s['tap'][1] as num).toDouble());
+    what = probe(t, p);
+    await t.tapAt(p);
+  } else if (s['tapText'] is String) {
+    what = await _tapText(rig, s['tapText'] as String, (s['index'] as num?)?.toInt() ?? 0);
+  } else if (s['type'] is String) {
+    if (!t.testTextInput.hasAnyClients) {
+      what = 'NO FOCUSED FIELD (tap a field first)';
+    } else {
+      t.testTextInput.enterText(s['type'] as String);
+      what = 'typed';
+    }
+  } else if (s['scroll'] is List) {
+    final a = s['scroll'] as List;
+    await _scroll(t, Offset((a[0] as num).toDouble(), (a[1] as num).toDouble()), (a[2] as num).toDouble());
+    what = 'scrolled';
+  } else if (s['back'] == true) {
+    // ignore: invalid_use_of_protected_member
+    final handled = await t.binding.handlePopRoute();
+    what = 'system back${handled ? '' : ' (not handled → app would close)'}';
+  } else if (s['wait'] is num) {
+    await t.pump(Duration(milliseconds: (s['wait'] as num).toInt()));
+    what = 'waited';
+  } else if (s['go'] is String) {
+    rig.router.go(s['go'] as String);
+    what = 'JUMP (router.go, not a click)';
+  } else {
+    what = 'UNKNOWN STEP';
+  }
+  return what;
 }

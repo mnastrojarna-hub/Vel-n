@@ -1,0 +1,14 @@
+[
+ {"tapText": "Rezervace", "note": "tab Rezervace"},
+ {"wait": 300},
+ {"tapText": "Upravit", "note": "Upravit on the booking card"},
+ {"wait": 500},
+ {"scroll": [180, 560, 450], "note": "pickup place + time"},
+ {"tapText": "Přistavení na tvoji adresu", "note": "delivery: locked at a self-service branch"},
+ {"tapText": "09:00", "note": "open the pickup time"},
+ {"tapText": "15:00", "note": "pick 15:00"},
+ {"scroll": [180, 560, 300], "note": "return place"},
+ {"tapText": "ULOŽIT ZMĚNY", "note": "save the new time"},
+ {"wait": 3000, "note": "server answer"},
+ {"wait": 15000, "note": "wait for the end of the save"}
+]

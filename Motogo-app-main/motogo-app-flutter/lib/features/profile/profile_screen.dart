@@ -69,9 +69,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// Available driver-license categories offered in the picker.
   static const _licCategoryOptions = ['AM', 'A1', 'A2', 'A', 'B'];
 
+  /// První volání didChangeDependencies (= hned po initState, před prvním build).
+  bool _freshRequested = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_freshRequested) return;
+    _freshRequested = true;
+    // Dřív v initState — tam `ref.invalidate` shazoval debug assert
+    // (dependOnInheritedWidgetOfExactType před dokončením initState). Flutter
+    // volá didChangeDependencies hned po initState ve stejném synchronním
+    // kroku před prvním build, takže časování je stejné.
     // Vynuť čerstvé načtení profilu z DB při každém otevření. Hned po registraci
     // byl `profileProvider` naplněn JEŠTĚ PŘED zápisem profilu (RPC běží až po
     // vzniku session), takže cache mohla držet prázdná pole, i když data v DB

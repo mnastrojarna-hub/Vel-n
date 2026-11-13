@@ -43,6 +43,10 @@ class DetailDockV2 extends StatelessWidget {
   /// as in the old look (the booking form blocks), only its loop stops.
   final String? warning;
 
+  /// P2-08: the catalog card showed a lower "your price" (rank discount):
+  /// the dock's amount stays the list price (old look) and says so.
+  final bool listPriceNote;
+
   const DetailDockV2({
     super.key,
     required this.selStart,
@@ -55,6 +59,7 @@ class DetailDockV2 extends StatelessWidget {
     this.busy = false,
     this.onBreakdown,
     this.warning,
+    this.listPriceNote = false,
   });
 
   @override
@@ -73,7 +78,9 @@ class DetailDockV2 extends StatelessWidget {
     }
     final change = busy && s != null && onPickDates != null;
     final pick = (s == null || change) && onPickDates != null;
-    final warn = pick ? null : warning;
+    // P2-07: before dates the warning (licence) shows too; while changing a
+    // busy range the amber dates say it.
+    final warn = change ? null : warning;
     final Widget text = warn != null
         ? Row(key: const ValueKey('detail-dock-warning'), crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Padding(
@@ -95,11 +102,16 @@ class DetailDockV2 extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: MgColors.warnDark, fontWeight: FontWeight.w700)),
               ])
-            : Text(
-                line,
-                maxLines: 2,
-                style: TextStyle(color: change ? MgColors.warnDark : (s == null ? MgColors.onDarkMeta : MgColors.onDarkLead)),
-              );
+            : listPriceNote && price != null && !change
+                ? Column(key: const ValueKey('detail-dock-list-price'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(line, maxLines: 1, style: const TextStyle(color: MgColors.onDarkLead)),
+                    Text(tr.tr('coBkListPrice'), maxLines: 1, style: const TextStyle(color: MgColors.onDarkMeta)),
+                  ])
+                : Text(
+                    line,
+                    maxLines: 2,
+                    style: TextStyle(color: change ? MgColors.warnDark : (s == null ? MgColors.onDarkMeta : MgColors.onDarkLead)),
+                  );
     // No AI disc: the old detail had no AI entry (only Domů / SOS).
     return MgDock(
       contextLine: onBreakdown == null || pick || warn != null
@@ -109,30 +121,37 @@ class DetailDockV2 extends StatelessWidget {
               MgBtnText(label: tr.tr('v2Breakdown'), icon: MgIcons.chevronUp, dark: true, onTap: onBreakdown),
             ]),
       child: MgFabAvoid(
-        child: pick
-            ? MgCta(
-                label: tr.tr(change ? 'psChangeDates' : 'v2CalcPickDatesCta'),
-                price: change ? null : fromPrice,
-                onTap: onPickDates,
-                size: MgCtaSize.lg60,
-                loop: true,
-              )
-            : warn != null
-                // J4: with a warning the reserve stays enabled (as in the
-                // old look — the form blocks) but no longer reads as "go".
-                ? MgBtnGhostDark(
-                    key: const ValueKey('detail-dock-reserve-ghost'),
-                    label: [tr.tr('v2CatCtaBook').toUpperCase(), if (price != null) price!].join(' · '),
-                    height: 60,
-                    onTap: onReserve,
-                  )
-                : MgCta(
-                    label: tr.tr('v2CatCtaBook'),
-                    price: price,
-                    onTap: onReserve,
-                    size: MgCtaSize.lg60,
-                    loop: onReserve != null,
-                  ),
+        child: switch ((pick, warn != null)) {
+          // P2-07: same "VYBRAT TERMÍN" tap, quieter under the warning.
+          (true, true) => MgBtnGhostDark(
+              key: const ValueKey('detail-dock-pick-ghost'),
+              label: [tr.tr('v2CalcPickDatesCta').toUpperCase(), if (fromPrice != null) fromPrice!].join(' · '),
+              height: 60,
+              onTap: onPickDates,
+            ),
+          (true, false) => MgCta(
+              label: tr.tr(change ? 'psChangeDates' : 'v2CalcPickDatesCta'),
+              price: change ? null : fromPrice,
+              onTap: onPickDates,
+              size: MgCtaSize.lg60,
+              loop: true,
+            ),
+          // J4: with a warning the reserve stays enabled (as in the old
+          // look — the form blocks) but no longer reads as "go".
+          (false, true) => MgBtnGhostDark(
+              key: const ValueKey('detail-dock-reserve-ghost'),
+              label: [tr.tr('v2CatCtaBook').toUpperCase(), if (price != null) price!].join(' · '),
+              height: 60,
+              onTap: onReserve,
+            ),
+          (false, false) => MgCta(
+              label: tr.tr('v2CatCtaBook'),
+              price: price,
+              onTap: onReserve,
+              size: MgCtaSize.lg60,
+              loop: onReserve != null,
+            ),
+        },
       ),
     );
   }

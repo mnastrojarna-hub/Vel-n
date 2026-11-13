@@ -1,0 +1,10 @@
+[
+ {"tapText": "Rezervace", "note": "tab Rezervace"},
+ {"wait": 300},
+ {"tapText": "Upravit", "note": "Upravit on the booking card"},
+ {"wait": 500},
+ {"scroll": [180, 500, 330], "note": "active rental 12.-15., nothing taken after"},
+ {"tap": [95, 287], "note": "tap 17. = two days longer -> surcharge"},
+ {"tapText": "ZAPLATIT DOPLATEK", "note": "pay the surcharge"},
+ {"wait": 500}
+]

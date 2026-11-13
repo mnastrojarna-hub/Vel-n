@@ -6,6 +6,8 @@ import '../../../../core/v2/chrome/mg_page.dart';
 import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
+import '../../../booking/booking_quote.dart';
+import '../../../loyalty/loyalty_provider.dart';
 import '../../moto_model.dart';
 import '../../widgets/validation_banner.dart' show bookingRangeErrors;
 import '../catalog_text.dart';
@@ -13,6 +15,9 @@ import 'detail_dock_v2.dart';
 import 'detail_hero_v2.dart';
 import 'detail_more_v2.dart';
 import 'detail_trip_card_v2.dart';
+
+/// Photo height of the v2 detail (also the pager's band threshold, P2-10).
+double detailHeroHeight(BuildContext context) => (MediaQuery.sizeOf(context).height * 0.6).clamp(340.0, 560.0);
 
 /// v2 view of one bike detail page (PLAN §2.2.2, technique S): a DUMB view
 /// — `_MotoDetailPageState` keeps the photo index / pager controller, the
@@ -98,6 +103,14 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
     return true;
   }
 
+  /// P2-08: the catalog card's rule for its struck list price (same two
+  /// `quoteFor` calls) — the dock then labels its list price. Display only.
+  static bool _rankCheaper(WidgetRef ref, Motorcycle m, DateTime s, DateTime e) {
+    final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
+    if (loyalty == null || m.prices == null) return false;
+    return quoteFor(m, s, e).total > quoteFor(m, s, e, loyalty: loyalty).total;
+  }
+
   /// Dock "VYBRAT TERMÍN": open the calendar, then bring "Tvoje jízda" up.
   void _pickDates() {
     widget.onPickDates();
@@ -115,7 +128,7 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
     final cheapest = moto.prices?.cheapest ?? 0;
     // „jen vzhled“: ceníková cena jako v původním detailu (sleva za rank až v rezervaci).
     final from = cheapest > 0 ? t(context).trArgs('v2CatGridFrom', {'amount': catMoney(cheapest)}) : null;
-    final heroH = (MediaQuery.sizeOf(context).height * 0.6).clamp(340.0, 560.0);
+    final heroH = detailHeroHeight(context);
     return MgPage(
       background: MgColors.surface,
       pinnedBack: w.onBack,
@@ -178,7 +191,12 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
       // in the dock — the banner in the date card is below the fold.
       dock: Consumer(
         builder: (context, ref, _) {
-          final errs = w.hasDates ? bookingRangeErrors(context, ref, moto, w.selStart!, w.selEnd!) : const <String>[];
+          // P2-07: before dates the licence problem (the photo's red chip)
+          // is said in the dock too — same check, same text as later.
+          final lic = w.hasDates ? null : catLicenceError(ref, moto, lang: t(context).lang);
+          final errs = w.hasDates
+              ? bookingRangeErrors(context, ref, moto, w.selStart!, w.selEnd!)
+              : [if (lic != null) lic];
           return DetailDockV2(
             selStart: w.selStart,
             selEnd: w.selEnd,
@@ -189,6 +207,7 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
             onReserve: w.onReserve,
             busy: w.busy,
             warning: errs.isEmpty ? null : errs.first,
+            listPriceNote: w.hasDates && _rankCheaper(ref, moto, w.selStart!, w.selEnd!),
           );
         },
       ),

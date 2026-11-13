@@ -12,6 +12,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
 import '../../moto_detail_page.dart';
+import 'moto_detail_view_v2.dart' show detailHeroHeight;
 import '../bike_screen_list_v2.dart' show catalogShownMotoProvider;
 
 /// v2 view of the detail pager (`MotoDetailScreen`, technique S limited to
@@ -64,8 +65,20 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
     if (n.state != id) n.state = id;
   }
 
+  /// P2-10: the bike is scrolled past its photo — the controls get a solid
+  /// band so they never sit on text.
+  bool _scrolled = false;
+
+  bool _onScroll(ScrollNotification n, double threshold) {
+    if (n.metrics.axis != Axis.vertical || n.depth > 1) return false;
+    final v = n.metrics.pixels > threshold;
+    if (v != _scrolled) setState(() => _scrolled = v);
+    return false;
+  }
+
   /// The shared `onPageChanged` + bars back + the bike on screen.
   void _changed(int i) {
+    if (_scrolled) setState(() => _scrolled = false);
     MgBarsScope.read(context)?.show();
     widget.onPageChanged(i);
     if (widget.ids.isNotEmpty) _publish(widget.ids[i % widget.ids.length]);
@@ -93,11 +106,14 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
     Widget folding(Widget child) => Builder(
           builder: (context) => MgStickySlide(visible: !MgBarsScope.hiddenOf(context), from: AxisDirection.up, child: child),
         );
+    final bandH = top + 12 + 46 + 8;
     return Scaffold(
       backgroundColor: MgColors.surface,
       body: Stack(children: [
         if (w.hasPager)
-          PageView.builder(
+          NotificationListener<ScrollNotification>(
+            onNotification: (n) => _onScroll(n, detailHeroHeight(context) - bandH - 24),
+            child: PageView.builder(
             controller: w.controller,
             itemCount: w.itemCount,
             onPageChanged: _changed,
@@ -105,10 +121,28 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
               final idx = i % ids.length;
               return MotoDetailPage(key: ValueKey(ids[idx]), motoId: ids[idx]);
             },
+          ),
           )
         else
           MotoDetailPage(motoId: w.motoId, showBackButton: true),
         if (w.hasPager) ...[
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: folding(IgnorePointer(
+              ignoring: !_scrolled,
+              child: AnimatedOpacity(
+                key: const ValueKey('detail-pager-band'),
+                opacity: _scrolled ? 1 : 0,
+                duration: MgMotion.of(context, MgMotion.color),
+                child: Container(
+                  height: bandH,
+                  decoration: const BoxDecoration(color: MgColors.surface, boxShadow: MgShadows.card),
+                ),
+              ),
+            )),
+          ),
           Positioned(
             top: top + 12,
             left: 16,

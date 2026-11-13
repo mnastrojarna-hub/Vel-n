@@ -32,19 +32,22 @@ http.Response _json(Object? body, [int status = 200]) => http.Response(jsonEncod
 String _ymd(DateTime x) =>
     '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
 
-/// Busy ranges of a bike: the Shotgun is in service for the next 60 days,
-/// the BMW is booked by someone else in 3–5 weeks (a taken date to
-/// bump into), plus the customer's own open bookings of that bike.
-List<(DateTime, DateTime, String)> journeyBlocks(String motoId, JourneyData? d) {
+/// Busy ranges of a bike (start, end, status, booking id): the Shotgun is in
+/// service for the next 60 days, the BMW is booked by someone else in 3–5
+/// weeks (a taken date to bump into), the state's other customers'
+/// bookings ([JourneyData.others]) and the customer's own open bookings.
+List<(DateTime, DateTime, String, String)> journeyBlocks(String motoId, JourneyData? d) {
   final n = DateTime.now();
   final t = DateTime(n.year, n.month, n.day);
   DateTime at(int k) => DateTime(t.year, t.month, t.day + k);
   return [
-    if (motoId == 'm-shot') (at(-1), at(60), 'service'),
-    if (motoId == 'm-bmw') (at(21), at(35), 'reserved'),
+    if (motoId == 'm-shot') (at(-1), at(60), 'service', 'svc-shot'),
+    if (motoId == 'm-bmw') (at(21), at(35), 'reserved', 'other-bmw'),
+    for (final o in d?.others ?? const <(String, int, int)>[])
+      if (o.$1 == motoId) (at(o.$2), at(o.$3), 'reserved', 'other-${o.$1}-${o.$2}'),
     for (final r in d?.reservations ?? const [])
       if (r.motoId == motoId && const ['pending', 'reserved', 'active'].contains(r.status))
-        (r.startDate, r.endDate, r.status),
+        (r.startDate, r.endDate, r.status, r.id),
   ];
 }
 
@@ -72,7 +75,9 @@ Future<http.Response> _handle(http.Request r) async {
     final s = DateTime.tryParse('${p['p_start']}');
     final e = DateTime.tryParse('${p['p_end']}');
     if (s == null || e == null) return _json(true);
-    final busy = blocks.any((b) => b.$3 != 'service' && !s.isAfter(b.$2) && !b.$1.isAfter(e));
+    // p_exclude_booking_id = the booking being changed (like the server).
+    final skip = '${p['p_exclude_booking_id'] ?? ''}';
+    final busy = blocks.any((b) => b.$3 != 'service' && b.$4 != skip && !s.isAfter(b.$2) && !b.$1.isAfter(e));
     return _json(!busy);
   }
   if (path.endsWith('/rest/v1/profiles') && d?.profile != null) {

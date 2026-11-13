@@ -1,6 +1,6 @@
 // Journey rig — click-through run (README.md). Skipped unless MG_JOURNEY=1:
 //   MG_JOURNEY=1 MG_JOURNEY_STATE=ready MG_JOURNEY_SCRIPT=/path/steps.json \
-//   MG_JOURNEY_DIR=/path/out flutter test --no-pub test/v2/journey/journey_run_test.dart
+//   MG_JOURNEY_DIR=/path/out [MG_JOURNEY_LOOK=old] flutter test --no-pub test/v2/journey/journey_run_test.dart
 import 'dart:convert';
 import 'dart:io';
 
@@ -22,7 +22,7 @@ void main() {
     final script = _env('MG_JOURNEY_SCRIPT');
     final steps = script == null ? const <dynamic>[] : jsonDecode(File(script).readAsStringSync()) as List<dynamic>;
     final dir = _env('MG_JOURNEY_DIR') ?? '${Directory.systemTemp.path}/mg_journey';
-    final rig = await JourneyRig.boot(tester, state, start: _env('MG_JOURNEY_START'));
+    final rig = await JourneyRig.boot(tester, state, start: _env('MG_JOURNEY_START'), v2: _env('MG_JOURNEY_LOOK') != 'old');
     await runJourney(rig, steps, dir);
     await rig.dispose();
     // ignore: avoid_print

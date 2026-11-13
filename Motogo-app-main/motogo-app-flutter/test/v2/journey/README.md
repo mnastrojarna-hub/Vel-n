@@ -21,7 +21,8 @@ MG_JOURNEY=1 MG_JOURNEY_STATE=ready MG_JOURNEY_SCRIPT=/path/steps.json \
 MG_JOURNEY_DIR=/path/out flutter test --no-pub test/v2/journey/journey_run_test.dart
 ```
 
-Without `MG_JOURNEY=1` the run test is skipped. Optional `MG_JOURNEY_START=/path`
+`MG_JOURNEY_LOOK=old` boots the OLD look (flag off) instead of the new one
+(header line `flag=old`). Without `MG_JOURNEY=1` the run test is skipped. Optional `MG_JOURNEY_START=/path`
 jumps there right after boot (logged as boot route; it is a jump, not a click).
 The always-on smoke test is `journey_smoke_test.dart`. Example script:
 `scripts/book_ready.json` (Home → dates → bike → detail → REZERVOVAT → form →
@@ -40,10 +41,40 @@ own gear + consents → POKRAČOVAT K PLATBĚ → payment → system back).
 | `paid_upcoming_no_docs` | same, but ŘP missing → codes held back (`docs_missing`) |
 | `active_rental` | Husqvarna active since yesterday, handed over, codes sent |
 | `completed` | BMW completed 4 days ago, not rated |
+| `paid_upcoming_ext_free` | Husqvarna paid, in 3–6 days (4 days), pickup 09:00; nothing booked after it → extension allowed (surcharge), shortening (refund), moving, place/time, cancelling |
+| `paid_upcoming_ext_taken` | same, but the SAME bike is booked by another customer on days 7–10 (right after) → extension refused |
+| `active_rental_ext_free` | Husqvarna active since yesterday until day 2, handed over; nothing after → extension allowed |
+| `active_rental_ext_taken` | same, but days 3–6 booked by another customer → extension refused |
+| `paid_upcoming_swap` | as `paid_upcoming_ext_free` but licence A2+B; swap candidates: Shotgun booked by another customer on days 4–5 (Obsazeno), Yamaha free, BMW needs A (filtered out by the licence check) |
+| `paid_upcoming_surcharge_pending` | as `paid_upcoming_ext_free` plus a surcharge of this booking paid 2 min ago and not yet confirmed (`PaymentPendingMarker`, kind `edit`) → a second surcharge is blocked ("Platba se ověřuje") |
 
 Bikes: BMW R 1200 GS Adventure (Mezná, staffed, A; booked by someone else in
 3–5 weeks), Husqvarna 701 SM (Velké Němčice, self-service, A2/A), Royal Enfield
 Shotgun 650 (A2, service block for 60 days), Yamaha PW50 (kids).
+
+Other customers' bookings live in `JourneyData.others` and are answered by
+the fake backend in `get_moto_booked_dates` and `check_moto_availability`
+(which honours `p_exclude_booking_id`, like the server). The refusals are the
+app's REAL checks against that data (calendar, availability, licence filter,
+pending-payment marker) — nothing in the rig refuses on its own.
+
+### Changing a booking — ready-made scripts (`scripts/`)
+
+| script | state | what it clicks |
+|---|---|---|
+| `edit_ext_free.json` | `paid_upcoming_ext_free` | Rezervace → Upravit → tap 2 days after the end → "ZAPLATIT DOPLATEK" → surcharge payment page → back |
+| `edit_ext_taken.json` | `paid_upcoming_ext_taken` | tap the crossed-out day → "Tento den je obsazený"; tap past it → "Mezi koncem rezervace a vybraným dnem jsou obsazené dny" |
+| `edit_active_ext_free.json` / `edit_active_ext_taken.json` | `active_rental_ext_*` | the same for a running rental |
+| `edit_shorten.json` | `paid_upcoming_ext_free` | Zkrátit → Zkrátit konec → new last day → refund in the bottom bar → save |
+| `edit_move.json` | `paid_upcoming_ext_free` | Posunout termín → new first day → POSUNOUT ZDARMA |
+| `edit_place_time.json` | `paid_upcoming_ext_free` | delivery (locked at a self-service branch), pickup time 09:00 → 15:00, save |
+| `edit_swap.json` | `paid_upcoming_swap` | Výměna motorky → taken bike / free bike → POTVRDIT VÝMĚNU |
+| `edit_surcharge_pending.json` | `paid_upcoming_surcharge_pending` | extension → ZAPLATIT DOPLATEK → blocked sheet |
+| `edit_from_detail_cancel.json` | `paid_upcoming_ext_free` | detail → UPRAVIT REZERVACI → back → Zrušit rezervaci (storno terms + refund) |
+| `profile.json` | `paid_upcoming` | Profil tab → edit personal data (licence no., expiry, groups) → Moje doklady → Platební metody |
+
+The day taps are coordinates for 360×780 in the new look; they depend on the
+month layout, so check the PNG when the calendar month changes.
 
 ## Steps (JSON array)
 
@@ -79,14 +110,25 @@ Any step may carry `"note":"…"` (copied into the log).
   or `{"go":…}` with care (they need provider state a jump does not set).
 * **Login / registration / password reset.** Forms can be filled and tapped, but
   the auth server is fake → the app's error message. Start logged-in states instead.
-* **Profile tab (`/profile`).** The real `ProfileScreen` calls `ref.invalidate`
-  in `initState`, which trips a debug-only Riverpod/Flutter assertion in tests
-  → the red error screen + `EXCEPTION … dependOnInheritedWidgetOfExactType` in
-  the log (the existing tests use `test/v2/support/profile_harness.dart` for the
-  same reason; release builds are not affected by debug assertions). Look at the
-  profile hub via the render cases (`test/v2/render/render_profile_test.dart`).
-  Sub-pages reached by URL work (`/docs`, `/messages`, `/loyalty`, `/invoices`,
-  `/contracts`, `/permissions`, `/pobocky`, `/voucher`, `/cart`, `/sos`, …).
+* **Debug-only assertion `markNeedsBuild() called during build`.** The
+  profile page and the edit page ask for fresh data when they open
+  (`ref.invalidate` + read in their first `didChangeDependencies`). That
+  refreshes the provider while the page is being built, and Riverpod tells
+  the other mounted listeners (in the new look Home's header/bike list kept
+  alive by the shell; the booking detail under the edit page). Debug Flutter
+  asserts on that; release builds just mark those widgets dirty and rebuild
+  them in the same frame. `JourneyRig.guard` catches only this assertion and
+  the log prints it as `DEBUG-ASSERT …`; anything else still fails the run.
+  (Until 2026-11-13 both pages called `ref.invalidate` in `initState`, which
+  in debug builds replaced the page with the error widget — fixed, guarded by
+  `journey_open_screens_test.dart` in both looks.)
+* **Writes.** The fake backend answers every write with an empty list, so
+  e.g. a shortening is "saved" and the refund edge function "fails" (the app's
+  own "Úprava je uložená, vratka čeká"); `reschedule_booking_free` and the
+  swap dry-run `split_booking_moto_swap` get no proper answer → the app's own
+  error messages ("Termín se nepodařilo posunout…", "Výměnu teď nejde
+  provést…", no "Cenový rozdíl"). The swap price and the move cannot be
+  completed by clicking.
 * **Camera / document scanner, photo picker, GPS, share, phone / e-mail,
   external links.** Plugin channels answer `null` (permissions = denied,
   location services off): `/docs/scan` shows its document-choice page, but the

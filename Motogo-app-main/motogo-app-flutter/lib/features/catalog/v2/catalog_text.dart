@@ -106,14 +106,18 @@ String? catBranchAddress(Motorcycle m) {
 /// SAME check and inputs as `bookingRangeErrors` / the booking form, read
 /// only to mark the bike early (J4/J5); null profile (not loaded / signed
 /// out) = no mark. Display only: nothing is hidden or blocked here.
-bool catLicenceFails(WidgetRef ref, Motorcycle m) {
+bool catLicenceFails(WidgetRef ref, Motorcycle m) => catLicenceError(ref, m) != null;
+
+/// The same check as [catLicenceFails], returning the validator's own
+/// message in [lang] (P2-07: the detail dock says it before dates too).
+String? catLicenceError(WidgetRef ref, Motorcycle m, {String lang = 'cs'}) {
   final profile = ref.watch(profileProvider).valueOrNull;
-  if (profile == null) return false;
+  if (profile == null) return null;
   final raw = profile['license_group'];
   final groups = <String>[
     if (raw is List)
       for (final g in raw)
         if (g != null) g.toString(),
   ];
-  return BookingValidator.checkLicense(userLicenseGroups: groups, motoLicenseGroups: m.licenseGroupsOrFallback) != null;
+  return BookingValidator.checkLicense(userLicenseGroups: groups, motoLicenseGroups: m.licenseGroupsOrFallback, lang: lang);
 }

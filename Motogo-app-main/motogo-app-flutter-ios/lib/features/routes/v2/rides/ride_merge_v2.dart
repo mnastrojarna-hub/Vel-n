@@ -101,7 +101,10 @@ class _RideMergeScreenV2State extends ConsumerState<RideMergeScreenV2> {
         if (id != null && rides.any((r) => r.id == id)) _sel.add(mergeItemKeyV2(i));
       }
     }
-    final n = items.where((i) => _sel.contains(mergeItemKeyV2(i))).length;
+    // G-1084: the server does not know trips yet → selection and the button
+    // are locked up front with a heading (old look: amber note, no selection).
+    final server = ref.watch(myRidesProvider).valueOrNull?.any((r) => r.serverV2) ?? true;
+    final n = server ? items.where((i) => _sel.contains(mergeItemKeyV2(i))).length : 0;
 
     final Widget body = async.when(
       loading: () => ListView(padding: const EdgeInsets.all(16), children: const [
@@ -117,6 +120,16 @@ class _RideMergeScreenV2State extends ConsumerState<RideMergeScreenV2> {
         children: [
           Text(tr.tr('v2RpMergeHint'), style: MgType.body.copyWith(color: MgColors.body2)),
           const SizedBox(height: 12),
+          if (!server) ...[
+            MgStateBanner(
+              key: const ValueKey('merge-unavailable'),
+              tone: MgTone.warn,
+              icon: MgIcons.alert,
+              title: tr.tr('eabMergeOffTitle'),
+              text: tr.tr('v2RpTripUnavailable'),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_error != null) ...[
             MgStateBanner(tone: MgTone.err, icon: MgIcons.alert, title: tr.tr('v2RpMergeFailTitle'), text: tr.tr(tripErrorKeyV2(_error!))),
             const SizedBox(height: 12),
@@ -125,7 +138,7 @@ class _RideMergeScreenV2State extends ConsumerState<RideMergeScreenV2> {
             MojeEmptyV2(icon: MgIcons.route, title: tr.tr('v2RpMergeEmpty'), text: tr.tr('v2RpMergeEmptySub'))
           else
             for (final i in items)
-              _MergeTile(item: i, selected: _sel.contains(mergeItemKeyV2(i)), onTap: _busy ? null : () => _toggle(i)),
+              _MergeTile(item: i, selected: server && _sel.contains(mergeItemKeyV2(i)), onTap: _busy || !server ? null : () => _toggle(i)),
         ],
       ),
     );
@@ -154,7 +167,7 @@ class _RideMergeScreenV2State extends ConsumerState<RideMergeScreenV2> {
           if (items.length >= 2)
             MgDock(
               contextLine: Text(
-                n < 2 ? tr.tr('v2RpMergeMinTwo') : recRidesV2(tr, _countRides(items)),
+                !server ? tr.tr('eabMergeOffTitle') : n < 2 ? tr.tr('v2RpMergeMinTwo') : recRidesV2(tr, _countRides(items)),
                 style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkLead),
               ),
               child: MgCta(

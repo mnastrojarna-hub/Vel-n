@@ -3,6 +3,7 @@
 // V2Switch, MgV2Gate) with the v2 flag ON, Czech, 360×780, text scale 1.0,
 // reduced motion, every backend faked (journey_overrides.dart,
 // journey_backend.dart). Steps / screenshots: journey_steps.dart.
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -97,7 +98,10 @@ class JourneyRig {
   final JourneyData data;
   final GlobalKey boundary;
   final SemanticsHandle _semantics;
-  JourneyRig._(this.tester, this.data, this.boundary, this._semantics);
+
+  /// true = new look (flag on), false = old look (flag off).
+  final bool v2;
+  JourneyRig._(this.tester, this.data, this.boundary, this._semantics, this.v2);
 
   GoRouter get router {
     final el = tester.element(find.byType(_JourneyApp));
@@ -121,7 +125,7 @@ class JourneyRig {
   /// Boots the app in [state]. The router starts where the real app starts
   /// (`/login`); its redirect sends a logged-in customer Home. [start] =
   /// optional jump (`router.go`) afterwards.
-  static Future<JourneyRig> boot(WidgetTester tester, JourneyState state, {String? start}) async {
+  static Future<JourneyRig> boot(WidgetTester tester, JourneyState state, {String? start, bool v2 = true}) async {
     await loadMontserrat();
     await _loadIcons();
     mockPathProvider();
@@ -129,8 +133,8 @@ class JourneyRig {
     MgMotion.resetSession();
     // Onboarding done (language, permissions, intro) — those overlays live
     // in main.dart's MotoGoApp, which the rig does not mount.
-    SharedPreferences.setMockInitialValues({'mg_intro_shown': true, 'mg_perms_shown': true});
     final data = journeyData(state);
+    SharedPreferences.setMockInitialValues({'mg_intro_shown': true, 'mg_perms_shown': true, ...data.prefs});
     journeyBackendData = data;
     await initJourneyBackend();
     await tester.runAsync(() => journeySetLoggedIn(data.loggedIn));
@@ -138,9 +142,9 @@ class JourneyRig {
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
     final key = GlobalKey();
-    await tester.pumpWidget(ProviderScope(overrides: journeyOverrides(data), child: _JourneyApp(boundary: key)));
+    await tester.pumpWidget(ProviderScope(overrides: journeyOverrides(data, v2: v2), child: _JourneyApp(boundary: key)));
     // Semantics on: the step log names what a tap hit (its label).
-    final rig = JourneyRig._(tester, data, key, tester.ensureSemantics());
+    final rig = JourneyRig._(tester, data, key, tester.ensureSemantics(), v2);
     await rig.settle();
     if (start != null && start.isNotEmpty) {
       rig.router.go(start);
@@ -149,9 +153,42 @@ class JourneyRig {
     return rig;
   }
 
+  /// Debug-only framework assertions the app raised from a provider
+  /// listener (see [guard]); the step log prints them as DEBUG-ASSERT.
+  final debugAsserts = <String>[];
+
+  /// Runs [f] (pumps / taps) so that ONE known debug-only assertion does not
+  /// fail the run: "setState() or markNeedsBuild() called during build",
+  /// raised when a screen refreshes a provider while it is being built
+  /// (ProfileScreen / ReservationEditScreen ask for fresh data on open) and
+  /// another mounted widget listens to it (e.g. Home kept alive by the v2
+  /// shell). Riverpod reports it from its listener to the current zone, the
+  /// real app's zone handler only logs it, and release builds have no such
+  /// assertion (the listener is marked dirty and rebuilt in the same frame).
+  /// Everything else is passed on unchanged and fails the run.
+  Future<T> guard<T>(Future<T> Function() f) {
+    final parent = Zone.current;
+    final done = Completer<T>();
+    runZoned(() {
+      f().then(done.complete, onError: done.completeError);
+    }, zoneSpecification: ZoneSpecification(handleUncaughtError: (self, p, zone, e, st) {
+      final msg = '$e';
+      if (msg.contains('markNeedsBuild() called during build')) {
+        final who = RegExp(r'This (\w+) widget cannot be marked').firstMatch(msg)?.group(1) ?? '?';
+        final by = RegExp(r'being built when the offending call was made was:\s+(\w+)').firstMatch(msg)?.group(1) ?? '?';
+        debugAsserts.add('markNeedsBuild during build ($who, while building $by)');
+        return;
+      }
+      parent.handleUncaughtError(e, st);
+    }));
+    return done.future;
+  }
+
   /// Pumps until no frame is scheduled (min 0.4 s, max [maxMs]) — looping
   /// animations never settle, so this never waits forever.
-  Future<void> settle({int maxMs = 3000}) async {
+  Future<void> settle({int maxMs = 3000}) => guard(() => _settle(maxMs));
+
+  Future<void> _settle(int maxMs) async {
     await tester.pump();
     var t = 0;
     while (t < maxMs) {

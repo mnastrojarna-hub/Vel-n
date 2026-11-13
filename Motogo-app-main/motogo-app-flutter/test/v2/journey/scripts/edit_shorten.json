@@ -1,0 +1,13 @@
+[
+ {"tapText": "Rezervace", "note": "tab Rezervace"},
+ {"wait": 300},
+ {"tapText": "Upravit", "note": "Upravit on the booking card"},
+ {"wait": 500},
+ {"tapText": "Zkrátit", "note": "tab Zkrátit"},
+ {"tapText": "Zkrátit konec", "note": "shorten the end"},
+ {"scroll": [180, 560, 300]},
+ {"tap": [137, 307], "note": "tap 18. = new last day -> refund in the bottom bar"},
+ {"tapText": "ULOŽIT ZMĚNY", "note": "save the shortening"},
+ {"wait": 3000, "note": "server answer"},
+ {"wait": 15000, "note": "wait for the end of the save"}
+]

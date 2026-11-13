@@ -131,6 +131,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   final _consentKey = GlobalKey();
   final _warnKey = GlobalKey();
   final _timeKey = GlobalKey();
+  final _sizesKey = GlobalKey();
 
   void _scrollTo(GlobalKey key) {
     final c = key.currentContext;
@@ -197,7 +198,10 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     if (b != null && !b.hasValue && b.hasError) return _warnKey;
     if (w.rangeBusy) return _dateKey;
     if (w.err != null) return w.errKind == BookingErrKind.time ? _timeKey : _warnKey;
-    if (w.profileErr != null || w.missingSizes.isNotEmpty) return _warnKey;
+    if (w.profileErr != null) return _warnKey;
+    // P2-05: missing sizes → the gear block with the size buttons itself
+    // (the amber card at the bottom only names them).
+    if (w.missingSizes.isNotEmpty) return _sizesKey;
     return _consentKey;
   }
 
@@ -258,12 +262,15 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
       ),
       BookingFormPickupSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
       BookingFormReturnSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
-      BookingFormExtrasSection(
-        draft: d,
-        onUpd: w.onUpd,
-        isKids: w.isKids,
-        selfService: w.selfService,
-        motoId: w.moto.id,
+      KeyedSubtree(
+        key: _sizesKey,
+        child: BookingFormExtrasSection(
+          draft: d,
+          onUpd: w.onUpd,
+          isKids: w.isKids,
+          selfService: w.selfService,
+          motoId: w.moto.id,
+        ),
       ),
       BookingFormPriceSection(draft: d, bd: w.bd, dayCount: w.dayCount, pricedExtras: w.pricedExtras),
       // Promo + note as two pills while nothing is entered (board);

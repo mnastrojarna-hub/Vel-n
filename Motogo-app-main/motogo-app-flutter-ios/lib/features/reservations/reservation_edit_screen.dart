@@ -126,12 +126,6 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   bool _wantTabRead = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadBooking();
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_wantTabRead) return;
@@ -139,6 +133,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     try {
       _wantTab = GoRouterState.of(context).uri.queryParameters['tab'];
     } catch (_) {/* mimo router (test) */}
+    // První načtení — dřív v initState. Flutter volá didChangeDependencies
+    // hned po initState ve stejném synchronním kroku (před prvním build),
+    // takže časování je stejné; `ref.invalidate` ale v initState shazoval
+    // debug assert (dependOnInheritedWidgetOfExactType před dokončením
+    // initState). Guard `_wantTabRead` = jen jednou za život obrazovky.
+    _loadBooking();
   }
 
   Future<void> _loadBooking() async {
