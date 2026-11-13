@@ -1,3 +1,12 @@
+# ▶▶ NEJNOVĚJŠÍ STAV — 13. 11. 2026, 20:25 UTC (čti jako první)
+
+- **Úloha D (wf_b532de3d-8ac) DOBĚHLA, vše zelené** — commit `9a41daf6`: 48/49 mezer v pojistkách opraveno (zbývá jen G-783, čeká na majitele), nástroj pro proklikání `test/v2/journey` (README), dvě kola proklikání očima zákazníka, 28 úprav srozumitelnosti. Závěrečné sady: Android 6931/0, iOS (scratch) 6931/0, analyze 142/137 bez chyb, `diff -rq lib` = 20 řádků, iOS `.dart_tool` beze změny.
+- **Úloha E (wf_6809eaa8-ca9) BĚŽÍ** (spuštěna 20:25 UTC, agenti na `opus`, skript `.claude/handoff/workflows/confused-customer-finish-2-wf_6809eaa8-ca9.js`, pracovní složka `scratchpad/efinish`, výsledky D v `scratchpad/efinish/dres/*.txt`): (1) zprovoznit v nástroji úpravu rezervace a profil (v D zůstaly šedé – debug assert v initState) + stavy „prodloužení volné / obsazené“, výměna motorky, zkrácení; zbylé body srozumitelnosti ze soupisu pojistek; (2) třetí proklikání (úpravy rezervace, zbylé obrazovky, hlavní cesta znovu) + 3 nezávislé kontroly dnešních oprav (není něco slabší / přísnější než původní appka; starý vzhled beze změny); (3) rozhodčí → opravy → čtvrté proklikání → obě kompletní sady → texty PR.
+- **Po doběhnutí E:** přečíst výsledek (journal `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/subagents/workflows/wf_6809eaa8-ca9/journal.jsonl`, agent `notes` vrací `pr_body` a `summary`), commit + push; když jsou závěrečné sady zelené: smazat `.claude/handoff/` (git rm), tělo PR #2214 z `pr_body` (+ patička), převést z draftu, poslat majiteli ZIP webu (`git archive --format=zip -o <scratchpad>/motogo-web-php.zip HEAD motogo-web-php`), zpráva „ověřeno, můžete mergovat“ s pokyny před/po merge a otázkami. Když E spadne: stav `9a41daf6` je plně ověřený a dá se finalizovat i bez E (texty: `scratchpad/dfinish/PR_BODY.md`, `SUMMARY.md`).
+- Limit 13. 11. 19:55 UTC: seven_day 40 %, reset 19. 11. 13:00 UTC.
+
+---
+
 # ▶ START ZDE — navázání po obnovení limitu (reset čt 19. 11. 2026 ~13:00 UTC)
 
 > Majitel 2026-11-12 večer (doslova): „V klidu dokonči rozběhnuté a ulož to tak aby bylo snadné a jasné jak navázat a ukonči to pokračování příští týden“. Větev `claude/moto-go-mobile-conversion-gqg5qo`, PR #2214 = KONCEPT, **NEMERGOVAT** (majitel merguje bez čtení → až po zprávě „ověřeno, můžete mergovat“).
