@@ -125,7 +125,7 @@ class HomeHeaderV2 extends ConsumerWidget {
         // pohybu statický s „…"; klepnutí ukáže celý text (V22 §2.4 #2).
         if (hasBanner) ...[
           const SizedBox(height: 8),
-          MgTopBanner(text: banner.text.trim()),
+          MgTopBanner(text: banner.text.trim(), bg: banner.bg, fg: banner.color),
         ],
       ]),
     );

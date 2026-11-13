@@ -70,11 +70,13 @@ void main() {
     await _done(t);
   });
 
-  testWidgets('consents off: the dock names the blocker (old hint), no "Opravit" link', (t) async {
+  testWidgets('consents off: the dock names the blocker (old hint), "Ukázat proč" (J1), no "Opravit" link', (t) async {
     await _form(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw, consents: false)));
     final dock = t.widget<BookingDockV2>(find.byType(BookingDockV2));
     expect(dock.blocker, _cs.tr('v2BkBlockConsent'));
-    expect(dock.onTrailing, isNull);
+    // J1 (clarity order): a locked CTA always offers "Ukázat proč" → the reason.
+    expect(dock.trailingLabel, _cs.tr('v2BkShowWhy'));
+    expect(dock.onTrailing, isNotNull);
     expect(find.text(_cs.tr('v2BkFix')), findsNothing);
     await _done(t);
   });

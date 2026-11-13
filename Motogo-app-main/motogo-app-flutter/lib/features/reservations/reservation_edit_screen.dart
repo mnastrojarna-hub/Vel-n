@@ -1576,9 +1576,15 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         missingSizes: !datesOrSwap ? _missingGearSizes() : const [],
         saveLabel: _tab == 'swap' ? null : (payCharge != null ? t(context).tr('v2UxRpPayDiffCta') : saveLabel),
         savePrice: _tab == 'swap' || payCharge == null ? null : Money.czk(payCharge),
-        saveContext: _tab == 'swap' || payCharge == null
+        saveContext: _tab == 'swap'
             ? null
-            : t(context).trArgs('v2UxRpPayDiff', {'from': Money.czk(_booking!.totalPrice), 'to': Money.czk(calc.newTotal)}),
+            : payCharge != null
+                ? t(context).trArgs('v2UxRpPayDiff', {'from': Money.czk(_booking!.totalPrice), 'to': Money.czk(calc.newTotal)})
+                // AFT-05: zkrácení — kolik se vrátí, tytéž hodnoty jako hláška refundAmount.
+                : _tab == 'shorten' && calc.effectivePriceDiff < 0
+                    ? t(context).trArgs('claRpRefundCtx',
+                        {'amount': Money.czk(-calc.effectivePriceDiff), 'pct': '${calc.stornoPercent}'})
+                    : null,
         onSave: saveAction,
         saving: _saving,
         onBack: () => context.backOr(Routes.reservations),

@@ -5,6 +5,8 @@ import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
+import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_toast.dart';
@@ -80,6 +82,17 @@ class ResPaymentDetailsV2 extends StatelessWidget {
       ]);
     });
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // G-424: an open surcharge is said above the rows, not only in a red row.
+      if (surcharge > 0)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: MgStateBanner(
+            key: const ValueKey('res-pay-surcharge-banner'),
+            tone: MgTone.warn,
+            icon: MgIcons.card,
+            title: '${tr('paySurchargeDue')}: ${Money.czk(surcharge)}',
+          ),
+        ),
       table,
       if (loading)
         const Padding(

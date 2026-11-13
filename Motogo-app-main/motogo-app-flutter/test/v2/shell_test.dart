@@ -164,7 +164,7 @@ void main() {
     // The strip shows on every screen (old shell), Domů included.
     await _pump(tester, '/search', pending: pending, unread: 2);
     expect(find.byType(MgStatusStrip), findsOneWidget);
-    expect(find.text('Dokončit rezervaci'), findsOneWidget);
+    expect(find.text('Zaplatit rezervaci'), findsOneWidget); // P2-04 (was "Dokončit rezervaci")
     expect(find.text('2'), findsOneWidget); // Profil badge
     expect(find.byType(MgAiFab), findsOneWidget);
     expect(tester.takeException(), isNull);

@@ -29,7 +29,7 @@ class RecLiveBarV2 extends StatelessWidget {
       RecToneV2.rec => MgColors.sosDot.withValues(alpha: 0.55),
       RecToneV2.warn => MgColors.warnDark.withValues(alpha: 0.6),
       RecToneV2.armed => MgColors.neonA(0.45),
-      RecToneV2.paused => MgColors.white(0.28),
+      RecToneV2.paused => rec.needsDecision ? MgColors.warnDark.withValues(alpha: 0.6) : MgColors.white(0.28),
     };
     return LayoutBuilder(builder: (context, c) {
       // Vedle textu: ❚❚ (50) + ■ jen ikonou (50, popisek v sémantice).
@@ -72,7 +72,7 @@ class RecLiveBarV2 extends StatelessWidget {
                     child: Text(sub,
                         style: MgType.tab(MgType.small.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: ph.tone == RecToneV2.warn ? MgColors.warnDark : MgColors.onDarkLead))),
+                            color: ph.tone == RecToneV2.warn || rec.needsDecision ? MgColors.warnDark : MgColors.onDarkLead))),
                   ),
                 ]),
               ),
@@ -115,6 +115,8 @@ class RecLiveBarV2 extends StatelessWidget {
 /// GPS lost → "Slabý nebo žádný GPS signál".
 String recBarLineV2(AppTranslations tr, RideRecorderState rec, RecPhaseV2 ph) {
   final mode = tr.tr(rec.manual ? 'v2RtRecManual' : 'v2RtRecAuto');
+  // G-1046: safety pause → the decision question, not "od 20:14 · 12 km".
+  if (rec.needsDecision && ph.tone == RecToneV2.paused) return tr.tr('gdaRecDecide');
   return switch (ph.tone) {
     // Než přibude první kilometr: jen režim (vlastní / z výpůjčky).
     RecToneV2.rec => rec.liveKm <= 0 && rec.liveMovingSec <= 0 ? mode : recLiveBitsV2(tr, rec, avg: false).take(2).join(' · '),

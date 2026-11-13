@@ -59,7 +59,10 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
 
   void _back() => Navigator.of(context).maybePop();
 
+  // G-1076: one trip operation at a time (old `_run` returned while busy);
+  // G-1078: a failure also shows a toast (the banner can be off screen).
   Future<void> _op(RideTripPlan plan, String doneKey, {bool close = false}) async {
+    if (_busy) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -70,12 +73,16 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
       _busy = false;
       if (!op.ok) _error = op.result;
     });
-    if (!op.ok) return;
+    if (!op.ok) {
+      showTripErrorV2(context, op.result);
+      return;
+    }
     showTripDoneV2(context, t(context).tr(doneKey), undo: op.undo);
     if (close) _back();
   }
 
   Future<void> _rename(RideTrip trip) async {
+    if (_busy) return;
     final tr = t(context);
     final name = await askTripNameV2(context, initial: trip.name ?? '', title: tr.tr('v2RpTripRename'));
     if (name == null || !mounted) return;
@@ -83,6 +90,7 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
   }
 
   Future<void> _split(RideTrip trip, {bool ask = true}) async {
+    if (_busy) return;
     final tr = t(context);
     if (ask) {
       final ok = await showMgConfirm(
@@ -98,6 +106,7 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
   }
 
   Future<void> _visibility(RideTrip trip, bool public) async {
+    if (_busy) return;
     setState(() => _busy = true);
     final r = await ref.read(tripVisibilitySeamV2)(ref, trip, public);
     if (!mounted) return;
@@ -106,6 +115,7 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
   }
 
   Future<void> _delete(RideTrip trip) async {
+    if (_busy) return;
     final tr = t(context);
     final choice = await showMgSheet<String>(
       context,
@@ -138,7 +148,7 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
       actionLabel: tr.tr('v2RpTripDeleteAll'),
       destructive: true,
     );
-    if (ok != true || !mounted) return;
+    if (ok != true || !mounted || _busy) return;
     setState(() => _busy = true);
     final r = await ref.read(tripDeleteSeamV2)(ref, trip);
     if (!mounted) return;
@@ -152,6 +162,7 @@ class _TripDetailScreenV2State extends ConsumerState<TripDetailScreenV2> {
   }
 
   void _share(RideTrip trip, String name) {
+    if (_busy) return;
     final tr = t(context);
     final a = trip.aggregate;
     final pts = rideShareWaypoints(a);

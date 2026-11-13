@@ -62,11 +62,12 @@ void main() {
       expect(identical(carryBookingDraft(prev: filled(), prevMoto: kBmw, moto: kBmw, fresh: f, submitted: true), f), isTrue);
     });
 
-    test('same bike, same dates → the whole draft is kept', () {
+    test('same bike, same dates → the draft is kept except consents and the trailer', () {
       final d = carryBookingDraft(prev: filled(), prevMoto: kBmw, moto: kBmw, fresh: fresh(kBmw.id, s, e));
+      // The trailer is always released (G-207: it is not re-checked).
       expect([d.pickupTime, d.returnTime, d.notes, d.pickupCity, d.returnAddress, d.trailerMotoId],
-          ['12:00', '18:00', 'Přijedu vlakem', 'Jihlava', 'Masarykovo náměstí 1', 'tr-1']);
-      expect(d.extras.map((x) => x.id), ['extra-spolujezdec', 'extra-boty-ridic', 'extra-vozik']);
+          ['12:00', '18:00', 'Přijedu vlakem', 'Jihlava', 'Masarykovo náměstí 1', null]);
+      expect(d.extras.map((x) => x.id), ['extra-spolujezdec', 'extra-boty-ridic']);
       // Souhlasy se potvrzují znovu jako ve starém vzhledu (G-159/G-230).
       expect([d.helmetSize, d.consentVop, d.consentGdpr, d.consentKids, d.discounts.single.code],
           ['M', false, false, false, 'POUKAZ500']);

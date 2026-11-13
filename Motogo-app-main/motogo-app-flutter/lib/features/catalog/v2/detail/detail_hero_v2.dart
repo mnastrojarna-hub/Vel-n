@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
@@ -209,7 +210,14 @@ class DetailHeroV2 extends StatelessWidget {
                 Wrap(spacing: 8, runSpacing: 6, children: [
                   if (moto.category != null && moto.category!.isNotEmpty)
                     _tag(catCategoryLabel(tr, moto.category!).toUpperCase(), neon: true),
-                  if (lic.isNotEmpty) _tag(lic),
+                  // J4: a licence that does not cover the bike shows here
+                  // already (red + "tvůj ŘP nestačí"), not only in the form.
+                  if (lic.isNotEmpty)
+                    Consumer(
+                      builder: (context, ref, _) => catLicenceFails(ref, moto)
+                          ? _tag('$lic · ${tr.tr('v2LicNotEnough')}', bad: true)
+                          : _tag(lic),
+                    ),
                 ]),
                 const SizedBox(height: 8),
                 Semantics(
@@ -254,10 +262,10 @@ class DetailHeroV2 extends StatelessWidget {
         ]),
       );
 
-  Widget _tag(String text, {bool neon = false}) => Container(
+  Widget _tag(String text, {bool neon = false, bool bad = false}) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: neon ? MgColors.neon : MgColors.white(0.14),
+          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.white(0.14)),
           borderRadius: BorderRadius.circular(neon ? 6 : 999),
           border: neon ? null : Border.all(color: MgColors.white(0.24)),
         ),

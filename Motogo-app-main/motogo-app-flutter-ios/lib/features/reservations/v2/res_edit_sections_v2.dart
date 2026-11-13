@@ -236,7 +236,20 @@ class EditRiderHeaderV2 extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 44),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                MgIcon(ownGear ? MgIcons.checkCircle : MgIcons.check, size: 18, color: ownGear ? MgColors.link : MgColors.meta),
+                // G-657: OFF = an empty box (as the old checkbox), never a tick.
+                if (ownGear)
+                  const MgIcon(MgIcons.checkCircle, size: 18, color: MgColors.link)
+                else
+                  Container(
+                    key: const ValueKey('own-gear-v2-empty-box'),
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: MgColors.surface,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: MgColors.lineInput, width: 2),
+                    ),
+                  ),
                 const SizedBox(width: 6),
                 // Delší popisek (de „Ich habe meine eigene Ausrüstung") se
                 // zalomí v mezeře místo přetečení vpravo.

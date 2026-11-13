@@ -98,8 +98,10 @@ class HomeBikeListV2 extends ConsumerWidget {
                   key: ValueKey('home-mc-${m.id}'),
                   moto: m,
                   price: catCardPrice(tr, m, hasDates ? s : null, hasDates ? e : null, loyalty),
-                  availability:
-                      hasDates ? tr.tr('v2CatFreeInRange') : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null),
+                  // G-125: no "Volná v termínu" while the list for the new dates reloads.
+                  availability: hasDates
+                      ? (motosAsync.isLoading ? null : tr.tr('v2CatFreeInRange'))
+                      : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null),
                   ctaLabel: tr.tr('motoCardDetail'),
                   height: h,
                   topInset: top,

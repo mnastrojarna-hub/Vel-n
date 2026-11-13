@@ -74,8 +74,15 @@ class DocsViewV2 extends StatelessWidget {
         MgDarkHero(
           margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            // G-481: "required" is a warning, not a footnote.
             if (v != null && !v.isComplete) ...[
-              Text(tr.tr('v2DocsRequiredInfo'), style: MgType.small.copyWith(color: MgColors.onDarkLead)),
+              MgStateBanner(
+                key: const ValueKey('docs-required-banner'),
+                tone: MgTone.warn,
+                dark: true,
+                icon: MgIcons.idCard,
+                title: tr.tr('v2DocsRequiredInfo'),
+              ),
               const SizedBox(height: 12),
             ],
             if (loading)
@@ -138,9 +145,11 @@ class DocsViewV2 extends StatelessWidget {
       if (none)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          // G-490: amber "not verified" as the old box (no key-box code yet).
           child: MgStateBanner(
-            tone: MgTone.info,
-            title: tr.tr('docsStatus'),
+            key: const ValueKey('docs-none-warn'),
+            tone: MgTone.warn,
+            title: tr.tr('docsNotVerified'),
             text: [
               tr.tr('docsNotVerifiedDesc'),
               if (missing.isNotEmpty) '${tr.tr('missing')}: ${missing.join(', ')}',

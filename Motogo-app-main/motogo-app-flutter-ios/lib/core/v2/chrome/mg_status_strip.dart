@@ -23,6 +23,11 @@ class MgStatusStrip extends StatelessWidget {
   final VoidCallback? onDismiss;
   final String? dismissLabel;
 
+  /// The dismiss DESTROYS something (pay strip: cancel the unfinished
+  /// booking) — drawn as a small red "Zrušit" pill, never the neutral ✕
+  /// that means "hide" on the other strips (AFT-01). Same [onDismiss].
+  final bool dismissDestructive;
+
   /// Further active strips (v1 C2, V2 §4.4: ONE strip + "+n"): a chip left
   /// of the chevron; [onMore] opens the rest (null = the strip's own tap).
   final int more;
@@ -36,6 +41,7 @@ class MgStatusStrip extends StatelessWidget {
     this.sub,
     this.onDismiss,
     this.dismissLabel,
+    this.dismissDestructive = false,
     this.more = 0,
     this.onMore,
   });
@@ -138,7 +144,11 @@ class MgStatusStrip extends StatelessWidget {
         // page text underneath ghost through the strip.
         color: MgColors.night,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: MgColors.neonA(0.3)),
+        // P2-04: the unpaid-booking strip is THE thing to do — full neon
+        // edge; the other strips keep the quiet one.
+        border: kind == MgStripKind.pay
+            ? Border.all(color: MgColors.neon, width: 2)
+            : Border.all(color: MgColors.neonA(0.3)),
         boxShadow: [BoxShadow(color: MgColors.black(0.28), blurRadius: 18, spreadRadius: -6, offset: const Offset(0, 8))],
       ),
       child: Row(children: [
@@ -152,18 +162,44 @@ class MgStatusStrip extends StatelessWidget {
             child: MgPress(
               scale: 0.92,
               onTap: onDismiss,
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: Center(
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(color: MgColors.white(0.10), shape: BoxShape.circle),
-                    child: const Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.onDark)),
-                  ),
-                ),
-              ),
+              child: dismissDestructive
+                  ? ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                      child: Center(
+                        widthFactor: 1,
+                        child: Container(
+                          height: 32,
+                          margin: const EdgeInsetsDirectional.only(end: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          // P2-04: outlined, so it no longer outweighs the
+                          // pay action next to it (still red = destroys).
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: MgColors.errDark, width: 1.5),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const MgIcon(MgIcons.trash, size: 16, color: MgColors.errDark),
+                            const SizedBox(width: 4),
+                            Text(t(context).tr('v2StripCancel'),
+                                maxLines: 1,
+                                softWrap: false,
+                                style: MgType.small.copyWith(fontSize: 12, fontWeight: FontWeight.w800, color: MgColors.errDark)),
+                          ]),
+                        ),
+                      ),
+                    )
+                  : SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(color: MgColors.white(0.10), shape: BoxShape.circle),
+                          child: const Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.onDark)),
+                        ),
+                      ),
+                    ),
             ),
           ),
       ]),

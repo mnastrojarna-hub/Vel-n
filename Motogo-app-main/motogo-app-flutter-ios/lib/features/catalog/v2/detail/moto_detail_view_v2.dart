@@ -7,6 +7,7 @@ import '../../../../core/v2/motion/mg_motion.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../moto_model.dart';
+import '../../widgets/validation_banner.dart' show bookingRangeErrors;
 import '../catalog_text.dart';
 import 'detail_dock_v2.dart';
 import 'detail_hero_v2.dart';
@@ -173,15 +174,23 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
           ]),
         ),
       ],
-      dock: DetailDockV2(
-        selStart: w.selStart,
-        selEnd: w.selEnd,
-        dayCount: w.dayCount,
-        price: !w.busy && w.hasDates && w.totalPrice > 0 ? catMoney(w.totalPrice) : null,
-        fromPrice: from,
-        onPickDates: _pickDates,
-        onReserve: w.onReserve,
-        busy: w.busy,
+      // G-152/G-153/G-154: the range problem (licence, overlap, length) also
+      // in the dock — the banner in the date card is below the fold.
+      dock: Consumer(
+        builder: (context, ref, _) {
+          final errs = w.hasDates ? bookingRangeErrors(context, ref, moto, w.selStart!, w.selEnd!) : const <String>[];
+          return DetailDockV2(
+            selStart: w.selStart,
+            selEnd: w.selEnd,
+            dayCount: w.dayCount,
+            price: !w.busy && w.hasDates && w.totalPrice > 0 ? catMoney(w.totalPrice) : null,
+            fromPrice: from,
+            onPickDates: _pickDates,
+            onReserve: w.onReserve,
+            busy: w.busy,
+            warning: errs.isEmpty ? null : errs.first,
+          );
+        },
       ),
     );
   }

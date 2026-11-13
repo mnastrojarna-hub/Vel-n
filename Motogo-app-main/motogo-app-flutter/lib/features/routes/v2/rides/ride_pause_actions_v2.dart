@@ -27,11 +27,17 @@ import 'ride_phase_v2.dart' show recLiveLineV2;
 Future<void> rideTogglePauseV2(BuildContext context, WidgetRef ref) async {
   final n = ref.read(rideRecorderProvider.notifier);
   final rec = ref.read(rideRecorderProvider);
-  if (!rec.recording) return;
+  if (!rec.recording || _rideOpBusyV2) return;
   final tr = t(context);
   if (rec.isManualPaused) {
     final msg = ScaffoldMessenger.maybeOf(context);
-    final r = await n.resume();
+    final RideStartResult r;
+    _rideOpBusyV2 = true;
+    try {
+      r = await n.resume();
+    } finally {
+      _rideOpBusyV2 = false;
+    }
     if (!context.mounted) return;
     if (r == RideStartResult.ok) {
       // Armed = GPS back on, the ride continues at the first move-off.
@@ -44,7 +50,12 @@ Future<void> rideTogglePauseV2(BuildContext context, WidgetRef ref) async {
     }
     return;
   }
-  await n.pause();
+  _rideOpBusyV2 = true;
+  try {
+    await n.pause();
+  } finally {
+    _rideOpBusyV2 = false;
+  }
   if (context.mounted) showMgToast(context, tr.tr('v2RpToastPaused'), icon: MgIcons.pause, lift: rideToastLiftV2(context));
 }
 
@@ -90,9 +101,33 @@ Future<void> trasyStopNowV2(BuildContext context, WidgetRef ref) => toggleManual
 
 /// Asks first, then the existing stop. Nothing is busy while the question
 /// is open.
-Future<void> trasyConfirmStopRide(BuildContext context, WidgetRef ref) async {
-  final paused = ref.read(rideRecorderProvider).isPaused;
-  if (await trasyConfirmStop(context, paused: paused) && context.mounted) {
-    await trasyStopNowV2(context, ref);
+Future<void> trasyConfirmStopRide(BuildContext context, WidgetRef ref) => _rideOnceV2(() async {
+      final paused = ref.read(rideRecorderProvider).isPaused;
+      if (await trasyConfirmStop(context, paused: paused) && context.mounted) {
+        await trasyStopNowV2(context, ref);
+      }
+    });
+
+/// Manual start from the v2 dock / Domů row — the existing
+/// `toggleManualRide(running: false)` under the double-tap lock.
+Future<void> rideStartManualV2(BuildContext context, WidgetRef ref) =>
+    _rideOnceV2(() => toggleManualRide(context, ref, running: false));
+
+/// G-1043: double-tap lock of the v2 record controls (the old card had a
+/// `_busy` flag): while a start / stop / pause / resume runs, a second tap
+/// on ANY v2 control is ignored (a second tap undid the pause, or showed a
+/// spurious "Záznam se nespustil").
+bool _rideOpBusyV2 = false;
+
+/// True while a v2 record action runs.
+bool get rideOpBusyV2 => _rideOpBusyV2;
+
+Future<void> _rideOnceV2(Future<void> Function() op) async {
+  if (_rideOpBusyV2) return;
+  _rideOpBusyV2 = true;
+  try {
+    await op();
+  } finally {
+    _rideOpBusyV2 = false;
   }
 }

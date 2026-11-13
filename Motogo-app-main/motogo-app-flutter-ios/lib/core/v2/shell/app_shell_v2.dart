@@ -143,6 +143,7 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
       ref.read(v2TabReselectProvider.notifier).state = (i, prev.$2 + 1);
       return;
     }
+    if (v2TabTapIgnored(i, location)) return;
     // A real tab switch ends a cross-tab jump: `_onRoute` drops the back
     // chip once the location leaves its tab (a cancelled payment confirm
     // keeps it).
@@ -212,7 +213,13 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
               Column(children: [
                 // v2 jednořádkový banner (marquee; při omezení pohybu statický
                 // řádek, klepnutí = celý text) — stejný jako v hlavičce Domů.
-                if (topBanner) MgTopBanner(text: banner.valueOrNull!.text, band: true, folded: folded),
+                if (topBanner)
+                  MgTopBanner(
+                      text: banner.valueOrNull!.text,
+                      band: true,
+                      folded: folded,
+                      bg: banner.valueOrNull!.bg,
+                      fg: banner.valueOrNull!.color),
                 Expanded(
                   child: MediaQuery.removePadding(
                     context: context,

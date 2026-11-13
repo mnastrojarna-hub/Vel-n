@@ -23,10 +23,11 @@ import 'widgets/specs_section.dart';
 import 'widgets/validation_banner.dart';
 import '../../core/date_days.dart';
 import '../../core/widgets/state_views.dart';
-import '../../core/widgets/error_feedback.dart' show openFixSettings;
+import '../../core/widgets/error_feedback.dart' show callMotoGo, openFixSettings;
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/states/mg_state_screen.dart';
+import '../../core/v2/icons/mg_icon.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
 import 'v2/detail/detail_dates_carry_v2.dart';
 import 'v2/detail/detail_states_v2.dart';
@@ -206,6 +207,9 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
                 if (FriendlyError.of(e).needsSettings)
                   MgBtnGhostLight(
                       label: t(context).tr('eoOpenSettings'), onTap: () => openFixSettings(FriendlyError.of(e))),
+                // G-145: the old error view's "Zavolat MotoGo" button.
+                if (FriendlyError.of(e).suggestContact)
+                  MgBtnText(label: t(context).tr('eoCall'), icon: MgIcons.phone, onTap: callMotoGo),
               ],
             )
           : _stateFrame(MgErrorView(

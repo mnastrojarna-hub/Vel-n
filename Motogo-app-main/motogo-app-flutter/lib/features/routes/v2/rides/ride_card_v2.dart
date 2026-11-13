@@ -23,7 +23,7 @@ import 'ride_track_sketch_v2.dart';
 /// the saddle (not the total incl. nights) · Ø · stops · photos, bike,
 /// description and the SAME tap: `/ride/:id` with the sibling ids for
 /// swiping (or the caller's [onTap]).
-class RideCardV2 extends StatelessWidget {
+class RideCardV2 extends ConsumerWidget {
   final UserRide ride;
   final VoidCallback? onTap;
   final List<String> siblingIds;
@@ -31,12 +31,15 @@ class RideCardV2 extends StatelessWidget {
   const RideCardV2({super.key, required this.ride, this.onTap, this.siblingIds = const []});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final name = ride.name.isNotEmpty ? ride.name : tr.tr('rideUntitled');
     final mg = ride.bookingId != null;
     final avg = ride.avgSpeedKmh ?? ride.avgOverallKmh;
-    final live = ride.isRecording;
+    // G-1038: also the ride THIS phone records (offline / server closed it),
+    // as the old card did.
+    final rec = ref.watch(rideRecorderProvider);
+    final live = ride.isRecording || (rec.recording && rec.rideId == ride.id);
     final range = rideDateRange(ride.startedAt, ride.endedAt ?? ride.lastFixAt ?? ride.startedAt);
     final days = ride.days;
     void open() {

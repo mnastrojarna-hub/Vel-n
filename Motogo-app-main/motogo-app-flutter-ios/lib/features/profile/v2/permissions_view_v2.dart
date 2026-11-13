@@ -124,7 +124,12 @@ class PermissionsViewV2 extends StatelessWidget {
         button: true,
         child: InkWell(
           onTap: onOpenSettings,
-          child: Padding(
+          // G-752: a required but denied permission in red, as the old row.
+          child: Container(
+            key: attention ? ValueKey('perm-attention-${p.key}') : null,
+            decoration: attention
+                ? BoxDecoration(color: MgColors.errBg, border: Border.all(color: MgColors.errBorder))
+                : null,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               MgIconTileLight(iconFor(p.key)),
@@ -146,7 +151,7 @@ class PermissionsViewV2 extends StatelessWidget {
                     if (required)
                       MgMeaningChip(
                         label: tr.tr('requiredLabel'),
-                        tone: attention ? MgTone.warn : MgTone.info,
+                        tone: attention ? MgTone.err : MgTone.info,
                         icon: MgIcons.lock,
                       ),
                   ]),

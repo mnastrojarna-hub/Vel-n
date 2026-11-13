@@ -14,8 +14,10 @@ import '../booking_provider.dart' show bookingDraftProvider;
 /// [fresh] = draft, který by založil starý vstup (motorka, termín, velikosti
 /// a „vlastní výbava“ z profilu). Vrací, co má formulář dostat:
 /// * žádný rozpracovaný draft / už odeslaný ([submitted]) → [fresh];
-/// * STEJNÁ motorka → celý rozpracovaný draft, jen nový termín (při změně
-///   termínu se pouští vozík — kus byl přidělený na starý termín);
+/// * STEJNÁ motorka → celý rozpracovaný draft, jen nový termín (vozík se
+///   pouští vždy — kus se při výběru neověřuje znovu, G-207); souhlasy
+///   VOP/GDPR/zákonného zástupce se potvrzují znovu jako ve starém vzhledu
+///   (každý vstup = čerstvý draft, G-159/G-228–G-231);
 /// * JINÁ motorka → to, co na motorce nezávisí: čas vyzvednutí a návratu,
 ///   poznámka, slevové kódy, „vlastní výbava“, velikosti řidiče. Souhlasy
 ///   VOP/GDPR se u jiné motorky potvrzují znovu (patří k rezervaci —
@@ -33,14 +35,18 @@ BookingDraft carryBookingDraft({
 }) {
   if (submitted || prev.motoId == null) return fresh;
   if (prev.motoId == moto.id) {
-    final sameDates = prev.startDate == fresh.startDate && prev.endDate == fresh.endDate;
+    // Vozík se pouští vždy (i při stejném termínu): mezitím ho mohl
+    // rezervovat někdo jiný a vybraný vozík se znovu neověřuje (G-207).
     return prev.copyWith(
       motoName: () => fresh.motoName,
       motoImage: () => fresh.motoImage,
       startDate: () => fresh.startDate,
       endDate: () => fresh.endDate,
-      extras: sameDates ? null : _noTrailer(prev.extras),
-      trailerMotoId: sameDates ? null : () => null,
+      extras: _noTrailer(prev.extras),
+      trailerMotoId: () => null,
+      consentVop: false,
+      consentGdpr: false,
+      consentKids: false,
     );
   }
   final pm = prevMoto != null && prevMoto.id == prev.motoId ? prevMoto : null;

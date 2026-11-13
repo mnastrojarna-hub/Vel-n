@@ -113,7 +113,7 @@ class HomeRecordRowV2 extends ConsumerWidget {
           excludeSemantics: true,
           child: MgPress(
             scale: 0.98,
-            onTap: live ? () => openRideRecorderV2(context) : () => toggleManualRide(context, ref, running: false),
+            onTap: live ? () => openRideRecorderV2(context) : () => rideStartManualV2(context, ref),
             child: Container(
               color: Colors.transparent,
               padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),

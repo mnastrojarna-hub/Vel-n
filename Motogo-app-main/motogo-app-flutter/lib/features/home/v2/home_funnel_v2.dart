@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/rank/rank_provider.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
+import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
@@ -17,7 +21,9 @@ import '../../auth/auth_provider.dart';
 import '../../booking/booking_entry.dart';
 import '../../booking/booking_quote.dart';
 import '../../catalog/catalog_provider.dart';
+import '../../catalog/v2/catalog_text.dart' show catLicenceFails;
 import '../../catalog/moto_model.dart';
+import '../../catalog/widgets/validation_banner.dart' show bookingRangeErrors;
 import '../../loyalty/loyalty_provider.dart';
 import '../../routes/ride_recorder.dart';
 import '../nickname_provider.dart';
@@ -192,6 +198,11 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
             ),
     );
 
+    // G-102: the detail's licence / overlap / length warning for the shown
+    // bike — REZERVOVAT goes straight to the form (which blocks).
+    final errs = async.hasValue && center < list.length
+        ? bookingRangeErrors(context, ref, list[center], range.start, range.end)
+        : const <String>[];
     final Widget action;
     if (async.isLoading && !async.hasValue) {
       action = MgCta(label: tr.tr('v2HomeCtaReserve'), onTap: null, enabled: false);
@@ -207,16 +218,29 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
       action = MgBtnGhostDark(label: tr.tr('v2HomeFnPickOther'), onTap: () => _pickDates(range));
     } else {
       final m = list[center];
+      void reserve() => startBookingFromSelection(context, ref, m, range.start, range.end);
+      // J3: with a warning the bike's action stays (same tap, same target)
+      // but is secondary — the eye goes to the warning and its fix first.
       action = MgFabAvoid(
-        child: MgCta(
-          label: tr.tr('v2HomeCtaReserve'),
-          price: total(m),
-          loop: true,
-          size: MgCtaSize.lg60,
-          onTap: () => startBookingFromSelection(context, ref, m, range.start, range.end),
-        ),
+        child: errs.isNotEmpty
+            ? MgBtnGhostDark(
+                key: const ValueKey('home-funnel-reserve-ghost'),
+                label: '${tr.tr('v2HomeCtaReserve').toUpperCase()} · ${total(m)}',
+                height: 60,
+                onTap: reserve,
+              )
+            : MgCta(
+                label: tr.tr('v2HomeCtaReserve'),
+                price: total(m),
+                loop: true,
+                size: MgCtaSize.lg60,
+                onTap: reserve,
+              ),
       );
     }
+    // J3: no fitting licence in a loaded profile → the warning offers the
+    // same fix as the booking form ("Doplnit v profilu" → /profile).
+    final licFix = errs.isNotEmpty && center < list.length && catLicenceFails(ref, list[center]);
 
     return HomeReveal(
       sessionKey: 'home-funnel',
@@ -273,6 +297,30 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 onCalendar: () => _pickDates(range),
               ),
               SizedBox(height: short ? 6 : 10),
+              // G-102: the detail's licence / overlap / length warning also
+              // here — REZERVOVAT goes straight to the form (which blocks).
+              if (errs.isNotEmpty) ...[
+                MgStateBanner(
+                  key: const ValueKey('home-funnel-warning'),
+                  tone: MgTone.err,
+                  dark: true,
+                  icon: MgIcons.warn,
+                  title: errs.first,
+                  text: errs.length > 1 ? errs.skip(1).join('\n') : null,
+                  actions: [
+                    if (licFix)
+                      MgBtnInk(
+                        label: tr.tr('completeProfileBtn'),
+                        onTap: () => GoRouter.of(context).push('/profile'),
+                        // Neon label: on the dark card the fix reads first.
+                        neonLabel: true,
+                        height: 48,
+                        expand: false,
+                      ),
+                  ],
+                ),
+                SizedBox(height: short ? 6 : 10),
+              ],
               action,
             ]),
           ),

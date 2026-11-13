@@ -41,10 +41,13 @@ class ResRatingDarkV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    // G-461/G-463: the only caller is the light reservation detail → a
+    // solid dark board (a 6 % white tile was invisible on the light page).
     return Container(
+      key: const ValueKey('res-rating-dark-v2'),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: BoxDecoration(
-        color: MgColors.white(0.06),
+        color: MgColors.night,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: MgColors.white(0.12)),
       ),

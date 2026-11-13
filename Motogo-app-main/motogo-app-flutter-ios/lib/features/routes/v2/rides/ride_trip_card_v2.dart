@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
@@ -10,6 +11,7 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../ride_card.dart' show rideDuration, rideSpeed;
+import '../../ride_recorder.dart' show rideRecorderProvider;
 import '../../ride_trip.dart';
 import 'ride_card_v2.dart' show RideLiveBadgeV2;
 import 'ride_phase_v2.dart';
@@ -28,13 +30,13 @@ String tripNameV2(AppTranslations tr, RideTrip trip) {
 /// One trip in the ride list (SPEC §9.2): a ride card with the CESTA · N
 /// dní tag, the aggregate sketch, name, date range and the sums of all its
 /// rides (rides · km · time in the saddle · Ø). Tap = trip detail.
-class RideTripCardV2 extends StatelessWidget {
+class RideTripCardV2 extends ConsumerWidget {
   final RideTrip trip;
   final VoidCallback onTap;
   const RideTripCardV2({super.key, required this.trip, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final a = trip.aggregate;
     final name = tripNameV2(tr, trip);
@@ -42,7 +44,9 @@ class RideTripCardV2 extends StatelessWidget {
     final range = rideDateRange(trip.from, trip.to);
     final rides = recRidesV2(tr, trip.rides.length);
     final mg = trip.rides.any((r) => r.bookingId != null);
-    final live = trip.rides.where((r) => r.isRecording).toList();
+    // G-1038: the ride recorded by this phone counts too (old card).
+    final rec = ref.watch(rideRecorderProvider);
+    final live = trip.rides.where((r) => r.isRecording || (rec.recording && rec.rideId == r.id)).toList();
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Semantics(

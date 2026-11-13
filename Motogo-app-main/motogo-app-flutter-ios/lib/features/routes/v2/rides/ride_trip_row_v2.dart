@@ -94,7 +94,7 @@ class RideTripRowV2 extends ConsumerWidget {
         if (me.serverV2)
           Align(
             alignment: AlignmentDirectional.centerStart,
-            child: MgBtnText(label: tr.tr('v2RpTripRemove'), icon: MgIcons.cut, onTap: remove),
+            child: _RemoveBtnV2(label: tr.tr('v2RpTripRemove'), onRemove: remove),
           ),
       ]);
     }
@@ -108,4 +108,37 @@ class RideTripRowV2 extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// "Vyjmout z cesty" locked while the call runs (G-1065: a double tap sent
+/// two `set_user_rides_trip` calls and two toasts).
+class _RemoveBtnV2 extends StatefulWidget {
+  final String label;
+  final Future<void> Function() onRemove;
+  const _RemoveBtnV2({required this.label, required this.onRemove});
+
+  @override
+  State<_RemoveBtnV2> createState() => _RemoveBtnV2State();
+}
+
+class _RemoveBtnV2State extends State<_RemoveBtnV2> {
+  bool _busy = false;
+
+  Future<void> _tap() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onRemove();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => MgBtnText(
+        key: const ValueKey('ride-trip-remove-v2'),
+        label: widget.label,
+        icon: MgIcons.cut,
+        onTap: _busy ? null : _tap,
+      );
 }

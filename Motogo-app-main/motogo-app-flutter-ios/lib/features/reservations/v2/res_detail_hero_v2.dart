@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/date_days.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/v2/chrome/mg_photo_hero.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_hero_photo.dart';
@@ -13,15 +15,17 @@ import 'res_status_v2.dart';
 /// over a dark ground, back disc (photo style → the SAME `backOr` as
 /// today), status pill and rating chip (SOS tags stay on the list card and
 /// in the history, as in the old app).
-class ResDetailHeroV2 extends StatelessWidget {
+class ResDetailHeroV2 extends ConsumerWidget {
   final Reservation res;
   final VoidCallback onBack;
   const ResDetailHeroV2({super.key, required this.res, required this.onBack});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final st = res.displayStatus;
+    // AFT-02: the same unpaid flag as the list card (pendingBookingFabProvider).
+    final unpaid = resPayFlag(res, ref.watch(pendingBookingFabProvider).valueOrNull) == ResPayFlag.unpaid;
     // Krátký telefon (320 × 690): CO TEĎ se vejde do prvního okna.
     final h = (MediaQuery.sizeOf(context).height * 0.34).clamp(220.0, 300.0);
     return MgPhotoHero(
@@ -35,10 +39,11 @@ class ResDetailHeroV2 extends StatelessWidget {
           child: ResBikePhoto(url: res.motoImage, grayscale: st == ResStatus.cancelled, thumbWidth: 1000),
         ),
       ),
-      statusPill: ResStatusPill(status: st, live: false, suffix: resStatusSuffix(tr, res)?.toUpperCase()),
+      statusPill: ResStatusPill(status: st, live: false, suffix: resStatusSuffix(tr, res)?.toUpperCase(), warn: unpaid),
       // Pilulky nad překryvem listu (−24 px), jako V22 `.pls` (bottom 40).
       bottom: const SizedBox(height: 16),
       tags: [
+        if (unpaid) const ResUnpaidChip(),
         if ((res.rating ?? 0) > 0)
           ResPhotoChip(
             label: '${res.rating}/5',

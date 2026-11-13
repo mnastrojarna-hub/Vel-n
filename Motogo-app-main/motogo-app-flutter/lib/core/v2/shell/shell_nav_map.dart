@@ -31,6 +31,18 @@ int v2TabIndexFor(String location) {
   return 0;
 }
 
+/// G-346: a tap on the highlighted tab while a form or payment is open
+/// (booking form, payment, reservation edit, SOS flow) does nothing — as
+/// in the old look, where a tap on the active tab never left the screen.
+bool v2TabTapIgnored(int tab, String location) {
+  final p = _path(location);
+  if (tab != v2TabIndexFor(p)) return false;
+  return p == '/booking' ||
+      p == '/payment' ||
+      (p.startsWith('/sos/')) ||
+      (p.startsWith('/reservations/') && p.endsWith('/edit'));
+}
+
 /// Routes where the floating AI button shows: only Domů, exactly like the
 /// old app (its AI button lives on HomeScreen only; SOS has its own AI row).
 /// The nav itself is never hidden by route — the old AppShell shows it on

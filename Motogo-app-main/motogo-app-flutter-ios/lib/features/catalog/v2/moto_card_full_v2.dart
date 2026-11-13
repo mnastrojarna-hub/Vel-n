@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_chrome_lift.dart';
@@ -243,7 +244,14 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                       Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
                         if (m.category != null && m.category!.isNotEmpty)
                           _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
-                        if (lic.isNotEmpty) _Tag(lic),
+                        if (lic.isNotEmpty)
+                          // J5: red + "tvůj ŘP nestačí" when the licence
+                          // does not cover the bike (list / filter unchanged).
+                          Consumer(
+                            builder: (context, ref, _) => catLicenceFails(ref, m)
+                                ? _Tag('$lic · ${tr.tr('v2LicNotEnough')}', bad: true)
+                                : _Tag(lic),
+                          ),
                         // The old card's "{kW} KW" badge.
                         if (m.powerKw != null) _Tag('${m.powerKw} KW'),
                         if (branch != null)
@@ -349,13 +357,14 @@ class _AvailabilityPill extends StatelessWidget {
 class _Tag extends StatelessWidget {
   final String text;
   final bool neon;
-  const _Tag(this.text, {this.neon = false});
+  final bool bad;
+  const _Tag(this.text, {this.neon = false, this.bad = false});
 
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: neon ? MgColors.neon : MgColors.nightA(0.72),
+          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.nightA(0.72)),
           borderRadius: BorderRadius.circular(6),
           border: neon ? null : Border.all(color: MgColors.white(0.18)),
         ),

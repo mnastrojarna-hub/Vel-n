@@ -133,7 +133,13 @@ class SwapMotoViewV2 extends StatelessWidget {
             data: (list) {
               final cands = candidates(list);
               if (cands.isEmpty) {
-                return Text(tr.tr('swap.noMoto'), style: MgType.body.copyWith(color: MgColors.meta));
+                // G-643: "no bike to swap to" as a visible state, not grey text.
+                return MgStateBanner(
+                  key: const ValueKey('swap-v2-no-moto'),
+                  tone: MgTone.info,
+                  icon: MgIcons.bike,
+                  title: tr.tr('swap.noMoto'),
+                );
               }
               return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 for (final m in cands)
@@ -219,7 +225,18 @@ class _NetRowV2 extends StatelessWidget {
         border: Border.all(color: MgColors.line),
       ),
       child: Row(children: [
-        MgIcon(n == null ? MgIcons.card : (n < -0.5 ? MgIcons.refresh : MgIcons.checkCircle), size: 20, color: MgColors.link),
+        // G-645: a surcharge must not show the "all fine" tick (old look: add_card
+        // / savings / check) → pay for extra, refresh for money back, tick only
+        // when the price stays the same.
+        MgIcon(
+            n == null
+                ? MgIcons.card
+                : n > 0.5
+                    ? MgIcons.pay
+                    : (n < -0.5 ? MgIcons.refresh : MgIcons.checkCircle),
+            key: const ValueKey('swap-v2-net-icon'),
+            size: 20,
+            color: n != null && n > 0.5 ? MgColors.warn : MgColors.link),
         const SizedBox(width: 10),
         Expanded(child: Text(label, style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink))),
         if (loading)

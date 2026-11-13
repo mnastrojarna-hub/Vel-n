@@ -87,6 +87,10 @@ import 'translations_ext_47_rides.dart';
 import 'translations_ext_48_shared_carry.dart';
 import 'translations_ext_61_shared_r2.dart';
 import 'translations_ext_64_sos_replace.dart';
+import 'translations_ext_62_guards_after.dart';
+import 'translations_ext_62_clarity_after.dart';
+import 'translations_ext_62_clarity_order.dart';
+import 'translations_ext_62_clarity_p2.dart';
 import 'translations_ext_58_v2_fix_r2.dart';
 import 'translations_ext_50_v2_core_a.dart';
 import 'translations_ext_50_v2_core_b.dart';
@@ -227,6 +231,10 @@ final translations = _mergeAll([
   translationsExt48SharedCarry,
   translationsExt61SharedR2,
   translationsExt64SosReplace,
+  translationsExt62GuardsAfter,
+  translationsExt62ClarityAfter,
+  translationsExt62ClarityOrder,
+  translationsExt62ClarityP2,
   translationsExt58V2FixR2,
   // v2 vzhled (klíče jen s prefixem `v2`, staré texty nepřepisují).
   translationsExt50V2CoreA,

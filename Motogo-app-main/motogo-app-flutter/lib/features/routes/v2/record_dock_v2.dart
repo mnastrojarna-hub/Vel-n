@@ -12,7 +12,6 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
-import '../ride_actions.dart';
 import '../ride_recorder.dart';
 import 'rides/rec_live_bar_v2.dart';
 import 'rides/rec_widgets_v2.dart';
@@ -91,7 +90,7 @@ class TrasyRecordDockV2 extends ConsumerWidget {
               leadingIcon: MgIcons.recordDot,
               loop: true,
               semanticLabel: tr.tr('v2RtRecA11y'),
-              onTap: () => toggleManualRide(context, ref, running: false),
+              onTap: () => rideStartManualV2(context, ref),
             ),
           ),
         ),
@@ -143,7 +142,7 @@ class TrasyRecordDockV2 extends ConsumerWidget {
     final label = tr.trArgs(sel.pick ? 'v2RtSelAdd' : 'v2RtSelTrip', {'n': sel.count});
     return Row(children: [
       if (recordDisc && !sel.pick) ...[
-        _RecordDisc(onTap: () => toggleManualRide(context, ref, running: false)),
+        _RecordDisc(onTap: () => rideStartManualV2(context, ref)),
         const SizedBox(width: 8),
       ],
       _ClearDisc(onTap: sel.onClear),

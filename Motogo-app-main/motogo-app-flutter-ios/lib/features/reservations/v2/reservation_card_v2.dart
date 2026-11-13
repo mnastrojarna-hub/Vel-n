@@ -146,11 +146,15 @@ class ReservationCardV2 extends ConsumerWidget {
           spacing: 8,
           runSpacing: 6,
           children: [
-            ResStatusPill(status: st, live: false),
-            if (payFlag != ResPayFlag.none)
+            // AFT-02: unpaid = amber status pill + filled amber chip, so the
+            // card does not read as "all fine" (green).
+            ResStatusPill(status: st, live: false, warn: payFlag == ResPayFlag.unpaid),
+            if (payFlag == ResPayFlag.unpaid)
+              const ResUnpaidChip()
+            else if (payFlag == ResPayFlag.verifying)
               ResPhotoChip(
-                label: tr.tr(payFlag == ResPayFlag.verifying ? 'psPendingTitle' : 'payStatusUnpaid'),
-                icon: payFlag == ResPayFlag.verifying ? MgIcons.clock : MgIcons.card,
+                label: tr.tr('psPendingTitle'),
+                icon: MgIcons.clock,
                 iconColor: MgColors.warnDark,
                 border: MgColors.warnDark.withValues(alpha: 0.6),
                 textColor: MgColors.warnDark,
@@ -181,8 +185,10 @@ class ReservationCardV2 extends ConsumerWidget {
           if (r.sosReplacement || r.endedBySos) ...[
             const SizedBox(width: 6),
             ResPhotoChip(
+              // G-393: replacement bike (moto) ≠ rental ended by SOS (sos),
+              // as the two pills of the old look (🏍️ SOS / 🆘 SOS).
               label: 'SOS',
-              icon: MgIcons.sos,
+              icon: r.sosReplacement ? MgIcons.moto : MgIcons.sos,
               iconColor: r.sosReplacement ? MgColors.neon : MgColors.sosDot,
               border: r.sosReplacement ? MgColors.neonA(0.5) : MgColors.sosDot.withValues(alpha: 0.7),
               semanticLabel: tr.tr(r.sosReplacement ? 'replacementForSos' : 'endedBySos'),

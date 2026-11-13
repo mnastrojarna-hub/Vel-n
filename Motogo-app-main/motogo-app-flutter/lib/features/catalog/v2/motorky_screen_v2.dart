@@ -184,7 +184,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
         motosAsync.when(
           // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
           skipLoadingOnReload: true,
-          data: (all) => _list(tr, sortMotorcycles(all, sort), filter, loyalty),
+          data: (all) => _list(tr, sortMotorcycles(all, sort), filter, loyalty, reloading: motosAsync.isLoading),
           // Kostry ve tvaru karet (CB-08); po 15 s „trvá to déle" + Zkusit znovu.
           loading: () => SliverToBoxAdapter(
             child: MotorkyLoadingV2(grid: false, cardHeight: _cardHeight(context), onRetry: _reloadMotos),
@@ -235,12 +235,15 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     );
   }
 
-  Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty) {
+  Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty, {bool reloading = false}) {
     final s = f.startDate, e = f.endDate;
     final hasDates = s != null && e != null && !catBeforeToday(s);
     if (motos.isEmpty) return SliverToBoxAdapter(child: _empty(tr));
-    String? avail(Motorcycle m) =>
-        hasDates ? tr.tr('v2CatFreeInRange') : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null);
+    // G-125: "Volná v termínu" only once the list for THESE dates is loaded
+    // (while it reloads the old cards may include bikes busy then).
+    String? avail(Motorcycle m) => hasDates
+        ? (reloading ? null : tr.tr('v2CatFreeInRange'))
+        : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null);
     final h = _cardHeight(context);
     final top = MediaQuery.paddingOf(context).top;
     // Same card tap as before; the card's button is the old "Detail".

@@ -101,20 +101,16 @@ class PayBreakdownV2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tr = t(context);
-    final upsellTotal = upsell.fold<double>(0, (s, i) => s + i.price);
+    // G-267: one card — the add-ons are rows of the receipt and the big
+    // total includes them (= the dock charge), as the old PriceSummaryCard.
     return Column(key: const ValueKey('pay-v2-breakdown'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      BookingPriceV2(draft: draft, bd: breakdown, dayCount: breakdown.days, pricedExtras: extras, margin: EdgeInsets.zero),
-      if (upsell.isNotEmpty) ...[
-        const SizedBox(height: MgSpace.s12),
-        PayCardV2(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            for (final u in upsell) PayRowV2(label: u.name, value: '+${Money.czk(u.price)}'),
-            const Divider(height: 12, color: MgColors.line),
-            PayRowV2(label: tr.tr('totalLabel'), value: Money.czk(breakdown.total + upsellTotal)),
-          ]),
-        ),
-      ],
+      BookingPriceV2(
+          draft: draft,
+          bd: breakdown,
+          dayCount: breakdown.days,
+          pricedExtras: extras,
+          margin: EdgeInsets.zero,
+          upsell: upsell),
     ]);
   }
 }

@@ -11,6 +11,8 @@ import 'package:motogo_app/core/widgets/pickup_location_link.dart';
 import 'package:motogo_app/features/booking/widgets/address_picker.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/documents/booking_doc_viewer.dart';
+import 'package:motogo_app/features/documents/docs_gate_provider.dart';
+import 'package:motogo_app/features/documents/document_provider.dart' show DocsVerification;
 import 'package:motogo_app/features/reservations/reservation_edit_price_calc.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
@@ -93,6 +95,14 @@ Map<String, ResCase> detailCases() {
       () => resOverrides(pending: PendingBooking(id: unpaid.id, totalPrice: 12027, createdAt: _fresh(), verifying: true))
     ),
     'docs': (() => detailView(ready, codes: held), () => resOverrides()),
+    // AFT-03b / AFT-04: upcoming self-service before the term, documents missing.
+    'no-docs': (
+      () => detailView(resv('d11', status: 'reserved', from: 4, to: 6)),
+      () => [
+            ...resOverrides(),
+            docsFabStatusProvider.overrideWith((ref) async => const DocsScreenStatus(DocsVerification(), null)),
+          ]
+    ),
     'active': (() => detailView(active, codes: sent), () => resOverrides(docs: docs)),
     'codes-error': (
       () => detailView(active, codesAsync: AsyncError(Exception('offline'), StackTrace.empty)),
@@ -262,7 +272,10 @@ Widget editView(
     savePrice: pay ? Money.czk(calc.effectivePriceDiff) : null,
     saveContext: pay
         ? t(c).trArgs('v2UxRpPayDiff', {'from': Money.czk(b.totalPrice), 'to': Money.czk(calc.newTotal)})
-        : null,
+        // AFT-05: shorten → the refund in the dock, as the screen's seam.
+        : tab == 'shorten' && calc.effectivePriceDiff < 0
+            ? t(c).trArgs('claRpRefundCtx', {'amount': Money.czk(-calc.effectivePriceDiff), 'pct': '${calc.stornoPercent}'})
+            : null,
     onSave: addDays != 0 || tab == 'move' ? () {} : null,
     saving: false,
     onBack: () {},

@@ -83,9 +83,10 @@ class TripDetailViewV2 extends StatelessWidget {
               title: name,
               sub: [range, if ((a.motoName ?? '').isNotEmpty) a.motoName!].join(' · '),
               onBack: onBack,
-              onEdit: onRename,
-              onShare: onShare,
-              onDelete: onDelete,
+              // G-1076: header actions locked while a trip operation runs.
+              onEdit: busy ? null : onRename,
+              onShare: busy ? null : onShare,
+              onDelete: busy ? null : onDelete,
               shareLabel: tr.tr('v2RpTripShare'),
               deleteLabel: tr.tr('v2RpTripDelete'),
               badges: [

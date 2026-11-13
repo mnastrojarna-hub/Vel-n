@@ -113,6 +113,9 @@ class BookingDateCardV2 extends StatelessWidget {
                 onRangeSelected: onRangeSelected,
                 onReset: onReset,
               ),
+              // J7: a struck-through day does nothing when tapped — say why.
+              const SizedBox(height: 8),
+              Text(tr.tr('v2BkCalTakenHint'), style: MgType.small.copyWith(color: MgColors.meta)),
             ],
           ],
           if (hasDates) ...[
@@ -126,7 +129,9 @@ class BookingDateCardV2 extends StatelessWidget {
               ),
               child: Row(children: [
                 Expanded(
-                  child: Text(tr.tr('totalForRental'),
+                  // J6: the list price before any discount — the final
+                  // price is the dock's / the summary's (same amount here).
+                  child: Text(tr.tr('v2BkListPrice'),
                       style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
                 ),
                 MgBump(

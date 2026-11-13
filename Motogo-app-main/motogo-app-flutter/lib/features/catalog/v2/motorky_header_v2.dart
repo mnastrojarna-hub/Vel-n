@@ -69,18 +69,24 @@ class MotorkyHeaderV2 extends ConsumerWidget {
         CatalogModeSwitchV2(mode: mode, onChanged: onMode),
         if (banner != null && banner.enabled && banner.text.trim().isNotEmpty) ...[
           const SizedBox(height: 12),
-          Semantics(
-            liveRegion: false,
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              MgIcon(MgIcons.info, size: 18, color: MgColors.neon),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(banner.text,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.neonText)),
-              ),
-            ]),
+          // G-350: Velín colours as the old ShellHeaderBanner strip.
+          Container(
+            key: const ValueKey('motorky-banner-strip'),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: banner.bg, borderRadius: BorderRadius.circular(8)),
+            child: Semantics(
+              liveRegion: false,
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                MgIcon(MgIcons.info, size: 18, color: banner.color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(banner.text,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: banner.color)),
+                ),
+              ]),
+            ),
           ),
         ],
       ]),

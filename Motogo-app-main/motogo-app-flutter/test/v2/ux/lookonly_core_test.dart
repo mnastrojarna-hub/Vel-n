@@ -160,7 +160,7 @@ void main() {
       await pumpShellV2(t, '/', pending: pending, prefs: const {'mg_v2_ai_coach_seen': true});
       await t.pump(const Duration(milliseconds: 400));
       expect(find.byType(MgStatusStrip), findsOneWidget);
-      expect(find.text('Dokončit rezervaci'), findsOneWidget);
+      expect(find.text('Zaplatit rezervaci'), findsOneWidget); // P2-04 (was "Dokončit rezervaci")
     });
   });
 

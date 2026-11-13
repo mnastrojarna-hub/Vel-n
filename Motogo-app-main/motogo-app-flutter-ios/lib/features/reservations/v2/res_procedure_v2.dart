@@ -75,25 +75,57 @@ class ResProcedureV2 extends StatelessWidget {
         ),
       );
     }
+    // G-458…G-460: a clearly visible white card (not a pale neon link on
+    // the light page); at a gate branch the warning shows without opening.
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
       child: Semantics(
         button: true,
-        label: tr.tr('pickupProcedure'),
+        label: important != null ? '${tr.tr('pickupProcedure')} · ${tr.tr('gdaProcGateWarn')}' : tr.tr('pickupProcedure'),
         excludeSemantics: true,
         child: MgPress(
           onTap: () => _open(context),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 44),
-            child: Row(children: [
-              const MgIcon(MgIcons.compass, size: 18, color: MgColors.neonText),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(tr.tr('pickupProcedure'),
-                    style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText)),
+          child: Container(
+            key: const ValueKey('res-procedure-v2-entry'),
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            decoration: BoxDecoration(
+              color: MgColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: MgColors.tintOkBorder, width: 1.5),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 32),
+                child: Row(children: [
+                  const MgIcon(MgIcons.compass, size: 20, color: MgColors.link),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(tr.tr('pickupProcedure'),
+                        style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+                  ),
+                  const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.link),
+                ]),
               ),
-              const SizedBox(width: 4),
-              const MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.neonText),
+              if (important != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  key: const ValueKey('res-procedure-v2-warn'),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: MgColors.warnBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: MgColors.warnBorder),
+                  ),
+                  child: Row(children: [
+                    const MgIcon(MgIcons.warn, size: 16, color: MgColors.warn),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(tr.tr('gdaProcGateWarn'),
+                          style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.warn)),
+                    ),
+                  ]),
+                ),
+              ],
             ]),
           ),
         ),

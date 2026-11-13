@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/calendar/trip_day_state.dart' show tripDate;
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
@@ -89,6 +90,19 @@ class PaymentViewV2 extends StatelessWidget {
     return '#${id.substring(id.length - 8).toUpperCase()}';
   }
 
+  /// J8: "{model} · 11. 12.–13. 12. 2026" — the rental dates stay in
+  /// view on the pay step (draft data, display only).
+  String? _newSub(AppTranslations tr) {
+    final model = moto?.model ?? draft.motoName;
+    final s = draft.startDate;
+    final e = draft.endDate;
+    if (s == null || e == null) return model;
+    final from = tr.trArgs('v2CalDateShort', {'d': s.day, 'm': s.month});
+    // The range never splits (no-break spaces, word joiners at the dash).
+    final range = '$from\u2060–\u2060${tripDate(tr, e)}'.replaceAll(' ', '\u00A0');
+    return [if (model != null) model, range].join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
@@ -104,7 +118,7 @@ class PaymentViewV2 extends StatelessWidget {
     );
     final header = PayHeaderV2(
       title: _isNew ? tr.tr('v2BkTitle') : c!.label,
-      sub: _isNew ? (m?.model ?? draft.motoName) : _shortId(),
+      sub: _isNew ? _newSub(tr) : _shortId(),
       onBack: onBack,
       chip: chip,
       rank: !_sos,

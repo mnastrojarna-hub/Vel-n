@@ -81,9 +81,10 @@ class RideHeaderShellV2 extends StatelessWidget {
   final String sub;
   final List<Widget> badges;
   final VoidCallback onBack;
-  final VoidCallback onEdit;
-  final VoidCallback onShare;
-  final VoidCallback onDelete;
+  // null = locked while an operation runs (G-1076: dimmed, no tap).
+  final VoidCallback? onEdit;
+  final VoidCallback? onShare;
+  final VoidCallback? onDelete;
   final String shareLabel;
   final String deleteLabel;
 
@@ -110,9 +111,13 @@ class RideHeaderShellV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final actions = [
-      MgIconButton(icon: MgIcons.share, semanticLabel: shareLabel, onTap: onShare),
+      Opacity(
+          opacity: onShare == null ? 0.45 : 1,
+          child: MgIconButton(icon: MgIcons.share, semanticLabel: shareLabel, onTap: onShare)),
       const SizedBox(width: 4),
-      MgIconButton(icon: MgIcons.trash, semanticLabel: deleteLabel, iconColor: MgColors.errDark, onTap: onDelete),
+      Opacity(
+          opacity: onDelete == null ? 0.45 : 1,
+          child: MgIconButton(icon: MgIcons.trash, semanticLabel: deleteLabel, iconColor: MgColors.errDark, onTap: onDelete)),
     ];
     return MgRankHero(
       ambientKey: 'ride',

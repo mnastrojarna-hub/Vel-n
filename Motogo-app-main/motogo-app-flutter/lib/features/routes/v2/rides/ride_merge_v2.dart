@@ -65,7 +65,13 @@ class _RideMergeScreenV2State extends ConsumerState<RideMergeScreenV2> {
   Future<void> _merge(List<RideListItem> items) async {
     final chosen = [for (final i in items) if (_sel.contains(mergeItemKeyV2(i))) i];
     if (chosen.length < 2 || _busy) return;
-    final name = await askTripNameV2(context);
+    // G-1087: merging into a named trip keeps its name (pre-filled, as the
+    // old look) — an empty dialog dropped the custom name on Save.
+    String? existing;
+    for (final i in chosen) {
+      if (i is RideListItemTrip && i.trip.explicitTripId != null) existing ??= i.trip.name;
+    }
+    final name = await askTripNameV2(context, initial: existing ?? '');
     if (name == null || !mounted) return;
     setState(() {
       _busy = true;

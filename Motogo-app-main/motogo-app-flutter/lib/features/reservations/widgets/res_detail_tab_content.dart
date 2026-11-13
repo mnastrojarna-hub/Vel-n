@@ -24,6 +24,7 @@ import '../../../core/currency.dart';
 import '../../../core/booking_rules.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../v2/res_detail_parts_v2.dart';
+import '../v2/res_detail_hints_v2.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
@@ -85,6 +86,8 @@ class ResDetailTabContent extends ConsumerWidget {
         children: [
           // Zaplacená výměna / úprava se ještě zapisuje (D6).
           PaidChangeBanner(bookingId: res.id),
+          // v2: bez dokladů se kódy nevydají — řečeno předem (AFT-03b).
+          if (MgV2.on(context)) ResDocsCodesBannerV2(res: res),
           ResDetailCard(children: [
             // v2 vzhled: tentýž název, #ID, stav (+ hodnocení) — jen v2 typ.
             if (MgV2.on(context)) ResDetailHeadV2(res: res) else ...[
@@ -228,6 +231,10 @@ class ResDetailTabContent extends ConsumerWidget {
                 value: '−${Money.czk(res.discountAmount!)}',
                 valueColor: MotoGoColors.greenDarker,
               ),
+            if (MgV2.on(context))
+              // v2: přeložený stav (Nezaplaceno jantarově), bez „✓“ glyfu (AFT-02).
+              ResDetailRow(label: t(context).tr('payment'), child: ResPayStatusValueV2(res: res))
+            else
             ResDetailRow(
               label: t(context).tr('payment'),
               value: res.paymentStatus == 'paid' ? '✓ ${t(context).tr('paid')}' : res.paymentStatus.toUpperCase(),
@@ -244,6 +251,8 @@ class ResDetailTabContent extends ConsumerWidget {
           ResAccessCodesCard(res: res, doorCodesAsync: doorCodesAsync),
 
           // ===== POSTUP PŘI VYZVEDNUTÍ (samoobsluha, výchozí zabalený) =====
+          // v2: kdy se kódy ukážou (před termínem je karta kódů skrytá, AFT-04).
+          if (MgV2.on(context)) ResCodesWhenLineV2(res: res),
           ResPickupProcedure(res: res, codes: doorCodesAsync.valueOrNull),
 
           // ===== HODNOCENÍ JÍZDY (Completed only) — hvězdy + 2 rovnocenné volby =====

@@ -108,12 +108,12 @@ void main() {
     final router = await _shell(tester, '/', pending: _pending());
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(MgStatusStrip), findsOneWidget);
-    expect(find.text('Dokončit rezervaci'), findsOneWidget);
+    expect(find.text('Zaplatit rezervaci'), findsOneWidget); // P2-04 (was "Dokončit rezervaci")
     router.go('/search');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(MgStatusStrip), findsOneWidget);
-    expect(find.text('Dokončit rezervaci'), findsOneWidget);
+    expect(find.text('Zaplatit rezervaci'), findsOneWidget); // P2-04 (was "Dokončit rezervaci")
   });
 
   testWidgets('Domů + payment being verified: the "Platba se ověřuje" strip stays and opens /payment-result', (tester) async {

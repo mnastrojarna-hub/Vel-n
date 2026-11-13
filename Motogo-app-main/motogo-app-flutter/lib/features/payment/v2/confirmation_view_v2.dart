@@ -186,6 +186,8 @@ class ConfirmationViewV2 extends StatelessWidget {
     return [
       PayStep(tr.tr('v2UxPsStepEmail')),
       if (docs != PayDocsV2.unknown) PayStep(tr.tr('v2UxPsStepDocs'), [_docsBanner(tr)]),
+      // G-311: unknown document state — still point to the check.
+      if (docs == PayDocsV2.unknown) PayStep(tr.tr('v2PsDocsCheck')),
       if (when != null)
         PayStep(tr.trArgs(p != null ? 'v2UxPsStepPickup' : 'v2UxPsStepStart', {'when': when}), [
           if (p != null) PayPickupActionsV2(info: p),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'currency.dart';
 import 'theme.dart';
 import 'router.dart';
 import 'i18n/i18n_provider.dart';
@@ -41,6 +42,7 @@ Future<void> cancelPendingBookingFlow(BuildContext context, WidgetRef ref, Pendi
           ? showMgConfirm(
               context,
               title: t(context).tr('cancelReservationQ'),
+              body: t(context).tr('v2CancelPendingBody'),
               safeLabel: t(context).tr('back'),
               actionLabel: t(context).tr('cancelReservationBtn'),
               destructive: true,
@@ -103,14 +105,20 @@ class ShellBookingFab extends ConsumerWidget {
     if (v2) {
       return MgStatusStrip(
         kind: MgStripKind.pay,
-        title: t(context).tr('completeBookingFab'),
-        sub: t(context).trArgs('v2StripTimeLeft', {'t': booking.timeLabel}),
+        // P2-04: says what is still to do — pay — and how much (the same
+        // amount openPendingPayment charges); the old pill is unchanged.
+        title: t(context).tr('v2PayNowFab'),
+        sub: [
+          if (booking.totalPrice > 0) Money.czk(booking.totalPrice),
+          t(context).trArgs('v2StripTimeLeft', {'t': booking.timeLabel}),
+        ].join(' · '),
         onTap: () {
           beforeTap?.call();
           openPendingPayment(context, ref, booking);
         },
         onDismiss: onCancel,
         dismissLabel: t(context).tr('cancelReservationBtn'),
+        dismissDestructive: true,
         more: more,
         onMore: onMore,
       );

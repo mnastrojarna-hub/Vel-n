@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
@@ -36,19 +38,21 @@ class ResDetailButtonV2 extends StatelessWidget {
 
 /// Top of the old detail card: bike, #ID, the status badge (+ the ride's
 /// rating when it has one).
-class ResDetailHeadV2 extends StatelessWidget {
+class ResDetailHeadV2 extends ConsumerWidget {
   final Reservation res;
   const ResDetailHeadV2({super.key, required this.res});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // P2-04: unpaid = the same amber pill as the hero / list card (AFT-02).
+    final unpaid = resPayFlag(res, ref.watch(pendingBookingFabProvider).valueOrNull) == ResPayFlag.unpaid;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Semantics(header: true, child: Text(res.motoName, style: MgType.h3.copyWith(color: MgColors.ink))),
       const SizedBox(height: 2),
       Text(res.shortId, style: MgType.tab(MgType.small.copyWith(color: MgColors.meta))),
       const SizedBox(height: 10),
       Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        ResStatusPill(status: res.displayStatus, live: false),
+        ResStatusPill(status: res.displayStatus, live: false, warn: unpaid),
         if ((res.rating ?? 0) > 0)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

@@ -53,19 +53,26 @@ class ResStatusPill extends StatelessWidget {
   final ResStatus status;
   final String? suffix;
   final bool live;
-  const ResStatusPill({super.key, required this.status, this.suffix, this.live = true});
+
+  /// AFT-02: an unpaid booking is not "all fine" — amber instead of the
+  /// status colour (same words, only the tone changes).
+  final bool warn;
+  const ResStatusPill({super.key, required this.status, this.suffix, this.live = true, this.warn = false});
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final label = resStatusLabel(tr, status).toUpperCase() + (suffix == null ? '' : ' · $suffix');
-    final (Color bg, Color fg, Color? border) = switch (status) {
+    final (Color bg, Color fg, Color? border) = warn
+        ? (MgColors.warnDark, MgColors.ink, null)
+        : switch (status) {
       ResStatus.aktivni => (MgColors.night, MgColors.neon, MgColors.neonA(0.45)),
       ResStatus.nadchazejici => (MgColors.neon, MgColors.onNeon, null),
       ResStatus.dokoncene => (MgColors.white(0.92), MgColors.ink, null),
       ResStatus.cancelled => (MgColors.white(0.92), MgColors.ink, null),
-    };
+          };
     return Container(
+      key: warn ? const ValueKey('res-status-pill-warn') : null,
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -102,6 +109,9 @@ class ResPhotoChip extends StatelessWidget {
   final Color border;
   final Color? textColor;
   final String? semanticLabel;
+
+  /// Filled pill (AFT-02 unpaid: amber) instead of the dark glass.
+  final Color? fill;
   const ResPhotoChip({
     super.key,
     required this.label,
@@ -110,6 +120,7 @@ class ResPhotoChip extends StatelessWidget {
     required this.border,
     this.textColor,
     this.semanticLabel,
+    this.fill,
   });
 
   @override
@@ -123,7 +134,7 @@ class ResPhotoChip extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 26),
         padding: const EdgeInsets.fromLTRB(6, 3, 9, 3),
         decoration: BoxDecoration(
-          color: MgColors.nightA(0.82),
+          color: fill ?? MgColors.nightA(0.82),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(color: border),
         ),
@@ -142,6 +153,22 @@ class ResPhotoChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// AFT-02: the amber filled "Nezaplaceno" chip (list card and detail hero).
+class ResUnpaidChip extends StatelessWidget {
+  const ResUnpaidChip({super.key});
+
+  @override
+  Widget build(BuildContext context) => ResPhotoChip(
+        key: const ValueKey('res-unpaid-chip'),
+        label: t(context).tr('payStatusUnpaid'),
+        icon: MgIcons.card,
+        iconColor: MgColors.ink,
+        border: MgColors.warnDark,
+        textColor: MgColors.ink,
+        fill: MgColors.warnDark,
+      );
 }
 
 /// Moto photo: contained bike over a dark ground; never throws on a missing

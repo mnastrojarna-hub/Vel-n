@@ -1,7 +1,11 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/currency.dart';
 import '../../../core/date_days.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_day_state.dart';
+import '../../auth/auth_provider.dart';
+import '../../booking/booking_validator.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
 
@@ -96,4 +100,20 @@ String? catBranchAddress(Motorcycle m) {
     if ((m.branchCity ?? '').trim().isNotEmpty && !(m.branchAddress ?? '').contains(m.branchCity!)) m.branchCity!.trim(),
   ];
   return parts.isEmpty ? null : parts.join(', ');
+}
+
+/// The customer's licence groups (loaded profile) do not cover [m] — the
+/// SAME check and inputs as `bookingRangeErrors` / the booking form, read
+/// only to mark the bike early (J4/J5); null profile (not loaded / signed
+/// out) = no mark. Display only: nothing is hidden or blocked here.
+bool catLicenceFails(WidgetRef ref, Motorcycle m) {
+  final profile = ref.watch(profileProvider).valueOrNull;
+  if (profile == null) return false;
+  final raw = profile['license_group'];
+  final groups = <String>[
+    if (raw is List)
+      for (final g in raw)
+        if (g != null) g.toString(),
+  ];
+  return BookingValidator.checkLicense(userLicenseGroups: groups, motoLicenseGroups: m.licenseGroupsOrFallback) != null;
 }

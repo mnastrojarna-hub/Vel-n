@@ -198,6 +198,37 @@ class MojeRecordRowV2 extends StatelessWidget {
             Row(mainAxisAlignment: MainAxisAlignment.end, children: controls),
           ]);
         }),
+        // G-1046: after a safety pause (phone at home / long stop) the
+        // question "continue or end and save?" in amber, as the old card.
+        if (rec.recording && rec.needsDecision)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 4, 8, 6),
+            child: Container(
+              key: const ValueKey('moje-rec-decision'),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: MgColors.warnBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: MgColors.warnBorder),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const MgIcon(MgIcons.warn, size: 18, color: MgColors.warn),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(recHintV2(tr, rec),
+                      style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.warn)),
+                ),
+              ]),
+            ),
+          ),
+        // G-1045: a rental recording has no Stop — it ends by itself when
+        // the bike is returned (old card: rpRentalEndsHint under the buttons).
+        if (rec.recording && !rec.manual)
+          Padding(
+            key: const ValueKey('moje-rec-rental-ends'),
+            padding: const EdgeInsets.fromLTRB(8, 2, 8, 6),
+            child: Text(tr.tr('v2RpRentalEnds'), style: MgType.small.copyWith(color: MgColors.meta)),
+          ),
         MgAnimatedSize(
           duration: const Duration(milliseconds: 220),
           curve: MgMotion.out,

@@ -84,10 +84,9 @@ class ResCodesV2 extends StatelessWidget {
       if (loading)
         const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: MgColors.neon)),
     ]);
-    if (loading) return Padding(padding: const EdgeInsets.only(top: 16), child: head);
+    if (loading) return _panel(head);
     if (errorText != null) {
-      return Container(
-        margin: const EdgeInsets.only(top: 16),
+      return _panel(Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: MgColors.errDarkBg,
@@ -105,12 +104,11 @@ class ResCodesV2 extends StatelessWidget {
             MgBtnText(label: tr.tr('eoCall'), onTap: onCall, dark: true, icon: MgIcons.phone),
           ]),
         ]),
-      );
+      ));
     }
     var n = 0;
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    return _panel(
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         head,
         if (gateCode != null) ...[
           _tile(context, ++n, tr.tr('gateCodeLabel'), gateCode!, true, sub: tr.tr('gateCodeHint')),
@@ -145,6 +143,17 @@ class ResCodesV2 extends StatelessWidget {
       ]),
     );
   }
+
+  /// G-409…G-456: the tiles use colours made for a dark board, but the
+  /// reservation detail is a light page → every state sits on its own dark
+  /// rounded panel (white labels, neon digits and amber reasons stay legible).
+  Widget _panel(Widget child) => Container(
+        key: const ValueKey('res-codes-v2-panel'),
+        margin: const EdgeInsets.only(top: 16, bottom: 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: MgColors.night, borderRadius: BorderRadius.circular(20)),
+        child: child,
+      );
 
   Widget _tile(BuildContext context, int n, String label, String value, bool sent, {String? sub, bool subWarn = false}) {
     final tr = t(context);

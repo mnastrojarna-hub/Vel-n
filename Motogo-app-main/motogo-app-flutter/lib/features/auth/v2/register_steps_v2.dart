@@ -17,12 +17,17 @@ Widget _gap() => const SizedBox(height: 14);
 
 /// A field wrapped in its scroll-into-view key + the inline error.
 Widget _f(RegisterV2Model m, String field, String label,
-    {TextInputType? kb, Iterable<String>? hints, bool password = false, TextCapitalization cap = TextCapitalization.none}) {
+    {TextInputType? kb,
+    Iterable<String>? hints,
+    bool password = false,
+    TextCapitalization cap = TextCapitalization.none,
+    String? placeholder}) {
   return KeyedSubtree(
     key: m.keyFor(field),
     child: AsmField(
       label: label,
       controller: m.ctrl[field]!,
+      hint: placeholder,
       error: m.errors[field],
       keyboardType: kb,
       autofillHints: hints,
@@ -129,7 +134,9 @@ class RegisterStep2V2 extends StatelessWidget {
       _gap(),
       _f(m, 'street', tr.tr('street'), hints: const [AutofillHints.streetAddressLine1]),
       _gap(),
-      _f(m, 'country', tr.tr('countryLabel'), hints: const [AutofillHints.countryName], cap: TextCapitalization.words),
+      // J10: an example only (placeholder) — the value starts empty as before.
+      _f(m, 'country', tr.tr('countryLabel'),
+          hints: const [AutofillHints.countryName], cap: TextCapitalization.words, placeholder: tr.tr('v2RegCountryHint')),
     ]);
   }
 }
@@ -157,9 +164,10 @@ class RegisterStep3V2 extends StatelessWidget {
           onTap: () => m.onLic(value),
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _f(m, 'idNum', tr.tr('idNumberFull')),
+      // J10: spelled out, no abbreviations ("Č. OP / PASU", "ČÍSLO ŘP").
+      _f(m, 'idNum', tr.tr('v2RegIdNumber')),
       _gap(),
-      _f(m, 'licNum', tr.tr('licenseNumber')),
+      _f(m, 'licNum', tr.tr('v2RegDlNumber')),
       _gap(),
       _date(m, 'licExp', tr.tr('licenseExpiry'), y, y + 20),
       const SizedBox(height: 6),

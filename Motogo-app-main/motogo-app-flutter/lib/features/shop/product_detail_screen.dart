@@ -15,6 +15,7 @@ import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/widgets/mg_v1_pass.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/states/mg_tone.dart';
 import '../../core/v2/widgets/mg_toast_rich.dart';
 import 'v2/product_view_v2.dart';
 
@@ -41,6 +42,9 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
     if (product.needsSize && _selectedSize == null) {
       if (v2) {
         setState(() => _sizeHint = true);
+        // G-822: the old toast too — the size chips may be scrolled away.
+        showMgToastRich(context,
+            title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'), tone: MgTone.warn);
         return;
       }
       showMotoGoToast(context, icon: '⚠️', title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'));

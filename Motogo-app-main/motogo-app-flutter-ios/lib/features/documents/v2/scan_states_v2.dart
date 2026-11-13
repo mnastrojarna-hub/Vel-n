@@ -20,7 +20,7 @@ import '../../../core/v2/widgets/mg_emoji_map.dart' show mgStripEmoji;
   for (final raw in text.split('\n')) {
     final l = mgStripEmoji(raw).trim();
     if (l.isEmpty) continue;
-    final i = l.indexOf(': ');
+    final i = raw.trimLeft().startsWith('⚠') ? -1 : l.indexOf(': ');
     if (i > 0 && i < 32) {
       fields.add((l.substring(0, i), l.substring(i + 2)));
     } else {
@@ -29,6 +29,14 @@ import '../../../core/v2/widgets/mg_emoji_map.dart' show mgStripEmoji;
   }
   return (fields, notes);
 }
+
+/// Note lines of [text] that the scanner marked as a warning (`⚠️ …`:
+/// licence number mismatch, data not saved to the profile), emoji stripped
+/// — drawn as warning rows, not like the success line (G-545/G-546).
+Set<String> scanWarningsOf(String text) => {
+      for (final raw in text.split('\n'))
+        if (raw.trimLeft().startsWith('⚠') && mgStripEmoji(raw).trim().isNotEmpty) mgStripEmoji(raw).trim(),
+    };
 
 /// Light T2 panel over the camera (the camera keeps running behind it):
 /// enters with `MgEnter`, no drag-dismiss (a decision is required).
@@ -93,11 +101,14 @@ class ScanResultV2 extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final (fields, notes) = ok ? scanFieldsOf(message) : (const <(String, String)>[], const <String>[]);
+    final warns = ok ? scanWarningsOf(message) : const <String>{};
+    // G-535: photo stored but NOT read — a note to act on, not a success line.
+    final noOcr = mgStripEmoji(tr.tr('docPhotoSavedNoOcr')).trim();
     final steps = [for (final l in guidance.split('\n')) if (mgStripEmoji(l).trim().isNotEmpty) mgStripEmoji(l).trim()];
     return ScanPanelV2(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          MgToneDisc(tone: ok ? MgTone.ok : MgTone.warn, size: 56),
+          MgToneDisc(tone: ok && warns.isEmpty ? MgTone.ok : MgTone.warn, size: 56),
           if (!ok && remaining > 0) ...[
             const SizedBox(width: 12),
             Flexible(
@@ -118,7 +129,23 @@ class ScanResultV2 extends StatelessWidget {
           if (fields.isNotEmpty) _Tiles(fields: fields),
           for (final n in notes) ...[
             const SizedBox(height: 8),
-            Text(n, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: fields.isEmpty ? MgColors.body2 : MgColors.warn)),
+            if (warns.contains(n) || n == noOcr)
+              Container(
+                key: const ValueKey('scan-note-warn'),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: MgColors.warnBg,
+                  border: Border.all(color: MgColors.warnBorder),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const MgIcon(MgIcons.alert, size: 18, color: MgColors.warn),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(n, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.warn))),
+                ]),
+              )
+            else
+              Text(n, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.body2)),
           ],
           const SizedBox(height: 18),
           MgBtnInk(label: tr.tr('continueBtn'), icon: MgIcons.arrowRight, onTap: onContinue),

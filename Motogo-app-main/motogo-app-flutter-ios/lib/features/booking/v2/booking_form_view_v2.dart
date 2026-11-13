@@ -12,6 +12,7 @@ import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
 import '../../../core/v2/states/mg_state_screen.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../catalog/moto_model.dart';
@@ -147,9 +148,13 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
 
   /// The error banner's working actions (navigation only).
   List<(String, VoidCallback)> _errActions(AppTranslations tr) => switch (widget.errKind) {
+        // J2 / P2-03: the profile fix first (the one way on with no fitting
+        // licence), also when the amber profile card is shown — that card
+        // then drops its own copy, so the button stays once on the page and
+        // the red card no longer points only to "another bike".
         BookingErrKind.licence => [
-            (tr.tr('pdPickOtherMoto'), widget.onBack),
             (tr.tr('completeProfileBtn'), widget.onCompleteProfile),
+            (tr.tr('pdPickOtherMoto'), widget.onBack),
           ],
         BookingErrKind.dates => [(tr.tr('psChangeDates'), _openDates)],
         BookingErrKind.time => [(tr.tr('v2BkFixTime'), () => _scrollTo(_timeKey))],
@@ -168,11 +173,32 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     if (b != null && !b.hasValue && !b.hasError) return tr.tr('v2BkBlockAvail');
     if (b != null && !b.hasValue && b.hasError) return tr.tr('v2BkBlockAvailFail');
     if (w.rangeBusy) return tr.tr('v2BkBlockBusy');
-    if (w.err != null) return tr.tr('v2BkBlockError');
+    if (w.err != null) {
+      return tr.tr(switch (w.errKind) {
+        BookingErrKind.licence => 'v2BkBlockLicence',
+        BookingErrKind.dates => 'v2BkBlockDatesBad',
+        BookingErrKind.time => 'v2BkBlockTime',
+        null => 'v2BkBlockError',
+      });
+    }
     if (w.profileErr != null) return tr.tr('v2BkBlockProfile');
     if (w.missingSizes.isNotEmpty) return tr.tr('v2BkBlockSizes');
     if (!(d.consentVop && d.consentGdpr && (!w.isKids || d.consentKids))) return tr.tr('v2BkBlockConsent');
     return null;
+  }
+
+  /// Where the first blocker ([_blocker], same order) is shown / fixed —
+  /// the dock's "Ukázat proč" scrolls there (J1). Display only.
+  GlobalKey _blockerTarget() {
+    final w = widget;
+    final b = w.booked;
+    if (!w.hasDates) return _dateKey;
+    if (b != null && !b.hasValue && !b.hasError) return _dateKey;
+    if (b != null && !b.hasValue && b.hasError) return _warnKey;
+    if (w.rangeBusy) return _dateKey;
+    if (w.err != null) return w.errKind == BookingErrKind.time ? _timeKey : _warnKey;
+    if (w.profileErr != null || w.missingSizes.isNotEmpty) return _warnKey;
+    return _consentKey;
   }
 
   @override
@@ -212,13 +238,23 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
       ),
       KeyedSubtree(
         key: _timeKey,
-        child: BookingFormTimeSection(
-          draft: d,
-          onTimeChanged: w.onPickupTime,
-          onReturnTimeChanged: w.onReturnTime,
-          showReturn: !w.hideReturnTime,
-          selfService: w.selfServiceAtBranch,
-        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          BookingFormTimeSection(
+            draft: d,
+            onTimeChanged: w.onPickupTime,
+            onReturnTimeChanged: w.onReturnTime,
+            showReturn: !w.hideReturnTime,
+            selfService: w.selfServiceAtBranch,
+          ),
+          // P2-01: the pickup-time error right where "Ukázat proč" lands
+          // (the same text as the red card below, which stays).
+          if (w.err != null && w.errKind == BookingErrKind.time)
+            Padding(
+              key: const ValueKey('bk-time-err'),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: MgStateBanner(tone: MgTone.err, icon: MgIcons.clock, title: w.err!),
+            ),
+        ]),
       ),
       BookingFormPickupSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
       BookingFormReturnSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
@@ -265,6 +301,8 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
           missingSizes: w.missingSizes,
           err: w.err,
           errActions: _errActions(tr),
+          errPrimaryFirst: w.errKind == BookingErrKind.licence,
+          profileFixInErr: w.err != null && w.errKind == BookingErrKind.licence,
           profileErr: w.profileErr,
           bookedFailed: booked != null && booked.hasError && !booked.hasValue,
           onCompleteProfile: w.onCompleteProfile,
@@ -293,6 +331,8 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
               context2: w.hasDates ? [tr.tr('v2YourPrice'), bkDays(tr, w.dayCount)].join(' · ') : null,
               price: w.hasDates ? bkNb(bkMoney(w.bd.total)) : null,
               onProceed: w.onProceed,
+              onTrailing: blocker == null ? null : () => _scrollTo(_blockerTarget()),
+              trailingLabel: blocker == null ? null : tr.tr('v2BkShowWhy'),
             ),
     );
   }

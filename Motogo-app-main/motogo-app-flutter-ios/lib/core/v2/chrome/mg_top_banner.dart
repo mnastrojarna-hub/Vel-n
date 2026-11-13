@@ -19,11 +19,18 @@ import 'mg_status_bar.dart';
 /// row (last line of a dark header). [folded] (band only, hide-on-scroll
 /// `MgBarsScope`): the line folds up under the status-bar strip, which stays
 /// night (light icons keep their surface); the body below grows.
+///
+/// [bg] / [fg] = the colours chosen in Velín (`BannerData.bg/color`, as the
+/// old `ShellHeaderBanner`, G-350): the band is painted in [bg], an inline
+/// row gets a rounded [bg] strip; the text and icon use [fg]. null = neon
+/// on night.
 class MgTopBanner extends StatelessWidget {
   final String text;
   final bool band;
   final bool folded;
-  const MgTopBanner({super.key, required this.text, this.band = false, this.folded = false});
+  final Color? bg;
+  final Color? fg;
+  const MgTopBanner({super.key, required this.text, this.band = false, this.folded = false, this.bg, this.fg});
 
   static const double height = 28;
 
@@ -50,19 +57,28 @@ class MgTopBanner extends StatelessWidget {
         child: SizedBox(
           height: height,
           child: Row(children: [
-            const MgIcon(MgIcons.info, size: 16, color: MgColors.neon),
+            MgIcon(MgIcons.info, size: 16, color: fg ?? MgColors.neon),
             const SizedBox(width: 8),
-            Expanded(child: RepaintBoundary(child: _Marquee(text: text.trim()))),
+            Expanded(child: RepaintBoundary(child: _Marquee(text: text.trim(), color: fg ?? MgColors.neon))),
           ]),
         ),
       ),
     );
-    if (!band) return line;
+    if (!band) {
+      if (bg == null) return line;
+      return Container(
+        key: const ValueKey('mg-top-banner-strip'),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+        child: line,
+      );
+    }
     final top = MediaQuery.paddingOf(context).top;
+    final fill = bg ?? MgColors.night;
     return MgStatusBar(
-      dark: true,
+      dark: fill.computeLuminance() < 0.5,
       child: Container(
-        color: MgColors.night,
+        color: fill,
         padding: EdgeInsets.fromLTRB(16, top, 16, 0),
         child: MgStickySlide(visible: !folded, from: AxisDirection.up, collapse: true, child: line),
       ),
@@ -74,14 +90,15 @@ class MgTopBanner extends StatelessWidget {
 /// and while scrolled off-screen (design M6), static under reduced motion.
 class _Marquee extends StatelessWidget {
   final String text;
-  const _Marquee({required this.text});
+  final Color color;
+  const _Marquee({required this.text, required this.color});
 
   static const double _gap = 48;
   static const double _speed = 40; // px / s — calm, readable
 
   @override
   Widget build(BuildContext context) {
-    final style = MgType.meta.copyWith(fontWeight: FontWeight.w700, color: MgColors.neon, height: 1.2);
+    final style = MgType.meta.copyWith(fontWeight: FontWeight.w700, color: color, height: 1.2);
     final reduced = MgMotion.reduced(context);
     return LayoutBuilder(builder: (context, c) {
       final tp = TextPainter(

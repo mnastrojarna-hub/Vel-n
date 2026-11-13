@@ -25,65 +25,21 @@ class ValidationBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // License check
-    final profile = ref.watch(profileProvider).valueOrNull;
-    final userGroups = <String>[];
-    if (profile != null) {
-      final raw = profile['license_group'];
-      if (raw is List) {
-        for (final g in raw) {
-          if (g != null) userGroups.add(g.toString());
-        }
-      }
-    }
-    final licenseErr = BookingValidator.checkLicense(
-      userLicenseGroups: userGroups,
-      motoLicenseGroups: moto.licenseGroupsOrFallback,
-      lang: t(context).lang,
-    );
-
-    // Overlap check
-    final reservations = ref.watch(reservationsProvider).valueOrNull ?? [];
-    final overlapErr = BookingValidator.checkOverlap(
-      userReservations: reservations,
-      startDate: startDate,
-      endDate: endDate,
-      isChildrensMoto: moto.licenseRequired == 'N',
-      lang: t(context).lang,
-    );
-
-    // Délka pronájmu (min/max z DB) — vynucováno na CTA rezervace, tady jen
-    // včasné upozornění. Lokalizováno do zvoleného jazyka.
-    String? lengthErr;
-    final days = calendarDaysInclusive(startDate, endDate);
-    final min = moto.minRentalDays;
-    final max = moto.maxRentalDays;
-    if (min != null && min > 1 && days < min) {
-      lengthErr = t(context).tr('validationMinDays').replaceAll('{n}', '$min');
-    } else if (max != null && max > 0 && days > max) {
-      lengthErr = t(context).tr('validationMaxDays').replaceAll('{n}', '$max');
-    }
-
-    final errors = [
-      if (licenseErr != null) licenseErr,
-      if (overlapErr != null) overlapErr,
-      if (lengthErr != null) lengthErr,
-    ];
+    final errors = bookingRangeErrors(context, ref, moto, startDate, endDate);
     if (errors.isEmpty) return const SizedBox.shrink();
 
-    // v2 vzhled (kill-switch app_v2_ui): stejné chyby, stejné pořadí — jen
-    // jantarový T3 banner (V22 §5) místo červeného boxu.
+    // v2 vzhled (kill-switch app_v2_ui): stejné chyby, stejné pořadí —
+    // červený T3 banner jako červený box starého vzhledu (G-152/G-153/G-154).
     if (MgV2.on(context)) {
       return Padding(
         padding: const EdgeInsets.only(top: 12),
         child: MgStateBanner(
-          tone: MgTone.warn,
+          tone: MgTone.err,
           title: errors.first,
           text: errors.length > 1 ? errors.skip(1).join('\n') : null,
         ),
       );
     }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Container(
@@ -119,4 +75,54 @@ class ValidationBanner extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Chyby zvoleného termínu pro motorku: řidičák, překryv s vlastní
+/// rezervací, min/max délka pronájmu (stejné kontroly a pořadí jako banner).
+/// Prázdné = vše v pořádku. Formulář rezervace je dál tvrdě blokuje.
+List<String> bookingRangeErrors(
+    BuildContext context, WidgetRef ref, Motorcycle moto, DateTime startDate, DateTime endDate) {
+  final profile = ref.watch(profileProvider).valueOrNull;
+  final userGroups = <String>[];
+  if (profile != null) {
+    final raw = profile['license_group'];
+    if (raw is List) {
+      for (final g in raw) {
+        if (g != null) userGroups.add(g.toString());
+      }
+    }
+  }
+  final licenseErr = BookingValidator.checkLicense(
+    userLicenseGroups: userGroups,
+    motoLicenseGroups: moto.licenseGroupsOrFallback,
+    lang: t(context).lang,
+  );
+
+  // Overlap check
+  final reservations = ref.watch(reservationsProvider).valueOrNull ?? [];
+  final overlapErr = BookingValidator.checkOverlap(
+    userReservations: reservations,
+    startDate: startDate,
+    endDate: endDate,
+    isChildrensMoto: moto.licenseRequired == 'N',
+    lang: t(context).lang,
+  );
+
+  // Délka pronájmu (min/max z DB) — vynucováno na CTA rezervace, tady jen
+  // včasné upozornění. Lokalizováno do zvoleného jazyka.
+  String? lengthErr;
+  final days = calendarDaysInclusive(startDate, endDate);
+  final min = moto.minRentalDays;
+  final max = moto.maxRentalDays;
+  if (min != null && min > 1 && days < min) {
+    lengthErr = t(context).tr('validationMinDays').replaceAll('{n}', '$min');
+  } else if (max != null && max > 0 && days > max) {
+    lengthErr = t(context).tr('validationMaxDays').replaceAll('{n}', '$max');
+  }
+
+  return [
+    if (licenseErr != null) licenseErr,
+    if (overlapErr != null) overlapErr,
+    if (lengthErr != null) lengthErr,
+  ];
 }

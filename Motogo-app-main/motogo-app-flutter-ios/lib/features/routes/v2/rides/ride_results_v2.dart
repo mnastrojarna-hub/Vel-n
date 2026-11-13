@@ -79,8 +79,11 @@ Future<void> showRideStartResultV2(BuildContext context, RideStartResult r,
     case RideStartResult.failed:
       await showMgStateSheet<void>(context,
           tone: MgTone.err,
+          icon: MgIcons.wifiOff,
           title: tr.tr('v2UxRrFailT'),
-          why: tr.tr('v2UxRrFailW'),
+          // G-1040/G-1041: the real cause (no internet / unsaved previous
+          // ride) as in the old look, not "restart the app".
+          why: tr.tr('eoRideStartFailed'),
           primary: MgStateAction(tr.tr('retry'), then(onRetry)),
           secondary: back);
   }
