@@ -1,3 +1,10 @@
+# ▶▶▶ STAV 13. 11. 23:50 UTC (čti jako úplně první)
+
+- Kontejner se 2× restartoval (22:26 a 23:45 UTC). Úloha E (wf_6809eaa8-ca9) doběhla až po závěrečné sady: **commit `45ed4aae` = Android 7019/0 (suite_android_r2, rc=0), iOS scratch 7019/0 (suite_ios_r1), analyze 142/137, diff -rq 20.** Nedoběhl jen agent `notes` (texty PR) – výsledky všech agentů E jsou v `scratchpad/efinish/eres/*.txt`, výsledky D v `scratchpad/efinish/dres/*.txt`.
+- **Zbývá:** (1) tři drobné vedlejší účinky posledních oprav z `eres/review_last.txt`: RL-02 (rada u času neplatí pro přistavení týž den – booking_form_view_v2.dart `_noTimeLeft`), RL-03 (nápověda „vyber volnou motorku“ i když žádná volná není – res_edit_swap_v2.dart), RL-04 (styl řádku bez hodnoty se propsal do všech ResDetailRowV2 – res_detail_bits_v2.dart → jen opt-in); (2) znovu obě kompletní sady (pouštět přes Bash na pozadí, ne přes agenta – agent jednou skončil dřív než sada); (3) texty PR (vyjít z `scratchpad/dfinish/PR_BODY.md` + `SUMMARY.md`, doplnit E), smazat `.claude/handoff/`, PR #2214 z draftu, ZIP webu, zpráva majiteli.
+
+---
+
 # ▶▶ NEJNOVĚJŠÍ STAV — 13. 11. 2026, 20:25 UTC (čti jako první)
 
 - **Úloha D (wf_b532de3d-8ac) DOBĚHLA, vše zelené** — commit `9a41daf6`: 48/49 mezer v pojistkách opraveno (zbývá jen G-783, čeká na majitele), nástroj pro proklikání `test/v2/journey` (README), dvě kola proklikání očima zákazníka, 28 úprav srozumitelnosti. Závěrečné sady: Android 6931/0, iOS (scratch) 6931/0, analyze 142/137 bez chyb, `diff -rq lib` = 20 řádků, iOS `.dart_tool` beze změny.
