@@ -156,7 +156,7 @@ void main() {
     await t.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey('detail-dock-one-day')), findsOneWidget);
     expect(find.textContaining('1 den'), findsOneWidget);
-    expect(find.text(_tr('v2DetDockOneDay')), findsOneWidget);
+    expect(find.text(_tr('coDetDockOneDay')), findsOneWidget);
     await t.tap(find.byType(MgCta));
     expect(taps, 1);
     await maybeShot(t, _shot, 'clarity_p2__detail_dock_one_day__cs__360x780');
@@ -174,7 +174,7 @@ void main() {
     );
     await t.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey('detail-dock-one-day')), findsNothing);
-    expect(find.text(_tr('v2DetDockOneDay')), findsNothing);
+    expect(find.text(_tr('coDetDockOneDay')), findsNothing);
     await _done(t);
   });
 
@@ -183,7 +183,7 @@ void main() {
     await pumpV2(t, Align(alignment: Alignment.bottomCenter, child: ShellBookingFab(booking: p, v2: true)), boundaryKey: _shot);
     await t.pump(const Duration(milliseconds: 300));
     final strip = t.widget<MgStatusStrip>(find.byType(MgStatusStrip));
-    expect(strip.title, _tr('v2PayNowFab'));
+    expect(strip.title, _tr('coPayNowFab'));
     expect(strip.sub, contains(Money.czk(11893)));
     expect(strip.sub, contains(p.timeLabel));
     expect(strip.dismissDestructive, isTrue);

@@ -215,7 +215,7 @@ class DetailHeroV2 extends StatelessWidget {
                   if (lic.isNotEmpty)
                     Consumer(
                       builder: (context, ref, _) => catLicenceFails(ref, moto)
-                          ? _tag('$lic · ${tr.tr('v2LicNotEnough')}', bad: true)
+                          ? _tag('$lic · ${tr.tr('coLicNotEnough')}', bad: true)
                           : _tag(lic),
                     ),
                 ]),

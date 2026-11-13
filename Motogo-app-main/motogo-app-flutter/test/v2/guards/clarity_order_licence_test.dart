@@ -99,7 +99,7 @@ void main() {
     MgMotion.resetSession();
   });
   final (ws, we) = futureWeekend();
-  final notEnough = _cs.tr('v2LicNotEnough');
+  final notEnough = _cs.tr('coLicNotEnough');
   final funnelOv = [
     ...homeOverrides(funnel: [kBmw]),
     bookedDatesProvider.overrideWith((ref, id) async => const <BookedDateRange>[]),
@@ -208,7 +208,7 @@ void main() {
     );
     await t.pump(const Duration(milliseconds: 400));
     expect(t.takeException(), isNull);
-    expect(find.textContaining(AppTranslations.of('de').tr('v2LicNotEnough')), findsOneWidget);
+    expect(find.textContaining(AppTranslations.of('de').tr('coLicNotEnough')), findsOneWidget);
     await maybeShot(t, _shot, 'clarity_order__catalog_card_licence__de__320x690');
   });
 }

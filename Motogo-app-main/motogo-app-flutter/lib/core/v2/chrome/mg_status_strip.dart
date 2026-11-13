@@ -180,7 +180,7 @@ class MgStatusStrip extends StatelessWidget {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const MgIcon(MgIcons.trash, size: 16, color: MgColors.errDark),
                             const SizedBox(width: 4),
-                            Text(t(context).tr('v2StripCancel'),
+                            Text(t(context).tr('coStripCancel'),
                                 maxLines: 1,
                                 softWrap: false,
                                 style: MgType.small.copyWith(fontSize: 12, fontWeight: FontWeight.w800, color: MgColors.errDark)),

@@ -175,9 +175,9 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     if (w.rangeBusy) return tr.tr('v2BkBlockBusy');
     if (w.err != null) {
       return tr.tr(switch (w.errKind) {
-        BookingErrKind.licence => 'v2BkBlockLicence',
-        BookingErrKind.dates => 'v2BkBlockDatesBad',
-        BookingErrKind.time => 'v2BkBlockTime',
+        BookingErrKind.licence => 'coBkBlockLicence',
+        BookingErrKind.dates => 'coBkBlockDatesBad',
+        BookingErrKind.time => 'coBkBlockTime',
         null => 'v2BkBlockError',
       });
     }
@@ -332,7 +332,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
               price: w.hasDates ? bkNb(bkMoney(w.bd.total)) : null,
               onProceed: w.onProceed,
               onTrailing: blocker == null ? null : () => _scrollTo(_blockerTarget()),
-              trailingLabel: blocker == null ? null : tr.tr('v2BkShowWhy'),
+              trailingLabel: blocker == null ? null : tr.tr('coBkShowWhy'),
             ),
     );
   }

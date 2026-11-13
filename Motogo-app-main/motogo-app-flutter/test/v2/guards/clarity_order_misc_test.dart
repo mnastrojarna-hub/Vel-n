@@ -104,7 +104,7 @@ void main() {
     final m2 = asmRegModel(2);
     await pumpV2(t, RegisterViewV2(m: m2), scaffold: false);
     await t.pump(const Duration(milliseconds: 400));
-    expect(find.text(_cs.tr('v2RegCountryHint')), findsOneWidget);
+    expect(find.text(_cs.tr('coRegCountryHint')), findsOneWidget);
     expect(m2.ctrl['country']!.text, isEmpty);
     final m3 = asmRegModel(3);
     for (final (lang, size) in [('cs', const Size(360, 780)), ('de', const Size(320, 690))]) {
@@ -113,7 +113,7 @@ void main() {
       expect(t.takeException(), isNull);
       final tr = AppTranslations.of(lang);
       final labels = [for (final f in t.widgetList<AsmField>(find.byType(AsmField))) f.label];
-      expect(labels, containsAll([tr.tr('v2RegIdNumber'), tr.tr('v2RegDlNumber')]));
+      expect(labels, containsAll([tr.tr('coRegIdNumber'), tr.tr('coRegDlNumber')]));
       await maybeShot(t, _shot, 'clarity_order__register_s3__${lang}__${size.width.toInt()}x${size.height.toInt()}');
     }
   });
@@ -124,23 +124,23 @@ void main() {
         boundaryKey: _shot);
     await t.pump(const Duration(milliseconds: 300));
     expect(t.takeException(), isNull);
-    final cancel = find.text(_cs.tr('v2StripCancel'));
+    final cancel = find.text(_cs.tr('coStripCancel'));
     expect(cancel, findsOneWidget);
     await maybeShot(t, _shot, 'clarity_order__pay_strip__cs__360x780');
     await t.tap(cancel);
     await t.pump();
     await t.pump(const Duration(milliseconds: 400));
     expect(find.text(_cs.tr('cancelReservationQ')), findsOneWidget);
-    expect(find.text(_cs.tr('v2CancelPendingBody')), findsOneWidget);
+    expect(find.text(_cs.tr('coCancelPendingBody')), findsOneWidget);
     await t.tap(find.text(_cs.tr('back')));
     await t.pump(const Duration(milliseconds: 400));
 
     await pumpV2(t, ShellDocsFab(onTap: () {}, onDismiss: () {}, v2: true));
     await t.pump(const Duration(milliseconds: 300));
-    expect(find.text(_cs.tr('v2StripCancel')), findsNothing);
+    expect(find.text(_cs.tr('coStripCancel')), findsNothing);
     expect(find.bySemanticsLabel(_cs.tr('close')), findsOneWidget);
     // AFT-03a: required, not "best before".
-    expect(find.text(_cs.tr('v2StripDocsNeeded')), findsOneWidget);
+    expect(find.text(_cs.tr('coStripDocsNeeded')), findsOneWidget);
     expect(find.textContaining('Nejlépe'), findsNothing);
   });
 
@@ -186,9 +186,9 @@ void main() {
   testWidgets('G-311: unknown docs → "Zkontroluj doklady v profilu"; complete → absent', (t) async {
     await pumpV2(t, psConfirm(docs: PayDocsV2.unknown), scaffold: false);
     await t.pump(const Duration(milliseconds: 300));
-    expect(find.text(_cs.tr('v2PsDocsCheck')), findsOneWidget);
+    expect(find.text(_cs.tr('coPsDocsCheck')), findsOneWidget);
     await pumpV2(t, psConfirm(docs: PayDocsV2.verified), scaffold: false);
     await t.pump(const Duration(milliseconds: 300));
-    expect(find.text(_cs.tr('v2PsDocsCheck')), findsNothing);
+    expect(find.text(_cs.tr('coPsDocsCheck')), findsNothing);
   });
 }

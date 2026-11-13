@@ -90,7 +90,7 @@ class DetailDockV2 extends StatelessWidget {
         : s != null && selEnd == null && !change
             ? Column(key: const ValueKey('detail-dock-one-day'), crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(line, maxLines: 1, style: const TextStyle(color: MgColors.onDarkLead)),
-                Text(tr.tr('v2DetDockOneDay'),
+                Text(tr.tr('coDetDockOneDay'),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: MgColors.warnDark, fontWeight: FontWeight.w700)),

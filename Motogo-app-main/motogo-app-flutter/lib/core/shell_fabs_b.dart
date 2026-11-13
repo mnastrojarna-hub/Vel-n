@@ -130,7 +130,7 @@ class ShellDocsFab extends StatelessWidget {
       return MgStatusStrip(
         kind: MgStripKind.docs,
         title: t(context).tr('docsBlockingBtn'),
-        sub: t(context).tr('v2StripDocsNeeded'),
+        sub: t(context).tr('coStripDocsNeeded'),
         onTap: onTap,
         onDismiss: onDismiss,
         more: more,

@@ -42,7 +42,7 @@ Future<void> cancelPendingBookingFlow(BuildContext context, WidgetRef ref, Pendi
           ? showMgConfirm(
               context,
               title: t(context).tr('cancelReservationQ'),
-              body: t(context).tr('v2CancelPendingBody'),
+              body: t(context).tr('coCancelPendingBody'),
               safeLabel: t(context).tr('back'),
               actionLabel: t(context).tr('cancelReservationBtn'),
               destructive: true,
@@ -107,7 +107,7 @@ class ShellBookingFab extends ConsumerWidget {
         kind: MgStripKind.pay,
         // P2-04: says what is still to do — pay — and how much (the same
         // amount openPendingPayment charges); the old pill is unchanged.
-        title: t(context).tr('v2PayNowFab'),
+        title: t(context).tr('coPayNowFab'),
         sub: [
           if (booking.totalPrice > 0) Money.czk(booking.totalPrice),
           t(context).trArgs('v2StripTimeLeft', {'t': booking.timeLabel}),

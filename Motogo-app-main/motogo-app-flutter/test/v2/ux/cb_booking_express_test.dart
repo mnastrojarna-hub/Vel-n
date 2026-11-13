@@ -75,7 +75,7 @@ void main() {
     final dock = t.widget<BookingDockV2>(find.byType(BookingDockV2));
     expect(dock.blocker, _cs.tr('v2BkBlockConsent'));
     // J1 (clarity order): a locked CTA always offers "Ukázat proč" → the reason.
-    expect(dock.trailingLabel, _cs.tr('v2BkShowWhy'));
+    expect(dock.trailingLabel, _cs.tr('coBkShowWhy'));
     expect(dock.onTrailing, isNotNull);
     expect(find.text(_cs.tr('v2BkFix')), findsNothing);
     await _done(t);

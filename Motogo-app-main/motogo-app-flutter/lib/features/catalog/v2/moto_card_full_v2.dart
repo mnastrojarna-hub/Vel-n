@@ -249,7 +249,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                           // does not cover the bike (list / filter unchanged).
                           Consumer(
                             builder: (context, ref, _) => catLicenceFails(ref, m)
-                                ? _Tag('$lic · ${tr.tr('v2LicNotEnough')}', bad: true)
+                                ? _Tag('$lic · ${tr.tr('coLicNotEnough')}', bad: true)
                                 : _Tag(lic),
                           ),
                         // The old card's "{kW} KW" badge.

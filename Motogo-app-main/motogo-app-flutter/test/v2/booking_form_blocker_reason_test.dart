@@ -89,7 +89,7 @@ Future<void> _view(
   await t.pump(const Duration(milliseconds: 600));
 }
 
-Finder _showWhy() => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == _tr('v2BkShowWhy'));
+Finder _showWhy() => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == _tr('coBkShowWhy'));
 
 Future<void> _tapShowWhy(WidgetTester t) async {
   final f = find.descendant(of: find.byType(BookingDockV2), matching: _showWhy());
@@ -120,8 +120,8 @@ void main() {
   testWidgets('J1: licence → "Chybí vhodný řidičák" + "Ukázat proč" shows the reason', (t) async {
     await _view(t, err: licErr, errKind: BookingErrKind.licence);
     final dock = t.widget<BookingDockV2>(find.byType(BookingDockV2));
-    expect(dock.blocker, _tr('v2BkBlockLicence'));
-    expect(find.text(_tr('v2BkBlockLicence')), findsOneWidget);
+    expect(dock.blocker, _tr('coBkBlockLicence'));
+    expect(find.text(_tr('coBkBlockLicence')), findsOneWidget);
     expect(find.text(_tr('v2BkBlockError')), findsNothing);
     expect(t.widget<MgCta>(find.byType(MgCta).last).enabled, isFalse, reason: 'lock unchanged');
     expect(find.text(_tr('v2BkErrTitle')).hitTestable(), findsNothing, reason: 'reason is far below at first');
@@ -143,7 +143,7 @@ void main() {
 
   testWidgets('J1 / G-180..G-182: time → "Změň čas vyzvednutí", link scrolls to the time section', (t) async {
     await _view(t, err: 'Vyzvednutí musí být nejdříve za 1 hodinu.', errKind: BookingErrKind.time);
-    expect(find.text(_tr('v2BkBlockTime')), findsOneWidget);
+    expect(find.text(_tr('coBkBlockTime')), findsOneWidget);
     // Scroll away first so the scroll back is what brings it into view.
     await t.drag(find.byType(Scrollable).first, const Offset(0, -2400));
     await t.pump(const Duration(milliseconds: 400));
@@ -155,7 +155,7 @@ void main() {
 
   testWidgets('J1: dates kind → "Termín nejde – změň ho"', (t) async {
     await _view(t, err: 'Minimální délka pronájmu je 2 dny.', errKind: BookingErrKind.dates);
-    expect(find.text(_tr('v2BkBlockDatesBad')), findsOneWidget);
+    expect(find.text(_tr('coBkBlockDatesBad')), findsOneWidget);
     await _done(t);
   });
 
@@ -214,10 +214,10 @@ void main() {
     );
     await t.pump(const Duration(milliseconds: 400));
     expect(t.takeException(), isNull);
-    expect(find.text(_tr('v2BkListPrice')), findsOneWidget);
+    expect(find.text(_tr('coBkListPrice')), findsOneWidget);
     expect(find.text(_tr('totalForRental')), findsNothing);
     expect(find.textContaining('12'), findsWidgets);
-    expect(find.text(_tr('v2BkCalTakenHint')), findsOneWidget);
+    expect(find.text(_tr('coBkCalTakenHint')), findsOneWidget);
     await maybeShot(t, _shot, 'clarity_order__date_card__cs__360x780');
   });
 }

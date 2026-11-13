@@ -136,7 +136,7 @@ class RegisterStep2V2 extends StatelessWidget {
       _gap(),
       // J10: an example only (placeholder) — the value starts empty as before.
       _f(m, 'country', tr.tr('countryLabel'),
-          hints: const [AutofillHints.countryName], cap: TextCapitalization.words, placeholder: tr.tr('v2RegCountryHint')),
+          hints: const [AutofillHints.countryName], cap: TextCapitalization.words, placeholder: tr.tr('coRegCountryHint')),
     ]);
   }
 }
@@ -165,9 +165,9 @@ class RegisterStep3V2 extends StatelessWidget {
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // J10: spelled out, no abbreviations ("Č. OP / PASU", "ČÍSLO ŘP").
-      _f(m, 'idNum', tr.tr('v2RegIdNumber')),
+      _f(m, 'idNum', tr.tr('coRegIdNumber')),
       _gap(),
-      _f(m, 'licNum', tr.tr('v2RegDlNumber')),
+      _f(m, 'licNum', tr.tr('coRegDlNumber')),
       _gap(),
       _date(m, 'licExp', tr.tr('licenseExpiry'), y, y + 20),
       const SizedBox(height: 6),

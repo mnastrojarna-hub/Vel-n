@@ -115,7 +115,7 @@ class BookingDateCardV2 extends StatelessWidget {
               ),
               // J7: a struck-through day does nothing when tapped — say why.
               const SizedBox(height: 8),
-              Text(tr.tr('v2BkCalTakenHint'), style: MgType.small.copyWith(color: MgColors.meta)),
+              Text(tr.tr('coBkCalTakenHint'), style: MgType.small.copyWith(color: MgColors.meta)),
             ],
           ],
           if (hasDates) ...[
@@ -131,7 +131,7 @@ class BookingDateCardV2 extends StatelessWidget {
                 Expanded(
                   // J6: the list price before any discount — the final
                   // price is the dock's / the summary's (same amount here).
-                  child: Text(tr.tr('v2BkListPrice'),
+                  child: Text(tr.tr('coBkListPrice'),
                       style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
                 ),
                 MgBump(
