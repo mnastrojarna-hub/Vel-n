@@ -97,6 +97,12 @@ class _MgPageState extends ConsumerState<MgPage> {
   double _headerH = 0;
   double _heroH = 0;
 
+  /// Keeps the scroll view (and its position) when [MgPage.onRefresh]
+  /// switches on / off — the pull-to-refresh wrapper comes and goes above
+  /// it (e.g. Profil while the personal form is open), and without the key
+  /// the page would jump back to the top (K4-02).
+  final _scrollKey = GlobalKey(debugLabel: 'mg-page-scroll');
+
   ScrollController get _ctrl => widget.controller ?? (_own ??= ScrollController());
 
   @override
@@ -173,6 +179,7 @@ class _MgPageState extends ConsumerState<MgPage> {
       SliverToBoxAdapter(child: SizedBox(height: bottomPad < 0 ? 0 : bottomPad)),
     ];
     Widget scroll = CustomScrollView(
+      key: _scrollKey,
       controller: _ctrl,
       physics: widget.snap == null
           ? const AlwaysScrollableScrollPhysics()
