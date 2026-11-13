@@ -87,6 +87,10 @@ class SwapMotoViewV2 extends StatelessWidget {
           const SizedBox(height: 8),
           Text(rangeText, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead))),
           const SizedBox(height: 10),
+          // E3-03: this tab swaps from a day on (the whole-term change is "Změna motorky").
+          Text(tr.tr('jxSwapMidTitle'),
+              key: const ValueKey('swap-v2-mid-title'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+          const SizedBox(height: 6),
           Semantics(
             button: true,
             label: '${tr.tr('swap.pickDate')}, $dateText',
@@ -163,6 +167,7 @@ class SwapMotoViewV2 extends StatelessWidget {
                       onTap: free == true && !blocked ? () => onTapMoto(m, selected) : null,
                     );
                   }),
+                const EditLicenceHiddenNoteV2(),
               ]);
             },
             loading: () => const Column(children: [

@@ -1279,9 +1279,23 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   @override
   Widget build(BuildContext context) {
     if (_confirmed) {
+      // E3-02 (v2 only): a refund without a date change (e.g. a later pickup
+      // time with the late-pickup discount) is not a shortening — neutral
+      // title and lead line; the refund lines stay as they are.
+      var title = _confirmTitle;
+      var message = _confirmMessage;
+      final b = _booking;
+      if (MgV2.on(context) && b != null && title == t(context).tr('shorteningConfirmed') &&
+          _sameDay(_newStart ?? b.startDate, b.startDate) && _sameDay(_newEnd ?? b.endDate, b.endDate)) {
+        final shortened = t(context).tr('reservationShortened');
+        title = t(context).tr('jxChangeSavedTitle');
+        if (message.startsWith(shortened)) {
+          message = t(context).tr('jxChangeSavedLead') + message.substring(shortened.length);
+        }
+      }
       return EditConfirmPage(
-        title: _confirmTitle,
-        message: _confirmMessage,
+        title: title,
+        message: message,
         isRefund: _confirmIsRefund,
         pickup: _confirmPickup,
       );
@@ -1574,7 +1588,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ? StornoCalc.effectiveRefundPercent(_newStart ?? _booking!.startDate, _booking!)
             : null,
         missingSizes: !datesOrSwap ? _missingGearSizes() : const [],
-        saveLabel: _tab == 'swap' ? null : (payCharge != null ? t(context).tr('v2UxRpPayDiffCta') : saveLabel),
+        saveLabel: _tab == 'swap'
+            ? null
+            : (payCharge != null
+                ? t(context).tr('v2UxRpPayDiffCta')
+                // E3-06: removing days says what the button does.
+                : _tab == 'shorten' && calc.diffDays < 0
+                    ? t(context).tr('jxShortenCta')
+                    : saveLabel),
         savePrice: _tab == 'swap' || payCharge == null ? null : Money.czk(payCharge),
         saveContext: _tab == 'swap'
             ? null
@@ -1584,7 +1605,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                 : _tab == 'shorten' && calc.effectivePriceDiff < 0
                     ? t(context).trArgs('claRpRefundCtx',
                         {'amount': Money.czk(-calc.effectivePriceDiff), 'pct': '${calc.stornoPercent}'})
-                    : null,
+                    // E3-02: any other refund (e.g. late-pickup discount) is told before saving.
+                    : _tab != 'move' && _tab != 'shorten' && calc.effectivePriceDiff < 0
+                        ? t(context).trArgs('jxRefundCtx', {'amount': Money.czk(-calc.effectivePriceDiff)})
+                        : null,
         onSave: saveAction,
         saving: _saving,
         onBack: () => context.backOr(Routes.reservations),

@@ -17,7 +17,7 @@ import 'catalog_date_sheet_v2.dart' show catClearDates, catSetDates;
 /// The old search screen's date block INLINE and always open (owner
 /// 2026-11-07 "jen upgrade vzhledu"): VYZVEDNUTÍ / VRÁCENÍ tabs (a tap only
 /// switches the step line, as `DateTabsSection` did), the "1" step line
-/// (`searchSelectPickupDate` / `searchSelectReturnDate`), the single-day
+/// (informal texts, M3-14), the single-day
 /// hint and the SAME `AvailabilityCalendar` with the SAME writes to
 /// `catalogFilterProvider` (`_onRangeSelected` / `onReset`) — v2 look.
 class MotorkyDatesCardV2 extends ConsumerStatefulWidget {
@@ -38,7 +38,7 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
           child: Semantics(
             button: true,
             selected: on,
-            label: '$label ${d == null ? tr.tr('dateTabsSelectDate') : tripShortDate(tr, d)}',
+            label: '$label ${d == null ? tr.tr('efoSelectDate') : tripShortDate(tr, d)}',
             excludeSemantics: true,
             child: MgPress(
               onTap: onTap,
@@ -59,7 +59,7 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
                   MgWordFit(
                     minScale: 0.75,
                     child: Text(
-                      d == null ? tr.tr('dateTabsSelectDate') : tripShortDate(tr, d).replaceAll(' ', ' '),
+                      d == null ? tr.tr('efoSelectDate') : tripShortDate(tr, d).replaceAll(' ', ' '),
                       style: MgType.tab(MgType.title.copyWith(color: d == null ? MgColors.lead : MgColors.ink)),
                     ),
                   ),
@@ -93,13 +93,13 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                tr.tr(_pickingStart ? 'searchSelectPickupDate' : 'searchSelectReturnDate'),
+                tr.tr(_pickingStart ? 'efoCatPickStart' : 'efoCatPickEnd'),
                 style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink),
               ),
             ),
           ]),
           const SizedBox(height: 6),
-          Text(tr.tr('searchSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
+          Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
           const SizedBox(height: 8),
           AvailabilityCalendar(
             onRangeSelected: (s, e) {

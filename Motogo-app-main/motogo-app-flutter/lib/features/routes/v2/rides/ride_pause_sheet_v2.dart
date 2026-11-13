@@ -39,13 +39,15 @@ class RidePauseSheetBodyV2 extends ConsumerWidget {
       );
     }
     final ph = RecPhaseV2.of(tr, rec);
-    Future<void> stop() async {
-      final paused = ref.read(rideRecorderProvider).isPaused;
-      if (!await trasyConfirmStop(context, paused: paused) || !context.mounted) return;
-      final nav = Navigator.of(context);
-      await trasyStopNowV2(context, ref);
-      if (nav.mounted) nav.maybePop();
-    }
+    // RGA-02: under the shared lock, so resume / a second stop are ignored
+    // while the stop runs (the old sheet closed itself first).
+    Future<void> stop() => rideOnceV2(() async {
+          final paused = ref.read(rideRecorderProvider).isPaused;
+          if (!await trasyConfirmStop(context, paused: paused) || !context.mounted) return;
+          final nav = Navigator.of(context);
+          await trasyStopNowV2(context, ref);
+          if (nav.mounted) nav.maybePop();
+        });
 
     final buttons = <Widget>[
       if (rec.needsDecision) ...[

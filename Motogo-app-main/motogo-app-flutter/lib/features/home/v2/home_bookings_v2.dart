@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -52,13 +54,19 @@ class HomeBookingsV2 extends StatelessWidget {
       else
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _Row(
-            key: const ValueKey('home-no-booking'),
-            leading: const MgIconTileLight(MgIcons.moto),
-            title: tr.tr('homeNoActiveReservation'),
-            sub: tr.tr('homeBookMotorcycle'),
-            onTap: () => router?.go(Routes.search),
-          ),
+          // M3-10: an unpaid booking waiting in the pay strip is named here
+          // (same condition as the strip / Rezervace badge); same row + tap.
+          child: Consumer(builder: (context, ref, _) {
+            final pb = ref.watch(pendingBookingFabProvider).valueOrNull;
+            final unpaid = pb != null && !pb.isExpired && !pb.verifying;
+            return _Row(
+              key: const ValueKey('home-no-booking'),
+              leading: const MgIconTileLight(MgIcons.moto),
+              title: tr.tr('homeNoActiveReservation'),
+              sub: tr.tr(unpaid ? 'efoHomeUnpaidSub' : 'efoBookNow'),
+              onTap: () => router?.go(Routes.search),
+            );
+          }),
         ),
       if (active.any((r) => r.sosAllowed))
         Padding(

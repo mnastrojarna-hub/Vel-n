@@ -173,7 +173,9 @@ void main() {
       await _scrollTo(t, find.byKey(const ValueKey('res-docs-codes-banner')));
       expect(find.byKey(const ValueKey('res-docs-codes-banner')), findsOneWidget);
       await _scrollTo(t, find.byKey(const ValueKey('res-codes-when')));
-      expect(find.text(_t('claResCodesWhen')), findsOneWidget);
+      // P2-06: documents incomplete -> the line also says "after documents".
+      expect(find.text(_t('jxCodesAfterDocs')), findsOneWidget);
+      expect(find.text(_t('claResCodesWhen')), findsNothing);
     });
 
     for (final (name, r, docs) in [

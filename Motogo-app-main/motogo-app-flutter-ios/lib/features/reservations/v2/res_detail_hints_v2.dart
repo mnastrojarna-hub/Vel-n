@@ -100,13 +100,16 @@ class ResDocsCodesBannerV2 extends ConsumerWidget {
 }
 
 /// AFT-04: one muted line above the pickup steps — when the codes appear.
-class ResCodesWhenLineV2 extends StatelessWidget {
+/// P2-06: with the documents not complete (the same check as the banner
+/// above) it says the codes also wait for the documents.
+class ResCodesWhenLineV2 extends ConsumerWidget {
   final Reservation res;
   const ResCodesWhenLineV2({super.key, required this.res});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (!resBeforeTermSelfService(res)) return const SizedBox.shrink();
+    final complete = ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
     return Padding(
       key: const ValueKey('res-codes-when'),
       padding: const EdgeInsets.only(bottom: 8),
@@ -117,7 +120,7 @@ class ResCodesWhenLineV2 extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Expanded(
-          child: Text(t(context).tr('claResCodesWhen'), style: MgType.small.copyWith(color: MgColors.lead)),
+          child: Text(t(context).tr(complete ? 'claResCodesWhen' : 'jxCodesAfterDocs'), style: MgType.small.copyWith(color: MgColors.lead)),
         ),
       ]),
     );

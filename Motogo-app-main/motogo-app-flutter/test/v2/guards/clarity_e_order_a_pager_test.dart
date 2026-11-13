@@ -83,9 +83,16 @@ void main() {
       await t.pump(const Duration(milliseconds: 200));
     }
     final trip = t.getRect(find.byType(DetailTripCardV2));
-    if (_bandOpacity(t) > 0) {
-      expect(trip.top, greaterThanOrEqualTo(t.getRect(find.byKey(const ValueKey('detail-pager-band'))).bottom - 0.5));
-    }
+    // RD-06: assert the state that occurs — no silent branch.
+    final opacity = _bandOpacity(t);
+    final bandBottom = t.getRect(find.byKey(const ValueKey('detail-pager-band'))).bottom;
+    final controlsBottom = MediaQuery.paddingOf(t.element(find.byType(MotoDetailPagerV2View))).top + 12 + 46;
+    // The date step sits under the shown controls → the band is up (state
+    // asserted, so this step can fail), and the card starts below both it
+    // and the controls.
+    expect(opacity, 1, reason: 'controls over text after VYBRAT TERMÍN → solid band');
+    expect(trip.top, greaterThanOrEqualTo(bandBottom - 0.5), reason: 'date card below the band');
+    expect(trip.top, greaterThanOrEqualTo(controlsBottom - 0.5), reason: 'date card below the controls');
     await _shot(t, 'e_order_a__detail_pager_pick__cs__390x844');
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 3));

@@ -232,7 +232,9 @@ class _CtrlWatch extends StatefulWidget {
 }
 
 class _CtrlWatchState extends State<_CtrlWatch> {
-  late String _last = widget.controller.text;
+  // R3-04: read in initState — a lazy initializer would first run inside
+  // _on() after the change, so the first pick never cleared a stale error.
+  late String _last;
 
   void _on() {
     if (widget.controller.text == _last) return;
@@ -243,6 +245,16 @@ class _CtrlWatchState extends State<_CtrlWatch> {
   @override
   void initState() {
     super.initState();
+    _last = widget.controller.text;
+    widget.controller.addListener(_on);
+  }
+
+  @override
+  void didUpdateWidget(_CtrlWatch old) {
+    super.didUpdateWidget(old);
+    if (old.controller == widget.controller) return;
+    old.controller.removeListener(_on);
+    _last = widget.controller.text;
     widget.controller.addListener(_on);
   }
 

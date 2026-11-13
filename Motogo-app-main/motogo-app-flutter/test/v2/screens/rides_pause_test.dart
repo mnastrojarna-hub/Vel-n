@@ -224,6 +224,10 @@ void main() {
       await t.tap(find.text('Ukončit a uložit'));
       await _settle(t);
       expect(_rec(t).calls, ['pause', 'stop']);
+      // The stop now runs under the shared v2 record lock (RGA-01) until its
+      // result sheet closes — close it, so the next test starts unlocked.
+      Navigator.of(t.element(find.byType(HomeRecordRowV2)), rootNavigator: true).maybePop();
+      await _settle(t);
     });
 
     testWidgets('nav chip: hidden idle, REC / AUTO-PAUZA, tap → sheet → pause', (t) async {

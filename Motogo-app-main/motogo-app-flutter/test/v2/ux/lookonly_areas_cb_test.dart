@@ -47,7 +47,8 @@ void main() {
       await t.pump(const Duration(milliseconds: 800));
       // Inline, always open: the step line, the single-day hint, the calendar.
       expect(find.byType(MotorkyDatesCardV2), findsOneWidget);
-      expect(find.text(_cs('searchSingleDayHint')), findsOneWidget);
+      // M3-14: the same single-day hint, in the informal v2 text.
+      expect(find.text(_cs('v2BkSingleDayHint')), findsOneWidget);
       expect(find.descendant(of: find.byType(MotorkyDatesCardV2), matching: find.byType(AvailabilityCalendar)),
           findsOneWidget);
       // The shared filter panel inline (folded as before).

@@ -34,7 +34,8 @@ Future<void> showPromoSheetV2(
     barrierColor: MgColors.nightA(0.55),
     elevation: 0,
     sheetAnimationStyle: MgMotion.sheetStyle(context),
-    builder: (ctx) => StatefulBuilder(
+    // R3-01: back closes this sheet, not the booking form under it.
+    builder: (routeCtx) => mgSheetBack(routeCtx, StatefulBuilder(
       builder: (ctx, ss) {
         final tr = t(ctx);
         final busy = loading();
@@ -57,7 +58,7 @@ Future<void> showPromoSheetV2(
               textCapitalization: TextCapitalization.characters,
               onSubmitted: (_) => apply(ctx, ss),
               style: MgType.tab(MgType.body.copyWith(color: MgColors.ink, fontWeight: FontWeight.w800)),
-              decoration: mgInputDecoration(ctx, hint: tr.tr('enterCodeHint')),
+              decoration: mgInputDecoration(ctx, hint: tr.tr('efoPromoHint')),
             ),
             if (err != null) ...[
               const SizedBox(height: MgSpace.s12),
@@ -66,6 +67,6 @@ Future<void> showPromoSheetV2(
           ]),
         );
       },
-    ),
+    )),
   );
 }

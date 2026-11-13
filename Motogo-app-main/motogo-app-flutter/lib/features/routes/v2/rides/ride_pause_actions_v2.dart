@@ -122,6 +122,10 @@ bool _rideOpBusyV2 = false;
 /// True while a v2 record action runs.
 bool get rideOpBusyV2 => _rideOpBusyV2;
 
+/// Public form of the lock for v2 sheets (RGA-02: the pause sheet's
+/// stop keeps the sheet open, so resume / a second stop must wait).
+Future<void> rideOnceV2(Future<void> Function() op) => _rideOnceV2(op);
+
 Future<void> _rideOnceV2(Future<void> Function() op) async {
   if (_rideOpBusyV2) return;
   _rideOpBusyV2 = true;

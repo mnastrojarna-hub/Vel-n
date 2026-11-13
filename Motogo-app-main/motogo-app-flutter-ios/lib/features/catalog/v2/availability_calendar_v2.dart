@@ -122,7 +122,7 @@ class AvailabilityCalendarV2View extends StatelessWidget {
             ? (start == null
                 ? tr.tr('v2UxCbCalPickStart')
                 : (end != null && tripSameDay(start!, end!)
-                    ? tr.tr('calClickToReset')
+                    ? tr.tr('efoCalReset')
                     : tr.tr('v2CalTapToChange')))
             : tr.tr('v2UxCbCalPickEnd'));
     final crosses = _crossesBusy;

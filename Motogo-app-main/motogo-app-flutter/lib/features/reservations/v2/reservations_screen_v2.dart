@@ -15,6 +15,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
@@ -134,8 +135,14 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
           return swipeable(Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             // The old list: ANY empty result (all or filtered) = the same
-            // "Žádné rezervace" block with REZERVOVAT.
-            child: const _EmptyAll(),
+            // "Žádné rezervace" block with REZERVOVAT. A filter that hides
+            // existing bookings also offers "show all" (G-382) — the same
+            // filter change as the "Vše" tab.
+            child: _EmptyAll(
+              onShowAll: filter != 'all' && (src.valueOrNull?.isNotEmpty ?? false)
+                  ? () => _setFilter('all')
+                  : null,
+            ),
           ));
         }
         // Jen jedna karta s tmavým pruhem a rank CTA (ta, která čeká na akci).
@@ -235,7 +242,9 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
 /// old screen showed one block for both): the dark rank block with the old
 /// texts and the looping REZERVOVAT (→ Motorky, same target).
 class _EmptyAll extends StatelessWidget {
-  const _EmptyAll();
+  /// Set when only the chosen filter is empty (other bookings exist).
+  final VoidCallback? onShowAll;
+  const _EmptyAll({this.onShowAll});
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +268,10 @@ class _EmptyAll extends StatelessWidget {
         const SizedBox(height: 8),
         Text(tr.tr('noReservationsDesc'),
             textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.onDarkLead)),
+        if (onShowAll != null) ...[
+          const SizedBox(height: 4),
+          MgBtnText(key: const ValueKey('ea-show-all'), label: tr.tr('eaShowAllRes'), dark: true, onTap: onShowAll),
+        ],
         const SizedBox(height: 20),
         MgCta(label: tr.tr('noResBookCta'), onTap: () => context.go(Routes.search), loop: true, arrow: true),
       ]),

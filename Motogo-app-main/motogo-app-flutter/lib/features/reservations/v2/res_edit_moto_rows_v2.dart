@@ -16,7 +16,7 @@ enum EditMotoStatus { none, free, busy, loading, trailer }
 
 /// A bike in the edit "Jiná motorka" / "Výměna motorky" lists in the v2
 /// look (catalog calc rows): photo 72×56, name 15/800, licence · price per
-/// day, and the old row's state on the right (✓ free / "Obsazeno" pill /
+/// day, and the old row's state on the right ("Volno" pill / "Obsazeno" pill /
 /// "Vozík jen na obslužné" / spinner). Selected = the MgChoiceCard style.
 /// [onTap] null = not selectable (as the old row).
 class EditMotoRowV2 extends StatelessWidget {
@@ -65,7 +65,18 @@ class EditMotoRowV2 extends StatelessWidget {
               decoration: const BoxDecoration(color: MgColors.ink, shape: BoxShape.circle),
               child: const Center(child: MgIcon(MgIcons.check, size: 15, color: MgColors.onDark, stroke: 2.6)),
             )
-          : const MgIcon(MgIcons.checkCircle, size: 20, color: MgColors.link),
+          // E3-05: a free bike says "Volno" (a tick read as "already chosen").
+          : Container(
+              key: const ValueKey('edit-moto-free-pill'),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: MgColors.tintOk,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: MgColors.tintOkBorder),
+              ),
+              child: Text(tr.tr('jxBikeFree'),
+                  style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onTintOk)),
+            ),
       EditMotoStatus.none => null,
     };
     return Padding(
@@ -113,6 +124,19 @@ class EditMotoRowV2 extends StatelessWidget {
       ),
     );
   }
+}
+
+/// E3-04: one grey line under the bike lists — the licence filter (same as
+/// the old look, unchanged) hides bikes the customer may not ride.
+class EditLicenceHiddenNoteV2 extends StatelessWidget {
+  const EditLicenceHiddenNoteV2({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        key: const ValueKey('edit-licence-hidden-note'),
+        padding: const EdgeInsets.only(top: 2),
+        child: Text(t(context).tr('jxLicenceHiddenNote'), style: MgType.small.copyWith(color: MgColors.meta)),
+      );
 }
 
 /// v2 look of `EditBranchFilter`: the same choice (all branches / one

@@ -9,7 +9,6 @@ import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../booking/booking_quote.dart';
 import '../../../loyalty/loyalty_provider.dart';
 import '../../moto_model.dart';
-import '../../widgets/validation_banner.dart' show bookingRangeErrors;
 import '../catalog_text.dart';
 import 'detail_dock_v2.dart';
 import 'detail_hero_v2.dart';
@@ -195,7 +194,7 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
           // is said in the dock too — same check, same text as later.
           final lic = w.hasDates ? null : catLicenceError(ref, moto, lang: t(context).lang);
           final errs = w.hasDates
-              ? bookingRangeErrors(context, ref, moto, w.selStart!, w.selEnd!)
+              ? catRangeErrorsV2(context, ref, moto, w.selStart!, w.selEnd!)
               : [if (lic != null) lic];
           return DetailDockV2(
             selStart: w.selStart,

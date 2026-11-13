@@ -41,16 +41,37 @@ Future<T?> showMgSheet<T>(
     sheetAnimationStyle: MgMotion.sheetStyle(context),
     // A title-less sheet's body is built right here (the route's context),
     // so the frame can see a T2 body and put its ✕ on the disc row.
-    builder: (ctx) => MgSheetFrame(
-      title: title,
-      light: light,
-      footer: footer,
-      maxHeightFactor: maxHeightFactor,
-      onClose: onClose,
-      padding: padding,
-      child: title == null ? builder(ctx) : Builder(builder: builder),
-    ),
+    builder: (ctx) {
+      final frame = MgSheetFrame(
+        title: title,
+        light: light,
+        footer: footer,
+        maxHeightFactor: maxHeightFactor,
+        onClose: onClose,
+        padding: padding,
+        child: title == null ? builder(ctx) : Builder(builder: builder),
+      );
+      return mgSheetBack(ctx, frame);
+    },
   );
+}
+
+/// R3-01: Android back closes the topmost root route (this sheet, or a
+/// dialog over it) like the old look's sheets — not the shell page below
+/// (go_router would pop the shell's navigator first). [ctx] = the sheet
+/// route's context. Without a Router (no app back dispatcher) unchanged.
+Widget mgSheetBack(BuildContext ctx, Widget child) {
+  if (Router.maybeOf(ctx) == null) return child;
+  return BackButtonListener(onBackButtonPressed: () => _sheetBack(ctx), child: child);
+}
+
+/// `maybePop` keeps a `PopScope` inside the sheet in charge; a sheet already
+/// on its way out swallows the press (no second pop of the page below).
+Future<bool> _sheetBack(BuildContext ctx) async {
+  final route = ModalRoute.of(ctx);
+  if (route != null && !route.isActive) return true;
+  await Navigator.of(ctx).maybePop();
+  return true;
 }
 
 /// A sheet body that starts with a 56 px tone disc on the left (the T2

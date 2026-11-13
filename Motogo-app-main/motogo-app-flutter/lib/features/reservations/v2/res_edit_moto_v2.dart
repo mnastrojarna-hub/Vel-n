@@ -71,7 +71,13 @@ class EditMotoChangeViewV2 extends StatelessWidget {
               child: Row(children: [
                 const MgIcon(MgIcons.swap, size: 18, color: MgColors.link),
                 const SizedBox(width: 8),
-                Expanded(child: MgWordFit(child: Text(tr.tr('motoChange'), style: MgType.title.copyWith(color: MgColors.ink)))),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    MgWordFit(child: Text(tr.tr('motoChange'), style: MgType.title.copyWith(color: MgColors.ink))),
+                    // E3-03: this one changes the bike for the whole term.
+                    Text(tr.tr('jxMotoWholeSub'), style: MgType.small.copyWith(color: MgColors.meta)),
+                  ]),
+                ),
                 if (expanded && availLoading)
                   const Padding(
                     padding: EdgeInsetsDirectional.only(end: 8),
@@ -113,7 +119,7 @@ class EditMotoChangeViewV2 extends StatelessWidget {
           ]),
         if (expanded) ...[
           const SizedBox(height: 14),
-          Text(tr.tr('selectNewMoto'), style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
+          Text(tr.tr('jxPickNewMoto'), style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.lead)),
           const SizedBox(height: 8),
           branchFilter,
           motos.when(
@@ -139,6 +145,7 @@ class EditMotoChangeViewV2 extends StatelessWidget {
                     onTap: free == true && !blocked ? () => onTapMoto(m, selected) : null,
                   );
                 }),
+              const EditLicenceHiddenNoteV2(),
             ]),
             loading: () => const Column(children: [
               MgSkeletonRow(thumb: 56, lines: 2),

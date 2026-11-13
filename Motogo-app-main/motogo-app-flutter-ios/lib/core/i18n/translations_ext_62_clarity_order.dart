@@ -8,7 +8,7 @@ const Map<String, Map<String, String>> translationsExt62ClarityOrder = {
     'coBkBlockDatesBad': 'Termín nejde – změň ho',
     'coBkBlockTime': 'Změň čas vyzvednutí',
     'coBkShowWhy': 'Ukázat proč',
-    'coLicNotEnough': 'tvůj ŘP nestačí',
+    'coLicNotEnough': 'tvůj řidičák nestačí',
     'coBkListPrice': 'Cena dle ceníku (před slevou)',
     'coBkCalTakenHint': 'Přeškrtnuté dny jsou obsazené – vyber jiné',
     'coRegIdNumber': 'Číslo občanky nebo pasu',

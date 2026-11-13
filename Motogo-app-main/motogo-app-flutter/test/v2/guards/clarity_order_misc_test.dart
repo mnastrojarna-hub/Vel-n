@@ -157,7 +157,11 @@ void main() {
     await pumpV2(t, _docs(st(gate())), size: const Size(412, 3000), boundaryKey: _shot);
     await t.pump(const Duration(milliseconds: 50));
     final b = t.widget<MgStateBanner>(find.byKey(const ValueKey('docs-required-banner')));
-    expect([b.tone, b.title, b.dark], [MgTone.warn, _cs.tr('v2DocsRequiredInfo'), true]);
+    // R3-07: the dark card and the amber card no longer contradict.
+    expect([b.tone, b.title, b.dark], [MgTone.warn, _cs.tr('efoDocsNeedBoth'), true]);
+    expect(find.textContaining(_cs.tr('efoDocsNotVerified')), findsOneWidget);
+    expect(find.textContaining('K rezervaci motorky potřebuješ'), findsNothing);
+    expect(find.textContaining(_cs.tr('docsNotVerifiedDesc')), findsNothing);
     await maybeShot(t, _shot, 'clarity_order__docs_required__cs__412x3000');
     await pumpV2(t, _docs(st(gate(idF: true, idB: true, dlF: true, dlB: true), id: true, dl: true)), size: const Size(412, 3000));
     await t.pump(const Duration(milliseconds: 50));

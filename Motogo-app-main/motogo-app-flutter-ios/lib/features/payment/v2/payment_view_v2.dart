@@ -4,6 +4,9 @@ import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_day_state.dart' show tripDate;
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/icons/mg_icons.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
+import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../booking/booking_models.dart';
@@ -141,6 +144,16 @@ class PaymentViewV2 extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(MgSpace.gutter, _isNew && m != null ? MgSpace.s12 : 0, MgSpace.gutter, 0),
         child: RepaintBoundary(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            // E3-08: an edit surcharge — the change applies only once paid.
+            if (c?.flowType == PaymentFlowType.extension) ...[
+              MgStateBanner(
+                key: const ValueKey('pay-surcharge-after'),
+                tone: MgTone.info,
+                icon: MgIcons.info,
+                title: tr.tr('efoSurchargeAfterPay'),
+              ),
+              const SizedBox(height: MgSpace.s12),
+            ],
             if (!_isNew)
               PayReceiptV2(
                 label: c!.label,

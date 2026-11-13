@@ -46,7 +46,7 @@ class BookingFormReturnSection extends ConsumerWidget {
     void toDelivery() => handoverToDelivery(ref, onUpd, draft, pickup: false);
     void openAddress() => showAddrBottomSheet(
         context,
-        t(context).tr('returnAddressLabel'),
+        t(context).tr(MgV2.on(context) ? 'efoCollectAddrTitle' : 'returnAddressLabel'),
         draft.returnCity,
         draft.returnAddress,
         (city, addr) => handoverSaveAddress(ref, onUpd, draft, pickup: false, city: city, addr: addr),

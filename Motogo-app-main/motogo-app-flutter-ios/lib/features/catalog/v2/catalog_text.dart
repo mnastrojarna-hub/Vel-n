@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart' show BuildContext;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/currency.dart';
@@ -8,6 +9,7 @@ import '../../auth/auth_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
+import '../widgets/validation_banner.dart' show bookingRangeErrors;
 
 /// Presentation helpers of the v2 catalog (labels only — no logic of their
 /// own; every rule is the one the old cards / filter already used).
@@ -120,4 +122,16 @@ String? catLicenceError(WidgetRef ref, Motorcycle m, {String lang = 'cs'}) {
         if (g != null) g.toString(),
   ];
   return BookingValidator.checkLicense(userLicenseGroups: groups, motoLicenseGroups: m.licenseGroupsOrFallback, lang: lang);
+}
+
+/// RD-02: [bookingRangeErrors] for the v2 Home funnel and detail dock. While
+/// the profile is still loading or failed to load (null) the licence line is
+/// left out, as [catLicenceError] does; overlap and length errors stay. The
+/// booking form keeps its own hard checks.
+List<String> catRangeErrorsV2(BuildContext context, WidgetRef ref, Motorcycle m, DateTime start, DateTime end) {
+  final errs = bookingRangeErrors(context, ref, m, start, end);
+  if (ref.watch(profileProvider).valueOrNull != null) return errs;
+  final noLicence = BookingValidator.checkLicense(
+      userLicenseGroups: const [], motoLicenseGroups: m.licenseGroupsOrFallback, lang: t(context).lang);
+  return [for (final e in errs) if (e != noLicence) e];
 }

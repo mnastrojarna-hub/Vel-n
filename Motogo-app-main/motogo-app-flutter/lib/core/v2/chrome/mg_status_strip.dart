@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../i18n/i18n_provider.dart';
@@ -70,6 +72,36 @@ class MgStatusStrip extends StatelessWidget {
           ? chip
           : MgPress(scale: 0.92, onTap: onMore, child: SizedBox(height: 44, child: Center(child: chip))),
     );
+  }
+
+  static final _titleStyle = MgType.body.copyWith(fontWeight: FontWeight.w800, height: 1.25);
+  static final _subStyle = MgType.tab(MgType.small.copyWith(height: 1.25));
+  static final _cancelStyle = MgType.small.copyWith(fontSize: 12, fontWeight: FontWeight.w800);
+
+  /// RD-01: true when, with the worded "Zrušit" pill, the title / subtitle
+  /// column would be narrower than [kMgStripMinText] or its longest word.
+  bool _compactCancel(BuildContext context, double width) {
+    final scaler = MediaQuery.textScalerOf(context);
+    if (scaler.scale(1) > 1.15) return true;
+    // The app font comes from the theme / DefaultTextStyle, as for the Text.
+    final base = DefaultTextStyle.of(context).style;
+    double w(String s, TextStyle st) {
+      final p = TextPainter(
+          text: TextSpan(text: s, style: base.merge(st)), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)
+        ..layout();
+      final r = p.width;
+      p.dispose();
+      return r;
+    }
+
+    double word(String s, TextStyle st) => s.split(RegExp(r'[ \n]')).fold(0.0, (m, x) => math.max(m, w(x, st)));
+    // Pill: border 3 + padding 20 + icon 16 + gap 4 + word + margin 6.
+    final pill = math.max(44.0, 49 + w(t(context).tr('coStripCancel'), _cancelStyle));
+    // Main row: padding 12 + disc 36 + gap 12 + chevron 20 (+ "+N" chip).
+    final column = width - pill - 80 - (more > 0 ? 52 : 0);
+    final sub = this.sub;
+    final need = math.max(kMgStripMinText, math.max(word(title, _titleStyle), sub == null ? 0.0 : word(sub, _subStyle)));
+    return column < need;
   }
 
   @override
@@ -151,58 +183,76 @@ class MgStatusStrip extends StatelessWidget {
             : Border.all(color: MgColors.neonA(0.3)),
         boxShadow: [BoxShadow(color: MgColors.black(0.28), blurRadius: 18, spreadRadius: -6, offset: const Offset(0, 8))],
       ),
-      child: Row(children: [
-        Expanded(child: main),
-        if (onDismiss != null)
-          Semantics(
-            button: true,
-            label: dismissLabel ?? t(context).tr('close'),
-            excludeSemantics: true,
-            onTap: onDismiss,
-            child: MgPress(
-              scale: 0.92,
+      // RD-01: when the pill's word would squeeze the title / amount (narrow
+      // phone, long language) or the text is large, the destructive pill
+      // drops its word (icon only, same border, tap target, label, action).
+      child: LayoutBuilder(builder: (context, box) {
+        final compact = dismissDestructive && _compactCancel(context, box.maxWidth);
+        return Row(children: [
+          Expanded(child: main),
+          if (onDismiss != null)
+            Semantics(
+              button: true,
+              label: dismissLabel ?? t(context).tr('close'),
+              excludeSemantics: true,
               onTap: onDismiss,
-              child: dismissDestructive
-                  ? ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                      child: Center(
-                        widthFactor: 1,
-                        child: Container(
-                          height: 32,
-                          margin: const EdgeInsetsDirectional.only(end: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          // P2-04: outlined, so it no longer outweighs the
-                          // pay action next to it (still red = destroys).
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: MgColors.errDark, width: 1.5),
+              child: MgPress(
+                scale: 0.92,
+                onTap: onDismiss,
+                child: dismissDestructive
+                    ? ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        child: Center(
+                          widthFactor: 1,
+                          child: Container(
+                            key: ValueKey(compact ? 'mg-strip-cancel-icon' : 'mg-strip-cancel-text'),
+                            height: 32,
+                            constraints: const BoxConstraints(minWidth: 32),
+                            margin: const EdgeInsetsDirectional.only(end: 6),
+                            padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 10),
+                            // P2-04: outlined, so it no longer outweighs the
+                            // pay action next to it (still red = destroys).
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: MgColors.errDark, width: 1.5),
+                            ),
+                            child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const MgIcon(MgIcons.trash, size: 16, color: MgColors.errDark),
+                                  if (!compact) ...[
+                                    const SizedBox(width: 4),
+                                    Text(t(context).tr('coStripCancel'),
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        style: MgType.small.copyWith(
+                                            fontSize: 12, fontWeight: FontWeight.w800, color: MgColors.errDark)),
+                                  ],
+                                ]),
                           ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            const MgIcon(MgIcons.trash, size: 16, color: MgColors.errDark),
-                            const SizedBox(width: 4),
-                            Text(t(context).tr('coStripCancel'),
-                                maxLines: 1,
-                                softWrap: false,
-                                style: MgType.small.copyWith(fontSize: 12, fontWeight: FontWeight.w800, color: MgColors.errDark)),
-                          ]),
+                        ),
+                      )
+                    : SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(color: MgColors.white(0.10), shape: BoxShape.circle),
+                            child: const Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.onDark)),
+                          ),
                         ),
                       ),
-                    )
-                  : SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: Center(
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(color: MgColors.white(0.10), shape: BoxShape.circle),
-                          child: const Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.onDark)),
-                        ),
-                      ),
-                    ),
+              ),
             ),
-          ),
-      ]),
+        ]);
+      }),
     );
   }
 }
+
+/// RD-01: the title / amount column keeps at least this width beside a
+/// worded destructive pill; below it the pill shows only its icon.
+const double kMgStripMinText = 120;

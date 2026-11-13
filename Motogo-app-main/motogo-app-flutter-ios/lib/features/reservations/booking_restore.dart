@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/router.dart';
 import '../../core/supabase_client.dart';
+import '../../core/v2/flag/v2_scope.dart';
 import '../payment/net_error.dart';
 import '../payment/payment_provider.dart';
 import '../payment/payment_ui_helpers.dart' show signInAgain;
@@ -176,6 +177,15 @@ String restoreRefusalText(AppTranslations tr, RestoreRefused e) {
   return tr.tr(key).replaceAll('{code}', e.discountCode ?? '');
 }
 
+/// Nadpis odmítnutí `moto_unavailable`. v2 (G-473): nadpis nesmí tvrdit
+/// „motorka obsazená", když je důvodem vlastní jiná rezervace, zavřená
+/// pobočka nebo vozík — pak obecné „Nelze obnovit" (konkrétní důvod zůstává
+/// v textu). Starý vzhled beze změny.
+String restoreOccupiedTitle(AppTranslations tr, RestoreRefused e, {required bool v2}) {
+  final otherReason = e.reason == 'own_overlap' || e.reason == 'branch_closed' || e.reason == 'trailer';
+  return v2 && otherReason ? tr.tr('cannotRestore') : tr.tr('motoOccupiedTitle');
+}
+
 void _showRefusal(BuildContext context, WidgetRef ref, Reservation res, RestoreRefused e) {
   final tr = t(context);
   final motoRoute = res.motoId != null ? '/moto/${res.motoId}' : Routes.search;
@@ -201,7 +211,7 @@ void _showRefusal(BuildContext context, WidgetRef ref, Reservation res, RestoreR
         context.go('/reservations/${res.id}');
       };
     case 'moto_unavailable':
-      title = tr.tr('motoOccupiedTitle');
+      title = restoreOccupiedTitle(tr, e, v2: MgV2.peek(context));
       label = tr.tr('psChangeDates');
       onTap = () => context.go(motoRoute);
       second = tr.tr('psOtherMoto');

@@ -132,6 +132,8 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   final _warnKey = GlobalKey();
   final _timeKey = GlobalKey();
   final _sizesKey = GlobalKey();
+  final _pickupKey = GlobalKey();
+  final _returnKey = GlobalKey();
 
   void _scrollTo(GlobalKey key) {
     final c = key.currentContext;
@@ -212,6 +214,17 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     final d = w.draft;
     final blocker = _blocker(tr);
     final booked = w.booked;
+    // R3-03: delivery chosen but no address yet — a hint in the dock (no
+    // lock: canProceed, prices and the server guard stay as they are).
+    bool noAddr(String method, String? addr, String? city) =>
+        method == 'delivery' && ((addr ?? '').trim().isEmpty || (city ?? '').trim().isEmpty);
+    final noAddrKey = !w.canProceed
+        ? null
+        : noAddr(d.pickupMethod, d.pickupAddress, d.pickupCity)
+            ? _pickupKey
+            : noAddr(d.returnMethod, d.returnAddress, d.returnCity)
+                ? _returnKey
+                : null;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     var i = 0;
     Widget reveal(Widget child) => MgReveal(index: i++, sessionKey: 'booking-form', child: child);
@@ -260,8 +273,14 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
             ),
         ]),
       ),
-      BookingFormPickupSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
-      BookingFormReturnSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
+      KeyedSubtree(
+        key: _pickupKey,
+        child: BookingFormPickupSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
+      ),
+      KeyedSubtree(
+        key: _returnKey,
+        child: BookingFormReturnSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
+      ),
       KeyedSubtree(
         key: _sizesKey,
         child: BookingFormExtrasSection(
@@ -335,11 +354,19 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
           : BookingDockV2(
               canProceed: w.canProceed,
               blocker: blocker,
-              context2: w.hasDates ? [tr.tr('v2YourPrice'), bkDays(tr, w.dayCount)].join(' · ') : null,
+              context2: noAddrKey != null
+                  ? tr.tr(noAddrKey == _pickupKey ? 'efoNoAddrCtx' : 'efoNoRetAddrCtx')
+                  : w.hasDates
+                      ? [tr.tr('v2YourPrice'), bkDays(tr, w.dayCount)].join(' · ')
+                      : null,
               price: w.hasDates ? bkNb(bkMoney(w.bd.total)) : null,
               onProceed: w.onProceed,
-              onTrailing: blocker == null ? null : () => _scrollTo(_blockerTarget()),
-              trailingLabel: blocker == null ? null : tr.tr('coBkShowWhy'),
+              onTrailing: blocker != null
+                  ? () => _scrollTo(_blockerTarget())
+                  : noAddrKey != null
+                      ? () => _scrollTo(noAddrKey)
+                      : null,
+              trailingLabel: blocker != null || noAddrKey != null ? tr.tr('coBkShowWhy') : null,
             ),
     );
   }

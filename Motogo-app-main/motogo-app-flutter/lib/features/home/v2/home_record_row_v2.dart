@@ -8,7 +8,6 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
-import '../../routes/ride_actions.dart';
 import '../../routes/ride_recorder.dart';
 import '../../routes/v2/rides/rec_live_bar_v2.dart' show recBarLineV2;
 import '../../routes/v2/rides/rec_widgets_v2.dart';
@@ -39,10 +38,9 @@ class HomeRecordRowV2 extends ConsumerWidget {
     final ph = RecPhaseV2.of(tr, rec);
     final riding = live && ph.tone == RecToneV2.rec;
 
-    Future<void> stop() async {
-      final ok = await trasyConfirmStop(context, paused: rec.isPaused);
-      if (ok && context.mounted) await toggleManualRide(context, ref, running: true);
-    }
+    // RGA-01: the same confirm + stop under the v2 record lock (the pause
+    // disc and a second Stop wait while it runs, as in the old card).
+    Future<void> stop() => trasyConfirmStopRide(context, ref);
 
     final title = !live
         ? tr.tr('v2HomeRecTitle')

@@ -38,7 +38,7 @@ Future<ProviderContainer> _pumpRouted(WidgetTester tester, List<Override> overri
   final router = GoRouter(initialLocation: '/booking', routes: [
     GoRoute(path: '/booking', builder: (_, __) => const Scaffold(body: BookingDebugWrapper())),
     GoRoute(path: '/payment', builder: (_, __) => stub('PAYMENT')),
-    GoRoute(path: '/profile', builder: (_, __) => stub('PROFILE')),
+    GoRoute(path: '/profile', builder: (_, s) => stub(s.uri.query.isEmpty ? 'PROFILE' : 'PROFILE ?${s.uri.query}')),
     GoRoute(path: '/search', builder: (_, __) => stub('SEARCH')),
     GoRoute(path: '/moto/:id', builder: (_, s) => stub('MOTO ${s.pathParameters['id']}')),
   ]);
@@ -191,14 +191,14 @@ void main() {
     expect(c.read(bookingDraftProvider).notes, 'Přijedu autem');
   });
 
-  testWidgets('incomplete profile → "Doplnit v profilu" pushes /profile', (t) async {
+  testWidgets('incomplete profile → "Doplnit v profilu" pushes /profile?edit=personal (R3-02 guidance)', (t) async {
     await _pumpRouted(
         t,
         bookingOverrides(
             moto: kBmw, draft: bookingDraft(kBmw), profile: const {'license_group': ['A'], 'street': '', 'city': '', 'zip': ''}));
     expect(t.widget<MgCta>(find.byType(MgCta)).enabled, isFalse);
     await _tap(t, find.text('Doplnit v profilu'));
-    expect(find.text('PROFILE'), findsOneWidget);
+    expect(find.text('PROFILE ?edit=personal'), findsOneWidget);
   });
 
   testWidgets('back without history → bike detail (old target)', (t) async {

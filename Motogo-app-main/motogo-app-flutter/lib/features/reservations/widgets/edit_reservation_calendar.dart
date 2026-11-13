@@ -305,6 +305,7 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
         onDayTap: _onDayTap,
         onPrevMonth: _prevMonth,
         onNextMonth: _nextMonth,
+        isActive: widget.isActive,
       );
     }
     final daysInMonth = DateTime(_year, _month + 1, 0).day;

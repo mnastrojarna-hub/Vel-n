@@ -71,6 +71,8 @@ class SosTheftViewV2 extends StatelessWidget {
           onChanged: onSecured,
           a: (true, MgIcons.shield, tr.tr('theftYesSecured'), tr.tr('theftSecuredDesc')),
           b: (false, MgIcons.shieldX, tr.tr('theftNoUnsecured'), tr.tr('theftUnsecuredDesc')),
+          // Unanswered: the same words as the refusal toast (G-697).
+          hint: tr.tr('theftSelectSecured'),
         ),
         if (submitting)
           const SosBusyButtonV2(red: true)

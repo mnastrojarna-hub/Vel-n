@@ -44,7 +44,7 @@ class HomeHeaderV2 extends ConsumerWidget {
     final hasBanner = banner != null && banner.enabled && banner.text.trim().isNotEmpty;
     final router = GoRouter.maybeOf(context);
     final pilot = '${tr.tr('homePilotLabel')}$nick';
-    final search = tr.tr('homeSearchPlaceholder').replaceAll('\n', ' ');
+    final search = tr.tr('efoHomeSearch').replaceAll('\n', ' ');
 
     return MgRankHero(
       rank: rank,

@@ -102,7 +102,16 @@ class ResPickupTimeV2 extends StatelessWidget {
             alignment: Alignment.center,
             child: Text('½', style: MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon)),
           ),
-          Expanded(child: Text(tr.tr('ssPickupHint'), style: MgType.small.copyWith(color: MgColors.body2))),
+          // E3-10: the rule as a bold headline + the rest in the "ty" voice
+          // (same content as ssPickupHint, which the old look keeps).
+          Expanded(
+            key: const ValueKey('res-edit-late-hint'),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr.tr('jxLateHead'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+              const SizedBox(height: 2),
+              Text(tr.tr('jxLateBody'), style: MgType.small.copyWith(color: MgColors.body2)),
+            ]),
+          ),
         ]),
       ],
     ]);

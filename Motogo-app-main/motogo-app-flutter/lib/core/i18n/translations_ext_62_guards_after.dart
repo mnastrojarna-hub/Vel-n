@@ -5,7 +5,7 @@
 const Map<String, Map<String, String>> translationsExt62GuardsAfter = {
   'cs': {
     'gdaProcGateWarn': 'Pozor na bránu a klíč – přečti si postup',
-    'gdaRecDecide': 'Pokračuješ, nebo ukončit a uložit?',
+    'gdaRecDecide': 'Jedeš dál, nebo jízdu ukončíš a uložíš?',
   },
   'en': {
     'gdaProcGateWarn': 'Mind the gate and the key – read the steps',
@@ -17,22 +17,22 @@ const Map<String, Map<String, String>> translationsExt62GuardsAfter = {
   },
   'es': {
     'gdaProcGateWarn': 'Ojo con la puerta y la llave: lee los pasos',
-    'gdaRecDecide': '¿Sigues, o terminar y guardar?',
+    'gdaRecDecide': '¿Sigues o la terminas y la guardas?',
   },
   'fr': {
     'gdaProcGateWarn': 'Attention au portail et à la clé : lis les étapes',
-    'gdaRecDecide': 'Tu continues, ou terminer et enregistrer ?',
+    'gdaRecDecide': 'Tu continues, ou tu termines et enregistres ?',
   },
   'nl': {
     'gdaProcGateWarn': 'Let op de poort en de sleutel – lees de stappen',
-    'gdaRecDecide': 'Ga je door, of beëindigen en opslaan?',
+    'gdaRecDecide': 'Ga je door, of beëindig je en sla je op?',
   },
   'pl': {
     'gdaProcGateWarn': 'Uwaga na bramę i klucz – przeczytaj kroki',
-    'gdaRecDecide': 'Jedziesz dalej, czy zakończyć i zapisać?',
+    'gdaRecDecide': 'Jedziesz dalej, czy kończysz i zapisujesz?',
   },
   'uk': {
     'gdaProcGateWarn': 'Увага на ворота й ключ – прочитай кроки',
-    'gdaRecDecide': 'Їдеш далі чи завершити й зберегти?',
+    'gdaRecDecide': 'Їдеш далі чи завершуєш і зберігаєш?',
   },
 };

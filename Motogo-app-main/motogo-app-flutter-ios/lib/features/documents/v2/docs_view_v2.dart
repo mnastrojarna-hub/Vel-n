@@ -81,7 +81,7 @@ class DocsViewV2 extends StatelessWidget {
                 tone: MgTone.warn,
                 dark: true,
                 icon: MgIcons.idCard,
-                title: tr.tr('v2DocsRequiredInfo'),
+                title: tr.tr('efoDocsNeedBoth'),
               ),
               const SizedBox(height: 12),
             ],
@@ -151,7 +151,7 @@ class DocsViewV2 extends StatelessWidget {
             tone: MgTone.warn,
             title: tr.tr('docsNotVerified'),
             text: [
-              tr.tr('docsNotVerifiedDesc'),
+              tr.tr('efoDocsNotVerified'),
               if (missing.isNotEmpty) '${tr.tr('missing')}: ${missing.join(', ')}',
             ].join('\n'),
           ),

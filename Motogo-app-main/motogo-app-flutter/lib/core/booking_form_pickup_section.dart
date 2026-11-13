@@ -46,7 +46,7 @@ class BookingFormPickupSection extends ConsumerWidget {
     void toDelivery() => handoverToDelivery(ref, onUpd, draft, pickup: true);
     void openAddress() => showAddrBottomSheet(
         context,
-        t(context).tr('pickupAddressLabel'),
+        t(context).tr(MgV2.on(context) ? 'efoDelivAddrTitle' : 'pickupAddressLabel'),
         draft.pickupCity,
         draft.pickupAddress,
         (city, addr) => handoverSaveAddress(ref, onUpd, draft, pickup: true, city: city, addr: addr),

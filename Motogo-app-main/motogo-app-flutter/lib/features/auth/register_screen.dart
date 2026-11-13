@@ -265,7 +265,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final digits = phone.replaceAll(RegExp(r'[\s\-()]'), '');
     if (!RegExp(r'^\+\d{8,14}$').hasMatch(digits)) {
       return _invalid('phone', t(context).tr('phone'),
-          t(context).tr('validPhoneMsg'), 'v2UxAsmErrPhone');
+          t(context).tr('validPhoneMsg'), 'efoPhoneErr');
     }
     // DOB: required, 18-99 years — mirrors auth-register.js
     final dobDate = _parseCzDate(dob);

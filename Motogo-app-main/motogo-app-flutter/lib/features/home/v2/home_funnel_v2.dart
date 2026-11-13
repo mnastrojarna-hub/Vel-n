@@ -21,9 +21,8 @@ import '../../auth/auth_provider.dart';
 import '../../booking/booking_entry.dart';
 import '../../booking/booking_quote.dart';
 import '../../catalog/catalog_provider.dart';
-import '../../catalog/v2/catalog_text.dart' show catLicenceFails;
+import '../../catalog/v2/catalog_text.dart' show catLicenceFails, catRangeErrorsV2;
 import '../../catalog/moto_model.dart';
-import '../../catalog/widgets/validation_banner.dart' show bookingRangeErrors;
 import '../../loyalty/loyalty_provider.dart';
 import '../../routes/ride_recorder.dart';
 import '../nickname_provider.dart';
@@ -201,7 +200,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     // G-102: the detail's licence / overlap / length warning for the shown
     // bike — REZERVOVAT goes straight to the form (which blocks).
     final errs = async.hasValue && center < list.length
-        ? bookingRangeErrors(context, ref, list[center], range.start, range.end)
+        ? catRangeErrorsV2(context, ref, list[center], range.start, range.end)
         : const <String>[];
     final Widget action;
     if (async.isLoading && !async.hasValue) {

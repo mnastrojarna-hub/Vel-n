@@ -130,7 +130,7 @@ class ProfilePersonalV2 extends StatelessWidget {
                     );
                   }),
           )
-        : (profile == null ? const _SummarySkeleton() : _Summary(profile: profile!, form: form));
+        : (profile == null ? const _SummarySkeleton() : _Summary(profile: profile!, form: form, onFill: onToggle));
     if (back == null || !ready) return body;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [PfBookingFixBannerV2(key: bannerKey, onBack: back), body]);
   }
@@ -173,7 +173,10 @@ class _EditButton extends StatelessWidget {
 class _Summary extends StatelessWidget {
   final Map<String, dynamic> profile;
   final PfFormData form;
-  const _Summary({required this.profile, required this.form});
+
+  /// R3-06: an empty value's "Doplnit" = the card's "Upravit" (same call).
+  final VoidCallback onFill;
+  const _Summary({required this.profile, required this.form, required this.onFill});
 
   String? _s(String k) {
     final v = profile[k];
@@ -191,7 +194,7 @@ class _Summary extends StatelessWidget {
       _s('country'),
     ].whereType<String>().where((e) => e.trim().isNotEmpty).join(', ');
     _Field f(String label, String? value, {bool wide = false, bool lock = false}) =>
-        _Field(label: label, value: value, fill: tr.tr('v2PfFill'), lock: lock, wide: wide);
+        _Field(label: label, value: value, fill: tr.tr('v2PfFill'), lock: lock, wide: wide, onFill: lock ? null : onFill);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       f(tr.tr('fullNameLabel'), _s('full_name'), wide: true),
       f(tr.email, _s('email'), wide: true, lock: true),
@@ -237,7 +240,15 @@ class _Field extends StatelessWidget {
   final String fill;
   final bool lock;
   final bool wide;
-  const _Field({required this.label, required this.value, required this.fill, this.lock = false, this.wide = false});
+  final VoidCallback? onFill;
+  const _Field({
+    required this.label,
+    required this.value,
+    required this.fill,
+    this.lock = false,
+    this.wide = false,
+    this.onFill,
+  });
 
   TextStyle get _valueStyle => value == null
       ? MgType.body.copyWith(
@@ -255,7 +266,7 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final field = Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: MergeSemantics(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -266,6 +277,17 @@ class _Field extends StatelessWidget {
             if (lock) ...[const SizedBox(width: 6), const MgIcon(MgIcons.lock, size: 16, color: MgColors.meta)],
           ]),
         ]),
+      ),
+    );
+    final fillTap = onFill;
+    if (value != null || fillTap == null) return field;
+    // The whole field (label + value + gap, ≥ 44 px) opens the same form.
+    return Semantics(
+      button: true,
+      child: MgPress(
+        key: ValueKey('pf-fill-$label'),
+        onTap: fillTap,
+        child: ConstrainedBox(constraints: const BoxConstraints(minHeight: 44), child: field),
       ),
     );
   }
