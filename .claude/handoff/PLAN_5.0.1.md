@@ -24,7 +24,7 @@ Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .cl
 3. Commit.
 
 ### B. Zrušit duplicitní tlačítko profilu nahoře (zadání majitele 14. 11.)
-Majitel: „Nahoře mi vadí duplicitní tlačítko profilu… dole je v pohodě, nahoře bych ho zrušil.“
+Majitel: „Nahoře mi vadí duplicitní tlačítko profilu… dole je v pohodě, nahoře bych ho zrušil.“ Upřesnil i pravidlo „v2 = jen vzhled“: „to pravidlo bylo hlavně o zachování vstupů a rozsahu a funkčnosti uživatelského zadávání“ — tedy zdvojené navigační prvky se rušit smí, formuláře, zadávané údaje a to, co zákazník může udělat, se nemění (už zapsáno v CLAUDE.md, bod 6).
 - `lib/features/home/v2/home_header_v2.dart`: odstraň `MgIconButton(key: ValueKey('home-menu'), icon: MgIcons.user, badge: unread, … onTap: router.go(Routes.profile))` i `SizedBox(width: 8)` před ním; logo dostane celou šířku (zkontroluj `_LogoRow(narrow: …)`); odstraň `unread`/`adminUnreadCountProvider` a import, pokud zůstanou nevyužité; oprav komentář třídy.
 - Počet nepřečtených zpráv zůstává na záložce Profil ve spodním menu (`lib/core/v2/chrome/v2_nav_bar.dart`) — ověř testem, že tam badge je.
 - Projdi hlavičky ostatních kořenových stránek nového vzhledu (Motorky, Rezervace, Trasy): `grep -rn "Routes.profile" lib/features/*/v2 lib/core/v2 lib/core/shell_*.dart`. Odstraň jen tlačítka v hlavičce, která pouze otevírají profil; kontextové odkazy („Doplnit v profilu“ apod.) nech.
