@@ -2,6 +2,7 @@
 // … kde se to nachází … důrazně výrazný, třeba zelený"): the label (short
 // branch name + mode) and the chip (one line, ellipsis, max width).
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/widgets/mg_branch_chip.dart';
@@ -47,9 +48,10 @@ void main() {
   });
 
   testWidgets('chip: one line, ellipsis, never wider than maxWidth', (t) async {
-    expect(mgBranchChipMaxWidth(360), moreOrLessEquals(223.2));
+    expect(mgBranchChipMaxWidth(360), 278);
+    expect(mgBranchChipMaxWidth(360, leftPill: 110), 214);
     expect(mgBranchChipMaxWidth(150), 120);
-    expect(mgBranchChipMaxWidth(800), 250);
+    expect(mgBranchChipMaxWidth(800), 280);
     await pumpV2(
       t,
       const Align(
@@ -77,6 +79,26 @@ void main() {
     expect(find.descendant(of: find.byKey(const ValueKey('wide')), matching: find.text('Mezná · s obsluhou')), findsOneWidget);
     expect(find.descendant(of: find.byKey(const ValueKey('narrow')), matching: find.text('Velké Němčice')), findsOneWidget);
     expect(t.takeException(), isNull);
+  });
+
+  testWidgets('chip: the self-service branch keeps its mode on a 320 / 360 px photo (cs)', (t) async {
+    for (final w in [320.0, 360.0]) {
+      await pumpV2(
+        t,
+        Align(
+          alignment: Alignment.topRight,
+          child: MgBranchChip(
+            label: 'Velké Němčice · samoobsluha',
+            shortLabel: 'Velké Němčice',
+            maxWidth: mgBranchChipMaxWidth(w),
+          ),
+        ),
+      );
+      expect(find.text('Velké Němčice · samoobsluha'), findsOneWidget, reason: 'photo $w px');
+      final p = t.renderObject<RenderParagraph>(find.text('Velké Němčice · samoobsluha'));
+      expect(p.didExceedMaxLines, isFalse, reason: 'not cut at $w px');
+      expect(t.takeException(), isNull);
+    }
   });
 }
 

@@ -110,10 +110,11 @@ V2NavFit v2NavFit({
 /// TextPainter measure for [v2NavFit] with the style the nav really draws
 /// (w800 — the active weight, the widest). Widths are cached app-wide per
 /// (style, label, px): the shell rebuilds on every route change and poll, so
-/// the nav must not re-lay-out up to 15 TextPainters each time.
-double Function(String, double) v2NavMeasure(TextStyle base) {
+/// the nav must not re-lay-out up to 15 TextPainters each time. [weight]:
+/// the active label on the neon pill is w900 (its pill is sized with it).
+double Function(String, double) v2NavMeasure(TextStyle base, {FontWeight weight = FontWeight.w800}) {
   _watchFonts();
-  final style = base.copyWith(fontWeight: FontWeight.w800);
+  final style = base.copyWith(fontWeight: weight);
   return (label, px) {
     final key = (style, label, px);
     final hit = _measureCache[key];

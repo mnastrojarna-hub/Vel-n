@@ -111,8 +111,9 @@ Widget _photo(BuildContext context, Motorcycle m, bool bright) => LayoutBuilder(
       );
     });
 
+/// Full-width photos, as on the Home / Motorky cards.
 Widget _chipSheet() => Builder(
-      builder: (context) => ListView(padding: const EdgeInsets.all(12), children: [
+      builder: (context) => ListView(padding: const EdgeInsets.symmetric(vertical: 12), children: [
         for (final m in const [
           Motorcycle(id: 'a', model: 'A', branchName: 'MotoGo24 Mezná', branchType: 'obslužná'),
           Motorcycle(id: 'b', model: 'B', branchName: 'MotoGo24 Velké Němčice', branchType: 'samoobslužná'),
@@ -127,5 +128,8 @@ List<RenderCase> v501CoreCases() => [
       RenderCase('v501', 'icons', 'moto_glyph', _iconSheet, () => const [], level: 1),
       RenderCase('v501', 'nav', 'tabs_l1', _navSheet, () => const [], level: 1),
       RenderCase('v501', 'nav', 'tabs_l12', _navSheet, () => const [], level: 12),
+      // Green ranks: the ring + arc keep their night disc on the neon pill.
+      RenderCase('v501', 'nav', 'tabs_l3', _navSheet, () => const [], level: 3),
+      RenderCase('v501', 'nav', 'tabs_l4', _navSheet, () => const [], level: 4),
       RenderCase('v501', 'branch_chip', 'photos', _chipSheet, () => const []),
     ];

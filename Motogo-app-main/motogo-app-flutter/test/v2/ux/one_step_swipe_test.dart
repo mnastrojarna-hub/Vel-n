@@ -19,8 +19,9 @@ import '../support/v2_harness.dart';
 const _itemH = 600.0;
 const _headerH = 300.0;
 
-/// MgPage: a 300 px header, then 12 snapped items of 600 px.
-Widget _page(MgSnapZone zone) => MgPage(
+/// MgPage: a 300 px header, then [n] snapped items of 600 px (+ a
+/// [footer] px tall block after them).
+Widget _page(MgSnapZone zone, {int n = 12, double footer = 0, bool reduced = false}) => MgPage(
       header: const SizedBox(height: _headerH, child: ColoredBox(color: Colors.black12)),
       overlapHero: false,
       snap: zone,
@@ -28,14 +29,16 @@ Widget _page(MgSnapZone zone) => MgPage(
         MgSnapZoneSliver(
           zone: zone,
           extent: _itemH,
-          count: 12,
+          count: n,
+          reduced: reduced,
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (_, i) => SizedBox(height: _itemH, child: Center(child: Text('ITEM $i'))),
-              childCount: 12,
+              childCount: n,
             ),
           ),
         ),
+        if (footer > 0) SliverToBoxAdapter(child: SizedBox(height: footer, child: const Text('FOOTER'))),
       ],
     );
 
@@ -160,6 +163,33 @@ void main() {
     await t.fling(find.byType(CustomScrollView), const Offset(0, 300), 3000);
     await _settle(t);
     expect(_pos(t).pixels, lessThan(z.start));
+  });
+
+  testWidgets('a footer after the list: reachable from the last item, not past it from earlier ones', (t) async {
+    final z = MgSnapZone();
+    await pumpV2(t, _page(z, n: 4, footer: 1500));
+    _pos(t).jumpTo(z.offsetOf(2));
+    await t.pump();
+    await t.fling(find.byType(CustomScrollView), const Offset(0, -300), 30000);
+    await _settle(t);
+    expect(_at(t, z), moreOrLessEquals(3, epsilon: 0.01), reason: 'from item 2: its neighbour, never the footer');
+    await t.fling(find.byType(CustomScrollView), const Offset(0, -300), 3000);
+    await _settle(t);
+    expect(_pos(t).pixels, greaterThan(z.offsetOf(3) + _itemH / 2), reason: 'from the last item: free into the footer');
+  });
+
+  testWidgets('reduced motion: still one item per swipe (short settle, no fling carry)', (t) async {
+    final z = MgSnapZone();
+    await pumpV2(t, _page(z, reduced: true), reducedMotion: true);
+    _pos(t).jumpTo(z.offsetOf(3));
+    await t.pump();
+    await t.fling(find.byType(CustomScrollView), const Offset(0, -300), 30000);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    expect(_at(t, z), moreOrLessEquals(4, epsilon: 0.01), reason: 'settled within 0.3 s');
+    await _longFling(t, _itemH * 1.7);
+    await _settle(t);
+    expect(_at(t, z), moreOrLessEquals(3, epsilon: 0.01));
   });
 
   testWidgets('a programmatic jump after a swipe is never pulled back', (t) async {

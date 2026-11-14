@@ -113,14 +113,17 @@ void main() {
     await pumpBarsShell(t, '/search', _routes, reducedMotion: true);
     await t.pump(const Duration(milliseconds: 500));
     final z = _zone(t);
-    expect(z.active, isFalse);
+    // v5.0.1: one bike per swipe also under reduced motion (a short settle
+    // instead of the spring) — a short drag returns to the same bike.
+    expect(z.active, isTrue);
+    expect(z.reduced, isTrue);
     final p2 = _page(t);
     p2.jumpTo(z.offsetOf(1));
     await t.pump();
     await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.3));
     await _settle(t);
     final frac = (p2.pixels - z.offsetOf(1)) / z.extent;
-    expect(frac, inInclusiveRange(0.15, 0.45), reason: 'no animated snap: it rests where the finger left it');
+    expect(frac, moreOrLessEquals(0, epsilon: 0.01), reason: 'settles back on the same bike');
     await _drain(t);
   });
 

@@ -178,7 +178,11 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
 
     final List<Widget> slivers;
     if (mode == CatalogMode.calc) {
-      slivers = const [SliverToBoxAdapter(child: CalcBodyV2())];
+      // + the arrow's slot: the last price rows scroll clear of the disc.
+      slivers = const [
+        SliverToBoxAdapter(child: CalcBodyV2()),
+        SliverToBoxAdapter(child: SizedBox(height: kMgToTopSlot)),
+      ];
     } else {
       // The old search screen's order: dates (inline, open) → filter panel
       // → count line → the list.

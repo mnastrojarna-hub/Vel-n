@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import '../../i18n/i18n_provider.dart';
 import '../gestures/mg_zone_snap.dart';
 import '../icons/mg_icon.dart';
+import '../motion/mg_anim.dart';
 import '../motion/mg_motion.dart';
+import '../tokens/mg_colors.dart';
+import '../tokens/mg_shadows.dart';
 import '../tokens/mg_space.dart';
-import '../widgets/mg_buttons.dart';
 import 'mg_chrome_metrics.dart';
 import 'mg_fab_avoid.dart';
 import 'mg_hide_on_scroll.dart';
@@ -136,14 +138,14 @@ class _MgToTopLayerState extends State<MgToTopLayer> {
     final base = scope == null || !scope.navVisible ? MediaQuery.paddingOf(context).bottom : 0.0;
     final dock = chrome == null || chrome.dockHeight < widget.dockHeight ? widget.dockHeight : chrome.dockHeight;
     final bottom = 12 + dock + (chrome?.stripsHeight ?? 0) + base + (fab ? (MgChrome.fab - MgSize.touch) / 2 : 0);
-    final double right = 16 + (fab ? MgChrome.fab + MgChrome.fabGap : 0) - 2;
+    final double right = 16 + (fab ? MgChrome.fab + MgChrome.fabGap : 0);
     final visible = _show && !_blocked && !MgBarsScope.hiddenOf(context);
     return Stack(children: [
       AnimatedPositioned(
         duration: MgMotion.of(context, MgMotion.sticky),
         curve: MgMotion.emphasized,
         right: right,
-        bottom: bottom - 2,
+        bottom: bottom,
         child: IgnorePointer(
           ignoring: !visible,
           child: ExcludeSemantics(
@@ -159,13 +161,7 @@ class _MgToTopLayerState extends State<MgToTopLayer> {
                 // While shown, the AI coach bubble never lies over it.
                 child: _AsZone(
                   on: visible,
-                  child: MgIconButton(
-                    key: const ValueKey('mg-to-top'),
-                    icon: MgIcons.up,
-                    style: MgIconButtonStyle.light,
-                    semanticLabel: t(context).tr('v2UxCoreToTop'),
-                    onTap: widget.onTap,
-                  ),
+                  child: MgToTopDisc(label: t(context).tr('v2UxCoreToTop'), onTap: widget.onTap),
                 ),
               ),
             ),
@@ -174,6 +170,42 @@ class _MgToTopLayerState extends State<MgToTopLayer> {
       ),
     ]);
   }
+}
+
+/// The arrow itself, the original look's neon disc in the new palette:
+/// brand-neon gradient, dark up arrow, a night ring and the AI disc's drop
+/// shadow — it reads on white pages, dark bike cards and next to the AI
+/// disc alike. 44 px, press scale, button semantics.
+class MgToTopDisc extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const MgToTopDisc({super.key = const ValueKey('mg-to-top'), required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        onTap: onTap,
+        child: MgPress(
+          scale: 0.9,
+          onTap: onTap,
+          child: Container(
+            width: MgSize.touch,
+            height: MgSize.touch,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: MgGradients.neon,
+              border: Border.all(color: MgColors.night, width: 1.5),
+              boxShadow: [
+                BoxShadow(color: MgColors.black(0.35), blurRadius: 14, offset: const Offset(0, 6)),
+              ],
+            ),
+            child: const MgIcon(MgIcons.up, size: 20, color: MgColors.onNeon, stroke: 2.4),
+          ),
+        ),
+      );
 }
 
 /// [child] as a `keep` avoid zone of the shell chrome while [on].

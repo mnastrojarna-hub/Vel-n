@@ -14,12 +14,20 @@ const Map<String, IconData> kMgGlyphIcons = {
   MgIcons.bike: Icons.two_wheeler_rounded,
 };
 
+/// Optical fit of the wide, low motorcycle: its ink is ~20 × 11 of the
+/// 24 em, so at 1.0 it reads half the height of its square neighbours; it
+/// is drawn [kMgGlyphScale] × (ink ~22.4 wide, still inside the box) and
+/// [kMgGlyphLift] × size higher, so the ink — not the em — is centred.
+const double kMgGlyphScale = 1.12;
+const double kMgGlyphLift = 0.04;
+
 final Map<(int, double, Color), TextPainter> _glyphCache = {};
 
 /// Paints [glyph] centred in [size] in [color] (cached per glyph, px and
 /// colour — the menu repaints its icons on every tab change).
 void paintMgGlyph(Canvas canvas, Size size, IconData glyph, Color color) {
-  final px = size.shortestSide;
+  final box = size.shortestSide;
+  final px = box * kMgGlyphScale;
   if (px <= 0) return;
   final key = (glyph.codePoint, px, color);
   var tp = _glyphCache[key];
@@ -48,5 +56,5 @@ void paintMgGlyph(Canvas canvas, Size size, IconData glyph, Color color) {
     )..layout();
     _glyphCache[key] = tp;
   }
-  tp.paint(canvas, Offset((size.width - tp.width) / 2, (size.height - tp.height) / 2));
+  tp.paint(canvas, Offset((size.width - tp.width) / 2, (size.height - tp.height) / 2 - kMgGlyphLift * box));
 }

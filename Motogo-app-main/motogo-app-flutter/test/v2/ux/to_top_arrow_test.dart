@@ -67,7 +67,7 @@ void main() {
       final arrow = t.getRect(find.byKey(const ValueKey('mg-to-top')));
       final navTop = t.getRect(find.byType(MgNavBand)).top;
       // Motorky has no AI button (Domů only): the arrow takes the corner.
-      expect(arrow.right, moreOrLessEquals(390 - 16 + 2, epsilon: 0.5), reason: '16 px from the edge (44 disc in a 48 hit box)');
+      expect(arrow.right, moreOrLessEquals(390 - 16, epsilon: 0.5), reason: '16 px from the edge (the 44 px neon disc)');
       expect(arrow.bottom, lessThanOrEqualTo(navTop - 8));
       expect(find.bySemanticsLabel('Nahoru'), findsOneWidget);
       await t.tap(find.byKey(const ValueKey('mg-to-top')));

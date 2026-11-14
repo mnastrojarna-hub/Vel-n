@@ -10,9 +10,10 @@ export 'mg_one_step.dart' show MgSwipeAnchor, MgSwipeAnchorListener;
 /// A run of equal items inside a vertical page scroll ("one bike per
 /// screen", owner 2026-11-08): item k's top lies at [start] + k × [extent]
 /// (item + gap). Written by [MgSnapZoneSliver] after every layout, read by
-/// [MgZoneSnapPhysics]. Inactive (no snapping) while empty, under reduced
-/// motion or when the laid-out items are not all [extent] tall (a card
-/// grown by a very large text size).
+/// [MgZoneSnapPhysics]. Inactive (no snapping) while empty or when the
+/// laid-out items are not all [extent] tall (a card grown by a very large
+/// text size). Under reduced motion ([reduced]) it still snaps one item per
+/// swipe, with a short settle instead of the spring (v5.0.1).
 class MgSnapZone {
   double start = 0;
   double extent = 0;
@@ -25,7 +26,7 @@ class MgSnapZone {
   /// [MgSwipeAnchorListener]): one swipe moves one item (v5.0.1).
   final MgSwipeAnchor anchor = MgSwipeAnchor();
 
-  bool get active => extent > 0 && count > 0 && uniform && !reduced;
+  bool get active => extent > 0 && count > 0 && uniform;
 
   /// Scroll offset that puts item [i]'s top at the viewport top.
   double offsetOf(int i) => start + i * extent;
@@ -66,7 +67,9 @@ class MgZoneSnapPhysics extends ScrollPhysics {
     final o = zone.anchor.origin(e);
     final a = o == null ? null : math.min(mgSwipeOriginIndex(o, first, e), zone.count - 1);
     if (natural < first - e * leadIn && (a == null || a <= 0)) return null;
-    if (natural > last + e / 2 && a == null) return null;
+    // Past the last item (a footer): free, as the header above — unless the
+    // swipe started on an earlier item (it ends on its neighbour).
+    if (natural > last + e / 2 && (a == null || a >= zone.count - 1)) return null;
     var k = ((natural - first) / e).round();
     final page = (position.pixels - first) / e;
     if (velocity > flick) {
@@ -97,10 +100,14 @@ class MgZoneSnapPhysics extends ScrollPhysics {
     final tolerance = toleranceFor(position);
     // The fling's velocity only when it heads to the target (capped: the
     // spring never shoots past it into the next bike and returns).
-    final v = mgSnapVelocity(position.pixels, target, velocity);
+    // Reduced motion: a short critically damped settle, no fling carry.
+    final v = zone.reduced ? 0.0 : mgSnapVelocity(position.pixels, target, velocity);
     if ((target - position.pixels).abs() < tolerance.distance && v.abs() < tolerance.velocity) return null;
-    return ScrollSpringSimulation(spring, position.pixels, target, v, tolerance: tolerance);
+    return ScrollSpringSimulation(zone.reduced ? reducedSettle : spring, position.pixels, target, v, tolerance: tolerance);
   }
+
+  /// Reduced-motion settle onto the target (≈ 0.1 s, never overshoots).
+  static final SpringDescription reducedSettle = SpringDescription.withDampingRatio(mass: 0.5, stiffness: 1000);
 }
 
 /// Wraps the list sliver of a [MgSnapZone]: after each layout it writes the

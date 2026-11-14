@@ -23,8 +23,10 @@ import 'v2_nav_fx.dart';
 /// pill with a green halo ([V2NavPill]: liquid move 300 ms, slow breathing
 /// halo after it lands), the original elastic pop of the icon
 /// ([V2NavBounce]) and a filled icon; PROFIL = avatar in the rank ring + arc
-/// (the loyalty rank shows there, not on the pill). Labels pass the no-overlap fit ([v2NavFit]) in every language
-/// — never ellipsized / wrapped / scaled. Dumb widget: [onTap] gets the tab
+/// on a night disc while active (the loyalty rank shows there, not on the
+/// pill). Labels pass the no-overlap fit ([v2NavFit]) in every language
+/// — never ellipsized / wrapped (only an active label too tight for its
+/// pill steps down, at most 12 %). Dumb widget: [onTap] gets the tab
 /// index (the shell maps it to `onShellTabTap`).
 class V2NavBar extends ConsumerWidget {
   final int activeIndex;
@@ -62,16 +64,26 @@ class V2NavBar extends ConsumerWidget {
     null,
   ];
 
-  /// Active pill width for tab [i] of label widths [w] in columns [col]:
-  /// col − 6 (52…76), at least its label + 5 px a side, but always 3 px
-  /// clear of the neighbouring labels and the bar edges (German at 320).
+  /// Active pill width for tab [i] of label widths [w] (the active one
+  /// measured w900) in columns [col]: col − 6 (52…76), at least its label +
+  /// 6 px a side, but 1 px clear of the neighbouring labels and 6 px from
+  /// the bar edges (German at 320); a label that still lacks its 6 px is
+  /// stepped down ([activePx]).
   static double pillWidth(List<double> w, int i, double col) {
-    var half = math.max((col - 6).clamp(52.0, 76.0) / 2, w[i] / 2 + 5);
-    final left = i == 0 ? col / 2 - 2 : col - w[i - 1] / 2 - 3;
-    final right = i == w.length - 1 ? col / 2 - 2 : col - w[i + 1] / 2 - 3;
+    var half = math.max((col - 6).clamp(52.0, 76.0) / 2, w[i] / 2 + 6);
+    final left = i == 0 ? col / 2 - 6 : col - w[i - 1] / 2 - 1;
+    final right = i == w.length - 1 ? col / 2 - 6 : col - w[i + 1] / 2 - 1;
     half = math.min(half, math.min(left, right));
-    return 2 * math.max(half, w[i] / 2 + 2);
+    return 2 * math.max(half, w[i] * minActiveScale / 2 + 6);
   }
+
+  /// Smallest step-down of the active label (keeps it the strongest word).
+  static const double minActiveScale = 0.88;
+
+  /// Font size of the active label [w] wide at [px] on a [pill] wide pill:
+  /// [px], or smaller so 6 px of neon stay on each side.
+  static double activePx(double w, double pill, double px) =>
+      w + 12 <= pill || w <= 0 ? px : px * ((pill - 12) / w).clamp(minActiveScale, 1.0);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -110,7 +122,12 @@ class V2NavBar extends ConsumerWidget {
             );
             final index = activeIndex.clamp(0, 4);
             final measure = v2NavMeasure(base);
-            final pw = pillWidth([for (final l in fit.labels) measure(l, fit.px)], index, col);
+            final heavy = v2NavMeasure(base, weight: FontWeight.w900);
+            final widths = [
+              for (var i = 0; i < 5; i++) (i == index ? heavy : measure)(fit.labels[i], fit.px),
+            ];
+            final pw = pillWidth(widths, index, col);
+            final apx = activePx(widths[index], pw, fit.px);
             return Stack(clipBehavior: Clip.none, children: [
               Positioned(
                 left: 24,
@@ -131,7 +148,8 @@ class V2NavBar extends ConsumerWidget {
                   top: 4,
                   width: pw,
                   height: 56,
-                  child: V2NavPill(trigger: index, reduced: reduced),
+                  // Own layer: the breathing halo repaints only the pill.
+                  child: RepaintBoundary(child: V2NavPill(trigger: index, reduced: reduced)),
                 ),
               Row(children: [
                 for (var i = 0; i < 5; i++)
@@ -139,7 +157,7 @@ class V2NavBar extends ConsumerWidget {
                     child: _Tab(
                       label: fit.labels[i],
                       fullLabel: full[i],
-                      px: fit.px,
+                      px: i == activeIndex ? apx : fit.px,
                       base: base,
                       active: i == activeIndex,
                       icon: icons[i],
@@ -161,6 +179,9 @@ class V2NavBar extends ConsumerWidget {
     );
   }
 }
+
+/// Key of the night disc behind the Profil avatar on the active pill.
+const ValueKey<String> kV2NavRankBacking = ValueKey('v2-nav-rank-backing');
 
 class _Tab extends StatelessWidget {
   final String label;
@@ -197,6 +218,24 @@ class _Tab extends StatelessWidget {
     this.nudge = 0,
   });
 
+  /// The rank ring + arc keep their night backing on the neon pill (the
+  /// green ranks would vanish into it): a 38 px night disc behind them.
+  /// (Overflows the 30 px icon row on purpose.)
+  Widget _onPill(Widget frame) => !active
+      ? frame
+      : OverflowBox(
+          minWidth: 38,
+          maxWidth: 38,
+          minHeight: 38,
+          maxHeight: 38,
+          child: Container(
+            key: kV2NavRankBacking,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: MgColors.night, shape: BoxShape.circle),
+            child: SizedBox.square(dimension: 30, child: frame),
+          ),
+        );
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
@@ -205,13 +244,14 @@ class _Tab extends StatelessWidget {
         ? (active && activeIcon != null
             ? Icon(activeIcon, size: 24, color: iconColor)
             : MgIcon(icon!, size: 24, color: iconColor))
-        : RankFrame(
+        : _onPill(RankFrame(
             rank: rank,
             size: 30,
             circle: true,
             ringWidth: 2.5,
             arcPct: arcPct,
-            arcGap: 5,
+            // On the neon pill the arc moves in onto a night disc.
+            arcGap: active ? 2 : 5,
             showLevel: false,
             showGlyph: false,
             showMarks: false,
@@ -220,7 +260,7 @@ class _Tab extends StatelessWidget {
               color: MgColors.panel,
               child: Center(child: MgIcon(MgIcons.person, size: 15, color: MgColors.onDarkBody, stroke: 2.2)),
             ),
-          );
+          ));
     var sem = fullLabel;
     if (count > 0) sem += ', ${tr.trArgs('v2NavUnread', {'n': count})}';
     if (dot) sem += ', ${tr.tr('v2NavNeedsAction')}';
@@ -253,10 +293,11 @@ class _Tab extends StatelessWidget {
                     ),
                   ),
                 ),
+              // Right of the avatar's head (never over the person glyph).
               if (count > 0)
                 Positioned(
-                  top: -2,
-                  right: 2,
+                  top: -3,
+                  left: 31,
                   child: Container(
                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -279,15 +320,22 @@ class _Tab extends StatelessWidget {
             style: base.copyWith(
               fontSize: px,
               height: 14 / 11,
-              fontWeight: active ? FontWeight.w800 : FontWeight.w700,
+              fontWeight: active ? FontWeight.w900 : FontWeight.w700,
               color: active ? MgColors.onNeon : MgColors.onDarkLead,
             ),
-            child: Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              textScaler: TextScaler.noScaling,
+            // Centred on the tab even when wider than its column (German).
+            child: SizedBox(
+              height: px * 14 / 11,
+              child: OverflowBox(
+                maxWidth: double.infinity,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  textScaler: TextScaler.noScaling,
+                ),
+              ),
             ),
           ),
         ]),

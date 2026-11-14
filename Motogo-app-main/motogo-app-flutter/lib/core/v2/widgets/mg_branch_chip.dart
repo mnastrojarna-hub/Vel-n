@@ -47,10 +47,12 @@ String? mgBikeBranchChipLabel(AppTranslations tr, Motorcycle m) => mgBranchChipL
       staffed: tr.tr('v2UxRpTypeStaffed'),
     );
 
-/// Widest a branch chip may grow on a photo [photoWidth] wide: 62 % of the
-/// photo (the top-left pills — "1 / 4", availability ~110 px — keep their
-/// room), 120…250 px.
-double mgBranchChipMaxWidth(double photoWidth) => (photoWidth * 0.62).clamp(120.0, 250.0);
+/// Widest a branch chip may grow on a photo [photoWidth] wide: the photo
+/// minus the insets (12 left, 12 gap, 12 right) and the widest top-left
+/// pill [leftPill] (the "1 / 4" pill ≈ 46 px; pass more where a wider pill
+/// sits there), 120…280 px — "Velké Němčice · samoobsluha" fits at 320.
+double mgBranchChipMaxWidth(double photoWidth, {double leftPill = 46}) =>
+    (photoWidth - 36 - leftPill).clamp(120.0, 280.0);
 
 /// Where a bike is (owner v5.0.1: "v horním pravém rohu fotky … důrazně
 /// výrazný, třeba zelený"): a brand-neon pill with a place pin and dark
@@ -67,8 +69,8 @@ class MgBranchChip extends StatelessWidget {
 
   static const TextStyle _style = TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.2);
 
-  /// Room for the text: [maxWidth] − padding 19 − pin 15 − gap 4 − border 2.
-  static double textRoom(double maxWidth) => maxWidth - 40;
+  /// Room for the text: [maxWidth] − padding 18 − pin 15 − gap 4 − border 2.
+  static double textRoom(double maxWidth) => maxWidth - 39;
 
   /// [label] when it fits in one line at the chip's style, else [shortLabel].
   String fitted(BuildContext context) {
@@ -90,7 +92,7 @@ class MgBranchChip extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: Container(
           key: const ValueKey('mg-branch-chip'),
-          padding: const EdgeInsets.fromLTRB(8, 5, 11, 5),
+          padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
           decoration: BoxDecoration(
             gradient: MgGradients.neon,
             borderRadius: BorderRadius.circular(999),
