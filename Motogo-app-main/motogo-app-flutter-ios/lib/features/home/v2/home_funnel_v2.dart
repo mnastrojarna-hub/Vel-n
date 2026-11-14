@@ -4,10 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/pending_booking_fab_provider.dart';
-import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/gestures/mg_one_step.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
@@ -18,10 +15,7 @@ import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
-import '../../../core/v2/widgets/mg_cta.dart';
 import '../../auth/auth_provider.dart';
-import '../../booking/booking_entry.dart';
-import '../../booking/booking_quote.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../catalog/v2/catalog_text.dart' show catLicenceFails, catRangeErrorsV2;
 import '../../catalog/moto_model.dart';
@@ -31,15 +25,20 @@ import '../nickname_provider.dart';
 import 'funnel_carousel_v2.dart';
 import 'funnel_provider.dart';
 import 'home_date_sheet_v2.dart';
+import 'home_funnel_cta.dart';
 import 'home_funnel_parts.dart';
 import 'home_links.dart';
+import 'home_offer_provider.dart';
 import 'home_reveal.dart';
 
 /// Home funnel "Tvoje příští jízda" (S0 / S10, DESIGN_V21 §4 + V22 §2.4 #4):
-/// photo-led dark card — carousel of bikes free on the chosen weekend /
-/// range (licence-filtered, real availability), your price from the SAME
-/// price engine the booking form uses, presets + calendar, and the one
-/// looping CTA "REZERVOVAT · {cena}" → the existing booking start (PM-3).
+/// photo-led dark card. No dates (owner v5.0.1: nothing preselected) =
+/// every bike the customer may ride, "od X Kč/den" and "Volná dnes / od"
+/// + "Vybrat termín" (that bike's calendar); dates = EVERY bike free in
+/// them, your price from the SAME price engine the booking form uses and
+/// the looping CTA "REZERVOVAT · {cena}" → the existing booking start
+/// (PM-3); nothing free = the bikes with "Volná od", why (closed / booked
+/// out) and "Vybrat jiný termín". The order changes on every visit.
 /// The dates are the ones the customer gave anywhere (`homeGiveDates`):
 /// a pick here also fills Motorky, and the bike detail opens with them.
 class HomeFunnelV2 extends ConsumerStatefulWidget {
@@ -54,15 +53,17 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
   final MgSwipeAnchor _swipe = MgSwipeAnchor();
 
   PageController? _pc;
-  FunnelRange? _pcRange;
+  Object? _pcKey;
   AppLifecycleListener? _life;
+  bool _paused = false;
   Timer? _midnight;
 
   @override
   void initState() {
     super.initState();
     // Nový den (půlnoc / návrat do appky): termín, který už začal, zmizí.
-    _life = AppLifecycleListener(onResume: _syncDay);
+    // v5.0.1: po pauze (appka na pozadí) nové pořadí motorek nabídky.
+    _life = AppLifecycleListener(onPause: () => _paused = true, onResume: _resumed);
     _armMidnight();
   }
 
@@ -81,6 +82,17 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     _midnight = Timer(next.difference(now) + const Duration(seconds: 1), _syncDay);
   }
 
+  void _resumed() {
+    _syncDay();
+    if (!mounted || !_paused) return;
+    _paused = false;
+    // Jen když je Domů vidět: otevřený detail motorky si po „Zpět" najde
+    // tutéž motorku.
+    if (ModalRoute.of(context)?.isCurrent ?? true) {
+      ref.read(homeOfferSeedProvider.notifier).state = homeOfferNewSeed();
+    }
+  }
+
   void _syncDay() {
     if (!mounted) return;
     final day = funnelDay(DateTime.now());
@@ -89,14 +101,15 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     _armMidnight();
   }
 
-  /// One pager per date range, opened at the centred bike: back on Domů =
-  /// the bike the customer left, other dates = their first bike — photo,
-  /// "n / m" and REZERVOVAT always show the SAME bike.
-  PageController _pager(FunnelRange range, int center) {
+  /// One pager per list (dates + order), opened at the centred bike: back
+  /// on Domů = the bike the customer left, other dates / a new order =
+  /// their first bike — photo, "n / m" and the button always show the SAME
+  /// bike.
+  PageController _pager(Object key, int center) {
     final cur = _pc;
-    if (cur != null && _pcRange == range) return cur;
+    if (cur != null && _pcKey == key) return cur;
     if (cur != null) WidgetsBinding.instance.addPostFrameCallback((_) => cur.dispose());
-    _pcRange = range;
+    _pcKey = key;
     return _pc = PageController(initialPage: center);
   }
 
@@ -110,10 +123,13 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     }
   }
 
-  Future<void> _pickDates(FunnelRange current) async {
+  /// The date sheet; with [moto] it shows that bike's booked days, and the
+  /// bike leads the list for the picked dates (when it is free then).
+  Future<void> _pickDates(FunnelRange? current, {Motorcycle? moto}) async {
     final picked = await showHomeDateSheet(context,
-        initial: current, applyLabel: t(context).tr('v2HomeDateUse'));
+        initial: current, applyLabel: t(context).tr('v2HomeDateUse'), moto: moto);
     if (picked == null || !mounted) return;
+    ref.read(homeOfferFocusProvider.notifier).state = moto?.id;
     _select(picked);
   }
 
@@ -133,8 +149,10 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final sel = ref.watch(funnelSelectionProvider);
     final now = ref.watch(funnelTodayProvider);
     if (funnelDay(DateTime.now()) != now) WidgetsBinding.instance.addPostFrameCallback((_) => _syncDay());
-    final range = sel.range(now);
-    final async = ref.watch(funnelCandidatesProvider(range));
+    final offer = ref.watch(homeOfferProvider);
+    final range = offer.range;
+    final seed = ref.watch(homeOfferSeedProvider);
+    final nextFree = ref.watch(homeNextFreeProvider).valueOrNull ?? const <String, DateTime>{};
     // Záznam jízdy běží → jeho tečka je živý indikátor Domů; tečka „Volná
     // v termínu" stojí (max. jeden živý indikátor na obrazovce).
     final recLive = ref.watch(rideRecorderProvider.select((r) => r.recording));
@@ -144,117 +162,86 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final groups = homeLicenseGroups(ref.watch(profileProvider).valueOrNull);
     final fullName = ref.watch(profileProvider).valueOrNull?['full_name'] as String?;
     final nick = ref.watch(nicknameProvider) ?? extractFirstName(fullName);
-    final list = async.valueOrNull ?? const <Motorcycle>[];
+    final list = offer.bikes;
     final center = list.isEmpty ? 0 : ref.watch(funnelCenterProvider).clamp(0, list.length - 1);
-    final days = range.days;
-    final dayWord = '$days ${tr.daysWord(days)}';
+    final m = list.isEmpty ? null : list[center];
+    final free = offer.mode == HomeOfferMode.free;
 
-    String total(Motorcycle m) => Money.czk(quoteFor(m, range.start, range.end, loyalty: loyalty).total);
-    String? listOf(Motorcycle m) {
-      if (loyalty == null || loyalty.percent <= 0) return null;
-      final l = listQuoteFor(m, range.start, range.end).total;
-      return Money.czk(l);
-    }
-
-    final emptyOrError = (async.hasError && !async.hasValue) || (async.hasValue && list.isEmpty);
+    final emptyOrError = offer.mode == HomeOfferMode.error || offer.mode == HomeOfferMode.noBikes;
     // Nižší telefon (< 800 dp) fotka 150, velmi nízký (< 700 dp: 360×640,
     // 375×667) těsnější mezery a při běžném písmu fotka 124 (větší písmo
-    // potřebuje 150, jinak by se štítky fotky překryly) — REZERVOVAT nad
+    // potřebuje 150, jinak by se štítky fotky překryly) — tlačítko nad
     // spodní lištou.
     final screenH = MediaQuery.sizeOf(context).height;
     final short = screenH < 700;
     final bigText = MediaQuery.textScalerOf(context).scale(10) > 10.5;
     final photoH = emptyOrError || screenH >= 800 ? 200.0 : (short && !bigText ? 124.0 : 150.0);
-    final Widget slot = async.when(
-      skipLoadingOnReload: true,
-      loading: () => const FunnelSkeleton(),
-      error: (_, __) => FunnelEmptySlot(error: true, title: tr.tr('eoMotosLoadFail'), text: tr.tr('v2HomeFnLoadFailText')),
-      data: (l) => l.isEmpty
-          ? FunnelEmptySlot(error: false, title: tr.tr('v2HomeFnNoneTitle'), text: tr.tr('v2HomeFnNoneText'))
-          : MgSwipeAnchorListener(
-              anchor: _swipe,
-              axis: Axis.horizontal,
-              child: PageView.builder(
-              key: ValueKey(range),
-              controller: _pager(range, center),
-              itemCount: l.length,
-              pageSnapping: false,
-              physics: MgOnePagePhysics(anchor: _swipe),
-              onPageChanged: (i) => ref.read(funnelCenterProvider.notifier).state = i,
-              itemBuilder: (_, i) {
-                final m = l[i];
-                final again = m.id == lastBike;
-                return FunnelBikeCard(
-                  moto: m,
-                  center: i == center,
-                  ping: !recLive,
-                  again: again,
-                  badge: again
-                      ? tr.tr('v2HomeFnAgain')
-                      : (groups.isEmpty ? null : tr.trArgs('v2HomeFnLicense', {'groups': groups.join(' · ')})),
-                  priceLabel: tr.trArgs('v2HomeFnPriceFor', {'days': dayWord}),
-                  price: total(m),
-                  listPrice: listOf(m),
-                  onTap: () {
-                    ref.read(filteredMotoIdsProvider.notifier).state = [for (final x in l) x.id];
-                    // The detail opens with the dates this card is priced
-                    // for (folded, "Změnit") — not an empty calendar.
-                    homeGiveDates(ref, range);
-                    homePushMoto(context, m.id);
-                  },
-                );
-              },
-              ),
-            ),
-    );
+    final today = funnelDay(DateTime.now());
+    final Widget slot = switch (offer.mode) {
+      HomeOfferMode.loading => const FunnelSkeleton(),
+      HomeOfferMode.error =>
+        FunnelEmptySlot(error: true, title: tr.tr('eoMotosLoadFail'), text: tr.tr('v2HomeFnLoadFailText')),
+      HomeOfferMode.noBikes =>
+        FunnelEmptySlot(error: false, title: tr.tr('homeOfferEmptyTitle'), text: tr.tr('homeOfferEmptyText')),
+      _ => MgSwipeAnchorListener(
+          anchor: _swipe,
+          axis: Axis.horizontal,
+          child: PageView.builder(
+            key: ValueKey((range, seed, free)),
+            controller: _pager((range, seed, free), center),
+            itemCount: list.length,
+            pageSnapping: false,
+            physics: MgOnePagePhysics(anchor: _swipe),
+            onPageChanged: (i) => ref.read(funnelCenterProvider.notifier).state = i,
+            itemBuilder: (_, i) {
+              final b = list[i];
+              final again = b.id == lastBike;
+              final (avail, live) = homeOfferAvail(tr, offer, b, nextFree, today);
+              final p = homeOfferPrice(tr, offer, b, loyalty);
+              return FunnelBikeCard(
+                moto: b,
+                center: i == center,
+                ping: !recLive,
+                again: again,
+                badge: again
+                    ? tr.tr('v2HomeFnAgain')
+                    : (groups.isEmpty ? null : tr.trArgs('v2HomeFnLicense', {'groups': groups.join(' · ')})),
+                avail: avail,
+                availLive: live,
+                priceLabel: p.label,
+                price: p.price,
+                unit: p.unit,
+                listPrice: p.list,
+                onTap: () {
+                  ref.read(filteredMotoIdsProvider.notifier).state = [for (final x in list) x.id];
+                  // The detail opens with the dates this card is priced
+                  // for (folded, "Změnit") — not an empty calendar.
+                  if (free && range != null) homeGiveDates(ref, range);
+                  homePushMoto(context, b.id);
+                },
+              );
+            },
+          ),
+        ),
+    };
 
     // G-102: the detail's licence / overlap / length warning for the shown
     // bike — REZERVOVAT goes straight to the form (which blocks).
-    final errs = async.hasValue && center < list.length
-        ? catRangeErrorsV2(context, ref, list[center], range.start, range.end)
+    final errs = free && m != null && range != null
+        ? catRangeErrorsV2(context, ref, m, range.start, range.end)
         : const <String>[];
-    final Widget action;
-    if (async.isLoading && !async.hasValue) {
-      action = MgCta(label: tr.tr('v2HomeCtaReserve'), onTap: null, enabled: false);
-    } else if (async.hasError && !async.hasValue) {
-      action = MgBtnGhostDark(
-        label: tr.tr('eoRetry'),
-        onTap: () {
-          ref.invalidate(motorcyclesProvider);
-          ref.invalidate(funnelCandidatesProvider(range));
-        },
-      );
-    } else if (list.isEmpty) {
-      action = MgBtnGhostDark(label: tr.tr('v2HomeFnPickOther'), onTap: () => _pickDates(range));
-    } else {
-      final m = list[center];
-      void reserve() => startBookingFromSelection(context, ref, m, range.start, range.end);
-      // J3: with a warning the bike's action stays (same tap, same target)
-      // but is secondary — the eye goes to the warning and its fix first.
-      // K4-05: the same while an unpaid booking waits in the pay strip
-      // (the M3-10 condition) — "Zaplatit rezervaci" is the first thing.
-      final pb = ref.watch(pendingBookingFabProvider).valueOrNull;
-      final unpaid = pb != null && !pb.isExpired && !pb.verifying;
-      action = MgFabAvoid(
-        child: errs.isNotEmpty || unpaid
-            ? MgBtnGhostDark(
-                key: const ValueKey('home-funnel-reserve-ghost'),
-                label: '${tr.tr('v2HomeCtaReserve').toUpperCase()} · ${total(m)}',
-                height: 60,
-                onTap: reserve,
-              )
-            : MgCta(
-                label: tr.tr('v2HomeCtaReserve'),
-                price: total(m),
-                loop: true,
-                size: MgCtaSize.lg60,
-                onTap: reserve,
-              ),
-      );
-    }
+    final action = homeOfferAction(
+      context,
+      ref,
+      offer: offer,
+      m: m,
+      errs: errs,
+      price: m == null ? null : homeOfferPrice(tr, offer, m, loyalty).price,
+      pick: () => _pickDates(range, moto: m),
+    );
     // J3: no fitting licence in a loaded profile → the warning offers the
     // same fix as the booking form ("Doplnit v profilu" → /profile).
-    final licFix = errs.isNotEmpty && center < list.length && catLicenceFails(ref, list[center]);
+    final licFix = errs.isNotEmpty && m != null && catLicenceFails(ref, m);
 
     return HomeReveal(
       sessionKey: 'home-funnel',
@@ -280,6 +267,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FunnelTopRow(
                 count: list.length,
+                more: offer.more,
                 index: center,
                 onPrev: center > 0 ? () => _go(center - 1) : null,
                 onNext: center < list.length - 1 ? () => _go(center + 1) : null,
@@ -299,13 +287,14 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 compact: short || rank.level == 3,
                 onRetry: () => ref.invalidate(loyaltyStatusProvider),
               ),
-              if (sel.preset(now) == 2) FunnelDateLine(range: range, onClear: () => _select(null)),
+              if (sel.preset(now) == 2 && range != null) FunnelDateLine(range: range, onClear: () => _select(null)),
               SizedBox(height: short ? 6 : 10),
               FunnelPresets(
                 selection: sel,
                 dense: short,
                 onPreset: (i) {
                   final p = funnelPresets(DateTime.now());
+                  ref.read(homeOfferFocusProvider.notifier).state = null;
                   _select(i == 1 ? p.$2 : p.$1);
                 },
                 onCalendar: () => _pickDates(range),
@@ -333,6 +322,11 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                       ),
                   ],
                 ),
+                SizedBox(height: short ? 6 : 10),
+              ],
+              // Nic volného v termínu: jasný nadpis proč (zavřeno / obsazeno).
+              if (offer.mode == HomeOfferMode.noneFree) ...[
+                homeOfferNoneBanner(tr, offer),
                 SizedBox(height: short ? 6 : 10),
               ],
               action,

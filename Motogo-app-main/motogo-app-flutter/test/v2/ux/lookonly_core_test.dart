@@ -261,7 +261,8 @@ void main() {
         await t.pump(const Duration(milliseconds: 600));
         expect(find.byType(AvailabilityCalendar), findsOneWidget, reason: 'v2=$v2');
       }
-      // v2: the panel's own reset (collapsed card) clears dates + filters + sort.
+      // v2 (5.0.1, owner): "Zrušit vše" on the collapsed card clears exactly
+      // the real filters it counts — the dates (when I ride) and the sort stay.
       await t.pumpWidget(const SizedBox());
       await _app(t, const HomeScreenV2(), homeCases()['s6']!());
       final c = ProviderScope.containerOf(t.element(find.byType(HomeScreenV2)));
@@ -269,10 +270,11 @@ void main() {
       c.read(catalogSortProvider.notifier).state = 'price_asc';
       await _settle(t);
       expect(find.byType(AvailabilityCalendar), findsNothing);
-      await _tapVisible(t, find.text(t.element(find.byType(HomeScreenV2)).tr('homeFilterReset')));
-      expect(c.read(catalogFilterProvider).activeCount, 0);
-      expect(c.read(catalogFilterProvider).startDate, isNull);
-      expect(c.read(catalogSortProvider), 'default');
+      await _tapVisible(t, find.text(t.element(find.byType(HomeScreenV2)).tr('motoFltClear')));
+      expect(c.read(catalogFilterProvider).filterCount, 0);
+      expect(c.read(catalogFilterProvider).category, isNull);
+      expect(c.read(catalogFilterProvider).startDate, day(3));
+      expect(c.read(catalogSortProvider), 'price_asc');
     });
 
     testWidgets('count line + the FULL list (every bike), card → detail with the pager order', (t) async {

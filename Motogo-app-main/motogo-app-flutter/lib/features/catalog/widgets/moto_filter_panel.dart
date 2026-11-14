@@ -10,6 +10,7 @@ import 'filter_branch_chip.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../v2/moto_filter_card_v2.dart';
+import '../v2/moto_filter_chips_v2.dart';
 import '../v2/moto_filter_panel_v2.dart';
 
 /// Řazení výpisu (hodnota → klíč popisku) — sdílí starý panel i v2 list.
@@ -84,6 +85,10 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
     ref.read(catalogSortProvider.notifier).state = 'default';
   }
 
+  /// Nový vzhled (5.0.1) „Zrušit vše": jen skutečné filtry
+  /// (`filterCount`); termín, pobočka a řazení zůstávají.
+  void _resetV2() => _set(_f.withoutFilters());
+
   // ── popisky rozsahů ──
   String _rangeLabel(BuildContext context, int? lo, int? hi, String unit) {
     final tr = t(context);
@@ -122,8 +127,8 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
         ranges: _ranges(context, filter),
         licenseOptions: kFilterLicenseOptions,
         sortOptions: kFilterSortOptions,
-        showReset: active > 0,
-        onReset: _reset,
+        showReset: filter.filterCount > 0,
+        onReset: _resetV2,
         onCategory: (v) => _set(_f.copyWith(category: () => v)),
         onLicense: (v) => _set(_f.copyWith(licenseGroup: () => v)),
         onBranch: (v) => _set(_f.copyWith(branch: () => v)),
@@ -141,10 +146,10 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
       }
       return MotoFilterCardV2(
         open: _open,
-        active: active,
+        active: filter.filterCount,
         onToggle: () => setState(() => _open = !_open),
-        onReset: _reset,
-        branchName: filter.branch == null ? null : branchName,
+        onReset: _resetV2,
+        chips: motoFilterChips(t(context), filter, set: _set, branchName: filter.branch == null ? null : branchName),
         datesValue: widget.showDates ? _dateLabel(context, filter) : null,
         calendar: widget.showDates
             ? AvailabilityCalendar(
@@ -165,7 +170,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           licenseOptions: kFilterLicenseOptions,
           sortOptions: kFilterSortOptions,
           showReset: false,
-          onReset: _reset,
+          onReset: _resetV2,
           onCategory: (v) => _set(_f.copyWith(category: () => v)),
           onLicense: (v) => _set(_f.copyWith(licenseGroup: () => v)),
           onBranch: (v) => _set(_f.copyWith(branch: () => v)),

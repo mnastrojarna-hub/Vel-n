@@ -231,7 +231,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     final days = s != null && e != null ? catDayCount(s, e) : 0;
     final motos = motosAsync.valueOrNull;
     final String text;
-    if (motos != null) {
+    // 5.0.1: while the list recounts for new dates / filters the old number
+    // would not be true any more — "Hledám…" until the new list is in.
+    if (motos != null && !motosAsync.isLoading) {
       text = days > 0
           ? '${tr.tr('searchAvailableMotorcycles').replaceAll('{n}', '${motos.length}')} · ${catDays(tr, days)}'
           : tr.tr('searchShownMotorcycles').replaceAll('{n}', '${motos.length}');

@@ -32,7 +32,7 @@ const Map<String, Map<String, String>> translationsExt65V501Filter = {
   },
   'de': {
     'motoFltAll': 'Alle Motorräder',
-    'motoFltHint': 'Typ, Führerschein oder Leistung wählen',
+    'motoFltHint': 'Typ, FS oder Leistung wählen',
     'motoFltOn': 'Filter aktiv ({n})',
     'motoFltOnHint': 'Du siehst nicht alle Motorräder',
     'motoFltClear': 'Alle löschen',

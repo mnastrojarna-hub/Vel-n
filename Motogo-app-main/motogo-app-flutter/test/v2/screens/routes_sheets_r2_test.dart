@@ -110,13 +110,14 @@ void main() {
     testWidgets('$look: Trasy filter — country applies; sort picks', (t) async {
       await pumpV2(t, const RoutesScreen(), size: const Size(412, 915), overrides: routesOverrides(), v2: v2);
       await t.pump(const Duration(seconds: 1));
-      await _open(t, v2 ? _tool(MgIcons.filter) : find.text(_tr('routesFilter')));
+      // 5.0.1: the Trasy toolbar has its own controls (rt-tool-*).
+      await _open(t, v2 ? find.byKey(const ValueKey('rt-tool-filter')) : find.text(_tr('routesFilter')));
       expect(find.text(_tr('routesFilterTitle')), findsOneWidget);
       await _tap(t, find.text(countryChipLabel('AT')));
       await _tap(t, _textWhere((s) => s.startsWith('${_tr('routesFilterApply')} (')));
       expect(find.text(_tr('routesFilterTitle')), findsNothing);
       expect(_filter(t, RoutesScreen).countries, {'AT'});
-      await _open(t, v2 ? _tool(MgIcons.sort) : _textWhere((s) => s.startsWith('${_tr('sortTitle')}: ')));
+      await _open(t, v2 ? find.byKey(const ValueKey('rt-tool-sort')) : _textWhere((s) => s.startsWith('${_tr('sortTitle')}: ')));
       await _tap(t, find.text(_tr('sortLength')));
       expect(find.text(_tr('sortLength')), findsNothing, reason: 'sheet closed');
       expect(_textWhere((s) => s.contains(_tr('sortLength'))), findsWidgets);

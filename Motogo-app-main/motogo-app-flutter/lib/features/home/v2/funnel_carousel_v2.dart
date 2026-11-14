@@ -6,20 +6,25 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/motion/mg_motion.dart';
-import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_branch_chip.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../catalog/moto_model.dart';
 import 'funnel_provider.dart';
 import 'home_fit.dart';
 import 'home_ticket_parts.dart';
 
+export 'funnel_slots_v2.dart';
+
 /// One bike of the funnel carousel (V22 `.fc`): full-bleed photo with a
-/// scrim, "● Volná v termínu" (ping only on the centred card), licence /
-/// "Znovu" badge, name + branch · category, "Tvoje cena · n dny" + price +
-/// struck list price. The whole photo opens the bike detail.
+/// scrim, the availability pill top left ("● Volná v termínu" / "Volná
+/// dnes" — ping only on the centred card — or "Volná od 26. 3."), the
+/// licence / "Znovu" badge under it, the neon branch chip top right (owner
+/// v5.0.1), name + category, the price ("Tvoje cena · n dny" + total, or
+/// "od X Kč/den" without dates) + struck list price. The whole photo opens
+/// the bike detail.
 class FunnelBikeCard extends StatelessWidget {
   final Motorcycle moto;
   final bool center;
@@ -29,6 +34,14 @@ class FunnelBikeCard extends StatelessWidget {
   final String price;
   final String? listPrice;
   final VoidCallback onTap;
+
+  /// Availability pill text (null = no pill); [availLive] = a free-now dot
+  /// ("Volná v termínu" / "Volná dnes"), else a calendar ("Volná od …").
+  final String? avail;
+  final bool availLive;
+
+  /// "/den" after an "od" price (no dates).
+  final String? unit;
 
   /// false = "Volná v termínu" dot static: another live indicator (ride
   /// recording) already runs on Domů (DESIGN_V2 §1.3 — one live indicator).
@@ -45,17 +58,19 @@ class FunnelBikeCard extends StatelessWidget {
     required this.price,
     required this.listPrice,
     required this.onTap,
+    required this.avail,
+    this.availLive = true,
+    this.unit,
   });
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final cat = homeCategoryKey(moto.category);
-    final branch = (moto.branchName ?? '').trim();
-    final meta = [
-      if (branch.isNotEmpty) branch,
-      if (cat.isNotEmpty) tr.tr(cat),
-    ].join(' · ');
+    // Pobočka je štítek vpravo nahoře (v5.0.1), pod názvem jen kategorie.
+    final meta = cat.isEmpty ? '' : tr.tr(cat);
+    final branchLabel = mgBikeBranchChipLabel(tr, moto);
+    final shown = unit == null ? price : '$price$unit';
     final reduced = MgMotion.reduced(context);
     // Sdílená fotka → detail motorky jen z karty uprostřed (V2 §5.11 Hero).
     Widget photo = MgHeroPhoto(
@@ -77,12 +92,18 @@ class FunnelBikeCard extends StatelessWidget {
     }
     return Semantics(
       button: true,
-      label: '${moto.model}, $meta, $priceLabel $price',
+      label: [moto.model, if (branchLabel != null) branchLabel, if (meta.isNotEmpty) meta, if (avail != null) avail!, '$priceLabel $shown']
+          .join(', '),
       excludeSemantics: true,
       child: MgPress(
         scale: 0.99,
         onTap: onTap,
-        child: Stack(fit: StackFit.expand, children: [
+        child: LayoutBuilder(builder: (context, box) {
+          // Nízká fotka (≤ 170: telefon < 800 dp): štítky jen v JEDNOM řádku
+          // (dostupnost + pobočka), „Znovu" jde k názvu, štítek ŘP odpadne —
+          // nic nepřekryje název motorky.
+          final compact = box.maxHeight < 170;
+          return Stack(fit: StackFit.expand, children: [
           ClipRect(child: photo),
           DecoratedBox(
             decoration: BoxDecoration(
@@ -98,14 +119,16 @@ class FunnelBikeCard extends StatelessWidget {
             left: 12,
             top: 12,
             right: 12,
-            // „Volná v termínu" + štítek ŘP: když se oba nevejdou, dostanou místo
-            // podle délky a zmenší se (štítek smí na 2 řádky) — nic se neusekne.
-            child: _TopPills(
+            // Vlevo dostupnost + pod ní štítek ŘP / „Znovu", vpravo pobočka.
+            child: _TopRow(
               ping: ping,
-              free: tr.tr('v2HomeFnFree'),
+              avail: avail,
+              availLive: availLive,
               center: center,
-              badge: badge,
+              badge: compact ? null : badge,
               again: again,
+              branch: branchLabel,
+              branchShort: mgBranchShortName(moto.branchName, moto.branchCity),
             ),
           ),
           Positioned(
@@ -115,43 +138,63 @@ class FunnelBikeCard extends StatelessWidget {
             child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(moto.model,
-                      maxLines: 2,
-                      style: MgType.section.copyWith(
-                          color: MgColors.onDark,
-                          shadows: [Shadow(color: MgColors.black(0.55), blurRadius: 10, offset: const Offset(0, 2))])),
+                  if (compact && again && badge != null)
+                    MgWordFit(
+                      minScale: 0.7,
+                      child: Text(badge!.toUpperCase(),
+                          key: const ValueKey('funnel-again-inline'),
+                          maxLines: 1,
+                          softWrap: false,
+                          style: MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.neon, letterSpacing: 0.6)),
+                    ),
+                  // Název celý — raději menší než rozdělené slovo („Roya|l").
+                  MgWordFit(
+                    minScale: 0.7,
+                    fitLines: 2,
+                    child: Text(moto.model,
+                        maxLines: 2,
+                        style: MgType.section.copyWith(
+                            color: MgColors.onDark,
+                            shadows: [Shadow(color: MgColors.black(0.55), blurRadius: 10, offset: const Offset(0, 2))])),
+                  ),
                   if (meta.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Row(children: [
-                      const MgIcon(MgIcons.pin, size: 14, color: MgColors.neon),
-                      const SizedBox(width: 4),
-                      // Pobočka se nikdy nezkracuje kvůli kategorii: když se
-                      // obojí nevejde, kategorie odpadne (SH-40).
-                      Flexible(
-                        child: LayoutBuilder(builder: (context, c) {
-                          final style = MgType.meta.copyWith(color: MgColors.white(0.86));
-                          final fits = homeLinesFitIn(context, meta, style, c.maxWidth, 1);
-                          return Text(fits || branch.isEmpty ? meta : branch,
-                              key: const ValueKey('funnel-meta'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: style);
-                        }),
-                      ),
-                    ]),
+                    // Kategorie celá, raději menší; když se nevejde ani
+                    // zmenšená (úzký telefon, velké písmo), odpadne.
+                    LayoutBuilder(builder: (context, c) {
+                      final style = MgType.meta.copyWith(color: MgColors.white(0.86));
+                      final small = style.copyWith(fontSize: style.fontSize! * 0.75);
+                      if (!homeLinesFitIn(context, meta, small, c.maxWidth, 1)) return const SizedBox.shrink();
+                      return MgWordFit(
+                        minScale: 0.75,
+                        child: Text(meta, key: const ValueKey('funnel-meta'), maxLines: 1, softWrap: false, style: style),
+                      );
+                    }),
                   ],
                 ]),
               ),
               const SizedBox(width: 10),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+              // Cena nejvýš na půl šířky (zmenší se), název má vždy místo.
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: (box.maxWidth - 28) * 0.5),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.bottomRight,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
                 Text(mgNbsp(priceLabel), style: MgType.micro.copyWith(color: MgColors.neonText)),
                 MgBump(
                   trigger: price,
-                  child: Text(mgNbsp(price),
-                      style: MgType.tab(MgType.h2.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: MgColors.neon,
-                          shadows: [Shadow(color: MgColors.neonA(0.35), blurRadius: 14)]))),
+                  child: Text.rich(
+                    TextSpan(children: [
+                      TextSpan(text: mgNbsp(price)),
+                      if (unit != null)
+                        TextSpan(text: mgNbsp(unit!), style: MgType.small.copyWith(fontWeight: FontWeight.w800)),
+                    ]),
+                    style: MgType.tab(MgType.h2.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: MgColors.neon,
+                        shadows: [Shadow(color: MgColors.neonA(0.35), blurRadius: 14)])),
+                  ),
                 ),
                 if (listPrice != null)
                   Text(mgNbsp(listPrice!),
@@ -161,83 +204,101 @@ class FunnelBikeCard extends StatelessWidget {
                           decoration: TextDecoration.lineThrough,
                           decorationColor: MgColors.white(0.62)))),
               ]),
+                ),
+              ),
             ]),
           ),
-        ]),
+        ]);
+        }),
       ),
     );
   }
 }
 
-class _TopPills extends StatelessWidget {
-  final String free;
+class _TopRow extends StatelessWidget {
+  final String? avail;
+  final bool availLive;
   final bool center;
   final String? badge;
   final bool again;
   final bool ping;
-  const _TopPills({required this.free, required this.center, required this.badge, required this.again, this.ping = true});
+  final String? branch;
+  final String? branchShort;
+  const _TopRow({
+    required this.avail,
+    required this.availLive,
+    required this.center,
+    required this.badge,
+    required this.again,
+    required this.ping,
+    required this.branch,
+    required this.branchShort,
+  });
 
   static final _freeStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
   static final _badgeStyle = MgType.micro.copyWith(height: 1.15, fontWeight: FontWeight.w800);
 
   @override
   Widget build(BuildContext context) {
-    final b = badge;
-    final freePill = _GlassPill(
-      border: MgColors.neonA(0.42),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        MgPing(size: 7, color: MgColors.neon, active: center && ping),
-        const SizedBox(width: 6),
-        Flexible(
+    final a = avail, b = badge, br = branch;
+    final pills = <Widget>[
+      if (a != null)
+        _GlassPill(
+          key: const ValueKey('funnel-avail'),
+          border: MgColors.neonA(0.42),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (availLive)
+              MgPing(size: 7, color: MgColors.neon, active: center && ping)
+            else
+              const MgIcon(MgIcons.calendarCheck, size: 13, color: MgColors.neon),
+            const SizedBox(width: 6),
+            Flexible(
+              child: MgWordFit(
+                minScale: 0.7,
+                child: Text(a, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: _freeStyle),
+              ),
+            ),
+          ]),
+        ),
+      if (b != null)
+        _GlassPill(
+          border: again ? MgColors.neonA(0.42) : MgColors.white(0.25),
+          // Celý štítek i se skupinou ŘP („A2"): raději menší, jinak 2 řádky.
           child: MgWordFit(
-            minScale: 0.7,
-            child: Text(free, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: _freeStyle),
+            minScale: 0.8,
+            fitLines: 1,
+            child: Text(b, maxLines: 2, style: _badgeStyle.copyWith(color: again ? MgColors.neonText : MgColors.onDark)),
           ),
         ),
-      ]),
-    );
-    if (b == null) return Row(children: [Flexible(child: freePill)]);
-    final badgePill = _GlassPill(
-      border: again ? MgColors.neonA(0.42) : MgColors.white(0.25),
-      // Celý štítek i se skupinou ŘP („A2"): nejdřív menší na jednom
-      // řádku, jinak na dva řádky v mezeře — nikdy useknutý.
-      child: MgWordFit(
-        minScale: 0.8,
-        fitLines: 1,
-        alignment: AlignmentDirectional.centerEnd,
-        child: Text(b,
-            maxLines: 2,
-            textAlign: TextAlign.end,
-            style: _badgeStyle.copyWith(color: again ? MgColors.neonText : MgColors.onDark)),
-      ),
-    );
-    final scaler = MediaQuery.textScalerOf(context);
-    final base = DefaultTextStyle.of(context).style;
-    double w(String text, TextStyle st) {
-      final tp = TextPainter(text: TextSpan(text: text, style: base.merge(st)), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)
-        ..layout();
-      final v = tp.width;
-      tp.dispose();
-      return v;
-    }
-
-    final wFree = w(free, _freeStyle) + 7 + 6 + 22;
-    final wOne = w(b, _badgeStyle) + 22;
-    // Štítek smí na 2 řádky → v nouzi mu stačí zhruba půlka (aspoň
-    // nejdelší slovo), zbytek místa dostane „Volná v termínu".
-    var longest = 0.0;
-    for (final x in b.split(' ')) {
-      if (x.isNotEmpty) longest = longest > w(x, _badgeStyle) ? longest : w(x, _badgeStyle);
-    }
-    final wTwo = (longest > (wOne - 22) * 0.55 ? longest : (wOne - 22) * 0.55) + 22;
-    // Místo úměrné potřebné šířce: když se oba vejdou, má každý aspoň svou
-    // šířku (vzhled beze změny), jinak štítek na 2 řádky a oba se zmenší.
+    ];
+    final left = Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      for (var i = 0; i < pills.length; i++) ...[if (i > 0) const SizedBox(height: 6), pills[i]],
+    ]);
+    if (br == null) return Align(alignment: Alignment.topLeft, child: left);
     return LayoutBuilder(builder: (context, c) {
-      final wBadge = wFree + 8 + wOne <= c.maxWidth ? wOne : wTwo;
+      // Štítek dostupnosti dostane aspoň místo na svůj text zmenšený na
+      // 75 % (jinak by se useknul), pobočka zbytek (min. 110 — pak jen
+      // název bez režimu, v nouzi zkrácený); nic se nepřekryje.
+      var leftW = 0.0;
+      if (a != null || b != null) {
+        var need = 96.0;
+        if (a != null) {
+          final tp = TextPainter(
+            text: TextSpan(text: a, style: DefaultTextStyle.of(context).style.merge(_freeStyle)),
+            textDirection: TextDirection.ltr,
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          )..layout();
+          need = tp.width * 0.75 + 37;
+          tp.dispose();
+        }
+        leftW = need.clamp(96.0, c.maxWidth * 0.58);
+      }
+      final chipMax = (c.maxWidth - 12 - leftW).clamp(110.0, 250.0);
       return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Flexible(flex: wFree.round(), child: Align(alignment: Alignment.centerLeft, child: freePill)),
-        const SizedBox(width: 8),
-        Flexible(flex: wBadge.round(), child: Align(alignment: Alignment.centerRight, child: badgePill)),
+        Expanded(child: Align(alignment: Alignment.topLeft, child: left)),
+        const SizedBox(width: 12),
+        MgBranchChip(label: br, shortLabel: branchShort, maxWidth: chipMax),
       ]);
     });
   }
@@ -246,7 +307,7 @@ class _TopPills extends StatelessWidget {
 class _GlassPill extends StatelessWidget {
   final Widget child;
   final Color border;
-  const _GlassPill({required this.child, required this.border});
+  const _GlassPill({super.key, required this.child, required this.border});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -261,79 +322,3 @@ class _GlassPill extends StatelessWidget {
       );
 }
 
-/// Loading slot of the carousel (one shimmer pass while loading).
-class FunnelSkeleton extends StatelessWidget {
-  const FunnelSkeleton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    Widget bar(double w, double h, [double r = 6]) => Container(
-          width: w,
-          height: h,
-          decoration: BoxDecoration(color: MgColors.white(0.08), borderRadius: BorderRadius.circular(r)),
-        );
-    return ExcludeSemantics(
-      child: MgShimmer(
-        highlight: MgColors.white(0.13),
-        child: Container(
-          color: MgColors.panel,
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            bar(120, 26, 999),
-            const Spacer(),
-            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  bar(170, 18),
-                  const SizedBox(height: 8),
-                  bar(110, 14),
-                ]),
-              ),
-              bar(96, 26),
-            ]),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-/// Empty / error slot of the carousel (`.fn-emp`): tone disc + title + text.
-class FunnelEmptySlot extends StatelessWidget {
-  final bool error;
-  final String title;
-  final String text;
-  const FunnelEmptySlot({super.key, required this.error, required this.title, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment.topCenter,
-          radius: 1.2,
-          colors: [MgColors.panel, MgColors.night],
-        ),
-      ),
-      // Výška podle obsahu (min. 200 v HomeFunnelV2): celé vysvětlení
-      // i při velkém písmu, nic se neusekne.
-      constraints: const BoxConstraints(minHeight: 200),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Semantics(
-        liveRegion: true,
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          MgToneDisc(tone: error ? MgTone.err : MgTone.info, size: 48, dark: true, icon: error ? null : MgIcons.calendarX),
-          const SizedBox(height: 8),
-          MgWordFit(
-            minScale: 0.8,
-            alignment: Alignment.center,
-            child: Text(title, textAlign: TextAlign.center, style: MgType.title.copyWith(color: MgColors.onDark)),
-          ),
-          const SizedBox(height: 4),
-          Text(text, textAlign: TextAlign.center, style: MgType.small.copyWith(color: MgColors.onDarkLead)),
-        ]),
-      ),
-    );
-  }
-}

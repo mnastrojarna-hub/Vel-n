@@ -5,16 +5,18 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_chrome_lift.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
-import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/motion/mg_ken_burns.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_branch_chip.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
-import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../core/widgets/net_image.dart';
 import '../moto_model.dart';
+import 'bike_screen_card_parts_v2.dart';
+import 'bike_screen_video_layer_v2.dart';
+import 'bike_screen_video_stage_v2.dart';
 import 'catalog_fit.dart';
 import 'catalog_price.dart';
 import 'catalog_text.dart';
@@ -30,7 +32,9 @@ import 'catalog_text.dart';
 /// the status-bar inset as [topInset] — the top controls (photo segments,
 /// availability pill, side tap zones) sit below the status bar, and on a
 /// tall card the contained photo rides in the upper part, clear of the
-/// caption block.
+/// caption block. Photo first, then the bike's first video, looped and
+/// muted (owner v5.0.1, [BikeVideoStage]: settled ~5 s, Wi-Fi only, else
+/// "Pustit video"); the branch chip sits in the photo's top-right corner.
 class MotoCardFullV2 extends StatefulWidget {
   final Motorcycle moto;
   final CatCardPrice price;
@@ -117,199 +121,213 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     // The old card's "Základní údaje": up to 6 (Velín short_desc_fields).
     final specs = m.shortDescItems(tr.tr).take(6).map((e) => e.card).toList();
     final lic = catLicenseLabel(tr, m);
-    final branch = catBranchLine(tr, m);
+    final branch = mgBikeBranchChipLabel(tr, m);
     final top = widget.topInset;
     // A full-screen card: the photo in the upper part, above the caption.
     final photoAlign = widget.height > 640 ? const Alignment(0, -0.4) : Alignment.center;
     // [height] is the MINIMUM: with large text / long words the card grows
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).
-    return Semantics(
-      container: true,
-      label: m.model,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: widget.height),
-        child: ColoredBox(
-          color: MgColors.night,
-          child: Stack(alignment: AlignmentDirectional.bottomStart, children: [
-            // Darkened cover copy behind the whole (contain) photo — no blur
-            // filter in lists (low-end Android, PLAN §6.2 #10).
-            if (imgs.isNotEmpty)
-              Positioned.fill(
-                child: ExcludeSemantics(
-                  child: Stack(fit: StackFit.expand, children: [
-                    // CB-15: dark placeholder + 180 ms cross-fade per photo.
-                    AnimatedSwitcher(
-                      duration: MgMotion.of(context, MgMotion.color),
-                      child: KeyedSubtree(
-                        key: ValueKey(_page),
-                        child: MgImage(imgs[_page.clamp(0, imgs.length - 1)],
-                            thumbWidth: 400,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            placeholder: const ColoredBox(color: MgColors.panel),
-                            error: _fallback()),
-                      ),
-                    ),
-                    ColoredBox(color: MgColors.nightA(0.62)),
-                  ]),
-                ),
-              ),
-            if (imgs.isEmpty)
-              Positioned.fill(child: GestureDetector(onTap: widget.onOpen, child: _fallback()))
-            else
-              Positioned.fill(
-                child: PageView.builder(
-                  controller: _pc,
-                  itemCount: imgs.length,
-                  onPageChanged: (i) => setState(() => _page = i),
-                  itemBuilder: (_, i) {
-                    // CB-14: the first photo flies into the detail hero;
-                    // CB-28: Ken Burns once on the first card of the list.
-                    Widget img = MgHeroPhoto(
-                      tag: mgHeroTagMoto(m.id),
-                      enabled: i == 0,
-                      child: MgImage(
-                        imgs[i],
-                        thumbWidth: 900,
-                        fit: BoxFit.contain,
-                        alignment: photoAlign,
-                        width: double.infinity,
-                        placeholder: const SizedBox.expand(),
-                        error: _fallback(),
-                      ),
-                    );
-                    if (i == 0 && widget.live) img = MgKenBurns(sessionKey: 'motorky-card-${m.id}', child: img);
-                    return GestureDetector(onTap: widget.onOpen, child: img);
-                  },
-                ),
-              ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        MgColors.nightA(0.55),
-                        MgColors.nightA(0),
-                        MgColors.nightA(0),
-                        MgColors.nightA(0.6),
-                        MgColors.nightA(0.96),
-                      ],
-                      stops: const [0, 0.15, 0.5, 0.7, 1],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (multi) ...[
-              Positioned(
-                top: top + 8,
-                left: 12,
-                right: 12,
-                child: ExcludeSemantics(
-                  child: Row(children: [
-                    for (var i = 0; i < imgs.length; i++)
-                      Expanded(
-                        child: Container(
-                          height: 3,
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          decoration: BoxDecoration(
-                            color: i == _page ? MgColors.onDark : MgColors.white(0.35),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+    return BikeVideoStage(
+      videos: m.videos,
+      builder: (context, video) => Semantics(
+        container: true,
+        label: m.model,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: widget.height),
+          child: ColoredBox(
+            color: MgColors.night,
+            child: Stack(alignment: AlignmentDirectional.bottomStart, children: [
+              // Darkened cover copy behind the whole (contain) photo — no blur
+              // filter in lists (low-end Android, PLAN §6.2 #10).
+              if (imgs.isNotEmpty)
+                Positioned.fill(
+                  child: ExcludeSemantics(
+                    child: Stack(fit: StackFit.expand, children: [
+                      // CB-15: dark placeholder + 180 ms cross-fade per photo.
+                      AnimatedSwitcher(
+                        duration: MgMotion.of(context, MgMotion.color),
+                        child: KeyedSubtree(
+                          key: ValueKey(_page),
+                          child: MgImage(imgs[_page.clamp(0, imgs.length - 1)],
+                              thumbWidth: 400,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              placeholder: const ColoredBox(color: MgColors.panel),
+                              error: _fallback()),
                         ),
                       ),
+                      ColoredBox(color: MgColors.nightA(0.62)),
+                    ]),
+                  ),
+                ),
+              if (imgs.isEmpty)
+                Positioned.fill(child: GestureDetector(onTap: widget.onOpen, child: _fallback()))
+              else
+                Positioned.fill(
+                  child: PageView.builder(
+                    controller: _pc,
+                    itemCount: imgs.length,
+                    onPageChanged: (i) => setState(() => _page = i),
+                    itemBuilder: (_, i) {
+                      // CB-14: the first photo flies into the detail hero;
+                      // CB-28: Ken Burns once on the first card of the list.
+                      Widget img = MgHeroPhoto(
+                        tag: mgHeroTagMoto(m.id),
+                        enabled: i == 0,
+                        child: MgImage(
+                          imgs[i],
+                          thumbWidth: 900,
+                          fit: BoxFit.contain,
+                          alignment: photoAlign,
+                          width: double.infinity,
+                          placeholder: const SizedBox.expand(),
+                          error: _fallback(),
+                        ),
+                      );
+                      if (i == 0 && widget.live) img = MgKenBurns(sessionKey: 'motorky-card-${m.id}', child: img);
+                      return GestureDetector(onTap: widget.onOpen, child: img);
+                    },
+                  ),
+                ),
+              if (m.videos.isNotEmpty) Positioned.fill(child: BikeVideoLayer(video: video, alignment: photoAlign)),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          MgColors.nightA(0.55),
+                          MgColors.nightA(0),
+                          MgColors.nightA(0),
+                          MgColors.nightA(0.6),
+                          MgColors.nightA(0.96),
+                        ],
+                        stops: const [0, 0.15, 0.5, 0.7, 1],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (multi) ...[
+                Positioned(
+                  top: top + 8,
+                  left: 12,
+                  right: 12,
+                  child: ExcludeSemantics(
+                    child: Row(children: [
+                      for (var i = 0; i < imgs.length; i++)
+                        Expanded(
+                          child: Container(
+                            height: 3,
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: BoxDecoration(
+                              color: i == _page ? MgColors.onDark : MgColors.white(0.35),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+                _zone(left: true, label: tr.tr('v2CatPhotoPrev')),
+                _zone(left: false, label: tr.tr('v2CatPhotoNext')),
+              ],
+              if (widget.availability != null)
+                Positioned(top: top + 20, left: 12, child: BikeCardAvailabilityPill(text: widget.availability!, live: widget.live)),
+              // Where the bike is (owner v5.0.1): the neon chip, top right.
+              if (branch != null)
+                Positioned(
+                  top: top + 21,
+                  right: 12,
+                  child: MgBranchChip(
+                    label: branch,
+                    shortLabel: mgBranchShortName(m.branchName, m.branchCity),
+                    maxWidth: mgBranchChipMaxWidth(MediaQuery.sizeOf(context).width,
+                        leftPill: widget.availability == null ? 0 : _pillWidth(context, widget.availability!)),
+                  ),
+                ),
+              if (m.videos.isNotEmpty)
+                Positioned.fill(child: Align(alignment: photoAlign, child: BikeVideoPlayButton(video: video))),
+              // With the bars shown the body is a nav row shorter than the
+              // card: the caption rides above the nav (and the strips).
+              MgChromeLift(
+                room: widget.height,
+                extra: widget.liftExtra,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(16, top + 60, 16, 16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    IgnorePointer(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                        Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                          if (m.category != null && m.category!.isNotEmpty)
+                            BikeCardTag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
+                          if (lic.isNotEmpty)
+                            // J5: red + "tvůj ŘP nestačí" when the licence
+                            // does not cover the bike (list / filter unchanged).
+                            Consumer(
+                              builder: (context, ref, _) => catLicenceFails(ref, m)
+                                  ? BikeCardTag('$lic · ${tr.tr('coLicNotEnough')}', bad: true)
+                                  : BikeCardTag(lic),
+                            ),
+                          // The old card's "{kW} KW" badge.
+                          if (m.powerKw != null) BikeCardTag('${m.powerKw} KW'),
+                        ]),
+                        const SizedBox(height: 8),
+                        Text(m.model,
+                            style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
+                        if (specs.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(spacing: 6, runSpacing: 6, children: [for (final s in specs) BikeCardSpecChip(s)]),
+                        ],
+                        const SizedBox(height: 10),
+                      ]),
+                    ),
+                    LayoutBuilder(builder: (context, c) {
+                      // Price + CTA side by side only when the price ("2 727 Kč
+                      // /Tag") fits next to the button; otherwise the button goes
+                      // full width under the price (no number split in half).
+                      final narrow = _priceWidth(context, widget.price) + 12 + _ctaWidth(context, widget.ctaLabel) > c.maxWidth;
+                      Widget cta(bool expand) => MgFabAvoid(
+                            child: MgCta(
+                              label: widget.ctaLabel,
+                              onTap: widget.onCta ?? widget.onOpen,
+                              size: MgCtaSize.sm48,
+                              expand: expand,
+                              arrow: true,
+                              loop: widget.live,
+                              semanticLabel: '${widget.ctaLabel} · ${m.model}',
+                            ),
+                          );
+                      if (narrow) {
+                        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                          IgnorePointer(child: BikeCardPriceBlock(price: widget.price)),
+                          const SizedBox(height: 12),
+                          cta(true),
+                        ]);
+                      }
+                      return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Expanded(child: IgnorePointer(child: BikeCardPriceBlock(price: widget.price))),
+                        const SizedBox(width: 12),
+                        cta(false),
+                      ]);
+                    }),
                   ]),
                 ),
               ),
-              _zone(left: true, label: tr.tr('v2CatPhotoPrev')),
-              _zone(left: false, label: tr.tr('v2CatPhotoNext')),
-            ],
-            if (widget.availability != null)
-              Positioned(top: top + 20, left: 12, child: _AvailabilityPill(text: widget.availability!, live: widget.live)),
-            // With the bars shown the body is a nav row shorter than the
-            // card: the caption rides above the nav (and the strips).
-            MgChromeLift(
-              room: widget.height,
-              extra: widget.liftExtra,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, top + 60, 16, 16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  IgnorePointer(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                        if (m.category != null && m.category!.isNotEmpty)
-                          _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
-                        if (lic.isNotEmpty)
-                          // J5: red + "tvůj ŘP nestačí" when the licence
-                          // does not cover the bike (list / filter unchanged).
-                          Consumer(
-                            builder: (context, ref, _) => catLicenceFails(ref, m)
-                                ? _Tag('$lic · ${tr.tr('coLicNotEnough')}', bad: true)
-                                : _Tag(lic),
-                          ),
-                        // The old card's "{kW} KW" badge.
-                        if (m.powerKw != null) _Tag('${m.powerKw} KW'),
-                        if (branch != null)
-                          Row(mainAxisSize: MainAxisSize.min, children: [
-                            MgIcon(MgIcons.pin, size: 16, color: MgColors.neon),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(branch, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
-                            ),
-                          ]),
-                      ]),
-                      const SizedBox(height: 8),
-                      Text(m.model,
-                          style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
-                      if (specs.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Wrap(spacing: 6, runSpacing: 6, children: [for (final s in specs) _SpecChip(s)]),
-                      ],
-                      const SizedBox(height: 10),
-                    ]),
-                  ),
-                  LayoutBuilder(builder: (context, c) {
-                    // Price + CTA side by side only when the price ("2 727 Kč
-                    // /Tag") fits next to the button; otherwise the button goes
-                    // full width under the price (no number split in half).
-                    final narrow = _priceWidth(context, widget.price) + 12 + _ctaWidth(context, widget.ctaLabel) > c.maxWidth;
-                    Widget cta(bool expand) => MgFabAvoid(
-                          child: MgCta(
-                            label: widget.ctaLabel,
-                            onTap: widget.onCta ?? widget.onOpen,
-                            size: MgCtaSize.sm48,
-                            expand: expand,
-                            arrow: true,
-                            loop: widget.live,
-                            semanticLabel: '${widget.ctaLabel} · ${m.model}',
-                          ),
-                        );
-                    if (narrow) {
-                      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                        IgnorePointer(child: _PriceBlock(price: widget.price)),
-                        const SizedBox(height: 12),
-                        cta(true),
-                      ]);
-                    }
-                    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Expanded(child: IgnorePointer(child: _PriceBlock(price: widget.price))),
-                      const SizedBox(width: 12),
-                      cta(false),
-                    ]);
-                  }),
-                ]),
-              ),
-            ),
-          ]),
+            ]),
+          ),
         ),
       ),
     );
   }
+
+  /// [BikeCardAvailabilityPill]: 12 + ping 8 + 8 + text + 12.
+  static double _pillWidth(BuildContext context, String text) =>
+      catLineWidth(context, text, DefaultTextStyle.of(context).style.merge(MgType.small.copyWith(fontWeight: FontWeight.w700))) + 40;
 
   static double _priceWidth(BuildContext context, CatCardPrice p) {
     final base = DefaultTextStyle.of(context).style;
@@ -336,84 +354,3 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
       );
 }
 
-class _AvailabilityPill extends StatelessWidget {
-  final String text;
-  final bool live;
-  const _AvailabilityPill({required this.text, required this.live});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(color: MgColors.nightA(0.8), borderRadius: BorderRadius.circular(999)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          RepaintBoundary(child: MgPing(size: 8, color: MgColors.neon, active: live)),
-          const SizedBox(width: 8),
-          Text(text, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDark, height: 1)),
-        ]),
-      );
-}
-
-class _Tag extends StatelessWidget {
-  final String text;
-  final bool neon;
-  final bool bad;
-  const _Tag(this.text, {this.neon = false, this.bad = false});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.nightA(0.72)),
-          borderRadius: BorderRadius.circular(6),
-          border: neon ? null : Border.all(color: MgColors.white(0.18)),
-        ),
-        child: Text(text,
-            style: MgType.micro.copyWith(
-                fontWeight: FontWeight.w800, color: neon ? MgColors.onNeon : MgColors.onDark, letterSpacing: neon ? 0.4 : 0)),
-      );
-}
-
-class _SpecChip extends StatelessWidget {
-  final String text;
-  const _SpecChip(this.text);
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: MgColors.white(0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: MgColors.white(0.14)),
-        ),
-        child: Text(text, maxLines: 1, style: MgType.meta.copyWith(color: MgColors.onDarkBody)),
-      );
-}
-
-class _PriceBlock extends StatelessWidget {
-  final CatCardPrice price;
-  const _PriceBlock({required this.price});
-
-  @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text(price.label.toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.neonText, fontSize: 11)),
-        const SizedBox(height: 4),
-        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 6, runSpacing: 2, children: [
-          Text.rich(TextSpan(children: [
-            TextSpan(
-              text: price.value,
-              style: MgType.tab(MgType.h1.copyWith(
-                  color: MgColors.neon, height: 1, shadows: [Shadow(color: MgColors.neonA(0.25), blurRadius: 18)])),
-            ),
-            if (price.unit != null)
-              TextSpan(text: ' ${price.unit}', style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkLead)),
-          ])),
-          if (price.struck != null)
-            Text(price.struck!,
-                style: MgType.tab(MgType.small.copyWith(
-                    color: MgColors.white(0.66), decoration: TextDecoration.lineThrough, decorationColor: MgColors.white(0.66)))),
-        ]),
-        const SizedBox(height: 4),
-        MgWordFit(child: Text(price.sub, style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w600, color: MgColors.onDarkLead)))),
-      ]);
-}

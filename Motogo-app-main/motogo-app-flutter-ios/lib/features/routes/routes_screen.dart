@@ -22,14 +22,20 @@ import 'collapsing_header.dart';
 import 'routes_quick_links.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/chrome/mg_page.dart';
+import '../../core/v2/chrome/mg_chrome_metrics.dart' show MgSizeReporter;
+import '../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
+import '../../core/v2/gestures/mg_zone_snap.dart' show MgSnapZone;
+import '../catalog/v2/bike_screen_list_v2.dart' show bikeScreenHeight;
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/icons/mg_icon.dart';
-import '../../core/v2/motion/mg_anim.dart';
 import '../../core/widgets/state_views.dart';
 import 'v2/places_parts_v2.dart';
 import 'v2/record_dock_v2.dart';
 import 'v2/rides/recorder_screen_v2.dart' show openRideRecorderV2;
+import 'v2/route_card_full_v2.dart';
 import 'v2/route_card_v2.dart';
+import 'v2/route_screen_list_v2.dart';
+import 'v2/routes_filters_v2.dart';
 import 'v2/routes_filter_sheet_v2.dart';
 import 'v2/routes_list_parts_v2.dart';
 import 'v2/rt_sheet_rows_v2.dart' show RtOpt;
@@ -79,6 +85,11 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
   final ScrollController _scroll = ScrollController();
   Timer? _searchDebounce;
   final Set<String> _precachedCovers = {}; // covers už poslané do precache
+  // v2 (5.0.1): jedna trasa na obrazovku — zóna přichycení, šipka nahoru
+  // a výška docku „Zaznamenat jízdu“ (karta pod ním nesmí mít text).
+  final MgSnapZone _zone = MgSnapZone();
+  final ValueNotifier<bool> _topShown = ValueNotifier(false);
+  final ValueNotifier<double> _dockH = ValueNotifier(0);
 
   // Rozšířené filtry (prázdné = bez omezení).
   //
@@ -158,6 +169,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     _searchCtl.dispose();
     _scroll.dispose();
     _quickOrder.dispose();
+    _topShown.dispose();
+    _dockH.dispose();
     super.dispose();
   }
 
@@ -474,7 +487,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       }
     }
     _sortRoutes(routes, me, selAnchor);
-    _precacheCovers(context, routes);
+    // v2 warms only the neighbours of the route on screen (RouteScreenList).
+    if (!MgV2.on(context)) _precacheCovers(context, routes);
 
     void openRoute(RouteItem r) {
       // Zapamatuj zvolenou trasu pro řazení „od zvolené trasy".
@@ -509,32 +523,16 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
                 sort: _sortLabel(context, _sort),
               ),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList.builder(
-                itemCount: routes.length,
-                itemBuilder: (context, i) {
-                  final r = routes[i];
-                  return MgReveal(
-                    index: i < 6 ? i : 0,
-                    sessionKey: 'routes-${r.id}',
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: _RouteCard(
-                        route: r,
-                        branch: r.branchId != null ? data.branches[r.branchId] : null,
-                        lang: lang,
-                        approach: me == null ? null : approachEstimate(me, r),
-                        onTap: () => openRoute(r),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
+            _screenList(context, data, lang, routes, me, openRoute),
           ],
         ],
-        dock: TrasyRecordDockV2(onOpenRecorder: () => openRideRecorderV2(context)),
+        snap: _zone,
+        toTop: true,
+        toTopShown: _topShown,
+        dock: MgSizeReporter(
+          onSize: (sz) => _dockH.value = sz.height,
+          child: TrasyRecordDockV2(onOpenRecorder: () => openRideRecorderV2(context)),
+        ),
       );
     }
 
@@ -621,6 +619,84 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
     );
   }
 
+
+  /// v2 (5.0.1): one route per screen — the band and the toolbar above,
+  /// then [RouteScreenList] with the full-screen cards. Same open, the same
+  /// reviews sheet, the same "Od tebe" estimate as the old card.
+  Widget _screenList(BuildContext context, RoutesData data, String lang, List<RouteItem> routes, LatLng? me,
+      void Function(RouteItem) openRoute) {
+    final h = bikeScreenHeight(context);
+    final top = MediaQuery.paddingOf(context).top;
+    return SliverMainAxisGroup(slivers: [
+      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+      RouteScreenList(
+        routes: routes,
+        zone: _zone,
+        height: h,
+        onOpen: (i) => openRoute(routes[i]),
+        card: (context, i, open) {
+          final r = routes[i];
+          return AnimatedBuilder(
+            animation: Listenable.merge([_topShown, _dockH]),
+            builder: (context, _) => RouteCardFullV2(
+              key: ValueKey('rc-${r.id}'),
+              route: r,
+              branch: r.branchId != null ? data.branches[r.branchId] : null,
+              lang: lang,
+              approach: me == null ? null : approachEstimate(me, r),
+              onTap: open,
+              onReviews: () => showRouteReviewsSheet(context, routeId: r.id, routeName: r.nameFor(lang)),
+              height: h,
+              topInset: top,
+              liftExtra: _topShown.value ? kMgToTopSlot : 0,
+              bottomReserve: _dockH.value,
+            ),
+          );
+        },
+      ),
+    ]);
+  }
+
+  /// v2 (5.0.1): the active filters as removable chips (bike filter look).
+  /// Each ✕ clears exactly its part, like the sheet's own setters.
+  List<RtFilterChipItem> _filterChipsV2(BuildContext context) {
+    final tr = t(context);
+    final lang = tr.lang;
+    final d = _fDist;
+    return [
+      for (final c in _fCountry)
+        // The name without the flag glyph ("🇦🇹 Rakousko" → "Rakousko").
+        RtFilterChipItem(countryFullLabel(c, lang).split(' ').skip(1).join(' '), () {
+          if (!mounted) return;
+          ref.read(placesFilterProvider.notifier).update((f) => f.copyWith(countries: {...f.countries}..remove(c)));
+          setState(() {});
+        }),
+      if (d != null)
+        RtFilterChipItem('${d.start.round()}–${d.end.round()} km', () {
+          if (!mounted) return;
+          setState(() {
+            _fDist = null;
+            _fDur = null;
+          });
+        }),
+      if (_withApproach)
+        RtFilterChipItem(tr.tr('rtListApproach'), () {
+          if (mounted) setState(() => _withApproach = false);
+        }),
+      if (_query.trim().isNotEmpty)
+        RtFilterChipItem('„${_query.trim()}“', () {
+          if (!mounted) return;
+          _searchDebounce?.cancel();
+          _searchCtl.clear();
+          setState(() => _query = '');
+          ref.read(placesSearchProvider.notifier).state = '';
+        }),
+      if (_sort != _RouteSort.nearMe)
+        RtFilterChipItem('${tr.tr('sortTitle')}: ${_sortLabel(context, _sort)}', () {
+          if (mounted) setState(() => _sort = _RouteSort.nearMe);
+        }),
+    ];
+  }
 
   // ── Řazení tras ──
   String _sortLabel(BuildContext context, _RouteSort s) {
@@ -758,6 +834,7 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
         onSort: () => _openSortSheet(context, me != null, routeAvail),
         onMap: () => context.push(Routes.routesMap),
         onClear: _clearFilters,
+        chips: _filterChipsV2(context),
       );
     }
 

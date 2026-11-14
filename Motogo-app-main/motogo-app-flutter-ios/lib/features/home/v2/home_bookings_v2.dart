@@ -61,7 +61,8 @@ class HomeBookingsV2 extends StatelessWidget {
             final unpaid = pb != null && !pb.isExpired && !pb.verifying;
             return _Row(
               key: const ValueKey('home-no-booking'),
-              leading: const MgIconTileLight(MgIcons.moto),
+              // v5.0.1: stejná tmavá dlaždice s neonem jako řádky pod ní.
+              leading: const MgIconTileDark(MgIcons.moto),
               title: tr.tr('homeNoActiveReservation'),
               sub: tr.tr(unpaid ? 'efoHomeUnpaidSub' : 'efoBookNow'),
               onTap: () => router?.go(Routes.search),

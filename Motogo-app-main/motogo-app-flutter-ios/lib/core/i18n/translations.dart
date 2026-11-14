@@ -87,6 +87,9 @@ import 'translations_ext_47_rides.dart';
 import 'translations_ext_48_shared_carry.dart';
 import 'translations_ext_61_shared_r2.dart';
 import 'translations_ext_64_sos_replace.dart';
+import 'translations_ext_65_v501_filter.dart';
+import 'translations_ext_65_v501_home.dart';
+import 'translations_ext_65_v501_routes.dart';
 import 'translations_ext_62_guards_after.dart';
 import 'translations_ext_62_clarity_after.dart';
 import 'translations_ext_62_clarity_order.dart';
@@ -236,6 +239,9 @@ final translations = _mergeAll([
   translationsExt48SharedCarry,
   translationsExt61SharedR2,
   translationsExt64SosReplace,
+  translationsExt65V501Filter,
+  translationsExt65V501Home,
+  translationsExt65V501Routes,
   translationsExt62GuardsAfter,
   translationsExt62ClarityAfter,
   translationsExt62ClarityOrder,

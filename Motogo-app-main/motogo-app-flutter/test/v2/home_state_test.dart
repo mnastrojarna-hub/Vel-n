@@ -77,7 +77,7 @@ void main() {
     expect(funnelPresets(DateTime(2026, 10, 16, 9)).$1.start, DateTime(2026, 10, 16));
   });
 
-  test('eligible bikes: licence filter, no trailers / closed branches, last bike first', () {
+  test('eligible bikes: licence filter, no trailers / closed branches; the last bike is not forced first (v5.0.1)', () {
     final all = [...kMotos];
     final a2 = homeEligibleMotos(all, {'license_group': ['A2']}, const []);
     expect(a2.map((m) => m.id), ['m-shot'], reason: 'A2 covers only the Shotgun');
@@ -86,7 +86,9 @@ void main() {
     final again = homeEligibleMotos(all, {'license_group': ['A']}, [
       res('old', status: 'completed', from: -30, to: -28),
     ]);
-    expect(again.first.id, 'm-husq');
+    // v5.0.1 (owner): the bike from the last rental keeps only its "Znovu"
+    // badge — the offer card shuffles the fleet order.
+    expect(again.map((m) => m.id), a.map((m) => m.id));
     expect(homeEligibleMotos(all, null, const []).length, 3, reason: 'no groups → no filter');
   });
 }

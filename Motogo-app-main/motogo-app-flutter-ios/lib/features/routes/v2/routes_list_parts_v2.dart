@@ -2,17 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/router.dart' show MotoGoBackNav, Routes;
 import '../../../core/v2/chrome/mg_page.dart';
-import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../community_submit.dart';
-import 'places_parts_v2.dart';
 import 'record_dock_v2.dart';
+import 'route_card_skeleton_v2.dart';
 import 'rides/recorder_screen_v2.dart' show openRideRecorderV2;
 import 'trasy_hub_header_v2.dart';
 
@@ -107,58 +105,10 @@ class RoutesBandV2 extends StatelessWidget {
   }
 }
 
-/// Toolbar of the Trasy list: Filtry (n) · Řadit: … · Mapa tras · Zrušit.
-class RoutesToolbarV2 extends StatelessWidget {
-  final int activeCount;
-  final String sortLabel;
-  final bool sortOn;
-  final VoidCallback onFilter;
-  final VoidCallback onSort;
-  final VoidCallback onMap;
-  final VoidCallback onClear;
-
-  const RoutesToolbarV2({
-    super.key,
-    required this.activeCount,
-    required this.sortLabel,
-    required this.sortOn,
-    required this.onFilter,
-    required this.onSort,
-    required this.onMap,
-    required this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    return TrasyChipRailV2(children: [
-      TrasyToolChipV2(
-        label: tr.tr('routesFilter'),
-        icon: MgIcons.filter,
-        on: activeCount > 0,
-        count: activeCount > 0 ? activeCount : null,
-        onTap: onFilter,
-      ),
-      TrasyToolChipV2(label: sortLabel, icon: MgIcons.sort, on: sortOn, caret: true, onTap: onSort),
-      TrasyToolChipV2(label: tr.tr('routesMapBtn'), icon: MgIcons.map, onTap: onMap),
-      if (activeCount > 0)
-        TrasyToolChipV2(label: tr.tr('routesFilterClear'), icon: MgIcons.close, danger: true, onTap: onClear),
-    ]);
-  }
-}
-
-/// Trasy loading: two photo-top route-card skeletons (photo 180, meta
-/// pills, two lines) — the list's final geometry, no layout jump.
+/// Trasy loading (5.0.1): the one-route-per-screen geometry.
 class _RoutesLoadingV2 extends StatelessWidget {
   const _RoutesLoadingV2();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Column(children: [
-          MgSkeletonPhotoCard(photoHeight: 180, pills: [64, 72, 64]),
-          SizedBox(height: 12),
-          MgSkeletonPhotoCard(photoHeight: 180, pills: [64, 72, 64]),
-        ]),
-      );
+  Widget build(BuildContext context) => const RouteScreenSkeletonV2();
 }

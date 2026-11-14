@@ -15,6 +15,9 @@ void _goSearch(BuildContext context, WidgetRef ref) {
   GoRouter.maybeOf(context)?.go(Routes.search);
 }
 
+/// Motorky tab from Domů (the offer card when it has no bike to offer).
+void homeOpenMotorky(BuildContext context, WidgetRef ref) => _goSearch(context, ref);
+
 /// "Spočítat přesnou cenu ›" (PLAN §2.1 / §2.2.4): prefill the in-memory
 /// calculator with the bike and / or range, switch Motorky to the
 /// calculator and open the tab. Nothing else is written.

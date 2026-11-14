@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_calendar.dart';
@@ -6,6 +7,8 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_sheet.dart';
+import '../../catalog/catalog_provider.dart';
+import '../../catalog/moto_model.dart';
 import '../../catalog/widgets/availability_calendar.dart';
 import 'funnel_provider.dart';
 
@@ -14,18 +17,21 @@ import 'funnel_provider.dart';
 /// past days off, single day = tap twice, third tap resets) in its v2 look,
 /// a summary row and one apply button. Returns the picked range, or null
 /// when closed. [onClear] adds "Zrušit termín" (caller decides what it does).
+/// [moto] = the calendar of that bike: its booked days (the same
+/// `bookedDatesProvider` as the bike detail) and day prices.
 Future<FunnelRange?> showHomeDateSheet(
   BuildContext context, {
   FunnelRange? initial,
   required String applyLabel,
   VoidCallback? onClear,
+  Motorcycle? moto,
 }) {
   final tr = t(context);
   return showMgSheet<FunnelRange>(
     context,
     title: tr.tr('v2HomeDateTitle'),
     maxHeightFactor: 0.92,
-    builder: (_) => _DateSheetBody(initial: initial, applyLabel: applyLabel, onClear: onClear),
+    builder: (_) => _DateSheetBody(initial: initial, applyLabel: applyLabel, onClear: onClear, moto: moto),
   );
 }
 
@@ -33,7 +39,8 @@ class _DateSheetBody extends StatefulWidget {
   final FunnelRange? initial;
   final String applyLabel;
   final VoidCallback? onClear;
-  const _DateSheetBody({this.initial, required this.applyLabel, this.onClear});
+  final Motorcycle? moto;
+  const _DateSheetBody({this.initial, required this.applyLabel, this.onClear, this.moto});
 
   @override
   State<_DateSheetBody> createState() => _DateSheetBodyState();
@@ -62,7 +69,16 @@ class _DateSheetBodyState extends State<_DateSheetBody> {
         TripSummaryRow(start: s, end: e, days: e == null ? null : FunnelRange(s, e).days),
         const SizedBox(height: 12),
       ],
-      AvailabilityCalendar(
+      if (widget.moto case final m?) ...[
+        Text(m.model, style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+        const SizedBox(height: 8),
+      ],
+      Consumer(
+        builder: (context, ref, _) => AvailabilityCalendar(
+        bookedDates: widget.moto == null
+            ? const []
+            : ref.watch(bookedDatesProvider(widget.moto!.id)).valueOrNull ?? const [],
+        dayPrices: widget.moto?.prices,
         selectedStart: widget.initial?.start,
         selectedEnd: widget.initial?.end,
         showLegend: false,
@@ -78,6 +94,7 @@ class _DateSheetBodyState extends State<_DateSheetBody> {
           _start = null;
           _end = null;
         }),
+        ),
       ),
       const SizedBox(height: 16),
       MgBtnInk(

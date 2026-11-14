@@ -24,6 +24,7 @@ import 'package:motogo_app/features/catalog/moto_model.dart' show BookedDateRang
 import 'package:motogo_app/features/catalog/v2/catalog_price.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_dock_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
+import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -81,11 +82,14 @@ Future<void> _unmount(WidgetTester t) async {
   await t.pump(const Duration(seconds: 2));
 }
 
-/// Home funnel with [profile] in a nested scope (the shared fakes pin 'A').
-Widget _funnel(Map<String, dynamic> profile) => ProviderScope(
-      overrides: [profileProvider.overrideWith((ref) async => profile)],
-      child: const SingleChildScrollView(child: HomeFunnelV2()),
-    );
+/// Home funnel; its profile comes from [_withProfile] (the shared fakes pin
+/// 'A'). v5.0.1: the profile is overridden in the ROOT scope — the offer
+/// card's providers read it there (a nested override would need them to
+/// declare `dependencies`).
+const Widget _funnel = SingleChildScrollView(child: HomeFunnelV2());
+
+List<Override> _withProfile(List<Override> base, Map<String, dynamic> profile) =>
+    [...base, profileProvider.overrideWith((ref) async => profile)];
 
 void main() {
   setUpAll(() async {
@@ -102,11 +106,13 @@ void main() {
   final notEnough = _cs.tr('coLicNotEnough');
   final funnelOv = [
     ...homeOverrides(funnel: [kBmw]),
+    // v5.0.1: nothing is preselected — the warning belongs to given dates.
+    funnelGivenProvider.overrideWith((ref) => funnelPresets(DateTime.now()).$1),
     bookedDatesProvider.overrideWith((ref, id) async => const <BookedDateRange>[]),
   ];
 
   testWidgets('J3: no licence → warn icon, "Doplnit v profilu" → /profile, REZERVOVAT secondary', (t) async {
-    await _pump(t, '/', funnelOv, home: _funnel({'full_name': 'Jan Novák', 'license_group': <String>[]}));
+    await _pump(t, '/', _withProfile(funnelOv, {'full_name': 'Jan Novák', 'license_group': <String>[]}), home: _funnel);
     final w = find.byKey(const ValueKey('home-funnel-warning'));
     expect(w, findsOneWidget);
     expect(t.widget<MgStateBanner>(w).icon, MgIcons.warn);
@@ -126,7 +132,7 @@ void main() {
   });
 
   testWidgets('J3: the secondary REZERVOVAT still starts the booking', (t) async {
-    await _pump(t, '/', funnelOv, home: _funnel({'full_name': 'Jan Novák', 'license_group': <String>[]}));
+    await _pump(t, '/', _withProfile(funnelOv, {'full_name': 'Jan Novák', 'license_group': <String>[]}), home: _funnel);
     final b = find.byKey(const ValueKey('home-funnel-reserve-ghost'));
     await t.ensureVisible(b);
     await t.pump();
@@ -139,7 +145,7 @@ void main() {
   });
 
   testWidgets('J3: licence OK → no warning, looping REZERVOVAT as before', (t) async {
-    await _pump(t, '/', funnelOv, home: _funnel({'full_name': 'Jan Novák', 'license_group': ['A']}));
+    await _pump(t, '/', _withProfile(funnelOv, {'full_name': 'Jan Novák', 'license_group': ['A']}), home: _funnel);
     expect(find.byKey(const ValueKey('home-funnel-warning')), findsNothing);
     expect(t.widget<MgCta>(find.byType(MgCta)).loop, isTrue);
     await _unmount(t);

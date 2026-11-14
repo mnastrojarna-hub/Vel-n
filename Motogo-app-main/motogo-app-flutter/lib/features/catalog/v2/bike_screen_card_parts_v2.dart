@@ -1,0 +1,96 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/v2/motion/mg_anim_loops.dart';
+import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'catalog_price.dart';
+
+// Pieces of the full-screen bike card (`MotoCardFullV2`), split out so the
+// card file stays under the size rule.
+
+/// "● Volná v termínu" / "● Dnes volná" over the card photo.
+class BikeCardAvailabilityPill extends StatelessWidget {
+  final String text;
+  final bool live;
+  const BikeCardAvailabilityPill({super.key, required this.text, required this.live});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(color: MgColors.nightA(0.8), borderRadius: BorderRadius.circular(999)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          RepaintBoundary(child: MgPing(size: 8, color: MgColors.neon, active: live)),
+          const SizedBox(width: 8),
+          Text(text, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDark, height: 1)),
+        ]),
+      );
+}
+
+/// Category / licence / power tag of the card caption.
+class BikeCardTag extends StatelessWidget {
+  final String text;
+  final bool neon;
+  final bool bad;
+  const BikeCardTag(this.text, {super.key, this.neon = false, this.bad = false});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.nightA(0.72)),
+          borderRadius: BorderRadius.circular(6),
+          border: neon ? null : Border.all(color: MgColors.white(0.18)),
+        ),
+        child: Text(text,
+            style: MgType.micro.copyWith(
+                fontWeight: FontWeight.w800, color: neon ? MgColors.onNeon : MgColors.onDark, letterSpacing: neon ? 0.4 : 0)),
+      );
+}
+
+/// One "Základní údaje" chip.
+class BikeCardSpecChip extends StatelessWidget {
+  final String text;
+  const BikeCardSpecChip(this.text, {super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: MgColors.white(0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: MgColors.white(0.14)),
+        ),
+        child: Text(text, maxLines: 1, style: MgType.meta.copyWith(color: MgColors.onDarkBody)),
+      );
+}
+
+/// The card price (label, value + unit, struck list price, sub line).
+class BikeCardPriceBlock extends StatelessWidget {
+  final CatCardPrice price;
+  const BikeCardPriceBlock({super.key, required this.price});
+
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Text(price.label.toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.neonText, fontSize: 11)),
+        const SizedBox(height: 4),
+        Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 6, runSpacing: 2, children: [
+          Text.rich(TextSpan(children: [
+            TextSpan(
+              text: price.value,
+              style: MgType.tab(MgType.h1.copyWith(
+                  color: MgColors.neon, height: 1, shadows: [Shadow(color: MgColors.neonA(0.25), blurRadius: 18)])),
+            ),
+            if (price.unit != null)
+              TextSpan(text: ' ${price.unit}', style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkLead)),
+          ])),
+          if (price.struck != null)
+            Text(price.struck!,
+                style: MgType.tab(MgType.small.copyWith(
+                    color: MgColors.white(0.66), decoration: TextDecoration.lineThrough, decorationColor: MgColors.white(0.66)))),
+        ]),
+        const SizedBox(height: 4),
+        MgWordFit(child: Text(price.sub, style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w600, color: MgColors.onDarkLead)))),
+      ]);
+}

@@ -30,7 +30,10 @@ class FunnelTopRow extends ConsumerWidget {
   final int index;
   final VoidCallback? onPrev;
   final VoidCallback? onNext;
-  const FunnelTopRow({super.key, required this.count, required this.index, this.onPrev, this.onNext});
+
+  /// More bikes are still being checked: "1 / 6+".
+  final bool more;
+  const FunnelTopRow({super.key, required this.count, required this.index, this.onPrev, this.onNext, this.more = false});
 
   /// Pager width (‹ 44 + "n / m" 48 + › 44) and the eyebrow's own chrome
   /// (padding 2 × 10, icon 16, gap 6, border 2).
@@ -82,9 +85,10 @@ class FunnelTopRow extends ConsumerWidget {
           if (full) Flexible(child: Align(alignment: AlignmentDirectional.centerStart, child: eyebrow(true))) else eyebrow(false),
           if (full) const SizedBox(width: _gap) else const Spacer(),
           _PagerBtn(icon: MgIcons.chevronLeft, label: tr.tr('v2HomeFnPrev'), onTap: onPrev),
-          SizedBox(
-            width: 48,
-            child: Text('${index + 1} / $count',
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48),
+            child: Text('${index + 1} / $count${more ? '+' : ''}',
+                key: const ValueKey('funnel-pager-count'),
                 textAlign: TextAlign.center,
                 style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDarkBody))),
           ),

@@ -52,7 +52,8 @@ void main() {
     expect(c.read(funnelSelectionProvider).given, range);
     c.read(funnelTodayProvider.notifier).state = day(1);
     expect(c.read(funnelSelectionProvider).given, isNull);
-    expect(c.read(funnelSelectionProvider).range(day(1)), funnelPresets(day(1)).$1);
+    // v5.0.1: not given = no dates (no preselected weekend).
+    expect(c.read(funnelSelectionProvider).range(day(1)), isNull);
   });
 
   testWidgets('the funnel moves "today" on (stale day, app resumed)', (t) async {

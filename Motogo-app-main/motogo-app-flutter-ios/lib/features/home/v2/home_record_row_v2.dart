@@ -6,6 +6,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../routes/ride_recorder.dart';
@@ -56,7 +57,11 @@ class HomeRecordRowV2 extends ConsumerWidget {
       null => MgColors.line,
     };
 
-    Widget icon(double size) => Container(
+    // v5.0.1 (owner): idle = the same dark neon tile, same size (40) as
+    // "Žádná aktivní rezervace" and "Spočítat přesnou cenu" above it.
+    Widget icon(double size) => !live
+        ? MgIconTileDark(MgIcons.recordDot, size: size >= 44 ? 40 : size)
+        : Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
@@ -64,11 +69,7 @@ class HomeRecordRowV2 extends ConsumerWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: MgColors.neonA(0.18)),
           ),
-          child: Center(
-            child: live
-                ? RecGlyphV2(tone: ph.tone, size: size * 0.45)
-                : MgIcon(MgIcons.recordDot, size: size >= 44 ? 24 : 20, color: MgColors.neon),
-          ),
+          child: Center(child: RecGlyphV2(tone: ph.tone, size: size * 0.45)),
         );
 
     final titleW = MgWordFit(

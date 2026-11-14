@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/features/home/v2/funnel_carousel_v2.dart';
 import 'package:motogo_app/features/home/v2/home_bike_list_v2.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
@@ -56,9 +57,14 @@ void main() {
     }
   });
 
-  testWidgets('SH-40: funnel meta keeps the branch; the calculator row names the centred bike', (tester) async {
-    await _home(tester, homeCases()['s0']!());
-    expect(tester.widget<Text>(find.byKey(const ValueKey('funnel-meta')).first).data, 'Mezná');
+  // v5.0.1 (owner): the branch is the neon chip on the photo's top-right
+  // corner; the line under the name keeps only the category.
+  testWidgets('SH-40: branch chip on the funnel photo, category line; the calculator row names the centred bike', (tester) async {
+    await _home(tester, homeCases()['s0-dates']!());
+    final card = find.byType(FunnelBikeCard).first;
+    expect(find.descendant(of: card, matching: find.byKey(const ValueKey('mg-branch-chip'))), findsOneWidget);
+    expect(find.descendant(of: card, matching: find.textContaining('Mezná')), findsOneWidget);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('funnel-meta')).first).data, isNot(contains('Mezná')));
     expect(find.textContaining('BMW R 1200 GS Adventure ·'), findsWidgets);
   });
 

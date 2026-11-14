@@ -43,8 +43,11 @@ class Motorcycle {
   final String? imageUrl;
   final List<String> images;
 
-  /// MP4 videa motorky (motorcycles.videos, text[]). Přehrávají se až na detailu;
-  /// v přehledu/seznamu se zobrazuje vždy fotka.
+  /// MP4 videa motorky (motorcycles.videos, text[]). Starý vzhled: hrají jen
+  /// na detailu (sekce Video), v přehledu/seznamu je vždy fotka. Nový vzhled
+  /// (5.0.1): v seznamu (Domů, Motorky) i v hlavní fotce detailu se nejdřív
+  /// ukáže fotka a po ~5 s klidu na Wi-Fi se prolne do videa bez zvuku
+  /// (`BikeVideoStage`); na mobilních datech zůstane fotka s tlačítkem.
   final List<String> videos;
   final String? color;
   final String? manualUrl;
