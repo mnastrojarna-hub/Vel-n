@@ -1,0 +1,14 @@
+[
+ {"tapText": "Rezervace", "note": "tab Rezervace"},
+ {"wait": 300},
+ {"tapText": "Husqvarna 701 SM", "note": "open the booking"},
+ {"wait": 300},
+ {"scroll": [180, 560, 450]},
+ {"scroll": [180, 560, 450]},
+ {"tapText": "UPRAVIT REZERVACI", "note": "edit from the detail page"},
+ {"wait": 500},
+ {"back": true, "note": "back to the detail"},
+ {"tapText": "Zrušit rezervaci", "note": "cancel"},
+ {"wait": 300},
+ {"scroll": [180, 560, 300]}
+]

@@ -13,6 +13,12 @@ import 'sos_provider.dart';
 import '../../core/currency.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import 'v2/sos_done_view_v2.dart';
+import 'v2/sos_incident_view_v2.dart';
 
 /// SOS detail / done screen — mirrors s-sos-done from templates-res-sos3.js.
 /// Shows contextual done view based on SosDoneType, or full detail with timeline.
@@ -59,9 +65,32 @@ class SosDetailScreen extends ConsumerWidget {
         : null;
 
     final config = _doneConfig(context, type, model, paid);
+    if (MgV2.on(context)) {
+      return SosDoneViewV2(
+        title: config.title,
+        subtitle: config.subtitle,
+        // v2 tyká: tři texty „co bude dál“ ze starého vzhledu vykaly.
+        nextSteps: switch (type) {
+          SosDoneType.towOrdered => t(context).tr('v2UxAsmDoneTow'),
+          SosDoneType.theftReported => t(context).tr('v2UxAsmDoneTheft'),
+          SosDoneType.generic => t(context).tr('v2UxAsmDoneGeneric'),
+          _ => config.nextSteps,
+        },
+        icon: switch (type) {
+          SosDoneType.towOrdered || SosDoneType.towFree => MgIcons.truck,
+          SosDoneType.replacementFree || SosDoneType.replacementPaid => MgIcons.bike,
+          _ => null,
+        },
+        refLabel: refLabel,
+        onBack: () => context.backOr(Routes.home),
+        onReservations: () => context.go(Routes.reservations),
+        onMessages: () => context.push(Routes.messages),
+        onHome: () => context.go(Routes.home),
+      );
+    }
 
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -284,9 +313,36 @@ class SosDetailScreen extends ConsumerWidget {
       'reported': t(context).tr('reported'), 'acknowledged': t(context).tr('accepted'),
       'in_progress': t(context).tr('inProgress'), 'resolved': t(context).tr('resolved'), 'closed': t(context).tr('closed'),
     };
+    if (MgV2.on(context)) {
+      final c = inc.createdAt;
+      return SosIncidentViewV2(
+        inc: inc,
+        status: statusLabels[inc.status] ?? inc.status,
+        rows: [
+          (t(context).tr('typeLabel'), _typeLabel(context, inc.type)),
+          (t(context).tr('reported'), '${c.day}. ${c.month}. ${c.year} ${c.hour}:${c.minute.toString().padLeft(2, '0')}'),
+          if (inc.motoRideable != null)
+            (t(context).tr('motoRideableLabel'), inc.motoRideable! ? t(context).tr('yes') : t(context).tr('no')),
+          if (inc.customerFault != null)
+            (t(context).tr('faultLabel'),
+                inc.customerFault! ? t(context).tr('customerFault') : t(context).tr('breakdownNotFault')),
+        ],
+        timeline: timelineAsync,
+        timelineError: (e) => MgErrorView(
+            compact: true,
+            error: e,
+            what: t(context).tr('eoSosTimelineFail'),
+            onRetry: () => ref.invalidate(sosTimelineProvider(inc.id)),
+            contact: false),
+        onBack: () => context.backOr(Routes.reservations),
+        onReplacement: inc.isActive && inc.offersReplacement ? () => context.push(Routes.sosReplacement) : null,
+        onContinue: inc.isActive && inc.isMinorContinue ? () => _continueRide(context, ref, inc) : null,
+        onMessages: () => context.push(Routes.messages),
+      );
+    }
 
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -295,7 +351,7 @@ class SosDetailScreen extends ConsumerWidget {
             children: [
               // Header
               Row(children: [
-                MgBackTap(
+                mgV1Back(context, onTap: () => context.backOr(Routes.reservations), style: MgBackStyle.light, v1: MgBackTap(
                   onTap: () => context.backOr(Routes.reservations),
                   child: Container(width: 36, height: 36,
                     decoration: BoxDecoration(color: MotoGoColors.green,
@@ -303,11 +359,12 @@ class SosDetailScreen extends ConsumerWidget {
                     child: const Center(child: Text('←',
                         style: TextStyle(fontSize: 18,
                             fontWeight: FontWeight.w900, color: Colors.black)))),
-                ),
+                )),
                 const SizedBox(width: 12),
                 Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('🆘 ${t(context).tr('sosIncidentTitle')}',
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 16,
                           fontWeight: FontWeight.w900, color: MotoGoColors.black)),
                   Text(inc.id.substring(inc.id.length - 8).toUpperCase(),
@@ -419,7 +476,7 @@ class SosDetailScreen extends ConsumerWidget {
                       children: [
                     const Icon(Icons.motorcycle, size: 18),
                     const SizedBox(width: 8),
-                    Text(t(context).tr('replacementMoto')),
+                    Flexible(child: Text(t(context).tr('replacementMoto'), textAlign: TextAlign.center)),
                   ]),
                 ),
 
@@ -438,8 +495,8 @@ class SosDetailScreen extends ConsumerWidget {
                       children: [
                     const Text('🏍️', style: TextStyle(fontSize: 16)),
                     const SizedBox(width: 8),
-                    Text(t(context).tr('continueRiding'),
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                    Flexible(child: Text(t(context).tr('continueRiding'), textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900))),
                   ]),
                 ),
               const SizedBox(height: 8),
@@ -450,7 +507,7 @@ class SosDetailScreen extends ConsumerWidget {
                     children: [
                   const Icon(Icons.mail_outline, size: 18),
                   const SizedBox(width: 8),
-                  Text(t(context).tr('messagesFromMotoGo')),
+                  Flexible(child: Text(t(context).tr('messagesFromMotoGo'), textAlign: TextAlign.center)),
                 ]),
               ),
               const SizedBox(height: 40),

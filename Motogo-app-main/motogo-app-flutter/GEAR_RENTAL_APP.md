@@ -18,14 +18,14 @@ Zdroj pravdy kontraktů: `SUPABASE_BACKEND_STATE_*`. Pravidla majitele: viz §1.
   `reservation_edit_extras_section`, `reservation_edit_states`, `reservation_edit_widgets`; dále `core/app_shell.dart`,
   `core/router.dart`, `core/booking_form_*`, `features/documents/*` (vč. `contracts_screen`, `documents_screen`,
   `docs_gate_widgets`), `features/home/home_screen.dart`, `features/messages/*` (vč. `ai_agent_screen`) a hlavní
-  soubory `translations_*`. Jen v Androidu: `features/*/v2`, `core/v2`, `core/shell_*.dart`,
-  `features/reservations/res_actions.dart`, `features/home/home_actions.dart`. Seznam ber jen jako orientaci —
+  soubory `translations_*`. Od 2026-11-05 jsou i `features/*/v2`, `core/v2`, `core/shell_*.dart`,
+  `features/reservations/res_actions.dart`, `features/home/home_actions.dart` v OBOU stromech (bytově shodné). Seznam ber jen jako orientaci —
   platí aktuální výstup `diff -rq`.
 - `features/reservations/booking_restore.dart` (obnova zrušené rezervace) je v **obou** stromech stejný; volá se
   z `reservations_screen.dart`, `reservation_detail_screen.dart`, `widgets/res_detail_tab_content.dart`
   a v Androidu navíc z `v2/reservations_screen_v2.dart` a `v2/res_coted_v2.dart`.
 - **Android má navíc UI v2** (`features/*/v2`, přepínač `app_v2_ui` → `V2Switch` v `core/router.dart`). Výpůjčka výbavy
-  musí fungovat v v1 (oba stromy) i v v2 (jen Android). Logiku proto drž v modelu a providerech, ne ve widgetech.
+  musí fungovat v v1 (oba stromy) i v v2 (oba stromy). Logiku proto drž v modelu a providerech, ne ve widgetech.
 - iOS má ve `pubspec` starší balíčky — používej jen API, které s nimi funguje.
 - Nové texty patří do NOVÉHO souboru `core/i18n/translations_ext_59_gear.dart`, a to v obou stromech, v 8 jazycích
   a s tykáním. Soubor zaregistruj v `_mergeAll` v `translations.dart`. Hlavní soubory `translations_*` (iOS má navíc

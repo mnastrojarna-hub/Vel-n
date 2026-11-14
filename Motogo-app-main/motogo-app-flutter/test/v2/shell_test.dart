@@ -18,6 +18,7 @@ import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/chrome/mg_status_strip.dart';
 import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
+import 'package:motogo_app/core/v2/motion/mg_sticky_slide.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
@@ -46,10 +47,12 @@ GoRouter _router(String initial) => GoRouter(
     );
 
 Future<GoRouter> _pump(WidgetTester tester, String initial,
-    {PendingBooking? pending, int unread = 0, bool banner = false}) async {
+    {PendingBooking? pending, int unread = 0, bool banner = false, double bottomInset = 0}) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(360, 780) * 2;
   tester.view.devicePixelRatio = 2;
+  // Home indicator / gesture bar (logical px).
+  tester.view.padding = FakeViewPadding(bottom: bottomInset * 2);
   addTearDown(tester.view.reset);
   final router = _router(initial);
   await tester.pumpWidget(ProviderScope(
@@ -88,6 +91,16 @@ Future<GoRouter> _pump(WidgetTester tester, String initial,
   return router;
 }
 
+/// The nav slides out (FND-15) instead of vanishing: hidden = its slot is
+/// collapsed to 0 and it takes no taps / semantics.
+bool _navShown(WidgetTester tester) {
+  final f = find.ancestor(of: find.byType(V2NavBar), matching: find.byType(MgStickySlide));
+  if (f.evaluate().isEmpty) return false;
+  final shown = tester.widget<MgStickySlide>(f.first).visible;
+  if (!shown) expect(tester.getSize(f.first).height, 0);
+  return shown;
+}
+
 void main() {
   setUpAll(loadMontserrat);
 
@@ -101,14 +114,11 @@ void main() {
     expect(v2TabIndexFor('/places-map'), 3);
     expect(v2TabIndexFor('/messages?n=1'), 4);
     expect(v2TabIndexFor('/ai-agent'), 4);
-    expect(v2NavHiddenFor('/moto/abc'), isTrue);
-    expect(v2NavHiddenFor('/reservations/x/edit'), isTrue);
-    expect(v2NavHiddenFor('/reservations/x'), isFalse);
-    expect(v2NavHiddenFor('/messages/abc'), isTrue);
-    expect(v2NavHiddenFor('/messages'), isFalse);
+    // AI button on Domů only (old app); the nav is never hidden by route.
+    expect(v2FabHiddenFor('/'), isFalse);
     expect(v2FabHiddenFor('/routes'), isTrue);
     expect(v2FabHiddenFor('/routes/abc'), isTrue);
-    expect(v2FabHiddenFor('/reservations'), isFalse);
+    expect(v2FabHiddenFor('/reservations'), isTrue);
     expect(v2FabHiddenFor('/sos'), isTrue);
   });
 
@@ -136,26 +146,43 @@ void main() {
     expect(container.read(v2TabReselectProvider).$1, 1);
   });
 
-  testWidgets('pushed focused flow hides the nav (location from the delegate)', (tester) async {
+  testWidgets('pushed bike detail keeps the nav, as the old shell (location from the delegate)', (tester) async {
     final router = await _pump(tester, '/search');
     unawaited(router.push('/moto/abc'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('MOTO abc'), findsOneWidget);
-    expect(find.byType(V2NavBar), findsNothing);
+    expect(_navShown(tester), isTrue);
     router.pop();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(V2NavBar), findsOneWidget);
+    expect(_navShown(tester), isTrue);
   });
 
   testWidgets('pending booking → v2 payment strip + Rezervace dot; same countdown text', (tester) async {
     final pending = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now());
-    await _pump(tester, '/', pending: pending, unread: 2);
+    // The strip shows on every screen (old shell), Domů included.
+    await _pump(tester, '/search', pending: pending, unread: 2);
     expect(find.byType(MgStatusStrip), findsOneWidget);
-    expect(find.text('Dokončit rezervaci'), findsOneWidget);
+    expect(find.text('Zaplatit rezervaci'), findsOneWidget); // P2-04 (was "Dokončit rezervaci")
     expect(find.text('2'), findsOneWidget); // Profil badge
     expect(find.byType(MgAiFab), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('strips: 8 px above the nav, also on a pushed bike detail (nav stays)', (tester) async {
+    final pending = PendingBooking(id: 'b1', totalPrice: 12027, createdAt: DateTime.now());
+    final router = await _pump(tester, '/search', pending: pending, bottomInset: 34);
+    // The strip slides in once the pending booking arrives (sticky 300).
+    await tester.pump(const Duration(milliseconds: 400));
+    final navTop = tester.getTopLeft(find.byType(V2NavBar)).dy;
+    expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy, moreOrLessEquals(navTop - 8));
+    unawaited(router.push('/moto/abc'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(_navShown(tester), isTrue);
+    expect(tester.getBottomLeft(find.byType(MgStatusStrip)).dy,
+        moreOrLessEquals(tester.getTopLeft(find.byType(V2NavBar)).dy - 8));
     expect(tester.takeException(), isNull);
   });
 

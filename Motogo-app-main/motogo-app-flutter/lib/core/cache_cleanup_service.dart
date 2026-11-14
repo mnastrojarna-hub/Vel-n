@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/painting.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -40,6 +41,17 @@ class CacheCleanupService {
     // z ruční jízdy udělal automatickou a hlídač ji uprostřed vyjížďky
     // ukončil, protože k ní nenašel běžící rezervaci.
     'mg_ride_rec_manual',
+    'mg_ride_session', // fáze pauzy, kotva, posun hodin rozjeté cesty (přežije restart)
+    'mg_ride_caps', // co umí server (cesty / pauzy) + flag auto-pauzy
+    'mg_ride_stop_req', // Ukončit jízdu, které server nevzal (offline) — přežije restart
+    // Platba odeslaná, výsledek neznámý (ochrana proti dvojí platbě) — musí
+    // přežít odskok do bankovní appky (3-D Secure = pauza appky) i restart.
+    'mg_payment_submitted_v2',
+    'mg_paid_change_queue_v1', // fronta zaplacených změn k dopsání (retry)
+    'mg_app_v2_ui', // poslední známý stav kill-switche nového vzhledu
+    'mg_engage_token', // App funnel token
+    'mg_engage_sent', // App funnel — co už bylo odesláno
+    'mg_v2_ai_coach_seen', // nápověda v2 už zobrazena
     _versionKey, // app version marker (update detection)
   };
 
@@ -56,6 +68,7 @@ class CacheCleanupService {
     'supabase',
     'sb-',
     'mg_loyalty_',
+    'mg_v2_home_review_hidden_', // skrytá hodnocení na Domů (v2), klíč nese id
   ];
 
   /// True if [key] must be kept during cleanup.
@@ -66,6 +79,15 @@ class CacheCleanupService {
     }
     return false;
   }
+
+  /// Test hook: true if [key] survives the cleanup.
+  @visibleForTesting
+  static bool keeps(String key) => _keep(key);
+
+  /// Test hook: only the SharedPreferences part of [run] (never touches
+  /// temp directories or the image cache).
+  @visibleForTesting
+  static Future<void> clearTransientPrefs() => _clearTransientPrefs();
 
   /// Light cleanup — safe to call from lifecycle or startup.
   static Future<void> run() async {

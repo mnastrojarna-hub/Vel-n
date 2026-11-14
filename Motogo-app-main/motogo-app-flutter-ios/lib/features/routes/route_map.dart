@@ -6,6 +6,8 @@ import '../../core/theme.dart';
 import 'map_fit.dart';
 import 'routes_provider.dart' show mapyApiKey;
 import '../../core/widgets/map_tile_errors.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/route_line_draw_v2.dart';
 
 /// Interaktivní náhled trasy v Mapy.com dlaždicích — polyline + start pobočky
 /// + markery bodů zájmu. Sám se přizpůsobí (fit) na celou trasu.
@@ -85,6 +87,29 @@ class _RouteMapViewState extends State<RouteMapView> {
     }
   }
 
+  /// v2 draw-once key: the route start (~100 m) — the straight preview and
+  /// the computed road line of one route share it, so it draws only once.
+  String get _drawKey {
+    final p = widget.geometry.isEmpty ? null : widget.geometry.first;
+    return p == null ? 'rt-line' : 'rt-line-${p.latitude.toStringAsFixed(3)},${p.longitude.toStringAsFixed(3)}';
+  }
+
+  // Tmavý podklad pro kontrast + zelená trasa navrch.
+  Widget _lineLayer(List<LatLng> pts) => PolylineLayer(
+        polylines: [
+          Polyline(
+            points: pts,
+            strokeWidth: 7,
+            color: MotoGoColors.dark.withValues(alpha: 0.35),
+          ),
+          Polyline(
+            points: pts,
+            strokeWidth: 4.5,
+            color: MotoGoColors.greenDark,
+          ),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     return FlutterMap(
@@ -111,21 +136,10 @@ class _RouteMapViewState extends State<RouteMapView> {
         ),
         const MapTileErrorChip(),
         if (widget.geometry.length >= 2)
-          PolylineLayer(
-            polylines: [
-              // Tmavý podklad pro kontrast + zelená trasa navrch.
-              Polyline(
-                points: widget.geometry,
-                strokeWidth: 7,
-                color: MotoGoColors.dark.withValues(alpha: 0.35),
-              ),
-              Polyline(
-                points: widget.geometry,
-                strokeWidth: 4.5,
-                color: MotoGoColors.greenDark,
-              ),
-            ],
-          ),
+          // v2 (F-20): čára se jednou za běh appky „nakreslí" (1,6 s).
+          MgV2.on(context)
+              ? RouteLineDrawV2(points: widget.geometry, sessionKey: _drawKey, build: _lineLayer)
+              : _lineLayer(widget.geometry),
         MarkerLayer(
           markers: [
             if (widget.start != null)
@@ -142,10 +156,16 @@ class _RouteMapViewState extends State<RouteMapView> {
                 height: 34,
                 child: GestureDetector(
                   onTap: () => widget.onPoiTap?.call(p.index),
-                  child: _PoiPin(
-                    index: p.index,
-                    active: widget.activePoi == p.index,
-                  ),
+                  child: MgV2.on(context)
+                      ? RoutePinPopV2(
+                          index: p.index,
+                          sessionKey: _drawKey,
+                          child: _PoiPin(index: p.index, active: widget.activePoi == p.index),
+                        )
+                      : _PoiPin(
+                          index: p.index,
+                          active: widget.activePoi == p.index,
+                        ),
                 ),
               ),
           ],

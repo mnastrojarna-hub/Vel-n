@@ -10,6 +10,9 @@ import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/shop_view_v2.dart';
 
 /// Shop product grid — mirrors s-merch from templates-shop.js.
 class ShopScreen extends ConsumerWidget {
@@ -21,12 +24,27 @@ class ShopScreen extends ConsumerWidget {
     final cart = ref.watch(cartProvider);
     final cartCount = cart.fold<int>(0, (sum, item) => sum + item.qty);
 
+    // v2 (PS-08): same provider, cart count and routes.
+    if (MgV2.on(context)) {
+      return ShopViewV2(
+        products: productsAsync,
+        cartCount: cartCount,
+        onBack: () => context.backOr(Routes.profile),
+        onCart: () => context.push(Routes.cart),
+        onVoucher: () => context.push(Routes.voucher),
+        onProduct: (p) => context.push('/shop/${p.id}'),
+        onRetry: () => ref.invalidate(productsProvider),
+      );
+    }
+
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: CustomScrollView(
         slivers: [
+          // Solid dark header under the status bar → light icons in v2
+          // (scrolled away → the shell's light base again).
           SliverToBoxAdapter(
-            child: Container(
+            child: mgV1StatusBar(context, dark: true, child: Container(
               padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 16, 20, 16),
               decoration: const BoxDecoration(
                 color: MotoGoColors.dark,
@@ -78,7 +96,7 @@ class ShopScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-            ),
+            )),
           ),
 
           // Voucher banner — prominent card

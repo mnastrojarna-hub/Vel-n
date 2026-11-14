@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
+import '../../core/v2/motion/mg_motion.dart';
 
 /// Jemně animovaná ikona „Trasy" do hlavičky obrazovky. Místo uzavřeného kruhu
 /// je to natažená vlnitá čára (profil silnice) s tečkami (zastávky na trase).
@@ -10,7 +11,11 @@ import '../../core/theme.dart';
 /// zastaví, pak pokračuje doprava, na konci zmizí vpravo a znovu se objeví vlevo.
 class AnimatedRouteIcon extends StatefulWidget {
   final double size;
-  const AnimatedRouteIcon({super.key, this.size = 28});
+
+  /// v2 (F-34, rozpočet smyček V21 §2.5): jezdec projede jen JEDNOU za
+  /// běh appky, pak stojí na konci — smyčkou je jen hlavní CTA v docku.
+  final bool once;
+  const AnimatedRouteIcon({super.key, this.size = 28, this.once = false});
 
   @override
   State<AnimatedRouteIcon> createState() => _AnimatedRouteIconState();
@@ -55,7 +60,30 @@ class _AnimatedRouteIconState extends State<AnimatedRouteIcon>
     _c = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: _totalMs.round()),
-    )..repeat();
+    );
+    if (!widget.once) _c.repeat();
+  }
+
+  bool _started = false;
+
+  /// v2 `once`: started here (reduced motion needs MediaQuery) — reduced
+  /// motion = the end state at once (V2 motion rule), never a run.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.once) return;
+    final reduced = MgMotion.reduced(context);
+    if (!_started) {
+      _started = true;
+      final first = MgMotion.firstTime('trasy-route-icon');
+      if (first && !reduced) {
+        _c.forward();
+      } else {
+        _c.value = 1;
+      }
+    } else if (reduced && _c.isAnimating) {
+      _c.value = 1;
+    }
   }
 
   /// Mapuje globální fázi 0..1 na frakci délky trasy s pauzami u teček.

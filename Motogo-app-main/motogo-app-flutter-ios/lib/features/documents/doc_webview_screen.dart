@@ -8,6 +8,9 @@ import '../../core/friendly_error.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import 'v2/doc_viewer_chrome_v2.dart';
 
 /// In-app WebView screen for displaying invoices, contracts, and other
 /// HTML documents. Supports loading from URL or raw HTML string.
@@ -107,6 +110,23 @@ class _DocWebViewScreenState extends State<DocWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): ✕ v tmavé liště, A4 kostra místo
+    // spinneru; tentýž WebView, chyba, opakování i zavření.
+    if (MgV2.on(context)) {
+      void close() => Navigator.of(context).maybePop();
+      return DocViewerScaffoldV2(
+        title: widget.title,
+        onClose: close,
+        background: _error != null ? MgColors.canvas : Colors.white,
+        body: Stack(children: [
+          if (_error != null)
+            MgErrorView(error: _error, what: t(context).tr('eoDocLoadFail'), onRetry: _retry, onBack: close)
+          else
+            WebViewWidget(controller: _controller),
+          if (_isLoading && _error == null) Positioned.fill(child: DocA4SkeletonV2(onRetry: _retry, onBack: close)),
+        ]),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(

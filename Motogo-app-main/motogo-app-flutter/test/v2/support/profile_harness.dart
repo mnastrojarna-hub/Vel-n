@@ -11,7 +11,14 @@ import 'package:motogo_app/features/profile/v2/profile_personal_v2.dart';
 
 class PfHubHarness extends ConsumerStatefulWidget {
   final bool expanded;
-  const PfHubHarness({super.key, this.expanded = false});
+
+  /// Pushed from the booking form (profile r3): back + `?edit=personal`.
+  final VoidCallback? onBack;
+  final bool bookingFix;
+
+  /// The screen's retry (= pull-to-refresh on the hub, RP-19).
+  final VoidCallback? onRetry;
+  const PfHubHarness({super.key, this.expanded = false, this.onBack, this.bookingFix = false, this.onRetry});
 
   @override
   ConsumerState<PfHubHarness> createState() => _PfHubHarnessState();
@@ -55,22 +62,24 @@ class _PfHubHarnessState extends ConsumerState<PfHubHarness> {
     void noop() {}
     final now = DateTime.now().year;
     return ProfileHubV2View(
+      onBack: widget.onBack,
+      bookingFix: widget.bookingFix,
       profile: a.valueOrNull,
       loading: loading,
       error: error,
       ready: ready,
       personalExpanded: open,
-      onRetry: noop,
+      onRetry: widget.onRetry ?? noop,
       onTogglePersonal: () => setState(() => open = !open),
       onPaymentMethods: noop,
-      version: 'v4.2.0',
+      version: 'v5.0.0',
       form: PfFormData(
         name: c[0], email: c[1], phone: c[2], city: c[3], zip: c[4], street: c[5], country: c[6], idNum: c[7], licNum: c[8],
         dob: dob,
         licExp: exp,
         dobFirstYear: now - 100,
         dobLastYear: now - 18,
-        licFirstYear: now,
+        licFirstYear: exp != null && exp!.year < now ? exp!.year : now,
         licLastYear: now + 20,
         licCategories: cats,
         licOptions: const ['AM', 'A1', 'A2', 'A', 'B'],

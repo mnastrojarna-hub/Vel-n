@@ -12,6 +12,7 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../../../core/widgets/map_tile_errors.dart';
 import 'rt_v2_text.dart';
 
 /// Lead line on canvas under the hub header (the old header subtitle).
@@ -102,7 +103,8 @@ class PlacesMapCardV2 extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: Stack(children: [
-              Positioned.fill(child: map),
+              // Map tiles failing: the strip under the expand disc.
+              Positioned.fill(child: MapTileErrorInset(top: 52, child: map)),
               Positioned(
                 right: 4,
                 top: 4,

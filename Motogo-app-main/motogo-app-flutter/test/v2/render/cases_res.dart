@@ -26,7 +26,7 @@ Future<void> _tapFirst(WidgetTester t, Finder f) async {
 
 Future<void> _openExpanders(WidgetTester t) async {
   final lang = Localizations.localeOf(t.element(find.byType(Scaffold).first)).languageCode;
-  for (final k in ['paymentDetailsTab', 'v2ResHistory']) {
+  for (final k in ['paymentDetailsTab']) {
     await _tapFirst(t, find.text(translations[lang]?[k] ?? k));
   }
 }

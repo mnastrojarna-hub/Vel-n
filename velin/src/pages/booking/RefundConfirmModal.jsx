@@ -10,6 +10,8 @@ const boxStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px soli
 // ručně % / Kč), potvrzením se: u Stripe platby vratka reálně provede, u
 // QR/převodu/hotovosti vystaví dobropis (peníze posílá admin převodem) a
 // zákazníkovi odejde storno email ze šablony s přiloženým dobropisem.
+// P2 (majitel 2026-11-08): částka = CELKOVÁ vratka storna (max. zaplaceno),
+// odejde jen rozdíl proti už vrácenému (BookingDetail.confirmCancelledRefund).
 // onConfirm dostane { amount }.
 export default function RefundConfirmModal({ open, onClose, totalPrice, defaultAmount, saving, error, onConfirm }) {
   const total = Math.max(0, Math.round(Number(totalPrice) || 0))
@@ -28,7 +30,7 @@ export default function RefundConfirmModal({ open, onClose, totalPrice, defaultA
   return (
     <Modal open title="Potvrdit vrácení platby" onClose={onClose}>
       <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>
-        Zvolte výši vratky ke zrušené rezervaci. U platby kartou (Stripe) se částka vrátí na kartu automaticky; u QR / převodu / hotovosti se vystaví dobropis a částku pošlete převodem na účet zákazníka. Zákazníkovi odejde storno email s přiloženým dobropisem. Částka se automaticky omezí na dosud nevrácenou část platby.
+        Zvolte výši vratky ke zrušené rezervaci. U platby kartou (Stripe) se částka vrátí na kartu automaticky; u QR / převodu / hotovosti se vystaví dobropis a částku pošlete převodem na účet zákazníka. Zákazníkovi odejde storno email s přiloženým dobropisem. Zadejte CELKOVOU částku, kterou má zákazník k tomuto stornu dostat zpět — co už se k němu vrátilo, se odečte a odejde jen rozdíl. Nikdy se nevrátí víc, než zákazník zaplatil.
       </p>
       <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Výše vratky (zaplaceno {total.toLocaleString('cs-CZ')} Kč)</label>
       <div className="rounded-btn mb-3" style={boxStyle}>

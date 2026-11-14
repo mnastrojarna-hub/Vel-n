@@ -43,7 +43,7 @@ const Map<String, String> ext43PaymentsEs = {
   'pdCancelForbidden': 'No puedes cancelar esta reserva desde esta cuenta. Inicia sesión con la cuenta con la que la hiciste y cancélala allí.',
   'pdSwapUnknown': 'Ahora no se puede hacer el cambio. No ha cambiado nada: prueba otro día de cambio u otra moto.',
   'pdSlevomatUnverified': 'Ahora no hemos podido verificar el vale de Slevomat con Slevomat. El código sigue siendo válido: inténtalo de nuevo dentro de unos minutos.',
-  'pdRefundManual': 'El reembolso automático no ha funcionado. Nuestro equipo lo completará en 2 días laborables: no tienes que hacer nada; la confirmación y la factura rectificativa llegarán por correo.',
+  'pdRefundManual': 'El reembolso automático no ha funcionado. Nuestro equipo lo completará en 2 días laborables: no tienes que hacer nada; luego verás el importe reembolsado en el detalle de la reserva.',
   'pdCurrencyTitle': 'La tarjeta no puede pagar en coronas',
   'pdCurrencyBody': 'Tu tarjeta no puede pagar en coronas checas (CZK). No hemos cobrado nada: paga con otra tarjeta; la mayoría de las tarjetas Visa y Mastercard pueden hacerlo.',
   'pdWalletDeclinedTitle': 'La billetera ha rechazado el pago',

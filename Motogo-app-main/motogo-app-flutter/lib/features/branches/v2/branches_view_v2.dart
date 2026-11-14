@@ -124,7 +124,13 @@ class _BranchCard extends StatelessWidget {
                   photos.isEmpty
                       ? band
                       : MgImage(photos.first.thumbUrl, thumbWidth: 640, fit: BoxFit.cover, error: band, placeholder: band),
-                  Positioned(left: 12, top: 12, child: BranchBadgeV2(html: v('badge'))),
+                  // right: šířka omezená fotkou → dlouhý štítek (uk) se zmenší/zalomí, neořízne.
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    right: 12,
+                    child: Align(alignment: AlignmentDirectional.topStart, child: BranchBadgeV2(html: v('badge'))),
+                  ),
                 ]),
               ),
               Padding(
@@ -135,6 +141,9 @@ class _BranchCard extends StatelessWidget {
                   BranchLineV2(icon: MgIcons.pin, html: v('address')),
                   BranchLineV2(icon: MgIcons.clock, html: v('hours')),
                   const SizedBox(height: 4),
+                  // "Detail" = the card's primary, as in the old tile (no
+                  // per-card "book here": the list's book action does not
+                  // filter to the branch — the screen's CTA box keeps it).
                   MgBtnInk(label: plainText(tx['detail_button'] ?? ''), icon: MgIcons.arrowRight, onTap: onOpen),
                 ]),
               ),

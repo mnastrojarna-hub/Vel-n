@@ -10,8 +10,11 @@ import '../booking_v2_parts.dart';
 
 /// v2 look of `BookingFormTimeSection` (V branch): the SAME
 /// `TimeDropdownField`s (hour : minute, 15 min steps) with the SAME
-/// callbacks, only themed for v2 inputs; the late-pickup hint becomes the
-/// ½ offer row, the self-service hint an info well (informal copy).
+/// callbacks, only themed for v2 inputs. Under the pickup time the SAME
+/// single hint as the old card (`ssPickupHint` at a self-service branch,
+/// else `latePickupHint12`) in the v2 ½ info row — information only, no
+/// quick-set button (owner 2026-10-22 "12:00 = info, ne přepínač";
+/// 2026-11-07 "jen upgrade vzhledu").
 class BookingTimeV2 extends StatelessWidget {
   final String pickupValue;
   final String returnValue;
@@ -58,35 +61,38 @@ class BookingTimeV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    Widget dropdown(String value, void Function(String) onChanged) => Theme(
+    Widget dropdown(String value, void Function(String) onChanged, {required bool pickup}) => Theme(
           data: inputTheme(Theme.of(context)),
-          child: TimeDropdownField(value: value, onChanged: onChanged),
+          child: TimeDropdownField(
+            value: value,
+            onChanged: onChanged,
+            sheetTitle: tr.tr(pickup ? 'v2BkPickupTime' : 'v2BkReturnTime'),
+          ),
         );
     return BkCard(
       icon: MgIcons.clock,
       title: tr.tr(showPickup ? 'v2BkPickupTime' : 'v2BkReturnTime'),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (showPickup) ...[
-          dropdown(pickupValue, onTimeChanged),
+          dropdown(pickupValue, onTimeChanged, pickup: true),
           const SizedBox(height: 10),
-          if (selfService)
-            _InfoWell(text: tr.tr('v2BkSsPickupHint'))
-          else
-            _HalfOffer(text: tr.tr('latePickupHint12')),
+          _HalfHint(text: tr.tr(selfService ? 'ssPickupHint' : 'latePickupHint12')),
         ],
         if (showPickup && showReturn) ...[
           const SizedBox(height: 16),
           BkLabel(tr.tr('v2BkReturnTime')),
         ],
-        if (showReturn) dropdown(returnValue, onReturnTimeChanged),
+        if (showReturn) dropdown(returnValue, onReturnTimeChanged, pickup: false),
       ]),
     );
   }
 }
 
-class _HalfOffer extends StatelessWidget {
+/// The old card's one hint (🌗 ½ first day from 12:00 / self-service
+/// note) in the v2 info style: ½ disc + text on the ok tint. Display only.
+class _HalfHint extends StatelessWidget {
   final String text;
-  const _HalfOffer({required this.text});
+  const _HalfHint({required this.text});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -99,27 +105,10 @@ class _HalfOffer extends StatelessWidget {
         child: Row(children: [
           const BkHalfDisc(),
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onTintOk))),
-        ]),
-      );
-}
-
-class _InfoWell extends StatelessWidget {
-  final String text;
-  const _InfoWell({required this.text});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: MgColors.well,
-          borderRadius: BorderRadius.circular(MgRadius.action),
-          border: Border.all(color: MgColors.line),
-        ),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const BkHalfDisc(),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text, style: MgType.small.copyWith(color: MgColors.body2))),
+          Expanded(
+            child: Text(text,
+                style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onTintOk))),
+          ),
         ]),
       );
 }

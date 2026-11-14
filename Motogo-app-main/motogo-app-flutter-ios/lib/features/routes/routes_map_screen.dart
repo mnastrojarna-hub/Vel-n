@@ -15,6 +15,14 @@ import 'routes_map_provider.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/widgets/map_tile_errors.dart';
+import '../../core/v2/widgets/mg_back_v2.dart';
+import 'v2/map_controls_v2.dart';
+import 'v2/routes_map_panel_v2.dart' show MapToolChipV2;
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import 'v2/record_dock_v2.dart';
 
 /// MAPA TRAS — na rozdíl od mapy míst ukazuje jen body, které leží na nějaké
 /// trase, a po klepnutí na bod dokreslí JEHO trasy, a to PO SILNICI.
@@ -56,8 +64,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
       // 104) — dole se nechá místo na panel s kartami i lištu výběru, nahoře
       // na hlavičku.
       _mapKey.currentState?.fitTo(pts,
-          padding: const EdgeInsets.fromLTRB(
-              36, 130, 36, kRoutesMapPickerHeight + 110));
+          padding: EdgeInsets.fromLTRB(
+              36, 130, 36, routesMapPickerHeight(context) + 110));
     }
   }
 
@@ -156,7 +164,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
         final isActive = r.id == active?.id;
         lines.add(MapRouteLine(
           pts,
-          color: routesMapColor(i),
+          color: routesMapColor(i, v2: MgV2.on(context)),
           width: isActive ? 5 : 4,
           emphasized: isActive,
           // Štítek s názvem přímo na čáře — výběr trasy je vidět na mapě.
@@ -181,14 +189,15 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
     // Panel s kartami tras zabírá dole místo — tlačítka a čip nad něj.
     final bottomPad = selected.isEmpty
         ? 24.0
-        : (matched.isEmpty ? 104.0 : 104.0 + kRoutesMapPickerHeight);
+        : (matched.isEmpty ? 104.0 : 104.0 + routesMapPickerHeight(context));
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: Stack(
         children: [
           Positioned.fill(
-            child: PlacesMapView(
+            // v2: the tile strip goes under the header (its height varies).
+            child: MapTileErrorInset(child: PlacesMapView(
               attributionOnLeft: true,
               key: _mapKey,
               places: places,
@@ -205,7 +214,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                 ref.read(placesSelectionProvider.notifier).toggle(e.key);
               },
               onPlaceLongPress: (e) => _openDetail(context, e, places, lang),
-            ),
+            )),
           ),
           Positioned(
             top: 0,
@@ -213,8 +222,8 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
             right: 0,
             child: SafeArea(
               bottom: false,
-              child: _header(context, places.length, activeLabel,
-                  computingIds.isNotEmpty, onNext),
+              child: mapHeaderWithTileStrip(context, _header(context, places.length, activeLabel,
+                  computingIds.isNotEmpty, onNext)),
             ),
           ),
           // Čip „Tvoje trasa" — zůstane i po návratu z editoru.
@@ -292,6 +301,9 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           children: [
             Row(
               children: [
+                if (MgV2.on(context))
+                  MgV2Back(onTap: () => context.backOr(Routes.routesList))
+                else
                 MgBackTap(
                   onTap: () => context.backOr(Routes.routesList),
                   child: const Padding(
@@ -300,6 +312,9 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                   ),
                 ),
                 const SizedBox(width: 6),
+                if (MgV2.on(context))
+                  const MapTitleGlyphV2(routes: true)
+                else
                 const Text('🗺️', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
                 Expanded(
@@ -323,10 +338,11 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
                                 '${t(context).tr('routesMapCount')} · $count'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: MotoGoTypo.sizeSm,
                           fontWeight: MotoGoTypo.w600,
-                          color: Color(0xFF8AAB99),
+                          // v2: meta na tmavé = #9FC4B1 (V22 §2.2).
+                          color: MgV2.on(context) ? MgColors.onDarkMeta : const Color(0xFF8AAB99),
                           decoration: TextDecoration.none,
                         ),
                       ),
@@ -361,6 +377,38 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
               ],
             ),
             const SizedBox(height: 6),
+            // v2: tlačítka a nápověda se zalomí na další řádek místo
+            // přetečení vpravo (14–30 px v de / fr / uk).
+            if (MgV2.on(context))
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (onNext != null)
+                    _miniBtn(Icons.alt_route, t(context).tr('routesMapNextRoute'), onNext),
+                  _miniBtn(
+                    _withOtherPlaces ? Icons.layers_clear : Icons.layers,
+                    t(context).tr(_withOtherPlaces ? 'routesMapOnlyRoutes' : 'routesMapShowOther'),
+                    () => setState(() {
+                      _withOtherPlaces = !_withOtherPlaces;
+                      _cache = null;
+                    }),
+                  ),
+                  Text(
+                    t(context).tr('routesMapTapHint'),
+                    maxLines: 2,
+                    style: const TextStyle(
+                      fontSize: MotoGoTypo.sizeSm,
+                      fontWeight: MotoGoTypo.w600,
+                      // v2: meta na tmavé = #9FC4B1 (V22 §2.2; #8AAB99 zakázaná).
+                      color: MgColors.onDarkMeta,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ],
+              )
+            else
             Row(
               children: [
                 // Další trasa vybraného bodu — rychlé přepínání nahoře
@@ -400,6 +448,11 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   }
 
   Widget _miniBtn(IconData icon, String label, VoidCallback onTap) {
+    if (MgV2.on(context)) {
+      final glyph = icon == Icons.alt_route ? MgIcons.route : (icon == Icons.layers_clear ? MgIcons.close : MgIcons.plus);
+      // „+ ostatní místa": plus je ikona, ne znak v textu.
+      return MapToolChipV2(icon: glyph, label: label.replaceFirst(RegExp(r'^\+\s*'), ''), onTap: onTap);
+    }
     return PressableScale(
       pressedScale: 0.95,
       onTap: onTap,
@@ -471,6 +524,31 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
 
   Widget _selectionBar(BuildContext context) {
     final n = ref.watch(placesSelectionProvider).length;
+    void cont() {
+      final pois = resolveSelected(
+        ref.read(dedupedPlacesProvider),
+        ref.read(allPlacesProvider),
+        ref.read(placesSelectionProvider),
+      );
+      if (pois.isEmpty) return;
+      ref.read(placesSelectionProvider.notifier).clear();
+      // Pořadí zastávek = pořadí klikání (čísla na špendlících),
+      // stejně jako na mapě míst a v seznamu; přehodit jde v editoru.
+      final route = buildCustomRoute(pois,
+          name: t(context).tr('poiCustomRouteTitle'));
+      context.push('/route-build', extra: route);
+    }
+
+    if (MgV2.on(context)) {
+      return TrasyRecordDockV2(
+        showRecord: false,
+        selection: TrasySelection(
+          count: n,
+          onContinue: cont,
+          onClear: ref.read(placesSelectionProvider.notifier).clear,
+        ),
+      );
+    }
     return Container(
       padding: EdgeInsets.fromLTRB(
           16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
@@ -497,20 +575,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
           Expanded(
             child: PressableScale(
               pressedScale: 0.97,
-              onTap: () {
-                final pois = resolveSelected(
-                  ref.read(dedupedPlacesProvider),
-                  ref.read(allPlacesProvider),
-                  ref.read(placesSelectionProvider),
-                );
-                if (pois.isEmpty) return;
-                ref.read(placesSelectionProvider.notifier).clear();
-                // Pořadí zastávek = pořadí klikání (čísla na špendlících),
-                // stejně jako na mapě míst a v seznamu; přehodit jde v editoru.
-                final route = buildCustomRoute(pois,
-                    name: t(context).tr('poiCustomRouteTitle'));
-                context.push('/route-build', extra: route);
-              },
+              onTap: cont,
               child: Container(
                 height: 50,
                 decoration: BoxDecoration(
@@ -537,6 +602,7 @@ class _RoutesMapScreenState extends ConsumerState<RoutesMapScreen> {
   }
 
   Widget _round(IconData icon, VoidCallback onTap) {
+    if (MgV2.on(context)) return MapRoundV2(icon: icon, onTap: onTap);
     return PressableScale(
       pressedScale: 0.92,
       onTap: onTap,

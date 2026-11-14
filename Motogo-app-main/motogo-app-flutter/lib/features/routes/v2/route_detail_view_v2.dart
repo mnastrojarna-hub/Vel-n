@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/chrome/mg_ai_fab.dart';
 import '../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
+import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/gestures/mg_swipe_switcher.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
+import '../../../core/widgets/map_tile_errors.dart';
 import '../route_map.dart';
 import '../route_poi_sheet.dart' show openPoiImageViewer;
 import '../route_reviews.dart';
@@ -40,6 +43,10 @@ class RouteDetailViewV2 extends StatelessWidget {
   final double? realKm;
   final ({double km, int min, bool exact})? approach;
   final (int, int)? sibling;
+
+  /// Last sibling swipe (−1 / +1, 0 = none) — the content below the map
+  /// slides in from that side (MgSwipeSwitcher, F-08).
+  final int direction;
   final VoidCallback onBack;
   final ValueChanged<int> onPoiTap;
   final VoidCallback onFullMap;
@@ -64,6 +71,7 @@ class RouteDetailViewV2 extends StatelessWidget {
     required this.realKm,
     required this.approach,
     required this.sibling,
+    this.direction = 0,
     required this.onBack,
     required this.onPoiTap,
     required this.onFullMap,
@@ -74,7 +82,9 @@ class RouteDetailViewV2 extends StatelessWidget {
     required this.onExternal,
   });
 
-  static const double _mapH = 280;
+  /// Map hero height (F-09′): 30 % of the screen, 200–280 — at 320 × 690
+  /// the stats card and the first section head stay in the first window.
+  static double mapHeightFor(double screenH) => (screenH * 0.30).clamp(200.0, 280.0);
 
   @override
   Widget build(BuildContext context) {
@@ -91,13 +101,7 @@ class RouteDetailViewV2 extends StatelessWidget {
     final dock = MgDock(
       safeArea: !inShell,
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            child: MgFabAvoid(child: MgCta(label: tr.tr('routeNavigate'), loop: true, onTap: onNavigate)),
-          ),
-          const SizedBox(width: 8),
-          const MgAiDisc(size: 56),
-        ]),
+        MgFabAvoid(child: MgCta(label: tr.tr('routeNavigate'), loop: true, onTap: onNavigate)),
         const SizedBox(height: 4),
         Row(children: [
           if (onCustomize != null)
@@ -107,91 +111,99 @@ class RouteDetailViewV2 extends StatelessWidget {
       ]),
     );
 
-    return ColoredBox(
-      color: MgColors.canvas,
-      child: _DetailBody(
-        mapH: _mapH + top,
-        map: Stack(children: [
-          Positioned.fill(
-            child: RouteMapView(
-              geometry: geometry,
-              start: start,
-              pois: poiMarkers,
-              activePoi: activePoi,
-              onPoiTap: onPoiTap,
+    // The light (outdoor) map lies under the status bar → dark icons.
+    return MgStatusBar(
+      dark: false,
+      child: ColoredBox(
+        color: MgColors.canvas,
+        child: _DetailBody(
+          mapH: mapHeightFor(MediaQuery.sizeOf(context).height) + top,
+          map: Stack(children: [
+            Positioned.fill(
+              // Map tiles failing: the strip under the back button.
+              child: MapTileErrorInset(
+                top: top + 62,
+                child: RouteMapView(
+                  geometry: geometry,
+                  start: start,
+                  pois: poiMarkers,
+                  activePoi: activePoi,
+                  onPoiTap: onPoiTap,
+                ),
+              ),
             ),
-          ),
-          Positioned(top: top + 10, left: 12, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
-          if (computing)
+            Positioned(top: top + 10, left: 12, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
+            if (computing)
+              Positioned(
+                top: top + 14,
+                right: 12,
+                left: 72,
+                child: Align(alignment: Alignment.centerRight, child: _ComputingChip(label: tr.tr('routeNavComputing'))),
+              ),
             Positioned(
-              top: top + 14,
               right: 12,
-              left: 72,
-              child: Align(alignment: Alignment.centerRight, child: _ComputingChip(label: tr.tr('routeNavComputing'))),
+              bottom: 36,
+              child: _MapPill(label: tr.tr('routeShowOnMap'), onTap: onFullMap),
             ),
-          Positioned(
-            right: 12,
-            bottom: 36,
-            child: _MapPill(label: tr.tr('routeShowOnMap'), onTap: onFullMap),
-          ),
-        ]),
-        dock: dock,
-        children: [
-          RouteStatsCardV2(
-            route: route,
-            name: route.nameFor(lang),
-            startLine: branch != null && startNear ? '${tr.tr('routeStartsAt')} ${branch!.name}' : null,
-            km: distKm == null ? null : '${distKm.toStringAsFixed(0)} km',
-            time: route.durationMin == null ? null : rtDur(route.durationMin!),
-            fromMe: fromMe,
-            sibling: sibling,
-            onPrev: onPrev,
-            onNext: onNext,
-          ),
-          if (desc.isNotEmpty) RouteDescV2(desc),
-          if (pois.isNotEmpty) ...[
-            RtSectionV2(icon: MgIcons.pin, title: tr.tr('routePoisHeader'), count: pois.length),
-            SizedBox(
-              // Photo 112 + padding + name + 2 description lines — grows
-              // with large text so the 2nd line is not cut.
-              height: RoutePoiCardV2.heightFor(MediaQuery.textScalerOf(context)),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                clipBehavior: Clip.none,
-                itemCount: pois.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, i) => RoutePoiCardV2(
-                  poi: pois[i],
-                  number: i + 1,
-                  lang: lang,
-                  active: activePoi == i,
-                  onTap: () => onPoiTap(i),
+          ]),
+          dock: dock,
+          switchKey: route.id,
+          direction: direction,
+          children: [
+            RouteStatsCardV2(
+              route: route,
+              name: route.nameFor(lang),
+              startLine: branch != null && startNear ? '${tr.tr('routeStartsAt')} ${branch!.name}' : null,
+              km: distKm == null ? null : '${mgNum(distKm, lang)}\u00A0km',
+              time: route.durationMin == null ? null : rtDur(route.durationMin!),
+              fromMe: fromMe,
+              sibling: sibling,
+              onPrev: onPrev,
+              onNext: onNext,
+            ),
+            if (desc.isNotEmpty) RouteDescV2(desc),
+            if (pois.isNotEmpty) ...[
+              RtSectionV2(icon: MgIcons.pin, title: tr.tr('routePoisHeader'), count: pois.length),
+              SizedBox(
+                // Photo 112 + padding + name + 2 description lines — grows
+                // with large text so the 2nd line is not cut.
+                height: RoutePoiCardV2.heightFor(MediaQuery.textScalerOf(context)),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  clipBehavior: Clip.none,
+                  itemCount: pois.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => RoutePoiCardV2(
+                    poi: pois[i],
+                    number: i + 1,
+                    lang: lang,
+                    active: activePoi == i,
+                    onTap: () => onPoiTap(i),
+                  ),
                 ),
               ),
-            ),
-          ],
-          if (route.images.isNotEmpty) ...[
-            RtSectionV2(icon: MgIcons.image, title: tr.tr('routeGalleryHeader'), count: route.images.length),
-            SizedBox(
-              height: 120,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: route.images.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, i) => RouteGalleryThumbV2(
-                  url: route.images[i],
-                  onTap: () => openPoiImageViewer(context, route.images, i, lang),
+            ],
+            if (route.images.isNotEmpty) ...[
+              RtSectionV2(icon: MgIcons.image, title: tr.tr('routeGalleryHeader'), count: route.images.length),
+              SizedBox(
+                height: 120,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: route.images.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (context, i) => RouteGalleryThumbV2(
+                    url: route.images[i],
+                    onTap: () => openPoiImageViewer(context, route.images, i, lang),
+                  ),
                 ),
               ),
-            ),
+            ],
+            // v2 section brings its own head + gutters (F-01).
+            RouteReviewsSection(routeId: route.id),
           ],
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-            child: RouteReviewsSection(routeId: route.id),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -203,8 +215,17 @@ class _DetailBody extends StatefulWidget {
   final double mapH;
   final Widget map;
   final Widget dock;
+  final Object switchKey;
+  final int direction;
   final List<Widget> children;
-  const _DetailBody({required this.mapH, required this.map, required this.dock, required this.children});
+  const _DetailBody({
+    required this.mapH,
+    required this.map,
+    required this.dock,
+    required this.switchKey,
+    required this.direction,
+    required this.children,
+  });
 
   @override
   State<_DetailBody> createState() => _DetailBodyState();
@@ -219,9 +240,13 @@ class _DetailBodyState extends State<_DetailBody> {
       Positioned(left: 0, right: 0, top: 0, height: widget.mapH, child: widget.map),
       Positioned.fill(
         top: widget.mapH - 24,
-        child: ListView(
-          padding: EdgeInsets.only(bottom: _dockH + 16),
-          children: widget.children,
+        child: MgSwipeSwitcher(
+          switchKey: widget.switchKey,
+          direction: widget.direction,
+          child: ListView(
+            padding: EdgeInsets.only(bottom: _dockH + 16),
+            children: widget.children,
+          ),
         ),
       ),
       Positioned(

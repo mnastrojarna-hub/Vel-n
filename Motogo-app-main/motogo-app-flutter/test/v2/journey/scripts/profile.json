@@ -1,0 +1,21 @@
+[
+ {"tapText": "Profil", "note": "tab Profil"},
+ {"wait": 300},
+ {"scroll": [180, 560, 450], "note": "personal data, licence groups and expiry"},
+ {"tapText": "Upravit", "note": "edit personal data"},
+ {"wait": 300},
+ {"scroll": [180, 560, 450]},
+ {"scroll": [180, 560, 450], "note": "licence number, expiry, groups"},
+ {"scroll": [180, 560, 450]},
+ {"scroll": [180, 300, -1350], "note": "back up"},
+ {"tapText": "Zavřít", "note": "close the form"},
+ {"scroll": [180, 560, 450]},
+ {"tapText": "Moje doklady", "note": "documents (ID + licence scans)"},
+ {"wait": 500},
+ {"scroll": [180, 560, 450]},
+ {"back": true, "note": "system back"},
+ {"scroll": [180, 560, 300]},
+ {"tapText": "Platební metody", "note": "payment methods"},
+ {"wait": 300},
+ {"back": true}
+]

@@ -11,7 +11,7 @@ import '../catalog/widgets/moto_filter_panel.dart';
 import '../loyalty/loyalty_rank_card.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
-import '../routes/routes_provider.dart';
+import 'home_actions.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_reservations_section.dart';
 import '../../core/widgets/state_views.dart';
@@ -42,8 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // takže domů nezdrží ani nezasekne.
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
-      ref.read(routesDataProvider);
-      ref.read(catalogPoisProvider);
+      warmUpRoutes(ref);
     });
   }
 
@@ -72,12 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           RefreshIndicator(
             color: MotoGoColors.green,
-            onRefresh: () async {
-              ref.invalidate(motorcyclesProvider);
-              ref.invalidate(filteredMotorcyclesProvider);
-              ref.invalidate(reservationsProvider);
-              await ref.read(motorcyclesProvider.future);
-            },
+            onRefresh: () => refreshHome(ref),
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               controller: _scrollCtrl,

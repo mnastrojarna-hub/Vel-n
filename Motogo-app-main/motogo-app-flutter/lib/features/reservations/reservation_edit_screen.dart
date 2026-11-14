@@ -21,6 +21,7 @@ import '../payment/net_error.dart' show isNetworkError;
 import 'reservation_models.dart';
 import 'booking_extras_sync.dart';
 import 'reservation_edit_price_calc.dart';
+import 'reservation_edit_address.dart';
 import 'reservation_provider.dart';
 import 'booking_gate_provider.dart';
 import 'widgets/reservation_edit_widgets.dart';
@@ -29,6 +30,7 @@ import 'widgets/reservation_edit_moto_section.dart';
 import 'widgets/reservation_edit_extras_section.dart';
 import 'widgets/reservation_edit_calendar_section.dart';
 import 'widgets/reservation_swap_section.dart';
+import 'edit_write_check.dart';
 import 'widgets/reservation_edit_states.dart';
 import '../payment/card_minimum.dart';
 import '../payment/widgets/card_rounding_note.dart';
@@ -39,6 +41,7 @@ import '../../core/widgets/pickup_location_link.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/res_edit_view_v2.dart';
+import 'v2/res_edit_address_v2.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
 /// Calendar supports both extend and shorten in one view.
@@ -123,12 +126,6 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   bool _wantTabRead = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadBooking();
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_wantTabRead) return;
@@ -136,6 +133,12 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     try {
       _wantTab = GoRouterState.of(context).uri.queryParameters['tab'];
     } catch (_) {/* mimo router (test) */}
+    // První načtení — dřív v initState. Flutter volá didChangeDependencies
+    // hned po initState ve stejném synchronním kroku (před prvním build),
+    // takže časování je stejné; `ref.invalidate` ale v initState shazoval
+    // debug assert (dependOnInheritedWidgetOfExactType před dokončením
+    // initState). Guard `_wantTabRead` = jen jednou za život obrazovky.
+    _loadBooking();
   }
 
   Future<void> _loadBooking() async {
@@ -713,38 +716,26 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     );
   }
 
-  /// Po ztracené odpovědi uložení úpravy: true = rezervace už nese nové
-  /// údaje (termín + cena), false = prokazatelně původní, null = nejde ověřit.
+  /// Po ztracené odpovědi uložení úpravy (i po zápisu bez chyby — pojistka
+  /// ceny u zaplacené rezervace ho může tiše vrátit): true = rezervace už
+  /// nese nové údaje (termín, motorka, cena), false = prokazatelně původní,
+  /// null = nejde ověřit ([editWriteApplied]).
   Future<bool?> _editAppliedAfterNetError(Map<String, dynamic> changes) async {
     try {
       final row = await MotoGoSupabase.client
           .from('bookings')
-          .select('start_date, end_date, total_price')
+          .select('start_date, end_date, moto_id, total_price')
           .eq('id', widget.bookingId)
           .maybeSingle()
           .timeout(const Duration(seconds: 10));
       final orig = _booking;
       if (row == null || orig == null) return null;
-      String d(Object? v) => '${v ?? ''}'.length >= 10 ? '$v'.substring(0, 10) : '$v';
-      // Rozhodují jen údaje, které se úpravou opravdu mění (jinak by
-      // „sedí" platilo i pro neuloženou změnu).
-      var distinguishing = 0;
-      final origDates = {
+      return editWriteApplied(row, changes, {
         'start_date': orig.startDate.toIso8601String().substring(0, 10),
         'end_date': orig.endDate.toIso8601String().substring(0, 10),
-      };
-      for (final k in const ['start_date', 'end_date']) {
-        if (!changes.containsKey(k) || d(changes[k]) == origDates[k]) continue;
-        distinguishing++;
-        if (d(row[k]) != d(changes[k])) return false;
-      }
-      final want = (changes['total_price'] as num?)?.toDouble();
-      final have = (row['total_price'] as num?)?.toDouble();
-      if (want != null && (want - orig.totalPrice).abs() > 0.5) {
-        distinguishing++;
-        if (have == null || (have - want).abs() > 0.5) return false;
-      }
-      return distinguishing > 0 ? true : null;
+        'moto_id': orig.motoId,
+        'total_price': orig.totalPrice,
+      });
     } catch (_) {
       return null;
     }
@@ -1162,6 +1153,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               .update(changes)
               .eq('id', widget.bookingId)
               .timeout(const Duration(seconds: 20));
+          // Zápis bez chyby ještě neznamená uloženo: pojistka ceny zaplacené
+          // rezervace (víc dní / vyšší ceníková hodnota) termín, motorku i cenu
+          // tiše ponechá. Pak NEvolat vratku, NEměnit doplňky a říct pravdu.
+          if (await _editAppliedAfterNetError(changes) == false) {
+            if (mounted) {
+              setState(() => _saving = false);
+              showEditPinned(context, onReload: _loadBooking);
+            }
+            await _loadBooking();
+            return;
+          }
         } catch (e) {
           if (!isNetworkError(e)) rethrow;
           // Odpověď se ztratila — úprava se mohla uložit. Ověřit, než řekneme
@@ -1191,8 +1193,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
               'reason': motoChanged && !datesChanged ? 'moto_swap' : 'edit_shortening',
             }).timeout(const Duration(seconds: 30));
             final rd = refundRes.data;
-            refundOk = rd is Map && rd['success'] == true;
-            if (!refundOk) debugPrint('[Edit] refund failed: $rd');
+            // Vráceno jen částečně (zbytek dokončí obsluha) = jako neúspěch:
+            // neslibovat celou částku, ukázat pdRefundManual.
+            refundOk = rd is Map && rd['success'] == true && !refundFellShort(rd, -effDiff);
+            if (!refundOk) debugPrint('[Edit] refund failed / partial: $rd');
           } catch (e) {
             debugPrint('[Edit] refund error: $e');
           }
@@ -1275,9 +1279,23 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   @override
   Widget build(BuildContext context) {
     if (_confirmed) {
+      // E3-02 (v2 only): a refund without a date change (e.g. a later pickup
+      // time with the late-pickup discount) is not a shortening — neutral
+      // title and lead line; the refund lines stay as they are.
+      var title = _confirmTitle;
+      var message = _confirmMessage;
+      final b = _booking;
+      if (MgV2.on(context) && b != null && title == t(context).tr('shorteningConfirmed') &&
+          _sameDay(_newStart ?? b.startDate, b.startDate) && _sameDay(_newEnd ?? b.endDate, b.endDate)) {
+        final shortened = t(context).tr('reservationShortened');
+        title = t(context).tr('jxChangeSavedTitle');
+        if (message.startsWith(shortened)) {
+          message = t(context).tr('jxChangeSavedLead') + message.substring(shortened.length);
+        }
+      }
       return EditConfirmPage(
-        title: _confirmTitle,
-        message: _confirmMessage,
+        title: title,
+        message: message,
         isRefund: _confirmIsRefund,
         pickup: _confirmPickup,
       );
@@ -1402,6 +1420,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         .where((e) => e.isNotEmpty)
         .toList();
 
+    // Adresa, kterou rezervace už má, se ukáže vyplněná; list nabídne adresu
+    // druhé strany a z profilu (2026-10-22, nic nevyplňovat dvakrát).
+    final addrCarry = EditAddressCarry.of(_booking!, pickupMethod: _pickupMethod,
+        returnMethod: _returnMethod, pickupNew: _pickupAddrNew, returnNew: _returnAddrNew);
+
     // ── v2 (PLAN §2.4.3): tytéž sekce, zavření i akce vytažené beze změny
     // (hoist), ať je starý i nový strom použijí stejně. ──
     final canMove = _booking!.status == 'reserved' &&
@@ -1451,9 +1474,15 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             onShortenStart: () => setState(() { _shortenDir = 'start'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
             onShortenEnd: () => setState(() { _shortenDir = 'end'; _newStart = _booking!.startDate; _newEnd = _booking!.endDate; }),
           );
+    final AddressRowBuilder? addrRowV2 =
+        MgV2.on(context) ? (c, d) => ResEditAddressRowV2(data: d) : null;
     final pickupPlace = AddressPickerWidget(label: t(context).pickup, isPickup: true, method: _pickupMethod,
                 branchLabel: _effBranchLabel,
                 deliveryBlocked: pickupBlocked,
+                initialAddress: addrCarry.savedPickup,
+                currentAddress: _pickupAddrNew,
+                quick: addrCarry.quick(t(context).tr, pickup: true, profile: profile.valueOrNull),
+                rowBuilder: addrRowV2,
                 onMethodChanged: (m) => setState(() => _pickupMethod = m),
                 onAddressChanged: (a) => setState(() => _pickupAddrNew = _addrText(a)),
                 onDeliveryFeeChanged: (f) => setState(() => _pickupDelivFee = f));
@@ -1467,6 +1496,10 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     final returnPlace = AddressPickerWidget(label: t(context).returnLabel, isPickup: false, method: _returnMethod,
               branchLabel: _effBranchLabel,
               deliveryBlocked: returnBlocked,
+              initialAddress: addrCarry.savedReturn,
+              currentAddress: _returnAddrNew,
+              quick: addrCarry.quick(t(context).tr, pickup: false, profile: profile.valueOrNull),
+              rowBuilder: addrRowV2,
               onMethodChanged: (m) => setState(() => _returnMethod = m),
               onAddressChanged: (a) => setState(() => _returnAddrNew = _addrText(a)),
               onDeliveryFeeChanged: (f) => setState(() => _returnDelivFee = f));
@@ -1526,6 +1559,11 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                               : t(context).tr('saveChangesBtn'));
     if (MgV2.on(context)) {
       final datesOrSwap = _tab == 'move' || _tab == 'swap';
+      // Doplatek kartou: popisek a částka zvlášť („ZAPLATIT DOPLATEK · 4 296 Kč")
+      // + „Původně → nově" nad tlačítkem; tytéž hodnoty jako saveLabel výše.
+      final payCharge = _tab != 'move' && calc.effectivePriceDiff > 0 && !cardCharge(calc.effectivePriceDiff).isWaive
+          ? cardCharge(calc.effectivePriceDiff).charge
+          : null;
       return ResEditV2View(
         booking: _booking!,
         tab: _tab,
@@ -1550,7 +1588,27 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
             ? StornoCalc.effectiveRefundPercent(_newStart ?? _booking!.startDate, _booking!)
             : null,
         missingSizes: !datesOrSwap ? _missingGearSizes() : const [],
-        saveLabel: _tab == 'swap' ? null : saveLabel,
+        saveLabel: _tab == 'swap'
+            ? null
+            : (payCharge != null
+                ? t(context).tr('v2UxRpPayDiffCta')
+                // E3-06: removing days says what the button does.
+                : _tab == 'shorten' && calc.diffDays < 0
+                    ? t(context).tr('jxShortenCta')
+                    : saveLabel),
+        savePrice: _tab == 'swap' || payCharge == null ? null : Money.czk(payCharge),
+        saveContext: _tab == 'swap'
+            ? null
+            : payCharge != null
+                ? t(context).trArgs('v2UxRpPayDiff', {'from': Money.czk(_booking!.totalPrice), 'to': Money.czk(calc.newTotal)})
+                // AFT-05: zkrácení — kolik se vrátí, tytéž hodnoty jako hláška refundAmount.
+                : _tab == 'shorten' && calc.effectivePriceDiff < 0
+                    ? t(context).trArgs('claRpRefundCtx',
+                        {'amount': Money.czk(-calc.effectivePriceDiff), 'pct': '${calc.stornoPercent}'})
+                    // E3-02: any other refund (e.g. late-pickup discount) is told before saving.
+                    : _tab != 'move' && _tab != 'shorten' && calc.effectivePriceDiff < 0
+                        ? t(context).trArgs('jxRefundCtx', {'amount': Money.czk(-calc.effectivePriceDiff)})
+                        : null,
         onSave: saveAction,
         saving: _saving,
         onBack: () => context.backOr(Routes.reservations),

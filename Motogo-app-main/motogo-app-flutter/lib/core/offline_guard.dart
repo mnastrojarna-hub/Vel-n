@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import '../main.dart' show rootNavigatorKey;
 import 'supabase_client.dart';
 import 'theme.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/shell/v2/offline_view_v2.dart';
 import 'i18n/i18n_provider.dart';
 import 'widgets/error_feedback.dart' show call112, callMotoGo;
 import 'widgets/map_tile_errors.dart' show MapTileErrors;
@@ -262,7 +264,16 @@ class _OfflineOverlayState extends State<_OfflineOverlay> {
         widget.onContinue();
         return true;
       },
-      child: Material(
+      // v2 vzhled (Stavy 8.1/8.2): tytéž akce a stav, jen nový vzhled.
+      child: MgV2.on(context)
+          ? OfflineViewV2(
+              checking: _checking,
+              stillOffline: _stillOffline,
+              onRetry: _checking ? null : _retry,
+              onContinue: widget.onContinue,
+              onCall112: call112,
+            )
+          : Material(
         color: MotoGoColors.black.withValues(alpha: 0.95),
         child: SafeArea(
           child: Center(
@@ -355,6 +366,7 @@ class _OfflineBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) return OfflineStripV2(offline: offline);
     final tr = t(context);
     return Positioned(
       top: MediaQuery.of(context).padding.top + 2,

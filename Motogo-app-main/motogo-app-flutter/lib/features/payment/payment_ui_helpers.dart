@@ -8,12 +8,24 @@ import '../../core/supabase_client.dart';
 import '../../core/theme.dart';
 import 'booking_upsell_provider.dart';
 import 'payment_provider.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_dialog.dart';
 
 /// Potvrzení odchodu z běžící platby (šipka, systémové „zpět", záložka).
 /// true = zákazník chce odejít. Platba může i tak doběhnout — výsledek najde
 /// v Rezervacích / e-mailu; nikdy nesmí odejít bez vysvětlení.
 Future<bool> confirmLeaveRunningPayment(BuildContext context) async {
   final tr = t(context);
+  if (MgV2.peek(context)) {
+    // v2 T6 (PS-14): "Odejít" = the safe side (false), "Zůstat a počkat" =
+    // the main action (true); dismissed = stay — the same outcome as before.
+    final stay = await showMgConfirm(context,
+        title: tr.tr('psLeaveTitle'),
+        body: tr.tr('psLeaveBody'),
+        safeLabel: tr.tr('psLeave'),
+        actionLabel: tr.tr('psStay'));
+    return stay == false;
+  }
   final leave = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(

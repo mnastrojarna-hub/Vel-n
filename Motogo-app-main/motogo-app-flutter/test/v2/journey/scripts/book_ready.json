@@ -1,0 +1,17 @@
+[
+ {"tapText":"Další víkend","note":"Home: pick dates (next weekend)"},
+ {"tap":[100,235],"note":"Home offer: tap the bike"},
+ {"scroll":[180,500,400],"note":"bike detail: read down"},
+ {"scroll":[180,500,-400]},
+ {"tapText":"REZERVOVAT","note":"bike detail: REZERVOVAT"},
+ {"scroll":[180,400,350],"note":"booking form"},
+ {"scroll":[180,400,350]},
+ {"scroll":[180,400,350]},
+ {"tapText":"Mám vlastní výbavu","note":"own gear instead of sizes"},
+ {"scroll":[180,400,350]},{"scroll":[180,400,350]},{"scroll":[180,400,350]},
+ {"tapText":"Souhlasím s obchodními podmínkami","note":"consent VOP"},
+ {"tapText":"Souhlasím se zpracováním","note":"consent GDPR"},
+ {"tapText":"POKRAČOVAT K PLATBĚ","note":"continue to payment"},
+ {"scroll":[180,400,350],"note":"payment page"},
+ {"back":true,"note":"system back from payment"}
+]

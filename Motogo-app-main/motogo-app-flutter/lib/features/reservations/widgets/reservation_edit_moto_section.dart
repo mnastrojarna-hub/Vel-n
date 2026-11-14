@@ -8,6 +8,8 @@ import '../../catalog/moto_model.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../booking/booking_validator.dart';
 import 'reservation_edit_widgets.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_moto_v2.dart';
 
 /// Moto change collapsible card for reservation edit.
 /// Nabízí JEN motorky volné v termínu rezervace (vč. zvolené změny termínu) —
@@ -81,6 +83,35 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
     }
   }
 
+  // Sdílené starým i v2 vzhledem (logika beze změny, jen vytažená).
+
+  /// Filtr dle pobočky — zvolená motorka mimo pobočku se odznačí.
+  void _onBranch(String? v, AsyncValue<List<Motorcycle>> motosAsync) {
+    setState(() => _branch = v);
+    if (v != null && widget.newMotoId != null) {
+      final list = motosAsync.valueOrNull ?? const <Motorcycle>[];
+      final keep = list.any((m) => m.id == widget.newMotoId && m.branchId == v);
+      if (!keep) widget.onMotoSelected(null);
+    }
+  }
+
+  List<Motorcycle> _available(List<Motorcycle> motos) => motos.where((m) {
+        if (m.id == widget.currentMotoId) return false;
+        if (_branch != null && m.branchId != _branch) return false;
+        // OR-match přes přijímané skupiny ŘP vozidla (vč. B pro skútry/přívěs).
+        if (widget.userLicenseGroups.isNotEmpty) {
+          final ok = BookingValidator.checkLicense(
+            userLicenseGroups: widget.userLicenseGroups,
+            motoLicenseGroups: m.licenseGroupsOrFallback,
+          ) == null;
+          if (!ok) return false;
+        }
+        return true;
+      }).toList();
+
+  /// Vozík jen na obslužné pobočce — kus ze samoobsluhy nenabízej (viz níže).
+  bool _trailerBlocked(Motorcycle m) => widget.hasTrailer && m.branchType == 'samoobslužná';
+
   @override
   Widget build(BuildContext context) {
     final motosAsync = ref.watch(motorcyclesProvider);
@@ -101,6 +132,25 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _recomputeAvail(motosData);
       });
+    }
+
+    // v2 vzhled: tentýž stav, tytéž akce (res_edit_moto_v2.dart).
+    if (MgV2.on(context)) {
+      return EditMotoChangeViewV2(
+        currentMotoName: widget.currentMotoName,
+        currentMoto: (motosAsync.valueOrNull ?? const <Motorcycle>[]).where((m) => m.id == widget.currentMotoId).firstOrNull,
+        newMotoName: hasChange ? newMotoName : null,
+        expanded: widget.expanded,
+        availLoading: _availLoading,
+        onToggleExpanded: widget.onToggleExpanded,
+        branchFilter: EditBranchFilter(value: _branch, onChanged: (v) => _onBranch(v, motosAsync)),
+        motos: motosAsync,
+        available: _available,
+        avail: _avail,
+        selectedId: widget.newMotoId,
+        trailerBlocked: _trailerBlocked,
+        onTapMoto: (m, selected) => widget.onMotoSelected(selected ? null : m.id),
+      );
     }
 
     return EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -160,30 +210,11 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
         // Filtr dle pobočky — zvolená motorka mimo pobočku se odznačí.
         EditBranchFilter(
           value: _branch,
-          onChanged: (v) {
-            setState(() => _branch = v);
-            if (v != null && widget.newMotoId != null) {
-              final list = motosAsync.valueOrNull ?? const <Motorcycle>[];
-              final keep = list.any((m) => m.id == widget.newMotoId && m.branchId == v);
-              if (!keep) widget.onMotoSelected(null);
-            }
-          },
+          onChanged: (v) => _onBranch(v, motosAsync),
         ),
         motosAsync.when(
           data: (motos) {
-            final available = motos.where((m) {
-              if (m.id == widget.currentMotoId) return false;
-              if (_branch != null && m.branchId != _branch) return false;
-              // OR-match přes přijímané skupiny ŘP vozidla (vč. B pro skútry/přívěs).
-              if (widget.userLicenseGroups.isNotEmpty) {
-                final ok = BookingValidator.checkLicense(
-                  userLicenseGroups: widget.userLicenseGroups,
-                  motoLicenseGroups: m.licenseGroupsOrFallback,
-                ) == null;
-                if (!ok) return false;
-              }
-              return true;
-            }).toList();
+            final available = _available(motos);
             return Column(children: available.map((m) {
               final free = _avail[m.id];
               // Vozík jen na obslužné pobočce — kus ze samoobsluhy nenabízej.
@@ -191,8 +222,7 @@ class _EditMotoChangeSectionState extends ConsumerState<EditMotoChangeSection> {
               // „Výměny motorky", kde SPLIT rezervaci s vozíkem nechává být),
               // takže se blokuje bez další podmínky. Serverová pojistka:
               // process-payment (doplatek) + trg_check_trailer_overlap (20260921f).
-              final trailerBlocked =
-                  widget.hasTrailer && m.branchType == 'samoobslužná';
+              final trailerBlocked = _trailerBlocked(m);
               final selectable = free == true && !trailerBlocked;
               final selected = widget.newMotoId == m.id;
               return GestureDetector(

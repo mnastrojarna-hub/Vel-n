@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 
 import '../main.dart' show rootNavigatorKey;
 import 'app_shell.dart';
-import 'v2/flag/v2_scope.dart' show V2Switch;
+import 'v2/chrome/mg_hide_on_scroll.dart' show MgBarsRouteObserver;
+import 'v2/flag/v2_scope.dart' show MgV2, V2Switch;
+import 'v2/motion/mg_pages.dart' show mgTabPage;
 import 'v2/shell/app_shell_v2.dart';
 import 'booking_form_widget.dart';
 import 'widgets/mg_back.dart';
@@ -154,10 +156,19 @@ extension MotoGoBackNav on BuildContext {
 /// Stránka otevíraná push: na iPhonu běžná (MaterialPage → funguje swipe zpět
 /// od levého okraje), na Androidu beze změny okamžitý přechod (systémové zpět
 /// tam funguje vždy). Dřív NoTransitionPage všude → na iPhonu jen šipka.
-Page<void> _swipeBackPage(LocalKey key, Widget child) =>
-    defaultTargetPlatform == TargetPlatform.iOS
+///
+/// v2 vzhled (SH-14): MaterialPage na obou platformách — iOS swipe zpět,
+/// Android prediktivní zpět (MgPageTransitions); VYPNUTO beze změny.
+Page<void> routerSwipeBackPage(LocalKey key, Widget child, [BuildContext? context]) =>
+    defaultTargetPlatform == TargetPlatform.iOS || (context != null && MgV2.peek(context))
         ? MaterialPage<void>(key: key, child: child)
         : NoTransitionPage<void>(key: key, child: child);
+
+/// Kořen záložky: v2 = fade-through `tab` 210 (design M1, SH-13), jinak beze
+/// změny okamžitě.
+Page<void> routerTabPage(BuildContext context, GoRouterState state, Widget child) => MgV2.peek(context)
+    ? mgTabPage(key: state.pageKey, child: child)
+    : NoTransitionPage<void>(child: child);
 
 /// Screens that do NOT show bottom navigation — matches noNav in router.js.
 const _noNavRoutes = {
@@ -252,11 +263,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Auth routes (no shell)
       GoRoute(
         path: Routes.login,
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) => LoginScreen(initialEmail: state.uri.queryParameters['email']),
       ),
       GoRoute(
         path: Routes.register,
-        builder: (context, state) => const MgBackGuard(child: RegisterScreen()),
+        builder: (context, state) =>
+            MgBackGuard(child: RegisterScreen(initialEmail: state.uri.queryParameters['email'])),
       ),
       GoRoute(
         path: Routes.resetPassword,
@@ -357,38 +369,36 @@ final routerProvider = Provider<GoRouter>((ref) {
       // vč. Profilu, AI tlačítko), VYPNUTO = původní AppShell. Cesty, deep
       // linky i zpět jsou v obou režimech stejné; přepíná se jen vzhled.
       ShellRoute(
+        // v2 hide-on-scroll: a page pushed / popped on the shell navigator
+        // (also pageless `Navigator.push`) brings the bars back; sheets do
+        // not fold them (no-op in the old look).
+        observers: [MgBarsRouteObserver()],
         builder: (context, state, child) =>
             V2Switch(v1: AppShell(child: child), v2: AppShellV2(child: child)),
         routes: [
           GoRoute(
             path: Routes.home,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: V2Switch(v1: HomeScreen(), v2: HomeScreenV2()),
-            ),
+            pageBuilder: (context, state) => routerTabPage(context, state, const V2Switch(v1: HomeScreen(), v2: HomeScreenV2())),
           ),
           GoRoute(
             path: Routes.search,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: V2Switch(v1: MotoSearchScreen(), v2: MotorkyScreenV2()),
-            ),
+            pageBuilder: (context, state) => routerTabPage(context, state, const V2Switch(v1: MotoSearchScreen(), v2: MotorkyScreenV2())),
           ),
           GoRoute(
             path: Routes.reservations,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: V2Switch(v1: ReservationsScreen(), v2: ReservationsScreenV2()),
-            ),
+            pageBuilder: (context, state) => routerTabPage(context, state, const V2Switch(v1: ReservationsScreen(), v2: ReservationsScreenV2())),
           ),
           GoRoute(
             path: Routes.shop,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ShopScreen(),
-            ),
+            // v2: běžná push stránka (swipe / prediktivní zpět, PS-15);
+            // VYPNUTO beze změny okamžitě (i na iPhonu).
+            pageBuilder: (context, state) => MgV2.peek(context)
+                ? routerSwipeBackPage(state.pageKey, const ShopScreen(), context)
+                : const NoTransitionPage(child: ShopScreen()),
           ),
           GoRoute(
             path: Routes.profile,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ProfileScreen(),
-            ),
+            pageBuilder: (context, state) => routerTabPage(context, state, const ProfileScreen()),
           ),
           // Sub-routes inside shell
           GoRoute(
@@ -398,9 +408,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.booking,
-            pageBuilder: (context, state) => _swipeBackPage(
+            pageBuilder: (context, state) => routerSwipeBackPage(
               const ValueKey('booking-debug'),
               const BookingDebugWrapper(),
+              context,
             ),
           ),
           GoRoute(
@@ -513,14 +524,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           // dřív byl katalog bodů zájmu mimo shell a lišta na něm mizela.
           GoRoute(
             path: Routes.routes,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: AllPoisScreen(asTab: true),
-            ),
+            pageBuilder: (context, state) => routerTabPage(context, state, const AllPoisScreen(asTab: true)),
           ),
           GoRoute(
             path: Routes.routesList,
             pageBuilder: (context, state) =>
-                _swipeBackPage(state.pageKey, const RoutesScreen()),
+                routerSwipeBackPage(state.pageKey, const RoutesScreen(), context),
           ),
           GoRoute(
             path: Routes.placesMap,

@@ -1,19 +1,12 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/v2/widgets/mg_text_fit.dart';
+
 /// true when every word of [text] fits [maxWidth] in [style] at [scaler]
 /// (so wrapping never has to cut a word — verify:render "word-break").
-bool homeWordsFit(String text, TextStyle style, double maxWidth, [TextScaler scaler = TextScaler.noScaling]) {
-  for (final w in text.split(RegExp(r'\s+'))) {
-    if (w.isEmpty) continue;
-    final tp = TextPainter(
-        text: TextSpan(text: w, style: style), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)
-      ..layout();
-    final width = tp.width;
-    tp.dispose();
-    if (width > maxWidth) return false;
-  }
-  return true;
-}
+/// Shared `mg_text_fit.dart` (r2).
+bool homeWordsFit(String text, TextStyle style, double maxWidth, [TextScaler scaler = TextScaler.noScaling]) =>
+    mgWordWidthWith(text, style, scaler) <= maxWidth;
 
 /// [homeWordsFit] for the style as painted in [context] (inherited font
 /// family + the current text size).
@@ -22,14 +15,5 @@ bool homeWordsFitIn(BuildContext context, String text, TextStyle style, double m
 
 /// true when [text] (as painted in [context]) takes at most [lines] lines
 /// at [maxWidth].
-bool homeLinesFitIn(BuildContext context, String text, TextStyle style, double maxWidth, int lines) {
-  final tp = TextPainter(
-    text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(style)),
-    textDirection: TextDirection.ltr,
-    textScaler: MediaQuery.textScalerOf(context),
-    maxLines: lines,
-  )..layout(maxWidth: maxWidth < 1 ? 1 : maxWidth);
-  final ok = !tp.didExceedMaxLines;
-  tp.dispose();
-  return ok;
-}
+bool homeLinesFitIn(BuildContext context, String text, TextStyle style, double maxWidth, int lines) =>
+    mgLinesFit(context, text, style, maxWidth, lines);

@@ -20,6 +20,7 @@ import 'core/debug_logger.dart';
 import 'core/installation_service.dart';
 import 'core/net/timeout_client.dart';
 import 'core/engagement_service.dart';
+import 'core/feature_flags.dart' show AppV2UiNotifier, appV2UiProvider;
 import 'core/offline_guard.dart';
 import 'core/paid_change_queue.dart';
 import 'core/provider_recovery.dart';
@@ -30,6 +31,8 @@ import 'core/supabase_client.dart';
 import 'core/router.dart';
 import 'core/safe_router_config.dart';
 import 'core/theme.dart';
+import 'core/v2/flag/v2_gate.dart';
+import 'core/v2/flag/v2_scope.dart';
 import 'core/i18n/i18n_provider.dart';
 import 'core/overlays/onboarding_overlays.dart';
 import 'core/widgets/moto_fx.dart';
@@ -39,6 +42,8 @@ import 'core/widgets/logo_header.dart' show initAppVersion;
 import 'core/pending_booking_fab_provider.dart'
     show onboardingOverlayActiveProvider;
 import 'features/loyalty/loyalty_levelup_overlay.dart';
+import 'features/shell/v2/crash_view_v2.dart';
+import 'features/shell/v2/intro_v2.dart';
 import 'features/routes/ride_recorder.dart';
 import 'features/loyalty/loyalty_provider.dart' show maybeRefreshLoyalty;
 import 'features/routes/active_ride_provider.dart'
@@ -90,6 +95,25 @@ Future<void> _initAndRun() async {
     CrashReportService.instance.reportFlutterError(details);
     // Bez BuildContextu s lokalizací → poslední známý jazyk appky.
     final tr = AppTranslations.of(lastKnownAppLang);
+    void goBack() => rootNavigatorKey.currentState?.maybePop();
+    void goHome() {
+      final ctx = rootNavigatorKey.currentContext;
+      if (ctx != null) GoRouter.of(ctx).go('/');
+    }
+    // v2 vzhled (Stavy 19.1): tytéž dvě akce Zpět / Domů; selže-li
+    // sestavení, platí původní widget níže.
+    if (MgV2.applied) {
+      try {
+        return CrashViewV2(
+          title: tr.tr('v2UxShCrashTitle'),
+          why: tr.tr('v2UxShCrashWhy'),
+          homeLabel: tr.tr('v2UxShCrashHome'),
+          backLabel: tr.tr('eoBack'),
+          onHome: goHome,
+          onBack: goBack,
+        );
+      } catch (_) {}
+    }
     return Material(
       color: const Color(0xFFDFF0EC), // MotoGoColors.bg
       child: Center(
@@ -193,6 +217,11 @@ Future<void> _initAndRun() async {
   await Money.init(
       defaultLang: langPrefs.getString('mg_language') ?? langPrefs.getString('mg_locale'));
   unawaited(Money.refreshRates());
+
+  // Kill-switch nového vzhledu (`app_v2_ui`): poslední známá hodnota z prefu
+  // platí od prvního snímku (chybí → zapnuto); čerstvou hodnotu z DB dotáhne
+  // appV2UiProvider na pozadí a použije ji jen v bezpečný okamžik.
+  await AppV2UiNotifier.preload();
 
   runApp(const ProviderScope(child: MotoGoApp()));
 }
@@ -399,6 +428,7 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     final router = ref.watch(routerProvider);
 
     final locale = ref.watch(localeProvider);
+    final v2On = ref.watch(appV2UiProvider);
 
     return MaterialApp.router(
       title: 'MotoGo24',
@@ -446,7 +476,14 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
             },
             child: Stack(
               children: [
-                child!,
+                // Nový vzhled (v2) zapnutý/vypnutý kill-switchem `app_v2_ui`
+                // (MgV2Gate → MgV2Scope: obrazovky MgV2.on, router V2Switch;
+                // téma v2 mění jen tvary snackbarů, dialogů, sheetů a
+                // indikátorů). Hlídač level-upu i onboarding overlaye níže
+                // stojí mimo bránu a zůstávají beze změny.
+                // Router = bezpečný okamžik přepnutí (kořen záložky, návrat
+                // do appky, po úvodním načtení) v obou vzhledech.
+                MgV2Gate(router: router, child: child!),
                 // Věrnostní ranky — neviditelný hlídač postupu na vyšší level.
                 // Sedí NAD celou navigací, takže celoobrazovkovou oslavu
                 // (postup o 1 = standard, o 2+ = turbo „MEGA POSTUP") zobrazí
@@ -456,18 +493,25 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
                 // Záznam projeté jízdy — při aktivní výpůjčce a povolené
                 // poloze sbírá stopu do „Mých zážitků". Nic nevykresluje.
                 const RideRecorderWatcher(),
-                // Language selection overlay (first launch)
+                // Language selection overlay (first launch). Onboarding
+                // stojí mimo bránu → vlastní MgV2Scope (vzhled v2 dle
+                // kill-switche, chování beze změny).
                 if (_onboardingChecked && _showLangOverlay)
-                  LanguageOverlay(onDone: _onLangDone),
+                  MgV2Scope(enabled: v2On, child: LanguageOverlay(onDone: _onLangDone)),
                 // Permission request overlay (after language)
                 if (_onboardingChecked && _showPermOverlay)
-                  PermissionOverlay(
+                  MgV2Scope(enabled: v2On, child: PermissionOverlay(
                     onAllow: _onPermDone,
-                  ),
+                  )),
                 // Intro animace při prvním spuštění — NAD ostatními overlayi,
                 // po doběhnutí odhalí výběr jazyka.
                 if (_onboardingChecked && _showIntro)
-                  MotoIntroOverlay(onDone: _onIntroDone),
+                  MgV2Scope(
+                    enabled: v2On,
+                    child: v2On
+                        ? IntroV2(onDone: _onIntroDone)
+                        : MotoIntroOverlay(onDone: _onIntroDone),
+                  ),
               ],
             ),
           ),

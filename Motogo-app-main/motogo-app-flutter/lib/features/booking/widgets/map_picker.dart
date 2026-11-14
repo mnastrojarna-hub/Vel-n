@@ -9,6 +9,9 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/widgets/map_tile_errors.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/widgets/mg_v1_pass.dart';
+import '../v2/map_picker_chrome_v2.dart';
 
 /// Fullscreen map picker — mirrors openMapPicker() from cart-address-geo.js.
 /// Uses flutter_map + OpenStreetMap tiles + CARTO Voyager (no API key).
@@ -230,21 +233,38 @@ class _MapPickerState extends State<MapPickerScreen> {
                 errorTileCallback: MapTileErrors.report,
                 reset: MapTileErrors.reset,
               ),
-              const MapTileErrorChip(),
+              // v2: the strip under the picker's header (back 44 at top + 8).
+              MapTileErrorInset(top: MediaQuery.paddingOf(context).top + 60, child: const MapTileErrorChip()),
             ],
           ),
+
+          // v2 (CB-05): pin, back, result card + ONE „Potvrdit adresu"
+          // over the same map; same geocoding, same `_confirm` result.
+          if (MgV2.on(context))
+            Positioned.fill(
+              child: MapPickerChromeV2(
+                loading: _loading,
+                street: _street,
+                cityLine: [if (_city.isNotEmpty) _city, if (_zip.isNotEmpty) _zip].join(', '),
+                fullAddress: _address,
+                onBack: () => Navigator.of(context).pop(),
+                onConfirm: _loading ? null : _confirm,
+              ),
+            )
+          else ...[
 
           // Center crosshair
           const Center(
             child: Text('📍', style: TextStyle(fontSize: 32)),
           ),
 
-          // Top bar
+          // Top bar — dark gradient under the status bar → light icons in
+          // v2 (the picker is pushed inside the shell, whose base is light).
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Container(
+            child: mgV1StatusBar(context, dark: true, child: Container(
               padding: EdgeInsets.fromLTRB(
                 16, MediaQuery.of(context).padding.top + 8, 16, 12,
               ),
@@ -289,7 +309,7 @@ class _MapPickerState extends State<MapPickerScreen> {
                   ),
                 ],
               ),
-            ),
+            )),
           ),
 
           // Bottom address preview + confirm
@@ -350,6 +370,7 @@ class _MapPickerState extends State<MapPickerScreen> {
               ),
             ),
           ),
+          ],
         ],
       ),
     );

@@ -44,7 +44,11 @@ class MgIconPainter extends CustomPainter {
   final String name;
   final Color color;
   final double stroke;
-  MgIconPainter(this.name, this.color, [this.stroke = 2]);
+
+  /// 0 → 1: how much of the stroke paths is drawn (a ✓ drawing itself in;
+  /// fills appear at 1). Default 1 = the whole icon.
+  final double progress;
+  MgIconPainter(this.name, this.color, [this.stroke = 2, this.progress = 1]);
 
   static final Map<String, (List<Path>, List<Path>)> _cache = {};
 
@@ -73,8 +77,27 @@ class MgIconPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..isAntiAlias = true;
-    for (final path in p.$1) {
-      canvas.drawPath(path, sp);
+    if (progress >= 1) {
+      for (final path in p.$1) {
+        canvas.drawPath(path, sp);
+      }
+    } else if (progress > 0) {
+      // All stroke paths as one pen: drawn in order up to [progress].
+      var total = 0.0;
+      final metrics = [for (final path in p.$1) ...path.computeMetrics()];
+      for (final m in metrics) {
+        total += m.length;
+      }
+      var left = total * progress;
+      for (final m in metrics) {
+        if (left <= 0) break;
+        canvas.drawPath(m.extractPath(0, left.clamp(0, m.length)), sp);
+        left -= m.length;
+      }
+    }
+    if (progress < 1) {
+      canvas.restore();
+      return;
     }
     final fp = Paint()
       ..color = color
@@ -88,5 +111,5 @@ class MgIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(MgIconPainter o) =>
-      o.name != name || o.color != color || o.stroke != stroke;
+      o.name != name || o.color != color || o.stroke != stroke || o.progress != progress;
 }

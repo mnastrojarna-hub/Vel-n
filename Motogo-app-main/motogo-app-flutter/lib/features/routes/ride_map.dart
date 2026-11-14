@@ -1,17 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import 'map_fit.dart';
 import 'ride_model.dart';
+import 'road_line.dart';
 import 'routes_provider.dart' show mapyApiKey;
 import '../../core/widgets/map_tile_errors.dart';
+
+/// Barva přesunu během pauzy (modrošedá, čárkovaně) — odlišná od mezery.
+const Color kRidePauseLineColor = Color(0xFF6E86A0);
+
+/// Pauza, během které se motorka přesunula (> 300 m — trajekt, přívěs).
+/// Krátký posun = stání, nekreslí se nic.
+bool rideIsMovedPause(RideGap g) => g.isPause && g.km > kRideStillKm;
+
+/// Má stopa aspoň jeden přesun během pauzy? (legenda pod mapou)
+bool rideHasMovedPause(List<RideSegment> segments) =>
+    segments.any((s) => s.gapBefore != null && rideIsMovedPause(s.gapBefore!));
+
+/// Čárkovaná spojnice [a] → [b] (flutter_map 6 umí jen tečky): [n] dílků,
+/// kreslí se každý druhý.
+List<List<LatLng>> rideDashes(LatLng a, LatLng b, {int n = 15}) {
+  LatLng at(double f) => LatLng(
+      a.latitude + (b.latitude - a.latitude) * f, a.longitude + (b.longitude - a.longitude) * f);
+  return [
+    for (var i = 0; i < n; i += 2) [at(i / n), at((i + 1) / n)],
+  ];
+}
 
 /// Mapa projeté jízdy — stopa GPS + značky start / cíl / zastávky.
 /// Používá se jako náhled v kartě jízdy (neinteraktivní) i jako velká mapa
 /// v detailu jízdy (interaktivní, klepnutí do mapy přidá zastávku).
-class RideTrackMap extends StatefulWidget {
+class RideTrackMap extends ConsumerStatefulWidget {
   final List<LatLng> track;
 
   /// Stopa rozdělená na souvislé úseky (viz `UserRide.segments`). Když je
@@ -24,6 +48,10 @@ class RideTrackMap extends StatefulWidget {
   final void Function(int index)? onPointTap;
   final void Function(LatLng point)? onMapTap;
 
+  /// Popisek „Odhad trasy · bez GPS“ u mezer (výchozí = jen interaktivní
+  /// velká mapa; malé náhledy v kartách by popisky jen zahltily).
+  final bool? gapLabels;
+
   const RideTrackMap({
     super.key,
     required this.track,
@@ -33,13 +61,14 @@ class RideTrackMap extends StatefulWidget {
     this.activePoint,
     this.onPointTap,
     this.onMapTap,
+    this.gapLabels,
   });
 
   @override
-  State<RideTrackMap> createState() => _RideTrackMapState();
+  ConsumerState<RideTrackMap> createState() => _RideTrackMapState();
 }
 
-class _RideTrackMapState extends State<RideTrackMap> {
+class _RideTrackMapState extends ConsumerState<RideTrackMap> {
   final MapController _ctrl = MapController();
   bool _ready = false;
 
@@ -59,10 +88,21 @@ class _RideTrackMapState extends State<RideTrackMap> {
     ];
   }
 
-  /// Mezery mezi úseky (tečkovaná spojnice).
+  /// Mezery mezi úseky (bez signálu — šedý tečkovaný ODHAD trasy po silnici,
+  /// viz [rideGapRoad]; majitel 2026-11-08: „odhad šedá trasa s popisem“,
+  /// nikdy rovná spojnice). Pauzy sem
+  /// nepatří: stání se nekreslí vůbec, přesun během pauzy (trajekt,
+  /// přívěs) čárkovaně modrošedě — viz [_pauseDashes].
   List<RideGap> get _gaps => [
         for (final s in widget.segments)
-          if (s.gapBefore != null) s.gapBefore!,
+          if (s.gapBefore != null && !s.gapBefore!.isPause) s.gapBefore!,
+      ];
+
+  /// Čárky přesunů během pauzy (posun > 300 m).
+  List<List<LatLng>> get _pauseDashes => [
+        for (final s in widget.segments)
+          if (s.gapBefore != null && rideIsMovedPause(s.gapBefore!))
+            ...rideDashes(s.gapBefore!.from, s.gapBefore!.to),
       ];
 
   /// Body start / cíl. Vznikají až ukončením jízdy, takže u PRÁVĚ NAHRÁVANÉ
@@ -115,6 +155,12 @@ class _RideTrackMapState extends State<RideTrackMap> {
     }
     final start = widget.points.where((p) => p.isStart).toList();
     final end = widget.points.where((p) => p.isEnd).toList();
+    // Odhad trasy přes mezery (Mapy.com, cache) — dokud není, nekreslí se nic.
+    final gapRoads = [
+      for (final g in _gaps.take(kRideGapRoadMax))
+        if (rideGapRoad(ref, g) case final road when road.length >= 2) road,
+    ];
+    final labels = widget.gapLabels ?? widget.interactive;
 
     return FlutterMap(
       mapController: _ctrl,
@@ -147,8 +193,8 @@ class _RideTrackMapState extends State<RideTrackMap> {
         ),
         const MapTileErrorChip(),
         // Souvislé úseky = plná zelená čára. Mezery (appka na pozadí / bez
-        // signálu) = šedá tečkovaná spojnice: tudy jezdec MOŽNÁ jel, ale
-        // nevíme to, takže to nekreslíme jako projetou trasu.
+        // signálu) = šedý tečkovaný odhad trasy po silnici: tudy jezdec MOŽNÁ
+        // jel, ale nevíme to, takže to nekreslíme jako projetou trasu.
         if (_lines.isNotEmpty)
           PolylineLayer(
             polylines: [
@@ -164,17 +210,27 @@ class _RideTrackMapState extends State<RideTrackMap> {
                   strokeWidth: 4,
                   color: MotoGoColors.greenDark,
                 ),
-              for (final gap in _gaps)
+              for (final road in gapRoads)
                 Polyline(
-                  points: [gap.from, gap.to],
+                  points: road,
                   strokeWidth: 3,
                   color: MotoGoColors.g400,
                   isDotted: true,
                 ),
+              for (final d in _pauseDashes)
+                Polyline(points: d, strokeWidth: 3, color: kRidePauseLineColor),
             ],
           ),
         MarkerLayer(
           markers: [
+            if (labels)
+              for (final road in gapRoads)
+                Marker(
+                  point: road[road.length ~/ 2],
+                  width: 180,
+                  height: 24,
+                  child: _gapLabel(t(context).tr('rideGapEstLabel')),
+                ),
             // Dopočtené kraje stopy (běžící jízda ještě nemá body start/cíl).
             if (_ends.start != null)
               Marker(
@@ -221,6 +277,21 @@ class _RideTrackMapState extends State<RideTrackMap> {
       ],
     );
   }
+
+  Widget _gapLabel(String text) => Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: MotoGoColors.g400),
+          ),
+          child: Text(text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.g600)),
+        ),
+      );
 
   Widget _pin(String emoji, Color bg, {Color fg = MotoGoColors.black}) => Container(
         decoration: BoxDecoration(

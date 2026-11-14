@@ -27,6 +27,17 @@ abstract final class MgMotion {
   static const toastAction = Duration(milliseconds: 4000);
   static const kenBurns = Duration(seconds: 8);
 
+  // v2-everywhere additions (design §M, 2026-11-07).
+  static const countUp = Duration(milliseconds: 700);
+  static const dialog = Duration(milliseconds: 180);
+  static const sheetReverse = Duration(milliseconds: 250);
+  static const bandCell = Duration(milliseconds: 20);
+  static const bandCap = Duration(milliseconds: 200);
+  static const checkDraw = Duration(milliseconds: 300);
+  static const morph = Duration(milliseconds: 450);
+  static const ripple = Duration(milliseconds: 700);
+  static const pager = Duration(milliseconds: 300);
+
   // Loops (one primary CTA fx + one live indicator per screen, max).
   static const glowLoop = Duration(milliseconds: 2200);
   static const sheenLoop = Duration(milliseconds: 4800);
@@ -54,6 +65,11 @@ abstract final class MgMotion {
   /// [d], or zero when motion is reduced.
   static Duration of(BuildContext context, Duration d) =>
       reduced(context) ? Duration.zero : d;
+
+  /// Bottom-sheet in 300 emphasized / out 250; none under reduced motion.
+  static AnimationStyle sheetStyle(BuildContext context) => reduced(context)
+      ? AnimationStyle.noAnimation
+      : AnimationStyle(duration: sheet, reverseDuration: sheetReverse, curve: emphasized);
 
   static final Set<String> _played = <String>{};
 

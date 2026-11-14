@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../gestures/mg_zone_snap.dart';
 import '../motion/mg_motion.dart';
+import '../motion/mg_sticky_slide.dart';
 import '../shell/shell_nav_map.dart';
 import '../tokens/mg_colors.dart';
-import '../widgets/mg_back_v2.dart';
 import 'mg_chrome_metrics.dart';
+import 'mg_hide_on_scroll.dart';
+import 'mg_pinned_back.dart';
+import 'mg_status_bar.dart';
+
+export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 
 /// Page scaffold of every v2 screen (PLAN §1.9): [header] (MgRankHero /
 /// MgAppBar / MgPhotoHero), [sections] in a scroll view (the first one
@@ -16,7 +22,24 @@ import 'mg_chrome_metrics.dart';
 /// scrolls to the top. [onRefresh] = pull-to-refresh with the caller's
 /// EXISTING refresh action. [pinnedBack] = the screen's back action: once
 /// the header (with its back disc) scrolls away, a 44 px back disc stays
-/// pinned top-left, so a long page always shows a way back (owner rule R6).
+/// pinned top-left, so a long page always shows a way back (owner rule R6);
+/// once the hero is gone too it sits in a compact light bar with
+/// [pinnedTitle] (`MgPinnedBack`). Status bar (fix:statusbar): the page
+/// declares its [background] through `MgStatusBar`; a dark header / hero and
+/// the collapsed pinned bar declare themselves and win while they lie under
+/// the status bar, so the icons follow the surface as the page scrolls.
+///
+/// Pull-to-refresh (design G5): Android neon disc, iOS the adaptive
+/// Cupertino spinner in neon. [overscrollColor] (dark-header pages pass
+/// `MgColors.night`): what shows above a dark header while iOS rubber-bands
+/// — the backdrop follows the header's visible extent, light sections keep
+/// the canvas. [pinnedBar] (dark, e.g. a compact title + action bar) slides
+/// down from the top once the scroll passes [pinnedBarAfter] (default: the
+/// measured header height − 8) and declares light status-bar icons; not
+/// together with [pinnedBack]. Hide-on-scroll (owner 2026-11-08): the
+/// pinned back / bar fold away while the content scrolls down
+/// (`MgBarsScope` of the v2 shell; a page outside the shell listens to its
+/// own scroll). [snap] = a "one per screen" zone the scroll settles on.
 class MgPage extends ConsumerStatefulWidget {
   final Widget? header;
   final List<Widget> sections;
@@ -34,6 +57,19 @@ class MgPage extends ConsumerStatefulWidget {
   /// [pinnedBack] as ✕ (result / modal pages).
   final bool pinnedClose;
 
+  /// Title of the collapsed bar around the pinned back (optional).
+  final String? pinnedTitle;
+
+  final Color? overscrollColor;
+  final Widget? pinnedBar;
+  final double? pinnedBarAfter;
+  final MgSnapZone? snap;
+
+  /// Opt-in (Profil only): keep the scroll position when [onRefresh]
+  /// switches on / off. Off by default, so pages whose refresh follows a
+  /// mode (Motorky, Moje jízdy) still open the new mode at the top.
+  final bool keepScrollOnRefreshToggle;
+
   const MgPage({
     super.key,
     this.header,
@@ -49,7 +85,13 @@ class MgPage extends ConsumerStatefulWidget {
     this.sectionPadding = EdgeInsets.zero,
     this.pinnedBack,
     this.pinnedClose = false,
-  });
+    this.pinnedTitle,
+    this.overscrollColor,
+    this.pinnedBar,
+    this.pinnedBarAfter,
+    this.snap,
+    this.keepScrollOnRefreshToggle = false,
+  }) : assert(pinnedBar == null || pinnedBack == null, 'pinnedBar and pinnedBack exclude each other');
 
   @override
   ConsumerState<MgPage> createState() => _MgPageState();
@@ -59,6 +101,12 @@ class _MgPageState extends ConsumerState<MgPage> {
   ScrollController? _own;
   double _dockH = 0;
   double _headerH = 0;
+  double _heroH = 0;
+
+  /// With [MgPage.keepScrollOnRefreshToggle]: keeps the scroll view (and
+  /// its position) when [MgPage.onRefresh] switches on / off — Profil while
+  /// the personal form is open would otherwise jump to the top (K4-02).
+  final _scrollKey = GlobalKey(debugLabel: 'mg-page-scroll');
 
   ScrollController get _ctrl => widget.controller ?? (_own ??= ScrollController());
 
@@ -90,11 +138,25 @@ class _MgPageState extends ConsumerState<MgPage> {
           offset: Offset(0, -overlap),
           child: Padding(
             padding: widget.sectionPadding,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: widget.sections),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              // No header → the first section is the hero: its height decides
+              // when the pinned back turns from a photo disc into a bar.
+              if (widget.header == null && widget.pinnedBack != null && widget.sections.isNotEmpty) ...[
+                MgSizeReporter(
+                  onSize: (s) {
+                    if (mounted && (s.height - _heroH).abs() > 0.5) setState(() => _heroH = s.height);
+                  },
+                  child: widget.sections.first,
+                ),
+                ...widget.sections.skip(1),
+              ] else
+                ...widget.sections,
+            ]),
           ),
         );
     Widget? header = widget.header;
-    if (header != null && widget.pinnedBack != null) {
+    final measure = widget.pinnedBack != null || widget.overscrollColor != null || widget.pinnedBar != null;
+    if (header != null && measure) {
       header = MgSizeReporter(
         onSize: (s) {
           if (mounted && (s.height - _headerH).abs() > 0.5) setState(() => _headerH = s.height);
@@ -122,78 +184,160 @@ class _MgPageState extends ConsumerState<MgPage> {
       SliverToBoxAdapter(child: SizedBox(height: bottomPad < 0 ? 0 : bottomPad)),
     ];
     Widget scroll = CustomScrollView(
+      key: widget.keepScrollOnRefreshToggle ? _scrollKey : null,
       controller: _ctrl,
-      physics: const AlwaysScrollableScrollPhysics(),
+      physics: widget.snap == null
+          ? const AlwaysScrollableScrollPhysics()
+          : MgZoneSnapPhysics(zone: widget.snap!, parent: const AlwaysScrollableScrollPhysics()),
       slivers: content,
     );
     if (widget.onRefresh != null) {
-      scroll = RefreshIndicator(
-        onRefresh: widget.onRefresh!,
-        color: MgColors.onNeon,
-        backgroundColor: MgColors.neon,
-        child: scroll,
-      );
+      scroll = Theme.of(context).platform == TargetPlatform.iOS
+          ? RefreshIndicator.adaptive(onRefresh: widget.onRefresh!, color: MgColors.neon, child: scroll)
+          : RefreshIndicator(
+              onRefresh: widget.onRefresh!,
+              color: MgColors.onNeon,
+              backgroundColor: MgColors.neon,
+              child: scroll,
+            );
     }
-    return Material(
-      color: widget.background,
-      child: Stack(children: [
-        Positioned.fill(child: scroll),
-        if (widget.dock != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: MgSizeReporter(
-              onSize: (s) {
-                if (mounted && (s.height - _dockH).abs() > 0.5) setState(() => _dockH = s.height);
-              },
-              child: widget.dock!,
-            ),
-          ),
-        if (widget.pinnedBack != null)
-          Positioned(
-            left: 12,
-            top: MediaQuery.paddingOf(context).top + 8,
-            child: _PinnedBack(
-              controller: _ctrl,
-              // The header's own disc sits in its top ~70 px: show the
-              // pinned one just before that part leaves the screen.
-              after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
-              close: widget.pinnedClose,
-              onTap: widget.pinnedBack!,
-            ),
-          ),
-      ]),
+    // Outside the v2 shell (no bars scope) the page folds its own chrome.
+    final ownBars = MgBarsScope.maybeOf(context) == null;
+    final Widget page = MgStatusBar.forColor(
+      widget.background,
+      child: MgPinnedScope(
+        title: widget.pinnedBack != null ? widget.pinnedTitle : null,
+        child: Material(
+          color: widget.background,
+          child: Stack(children: [
+            if (widget.overscrollColor != null && widget.header != null)
+              _OverscrollBackdrop(controller: _ctrl, extent: _headerH, color: widget.overscrollColor!),
+            Positioned.fill(child: scroll),
+            if (widget.dock != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: MgSizeReporter(
+                  onSize: (s) {
+                    if (mounted && (s.height - _dockH).abs() > 0.5) setState(() => _dockH = s.height);
+                  },
+                  child: widget.dock!,
+                ),
+              ),
+            if (widget.pinnedBack != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: MgPinnedBack(
+                  controller: _ctrl,
+                  // The header's own disc sits in its top ~70 px: show the
+                  // pinned one just before that part leaves the screen.
+                  after: _headerH > 0 ? (_headerH - 72).clamp(24.0, double.infinity) : 64,
+                  heroExtent: widget.header != null ? _headerH : _heroH + widget.sectionPadding.resolve(Directionality.of(context)).top,
+                  close: widget.pinnedClose,
+                  onTap: widget.pinnedBack!,
+                  background: widget.background,
+                  title: widget.pinnedTitle,
+                ),
+              ),
+            if (widget.pinnedBar != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: _PinnedBarHost(
+                  controller: _ctrl,
+                  after: widget.pinnedBarAfter ?? (_headerH > 0 ? _headerH - 8 : 120),
+                  child: widget.pinnedBar!,
+                ),
+              ),
+          ]),
+        ),
+      ),
     );
+    return ownBars ? MgHideOnScroll(child: page) : page;
   }
 }
 
-/// The pinned back disc of [MgPage] (fades in / out with the scroll; not in
-/// the tree while hidden; reduced motion = instant).
-class _PinnedBack extends StatelessWidget {
+/// The header colour behind the scroll view, as tall as the header's
+/// visible part (+ the iOS rubber-band gap above it).
+class _OverscrollBackdrop extends StatelessWidget {
   final ScrollController controller;
-  final double after;
-  final bool close;
-  final VoidCallback onTap;
-  const _PinnedBack({required this.controller, required this.after, required this.close, required this.onTap});
+  final double extent;
+  final Color color;
+  const _OverscrollBackdrop({required this.controller, required this.extent, required this.color});
 
   @override
-  Widget build(BuildContext context) {
-    final d = MgMotion.of(context, MgMotion.color);
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final px = controller.hasClients && controller.positions.length == 1 ? controller.position.pixels : 0.0;
-        final on = px > after;
-        // Only in the tree while shown (no hidden duplicate for semantics /
-        // finders); fades in and out (instant under reduced motion).
-        return AnimatedSwitcher(
-          duration: d,
-          child: on
-              ? MgV2Back(key: const ValueKey('mg-pinned-back'), onTap: onTap, close: close, style: MgBackStyle.photo)
-              : const SizedBox.shrink(),
-        );
-      },
-    );
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: controller,
+        builder: (_, __) {
+          final off = controller.hasClients && controller.positions.length == 1 ? controller.offset : 0.0;
+          final h = (extent - off).clamp(0.0, double.infinity);
+          return Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: h,
+            child: ColoredBox(key: const ValueKey('mg-page-overscroll'), color: color),
+          );
+        },
+      );
+}
+
+/// Shows [child] (sliding down from the top) once the scroll passes [after].
+class _PinnedBarHost extends StatefulWidget {
+  final ScrollController controller;
+  final double after;
+  final Widget child;
+  const _PinnedBarHost({required this.controller, required this.after, required this.child});
+
+  @override
+  State<_PinnedBarHost> createState() => _PinnedBarHostState();
+}
+
+class _PinnedBarHostState extends State<_PinnedBarHost> {
+  bool _on = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_check);
   }
+
+  @override
+  void didUpdateWidget(covariant _PinnedBarHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_check);
+      widget.controller.addListener(_check);
+    }
+    _on = _visible();
+  }
+
+  bool _visible() {
+    final c = widget.controller;
+    return c.hasClients && c.positions.length == 1 && c.offset > widget.after;
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_check);
+    super.dispose();
+  }
+
+  void _check() {
+    final on = _visible();
+    if (on != _on && mounted) setState(() => _on = on);
+  }
+
+  /// The status-bar region slides with the bar: off-screen it stops counting.
+  /// Folds away with the hide-on-scroll chrome too.
+  @override
+  Widget build(BuildContext context) => MgStickySlide(
+        visible: _on && !MgBarsScope.hiddenOf(context),
+        from: AxisDirection.up,
+        child: MgStatusBar(dark: true, child: widget.child),
+      );
 }

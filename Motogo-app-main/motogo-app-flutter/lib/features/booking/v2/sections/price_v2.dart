@@ -6,12 +6,13 @@ import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
-import '../../../../core/v2/widgets/mg_chips.dart';
 import '../../../../core/v2/widgets/mg_price.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../loyalty/loyalty_provider.dart';
 import '../../../loyalty/rank_names.dart';
+import '../../../payment/booking_upsell_provider.dart';
 import '../../booking_models.dart';
+import '../../price_calculator.dart';
 import '../booking_v2_parts.dart';
 
 /// v2 look of `BookingFormPriceSection` (V branch): the white receipt with
@@ -25,13 +26,33 @@ class BookingPriceV2 extends ConsumerWidget {
   final int dayCount;
   final List<SelectedExtra>? pricedExtras;
 
+  /// Card margin (null = the form's 16 / 12 inset; the payment page draws
+  /// it inside its own gutter → zero).
+  final EdgeInsetsGeometry? margin;
+
+  /// Bundled e-shop add-ons (payment page): listed as rows and counted in
+  /// the total box, so the big total = the real charge (G-267, as the old
+  /// `PriceSummaryCard`).
+  final List<BookingUpsellItem> upsell;
+
   const BookingPriceV2({
     super.key,
     required this.draft,
     required this.bd,
     required this.dayCount,
     this.pricedExtras,
+    this.margin,
+    this.upsell = const [],
   });
+
+  /// The old `PriceSummaryCard` delivery label: "(km × 40 + 1 000)".
+  static String deliveryLabel(String prefix, double fee) {
+    if (fee >= PriceCalculator.deliveryBase) {
+      final km = (fee - PriceCalculator.deliveryBase) / PriceCalculator.deliveryPerKm;
+      if (km > 0) return '$prefix (${km.toStringAsFixed(0)} km × 40 + 1 000)';
+    }
+    return prefix;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,15 +80,22 @@ class BookingPriceV2 extends ConsumerWidget {
         );
     final dc = dayCount;
     return BkCard(
+      margin: margin ?? const EdgeInsets.fromLTRB(16, 12, 16, 0),
       icon: MgIcons.receipt,
       title: tr.priceSummary,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         row('${tr.motorcycle} × ${bkDays(tr, dc)}', bkMoney(bd.basePrice)),
         for (final e in (pricedExtras ?? draft.extras))
-          row(extraLabel(tr.tr, e.id, e.name),
-              e.price == 0 ? tr.tr('gearFree') : '+${bkMoney(e.price * e.quantity)}', ok: e.price == 0),
-        if (bd.pickupDeliveryFee > 0) row(tr.tr('deliveryFee'), '+${bkMoney(bd.pickupDeliveryFee)}'),
-        if (bd.returnDeliveryFee > 0) row(tr.tr('returnFee'), '+${bkMoney(bd.returnDeliveryFee)}'),
+          row(
+              '${extraLabel(tr.tr, e.id, e.name)}'
+              '${e.size != null ? ' (${tr.tr('sizeAbbr')} ${extraSizeLabel(tr.tr, e.size!)})' : ''}',
+              e.price == 0 ? tr.tr('gearFree') : '+${bkMoney(e.price * e.quantity)}',
+              ok: e.price == 0),
+        if (bd.pickupDeliveryFee > 0)
+          row(deliveryLabel(tr.tr('deliveryFee'), bd.pickupDeliveryFee), '+${bkMoney(bd.pickupDeliveryFee)}'),
+        if (bd.returnDeliveryFee > 0)
+          row(deliveryLabel(tr.tr('returnFee'), bd.returnDeliveryFee), '+${bkMoney(bd.returnDeliveryFee)}'),
+        for (final u in upsell) row(u.name, '+${bkMoney(u.price)}'),
         if (bd.discountTotal > 0) row(tr.tr('discountLabel'), '−${bkMoney(bd.discountTotal)}', ok: true),
         if (bd.loyaltyDiscount > 0)
           row(
@@ -77,6 +105,12 @@ class BookingPriceV2 extends ConsumerWidget {
                 .replaceAll('{pct}', '${bd.loyaltyPercent}'),
             '−${bkMoney(bd.loyaltyDiscount)}',
             ok: true,
+          ),
+        // G-268: the old note "rank discount only for app bookings".
+        if (bd.loyaltyDiscount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(tr.tr('loyaltyAppOnly'), style: MgType.small.copyWith(color: MgColors.meta, fontSize: 12)),
           ),
         if (bd.latePickupDiscount > 0) row(tr.tr('latePickupDiscountLabel'), '−${bkMoney(bd.latePickupDiscount)}', ok: true),
         row(tr.tr('depositNotCharged'), bkMoney(0), subtle: true, icon: MgIcons.checkCircle),
@@ -98,15 +132,10 @@ class BookingPriceV2 extends ConsumerWidget {
         const SizedBox(height: 12),
         MgTotalBox(
           eyebrow: tr.totalFinal,
-          value: bkMoney(bd.total),
+          value: bkMoney(bd.total + upsell.fold<double>(0, (s, u) => s + u.price)),
           sub: tr.tr('priceVatNote'),
-          savingsChip: bd.loyaltyDiscount > 0
-              ? MgMeaningChip(
-                  label: tr.trArgs('v2BkRankSaves', {'amount': bkMoney(bd.loyaltyDiscount)}),
-                  tone: MgTone.ok,
-                  dark: true,
-                )
-              : null,
+          // „jen vzhled“: sleva za rank je v rozpisu výš (jako v původní
+          // appce) — žádný čip navíc v celkové částce.
         ),
       ]),
     );

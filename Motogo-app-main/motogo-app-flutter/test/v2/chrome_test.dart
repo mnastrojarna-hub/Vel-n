@@ -44,19 +44,6 @@ void main() {
   setUpAll(loadMontserrat);
 
   group('AI button placement', () {
-    test('pure rule', () {
-      const slot = Rect.fromLTWH(288, 700, 56, 56);
-      expect(mgFabStateFor(slot, const []), MgFabState.rest);
-      expect(mgFabStateFor(slot, const [(Rect.fromLTWH(0, 0, 100, 40), MgAvoidKind.cta)]), MgFabState.rest);
-      expect(mgFabStateFor(slot, const [(Rect.fromLTWH(250, 690, 100, 40), MgAvoidKind.tap)]), MgFabState.peek);
-      expect(mgFabStateFor(slot, const [
-        (Rect.fromLTWH(250, 690, 100, 40), MgAvoidKind.tap),
-        (Rect.fromLTWH(0, 740, 360, 56), MgAvoidKind.cta),
-      ]), MgFabState.off);
-      // inflated by 8: a CTA 6 px away still counts
-      expect(mgFabStateFor(slot, const [(Rect.fromLTWH(0, 762, 360, 50), MgAvoidKind.sos)]), MgFabState.off);
-    });
-
     for (final c in [
       (MgAvoidKind.cta, true, 0.0),
       (MgAvoidKind.sos, true, 0.0),

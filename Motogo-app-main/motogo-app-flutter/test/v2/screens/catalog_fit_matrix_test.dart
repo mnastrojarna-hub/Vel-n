@@ -4,10 +4,9 @@
 // strings, and the frame goes through the verifier's own inspector
 // (render_inspect.dart): no FlutterError (RenderFlex overflow), no word of
 // app copy split across lines, no cut / ellipsized app copy, no text wider
-// than its box, nothing clipped by its card. Covered: spec tiles + all
-// parameters (detail_specs_v2), the Motorky mode switch, the trip card
-// (caps eyebrows, "Wybierz", loyalty-failure note), the grid card badge
-// and the full photo card. Exact 800 / 900 weights need MG_FONTS_DIR
+// than its box, nothing clipped by its card. Covered: all parameters
+// (detail_specs_v2), the Motorky mode switch, the trip card (caps
+// eyebrows, "Wybierz", loyalty-failure note) and the full photo card. Exact 800 / 900 weights need MG_FONTS_DIR
 // (Montserrat Regular…Black); the pub-cache fallback has 400–700 only.
 // The full screens stay in the opt-in matrix:
 // `MG_VERIFY_RENDER=1 [MG_VERIFY_SCALE=1.0] flutter test test/v2/render/render_catalog_test.dart`.
@@ -26,9 +25,7 @@ import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_specs_v2.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_trip_card_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
-import 'package:motogo_app/features/catalog/v2/moto_card_grid_v2.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
-import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 
 import '../render/render_harness.dart' show loadRenderFonts;
 import '../render/render_inspect.dart';
@@ -100,7 +97,7 @@ void _expectClean(List<String> found) {
   expect(fails, isEmpty, reason: fails.take(12).join('\n'));
 }
 
-DetailTripCardV2 _trip(Motorcycle m, {DateTime? s, DateTime? e, LoyaltyStatus? loyalty}) {
+DetailTripCardV2 _trip(Motorcycle m, {DateTime? s, DateTime? e}) {
   final has = s != null && e != null;
   return DetailTripCardV2(
     moto: m,
@@ -109,7 +106,6 @@ DetailTripCardV2 _trip(Motorcycle m, {DateTime? s, DateTime? e, LoyaltyStatus? l
     hasDates: has,
     dayCount: has ? catDayCount(s, e) : 0,
     listTotal: has ? listQuoteFor(m, s, e).total : 0,
-    quote: has ? quoteFor(m, s, e, loyalty: loyalty) : null,
     calendarExpanded: false,
     onToggleCalendar: () {},
     onRangeSelected: (_, __) {},
@@ -126,11 +122,9 @@ void main() {
   });
   final (ws, we) = futureWeekend();
 
-  testWidgets('spec tiles + all parameters (detail_specs_v2)', (t) async {
+  testWidgets('all parameters (detail_specs_v2)', (t) async {
     if (!_realFonts) return;
     _expectClean([
-      ...await _matrix(t, 'tiles-bmw', 16, (tr, s) => DetailKeyTilesV2(moto: kBmw)),
-      ...await _matrix(t, 'tiles-husq', 16, (tr, s) => DetailKeyTilesV2(moto: kHusq)),
       ...await _matrix(t, 'all-params', 16, (tr, s) => DetailCardV2(child: DetailAllParamsV2(specs: kBmw.specList(tr.tr)))),
     ]);
   });
@@ -149,28 +143,9 @@ void main() {
       ...await _matrix(t, 'trip-nodates', 16, (tr, s) => _trip(kBmw)),
       ...await _matrix(t, 'trip-loyalty-fail', 16, (tr, s) => _trip(kBmw),
           overrides: () => catalogOverrides(loyaltyError: Exception('rpc'))),
-      ...await _matrix(t, 'trip-dates', 16, (tr, s) => _trip(kBmw, s: ws, e: we, loyalty: kLoyalty3)),
+      ...await _matrix(t, 'trip-dates', 16, (tr, s) => _trip(kBmw, s: ws, e: we)),
       ...await _matrix(t, 'trip-dates-guest', 16, (tr, s) => _trip(kBmw, s: ws, e: we),
           overrides: () => catalogOverrides(loyalty: null)),
-    ]);
-  });
-
-  testWidgets('grid cards: availability badge stays inside the card', (t) async {
-    if (!_realFonts) return;
-    Widget pair(AppTranslations tr, DateTime? s, DateTime? e, String key) => IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            for (final (i, m) in [kBmw, kHusq].indexed) ...[
-              if (i > 0) const SizedBox(width: 12),
-              Expanded(
-                child: MotoCardGridV2(
-                    moto: m, price: catCardPrice(tr, m, s, e, kLoyalty3), availability: tr.tr(key), onOpen: () {}),
-              ),
-            ],
-          ]),
-        );
-    _expectClean([
-      ...await _matrix(t, 'grid-dates', 16, (tr, s) => pair(tr, ws, we, 'v2CatFreeInRange')),
-      ...await _matrix(t, 'grid-today', 16, (tr, s) => pair(tr, null, null, 'v2CatFreeToday')),
     ]);
   });
 

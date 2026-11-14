@@ -1,0 +1,11 @@
+[
+ {"tapText": "Rezervace", "note": "tab Rezervace"},
+ {"wait": 300},
+ {"tapText": "Upravit", "note": "Upravit on the booking card"},
+ {"wait": 500},
+ {"scroll": [180, 500, 330], "note": "active rental 12.-15., 16.-19. crossed out (another customer)"},
+ {"tap": [52, 287], "note": "tap 16. = taken day right after"},
+ {"wait": 2500},
+ {"tap": [223, 287], "note": "tap 20. = range would cross the taken days"},
+ {"wait": 2500}
+]

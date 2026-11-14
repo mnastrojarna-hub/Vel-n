@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/widgets/net_image.dart';
-import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
@@ -24,27 +24,19 @@ String resStatusLabel(AppTranslations tr, ResStatus st) => switch (st) {
       ResStatus.cancelled => tr.cancelled,
     };
 
-/// Payment status label — the same mapping as the payment details tab
-/// (`ResPaymentDetailsTab._statusLabel`), never the raw DB value.
-String resPayStatusLabel(AppTranslations tr, Reservation r) => switch (r.paymentStatus) {
-      'paid' when r.status == 'cancelled' => tr.tr('payStatusRefundPending'),
-      'paid' => tr.tr('paid'),
-      'refunded' => tr.tr('payStatusRefunded'),
-      'partial_refund' => tr.tr('payStatusPartialRefund'),
-      'refund_pending' => tr.tr('payStatusRefundPending'),
-      _ => tr.tr('payStatusUnpaid'),
-    };
-
 /// "3 dny" in the app language.
 String resDays(AppTranslations tr, int n) => '$n ${tr.daysWord(n)}';
 
-/// "pá 16. 10. – ne 18. 10." (short, language-aware).
+/// "pá 16. 10. – ne 18. 10." (short, language-aware; the year only when it
+/// is not this year — design D4, Reservation board).
 String resRangeShort(AppTranslations tr, Reservation r) {
   // Datum se nikdy nerozdělí („čt 22." / „10."): mezery uvnitř data
   // nezlomitelné, zalomit jde jen za pomlčkou.
-  String nb(String x) => x.replaceAll(' ', '\u00A0');
-  return '${nb(tripShortDate(tr, r.startDate))}\u00A0– ${nb(tripShortDate(tr, r.endDate))}';
+  return '${mgDayShort(r.startDate, tr.lang)}\u00A0– ${mgDayShort(r.endDate, tr.lang)}';
 }
+
+/// "pá 16. 10. – ne 18. 10. · 3 dny" (NBSP inside "3 dny").
+String resRangeDays(AppTranslations tr, Reservation r) => '${resRangeShort(tr, r)} · ${mgNbsp(resDays(tr, r.dayCount))}';
 
 /// The unpaid / verifying state of THIS booking, from the same provider the
 /// shell strip uses (`pendingBookingFabProvider`).
@@ -55,25 +47,37 @@ ResPayFlag resPayFlag(Reservation r, PendingBooking? p) {
   return p.verifying ? ResPayFlag.verifying : ResPayFlag.unpaid;
 }
 
+/// D2 (owner 2026-11-14): the booking the shell pay strip offers to pay,
+/// when it is THIS one — the same provider and the same rule as the strip
+/// ([resPayFlag] unpaid); null = no own "Zaplatit" button.
+PendingBooking? resPayTarget(Reservation r, PendingBooking? p) => resPayFlag(r, p) == ResPayFlag.unpaid ? p : null;
+
 /// Status pill over a photo (V22 `.stp` / `.ls-pl`): active = dark pill
 /// with a live neon dot, upcoming = neon, completed / cancelled = white.
 class ResStatusPill extends StatelessWidget {
   final ResStatus status;
   final String? suffix;
   final bool live;
-  const ResStatusPill({super.key, required this.status, this.suffix, this.live = true});
+
+  /// AFT-02: an unpaid booking is not "all fine" — amber instead of the
+  /// status colour (same words, only the tone changes).
+  final bool warn;
+  const ResStatusPill({super.key, required this.status, this.suffix, this.live = true, this.warn = false});
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final label = resStatusLabel(tr, status).toUpperCase() + (suffix == null ? '' : ' · $suffix');
-    final (Color bg, Color fg, Color? border) = switch (status) {
+    final (Color bg, Color fg, Color? border) = warn
+        ? (MgColors.warnDark, MgColors.ink, null)
+        : switch (status) {
       ResStatus.aktivni => (MgColors.night, MgColors.neon, MgColors.neonA(0.45)),
       ResStatus.nadchazejici => (MgColors.neon, MgColors.onNeon, null),
       ResStatus.dokoncene => (MgColors.white(0.92), MgColors.ink, null),
       ResStatus.cancelled => (MgColors.white(0.92), MgColors.ink, null),
-    };
+          };
     return Container(
+      key: warn ? const ValueKey('res-status-pill-warn') : null,
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -110,6 +114,9 @@ class ResPhotoChip extends StatelessWidget {
   final Color border;
   final Color? textColor;
   final String? semanticLabel;
+
+  /// Filled pill (AFT-02 unpaid: amber) instead of the dark glass.
+  final Color? fill;
   const ResPhotoChip({
     super.key,
     required this.label,
@@ -118,6 +125,7 @@ class ResPhotoChip extends StatelessWidget {
     required this.border,
     this.textColor,
     this.semanticLabel,
+    this.fill,
   });
 
   @override
@@ -131,7 +139,7 @@ class ResPhotoChip extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 26),
         padding: const EdgeInsets.fromLTRB(6, 3, 9, 3),
         decoration: BoxDecoration(
-          color: MgColors.nightA(0.82),
+          color: fill ?? MgColors.nightA(0.82),
           borderRadius: BorderRadius.circular(13),
           border: Border.all(color: border),
         ),
@@ -150,6 +158,22 @@ class ResPhotoChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// AFT-02: the amber filled "Nezaplaceno" chip (list card and detail hero).
+class ResUnpaidChip extends StatelessWidget {
+  const ResUnpaidChip({super.key});
+
+  @override
+  Widget build(BuildContext context) => ResPhotoChip(
+        key: const ValueKey('res-unpaid-chip'),
+        label: t(context).tr('payStatusUnpaid'),
+        icon: MgIcons.card,
+        iconColor: MgColors.ink,
+        border: MgColors.warnDark,
+        textColor: MgColors.ink,
+        fill: MgColors.warnDark,
+      );
 }
 
 /// Moto photo: contained bike over a dark ground; never throws on a missing

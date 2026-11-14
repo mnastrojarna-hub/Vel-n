@@ -4,6 +4,8 @@ import '../features/booking/booking_models.dart';
 import '../features/booking/booking_ui_helpers.dart';
 import 'i18n/i18n_provider.dart';
 import 'widgets/time_dropdown_field.dart';
+import 'v2/flag/v2_scope.dart';
+import '../features/booking/v2/sections/time_v2.dart';
 
 /// Time section — pickup time + estimated return time. Hodina a minuta se volí
 /// dvěma rozbalovacími nabídkami (stejné UI jako nastavení platnosti ŘP / datum
@@ -45,6 +47,18 @@ class BookingFormTimeSection extends StatelessWidget {
     if (!showPickup && !showReturn) return const SizedBox.shrink();
     final pickupLabel = draft.pickupTime ?? '09:00';
     final returnLabel = draft.returnTime ?? '19:00';
+    // v2 vzhled (kill-switch app_v2_ui): stejná pole a callbacky.
+    if (MgV2.on(context)) {
+      return BookingTimeV2(
+        pickupValue: pickupLabel,
+        returnValue: returnLabel,
+        showPickup: showPickup,
+        showReturn: showReturn,
+        selfService: selfService,
+        onTimeChanged: onTimeChanged,
+        onReturnTimeChanged: onReturnTimeChanged,
+      );
+    }
 
     return bookingCard(
       3,

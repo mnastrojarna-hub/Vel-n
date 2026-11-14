@@ -18,7 +18,12 @@ import '../features/routes/active_ride_provider.dart';
 class ShellRouteFab extends ConsumerWidget {
   final ActiveRide ride;
   final bool v2;
-  const ShellRouteFab({super.key, required this.ride, this.v2 = false});
+  /// v2 „+n" (v1 C2): čip dalších proužků + akce; [beforeTap] = zavřít
+  /// seznam dalších proužků těsně před vlastní akcí proužku.
+  final int more;
+  final VoidCallback? onMore;
+  final VoidCallback? beforeTap;
+  const ShellRouteFab({super.key, required this.ride, this.v2 = false, this.more = 0, this.onMore, this.beforeTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,9 +32,14 @@ class ShellRouteFab extends ConsumerWidget {
         kind: MgStripKind.route,
         title: t(context).tr('routeFabContinue'),
         sub: ride.name.isNotEmpty ? ride.name : null,
-        onTap: () => openRide(context, ride),
+        onTap: () {
+          beforeTap?.call();
+          openRide(context, ride);
+        },
         onDismiss: () => ref.read(activeRideProvider.notifier).endRide(),
         dismissLabel: t(context).tr('routeEndBtn'),
+        more: more,
+        onMore: onMore,
       );
     }
     final maxW = MediaQuery.of(context).size.width - 120;
@@ -110,7 +120,9 @@ class ShellDocsFab extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDismiss;
   final bool v2;
-  const ShellDocsFab({super.key, required this.onTap, required this.onDismiss, this.v2 = false});
+  final int more;
+  final VoidCallback? onMore;
+  const ShellDocsFab({super.key, required this.onTap, required this.onDismiss, this.v2 = false, this.more = 0, this.onMore});
 
   @override
   Widget build(BuildContext context) {
@@ -118,9 +130,11 @@ class ShellDocsFab extends StatelessWidget {
       return MgStatusStrip(
         kind: MgStripKind.docs,
         title: t(context).tr('docsBlockingBtn'),
-        sub: t(context).tr('v2StripDocsSub'),
+        sub: t(context).tr('coStripDocsNeeded'),
         onTap: onTap,
         onDismiss: onDismiss,
+        more: more,
+        onMore: onMore,
       );
     }
     return Row(

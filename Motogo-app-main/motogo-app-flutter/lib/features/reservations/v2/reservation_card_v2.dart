@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/router.dart';
+import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
-import '../../../core/v2/rank/rank_provider.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
-import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../reservation_models.dart';
+import 'res_card_actions_v2.dart';
 import 'res_fit_v2.dart';
 import 'res_status_v2.dart';
 
 /// v2 reservation card (V22 `.ls-c`): photo with status pill / needs-action
-/// badge / rating, then Termín · Délka · Celkem, then a dark ticket strip
-/// with the SAME actions per status as today's `ReservationCard`
-/// (Detail · Upravit · SOS / Detail jízdy · Hodnotit / Detail · Obnovit).
+/// badge / rating, then Termín · Délka · Celkem, then the ticket strip
+/// ([ResCardActionsV2]: dark on the list's one card that needs
+/// action, white on the others) with the SAME actions per status as
+/// today's `ReservationCard` (Detail · Upravit · SOS / Detail jízdy ·
+/// Hodnotit / Detail · Obnovit).
 /// No storno on the card (today's card does not offer it either).
 class ReservationCardV2 extends ConsumerWidget {
   final Reservation reservation;
@@ -33,6 +33,13 @@ class ReservationCardV2 extends ConsumerWidget {
   final VoidCallback? onRestore;
   final ResPayFlag payFlag;
 
+  /// The list's one card that needs action ([resPrimaryCardId]): dark rank
+  /// stub with the glowing CTA; false = white stub (V22 R5.2).
+  final bool primary;
+
+  /// D2: the booking the pay strip offers (`resPayTarget`) → own "Zaplatit".
+  final PendingBooking? pay;
+
   const ReservationCardV2({
     super.key,
     required this.reservation,
@@ -40,6 +47,8 @@ class ReservationCardV2 extends ConsumerWidget {
     this.onEdit,
     this.onRestore,
     this.payFlag = ResPayFlag.none,
+    this.primary = true,
+    this.pay,
   });
 
   @override
@@ -47,7 +56,6 @@ class ReservationCardV2 extends ConsumerWidget {
     final tr = t(context);
     final r = reservation;
     final st = r.displayStatus;
-    final rank = ref.watch(rankTokensProvider);
     final grayscale = st == ResStatus.dokoncene || st == ResStatus.cancelled;
     final needsAction = payFlag != ResPayFlag.none;
     return Container(
@@ -76,7 +84,7 @@ class ReservationCardV2 extends ConsumerWidget {
             // vejdou celé (es „DURACIÓN", uk „ТРИВАЛІСТЬ" na 320 / 360 dp
             // s velkým písmem) — jinak termín nahoře přes celou šířku.
             child: LayoutBuilder(builder: (context, c) {
-              final date = _info(tr.date, r.dateRange);
+              final date = _info(tr.date, resRangeShort(tr, r));
               final days = _info(tr.tr('resDuration'), resDays(tr, r.dayCount));
               final total = _info(tr.tr('total'), Money.czk(r.totalPrice), price: true);
               final unit = (c.maxWidth - 16) / 33;
@@ -102,15 +110,13 @@ class ReservationCardV2 extends ConsumerWidget {
               ]);
             }),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            decoration: BoxDecoration(gradient: MgGradients.hero(rank.aura)),
-            // Úzký telefon (320 dp): tlačítka pod sebou na celou šířku, ať se
-            // „Wiederherstellen" / „Редагувати" nikdy nedělí uprostřed slova.
-            child: LayoutBuilder(builder: (context, c) {
-              if (c.maxWidth >= 300 && _actionsFit(context, tr, st, c.maxWidth)) return Row(children: _actions(context, tr, st));
-              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _stacked(context, tr, st));
-            }),
+          ResCardActionsV2(
+            reservation: r,
+            onTap: onTap,
+            onEdit: onEdit,
+            onRestore: onRestore,
+            primary: primary,
+            pay: pay,
           ),
         ]),
       ),
@@ -120,7 +126,8 @@ class ReservationCardV2 extends ConsumerWidget {
   Widget _photo(AppTranslations tr, ResStatus st, bool grayscale) {
     final r = reservation;
     return Stack(fit: StackFit.expand, children: [
-      ResBikePhoto(url: r.motoImage, grayscale: grayscale),
+      // Sdílená fotka do detailu rezervace (V2 §5.11, `res-img-{id}`).
+      MgHeroPhoto(tag: mgHeroTagRes(r.id), child: ResBikePhoto(url: r.motoImage, grayscale: grayscale)),
       IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -145,11 +152,15 @@ class ReservationCardV2 extends ConsumerWidget {
           spacing: 8,
           runSpacing: 6,
           children: [
-            ResStatusPill(status: st, live: false),
-            if (payFlag != ResPayFlag.none)
+            // AFT-02: unpaid = amber status pill + filled amber chip, so the
+            // card does not read as "all fine" (green).
+            ResStatusPill(status: st, live: false, warn: payFlag == ResPayFlag.unpaid),
+            if (payFlag == ResPayFlag.unpaid)
+              const ResUnpaidChip()
+            else if (payFlag == ResPayFlag.verifying)
               ResPhotoChip(
-                label: tr.tr(payFlag == ResPayFlag.verifying ? 'psPendingTitle' : 'payStatusUnpaid'),
-                icon: payFlag == ResPayFlag.verifying ? MgIcons.clock : MgIcons.card,
+                label: tr.tr('psPendingTitle'),
+                icon: MgIcons.clock,
                 iconColor: MgColors.warnDark,
                 border: MgColors.warnDark.withValues(alpha: 0.6),
                 textColor: MgColors.warnDark,
@@ -168,14 +179,22 @@ class ReservationCardV2 extends ConsumerWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: MgType.title.copyWith(fontSize: 17, color: MgColors.onDark)),
-              Text(r.shortId, style: MgType.meta.copyWith(color: MgColors.onDarkSecondary)),
+              // „#ID · pobočka" (Reservation board) — kde se vyzvedává hned na kartě.
+              Text(
+                [r.shortId, if ((r.branchName ?? '').trim().isNotEmpty) r.branchName!.trim()].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: MgType.meta.copyWith(color: MgColors.onDarkSecondary),
+              ),
             ]),
           ),
           if (r.sosReplacement || r.endedBySos) ...[
             const SizedBox(width: 6),
             ResPhotoChip(
+              // G-393: replacement bike (moto) ≠ rental ended by SOS (sos),
+              // as the two pills of the old look (🏍️ SOS / 🆘 SOS).
               label: 'SOS',
-              icon: MgIcons.sos,
+              icon: r.sosReplacement ? MgIcons.moto : MgIcons.sos,
               iconColor: r.sosReplacement ? MgColors.neon : MgColors.sosDot,
               border: r.sosReplacement ? MgColors.neonA(0.5) : MgColors.sosDot.withValues(alpha: 0.7),
               semanticLabel: tr.tr(r.sosReplacement ? 'replacementForSos' : 'endedBySos'),
@@ -213,127 +232,4 @@ class ReservationCardV2 extends ConsumerWidget {
                   fontWeight: FontWeight.w800, color: price ? MgColors.link : MgColors.ink))),
         ],
       );
-
-  List<Widget> _actions(BuildContext context, AppTranslations tr, ResStatus st) {
-    final r = reservation;
-    Widget cta(String label) => Expanded(
-          child: MgCta(label: label, onTap: onTap, size: MgCtaSize.sm48, showMarks: false),
-        );
-    Widget ghost(String label, VoidCallback onPressed) => Expanded(
-          child: MgBtnGhostDark(label: label, onTap: onPressed, height: 48),
-        );
-    const gap = SizedBox(width: 8);
-    switch (st) {
-      case ResStatus.aktivni:
-        // Se SOS: Detail jen na šířku popisku, SOS jako ikona (48 px) — ať se
-        // „Upravit" vejde celé i v delších jazycích (de „Bearbeiten").
-        if (r.sosAllowed) {
-          return [
-            MgCta(label: tr.detail, onTap: onTap, size: MgCtaSize.sm48, showMarks: false, expand: false),
-            if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)] else const Spacer(),
-            gap,
-            _SosButton(label: tr.tr('breakdownBtn')),
-          ];
-        }
-        return [
-          cta(tr.detail),
-          if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)],
-        ];
-      case ResStatus.nadchazejici:
-        return [
-          cta(tr.detail),
-          if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)],
-        ];
-      case ResStatus.dokoncene:
-        return [cta(tr.tr('rideDetail')), gap, ghost(tr.tr('rateBtn'), onTap)];
-      case ResStatus.cancelled:
-        return [cta(tr.detail), gap, ghost(tr.tr('restoreBtn'), onRestore ?? onTap)];
-    }
-  }
-}
-
-extension on ReservationCardV2 {
-  /// true when [_actions] fit one row of [width] with every word whole
-  /// (the buttons' `MgWordFit` scales labels to 80 % at most): de
-  /// „Wiederherstellen" / uk „Редагувати" at 360 dp with large text → stack.
-  bool _actionsFit(BuildContext context, AppTranslations tr, ResStatus st, double width) {
-    final cta = MgType.ctaCompact.copyWith(letterSpacing: 0.3);
-    const ctaPad = 27.0, ghostPad = 35.0, gap = 8.0;
-    bool ctaFits(String l, double w) => resWordsFit(context, l.toUpperCase(), cta, w - ctaPad, minScale: 0.8);
-    bool ghostFits(String l, double w) => resWordsFit(context, l, MgType.button, w - ghostPad, minScale: 0.8);
-    final half = (width - gap) / 2;
-    final r = reservation;
-    switch (st) {
-      case ResStatus.aktivni:
-        if (r.sosAllowed) {
-          // Detail na šířku popisku (jeden řádek), Upravit zbytek, SOS 56 dp.
-          final detailW = resLineWidth(context, tr.detail.toUpperCase(), cta) + ctaPad;
-          if (onEdit == null) return detailW + gap + 56 <= width;
-          return ghostFits(tr.edit, width - detailW - gap - gap - 56);
-        }
-        return ctaFits(tr.detail, onEdit == null ? width : half) && (onEdit == null || ghostFits(tr.edit, half));
-      case ResStatus.nadchazejici:
-        return ctaFits(tr.detail, onEdit == null ? width : half) && (onEdit == null || ghostFits(tr.edit, half));
-      case ResStatus.dokoncene:
-        return ctaFits(tr.tr('rideDetail'), half) && ghostFits(tr.tr('rateBtn'), half);
-      case ResStatus.cancelled:
-        return ctaFits(tr.detail, half) && ghostFits(tr.tr('restoreBtn'), half);
-    }
-  }
-
-  /// The same actions as [_actions], one per row (narrow phones).
-  List<Widget> _stacked(BuildContext context, AppTranslations tr, ResStatus st) {
-    final r = reservation;
-    Widget cta(String label) => MgCta(label: label, onTap: onTap, size: MgCtaSize.sm48, showMarks: false);
-    Widget ghost(String label, VoidCallback onPressed) => MgBtnGhostDark(label: label, onTap: onPressed, height: 48);
-    const gap = SizedBox(height: 8);
-    switch (st) {
-      case ResStatus.aktivni:
-        return [
-          if (r.sosAllowed)
-            Row(children: [Expanded(child: cta(tr.detail)), const SizedBox(width: 8), _SosButton(label: tr.tr('breakdownBtn'))])
-          else
-            cta(tr.detail),
-          if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)],
-        ];
-      case ResStatus.nadchazejici:
-        return [cta(tr.detail), if (onEdit != null) ...[gap, ghost(tr.edit, onEdit!)]];
-      case ResStatus.dokoncene:
-        return [cta(tr.tr('rideDetail')), gap, ghost(tr.tr('rateBtn'), onTap)];
-      case ResStatus.cancelled:
-        return [cta(tr.detail), gap, ghost(tr.tr('restoreBtn'), onRestore ?? onTap)];
-    }
-  }
-}
-
-/// Red SOS on the card strip (`/sos`, only where today's card shows it).
-class _SosButton extends StatelessWidget {
-  final String label;
-  const _SosButton({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: MgPress(
-        onTap: () => context.push(Routes.sos),
-        child: Container(
-          height: 48,
-          width: 56,
-          decoration: BoxDecoration(
-            color: MgColors.sos,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: MgColors.sos.withValues(alpha: 0.6), blurRadius: 18, offset: const Offset(0, 8), spreadRadius: -10)],
-          ),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const MgIcon(MgIcons.sos, size: 16, color: MgColors.onDark, stroke: 2.4),
-            const SizedBox(height: 2),
-            Text('SOS', style: MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.onDark)),
-          ]),
-        ),
-      ),
-    );
-  }
 }

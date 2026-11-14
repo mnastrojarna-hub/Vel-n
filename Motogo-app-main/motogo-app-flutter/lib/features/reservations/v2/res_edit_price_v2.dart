@@ -6,12 +6,13 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
-import '../../payment/widgets/card_rounding_note.dart';
+import '../../payment/card_minimum.dart' show cardCharge;
+import '../../payment/v2/pay_parts_v2.dart' show PayRoundingNoteV2;
 import '../reservation_edit_price_calc.dart';
 import '../reservation_models.dart';
 import 'res_fit_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// "Rozdíl ceny" of the edit (V22 `.ed-rc`): the SAME lines under the SAME
 /// conditions as today's price overview, fed by the screen's
@@ -60,7 +61,7 @@ class ResEditPriceV2 extends StatelessWidget {
         boxShadow: MgShadows.card,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        MgEyebrow(tr.tr('differenceLabel'), dark: false),
+        ResSectionEyebrowV2(tr.tr('differenceLabel')),
         const SizedBox(height: 4),
         for (final r in rows)
           Container(
@@ -98,8 +99,12 @@ class ResEditPriceV2 extends StatelessWidget {
           }),
         ),
         // Minimum karty (D1): doplatek 1–15 Kč → kartou 15 Kč; do 1 Kč bez platby.
-        if (diff > 0)
-          CardRoundingNote(due: diff, roundKey: 'pdRoundEditHint', waiveKey: 'pdWaiveEditHint', showLine: false),
+        // (v2 note, same arguments and texts; shown under the same rule.)
+        if (diff > 0 && (cardCharge(diff).isRound || cardCharge(diff).isWaive))
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: PayRoundingNoteV2(due: diff, roundKey: 'pdRoundEditHint', waiveKey: 'pdWaiveEditHint', showLine: false),
+          ),
         // i při 0 Kč: pozdější čas ve stornu → sleva přiznaná jen z části
         if (calc.datesDiffRaw < 0 && (diff < 0 || calc.stornoPercent < 100))
           Padding(

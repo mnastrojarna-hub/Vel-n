@@ -386,7 +386,9 @@ class StripeService {
             .timeout(_queryTimeout);
 
         if (res['payment_status'] == 'paid') return true;
-        if (res['status'] == 'cancelled') return false;
+        // Zrušená + nezaplacená se dál ověřuje: pozdní platbu může webhook
+        // ještě zapsat (obnova), jinak ji vrací — výsledek dořeší
+        // `verifyPayment` (VerifyState.cancelledRefund), nikdy „čeká“.
       } catch (_) {}
 
       if (i < maxAttempts - 1) {
@@ -394,6 +396,21 @@ class StripeService {
       }
     }
     return false;
+  }
+
+  /// Je rezervace zrušená? (null = nevíme — síť / timeout)
+  static Future<bool?> bookingIsCancelled(String bookingId) async {
+    try {
+      final res = await MotoGoSupabase.client
+          .from('bookings')
+          .select('status')
+          .eq('id', bookingId)
+          .single()
+          .timeout(_queryTimeout);
+      return res['status'] == 'cancelled';
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Poll shop order payment status.

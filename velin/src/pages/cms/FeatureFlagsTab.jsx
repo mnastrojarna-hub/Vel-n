@@ -39,7 +39,7 @@ const KNOWN_FLAGS = {
   },
   app_v2_ui: {
     title: 'Nový vzhled mobilní aplikace (v2) — nouzový vypínač',
-    controls: 'Mobilní aplikace pro Android od verze 4.2.0 (iOS zatím jen starý vzhled). Mění JEN vzhled — rezervace, platby, doklady i všechna data fungují v obou vzhledech stejně. Řádek flagu vzniká SQL migrací.',
+    controls: 'Mobilní aplikace pro Android i iOS od verze 5.0.0. Mění JEN vzhled — rezervace, platby, doklady i všechna data fungují v obou vzhledech stejně. Řádek flagu vzniká SQL migrací.',
     on: 'Výchozí stav (i když řádek chybí): zákazníci vidí nový vzhled appky (v2).',
     off: 'Okamžitý návrat ke STARÉMU vzhledu bez vydání nové verze. Appka změnu převezme na kořeni záložky (Domů, Motorky, Rezervace, Trasy, Profil), po návratu do appky nebo po dalším spuštění — nikdy uprostřed rezervace, úpravy nebo platby.',
   },

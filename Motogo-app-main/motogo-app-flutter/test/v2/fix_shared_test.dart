@@ -26,11 +26,9 @@ import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
 import 'package:motogo_app/core/v2/shell/mg_origin_chip.dart';
 import 'package:motogo_app/core/v2/shell/shell_nav_map.dart';
-import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/features/branches/branches_info_provider.dart';
 import 'package:motogo_app/features/branches/v2/branch_texts_v2.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
-import 'package:motogo_app/features/home/v2/home_club_parts.dart';
 import 'package:motogo_app/features/messages/messages_provider.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:motogo_app/features/reservations/v2/reservation_card_v2.dart';
@@ -283,27 +281,14 @@ void main() {
         expect(resolveRankHex(l, '#9CA3AF'), kRankRampHex[l - 1], reason: 'level $l');
       }
     });
-
-    test('club tier "next" segment: neutral fill + full rank outline, never a lightened rank colour', () {
-      for (var l = 1; l <= 20; l++) {
-        final r = RankTokens.forLevel(l);
-        final d = clubTierSegment(r, lit: false, next: true);
-        expect(d.color, MgColors.inkA(0.18), reason: 'level $l');
-        final b = d.border as Border;
-        expect(b.top.color, r.uiLight, reason: 'level $l');
-        final hsl = HSLColor.fromColor(d.color!);
-        final pinkish = hsl.hue >= 232 && hsl.hue <= 345 && hsl.saturation > 0.2;
-        final salmon = (hsl.hue < 20 || hsl.hue > 340) && hsl.lightness > 0.7 && hsl.saturation > 0.2;
-        expect(pinkish || salmon, isFalse, reason: 'level $l');
-      }
-    });
   });
 
-  test('AI button hidden over the old e-shop / voucher CTAs', () {
+  test('AI button hidden over the old e-shop / voucher CTAs (Domů only, as the old app)', () {
     expect(v2FabHiddenFor('/shop'), isTrue);
     expect(v2FabHiddenFor('/shop/abc'), isTrue);
     expect(v2FabHiddenFor('/voucher'), isTrue);
-    expect(v2FabHiddenFor('/profile'), isFalse);
+    expect(v2FabHiddenFor('/profile'), isTrue);
+    expect(v2FabHiddenFor('/'), isFalse);
   });
 
   test('Pobočky chrome from CMS defaults is never Czech in another language', () {

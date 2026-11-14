@@ -16,6 +16,13 @@ import 'sos_location.dart';
 import 'sos_provider.dart';
 import 'sos_report_sheet.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import 'v2/sos_header_v2.dart' show SosTint;
+import 'v2/sos_sheets_v2.dart';
+import 'v2/sos_start_view_v2.dart';
 
 /// SOS main screen — mirrors s-sos from templates-res-sos.js.
 /// Shows incident type selection, active incident banner, contact info.
@@ -25,9 +32,35 @@ class SosReportScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeAsync = ref.watch(activeSosProvider);
+    // Stav se nenačetl (výpadek) → říct to, ne tiše schovat.
+    Widget statusError(Object e) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: MgErrorView(
+            compact: true,
+            error: e,
+            what: t(context).tr('eoSosStatusFail'),
+            message: t(context).tr('eoSosStatusFailBody'),
+            onRetry: () => ref.invalidate(activeSosProvider),
+            contact: false,
+            extra: const [SosCallButton()],
+          ),
+        );
+    if (MgV2.on(context)) {
+      return SosStartViewV2(
+        active: activeAsync,
+        statusError: activeAsync.whenOrNull(error: (e, _) => statusError(e)),
+        onBack: () => context.backOr(Routes.home),
+        onAccident: () => _showAccidentPicker(context, ref),
+        onBreakdown: () => _showBreakdownPicker(context, ref),
+        onShareLocation: () => _shareLocation(context, ref),
+        onAi: () => context.push(Routes.aiAgent),
+        onOpenIncident: () => context.push(Routes.sosDone),
+        onDial: (n) => launchUrl(Uri.parse('tel:$n')),
+      );
+    }
 
     return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -37,22 +70,22 @@ class SosReportScreen extends ConsumerWidget {
               // Header
               Row(
                 children: [
-                  MgBackTap(
+                  mgV1Back(context, onTap: () => context.backOr(Routes.home), style: MgBackStyle.light, v1: MgBackTap(
                     onTap: () => context.backOr(Routes.home),
                     child: Container(
                       width: 36, height: 36,
                       decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(10)),
                       child: const Center(child: Text('←', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black))),
                     ),
-                  ),
+                  )),
                   const SizedBox(width: 12),
-                  Column(
+                  Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('🆘 ${t(context).sosTitle}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-                      Text(t(context).tr('selectProblemType'), style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+                      Text('🆘 ${t(context).sosTitle}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+                      Text(t(context).tr('selectProblemType'), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
                     ],
-                  ),
+                  )),
                 ],
               ),
               const SizedBox(height: 16),
@@ -69,19 +102,7 @@ class SosReportScreen extends ConsumerWidget {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                // Stav se nenačetl (výpadek) → říct to, ne tiše schovat.
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: MgErrorView(
-                    compact: true,
-                    error: e,
-                    what: t(context).tr('eoSosStatusFail'),
-                    message: t(context).tr('eoSosStatusFailBody'),
-                    onRetry: () => ref.invalidate(activeSosProvider),
-                    contact: false,
-                    extra: const [SosCallButton()],
-                  ),
-                ),
+                error: (e, _) => statusError(e),
               ),
 
               // AI Agent card
@@ -194,6 +215,17 @@ class SosReportScreen extends ConsumerWidget {
   }
 
   void _showAccidentPicker(BuildContext context, WidgetRef ref) {
+    if (MgV2.peek(context)) {
+      showSosTypeSheetV2(context, title: t(context).tr('accidentType'), choices: [
+        (icon: MgIcons.target, tint: SosTint.ok, label: t(context).tr('minorAccidentContinue'),
+            onTap: () => _report(context, ref, SosType.accidentMinor, t(context).tr('accidentMinorLabel'))),
+        (icon: MgIcons.alert, tint: SosTint.red, label: t(context).tr('seriousAccidentImmobile'),
+            onTap: () => context.push(Routes.sosAccident)),
+        (icon: MgIcons.lock, tint: SosTint.red, label: t(context).tr('theftTitle'),
+            onTap: () => context.push(Routes.sosTheft)),
+      ]);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -218,6 +250,17 @@ class SosReportScreen extends ConsumerWidget {
   }
 
   void _showBreakdownPicker(BuildContext context, WidgetRef ref) {
+    if (MgV2.peek(context)) {
+      showSosTypeSheetV2(context, title: t(context).tr('breakdownType'), choices: [
+        (icon: MgIcons.bolt, tint: SosTint.ok, label: t(context).tr('minorDefectContinue'),
+            onTap: () => _report(context, ref, SosType.breakdownMinor, t(context).tr('breakdownMinorLabel'))),
+        (icon: MgIcons.ban, tint: SosTint.amber, label: t(context).tr('motoImmobile'),
+            onTap: () => context.push(Routes.sosBreakdown)),
+        (icon: MgIcons.wrench, tint: SosTint.ok, label: t(context).tr('nearestServiceInvoice'),
+            onTap: () => context.push(Routes.sosService)),
+      ]);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(

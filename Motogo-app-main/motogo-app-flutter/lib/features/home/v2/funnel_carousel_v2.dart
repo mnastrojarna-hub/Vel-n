@@ -4,13 +4,16 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_format.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../catalog/moto_model.dart';
 import 'funnel_provider.dart';
+import 'home_fit.dart';
 import 'home_ticket_parts.dart';
 
 /// One bike of the funnel carousel (V22 `.fc`): full-bleed photo with a
@@ -27,10 +30,15 @@ class FunnelBikeCard extends StatelessWidget {
   final String? listPrice;
   final VoidCallback onTap;
 
+  /// false = "Volná v termínu" dot static: another live indicator (ride
+  /// recording) already runs on Domů (DESIGN_V2 §1.3 — one live indicator).
+  final bool ping;
+
   const FunnelBikeCard({
     super.key,
     required this.moto,
     required this.center,
+    this.ping = true,
     required this.badge,
     required this.again,
     required this.priceLabel,
@@ -43,19 +51,27 @@ class FunnelBikeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tr = t(context);
     final cat = homeCategoryKey(moto.category);
+    final branch = (moto.branchName ?? '').trim();
     final meta = [
-      if ((moto.branchName ?? '').trim().isNotEmpty) moto.branchName!.trim(),
+      if (branch.isNotEmpty) branch,
       if (cat.isNotEmpty) tr.tr(cat),
     ].join(' · ');
     final reduced = MgMotion.reduced(context);
-    Widget photo = HomePhoto(url: moto.displayImage, thumbWidth: 900);
-    if (center && !reduced) {
-      // One-shot Ken Burns on the centred card (8 s, ends at 1.06).
+    // Sdílená fotka → detail motorky jen z karty uprostřed (V2 §5.11 Hero).
+    Widget photo = MgHeroPhoto(
+      tag: mgHeroTagMoto(moto.id),
+      enabled: center,
+      child: HomePhoto(url: moto.displayImage, thumbWidth: 900),
+    );
+    if (!reduced) {
+      // One-shot Ken Burns on the centred card (8 s, ends at 1.06); a card
+      // leaving the centre eases back to 1 over 300 ms (no scale jump).
       photo = TweenAnimationBuilder<double>(
-        tween: Tween(begin: 1, end: 1.06),
-        duration: MgMotion.kenBurns,
+        tween: Tween(begin: 1, end: center ? 1.06 : 1),
+        duration: center ? MgMotion.kenBurns : MgMotion.pager,
+        // One curve both ways: changing it would re-evaluate the running tween.
         curve: Curves.easeOut,
-        builder: (_, s, child) => Transform.scale(scale: s, child: child),
+        builder: (_, s, child) => Transform.scale(key: const ValueKey('funnel-kb'), scale: s, child: child),
         child: photo,
       );
     }
@@ -85,6 +101,7 @@ class FunnelBikeCard extends StatelessWidget {
             // „Volná v termínu" + štítek ŘP: když se oba nevejdou, dostanou místo
             // podle délky a zmenší se (štítek smí na 2 řádky) — nic se neusekne.
             child: _TopPills(
+              ping: ping,
               free: tr.tr('v2HomeFnFree'),
               center: center,
               badge: badge,
@@ -108,11 +125,18 @@ class FunnelBikeCard extends StatelessWidget {
                     Row(children: [
                       const MgIcon(MgIcons.pin, size: 14, color: MgColors.neon),
                       const SizedBox(width: 4),
+                      // Pobočka se nikdy nezkracuje kvůli kategorii: když se
+                      // obojí nevejde, kategorie odpadne (SH-40).
                       Flexible(
-                        child: Text(meta,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: MgType.meta.copyWith(color: MgColors.white(0.86))),
+                        child: LayoutBuilder(builder: (context, c) {
+                          final style = MgType.meta.copyWith(color: MgColors.white(0.86));
+                          final fits = homeLinesFitIn(context, meta, style, c.maxWidth, 1);
+                          return Text(fits || branch.isEmpty ? meta : branch,
+                              key: const ValueKey('funnel-meta'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: style);
+                        }),
                       ),
                     ]),
                   ],
@@ -120,17 +144,17 @@ class FunnelBikeCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                Text(priceLabel, style: MgType.micro.copyWith(color: MgColors.neonText)),
+                Text(mgNbsp(priceLabel), style: MgType.micro.copyWith(color: MgColors.neonText)),
                 MgBump(
                   trigger: price,
-                  child: Text(price,
+                  child: Text(mgNbsp(price),
                       style: MgType.tab(MgType.h2.copyWith(
                           fontWeight: FontWeight.w900,
                           color: MgColors.neon,
                           shadows: [Shadow(color: MgColors.neonA(0.35), blurRadius: 14)]))),
                 ),
                 if (listPrice != null)
-                  Text(listPrice!,
+                  Text(mgNbsp(listPrice!),
                       style: MgType.tab(MgType.meta.copyWith(
                           fontWeight: FontWeight.w600,
                           color: MgColors.white(0.62),
@@ -150,7 +174,8 @@ class _TopPills extends StatelessWidget {
   final bool center;
   final String? badge;
   final bool again;
-  const _TopPills({required this.free, required this.center, required this.badge, required this.again});
+  final bool ping;
+  const _TopPills({required this.free, required this.center, required this.badge, required this.again, this.ping = true});
 
   static final _freeStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
   static final _badgeStyle = MgType.micro.copyWith(height: 1.15, fontWeight: FontWeight.w800);
@@ -161,7 +186,7 @@ class _TopPills extends StatelessWidget {
     final freePill = _GlassPill(
       border: MgColors.neonA(0.42),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        MgPing(size: 7, color: MgColors.neon, active: center),
+        MgPing(size: 7, color: MgColors.neon, active: center && ping),
         const SizedBox(width: 6),
         Flexible(
           child: MgWordFit(

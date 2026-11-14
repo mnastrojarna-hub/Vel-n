@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
@@ -13,6 +12,12 @@ import 'shop_provider.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/states/mg_tone.dart';
+import '../../core/v2/widgets/mg_toast_rich.dart';
+import 'v2/product_view_v2.dart';
 
 /// Product detail — mirrors s-merch-detail from templates-shop-detail.js.
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -27,6 +32,40 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
   int _imageIndex = 0;
   String? _selectedSize;
   int _qty = 1;
+  /// v2: "Nejdřív vyber velikost" shown inline where the old toast fired.
+  bool _sizeHint = false;
+
+  /// Přidání do košíku — stejná logika pro starý i v2 vzhled (v2 jen
+  /// ukazuje chybějící velikost u voleb a potvrzení s „Do košíku").
+  void _addToCart(Product product) {
+    final v2 = MgV2.peek(context);
+    if (product.needsSize && _selectedSize == null) {
+      if (v2) {
+        setState(() => _sizeHint = true);
+        // G-822: the old toast too — the size chips may be scrolled away.
+        showMgToastRich(context,
+            title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'), tone: MgTone.warn);
+        return;
+      }
+      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'));
+      return;
+    }
+    final cartId = _selectedSize != null ? '${product.id}-$_selectedSize' : product.id;
+    final cartName = _selectedSize != null ? '${product.name} ($_selectedSize)' : product.name;
+    for (int i = 0; i < _qty; i++) {
+      ref.read(cartProvider.notifier).addItem(cartId, cartName, product.price);
+    }
+    ref.read(cartFabDismissedProvider.notifier).state = false;
+    if (v2) {
+      // Stejný toast jako dřív (bez zkratky do košíku), jen v2 vzhled.
+      showMgToastRich(context,
+          title: t(context).tr('added'),
+          message: '$_qty× $cartName',
+          icon: MgIcons.checkCircle);
+      return;
+    }
+    showMotoGoToast(context, icon: '✓', title: t(context).tr('added'), message: '$_qty× $cartName');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,14 +111,34 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
 
   Widget _build(BuildContext context, Product product) {
     final images = product.images.isNotEmpty ? product.images : [product.displayImage];
+    // v2 (PS-09): same state and actions.
+    if (MgV2.on(context)) {
+      return ProductViewV2(
+        product: product,
+        imageIndex: _imageIndex,
+        onPage: (i) => setState(() => _imageIndex = i),
+        selectedSize: _selectedSize,
+        onSize: (size) => setState(() {
+          _selectedSize = size;
+          _sizeHint = false;
+        }),
+        sizeHint: _sizeHint,
+        qty: _qty,
+        onMinus: _qty > 1 ? () => setState(() => _qty--) : null,
+        onPlus: () => setState(() => _qty++),
+        onAdd: () => _addToCart(product),
+        onBack: () => context.backOr(Routes.shop),
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: Column(
         children: [
-          // Image — takes ALL remaining space after content
+          // Image — takes ALL remaining space after content (under the
+          // status bar → light icons in v2, as the old global style was).
           Expanded(
-            child: Stack(
+            child: mgV1StatusBar(context, dark: true, child: Stack(
               fit: StackFit.expand,
               children: [
                 PageView.builder(
@@ -108,7 +167,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                     ),
                   ),
               ],
-            ),
+            )),
           ),
 
           // Content — fixed size, image adapts above
@@ -216,19 +275,7 @@ class _ProductDetailState extends ConsumerState<ProductDetailScreen> {
                     width: double.infinity,
                     height: 48,
                     child: PressableScale(child: ElevatedButton(
-                      onPressed: () {
-                        if (product.needsSize && _selectedSize == null) {
-                          showMotoGoToast(context, icon: '⚠️', title: t(context).tr('sizeLabel'), message: t(context).tr('selectSizeFirst'));
-                          return;
-                        }
-                        final cartId = _selectedSize != null ? '${product.id}-$_selectedSize' : product.id;
-                        final cartName = _selectedSize != null ? '${product.name} ($_selectedSize)' : product.name;
-                        for (int i = 0; i < _qty; i++) {
-                          ref.read(cartProvider.notifier).addItem(cartId, cartName, product.price);
-                        }
-                        ref.read(cartFabDismissedProvider.notifier).state = false;
-                        showMotoGoToast(context, icon: '✓', title: t(context).tr('added'), message: '$_qty× $cartName');
-                      },
+                      onPressed: () => _addToCart(product),
                       style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                         const Icon(Icons.add_shopping_cart, size: 16),

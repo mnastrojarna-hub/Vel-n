@@ -5,7 +5,10 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
+import '../../../core/v2/widgets/mg_cta.dart';
+import '../../../core/v2/widgets/mg_sheet.dart';
 import 'poi_cat_icon_v2.dart';
 
 /// Place detail sheet head (light): stop number (route stops only), name
@@ -75,20 +78,68 @@ class PoiSheetCounterV2 extends StatelessWidget {
       );
 }
 
-/// "Přidat do mé cesty" / "Odebrat z mé cesty" — the same toggle.
+/// "Přidat do mé cesty" / "Odebrat z mé cesty" — the same toggle. Not yet
+/// added = the sheet's one primary: rank CTA in a dark dock (board TrasyHub
+/// "Detail místa", V21 T4); added = light ghost "✓ Odebrat z mé cesty".
 class PoiTripButtonV2 extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   const PoiTripButtonV2({super.key, required this.selected, required this.onTap});
 
+  /// Height the sheet content keeps free under its last line.
+  static const double inset = 92;
+
   @override
   Widget build(BuildContext context) {
     final label = t(context).tr(selected ? 'poiRemoveFromTrip' : 'poiAddToTrip');
-    return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), boxShadow: MgShadows.sticky),
-      child: selected
-          ? MgBtnGhostLight(label: label, icon: MgIcons.checkCircle, onTap: onTap, height: 52)
-          : MgBtnInk(label: label, icon: MgIcons.pinPlus, neonLabel: true, onTap: onTap),
+    if (selected) {
+      return DecoratedBox(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), boxShadow: MgShadows.sticky),
+        child: MgBtnGhostLight(label: label, icon: MgIcons.checkCircle, onTap: onTap, height: 52),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        gradient: MgGradients.dark,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: MgShadows.sticky,
+      ),
+      child: MgCta(label: label, leadingIcon: MgIcons.pinPlus, onTap: onTap),
     );
   }
+}
+
+/// The 44 px ✕ over the place photo (V22 §6.1, photo style) — the same
+/// `maybePop` as the old 32 px cross.
+class PoiSheetCloseV2 extends StatelessWidget {
+  const PoiSheetCloseV2({super.key});
+
+  @override
+  Widget build(BuildContext context) =>
+      MgV2Back(close: true, style: MgBackStyle.photo, onTap: () => Navigator.of(context).maybePop());
+}
+
+/// v2 look of the photo-credit sheet: the credit sentence and "Zobrazit
+/// zdroj" ([onOpen] null = not a Commons photo, no link).
+class PoiPhotoCreditV2 extends StatelessWidget {
+  final String text;
+  final String openLabel;
+  final VoidCallback? onOpen;
+  const PoiPhotoCreditV2({super.key, required this.text, required this.openLabel, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) => MgSheetFrame(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const MgIcon(MgIcons.camera, size: 20, color: MgColors.meta),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text, style: MgType.body.copyWith(color: MgColors.body2))),
+          ]),
+          if (onOpen != null) ...[
+            const SizedBox(height: 8),
+            MgBtnText(label: openLabel, icon: MgIcons.external, onTap: onOpen),
+          ],
+        ]),
+      );
 }

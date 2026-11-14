@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_chrome_lift.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
+import '../../../core/v2/motion/mg_hero_photo.dart';
+import '../../../core/v2/motion/mg_ken_burns.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -19,7 +23,14 @@ import 'catalog_text.dart';
 /// photo pager (swipe / side tap zones, segments), availability pill,
 /// category · licence · branch, name, "Základní údaje" chips, the card price
 /// and the rank CTA. EVERY tap target opens the detail through [onOpen] —
-/// the caller's existing logic (sibling ids + `context.push('/moto/:id')`).
+/// the caller's existing logic (sibling ids + `context.push('/moto/:id')`) —
+/// except the CTA when the caller gives [onCta] (dates set → REZERVOVAT).
+/// One bike per screen (owner 2026-11-08 "vždycky motorka je na celou
+/// stránku"): the lists give it the whole folded viewport as [height] and
+/// the status-bar inset as [topInset] — the top controls (photo segments,
+/// availability pill, side tap zones) sit below the status bar, and on a
+/// tall card the contained photo rides in the upper part, clear of the
+/// caption block.
 class MotoCardFullV2 extends StatefulWidget {
   final Motorcycle moto;
   final CatCardPrice price;
@@ -31,7 +42,17 @@ class MotoCardFullV2 extends StatefulWidget {
   final bool live;
   final String ctaLabel;
   final VoidCallback onOpen;
+
+  /// CTA action; null = [onOpen].
+  final VoidCallback? onCta;
   final double height;
+
+  /// Status-bar inset over the card's top edge (0 = none).
+  final double topInset;
+
+  /// A slot under the caption shown only with the bars unfolded (Domů's
+  /// scroll-to-top): the caption rides above the nav AND it (`MgChromeLift`).
+  final double liftExtra;
 
   const MotoCardFullV2({
     super.key,
@@ -40,8 +61,11 @@ class MotoCardFullV2 extends StatefulWidget {
     required this.availability,
     required this.ctaLabel,
     required this.onOpen,
+    this.onCta,
     this.live = false,
     this.height = 560,
+    this.topInset = 0,
+    this.liftExtra = 0,
   });
 
   @override
@@ -90,9 +114,13 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final m = widget.moto;
     final imgs = _images;
     final multi = imgs.length > 1;
-    final specs = m.shortDescItems(tr.tr).take(4).map((e) => e.card).toList();
+    // The old card's "Základní údaje": up to 6 (Velín short_desc_fields).
+    final specs = m.shortDescItems(tr.tr).take(6).map((e) => e.card).toList();
     final lic = catLicenseLabel(tr, m);
-    final branch = m.branchName ?? m.branchCity;
+    final branch = catBranchLine(tr, m);
+    final top = widget.topInset;
+    // A full-screen card: the photo in the upper part, above the caption.
+    final photoAlign = widget.height > 640 ? const Alignment(0, -0.4) : Alignment.center;
     // [height] is the MINIMUM: with large text / long words the card grows
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).
@@ -110,7 +138,20 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
               Positioned.fill(
                 child: ExcludeSemantics(
                   child: Stack(fit: StackFit.expand, children: [
-                    MgImage(imgs[_page.clamp(0, imgs.length - 1)], thumbWidth: 400, fit: BoxFit.cover, error: _fallback()),
+                    // CB-15: dark placeholder + 180 ms cross-fade per photo.
+                    AnimatedSwitcher(
+                      duration: MgMotion.of(context, MgMotion.color),
+                      child: KeyedSubtree(
+                        key: ValueKey(_page),
+                        child: MgImage(imgs[_page.clamp(0, imgs.length - 1)],
+                            thumbWidth: 400,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            placeholder: const ColoredBox(color: MgColors.panel),
+                            error: _fallback()),
+                      ),
+                    ),
                     ColoredBox(color: MgColors.nightA(0.62)),
                   ]),
                 ),
@@ -123,17 +164,25 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                   controller: _pc,
                   itemCount: imgs.length,
                   onPageChanged: (i) => setState(() => _page = i),
-                  itemBuilder: (_, i) => GestureDetector(
-                    onTap: widget.onOpen,
-                    child: MgImage(
-                      imgs[i],
-                      thumbWidth: 900,
-                      fit: BoxFit.contain,
-                      width: double.infinity,
-                      placeholder: const SizedBox.expand(),
-                      error: _fallback(),
-                    ),
-                  ),
+                  itemBuilder: (_, i) {
+                    // CB-14: the first photo flies into the detail hero;
+                    // CB-28: Ken Burns once on the first card of the list.
+                    Widget img = MgHeroPhoto(
+                      tag: mgHeroTagMoto(m.id),
+                      enabled: i == 0,
+                      child: MgImage(
+                        imgs[i],
+                        thumbWidth: 900,
+                        fit: BoxFit.contain,
+                        alignment: photoAlign,
+                        width: double.infinity,
+                        placeholder: const SizedBox.expand(),
+                        error: _fallback(),
+                      ),
+                    );
+                    if (i == 0 && widget.live) img = MgKenBurns(sessionKey: 'motorky-card-${m.id}', child: img);
+                    return GestureDetector(onTap: widget.onOpen, child: img);
+                  },
                 ),
               ),
             Positioned.fill(
@@ -158,7 +207,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
             ),
             if (multi) ...[
               Positioned(
-                top: 8,
+                top: top + 8,
                 left: 12,
                 right: 12,
                 child: ExcludeSemantics(
@@ -181,65 +230,80 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
               _zone(left: false, label: tr.tr('v2CatPhotoNext')),
             ],
             if (widget.availability != null)
-              Positioned(top: 20, left: 12, child: _AvailabilityPill(text: widget.availability!, live: widget.live)),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                IgnorePointer(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                      if (m.category != null && m.category!.isNotEmpty)
-                        _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
-                      if (lic.isNotEmpty) _Tag(lic),
-                      if (branch != null)
-                        Row(mainAxisSize: MainAxisSize.min, children: [
-                          MgIcon(MgIcons.pin, size: 16, color: MgColors.neon),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(branch, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
+              Positioned(top: top + 20, left: 12, child: _AvailabilityPill(text: widget.availability!, live: widget.live)),
+            // With the bars shown the body is a nav row shorter than the
+            // card: the caption rides above the nav (and the strips).
+            MgChromeLift(
+              room: widget.height,
+              extra: widget.liftExtra,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(16, top + 60, 16, 16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  IgnorePointer(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                        if (m.category != null && m.category!.isNotEmpty)
+                          _Tag(catCategoryLabel(tr, m.category!).toUpperCase(), neon: true),
+                        if (lic.isNotEmpty)
+                          // J5: red + "tvůj ŘP nestačí" when the licence
+                          // does not cover the bike (list / filter unchanged).
+                          Consumer(
+                            builder: (context, ref, _) => catLicenceFails(ref, m)
+                                ? _Tag('$lic · ${tr.tr('coLicNotEnough')}', bad: true)
+                                : _Tag(lic),
                           ),
-                        ]),
-                    ]),
-                    const SizedBox(height: 8),
-                    Text(m.model,
-                        style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
-                    if (specs.isNotEmpty) ...[
+                        // The old card's "{kW} KW" badge.
+                        if (m.powerKw != null) _Tag('${m.powerKw} KW'),
+                        if (branch != null)
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            MgIcon(MgIcons.pin, size: 16, color: MgColors.neon),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(branch, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
+                            ),
+                          ]),
+                      ]),
                       const SizedBox(height: 8),
-                      Wrap(spacing: 6, runSpacing: 6, children: [for (final s in specs) _SpecChip(s)]),
-                    ],
-                    const SizedBox(height: 10),
-                  ]),
-                ),
-                LayoutBuilder(builder: (context, c) {
-                  // Price + CTA side by side only when the price ("2 727 Kč
-                  // /Tag") fits next to the button; otherwise the button goes
-                  // full width under the price (no number split in half).
-                  final narrow = _priceWidth(context, widget.price) + 12 + _ctaWidth(context, widget.ctaLabel) > c.maxWidth;
-                  Widget cta(bool expand) => MgFabAvoid(
-                        child: MgCta(
-                          label: widget.ctaLabel,
-                          onTap: widget.onOpen,
-                          size: MgCtaSize.sm48,
-                          expand: expand,
-                          arrow: true,
-                          loop: widget.live,
-                          semanticLabel: '${widget.ctaLabel} · ${m.model}',
-                        ),
-                      );
-                  if (narrow) {
-                    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                      IgnorePointer(child: _PriceBlock(price: widget.price)),
-                      const SizedBox(height: 12),
-                      cta(true),
+                      Text(m.model,
+                          style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
+                      if (specs.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(spacing: 6, runSpacing: 6, children: [for (final s in specs) _SpecChip(s)]),
+                      ],
+                      const SizedBox(height: 10),
+                    ]),
+                  ),
+                  LayoutBuilder(builder: (context, c) {
+                    // Price + CTA side by side only when the price ("2 727 Kč
+                    // /Tag") fits next to the button; otherwise the button goes
+                    // full width under the price (no number split in half).
+                    final narrow = _priceWidth(context, widget.price) + 12 + _ctaWidth(context, widget.ctaLabel) > c.maxWidth;
+                    Widget cta(bool expand) => MgFabAvoid(
+                          child: MgCta(
+                            label: widget.ctaLabel,
+                            onTap: widget.onCta ?? widget.onOpen,
+                            size: MgCtaSize.sm48,
+                            expand: expand,
+                            arrow: true,
+                            loop: widget.live,
+                            semanticLabel: '${widget.ctaLabel} · ${m.model}',
+                          ),
+                        );
+                    if (narrow) {
+                      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                        IgnorePointer(child: _PriceBlock(price: widget.price)),
+                        const SizedBox(height: 12),
+                        cta(true),
+                      ]);
+                    }
+                    return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Expanded(child: IgnorePointer(child: _PriceBlock(price: widget.price))),
+                      const SizedBox(width: 12),
+                      cta(false),
                     ]);
-                  }
-                  return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Expanded(child: IgnorePointer(child: _PriceBlock(price: widget.price))),
-                    const SizedBox(width: 12),
-                    cta(false),
-                  ]);
-                }),
-              ]),
+                  }),
+                ]),
+              ),
             ),
           ]),
         ),
@@ -261,7 +325,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
   Widget _zone({required bool left, required String label}) => Positioned(
         left: left ? 0 : null,
         right: left ? null : 0,
-        top: 64,
+        top: widget.topInset + 64,
         bottom: widget.height * 0.42,
         width: 72,
         child: Semantics(
@@ -293,13 +357,14 @@ class _AvailabilityPill extends StatelessWidget {
 class _Tag extends StatelessWidget {
   final String text;
   final bool neon;
-  const _Tag(this.text, {this.neon = false});
+  final bool bad;
+  const _Tag(this.text, {this.neon = false, this.bad = false});
 
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: neon ? MgColors.neon : MgColors.nightA(0.72),
+          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.nightA(0.72)),
           borderRadius: BorderRadius.circular(6),
           border: neon ? null : Border.all(color: MgColors.white(0.18)),
         ),

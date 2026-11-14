@@ -4,6 +4,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_app_bar.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/chrome/mg_fold_header.dart';
+import '../../../core/v2/chrome/mg_hide_on_scroll.dart' show MgBarsHost;
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
@@ -11,6 +13,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
+import '../../../core/widgets/map_tile_errors.dart';
 
 /// Focused community form (Navrhnout trasu / Přidat místo): dark compact
 /// header with back (= the screen's PopScope via `maybePop`, so the
@@ -39,15 +42,18 @@ class SubmitScaffoldV2 extends StatelessWidget {
     final tr = t(context);
     return Scaffold(
       backgroundColor: MgColors.canvas,
-      body: Column(children: [
-        MgAppBar(title: title, subtitle: subtitle, onBack: () => Navigator.of(context).maybePop()),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: children,
+      // Hide-on-scroll: the app bar folds while the form scrolls down.
+      body: MgBarsHost(
+        child: Column(children: [
+          MgFoldHeader(child: MgAppBar(title: title, subtitle: subtitle, onBack: () => Navigator.of(context).maybePop())),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: children,
+            ),
           ),
-        ),
-      ]),
+        ]),
+      ),
       bottomNavigationBar: MgDock(
         contextLine: busy
             ? Semantics(liveRegion: true, child: Text(busyLabel, style: MgType.small.copyWith(color: MgColors.onDarkLead)))
@@ -101,7 +107,8 @@ class SubmitMapCardV2 extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Stack(children: [
-            Positioned.fill(child: map),
+            // Map tiles failing: the strip over the map (above the pin).
+            Positioned.fill(child: MapTileErrorInset(top: 8, child: map)),
             if (overlay != null) Positioned(left: 8, right: 8, bottom: 8, child: Center(child: overlay)),
           ]),
         ),

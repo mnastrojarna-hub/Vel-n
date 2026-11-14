@@ -78,12 +78,3 @@ class _CatPainter extends CustomPainter {
   @override
   bool shouldRepaint(_CatPainter old) => old.d != d || old.color != color;
 }
-
-/// Localised category label (same lookup as the old `_catLabel`).
-String poiCatLabelKey(RoutePoi p) {
-  final k = poiCategoryOf(p);
-  for (final c in kPoiCats) {
-    if (c.key == k) return c.i18nKey;
-  }
-  return 'poiCatOther';
-}

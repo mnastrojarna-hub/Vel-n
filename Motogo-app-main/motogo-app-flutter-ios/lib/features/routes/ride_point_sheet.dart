@@ -11,6 +11,8 @@ import '../../core/widgets/error_feedback.dart';
 import 'ride_model.dart';
 import 'ride_provider.dart';
 import 'route_image.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/rides/ride_point_sheet_v2.dart';
 
 /// Editor zastávky (bodu zájmu) na jízdě — název, popisek a fotky.
 /// Zastávku lze i smazat. Vrací true, když se něco uložilo / smazalo.
@@ -137,11 +139,14 @@ class _RidePointEditorState extends State<_RidePointEditor> {
     var failedPhotos = 0;
     if (_newPhotos.isNotEmpty && uid != null) {
       final batch = List<XFile>.of(_newPhotos);
-      final urls = await uploadRidePhotos(uid, batch);
-      failedPhotos = batch.length - urls.length;
-      _photos.addAll(urls);
-      // Nahrané pryč; nenahrané zůstanou k dalšímu pokusu.
-      if (failedPhotos == 0) _newPhotos.clear();
+      final m = mergeUploadedPhotos(_photos, batch, await uploadRidePhotosEach(uid, batch), max: _maxPhotos);
+      failedPhotos = m.failed;
+      _photos
+        ..clear()
+        ..addAll(m.photos);
+      // Nahrané pryč (další „Uložit“ je nenahraje podruhé); nenahrané
+      // zůstanou k dalšímu pokusu.
+      _newPhotos.removeWhere((x) => batch.contains(x) && !m.pending.contains(x));
     }
     final id = await saveRidePoint(
       rideId: widget.rideId,
@@ -201,6 +206,25 @@ class _RidePointEditorState extends State<_RidePointEditor> {
   }
 
   Widget _buildSheet(BuildContext context) {
+    // v2: stejný stav, ovladače i akce — jen nový vzhled (PLAN §2.7).
+    if (MgV2.on(context)) {
+      return RidePointSheetV2View(
+        isNew: widget.point == null,
+        busy: _busy,
+        error: _error,
+        name: _name,
+        note: _note,
+        photos: _photos,
+        newPhotoPaths: [for (final x in _newPhotos) x.path],
+        maxPhotos: _maxPhotos,
+        onDelete: widget.point != null ? _delete : null,
+        onClose: _close,
+        onSave: _save,
+        onPick: _pick,
+        onRemovePhoto: (i) => setState(() => _photos.removeAt(i)),
+        onRemoveNew: (i) => setState(() => _newPhotos.removeAt(i)),
+      );
+    }
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -408,4 +432,32 @@ class _RidePointEditorState extends State<_RidePointEditor> {
         color: MotoGoColors.g200,
         child: const Icon(Icons.image, size: 20, color: MotoGoColors.g400),
       );
+}
+
+/// Výsledek sloučení jednoho kola nahrávání fotek zastávky.
+class RidePhotoMerge<T> {
+  /// Nový seznam URL fotek zastávky (bez duplicit, nejvýš `max`).
+  final List<String> photos;
+
+  /// Soubory, které se nenahrály (zůstanou k dalšímu pokusu).
+  final List<T> pending;
+
+  /// Počet nenahraných fotek.
+  final int failed;
+  const RidePhotoMerge(this.photos, this.pending, this.failed);
+}
+
+/// [batch] a [results] jsou zarovnané (null = fotka se nenahrála).
+RidePhotoMerge<T> mergeUploadedPhotos<T>(List<String> photos, List<T> batch, List<String?> results, {int max = 8}) {
+  final out = <String>[...photos];
+  final pending = <T>[];
+  for (var i = 0; i < batch.length; i++) {
+    final u = i < results.length ? results[i] : null;
+    if (u == null) {
+      pending.add(batch[i]);
+    } else if (!out.contains(u)) {
+      out.add(u);
+    }
+  }
+  return RidePhotoMerge(out.length > max ? out.sublist(0, max) : out, pending, pending.length);
 }

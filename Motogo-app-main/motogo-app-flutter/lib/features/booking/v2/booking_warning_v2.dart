@@ -10,12 +10,26 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 /// The form's blockers as T3 banners (V22 §5.2), with the SAME texts the
 /// old tree showed and the SAME fixes: missing gear sizes (amber, the
 /// form's own list), validation error (red: licence / overlap / rental
-/// length / pickup time), incomplete profile (amber + "Doplnit v profilu"
+/// length / pickup time — with the action that fixes it: [errActions]),
+/// incomplete profile (amber + "Doplnit v profilu"
 /// → /profile) and unknown availability (red + retry).
 class BookingWarningsV2 extends StatelessWidget {
   final List<String> missingSizes;
   final String? err;
+
+  /// Working fixes of [err] (label, tap): another bike / profile, dates,
+  /// pickup time — navigation only.
+  final List<(String, VoidCallback)> errActions;
+
+  /// The first of [errActions] is THE fix (licence: "Doplnit v profilu")
+  /// — drawn as the ink button, the rest stay outlined (J2).
+  final bool errPrimaryFirst;
   final String? profileErr;
+
+  /// P2-03: the red licence card already carries "Doplnit v profilu" as
+  /// its first button — the amber profile card then keeps its text only
+  /// (the button stays ONCE on the page, in the card that blocks).
+  final bool profileFixInErr;
   final bool bookedFailed;
   final VoidCallback onCompleteProfile;
   final VoidCallback onRetryBooked;
@@ -24,7 +38,10 @@ class BookingWarningsV2 extends StatelessWidget {
     super.key,
     required this.missingSizes,
     required this.err,
+    this.errActions = const [],
+    this.errPrimaryFirst = false,
     required this.profileErr,
+    this.profileFixInErr = false,
     required this.bookedFailed,
     required this.onCompleteProfile,
     required this.onRetryBooked,
@@ -51,6 +68,13 @@ class BookingWarningsV2 extends StatelessWidget {
             tone: MgTone.err,
             title: tr.tr('v2BkErrTitle'),
             text: err,
+            actions: [
+              for (final (i, a) in errActions.indexed)
+                if (i == 0 && errPrimaryFirst)
+                  MgBtnInk(label: a.$1, onTap: a.$2, height: 48, expand: false)
+                else
+                  MgBtnGhostLight(label: a.$1, onTap: a.$2, height: 44, expand: false),
+            ],
           ),
         )),
       if (profileErr != null)
@@ -60,7 +84,8 @@ class BookingWarningsV2 extends StatelessWidget {
           title: tr.tr('v2BkProfileTitle'),
           text: profileErr,
           actions: [
-            MgBtnInk(label: tr.tr('completeProfileBtn'), onTap: onCompleteProfile, height: 48, expand: false),
+            if (!profileFixInErr)
+              MgBtnInk(label: tr.tr('completeProfileBtn'), onTap: onCompleteProfile, height: 48, expand: false),
           ],
         )),
       if (bookedFailed)

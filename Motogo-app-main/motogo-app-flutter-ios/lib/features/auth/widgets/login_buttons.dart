@@ -175,12 +175,18 @@ class LoginRegisterButton extends StatelessWidget {
           children: [
             const Icon(Icons.person_add_alt_1, size: 18),
             const SizedBox(width: 8),
-            Text(
-              t(context).registerBtn,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1,
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  t(context).registerBtn,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
             ),
           ],

@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
-import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/chrome/mg_fold_header.dart';
+import '../../../core/v2/chrome/mg_hide_on_scroll.dart' show MgBarsHost;
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
+import '../../../core/v2/widgets/mg_segmented.dart';
 import '../reservation_edit_price_calc.dart';
 import '../reservation_models.dart';
 import 'res_edit_chooser_v2.dart';
@@ -43,12 +46,16 @@ class ResEditV2Sections {
 
 /// Reservation edit, v2 look (PLAN §2.4.3, seam S). The old `_EditState`
 /// keeps everything (load, normalisation, price calc, save / move / swap,
-/// payment handoff, confirm page); this view adds only a visual mode: a
-/// chooser of intents and one focused intent at a time. Picking an intent
-/// calls the SAME tab closure as today's tab buttons (only when the tab
-/// changes); hidden sections stay mounted (offstage) so nothing typed or
-/// chosen is lost — as on today's single scroll.
-class ResEditV2View extends StatefulWidget {
+/// payment handoff, confirm page); this view draws the OLD single scroll in
+/// the v2 look (owner 2026-11-07 "jen upgrade vzhledu"): the tab row
+/// (Prodloužit / Zkrátit / Posunout if [canMove] / Výměna if [canSwap]) as
+/// an `MgSegmented` wired to the SAME tab closures, opening on [tab]
+/// ('extend', or 'swap' for `?tab=swap`), then every section of that tab
+/// open in the old order — calendar, pickup (place + time + legacy line +
+/// self-service hint), return (place + time), moto, extras, storno notes,
+/// price overview, missing sizes — and the always-present save CTA in the
+/// dock (disabled while [onSave] is null; the swap tab has its own button).
+class ResEditV2View extends StatelessWidget {
   final Reservation booking;
   final String tab;
   final bool isActive;
@@ -60,6 +67,13 @@ class ResEditV2View extends StatefulWidget {
   final int? stornoPct;
   final List<String> missingSizes;
   final String? saveLabel;
+
+  /// Card surcharge of the change ("4 296 Kč") — the dock CTA then reads
+  /// "ZAPLATIT DOPLATEK · 4 296 Kč" (amount never uppercased or broken).
+  final String? savePrice;
+
+  /// "Původně 12 027 Kč → nově 16 323 Kč" over the CTA (existing totals).
+  final String? saveContext;
   final VoidCallback? onSave;
   final bool saving;
   final VoidCallback onBack;
@@ -67,9 +81,6 @@ class ResEditV2View extends StatefulWidget {
   final VoidCallback onSelectShorten;
   final VoidCallback onSelectMove;
   final VoidCallback onSelectSwap;
-
-  /// Intent to open first (null = chooser) — used by tests / deep links.
-  final ResEditIntent? initialIntent;
 
   const ResEditV2View({
     super.key,
@@ -84,6 +95,8 @@ class ResEditV2View extends StatefulWidget {
     required this.stornoPct,
     required this.missingSizes,
     required this.saveLabel,
+    this.savePrice,
+    this.saveContext,
     required this.onSave,
     required this.saving,
     required this.onBack,
@@ -91,146 +104,117 @@ class ResEditV2View extends StatefulWidget {
     required this.onSelectShorten,
     required this.onSelectMove,
     required this.onSelectSwap,
-    this.initialIntent,
   });
 
-  @override
-  State<ResEditV2View> createState() => _ResEditV2ViewState();
-}
-
-class _ResEditV2ViewState extends State<ResEditV2View> {
-  late ResEditIntent? _intent = widget.initialIntent;
-  final _scroll = ScrollController();
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  /// Switch chooser ↔ intent; the page starts at the top again.
-  void _go(ResEditIntent? i) {
-    setState(() => _intent = i);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
-    });
-  }
-
-  List<ResEditIntent> get _intents => [
-        ResEditIntent.extend,
-        ResEditIntent.shorten,
-        if (widget.canMove) ResEditIntent.move,
-        if (widget.canSwap) ResEditIntent.swap,
-        if (!widget.isActive || widget.returnTimeAvailable) ResEditIntent.time,
-        ResEditIntent.place,
-        if (!widget.isActive) ResEditIntent.moto,
-        if (!widget.isActive) ResEditIntent.gear,
-      ];
-
-  void _pick(ResEditIntent i) {
-    final tab = resEditTabOf(i);
-    // Stejné zavření jako dnešní tlačítka záložek — jen když se záložka mění
-    // (sekce času / místa / motorky / výbavy patří k záložce Prodloužit).
-    if (tab == null) {
-      if (widget.tab == 'move' || widget.tab == 'swap') widget.onSelectExtend();
-    } else if (tab != widget.tab) {
-      switch (tab) {
-        case 'extend':
-          widget.onSelectExtend();
-        case 'shorten':
-          widget.onSelectShorten();
-        case 'move':
-          widget.onSelectMove();
-        case 'swap':
-          widget.onSelectSwap();
-      }
+  void _select(String t) {
+    if (t == tab) return;
+    switch (t) {
+      case 'extend':
+        onSelectExtend();
+      case 'shorten':
+        onSelectShorten();
+      case 'move':
+        onSelectMove();
+      case 'swap':
+        onSelectSwap();
     }
-    _go(i);
   }
-
-  bool _shows(Set<ResEditIntent> on) => _intent != null && on.contains(_intent);
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final s = widget.sections;
-    final i = _intent;
-    final dateIntent = {ResEditIntent.extend, ResEditIntent.shorten, ResEditIntent.move};
-    final showPrice = widget.calc.hasChanges && widget.tab != 'move' && widget.tab != 'swap';
-    final focusDock = i != null && i != ResEditIntent.swap && widget.saveLabel != null;
-    final chooserDock = i == null && widget.saveLabel != null && widget.onSave != null;
-    Widget keep(bool visible, Widget? child) => child == null
-        ? const SizedBox.shrink()
-        : Visibility(visible: visible, maintainState: true, child: child);
-
+    final s = sections;
+    final showPrice = calc.hasChanges && tab != 'move' && tab != 'swap';
+    final pickupTime = s.pickupTime;
     final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (i == null) MgEnter(child: ResEditChooserV2(intents: _intents, onPick: _pick)),
-      keep(_shows({ResEditIntent.swap}), s.swap),
-      keep(_shows(dateIntent), s.calendar),
-      if (_shows({ResEditIntent.move}) && widget.tab == 'move') ResEditNoteV2(tr.tr('moveFreeNote'), ok: true),
-      if (_shows({ResEditIntent.shorten}) && widget.tab == 'shorten') ...[
-        ResEditNoteV2('${tr.tr('stornoConditions')} ${tr.tr('stornoRules')}', warn: true),
-        if (widget.stornoPct != null) ResStornoWarningV2(pct: widget.stornoPct!),
-      ],
-      keep(_shows({ResEditIntent.place}),
-          s.pickupPlace == null ? null : ResEditGroupV2(title: tr.tr('pickupMotorcycle'), child: s.pickupPlace!)),
-      keep(_shows({ResEditIntent.place}),
-          s.returnPlace == null ? null : ResEditGroupV2(title: tr.tr('returnMotorcycle'), child: s.returnPlace!)),
-      keep(
-        _shows({ResEditIntent.time}),
-        s.pickupTime == null
-            ? null
-            : ResEditGroupV2(
-                title: tr.tr('pickupMotorcycle'),
-                child: ResPickupTimeV2(
-                  picker: s.pickupTime!,
-                  legacyLine: s.pickupLegacyLine,
-                  selfServiceHint: s.pickupSelfServiceHint,
-                ),
-              ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: MgSegmented<String>(
+          key: const ValueKey('res-edit-tabs'),
+          segments: [
+            MgSegment(value: 'extend', label: resEditIntentTitle(tr, ResEditIntent.extend)),
+            MgSegment(value: 'shorten', label: resEditIntentTitle(tr, ResEditIntent.shorten)),
+            if (canMove) MgSegment(value: 'move', label: resEditIntentTitle(tr, ResEditIntent.move)),
+            if (canSwap) MgSegment(value: 'swap', label: resEditIntentTitle(tr, ResEditIntent.swap)),
+          ],
+          value: tab,
+          onChanged: _select,
+        ),
       ),
-      keep(_shows({ResEditIntent.time}),
-          s.returnTime == null ? null : ResEditGroupV2(title: tr.tr('returnMotorcycle'), child: s.returnTime!)),
-      keep(_shows({ResEditIntent.moto}), s.moto),
-      keep(_shows({ResEditIntent.gear}), s.extras),
-      if (i != ResEditIntent.swap && showPrice) ResEditPriceV2(booking: widget.booking, calc: widget.calc),
-      if (i != null && i != ResEditIntent.swap && widget.missingSizes.isNotEmpty)
-        ResMissingSizesV2(missing: widget.missingSizes),
+      if (s.swap != null) s.swap!,
+      if (s.calendar != null) s.calendar!,
+      if (tab == 'move') ResEditNoteV2(tr.tr('moveFreeNote'), ok: true),
+      if (s.pickupPlace != null || pickupTime != null)
+        ResEditGroupV2(
+          title: tr.tr('pickupMotorcycle'),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (s.pickupPlace != null) s.pickupPlace!,
+            if (pickupTime != null) ...[
+              const SizedBox(height: 8),
+              ResPickupTimeV2(
+                picker: pickupTime,
+                legacyLine: s.pickupLegacyLine,
+                selfServiceHint: s.pickupSelfServiceHint,
+              ),
+            ],
+          ]),
+        ),
+      if (s.returnPlace != null || s.returnTime != null)
+        ResEditGroupV2(
+          title: tr.tr('returnMotorcycle'),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (s.returnPlace != null) s.returnPlace!,
+            if (s.returnTime != null) ...[const SizedBox(height: 8), s.returnTime!],
+          ]),
+        ),
+      if (s.moto != null) s.moto!,
+      if (s.extras != null) s.extras!,
+      if (tab == 'shorten') ...[
+        ResEditNoteV2('${tr.tr('stornoConditions')} ${tr.tr('stornoRules')}', warn: true),
+        if (stornoPct != null) ResStornoWarningV2(pct: stornoPct!),
+      ],
+      if (showPrice) ResEditPriceV2(booking: booking, calc: calc),
+      // Blocker on the same page as the CTA (old page).
+      if (tab != 'swap' && missingSizes.isNotEmpty) ResMissingSizesV2(missing: missingSizes),
     ]);
 
-    final dock = (focusDock || chooserDock)
-        ? MgDock(
+    final dock = saveLabel == null
+        ? null
+        : MgDock(
+            contextLine: saveContext == null
+                ? null
+                : Text(saveContext!,
+                    key: const ValueKey('res-edit-pay-diff'),
+                    style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkLead))),
             child: MgFabAvoid(
               child: MgCta(
-                label: widget.saveLabel!,
-                onTap: widget.onSave,
-                enabled: widget.onSave != null,
-                busy: widget.saving,
-                loop: widget.onSave != null,
+                label: saveLabel!,
+                price: savePrice,
+                onTap: onSave,
+                enabled: onSave != null,
+                busy: saving,
+                loop: onSave != null,
                 arrow: true,
               ),
             ),
-          )
-        : null;
+          );
 
-    return PopScope(
-      canPop: i == null,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _intent != null) _go(null);
-      },
-      // Scaffold jako dosud: klávesnice (adresa přistavení) zmenší obsah.
-      child: Scaffold(
-        backgroundColor: MgColors.canvas,
-        body: Column(children: [
-          ResEditHeaderV2(
-            booking: widget.booking,
-            isActive: widget.isActive,
-            title: i == null ? tr.tr('v2ResEditWhat') : resEditIntentTitle(tr, i),
-            onBack: i == null ? widget.onBack : () => _go(null),
+    // Scaffold jako dosud: klávesnice (adresa přistavení) zmenší obsah.
+    return Scaffold(
+      backgroundColor: MgColors.canvas,
+      // Hide-on-scroll: the tall header folds while the form scrolls down.
+      body: MgBarsHost(
+        child: Column(children: [
+          MgFoldHeader(
+            child: ResEditHeaderV2(
+              booking: booking,
+              isActive: isActive,
+              title: tr.tr('editReservation'),
+              onBack: onBack,
+            ),
           ),
           Expanded(
             child: SingleChildScrollView(
-              controller: _scroll,
               padding: EdgeInsets.only(bottom: dock == null ? MediaQuery.paddingOf(context).bottom + 24 : 24),
               child: body,
             ),

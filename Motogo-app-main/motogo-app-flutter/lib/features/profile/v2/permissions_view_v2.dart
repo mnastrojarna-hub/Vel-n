@@ -62,7 +62,7 @@ class PermissionsViewV2 extends StatelessWidget {
       sections: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Text('${tr.tr('permsGrantedFirstRun')} ${tr.tr('permsChangeHint')}',
+          child: Text('${tr.tr('permsGrantedFirstRun')} ${tr.tr('v2UxRpPermsHint')}',
               style: MgType.small.copyWith(color: MgColors.lead)),
         ),
         if (requiredActive)
@@ -124,7 +124,12 @@ class PermissionsViewV2 extends StatelessWidget {
         button: true,
         child: InkWell(
           onTap: onOpenSettings,
-          child: Padding(
+          // G-752: a required but denied permission in red, as the old row.
+          child: Container(
+            key: attention ? ValueKey('perm-attention-${p.key}') : null,
+            decoration: attention
+                ? BoxDecoration(color: MgColors.errBg, border: Border.all(color: MgColors.errBorder))
+                : null,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               MgIconTileLight(iconFor(p.key)),
@@ -136,7 +141,7 @@ class PermissionsViewV2 extends StatelessWidget {
                     child: Text(tr.tr(p.title), style: MgType.title.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
                   ),
                   const SizedBox(height: 2),
-                  MgWordFit(minScale: 0.85, child: Text(tr.tr(p.desc), style: MgType.small.copyWith(color: MgColors.lead))),
+                  MgWordFit(minScale: 0.75, child: Text(tr.tr(p.desc), style: MgType.small.copyWith(color: MgColors.lead))),
                   const SizedBox(height: 8),
                   Wrap(spacing: 6, runSpacing: 6, children: [
                     MgMeaningChip(
@@ -146,7 +151,7 @@ class PermissionsViewV2 extends StatelessWidget {
                     if (required)
                       MgMeaningChip(
                         label: tr.tr('requiredLabel'),
-                        tone: attention ? MgTone.warn : MgTone.info,
+                        tone: attention ? MgTone.err : MgTone.info,
                         icon: MgIcons.lock,
                       ),
                   ]),

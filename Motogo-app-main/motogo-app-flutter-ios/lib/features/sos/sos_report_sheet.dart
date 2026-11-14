@@ -7,6 +7,8 @@ import '../../core/friendly_error.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/error_feedback.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/sos_sheets_v2.dart';
 
 /// Popis + fotky SOS hlášení. [cameraProblem] = fotku nešlo pořídit
 /// (bez oprávnění / chyba kamery) → hlášení odešlo bez fotek.
@@ -97,12 +99,34 @@ class _SosReportSheetState extends State<_SosReportSheet> {
         : (_cameraProblem!.kind == FriendlyKind.permission
             ? tr.tr('eoPermReasonCamera')
             : tr.tr('eoSosCameraBroken'));
+    void submit() => Navigator.pop(context, (
+          description: _descCtrl.text.trim(),
+          photos: List<XFile>.of(_photos),
+          cameraProblem: _photos.isEmpty && noPhotoAllowed,
+        ));
     return PopScope(
       canPop: !_dirty,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _cancel();
       },
-      child: Padding(
+      child: MgV2.on(context)
+          ? SosReportSheetV2(
+              typeLabel: widget.typeLabel,
+              accident: widget.typeLabel == tr.tr('accidentMinorLabel'),
+              descCtrl: _descCtrl,
+              photoPaths: [for (final p in _photos) p.path],
+              cameraProblem: _cameraProblem == null ? null : noPhotoReason,
+              needsSettings: _cameraProblem?.needsSettings ?? false,
+              missingDesc: _descCtrl.text.trim().length < 3,
+              missingPhoto: _photos.isEmpty && !noPhotoAllowed,
+              submitLabel: _photos.isEmpty && noPhotoAllowed ? tr.tr('eoSosSendNoPhoto') : tr.tr('yesReport'),
+              onSubmit: canSubmit ? submit : null,
+              onCapture: _capture,
+              onCancel: _cancel,
+              onOpenSettings: () => openFixSettings(_cameraProblem!),
+              onDescChanged: (_) => setState(() {}),
+            )
+          : Padding(
         padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
         child: SingleChildScrollView(
           child: Column(

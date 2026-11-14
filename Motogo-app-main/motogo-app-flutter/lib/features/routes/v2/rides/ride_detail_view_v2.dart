@@ -2,21 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 
 import '../../../../core/i18n/i18n_provider.dart';
+import '../../../../core/v2/chrome/mg_fold_header.dart';
+import '../../../../core/v2/chrome/mg_hide_on_scroll.dart' show MgBarsHost;
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/states/mg_state_screen.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
+import '../../../../core/widgets/map_tile_errors.dart';
 import '../../ride_map.dart';
 import '../../ride_model.dart';
 import '../../route_image.dart';
 import 'ride_detail_parts_v2.dart';
+import 'ride_stages_v2.dart';
+import 'ride_trip_row_v2.dart';
 
 /// v2 ride detail (board Zazitky "Detail jízdy"): dark header, the EXISTING
 /// interactive track map (tap = new stop, tap a stop = edit), the one dark
-/// stats card overlapping it, then light: sharing switch, stops with notes
-/// and photos. A dumb view — every callback is the old State's method.
+/// stats card overlapping it (SPEC §9.3), then light: the trip row (part of
+/// a trip / add to a trip — reads the ride list itself), sharing switch,
+/// Etapy (multi-day ride), stops with notes and photos. A dumb view for
+/// the ride itself — every callback is the old State's method.
 class RideDetailViewV2 extends StatelessWidget {
   final UserRide ride;
   final bool busy;
@@ -28,6 +36,11 @@ class RideDetailViewV2 extends StatelessWidget {
   final ValueChanged<int> onPointTap;
   final ValueChanged<RidePoint> onEditPoint;
   final ValueChanged<bool> onVisibility;
+
+  /// Position in the list the detail was opened from + its pager (F-08).
+  final (int, int)? sibling;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
 
   const RideDetailViewV2({
     super.key,
@@ -41,75 +54,105 @@ class RideDetailViewV2 extends StatelessWidget {
     required this.onPointTap,
     required this.onEditPoint,
     required this.onVisibility,
+    this.sibling,
+    this.onPrev,
+    this.onNext,
   });
 
-  static const double _mapH = 260;
+  /// Map height (F-09′): 30 % of the screen, 200–260 — the stats card and
+  /// the trip row stay in the first window on small phones.
+  static double mapHeightFor(double screenH) => (screenH * 0.30).clamp(200.0, 260.0);
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final mapH = mapHeightFor(MediaQuery.sizeOf(context).height);
     return Scaffold(
       backgroundColor: MgColors.canvas,
-      body: Column(children: [
-        RideDetailHeaderV2(ride: ride, onBack: onBack, onEdit: onEdit, onShare: onShare, onDelete: onDelete),
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottom),
-            children: [
-              Stack(children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: _mapH,
-                  child: Container(
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: MgShadows.card),
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(children: [
-                      Positioned.fill(
-                        child: RideTrackMap(
-                          track: ride.track,
-                          segments: ride.segments,
-                          points: ride.points,
-                          interactive: true,
-                          onMapTap: onMapTap,
-                          onPointTap: onPointTap,
-                        ),
-                      ),
-                      Positioned(left: 10, top: 10, right: 10, child: _MapHint(text: tr.tr('v2RideMapHint'))),
-                    ]),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: _mapH - 24),
-                  child: MgReveal(sessionKey: 'ride-stats-${ride.id}', child: RideStatsCardV2(ride: ride)),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              RideVisibilityCardV2(isPublic: ride.isPublic, busy: busy, onChanged: onVisibility),
-              const SizedBox(height: 24),
-              Row(children: [
-                const MgIcon(MgIcons.pin, size: 20, color: MgColors.routeGreen),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Semantics(
-                    header: true,
-                    child: Text(tr.tr('rideStops'), style: MgType.section.copyWith(color: MgColors.ink)),
-                  ),
-                ),
-                if (ride.points.isNotEmpty)
-                  Text('${ride.points.length}', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta))),
-              ]),
-              const SizedBox(height: 4),
-              Text(tr.tr('rideStopsHint'), style: MgType.small.copyWith(color: MgColors.meta)),
-              const SizedBox(height: 12),
-              for (var i = 0; i < ride.points.length; i++)
-                RidePointCardV2(point: ride.points[i], number: i, onTap: () => onEditPoint(ride.points[i])),
-            ],
+      // Hide-on-scroll: the header folds while the ride scrolls down (a
+      // root route — its own bars).
+      body: MgBarsHost(
+        child: Column(children: [
+          MgFoldHeader(
+            child: RideDetailHeaderV2(
+              ride: ride,
+              onBack: onBack,
+              onEdit: onEdit,
+              onShare: onShare,
+              onDelete: onDelete,
+              pager: sibling == null ? null : RidePagerV2(at: sibling!.$1, of: sibling!.$2, onPrev: onPrev, onNext: onNext),
+            ),
           ),
-        ),
-      ]),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottom),
+              children: [
+                Stack(children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: mapH,
+                    child: Container(
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), boxShadow: MgShadows.card),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(children: [
+                        Positioned.fill(
+                          // Map tiles failing: the strip under the hint pill.
+                          child: MapTileErrorInset(
+                            top: 48,
+                            child: RideTrackMap(
+                              track: ride.track,
+                              segments: ride.segments,
+                              points: ride.points,
+                              interactive: true,
+                              onMapTap: onMapTap,
+                              onPointTap: onPointTap,
+                            ),
+                          ),
+                        ),
+                        Positioned(left: 10, top: 10, right: 10, child: _MapHint(text: tr.tr('v2RideMapHint'))),
+                      ]),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(top: mapH - 24),
+                    child: MgReveal(sessionKey: 'ride-stats-${ride.id}', child: RideStatsCardV2(ride: ride)),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                RideTripRowV2(ride: ride),
+                const SizedBox(height: 8),
+                RideVisibilityCardV2(isPublic: ride.isPublic, busy: busy, onChanged: onVisibility),
+                if (ride.stages.length >= 2) ...[
+                  const SizedBox(height: 24),
+                  RideStagesV2(stages: ride.stages),
+                ],
+                const SizedBox(height: 24),
+                Row(children: [
+                  const MgIcon(MgIcons.pin, size: 20, color: MgColors.routeGreen),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    // r1: „Stopps und Sehenswürdigkeiten" celé, slovo se nedělí.
+                    child: Semantics(
+                      header: true,
+                      child: MgWordFit(minScale: 0.75, child: Text(tr.tr('rideStops'), style: MgType.section.copyWith(color: MgColors.ink))),
+                    ),
+                  ),
+                  if (ride.points.isNotEmpty)
+                    Text('${ride.points.length}', style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.meta))),
+                ]),
+                const SizedBox(height: 4),
+                Text(tr.tr('rideStopsHint'), style: MgType.small.copyWith(color: MgColors.meta)),
+                const SizedBox(height: 12),
+                for (var i = 0; i < ride.points.length; i++)
+                  RidePointCardV2(point: ride.points[i], number: i, onTap: () => onEditPoint(ride.points[i])),
+              ],
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }
@@ -132,7 +175,7 @@ class _MapHint extends StatelessWidget {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const MgIcon(MgIcons.finger, size: 14, color: MgColors.neon),
               const SizedBox(width: 6),
-              Flexible(child: Text(text, style: MgType.meta.copyWith(color: MgColors.onDark))),
+              Flexible(child: MgWordFit(minScale: 0.8, child: Text(text, style: MgType.meta.copyWith(color: MgColors.onDark)))),
             ]),
           ),
         ),
@@ -190,7 +233,12 @@ class RidePointCardV2 extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink))),
+                Expanded(
+                  child: MgWordFit(
+                    minScale: 0.8,
+                    child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
+                  ),
+                ),
                 const MgIcon(MgIcons.edit, size: 18, color: MgColors.meta),
               ]),
               if ((p.note ?? '').isNotEmpty) ...[

@@ -1,20 +1,33 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../ride_model.dart';
+import '../../road_line.dart';
+
+/// Blue-grey of a move during a pause (ferry, trailer — SPEC §9.1).
+const Color kRidePauseLink = Color(0xFF5F86A0);
 
 /// Track thumbnail of a ride (board Zazitky `.rd-tk`): the recorded line
-/// drawn from the ride's own points — no map tiles, no network. Gaps
-/// (no GPS) are dotted, start = green dot, end = ink dot. A ride without
+/// drawn from the ride's own points — no map tiles. Gaps (no GPS while
+/// riding) are a dotted grey ESTIMATED route by road (owner 2026-11-08:
+/// „odhad šedá trasa“ — never a straight connector; nothing until the
+/// estimate is routed); a pause where the bike moved (> 300
+/// m: ferry, trailer) is a dashed blue-grey line; a pause in place (night,
+/// lunch) draws nothing. Start = green dot, end = ink dot. A ride without
 /// at least two points shows the bike glyph instead.
-class RideTrackSketch extends StatelessWidget {
+class RideTrackSketch extends ConsumerWidget {
   final List<List<LatLng>> lines;
-  final List<(LatLng, LatLng)> gaps;
+
+  /// Breaks to draw: (from, to, moved during a pause = dashed blue-grey;
+  /// otherwise a GPS gap drawn as its road estimate).
+  final List<(LatLng, LatLng, bool)> gaps;
   final double size;
   final bool dark;
   final String fallbackIcon;
@@ -31,8 +44,13 @@ class RideTrackSketch extends StatelessWidget {
         fallbackIcon = MgIcons.route;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bg = dark ? MgColors.panel : MgColors.tintFeatureA;
+    final pauses = [for (final g in gaps) if (g.$3) g];
+    final roads = [
+      for (final g in gaps.where((g) => !g.$3).take(kRideGapRoadMax))
+        if (rideGapRoadAt(ref, g.$1, g.$2) case final road when road.length >= 2) road,
+    ];
     return ExcludeSemantics(
       child: Container(
         width: size,
@@ -45,7 +63,7 @@ class RideTrackSketch extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: lines.isEmpty
             ? Center(child: MgIcon(fallbackIcon, size: size * 0.36, color: dark ? MgColors.neon : MgColors.routeGreen))
-            : CustomPaint(painter: _SketchPainter(lines, gaps, dark: dark)),
+            : CustomPaint(painter: _SketchPainter(lines, pauses, roads, dark: dark)),
       ),
     );
   }
@@ -59,17 +77,19 @@ class RideTrackSketch extends StatelessWidget {
     return pts.length >= 2 ? [pts] : const [];
   }
 
-  static List<(LatLng, LatLng)> _gaps(UserRide r) => [
+  static List<(LatLng, LatLng, bool)> _gaps(UserRide r) => [
         for (final s in r.segments)
-          if (s.gapBefore != null) (s.gapBefore!.from, s.gapBefore!.to),
+          if (s.gapBefore case final g?)
+            if (!g.isPause || g.km > kRideStillKm) (g.from, g.to, g.isPause),
       ];
 }
 
 class _SketchPainter extends CustomPainter {
   final List<List<LatLng>> lines;
-  final List<(LatLng, LatLng)> gaps;
+  final List<(LatLng, LatLng, bool)> gaps;
+  final List<List<LatLng>> roads; // road estimates over GPS gaps (dotted)
   final bool dark;
-  _SketchPainter(this.lines, this.gaps, {required this.dark});
+  _SketchPainter(this.lines, this.gaps, this.roads, {required this.dark});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -114,13 +134,34 @@ class _SketchPainter extends CustomPainter {
       canvas.drawPath(path, paint);
     }
     final dot = Paint()..color = dark ? MgColors.onDarkMeta : MgColors.meta;
+    final dash = Paint()
+      ..color = kRidePauseLink
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    for (final r in roads) {
+      // Dots spaced ~6 px ALONG the estimated road line.
+      var carry = 0.0;
+      for (var i = 0; i < r.length - 1; i++) {
+        final a = map(r[i]), b = map(r[i + 1]);
+        final d = (b - a).distance;
+        var x = carry;
+        while (x <= d) {
+          canvas.drawCircle(Offset.lerp(a, b, d == 0 ? 0 : x / d)!, 1.2, dot);
+          x += 6;
+        }
+        carry = x - d;
+      }
+    }
     for (final g in gaps) {
       final a = map(g.$1), b = map(g.$2);
       final d = (b - a).distance;
       if (d < 1) continue;
-      final n = (d / 6).floor();
-      for (var i = 0; i <= n; i++) {
-        canvas.drawCircle(Offset.lerp(a, b, i / math.max(n, 1))!, 1.2, dot);
+      if (g.$3) {
+        // Přesun během pauzy: čárkovaně (5 + 4 px).
+        for (var x = 0.0; x < d; x += 9) {
+          canvas.drawLine(Offset.lerp(a, b, x / d)!, Offset.lerp(a, b, math.min(x + 5, d) / d)!, dash);
+        }
+        continue;
       }
     }
     final start = map(lines.first.first), end = map(lines.last.last);
@@ -132,11 +173,13 @@ class _SketchPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SketchPainter old) => old.lines != lines || old.dark != dark;
+  bool shouldRepaint(covariant _SketchPainter old) =>
+      old.lines != lines || old.gaps != gaps || old.roads.length != roads.length || old.dark != dark;
 }
 
-/// Small 20 px tag of a ride (S MotoGo / Soukromá / Sdíleno / Nahrávám).
-enum RideBadgeKind { motogo, private, shared, live }
+/// Small 20 px tag of a ride (S MotoGo / Soukromá / Sdíleno / Nahrávám /
+/// Pozastaveno / "3 dny" / CESTA).
+enum RideBadgeKind { motogo, private, shared, live, paused, days, trip }
 
 class RideBadgeV2 extends StatelessWidget {
   final RideBadgeKind kind;
@@ -151,6 +194,16 @@ class RideBadgeV2 extends StatelessWidget {
       RideBadgeKind.private => (dark ? MgColors.white(0.10) : MgColors.well, dark ? MgColors.onDarkLead : MgColors.body2),
       RideBadgeKind.shared => (dark ? MgColors.white(0.10) : MgColors.tintOk, dark ? MgColors.onDarkLead : MgColors.onTintOk),
       RideBadgeKind.live => (MgColors.errBg, MgColors.err),
+      RideBadgeKind.paused => (dark ? MgColors.white(0.14) : MgColors.well, dark ? MgColors.onDark : MgColors.ink),
+      RideBadgeKind.days => (dark ? MgColors.white(0.10) : MgColors.tintFeatureA, dark ? MgColors.onDarkLead : MgColors.link),
+      RideBadgeKind.trip => (MgColors.ink, MgColors.neon),
+    };
+    final icon = switch (kind) {
+      RideBadgeKind.shared => MgIcons.globe,
+      RideBadgeKind.paused => MgIcons.pause,
+      RideBadgeKind.days => MgIcons.moon,
+      RideBadgeKind.trip => MgIcons.route,
+      _ => null,
     };
     return Container(
       constraints: const BoxConstraints(minHeight: 22),
@@ -158,22 +211,23 @@ class RideBadgeV2 extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(6),
-        border: kind == RideBadgeKind.private && !dark ? Border.all(color: MgColors.line) : null,
+        border: (kind == RideBadgeKind.private || kind == RideBadgeKind.paused) && !dark ? Border.all(color: MgColors.line) : null,
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (kind == RideBadgeKind.live) ...[
           Container(width: 7, height: 7, decoration: const BoxDecoration(color: MgColors.sosDot, shape: BoxShape.circle)),
           const SizedBox(width: 5),
         ],
-        if (kind == RideBadgeKind.shared) ...[
-          MgIcon(MgIcons.globe, size: 12, color: fg),
+        if (icon != null) ...[
+          MgIcon(icon, size: 12, color: fg, stroke: kind == RideBadgeKind.paused ? 2.8 : 2),
           const SizedBox(width: 4),
         ],
+        // Štítek celý (zmenší se), nikdy „TRAVESÍA · 3 d…".
         Flexible(
-          child: Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.2)),
+          child: MgWordFit(
+            minScale: 0.7,
+            child: Text(label, maxLines: 1, softWrap: false, style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.2)),
+          ),
         ),
       ]),
     );
@@ -192,9 +246,12 @@ class RideMetaV2 extends StatelessWidget {
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
         MgIcon(icon, size: 15, color: dark ? MgColors.neon : MgColors.routeGreen),
         const SizedBox(width: 4),
-        Text(text,
-            style: MgType.tab(MgType.small.copyWith(
-                fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
-                color: dark ? MgColors.onDarkBody : (strong ? MgColors.ink : MgColors.body2)))),
+        // Úzká karta + velké písmo: hodnota se zalomí, nikdy nepřeteče.
+        Flexible(
+          child: Text(text,
+              style: MgType.tab(MgType.small.copyWith(
+                  fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
+                  color: dark ? MgColors.onDarkBody : (strong ? MgColors.ink : MgColors.body2)))),
+        ),
       ]);
 }

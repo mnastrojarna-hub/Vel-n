@@ -1,20 +1,17 @@
 // fix:catalog (verify:render) — catalog v2 layout guards at 320 dp and
-// large text: spec tiles 2 × 2 without overflow, caps labels / values never
-// split in half, the mode switch stacks its icon, the grid badge stays in
-// the card, the full card grows instead of clipping and stacks price + CTA,
-// the loyalty-failure note gets the full row.
+// large text: caps labels / values never split in half, the mode switch
+// stacks its icon, the full card grows instead of clipping and stacks
+// price + CTA, the loyalty-failure note gets the full row.
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:motogo_app/core/v2/motion/mg_anim.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode_switch_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_price.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_specs_v2.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_trip_card_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
-import 'package:motogo_app/features/catalog/v2/moto_card_grid_v2.dart';
 
 import '../support/fakes_catalog.dart';
 import '../support/v2_harness.dart';
@@ -47,19 +44,6 @@ void main() {
     registerCatalogStrings();
   });
 
-  testWidgets('spec tiles: 2 × 2 at 320 dp, 4 in a row at 412, never overflow', (t) async {
-    for (final (w, lang, cols) in [(288.0, 'en', 2), (288.0, 'cs', 2), (380.0, 'en', 4)]) {
-      await pumpV2(t, _scaled(1, w, DetailKeyTilesV2(moto: kBmw)), lang: lang, size: Size(w + 32, 780), reducedMotion: true);
-      await t.pump(const Duration(milliseconds: 600));
-      expect(t.takeException(), isNull, reason: '$lang $w');
-      final tiles = find.descendant(of: find.byType(DetailKeyTilesV2), matching: find.byType(MgReveal));
-      expect(tiles, findsNWidgets(4));
-      final tops = {for (var i = 0; i < 4; i++) t.getRect(tiles.at(i)).top.round()};
-      expect(tops.length, 4 ~/ cols, reason: '$lang $w');
-      if (montserratLoaded) _expectWholeWords(t, find.byType(DetailKeyTilesV2));
-    }
-  });
-
   testWidgets('all parameters: a long caps label spans the full row', (t) async {
     const specs = [MapEntry('Rijbewijscategorie', 'A2'), MapEntry('Koppel', '62 Nm'), MapEntry('Gewicht', '199 kg')];
     await pumpV2(t, _scaled(1.3, 288, const DetailAllParamsV2(specs: specs)), lang: 'nl', size: const Size(320, 690));
@@ -78,26 +62,6 @@ void main() {
       await t.pump(const Duration(milliseconds: 400));
       expect(t.takeException(), isNull, reason: '$lang $scale');
       if (montserratLoaded) _expectWholeWords(t, find.byType(CatalogModeSwitchV2));
-    }
-  });
-
-  testWidgets('grid card: a long availability badge wraps inside the card', (t) async {
-    const price = CatCardPrice(label: 'od', value: '2 727 Kč', unit: '/den', sub: '', grid: 'od 2 727 Kč/den');
-    for (final lang in ['de', 'pl', 'uk']) {
-      await pumpV2(
-        t,
-        // The list pairs cards in an IntrinsicHeight row (the card body is
-        // Expanded) — same here.
-        _scaled(1.3, 136,
-            IntrinsicHeight(child: MotoCardGridV2(moto: kBmw, price: price, availability: 'Frei in deinem Zeitraum', onOpen: () {}))),
-        lang: lang,
-        size: const Size(320, 690),
-      );
-      expect(t.takeException(), isNull);
-      final card = t.getRect(find.byType(MotoCardGridV2));
-      final badge = t.getRect(find.text('Frei in deinem Zeitraum'));
-      expect(badge.right, lessThanOrEqualTo(card.right - 8 + 0.5));
-      if (montserratLoaded) _expectWholeWords(t, find.text('Frei in deinem Zeitraum'));
     }
   });
 
@@ -133,7 +97,6 @@ void main() {
             hasDates: false,
             dayCount: 0,
             listTotal: 0,
-            quote: null,
             calendarExpanded: false,
             onToggleCalendar: () {},
             onRangeSelected: (_, __) {},

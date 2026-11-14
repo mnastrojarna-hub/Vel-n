@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -8,6 +9,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'profile_booking_fix_v2.dart';
 import 'profile_fit.dart';
 import 'profile_personal_form_v2.dart';
 import 'profile_v2_parts.dart';
@@ -54,12 +56,18 @@ class PfFormData {
 /// "Osobní údaje" white card (V21 §1.2): summary of the saved profile with
 /// amber "Doplnit" for empty values, "Upravit" = today's toggle (incl. its
 /// "still loading / load failed" guard) that expands the SAME inline form.
+/// [fixBack] (opened from the booking form, profile_booking_fix_v2.dart):
+/// the booking banner on top, required fields marked, "Zpět k rezervaci".
 class ProfilePersonalV2 extends StatelessWidget {
   final Map<String, dynamic>? profile;
   final bool ready;
   final bool expanded;
   final VoidCallback onToggle;
   final PfFormData form;
+  final VoidCallback? fixBack;
+  final Key? bannerKey;
+  final Key? addressKey;
+  final Key? docsKey;
   const ProfilePersonalV2({
     super.key,
     required this.profile,
@@ -67,6 +75,10 @@ class ProfilePersonalV2 extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     required this.form,
+    this.fixBack,
+    this.bannerKey,
+    this.addressKey,
+    this.docsKey,
   });
 
   @override
@@ -93,13 +105,34 @@ class ProfilePersonalV2 extends StatelessWidget {
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [head, const SizedBox(height: 8), button]);
         }),
         const SizedBox(height: 12),
-        PfAnimatedSize(
-          child: open
-              ? MgEnter(child: ProfilePersonalFormV2(data: form))
-              : (profile == null ? const _SummarySkeleton() : _Summary(profile: profile!, form: form)),
-        ),
+        PfAnimatedSize(child: _body(open)),
       ]),
     );
+  }
+
+  Widget _body(bool open) {
+    final back = fixBack;
+    final Widget body = open
+        ? MgEnter(
+            child: back == null
+                ? ProfilePersonalFormV2(data: form)
+                : Consumer(builder: (context, ref, _) {
+                    final fix = pfBookingFix(context, ref);
+                    return ProfilePersonalFormV2(
+                      data: form,
+                      fix: true,
+                      fixLicence: pfNeedsLicence(ref),
+                      expiryNote: fix?.kind == PfFixKind.expired ? fix!.text : null,
+                      groupNote: fix?.kind == PfFixKind.group ? fix!.text : null,
+                      addressKey: addressKey,
+                      docsKey: docsKey,
+                      afterSave: PfBookingFixReturnV2(onBack: back),
+                    );
+                  }),
+          )
+        : (profile == null ? const _SummarySkeleton() : _Summary(profile: profile!, form: form, onFill: onToggle));
+    if (back == null || !ready) return body;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [PfBookingFixBannerV2(key: bannerKey, onBack: back), body]);
   }
 }
 
@@ -140,7 +173,10 @@ class _EditButton extends StatelessWidget {
 class _Summary extends StatelessWidget {
   final Map<String, dynamic> profile;
   final PfFormData form;
-  const _Summary({required this.profile, required this.form});
+
+  /// R3-06: an empty value's "Doplnit" = the card's "Upravit" (same call).
+  final VoidCallback onFill;
+  const _Summary({required this.profile, required this.form, required this.onFill});
 
   String? _s(String k) {
     final v = profile[k];
@@ -158,7 +194,7 @@ class _Summary extends StatelessWidget {
       _s('country'),
     ].whereType<String>().where((e) => e.trim().isNotEmpty).join(', ');
     _Field f(String label, String? value, {bool wide = false, bool lock = false}) =>
-        _Field(label: label, value: value, fill: tr.tr('v2PfFill'), lock: lock, wide: wide);
+        _Field(label: label, value: value, fill: tr.tr('v2PfFill'), lock: lock, wide: wide, onFill: lock ? null : onFill);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       f(tr.tr('fullNameLabel'), _s('full_name'), wide: true),
       f(tr.email, _s('email'), wide: true, lock: true),
@@ -166,15 +202,26 @@ class _Summary extends StatelessWidget {
       f(tr.tr('v2PfAddress'), addr.isEmpty ? null : addr, wide: true),
       _Pair(f(tr.tr('idNumberFull'), _s('id_number')), f(tr.tr('licenseNumberFull'), _s('license_number'))),
       f(tr.tr('licenseExpiry'), pfDate(profile['license_expiry']), wide: true),
-      Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(tr.tr('licenseCategory'), style: MgType.meta.copyWith(color: MgColors.meta)),
-      ),
-      const SizedBox(height: 6),
-      Wrap(spacing: 6, runSpacing: 6, children: [
-        for (final c in form.licOptions) PfLicenceChip(label: c, on: form.licCategories.contains(c)),
-      ]),
+      // K4-06: no category yet → an amber "Doplnit" like the other empty
+      // values, and the chips open the same form (the card's own toggle).
+      if (form.licCategories.isEmpty)
+        f(tr.tr('licenseCategory'), null, wide: true)
+      else
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(tr.tr('licenseCategory'), style: MgType.meta.copyWith(color: MgColors.meta)),
+        ),
+      if (form.licCategories.isNotEmpty) const SizedBox(height: 6),
+      _chips(),
     ]);
+  }
+
+  Widget _chips() {
+    final row = Wrap(spacing: 6, runSpacing: 6, children: [
+      for (final c in form.licOptions) PfLicenceChip(label: c, on: form.licCategories.contains(c)),
+    ]);
+    if (form.licCategories.isNotEmpty) return row;
+    return Semantics(button: true, child: MgPress(key: const ValueKey('pf-fill-cats'), onTap: onFill, child: row));
   }
 }
 
@@ -204,7 +251,15 @@ class _Field extends StatelessWidget {
   final String fill;
   final bool lock;
   final bool wide;
-  const _Field({required this.label, required this.value, required this.fill, this.lock = false, this.wide = false});
+  final VoidCallback? onFill;
+  const _Field({
+    required this.label,
+    required this.value,
+    required this.fill,
+    this.lock = false,
+    this.wide = false,
+    this.onFill,
+  });
 
   TextStyle get _valueStyle => value == null
       ? MgType.body.copyWith(
@@ -222,7 +277,7 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final field = Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: MergeSemantics(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -233,6 +288,17 @@ class _Field extends StatelessWidget {
             if (lock) ...[const SizedBox(width: 6), const MgIcon(MgIcons.lock, size: 16, color: MgColors.meta)],
           ]),
         ]),
+      ),
+    );
+    final fillTap = onFill;
+    if (value != null || fillTap == null) return field;
+    // The whole field (label + value + gap, ≥ 44 px) opens the same form.
+    return Semantics(
+      button: true,
+      child: MgPress(
+        key: ValueKey('pf-fill-$label'),
+        onTap: fillTap,
+        child: ConstrainedBox(constraints: const BoxConstraints(minHeight: 44), child: field),
       ),
     );
   }

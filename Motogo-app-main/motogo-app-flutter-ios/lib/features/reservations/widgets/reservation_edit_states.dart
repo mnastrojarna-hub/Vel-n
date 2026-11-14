@@ -7,6 +7,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/paid_change_queue.dart';
 import '../../../core/payment_pending_marker.dart';
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_states_v2.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
 import '../../payment/net_error.dart';
 import '../../payment/widgets/payment_error_sheet.dart';
@@ -24,6 +26,8 @@ class EditStateScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
+    // v2 vzhled (kill-switch app_v2_ui): stejné zpět, chyba i Zkusit znovu.
+    if (MgV2.on(context)) return EditStateV2(onBack: onBack, error: error, onRetry: onRetry);
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: Column(children: [
@@ -117,6 +121,21 @@ void showEditFailure(BuildContext context, Object e,
   );
 }
 
+/// Zápis úpravy prošel bez chyby, ale rezervace má pořád původní termín,
+/// motorku i cenu (pojistka ceny zaplacené rezervace ho tiše vrátila —
+/// např. +1 den a zároveň levnější přistavení). Nic se nestrhlo ani
+/// nevrátilo; poradit, jak změnu provést ([onReload] načte rezervaci).
+void showEditPinned(BuildContext context, {required VoidCallback onReload}) {
+  final tr = t(context);
+  PaymentErrorSheet.show(
+    context,
+    title: tr.tr('psEditFailTitle'),
+    message: tr.tr('fxEditPinned'),
+    buttonLabel: tr.tr('psReload'),
+    onButton: onReload,
+  );
+}
+
 /// Odpověď na uložení se ztratila a stav nejde ověřit (pořád bez spojení) —
 /// změna se možná uložila. Žádné „nic se nezměnilo" ani slepé opakování:
 /// nejdřív načíst aktuální stav rezervace ([onReload]).
@@ -129,6 +148,19 @@ void showEditUncertain(BuildContext context, {required VoidCallback onReload}) {
     buttonLabel: tr.tr('psReload'),
     onButton: onReload,
   );
+}
+
+/// Vratka za zkrácení / levnější motorku (`process-refund`) proběhla jen
+/// ČÁSTEČNĚ: server vrací `partial: true` nebo `amount_refunded` menší než
+/// požadovaná částka (zákazníkovi se automaticky vrací jen ověřený přeplatek,
+/// zbytek dokončí obsluha — oprava 2026-10-22). Pak se celá částka neslibuje
+/// (`pdRefundManual`). Rozdíl do 1 Kč = zaokrouhlení ceny na haléře — server
+/// ho obsluze nehlásí (stejná tolerance jako `partial` na serveru).
+bool refundFellShort(Object? data, num requested) {
+  if (data is! Map) return false;
+  if (data['partial'] == true) return true;
+  final got = data['amount_refunded'];
+  return got is num && got + 1.005 < requested;
 }
 
 /// Předchozí doplatek této rezervace se ještě ověřuje (značka „platba

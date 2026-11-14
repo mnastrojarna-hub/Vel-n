@@ -3,6 +3,9 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../moto_model.dart';
 import '../../../core/date_days.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/motion/mg_haptic.dart';
+import '../v2/availability_calendar_v2.dart';
 
 /// Interactive availability calendar — mirrors genCal() + pickS/pickD
 /// from booking-search-cal.js and router.js.
@@ -17,8 +20,13 @@ class AvailabilityCalendar extends StatefulWidget {
   final bool readOnly;
   final bool showLegend;
 
+  /// Ceník motorky po dnech — jen v2 vzhled ukáže cenu pod volným dnem
+  /// (jen zobrazení, výpočet ceny beze změny); starý vzhled ji ignoruje.
+  final DayPrices? dayPrices;
+
   const AvailabilityCalendar({
     super.key,
+    this.dayPrices,
     this.bookedDates = const [],
     this.selectedStart,
     this.selectedEnd,
@@ -40,6 +48,11 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   int _step = 1; // 1 = select start, 2 = select end
   DateTime? _start;
   DateTime? _end;
+
+  /// v2 (CB-24, V22 §3.3): first booked day of a refused range + attempt
+  /// counter (shakes the inline note again). Display only.
+  DateTime? _blockedDay;
+  int _blockedTry = 0;
 
   List<String> _getDayLabels(BuildContext context) => [
     t(context).tr('calMon'), t(context).tr('calTue'), t(context).tr('calWed'),
@@ -102,6 +115,7 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
 
   void _onDayTap(DateTime date) {
     if (widget.readOnly) return;
+    final v2 = MgV2.on(context);
     if (_isPast(date) || _isOccupied(date)) return;
 
     widget.onDateTap?.call(date);
@@ -120,10 +134,12 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         widget.onReset?.call();
         return;
       }
+      if (v2) MgHaptic.select();
       setState(() {
         _start = date;
         _end = null;
         _step = 2;
+        _blockedDay = null;
       });
       widget.onStartSelected?.call(date);
     } else {
@@ -132,6 +148,14 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
       var d = _start!;
       while (!d.isAfter(date)) {
         if (_isOccupied(d)) {
+          // v2: inline T3 note under the grid (shakes), start kept.
+          if (v2) {
+            setState(() {
+              _blockedDay = d;
+              _blockedTry++;
+            });
+            return;
+          }
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(t(context).tr('calRangeOccupied')),
             duration: const Duration(seconds: 2),
@@ -140,9 +164,11 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         }
         d = nextCalendarDay(d);
       }
+      if (v2) MgHaptic.select();
       setState(() {
         _end = date;
         _step = 1;
+        _blockedDay = null;
       });
       widget.onRangeSelected?.call(_start!, date);
     }
@@ -164,6 +190,29 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejný stav i obsluha klepnutí
+    // (_onDayTap, _prevMonth, _nextMonth) — jen jednotný pás termínu.
+    if (MgV2.on(context)) {
+      return AvailabilityCalendarV2View(
+        year: _year,
+        month: _month,
+        start: _start,
+        end: _end,
+        step: _step,
+        readOnly: widget.readOnly,
+        showLegend: widget.showLegend,
+        isPast: _isPast,
+        isOccupied: _isOccupied,
+        isUnconfirmed: _isUnconfirmed,
+        isToday: _isToday,
+        onDayTap: _onDayTap,
+        onPrevMonth: _prevMonth,
+        onNextMonth: _nextMonth,
+        dayPrices: widget.dayPrices,
+        blockedDay: _step == 2 ? _blockedDay : null,
+        blockedTry: _blockedTry,
+      );
+    }
     final daysInMonth = DateTime(_year, _month + 1, 0).day;
     final firstWeekday = DateTime(_year, _month, 1).weekday; // 1=Mon
     final offset = firstWeekday - 1;

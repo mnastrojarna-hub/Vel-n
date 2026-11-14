@@ -8,14 +8,25 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/date_dropdown_field.dart';
 import 'auth_error_mapper.dart';
 import 'auth_provider.dart';
+import 'widgets/register_name_row.dart';
 import 'widgets/toast_helper.dart';
 import '../../core/widgets/mg_back.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/widgets/error_feedback.dart' show confirmDiscard;
+import '../../core/v2/widgets/mg_back_v2.dart' show MgBackStyle;
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/gestures/mg_edge_back.dart';
+import '../../core/v2/motion/mg_motion.dart';
+import 'v2/login_states_v2.dart';
+import 'v2/register_view_v2.dart';
+import 'v2/welcome_overlay_v2.dart';
 
 /// 3-step registration — mirrors auth-register.js (regStep 1/2/3).
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  /// E-mail napsaný na přihlášení (`/register?email=…`) — nepíše se znovu.
+  final String? initialEmail;
+  const RegisterScreen({super.key, this.initialEmail});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -53,12 +64,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _consentVop = false;
   bool _consentGdpr = false;
 
+  // v2: chyba přímo u pole + posun k němu (Stavy 18.9) — validace beze změny.
+  final Map<String, String> _v2Errors = {};
+  final Map<String, GlobalKey> _v2Keys = {};
+  GlobalKey _v2Key(String field) => _v2Keys.putIfAbsent(field, () => GlobalKey());
+
+  /// Neplatné pole: v1 stejný toast jako dřív; v2 červené pole + hláška
+  /// pod ním (tykání [v2Key]) a posun obrazovky k poli. Vždy `false`.
+  bool _invalid(String field, String title, String message, [String? v2Key]) {
+    if (!MgV2.peek(context)) {
+      showMotoGoToast(context, icon: '⚠️', title: title, message: message);
+      return false;
+    }
+    setState(() => _v2Errors[field] = v2Key == null ? message : t(context).tr(v2Key));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = _v2Keys[field]?.currentContext;
+      if (c == null || !mounted) return;
+      Scrollable.ensureVisible(c,
+          alignment: 0.15,
+          duration: MgMotion.of(context, MgMotion.sticky),
+          curve: MgMotion.emphasized);
+    });
+    return false;
+  }
+
+  void _v2Edited(String field) {
+    if (_v2Errors.remove(field) != null) setState(() {});
+  }
+
   /// Krok 1 má vyplněné údaje → odchod z registrace jen po potvrzení
   /// (systémové zpět / swipe / šipka by je jinak potichu zahodily).
+  /// Převzatý e-mail z přihlášení není „rozepsaný“ údaj (zůstává i tam).
   bool get _dirty =>
       _step > 1 ||
-      [_fnameCtrl, _lnameCtrl, _emailCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]
+      [_fnameCtrl, _lnameCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]
           .any((c) => c.text.trim().isNotEmpty) ||
+      _emailCtrl.text.trim() != (widget.initialEmail?.trim() ?? '') ||
       _phoneCtrl.text.replaceAll(' ', '') != '+420';
   bool _wasDirty = false;
 
@@ -70,6 +111,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
+    _emailCtrl.text = widget.initialEmail?.trim() ?? '';
     for (final c in [_fnameCtrl, _lnameCtrl, _emailCtrl, _phoneCtrl, _passCtrl, _passConfirmCtrl, _dobCtrl]) {
       c.addListener(_onFieldChanged);
     }
@@ -115,7 +157,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   /// Existující e-mail → vysvětlení + rovnou cesta na přihlášení.
+  /// Přihlášení s e-mailem z registrace (nepíše se znovu).
+  void _goLoginWithEmail() {
+    final e = _emailCtrl.text.trim();
+    context.go(e.isEmpty
+        ? Routes.login
+        : Uri(path: Routes.login, queryParameters: {'email': e}).toString());
+  }
+
   Future<void> _showEmailTakenDialog(AuthErrorInfo info) {
+    if (MgV2.peek(context)) return showEmailTakenV2(context, info, onLogin: _goLoginWithEmail);
     return showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -130,7 +181,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.go(Routes.login);
+              // E-mail jde s sebou — na přihlášení se nepíše znovu.
+              final e = _emailCtrl.text.trim();
+              context.go(e.isEmpty
+                  ? Routes.login
+                  : Uri(path: Routes.login, queryParameters: {'email': e}).toString());
             },
             child: Text(t(context).login,
                 style: const TextStyle(
@@ -196,99 +251,84 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final dob = _dobCtrl.text.trim();
 
     if (!_isNameValid(fname)) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('firstName'),
-          message: t(context).tr('validNameMsg'));
-      return false;
+      return _invalid('fname', t(context).tr('firstName'),
+          t(context).tr('validNameMsg'), 'v2UxAsmErrName');
     }
     if (!_isNameValid(lname)) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('lastName'),
-          message: t(context).tr('validSurnameMsg'));
-      return false;
+      return _invalid('lname', t(context).tr('lastName'),
+          t(context).tr('validSurnameMsg'), 'v2UxAsmErrSurname');
     }
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).email,
-          message: t(context).tr('validEmailMsg'));
-      return false;
+      return _invalid('email', t(context).email,
+          t(context).tr('validEmailMsg'), 'v2UxAsmErrEmail');
     }
     final digits = phone.replaceAll(RegExp(r'[\s\-()]'), '');
     if (!RegExp(r'^\+\d{8,14}$').hasMatch(digits)) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('phone'),
-          message: t(context).tr('validPhoneMsg'));
-      return false;
+      return _invalid('phone', t(context).tr('phone'),
+          t(context).tr('validPhoneMsg'), 'efoPhoneErr');
     }
     // DOB: required, 18-99 years — mirrors auth-register.js
     final dobDate = _parseCzDate(dob);
     if (dobDate == null) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('dob'),
-          message: t(context).tr('selectDob'));
-      return false;
+      return _invalid('dob', t(context).tr('dob'),
+          t(context).tr('selectDob'), 'v2UxAsmErrDob');
     }
     final today = DateTime.now();
     var age = today.year - dobDate.year;
     final mDiff = today.month - dobDate.month;
     if (mDiff < 0 || (mDiff == 0 && today.day < dobDate.day)) age--;
     if (age < 18) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('dob'),
-          message: t(context).tr('mustBe18'));
-      return false;
+      return _invalid('dob', t(context).tr('dob'),
+          t(context).tr('mustBe18'), 'v2UxAsmErr18');
     }
     if (age > 99 || dobDate.isAfter(today)) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('dob'),
-          message: t(context).tr('validDobMsg'));
-      return false;
+      return _invalid('dob', t(context).tr('dob'),
+          t(context).tr('validDobMsg'), 'v2UxAsmErrDobInvalid');
     }
     if (pass.length < 8) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).password,
-          message: t(context).tr('passwordMinLengthMsg'));
-      return false;
+      return _invalid('pass', t(context).password,
+          t(context).tr('passwordMinLengthMsg'));
     }
     if (pass != _passConfirmCtrl.text) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).password,
-          message: t(context).tr('passwordsDoNotMatch'));
-      return false;
+      return _invalid('pass2', t(context).password,
+          t(context).tr('passwordsDoNotMatch'));
     }
     return true;
   }
 
   bool _validateStep2() {
     if (_cityCtrl.text.trim().length < 2) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('city'),
-          message: t(context).tr('validCityMsg'));
-      return false;
+      return _invalid('city', t(context).tr('city'),
+          t(context).tr('validCityMsg'), 'v2UxAsmErrCity');
     }
     if (_streetCtrl.text.trim().length < 3) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('street'),
-          message: t(context).tr('validStreetMsg'));
-      return false;
+      return _invalid('street', t(context).tr('street'),
+          t(context).tr('validStreetMsg'), 'v2UxAsmErrStreet');
     }
     return true;
   }
 
   bool _validateStep3() {
     if (_licNumCtrl.text.trim().length < 4) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('licenseNumber'),
-          message: t(context).tr('validLicenseNumberMsg'));
-      return false;
+      return _invalid('licNum', t(context).tr('licenseNumber'),
+          t(context).tr('validLicenseNumberMsg'));
     }
     final licExpDate = _parseCzDate(_licExpiryCtrl.text.trim());
     if (licExpDate == null) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('licenseExpiry'),
-          message: t(context).tr('selectLicenseExpiry'));
-      return false;
+      return _invalid('licExp', t(context).tr('licenseExpiry'),
+          t(context).tr('selectLicenseExpiry'), 'v2UxAsmErrLicExp');
     }
     // Must be valid at least 14 days from today — mirrors auth-register.js
     final minExpiry = DateTime.now().add(const Duration(days: 14));
     final minDate = DateTime(minExpiry.year, minExpiry.month, minExpiry.day);
     if (licExpDate.isBefore(minDate)) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('licenseExpiry'),
-          message: t(context).tr('licenseMinValid'));
-      return false;
+      return _invalid('licExp', t(context).tr('licenseExpiry'),
+          t(context).tr('licenseMinValid'));
     }
     // Povinné souhlasy — bez VOP a zpracování osobních údajů registraci nedokončíme.
     if (!_consentVop || !_consentGdpr) {
-      showMotoGoToast(context, icon: '⚠️', title: t(context).tr('regConsentTitle'),
-          message: t(context).tr('consentRequiredMsg'));
-      return false;
+      return _invalid('consent', t(context).tr('regConsentTitle'),
+          t(context).tr('consentRequiredMsg'));
     }
     return true;
   }
@@ -347,6 +387,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Konkrétní titulek i návod přímo z mapperu — místo holého „Chyba
       // registrace" zákazník vidí, CO je špatně a co s tím. Delší zobrazení,
       // aby se stihl text dočíst (a případně nahlásit).
+      if (MgV2.peek(context)) {
+        await showAuthErrorV2(context, title: error.title, why: error.message);
+        return;
+      }
       showMotoGoToast(context,
           icon: '✗',
           title: error.title,
@@ -355,11 +399,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } else {
       // Uvítací oslava (motorka + jiskry) místo pouhého toastu — první dojem
       // z appky. Po doběhnutí/tapnutí pokračujeme na domovskou obrazovku.
-      await MotoWelcomeOverlay.show(
-        context,
-        title: t(context).tr('registerComplete'),
-        subtitle: t(context).tr('welcomeToMotoGo'),
-      );
+      if (MgV2.peek(context)) {
+        await showWelcomeOverlayV2(context);
+      } else {
+        await MotoWelcomeOverlay.show(
+          context,
+          title: t(context).tr('registerComplete'),
+          subtitle: t(context).tr('welcomeToMotoGo'),
+        );
+      }
       if (!mounted) return;
       context.go(Routes.home);
     }
@@ -395,8 +443,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildScaffold(BuildContext context) {
-    return Scaffold(
-      backgroundColor: MotoGoColors.bg,
+    if (MgV2.on(context)) {
+      // iOS: hrana obrazovky = stejný krok zpět jako šipka (stránka je
+      // hlídaná PopScope, systémové gesto by jinak nedělalo nic).
+      return MgEdgeBack(
+        enabled: !(_step == 1 && !_dirty),
+        onBack: _back,
+        child: RegisterViewV2(m: RegisterV2Model(
+          step: _step,
+          loading: _loading,
+          forward: _goingForward,
+          ctrl: {
+            'fname': _fnameCtrl, 'lname': _lnameCtrl, 'email': _emailCtrl, 'phone': _phoneCtrl,
+            'pass': _passCtrl, 'pass2': _passConfirmCtrl, 'dob': _dobCtrl,
+            'street': _streetCtrl, 'zip': _zipCtrl, 'city': _cityCtrl, 'country': _countryCtrl,
+            'idNum': _idNumCtrl, 'licNum': _licNumCtrl, 'licExp': _licExpiryCtrl,
+          },
+          licGroup: _licGroup,
+          onLic: (v) => setState(() => _licGroup = v),
+          consentVop: _consentVop,
+          consentGdpr: _consentGdpr,
+          onVop: (v) => setState(() {
+            _consentVop = v;
+            _v2Errors.remove('consent');
+          }),
+          onGdpr: (v) => setState(() {
+            _consentGdpr = v;
+            _v2Errors.remove('consent');
+          }),
+          errors: _v2Errors,
+          keyFor: _v2Key,
+          onEdited: _v2Edited,
+          onBack: _back,
+          onNext: _loading ? () {} : _next,
+        )),
+      );
+    }
+    // Root route on the v2 canvas (SafeArea: the status bar lies on it) →
+    // dark icons in v2 whatever the previous page declared.
+    return mgV1StatusBar(context, dark: false, child: Scaffold(
+      backgroundColor: mgV1PageColor(context, MotoGoColors.bg),
       body: SafeArea(
         child: Column(
           children: [
@@ -405,7 +491,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  MgBackTap(
+                  mgV1Back(context, onTap: _back, style: MgBackStyle.light, v1: MgBackTap(
                     onTap: _back,
                     child: PressableScale(
                       pressedScale: 0.88,
@@ -430,13 +516,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     ),
-                  ),
+                  )),
                   const SizedBox(width: 10),
-                  Text(
-                    t(context).tr('registerTitle'),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        t(context).tr('registerTitle'),
+                        maxLines: 1,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black),
+                      ),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   // „Krok X/3" — jasná orientace v průvodci.
                   Text('${_step}/3',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: MotoGoColors.greenDark)),
@@ -531,7 +624,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildStep() {
@@ -561,12 +654,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       const SizedBox(height: 2),
       Text(t(context).tr('regStep1Subtitle'), style: const TextStyle(fontSize: 12, color: MotoGoColors.g400)),
       const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(child: TextField(controller: _fnameCtrl, decoration: InputDecoration(labelText: t(context).tr('firstName')), autofillHints: const [AutofillHints.givenName])),
-          const SizedBox(width: 9),
-          Expanded(child: TextField(controller: _lnameCtrl, decoration: InputDecoration(labelText: t(context).tr('lastName')), autofillHints: const [AutofillHints.familyName])),
-        ],
+      RegisterNameRow(
+        labels: [t(context).tr('firstName'), t(context).tr('lastName')],
+        first: TextField(controller: _fnameCtrl, decoration: InputDecoration(labelText: t(context).tr('firstName')), autofillHints: const [AutofillHints.givenName]),
+        last: TextField(controller: _lnameCtrl, decoration: InputDecoration(labelText: t(context).tr('lastName')), autofillHints: const [AutofillHints.familyName]),
       ),
       const SizedBox(height: 9),
       TextField(controller: _emailCtrl, decoration: InputDecoration(labelText: t(context).email), keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email]),

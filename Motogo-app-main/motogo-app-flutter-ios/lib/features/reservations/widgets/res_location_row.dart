@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_location_v2.dart';
 
 /// Location row widget showing pickup/return location with optional navigation.
 class ResLocationRow extends StatelessWidget {
@@ -12,6 +14,9 @@ class ResLocationRow extends StatelessWidget {
   final double? lng;
   final String? fallbackAddress;
 
+  /// Jen v2 vzhled: „pá 16. 10. · 12:00" nad adresou (v1 ho nezobrazuje).
+  final String? when;
+
   const ResLocationRow({
     super.key,
     required this.label,
@@ -20,9 +25,14 @@ class ResLocationRow extends StatelessWidget {
     this.lat,
     this.lng,
     this.fallbackAddress,
+    this.when,
   });
 
-  Future<void> _openNavigation() async {
+  Future<void> _openNavigation() => openNavigation(lat: lat, lng: lng, fallbackAddress: fallbackAddress);
+
+  /// Navigace řádku (GPS, jinak hledání adresy) — sdílí ji i v2 CO TEĎ a
+  /// dlaždice detailu, aby „Navigovat" všude dělalo totéž.
+  static Future<void> openNavigation({double? lat, double? lng, String? fallbackAddress}) async {
     // Try GPS coordinates first, then fall back to address search
     Uri? uri;
     if (lat != null && lng != null) {
@@ -34,8 +44,8 @@ class ResLocationRow extends StatelessWidget {
         uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
-    } else if (fallbackAddress != null && fallbackAddress!.isNotEmpty) {
-      final encoded = Uri.encodeComponent(fallbackAddress!);
+    } else if (fallbackAddress != null && fallbackAddress.isNotEmpty) {
+      final encoded = Uri.encodeComponent(fallbackAddress);
       uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -48,6 +58,19 @@ class ResLocationRow extends StatelessWidget {
     final displayAddress = address ?? '–';
     final hasNavTarget = (lat != null && lng != null) ||
         (fallbackAddress != null && fallbackAddress!.isNotEmpty);
+
+    // v2 vzhled (kill-switch app_v2_ui): stejná navigace, stejné údaje.
+    if (MgV2.on(context)) {
+      return ResLocationV2(
+        label: label,
+        when: when,
+        typeLabel: typeLabel,
+        address: displayAddress == '–' ? null : displayAddress,
+        isDelivery: isDelivery,
+        onNavigate: hasNavTarget ? _openNavigation : null,
+        navLabel: '${t(context).tr('v2ResNavigate')} · $label',
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

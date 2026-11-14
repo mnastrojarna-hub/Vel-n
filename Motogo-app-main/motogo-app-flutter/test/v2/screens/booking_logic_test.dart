@@ -38,7 +38,7 @@ Future<ProviderContainer> _pumpRouted(WidgetTester tester, List<Override> overri
   final router = GoRouter(initialLocation: '/booking', routes: [
     GoRoute(path: '/booking', builder: (_, __) => const Scaffold(body: BookingDebugWrapper())),
     GoRoute(path: '/payment', builder: (_, __) => stub('PAYMENT')),
-    GoRoute(path: '/profile', builder: (_, __) => stub('PROFILE')),
+    GoRoute(path: '/profile', builder: (_, s) => stub(s.uri.query.isEmpty ? 'PROFILE' : 'PROFILE ?${s.uri.query}')),
     GoRoute(path: '/search', builder: (_, __) => stub('SEARCH')),
     GoRoute(path: '/moto/:id', builder: (_, s) => stub('MOTO ${s.pathParameters['id']}')),
   ]);
@@ -75,7 +75,8 @@ Future<ProviderContainer> _pumpRouted(WidgetTester tester, List<Override> overri
 }
 
 Future<void> _tap(WidgetTester t, Finder f) async {
-  await t.ensureVisible(f);
+  // Mid-viewport: at the top edge it would sit under the pinned back bar.
+  await Scrollable.ensureVisible(t.element(f), alignment: 0.4);
   await t.pump();
   await t.tap(f, warnIfMissed: false);
   await t.pump();
@@ -182,26 +183,28 @@ void main() {
   testWidgets('note toggles open and writes notes', (t) async {
     final c = await _pumpRouted(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
     expect(find.byType(TextField), findsNothing);
-    await _tap(t, find.text('Poznámka k rezervaci (nepovinné)'));
+    // CB-11 express: the note starts as the "Poznámka" pill (same toggle).
+    await _tap(t, find.text('Poznámka'));
     expect(find.byType(TextField), findsOneWidget);
     await t.enterText(find.byType(TextField), '  Přijedu autem  ');
     await t.pump();
     expect(c.read(bookingDraftProvider).notes, 'Přijedu autem');
   });
 
-  testWidgets('incomplete profile → "Doplnit v profilu" pushes /profile', (t) async {
+  testWidgets('incomplete profile → "Doplnit v profilu" pushes /profile?edit=personal (R3-02 guidance)', (t) async {
     await _pumpRouted(
         t,
         bookingOverrides(
             moto: kBmw, draft: bookingDraft(kBmw), profile: const {'license_group': ['A'], 'street': '', 'city': '', 'zip': ''}));
     expect(t.widget<MgCta>(find.byType(MgCta)).enabled, isFalse);
     await _tap(t, find.text('Doplnit v profilu'));
-    expect(find.text('PROFILE'), findsOneWidget);
+    expect(find.text('PROFILE ?edit=personal'), findsOneWidget);
   });
 
   testWidgets('back without history → bike detail (old target)', (t) async {
     await _pumpRouted(t, bookingOverrides(moto: kBmw, draft: bookingDraft(kBmw)));
-    await _tap(t, find.byType(MgV2Back));
+    // Header disc or the pinned one (scrolled by the express opener): same back.
+    await _tap(t, find.byType(MgV2Back).first);
     expect(find.text('MOTO m-bmw'), findsOneWidget);
   });
 }

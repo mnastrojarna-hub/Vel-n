@@ -1,9 +1,14 @@
 // Kill-switch `app_v2_ui` (PLAN §3): row absent / true → ON, false → OFF,
 // fetch error → last cached value; a change never lands mid-payment or
 // inside a focused flow — only on a tab root (or at the next cold start).
+// A tab root is safe only as the ONLY page of the stack and without a query:
+// the booking form pushes `/profile?edit=personal` over `/booking`.
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/feature_flags.dart';
+import 'package:motogo_app/core/v2/flag/v2_gate.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,7 +45,8 @@ void main() {
     paying = true;
     expect(n.applyPendingIfSafe('/'), isFalse, reason: 'payment running');
     paying = false;
-    expect(n.applyPendingIfSafe('/reservations?x=1'), isTrue);
+    expect(n.applyPendingIfSafe('/profile?edit=personal'), isFalse, reason: 'tab root with a query = opened from a flow');
+    expect(n.applyPendingIfSafe('/reservations'), isTrue);
     expect(n.state, isFalse);
     expect(n.pending, isNull);
   });
@@ -64,6 +70,83 @@ void main() {
       final n = AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: true)..pending = false;
       expect(n.applyPendingIfSafe(r), isTrue, reason: r);
     }
+  });
+
+  group('safe point vs. the navigation stack (MgV2Gate)', () {
+    /// Shell with the tab roots + `/booking`; pending OFF from the start.
+    Future<(GoRouter, ProviderContainer)> pumpGate(WidgetTester tester, String initial) async {
+      final router = GoRouter(initialLocation: initial, routes: [
+        ShellRoute(builder: (c, s, child) => child, routes: [
+          for (final p in ['/', '/booking', '/profile']) GoRoute(path: p, builder: (_, __) => Text(p)),
+        ]),
+      ]);
+      final container = ProviderContainer(overrides: [
+        appV2UiProvider.overrideWith(
+            (ref) => AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: true)..pending = false),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          theme: ThemeData(useMaterial3: true),
+          builder: (c, child) => MgV2Gate(router: router, child: child!),
+        ),
+      ));
+      await tester.pump();
+      await tester.pump();
+      return (router, container);
+    }
+
+    testWidgets('/profile?edit=personal pushed over /booking is NOT a safe point', (tester) async {
+      final (router, c) = await pumpGate(tester, '/booking');
+      expect(c.read(appV2UiProvider), isTrue, reason: 'inside the booking');
+      router.push('/profile?edit=personal');
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('/profile'), findsOneWidget);
+      expect(c.read(appV2UiProvider), isTrue, reason: 'still mid-booking');
+      expect(c.read(appV2UiProvider.notifier).pending, isFalse);
+      router.pop();
+      await tester.pump();
+      await tester.pump();
+      expect(c.read(appV2UiProvider), isTrue, reason: 'back in the booking form');
+      router.go('/');
+      await tester.pump();
+      await tester.pump();
+      expect(c.read(appV2UiProvider), isFalse, reason: 'Domů as the only page');
+    });
+
+    testWidgets('a plain tab root pushed over another page is NOT a safe point either', (tester) async {
+      final (router, c) = await pumpGate(tester, '/booking');
+      router.push('/profile');
+      await tester.pump();
+      await tester.pump();
+      expect(c.read(appV2UiProvider), isTrue);
+      expect(c.read(appV2UiProvider.notifier).pending, isFalse);
+    });
+
+    testWidgets('a tab root reached by go with a query is NOT a safe point', (tester) async {
+      final (router, c) = await pumpGate(tester, '/booking');
+      router.go('/profile?edit=personal');
+      await tester.pump();
+      await tester.pump();
+      expect(c.read(appV2UiProvider), isTrue);
+    });
+
+    testWidgets('plain /profile as the only page IS a safe point', (tester) async {
+      final (router, c) = await pumpGate(tester, '/booking');
+      router.go('/profile');
+      await tester.pump();
+      await tester.pump();
+      expect(c.read(appV2UiProvider), isFalse);
+      expect(c.read(appV2UiProvider.notifier).pending, isNull);
+    });
+
+    testWidgets('cold start on a plain tab root still applies at once', (tester) async {
+      final (_, c) = await pumpGate(tester, '/profile');
+      expect(c.read(appV2UiProvider), isFalse);
+    });
   });
 
   testWidgets('MgV2Scope: no scope = OFF (old UI), V2Switch picks exactly one', (tester) async {

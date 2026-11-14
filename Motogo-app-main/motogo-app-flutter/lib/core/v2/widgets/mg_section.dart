@@ -53,7 +53,7 @@ class MgSectionHeader extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
-          // „Vše ›" na ose titulku (ne výš) a se šipkou — jako HomeTextLink.
+          // „Vše ›" na ose titulku (ne výš) a se šipkou.
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

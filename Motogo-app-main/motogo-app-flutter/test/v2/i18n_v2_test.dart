@@ -1,5 +1,5 @@
 // v2 strings (PLAN §4.2): every key in all 8 languages, non-empty, same
-// placeholders, `v2` prefix only in the ext_5* files (no override of old
+// placeholders, `v2` prefix only in the ext_5* / ext_60 files (no override of old
 // texts), no emoji, informal Czech.
 import 'dart:io';
 
@@ -16,7 +16,7 @@ Map<String, Set<String>> _v2Files() {
   final out = <String, Set<String>>{};
   for (final f in dir.listSync().whereType<File>()) {
     final name = f.uri.pathSegments.last;
-    if (!RegExp(r'^translations_ext_5\d_').hasMatch(name)) continue;
+    if (!RegExp(r'^translations_ext_(5\d_|60_v2_)').hasMatch(name)) continue;
     out[name] = RegExp(r"^\s+'([A-Za-z0-9_]+)':\s", multiLine: true)
         .allMatches(f.readAsStringSync())
         .map((m) => m.group(1)!)
@@ -46,7 +46,7 @@ void main() {
   test('no v2-prefixed key outside the ext_5* files', () {
     for (final f in Directory('lib/core/i18n').listSync().whereType<File>()) {
       final name = f.uri.pathSegments.last;
-      if (RegExp(r'^translations_ext_5\d_').hasMatch(name)) continue;
+      if (RegExp(r'^translations_ext_(5\d_|60_v2_)').hasMatch(name)) continue;
       expect(RegExp(r"'v2[A-Z]\w*':").hasMatch(f.readAsStringSync()), isFalse, reason: name);
     }
   });

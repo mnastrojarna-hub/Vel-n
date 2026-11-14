@@ -10,6 +10,14 @@ import '../../core/widgets/mg_back.dart';
 import 'auth_provider.dart';
 import 'widgets/toast_helper.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/gestures/mg_edge_back.dart';
+import '../../core/v2/states/mg_state_parts.dart';
+import '../../core/v2/widgets/mg_toast_rich.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import 'v2/login_states_v2.dart';
+import 'v2/reset_view_v2.dart';
 
 /// 3-step password reset flow — mirrors auth-session.js showForgotPassword().
 /// Step 1: Enter email → sends OTP code
@@ -37,6 +45,20 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   bool _obscurePass1 = true;
   bool _obscurePass2 = true;
+
+  // v2: chyby přímo u pole (Stavy 18.10–18.14), pravidla beze změny.
+  final Map<String, String> _v2Errors = {};
+
+  /// v2 = chyba u pole a `true`; v1 = `false` (volající ukáže starý toast).
+  bool _v2Field(String field, String key) {
+    if (!MgV2.peek(context)) return false;
+    setState(() => _v2Errors[field] = t(context).tr(key));
+    return true;
+  }
+
+  void _v2Edited(String field) {
+    if (_v2Errors.remove(field) != null) setState(() {});
+  }
 
   @override
   void initState() {
@@ -69,6 +91,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _sendCode() async {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty || !email.contains('@')) {
+      if (_v2Field('email', 'v2UxAsmErrEmail')) return;
       showMotoGoToast(context,
           icon: '⚠️', title: t(context).email, message: t(context).tr('validEmailMsg'));
       return;
@@ -80,6 +103,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
+      if (MgV2.peek(context)) {
+        showAuthErrorV2(context, title: t(context).tr('eoCodeSendFail'), why: error);
+        return;
+      }
       showMotoGoToast(context,
           icon: '✗',
           title: t(context).tr('eoCodeSendFail'),
@@ -89,8 +116,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     }
 
     _email = email;
-    showMotoGoToast(context,
-        icon: '📧', title: t(context).tr('codeSent'), message: t(context).tr('checkEmail'));
+    if (MgV2.peek(context)) {
+      showMgToastRich(context,
+          title: t(context).tr('v2UxAsmCodeSent'),
+          message: t(context).trArgs('v2UxAsmCodeSentTo', {'email': email}),
+          icon: MgIcons.mail);
+    } else {
+      showMotoGoToast(context,
+          icon: '📧', title: t(context).tr('codeSent'), message: t(context).tr('checkEmail'));
+    }
     setState(() => _step = 2);
   }
 
@@ -98,6 +132,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Future<void> _verifyCode() async {
     final code = _codeCtrl.text.trim();
     if (code.length < 8) {
+      if (_v2Field('code', 'v2UxAsmErrCode')) return;
       showMotoGoToast(context,
           icon: '⚠️', title: t(context).tr('codeLabel'), message: t(context).tr('enter8DigitCode'));
       return;
@@ -109,6 +144,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
+      if (MgV2.peek(context)) {
+        showAuthErrorV2(context,
+            title: t(context).tr('eoOtpVerifyFail'),
+            why: error,
+            primary: MgStateAction(t(context).tr('v2UxAsmSendNewCode'), () {
+              Navigator.of(context, rootNavigator: true).maybePop();
+              _sendCode();
+            }));
+        return;
+      }
       showMotoGoToast(context,
           icon: '✗',
           title: t(context).tr('eoOtpVerifyFail'),
@@ -128,11 +173,13 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final p2 = _pass2Ctrl.text;
 
     if (p1.length < 8) {
+      if (_v2Field('pass1', 'passwordMinLengthMsg')) return;
       showMotoGoToast(context,
           icon: '⚠️', title: t(context).password, message: t(context).tr('passwordMinLengthMsg'));
       return;
     }
     if (p1 != p2) {
+      if (_v2Field('pass2', 'passwordsNoMatch')) return;
       showMotoGoToast(context,
           icon: '⚠️', title: t(context).password, message: t(context).tr('passwordsNoMatch'));
       return;
@@ -144,6 +191,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     setState(() => _loading = false);
 
     if (error != null) {
+      if (MgV2.peek(context)) {
+        showAuthErrorV2(context, title: t(context).tr('eoPwSaveFail'), why: error);
+        return;
+      }
       showMotoGoToast(context,
           icon: '✗',
           title: t(context).tr('eoPwSaveFail'),
@@ -185,7 +236,31 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   }
 
   Widget _buildScaffold(BuildContext context) {
-    return Scaffold(
+    if (MgV2.on(context)) {
+      // iOS: hrana obrazovky = stejný krok zpět jako šipka (hlídaná stránka).
+      return MgEdgeBack(
+        enabled: !(_step == 1 && Navigator.of(context).canPop()),
+        onBack: _onBack,
+        child: ResetViewV2(m: ResetV2Model(
+          step: _step,
+          loading: _loading,
+          sentTo: _email,
+          emailCtrl: _emailCtrl,
+          codeCtrl: _codeCtrl,
+          pass1Ctrl: _pass1Ctrl,
+          pass2Ctrl: _pass2Ctrl,
+          errors: _v2Errors,
+          onEdited: _v2Edited,
+          onBack: _onBack,
+          onSend: _loading ? () {} : _sendCode,
+          onVerify: _loading ? () {} : _verifyCode,
+          onSet: _loading ? () {} : _setPassword,
+        )),
+      );
+    }
+    // Root route: the dark header lies under the status bar → light icons
+    // in v2 whatever the previous page declared.
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
@@ -284,7 +359,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildStepIndicator() {

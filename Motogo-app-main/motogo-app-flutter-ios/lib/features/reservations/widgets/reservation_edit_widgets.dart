@@ -7,6 +7,11 @@ import '../../catalog/catalog_provider.dart';
 import '../../../core/widgets/moto_fx.dart';
 import '../../booking/booking_models.dart';
 import '../../../core/currency.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_gear_v2.dart';
+import '../v2/res_edit_moto_rows_v2.dart' show EditBranchFilterV2;
+import '../v2/res_edit_sections_v2.dart';
+import '../v2/res_edit_sizes_v2.dart';
 
 // ignore_for_file: library_private_types_in_public_api
 
@@ -16,7 +21,7 @@ class EditCard extends StatelessWidget {
   final Widget child;
   const EditCard({super.key, required this.child});
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => MgV2.on(context) ? EditCardV2(child: child) : Padding(
     padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
     child: Container(padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
@@ -109,6 +114,15 @@ class EditTimePicker extends StatelessWidget {
     final parts = value.split(':');
     final hour = parts.isNotEmpty ? parts[0] : '09';
     final minute = parts.length > 1 ? parts[1] : '00';
+    // v2 vzhled (kill-switch app_v2_ui): tytéž volby i skládání času.
+    if (MgV2.on(context)) {
+      return EditTimePickerV2(
+        label: label,
+        hour: hour,
+        minute: _nearestQuarter(minute),
+        onChanged: onChanged,
+      );
+    }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
@@ -217,6 +231,11 @@ class EditGearSizePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // v2: celá karta ve v2 vzhledu (res_edit_sizes_v2.dart), totéž pravidlo.
+    if (MgV2.on(context)) {
+      return EditGearSizePickerV2(
+          label: label, icon: editGearIconV2(icon), sizes: sizes, selectedSize: selectedSize, onSizeSelected: onSizeSelected);
+    }
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -226,6 +245,24 @@ class EditGearSizePicker extends StatelessWidget {
           color: selectedSize != null ? MotoGoColors.green : MotoGoColors.g200,
           width: selectedSize != null ? 2 : 1)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // v2 vzhled (kill-switch app_v2_ui): tytéž texty, pravá část se při
+        // nedostatku místa zalomí pod název (uk / nl na 320 dp přetékalo).
+        if (MgV2.on(context))
+          EditGearHeaderV2(
+            icon: AnimatedScale(
+              scale: selectedSize != null ? 1.25 : 1.0,
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutBack,
+              child: Icon(icon, size: 16, color: MotoGoColors.greenDarker)),
+            label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.black)),
+            trailing: [
+              if (selectedSize != null)
+                Text(t(context).trArgs('chosenSize', {'size': selectedSize}),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.greenDark)),
+              Text(t(context).tr('gearFree').toUpperCase(), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: MotoGoColors.g400)),
+            ],
+          )
+        else
         Row(children: [
           AnimatedScale(
             scale: selectedSize != null ? 1.25 : 1.0,
@@ -287,6 +324,8 @@ class EditBranchFilter extends ConsumerWidget {
     if (branches.isEmpty) return const SizedBox.shrink();
     // Hodnota mimo nabídku (pobočka bez motorek) by DropdownButton shodila.
     final safeValue = branches.any((b) => b['id'] == value) ? value : null;
+    // v2: tatáž volba jako řada čipů (res_edit_moto_rows_v2.dart).
+    if (MgV2.on(context)) return EditBranchFilterV2(branches: branches, value: safeValue, onChanged: onChanged);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(

@@ -219,3 +219,35 @@ export function extractRouteGeometry(data, refLngLat) {
   }
   return null
 }
+
+// ===== Odhad trasy po silnici (mezery v záznamu jízdy) =====
+// Majitel 2026-11-08: „odhad šedá trasa s popisem“ — mezera bez GPS se
+// kreslí jako ODHAD trasy po silnici (Mapy.com routing), nikdy rovnou čarou.
+// Paměťová cache v rámci stránky; při chybě null (nekreslí se nic).
+const _roadCache = new Map()
+
+/** Body [[lat,lng],…] → čára po silnici [[lat,lng],…] nebo null. */
+export async function fetchRoadLine(points, apiKey) {
+  if (!Array.isArray(points) || points.length < 2) return null
+  const key = points.map(p => `${Number(p[0]).toFixed(5)},${Number(p[1]).toFixed(5)}`).join('|')
+  if (_roadCache.has(key)) return _roadCache.get(key)
+  const ll = points.map(p => [Number(p[1]), Number(p[0])]) // [lng,lat]
+  const params = new URLSearchParams({
+    apikey: apiKey, lang: 'cs', routeType: 'car_fast', format: 'geojson',
+    start: `${ll[0][0]},${ll[0][1]}`, end: `${ll[ll.length - 1][0]},${ll[ll.length - 1][1]}`,
+  })
+  if (ll.length > 2) params.set('waypoints', ll.slice(1, -1).map(p => `${p[0]},${p[1]}`).join(';'))
+  try {
+    const res = await fetch(`https://api.mapy.cz/v1/routing/route?${params.toString()}`, {
+      headers: { 'X-Mapy-Api-Key': apiKey, Accept: 'application/json' },
+    })
+    if (!res.ok) return null
+    const coords = extractRouteGeometry(await res.json(), ll[0])
+    if (!Array.isArray(coords) || coords.length < 2) return null
+    const line = coords.map(c => [Number(c[1]), Number(c[0])])
+    _roadCache.set(key, line)
+    return line
+  } catch {
+    return null
+  }
+}

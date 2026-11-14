@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets/net_image.dart' show mgThumbUrl;
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/motion/mg_motion.dart';
+import '../../core/v2/tokens/mg_colors.dart';
 
 /// HTTP hlavičky pro načítání fotek tras / bodů zájmu.
 ///
@@ -98,13 +102,23 @@ class RouteImage extends StatelessWidget {
     final dpr = MediaQuery.of(context).devicePixelRatio;
     final memW = (targetWidth * dpr).round();
     final optimized = mgImageUrl(url, width: targetWidth);
+    // v2 (F-35): fade 150 ms (0 under reduced motion), placeholder / error =
+    // the v2 well + image glyph instead of the mint box and the 📍 emoji.
+    final v2 = MgV2.on(context);
+    final fade = v2 ? MgMotion.of(context, const Duration(milliseconds: 150)) : const Duration(milliseconds: 200);
+    Widget v2Box() => ColoredBox(
+          color: MgColors.well,
+          child: Center(child: MgIcon(MgIcons.image, size: 24, color: MgColors.meta.withValues(alpha: 0.5))),
+        );
 
     Widget errorFallback(BuildContext c) =>
         error?.call(c) ??
-        Container(
-          color: MotoGoColors.greenPale,
-          child: const Center(child: Text('📍', style: TextStyle(fontSize: 28))),
-        );
+        (v2
+            ? v2Box()
+            : Container(
+                color: MotoGoColors.greenPale,
+                child: const Center(child: Text('📍', style: TextStyle(fontSize: 28))),
+              ));
 
     // Originál — poslední záchrana, když zmenšenina selže (např. Supabase
     // transformace nedostupná). Uživatel chybu nevidí, jen o chlup delší load.
@@ -115,9 +129,9 @@ class RouteImage extends StatelessWidget {
           height: height,
           fit: fit,
           memCacheWidth: memW,
-          fadeInDuration: const Duration(milliseconds: 200),
+          fadeInDuration: fade,
           placeholder: (cc, _) =>
-              placeholder?.call(cc) ?? Container(color: MotoGoColors.greenPale),
+              placeholder?.call(cc) ?? (v2 ? v2Box() : Container(color: MotoGoColors.greenPale)),
           errorWidget: (cc, _, __) => errorFallback(cc),
         );
 
@@ -129,9 +143,9 @@ class RouteImage extends StatelessWidget {
       height: height,
       fit: fit,
       memCacheWidth: memW,
-      fadeInDuration: const Duration(milliseconds: 200),
+      fadeInDuration: fade,
       placeholder: (c, _) =>
-          placeholder?.call(c) ?? Container(color: MotoGoColors.greenPale),
+          placeholder?.call(c) ?? (v2 ? v2Box() : Container(color: MotoGoColors.greenPale)),
       errorWidget: (c, _, __) => original(c),
     );
   }

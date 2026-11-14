@@ -1,29 +1,37 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/rank/rank_provider.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
+import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
-import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
-import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
 import '../../booking/booking_entry.dart';
 import '../../booking/booking_quote.dart';
 import '../../catalog/catalog_provider.dart';
+import '../../catalog/v2/catalog_text.dart' show catLicenceFails, catRangeErrorsV2;
 import '../../catalog/moto_model.dart';
 import '../../loyalty/loyalty_provider.dart';
+import '../../routes/ride_recorder.dart';
 import '../nickname_provider.dart';
 import 'funnel_carousel_v2.dart';
 import 'funnel_provider.dart';
 import 'home_date_sheet_v2.dart';
 import 'home_funnel_parts.dart';
+import 'home_links.dart';
 import 'home_reveal.dart';
 
 /// Home funnel "Tvoje příští jízda" (S0 / S10, DESIGN_V21 §4 + V22 §2.4 #4):
@@ -31,6 +39,8 @@ import 'home_reveal.dart';
 /// range (licence-filtered, real availability), your price from the SAME
 /// price engine the booking form uses, presets + calendar, and the one
 /// looping CTA "REZERVOVAT · {cena}" → the existing booking start (PM-3).
+/// The dates are the ones the customer gave anywhere (`homeGiveDates`):
+/// a pick here also fills Motorky, and the bike detail opens with them.
 class HomeFunnelV2 extends ConsumerStatefulWidget {
   const HomeFunnelV2({super.key});
 
@@ -39,20 +49,60 @@ class HomeFunnelV2 extends ConsumerStatefulWidget {
 }
 
 class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
-  final PageController _pc = PageController();
+  PageController? _pc;
+  FunnelRange? _pcRange;
+  AppLifecycleListener? _life;
+  Timer? _midnight;
+
+  @override
+  void initState() {
+    super.initState();
+    // Nový den (půlnoc / návrat do appky): termín, který už začal, zmizí.
+    _life = AppLifecycleListener(onResume: _syncDay);
+    _armMidnight();
+  }
 
   @override
   void dispose() {
-    _pc.dispose();
+    _life?.dispose();
+    _midnight?.cancel();
+    _pc?.dispose();
     super.dispose();
   }
 
+  void _armMidnight() {
+    _midnight?.cancel();
+    final now = DateTime.now();
+    final next = DateTime(now.year, now.month, now.day + 1);
+    _midnight = Timer(next.difference(now) + const Duration(seconds: 1), _syncDay);
+  }
+
+  void _syncDay() {
+    if (!mounted) return;
+    final day = funnelDay(DateTime.now());
+    final today = ref.read(funnelTodayProvider.notifier);
+    if (today.state != day) today.state = day;
+    _armMidnight();
+  }
+
+  /// One pager per date range, opened at the centred bike: back on Domů =
+  /// the bike the customer left, other dates = their first bike — photo,
+  /// "n / m" and REZERVOVAT always show the SAME bike.
+  PageController _pager(FunnelRange range, int center) {
+    final cur = _pc;
+    if (cur != null && _pcRange == range) return cur;
+    if (cur != null) WidgetsBinding.instance.addPostFrameCallback((_) => cur.dispose());
+    _pcRange = range;
+    return _pc = PageController(initialPage: center);
+  }
+
   void _go(int page) {
-    if (!_pc.hasClients) return;
+    final pc = _pc;
+    if (pc == null || !pc.hasClients) return;
     if (MgMotion.reduced(context)) {
-      _pc.jumpToPage(page);
+      pc.jumpToPage(page);
     } else {
-      _pc.animateToPage(page, duration: MgMotion.pop, curve: MgMotion.out);
+      pc.animateToPage(page, duration: MgMotion.pop, curve: MgMotion.out);
     }
   }
 
@@ -60,15 +110,16 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final picked = await showHomeDateSheet(context,
         initial: current, applyLabel: t(context).tr('v2HomeDateUse'));
     if (picked == null || !mounted) return;
-    ref.read(funnelSelectionProvider.notifier).state = FunnelSelection(2, picked);
-    ref.read(funnelCenterProvider.notifier).state = 0;
-    if (_pc.hasClients) _pc.jumpToPage(0);
+    _select(picked);
   }
 
-  void _select(FunnelSelection s) {
-    ref.read(funnelSelectionProvider.notifier).state = s;
+  /// A preset / calendar pick (null = ✕): the dates for the whole app.
+  void _select(FunnelRange? range) {
+    homeGiveDates(ref, range);
+    if (range == null) ref.read(funnelGivenProvider.notifier).state = null;
     ref.read(funnelCenterProvider.notifier).state = 0;
-    if (_pc.hasClients) _pc.jumpToPage(0);
+    final pc = _pc;
+    if (pc != null && pc.hasClients) pc.jumpToPage(0);
   }
 
   @override
@@ -76,8 +127,13 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
     final sel = ref.watch(funnelSelectionProvider);
-    final range = sel.range(DateTime.now());
+    final now = ref.watch(funnelTodayProvider);
+    if (funnelDay(DateTime.now()) != now) WidgetsBinding.instance.addPostFrameCallback((_) => _syncDay());
+    final range = sel.range(now);
     final async = ref.watch(funnelCandidatesProvider(range));
+    // Záznam jízdy běží → jeho tečka je živý indikátor Domů; tečka „Volná
+    // v termínu" stojí (max. jeden živý indikátor na obrazovce).
+    final recLive = ref.watch(rideRecorderProvider.select((r) => r.recording));
     final loyaltyAsync = ref.watch(loyaltyStatusProvider);
     final loyalty = loyaltyAsync.valueOrNull;
     final lastBike = ref.watch(homeLastBikeIdProvider);
@@ -97,7 +153,14 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     }
 
     final emptyOrError = (async.hasError && !async.hasValue) || (async.hasValue && list.isEmpty);
-    final photoH = MediaQuery.sizeOf(context).height < 800 && !emptyOrError ? 150.0 : 200.0;
+    // Nižší telefon (< 800 dp) fotka 150, velmi nízký (< 700 dp: 360×640,
+    // 375×667) těsnější mezery a při běžném písmu fotka 124 (větší písmo
+    // potřebuje 150, jinak by se štítky fotky překryly) — REZERVOVAT nad
+    // spodní lištou.
+    final screenH = MediaQuery.sizeOf(context).height;
+    final short = screenH < 700;
+    final bigText = MediaQuery.textScalerOf(context).scale(10) > 10.5;
+    final photoH = emptyOrError || screenH >= 800 ? 200.0 : (short && !bigText ? 124.0 : 150.0);
     final Widget slot = async.when(
       skipLoadingOnReload: true,
       loading: () => const FunnelSkeleton(),
@@ -105,7 +168,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
       data: (l) => l.isEmpty
           ? FunnelEmptySlot(error: false, title: tr.tr('v2HomeFnNoneTitle'), text: tr.tr('v2HomeFnNoneText'))
           : PageView.builder(
-              controller: _pc,
+              key: ValueKey(range),
+              controller: _pager(range, center),
               itemCount: l.length,
               onPageChanged: (i) => ref.read(funnelCenterProvider.notifier).state = i,
               itemBuilder: (_, i) {
@@ -114,6 +178,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 return FunnelBikeCard(
                   moto: m,
                   center: i == center,
+                  ping: !recLive,
                   again: again,
                   badge: again
                       ? tr.tr('v2HomeFnAgain')
@@ -123,6 +188,9 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                   listPrice: listOf(m),
                   onTap: () {
                     ref.read(filteredMotoIdsProvider.notifier).state = [for (final x in l) x.id];
+                    // The detail opens with the dates this card is priced
+                    // for (folded, "Změnit") — not an empty calendar.
+                    homeGiveDates(ref, range);
                     homePushMoto(context, m.id);
                   },
                 );
@@ -130,6 +198,11 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
             ),
     );
 
+    // G-102: the detail's licence / overlap / length warning for the shown
+    // bike — REZERVOVAT goes straight to the form (which blocks).
+    final errs = async.hasValue && center < list.length
+        ? catRangeErrorsV2(context, ref, list[center], range.start, range.end)
+        : const <String>[];
     final Widget action;
     if (async.isLoading && !async.hasValue) {
       action = MgCta(label: tr.tr('v2HomeCtaReserve'), onTap: null, enabled: false);
@@ -145,16 +218,33 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
       action = MgBtnGhostDark(label: tr.tr('v2HomeFnPickOther'), onTap: () => _pickDates(range));
     } else {
       final m = list[center];
+      void reserve() => startBookingFromSelection(context, ref, m, range.start, range.end);
+      // J3: with a warning the bike's action stays (same tap, same target)
+      // but is secondary — the eye goes to the warning and its fix first.
+      // K4-05: the same while an unpaid booking waits in the pay strip
+      // (the M3-10 condition) — "Zaplatit rezervaci" is the first thing.
+      final pb = ref.watch(pendingBookingFabProvider).valueOrNull;
+      final unpaid = pb != null && !pb.isExpired && !pb.verifying;
       action = MgFabAvoid(
-        child: MgCta(
-          label: tr.tr('v2HomeCtaReserve'),
-          price: total(m),
-          loop: true,
-          size: MgCtaSize.lg60,
-          onTap: () => startBookingFromSelection(context, ref, m, range.start, range.end),
-        ),
+        child: errs.isNotEmpty || unpaid
+            ? MgBtnGhostDark(
+                key: const ValueKey('home-funnel-reserve-ghost'),
+                label: '${tr.tr('v2HomeCtaReserve').toUpperCase()} · ${total(m)}',
+                height: 60,
+                onTap: reserve,
+              )
+            : MgCta(
+                label: tr.tr('v2HomeCtaReserve'),
+                price: total(m),
+                loop: true,
+                size: MgCtaSize.lg60,
+                onTap: reserve,
+              ),
       );
     }
+    // J3: no fitting licence in a loaded profile → the warning offers the
+    // same fix as the booking form ("Doplnit v profilu" → /profile).
+    final licFix = errs.isNotEmpty && center < list.length && catLicenceFails(ref, list[center]);
 
     return HomeReveal(
       sessionKey: 'home-funnel',
@@ -170,13 +260,13 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-            // Nižší telefon (< 800 dp): fotka 150, ať je REZERVOVAT nad
-            // spodní lištou (V22 §2.4 #4). Prázdný / chybový stav má min. 200
-            // a roste podle textu (velké písmo) — vysvětlení se neusekne.
+            // Nižší telefon: menší fotka (photoH), ať je REZERVOVAT nad spodní
+            // lištou (V22 §2.4 #4). Prázdný / chybový stav má min. 200 a roste
+            // podle textu (velké písmo) — vysvětlení se neusekne.
             child: slot is FunnelEmptySlot ? slot : SizedBox(height: photoH, child: slot),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding: EdgeInsets.fromLTRB(16, short ? 8 : 14, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               FunnelTopRow(
                 count: list.length,
@@ -184,33 +274,57 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 onPrev: center > 0 ? () => _go(center - 1) : null,
                 onNext: center < list.length - 1 ? () => _go(center + 1) : null,
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: short ? 2 : 6),
               MgEnter(
                 child: Semantics(
                   header: true,
-                  // Raději o kousek menší na jednom řádku než na dvou (REZERVOVAT
-                  // zůstane nad lištou); dlouhé jméno se zalomí v mezeře — celé.
-                  child: MgWordFit(
-                    minScale: 0.85,
-                    fitLines: 1,
-                    child: Text(tr.trArgs('v2HomeFnTitle', {'nick': nick}), style: MgType.h2.copyWith(color: MgColors.onDark)),
-                  ),
+                  child: FunnelTitle(text: tr.trArgs('v2HomeFnTitle', {'nick': nick}), short: short),
                 ),
               ),
               FunnelSubLine(
                 loading: loyaltyAsync.isLoading && loyalty == null,
                 loyalty: loyalty,
+                // Výbava zdarma už je v mottu hlavičky (rank 3) / nízký
+                // telefon: jen sleva na jeden řádek — REZERVOVAT nad lištou.
+                compact: short || rank.level == 3,
                 onRetry: () => ref.invalidate(loyaltyStatusProvider),
               ),
-              if (sel.preset == 2)
-                FunnelDateLine(range: range, onClear: () => _select(const FunnelSelection(0))),
-              const SizedBox(height: 10),
+              if (sel.preset(now) == 2) FunnelDateLine(range: range, onClear: () => _select(null)),
+              SizedBox(height: short ? 6 : 10),
               FunnelPresets(
                 selection: sel,
-                onPreset: (i) => _select(FunnelSelection(i)),
+                dense: short,
+                onPreset: (i) {
+                  final p = funnelPresets(DateTime.now());
+                  _select(i == 1 ? p.$2 : p.$1);
+                },
                 onCalendar: () => _pickDates(range),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: short ? 6 : 10),
+              // G-102: the detail's licence / overlap / length warning also
+              // here — REZERVOVAT goes straight to the form (which blocks).
+              if (errs.isNotEmpty) ...[
+                MgStateBanner(
+                  key: const ValueKey('home-funnel-warning'),
+                  tone: MgTone.err,
+                  dark: true,
+                  icon: MgIcons.warn,
+                  title: errs.first,
+                  text: errs.length > 1 ? errs.skip(1).join('\n') : null,
+                  actions: [
+                    if (licFix)
+                      MgBtnInk(
+                        label: tr.tr('completeProfileBtn'),
+                        onTap: () => GoRouter.of(context).push('/profile'),
+                        // Neon label: on the dark card the fix reads first.
+                        neonLabel: true,
+                        height: 48,
+                        expand: false,
+                      ),
+                  ],
+                ),
+                SizedBox(height: short ? 6 : 10),
+              ],
               action,
             ]),
           ),

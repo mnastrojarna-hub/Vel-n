@@ -9,18 +9,21 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../../../core/widgets/state_views.dart';
 import '../../../booking/booking_quote.dart';
 import '../../../loyalty/loyalty_provider.dart';
 import '../../moto_model.dart';
+import '../catalog_fit.dart';
 import '../catalog_text.dart';
 import 'calc_state.dart';
 import 'calc_step_moto_v2.dart';
 
 /// "Volné v tvém termínu: n" (calculator without a bike, dates chosen):
 /// ≤ 6 rows (thumb, name, branch · category, the bike's total "Tvoje
-/// cena") — tapping a row picks that bike in the calculator; the rest goes
-/// to the Motorky list with the same dates ([onShowAll]).
+/// cena" beside — or, when a name word would not fit, under — the name) —
+/// tapping a row picks that bike in the calculator; the rest goes to the
+/// Motorky list with the same dates ([onShowAll]).
 class CalcFreeListV2 extends ConsumerWidget {
   final CalcState st;
   final VoidCallback onShowAll;
@@ -60,8 +63,21 @@ class CalcFreeListV2 extends ConsumerWidget {
             if (free.isEmpty)
               Text(tr.tr('v2CalcFreeNone'), style: MgType.body.copyWith(color: MgColors.body2))
             else
-              for (var i = 0; i < shown.length; i++)
-                MgReveal(index: i, child: _FreeRow(moto: shown[i], st: st, loyalty: loyalty)),
+              // One layout for all rows: when the longest word of any name
+              // ("Adventure", "Supermoto") would not fit beside its price
+              // (narrow phone / large text), every price goes under its name
+              // instead of splitting a word.
+              LayoutBuilder(builder: (context, c) {
+                final totals = [for (final m in shown) _freeTotal(m, st, loyalty)];
+                var stacked = false;
+                for (var i = 0; i < shown.length; i++) {
+                  if (_needsStack(context, tr, shown[i], totals[i], c.maxWidth)) stacked = true;
+                }
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  for (var i = 0; i < shown.length; i++)
+                    MgReveal(index: i, child: _FreeRow(moto: shown[i], total: totals[i], stacked: stacked)),
+                ]);
+              }),
             if (list.length > 6)
               Align(
                 alignment: Alignment.centerLeft,
@@ -79,19 +95,37 @@ class CalcFreeListV2 extends ConsumerWidget {
   }
 }
 
+/// The bike's total for the range — standard pickup price (the 12:00
+/// saving is info on the bike's total); null = no price list.
+double? _freeTotal(Motorcycle m, CalcState st, LoyaltyStatus? loyalty) =>
+    m.prices != null && (m.prices?.cheapest ?? 0) > 0 ? quoteFor(m, st.start!, st.end!, loyalty: loyalty).total : null;
+
+/// The row [width] cannot hold the longest word of the name / meta beside
+/// the price column (thumb 54 + 10, chevron 4 + 20, gap 8).
+bool _needsStack(BuildContext context, AppTranslations tr, Motorcycle m, double? total, double width) {
+  if (total == null) return false;
+  final base = DefaultTextStyle.of(context).style;
+  final priceW = [
+    catLineWidth(context, tr.tr('v2YourPrice'), base.merge(MgType.meta)),
+    catLineWidth(context, catMoney(total), base.merge(MgType.tab(MgType.title))),
+  ].reduce((a, b) => a > b ? a : b);
+  final word = [
+    catWordWidth(context, m.model, base.merge(MgType.title)),
+    catWordWidth(context, calcMeta(tr, m), base.merge(MgType.meta)),
+  ].reduce((a, b) => a > b ? a : b);
+  return word > width - 54 - 10 - 4 - 20 - 8 - priceW;
+}
+
 class _FreeRow extends ConsumerWidget {
   final Motorcycle moto;
-  final CalcState st;
-  final LoyaltyStatus? loyalty;
-  const _FreeRow({required this.moto, required this.st, required this.loyalty});
+  final double? total;
+  final bool stacked;
+  const _FreeRow({required this.moto, required this.total, required this.stacked});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
-    final has = moto.prices != null && (moto.prices?.cheapest ?? 0) > 0;
-    final total = has
-        ? quoteFor(moto, st.start!, st.end!, pickupTime: st.late ? '12:00' : null, loyalty: loyalty).total
-        : null;
+    final total = this.total;
     return Semantics(
       button: true,
       label: '${moto.model}, ${calcMeta(tr, moto)}${total == null ? '' : ', ${catMoney(total)}'}',
@@ -104,25 +138,29 @@ class _FreeRow extends ConsumerWidget {
           constraints: const BoxConstraints(minHeight: 56),
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: MgColors.line))),
-          child: Row(children: [
-            CalcThumb(moto: moto, width: 54, height: 40),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(moto.model, style: MgType.title.copyWith(color: MgColors.ink)),
-                Text(calcMeta(tr, moto), style: MgType.meta.copyWith(color: MgColors.meta)),
-              ]),
-            ),
-            if (total != null) ...[
-              const SizedBox(width: 8),
-              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(tr.tr('v2YourPrice'), style: MgType.meta.copyWith(color: MgColors.meta)),
-                Text(catMoney(total), style: MgType.tab(MgType.title.copyWith(color: MgColors.price))),
-              ]),
-            ],
-            const SizedBox(width: 4),
-            MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.meta),
-          ]),
+          child: Builder(builder: (context) {
+            Widget price(CrossAxisAlignment a) => Column(crossAxisAlignment: a, children: [
+                  Text(tr.tr('v2YourPrice'), style: MgType.meta.copyWith(color: MgColors.meta)),
+                  Text(catMoney(total!), style: MgType.tab(MgType.title.copyWith(color: MgColors.price))),
+                ]);
+            return Row(children: [
+              CalcThumb(moto: moto, width: 54, height: 40),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  MgWordFit(child: Text(moto.model, style: MgType.title.copyWith(color: MgColors.ink))),
+                  Text(calcMeta(tr, moto), style: MgType.meta.copyWith(color: MgColors.meta)),
+                  if (stacked && total != null) ...[const SizedBox(height: 4), price(CrossAxisAlignment.start)],
+                ]),
+              ),
+              if (total != null && !stacked) ...[
+                const SizedBox(width: 8),
+                price(CrossAxisAlignment.end),
+              ],
+              const SizedBox(width: 4),
+              MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.meta),
+            ]);
+          }),
         ),
       ),
     );

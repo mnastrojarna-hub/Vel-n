@@ -43,7 +43,7 @@ const Map<String, String> ext43PaymentsEn = {
   'pdCancelForbidden': 'You can’t cancel this booking from this account. Sign in with the account you made it with and cancel it there.',
   'pdSwapUnknown': 'The swap can’t be done right now. Nothing has changed – try another swap day or another motorcycle.',
   'pdSlevomatUnverified': 'We couldn’t verify the Slevomat voucher with Slevomat right now. The code is still valid – please try again in a few minutes.',
-  'pdRefundManual': 'The automatic refund didn’t go through. Our staff will complete the refund within 2 working days – you don’t need to do anything; the confirmation and credit note will come by e-mail.',
+  'pdRefundManual': 'The automatic refund didn’t go through. Our staff will complete the refund within 2 working days – you don’t need to do anything; you’ll then see the refunded amount in the booking details.',
   'pdCurrencyTitle': 'The card can’t pay in Czech crowns',
   'pdCurrencyBody': 'Your card can’t pay in Czech crowns (CZK). Nothing was charged – please pay with another card; most Visa and Mastercard cards can.',
   'pdWalletDeclinedTitle': 'The wallet declined the payment',

@@ -95,8 +95,13 @@
       });
     });
   }
+  // i4 (2026-11-07): zrušená během placení — vratka už zapsaná (webhook late-payment → 'refunded') / ještě se rozhoduje
+  function refundKnown(o) { return !!o && ['refunded', 'refund_pending', 'partial_refund'].indexOf(o.payment_status) >= 0; }
   function show(box, o, ctx) {
     if (!o || o.error || !o.id) return msgView(box, ctx.pending ? T.ok_pending : T.res_nf, null, !!ctx.pending);
+    // návrat ze Stripe (session): zrušená = cron ji zrušil během placení → žádné „vytvoř si novou“ (dvojí rezervace i platba)
+    if (o.status === 'cancelled' && ctx.session && refundKnown(o)) return msgView(box, T.res_cancelled_refund || T.res_cancelled, o, true);
+    if (o.status === 'cancelled' && ctx.session && o.payment_status === 'unpaid') return msgView(box, T.res_cancelled_verify || T.ok_pending, o, true);
     if (o.status === 'cancelled') return msgView(box, T.res_cancelled, o);
     if (o.status === 'completed') return msgView(box, T.res_completed, o, true);
     if (isPaid(o)) return paidView(box, o, ctx);
@@ -109,12 +114,24 @@
     var box = shell(), n = 0;
     var verify = function () { if (session) G.edge('process-payment', { action: 'verify_setup_session', session_id: session }).catch(function () {}); };
     verify();
+    // i4 (2026-11-07): zrušená a stále nezaplacená = webhook ji může ještě oživit (výbava nemá motorku → skoro vždy) →
+    // dopolovat; po vypršení neutrální „ověřujeme“ a dál na pozadí (oživení → potvrzení, vratka → „platbu vracíme“).
+    var undecided = function (o) { return !!o && !o.error && o.status === 'cancelled' && o.payment_status === 'unpaid'; };
+    var watch = function (k) {
+      setTimeout(function () {
+        get(id, session).then(function (o) {
+          if (o && !o.error && ((isPaid(o) && o.status !== 'cancelled') || (o.status === 'cancelled' && refundKnown(o)))) return show(box, o, { session: session, docs: wantDocs });
+          if (k < 36) watch(k + 1);
+        }).catch(function () { if (k < 36) watch(k + 1); });
+      }, 5000);
+    };
     (function poll() {
       get(id, session).then(function (o) {
-        if (o && !o.error && (isPaid(o) || o.status === 'cancelled' || o.status === 'completed')) return show(box, o, { session: session, docs: wantDocs });
+        if (o && !o.error && !(session && undecided(o)) && (isPaid(o) || o.status === 'cancelled' || o.status === 'completed')) return show(box, o, { session: session, docs: wantDocs });
         if (o && o.error === 'not_found' && n >= 2) return show(box, o, { session: session });
         if (++n < 12) { if (n === 3 || n === 7) verify(); return setTimeout(poll, 2000); }
         show(box, o, { session: session, pending: true });
+        if (session && undecided(o)) watch(0);
       }).catch(function () {
         if (++n < 12) setTimeout(poll, 2000);
         else show(box, null, { pending: true });

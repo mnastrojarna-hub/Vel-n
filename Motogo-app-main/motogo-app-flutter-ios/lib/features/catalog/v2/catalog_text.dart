@@ -1,0 +1,137 @@
+import 'package:flutter/widgets.dart' show BuildContext;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/currency.dart';
+import '../../../core/date_days.dart';
+import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/calendar/trip_day_state.dart';
+import '../../auth/auth_provider.dart';
+import '../../booking/booking_validator.dart';
+import '../catalog_provider.dart';
+import '../moto_model.dart';
+import '../widgets/validation_banner.dart' show bookingRangeErrors;
+
+/// Presentation helpers of the v2 catalog (labels only — no logic of their
+/// own; every rule is the one the old cards / filter already used).
+
+/// Category label exactly as the old card (`MotoCard._categoryLabel`):
+/// known slug → translated key, unknown slug → the raw value.
+String catCategoryLabel(AppTranslations tr, String cat) {
+  final key = MotoCategory.labelKey(cat);
+  return key == 'all' ? cat : tr.tr(key);
+}
+
+/// Licence badge exactly as the old card (`_licenseBadgeLabel`): kids'
+/// bikes (only 'N') → "N (bez ŘP)", else prefix + groups without 'N'.
+String catLicenseLabel(AppTranslations tr, Motorcycle m) {
+  final groups = m.licenseGroupsOrFallback;
+  if (groups.isEmpty) return '';
+  if (groups.length == 1 && groups.first == 'N') return tr.tr('catalogNoLicense');
+  return '${tr.tr('motoCardLicensePrefix')}${groups.where((g) => g != 'N').join(' / ')}';
+}
+
+/// "1 motorka" / "3 motorky" / "12 motorek" (3 forms in cs, pl, uk).
+String catCount(AppTranslations tr, int n) {
+  final a = n.abs();
+  final lang = tr.lang;
+  String key;
+  if (lang == 'cs') {
+    key = a == 1 ? 'v2CatCountOne' : (a >= 2 && a <= 4 ? 'v2CatCountFew' : 'v2CatCountMany');
+  } else if (lang == 'pl' || lang == 'uk') {
+    final m10 = a % 10, m100 = a % 100;
+    final few = m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14);
+    key = a == 1 || (lang == 'uk' && m10 == 1 && m100 != 11)
+        ? 'v2CatCountOne'
+        : (few ? 'v2CatCountFew' : 'v2CatCountMany');
+  } else {
+    key = a == 1 ? 'v2CatCountOne' : 'v2CatCountMany';
+  }
+  return tr.trArgs(key, {'n': n});
+}
+
+/// "3 dny".
+String catDays(AppTranslations tr, int n) => '$n ${tr.daysWord(n)}';
+
+/// "pá 23. 10. → ne 25. 10." (one date for a single-day range).
+String catRange(AppTranslations tr, DateTime s, DateTime e) =>
+    tripSameDay(s, e) ? tripShortDate(tr, s) : '${tripShortDate(tr, s)} → ${tripShortDate(tr, e)}';
+
+/// Inclusive calendar days (same helper as the old screens).
+int catDayCount(DateTime s, DateTime e) => calendarDaysInclusive(s, e);
+
+/// Amount in the app currency (existing `Money.czk`, incl. the symbol).
+String catMoney(num czk) => Money.czk(czk);
+
+/// "Tvoje cena od" per day: cheapest list day price minus the rank % —
+/// display only (PLAN §2.2.1 `cardFrom`). The booking form prices exactly.
+double catFromPerDay(Motorcycle m, int pct) =>
+    ((m.prices?.cheapest ?? 0) * (100 - pct) / 100).roundToDouble();
+
+/// Branch type label ("s obsluhou" / "samoobsluha nonstop", the calculator's
+/// keys); null when the branch type is unknown (never guessed).
+String? catBranchType(AppTranslations tr, Motorcycle m) => m.branchType == null
+    ? null
+    : (m.branchType == 'samoobslužná' ? tr.tr('v2CalcBranchSelf') : tr.tr('v2CalcBranchStaffed'));
+
+/// "Mezná · s obsluhou" (CB-06: branch + type wherever a branch is named);
+/// null without a branch.
+String? catBranchLine(AppTranslations tr, Motorcycle m) {
+  final name = m.branchName ?? m.branchCity;
+  if (name == null || name.trim().isEmpty) return null;
+  final type = catBranchType(tr, m);
+  return type == null ? name : '$name · $type';
+}
+
+/// The old detail's branch info WITH its city ("{name}, {city}", as
+/// `moto_detail_page` builds `branchInfo`) + the branch type: "MotoGo24
+/// Mezná, Pelhřimov · s obsluhou". The city is skipped when the name
+/// already contains it. Null when the bike has no branch.
+String? catBranchLineCity(AppTranslations tr, Motorcycle m) {
+  final name = (m.branchName ?? '').trim();
+  final city = (m.branchCity ?? '').trim();
+  final place = [if (name.isNotEmpty) name, if (city.isNotEmpty && !name.contains(city)) city].join(', ');
+  if (place.isEmpty) return null;
+  final type = catBranchType(tr, m);
+  return type == null ? place : '$place · $type';
+}
+
+/// Street address of the branch ("Mezná 9, Pelhřimov"); null when unknown.
+String? catBranchAddress(Motorcycle m) {
+  final parts = [
+    if ((m.branchAddress ?? '').trim().isNotEmpty) m.branchAddress!.trim(),
+    if ((m.branchCity ?? '').trim().isNotEmpty && !(m.branchAddress ?? '').contains(m.branchCity!)) m.branchCity!.trim(),
+  ];
+  return parts.isEmpty ? null : parts.join(', ');
+}
+
+/// The customer's licence groups (loaded profile) do not cover [m] — the
+/// SAME check and inputs as `bookingRangeErrors` / the booking form, read
+/// only to mark the bike early (J4/J5); null profile (not loaded / signed
+/// out) = no mark. Display only: nothing is hidden or blocked here.
+bool catLicenceFails(WidgetRef ref, Motorcycle m) => catLicenceError(ref, m) != null;
+
+/// The same check as [catLicenceFails], returning the validator's own
+/// message in [lang] (P2-07: the detail dock says it before dates too).
+String? catLicenceError(WidgetRef ref, Motorcycle m, {String lang = 'cs'}) {
+  final profile = ref.watch(profileProvider).valueOrNull;
+  if (profile == null) return null;
+  final raw = profile['license_group'];
+  final groups = <String>[
+    if (raw is List)
+      for (final g in raw)
+        if (g != null) g.toString(),
+  ];
+  return BookingValidator.checkLicense(userLicenseGroups: groups, motoLicenseGroups: m.licenseGroupsOrFallback, lang: lang);
+}
+
+/// RD-02: [bookingRangeErrors] for the v2 Home funnel and detail dock. While
+/// the profile is still loading or failed to load (null) the licence line is
+/// left out, as [catLicenceError] does; overlap and length errors stay. The
+/// booking form keeps its own hard checks.
+List<String> catRangeErrorsV2(BuildContext context, WidgetRef ref, Motorcycle m, DateTime start, DateTime end) {
+  final errs = bookingRangeErrors(context, ref, m, start, end);
+  if (ref.watch(profileProvider).valueOrNull != null) return errs;
+  final noLicence = BookingValidator.checkLicense(
+      userLicenseGroups: const [], motoLicenseGroups: m.licenseGroupsOrFallback, lang: t(context).lang);
+  return [for (final e in errs) if (e != noLicence) e];
+}

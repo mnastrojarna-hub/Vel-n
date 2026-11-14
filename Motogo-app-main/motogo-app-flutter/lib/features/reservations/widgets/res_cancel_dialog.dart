@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme.dart';
+import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/pending_booking_fab_provider.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
 import 'cancel_result_dialog.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../v2/res_cancel_v2.dart';
+import '../v2/res_status_v2.dart' show resPayTarget, resRangeShort;
 
 /// Cancel reservation confirmation dialog with storno policy info.
 class ResCancelDialog extends StatefulWidget {
@@ -38,16 +42,25 @@ class _ResCancelDialogState extends State<ResCancelDialog> {
     if (MgV2.on(context)) {
       return PopScope(
         canPop: !_loading,
-        child: ResCancelConfirmV2(
-          motoName: widget.reservation.motoName,
-          dateRange: widget.reservation.dateRange,
-          pct: pct,
-          refundLine: t(context).tr('currentlyRefund').replaceAll('{pct}', '$pct').replaceAll('{amount}', refund.toStringAsFixed(0)),
-          loading: _loading,
-          onReason: (v) => _reason = v,
-          onKeep: () => Navigator.pop(context),
-          onCancel: _doCancel,
-        ),
+        child: Consumer(builder: (context, ref, _) {
+          // Nikdy nezaplacená (totéž pravidlo jako tlačítko Zaplatit,
+          // resPayTarget) → žádný slib vratky, jen „nic se nezaplatí".
+          final unpaid = resPayTarget(widget.reservation, ref.watch(pendingBookingFabProvider).valueOrNull) != null;
+          return ResCancelConfirmV2(
+            motoName: widget.reservation.motoName,
+            dateRange: resRangeShort(t(context), widget.reservation),
+            // Jen barva rámečku: nezaplacená = klidná (nic se nezaplatí).
+            pct: unpaid ? 100 : pct,
+            // Táž vratka, čitelně („6 014 Kč", NBSP) — RP-21.
+            refundLine: unpaid
+                ? t(context).tr('coCancelPendingBody')
+                : t(context).trArgs('v2UxRpRefundNow', {'amount': Money.czk(refund), 'pct': pct}),
+            loading: _loading,
+            onReason: (v) => _reason = v,
+            onKeep: () => Navigator.pop(context),
+            onCancel: _doCancel,
+          );
+        }),
       );
     }
 

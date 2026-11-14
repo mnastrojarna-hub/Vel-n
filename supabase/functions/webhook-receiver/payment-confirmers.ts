@@ -88,8 +88,38 @@ export async function confirmBookingPayment(
   transactionId: string,
   stripePaymentIntentId?: string | null,
   suppressMail = false
-) {
+): Promise<'ok' | 'duplicate' | 'revive_failed' | 'error' | 'skipped' | 'retry'> {
   try {
+    // Oprava i4 (2026-11-07): zrušená rezervace, jejíž platba se už vrací / vrátila (pozdní platba vrácená automaticky —
+    // late-payment.ts zapíše 'refunded'; storno s vratkou), se událostí platby NIKDY neoživuje (confirm_payment oživí
+    // každou zrušenou s payment_status <> 'paid' — znovu doručená / druhá událost téže platby by vrátila rezervaci
+    // zákazníkovi, jehož peníze už odešly zpět). Bez vratky, bez dokladů, bez mailu.
+    // i5r2 (verify:charges T3): kontrolu stavu nejde přečíst → NEpotvrzovat ('retry' → webhook 500, Stripe doručí znovu).
+    // Dřív fail-open: supabase-js chybu čtení vrací jako { data: null, error } (nehází) → confirm_payment oživil i zrušenou
+    // a už vrácenou rezervaci (rezervace zpět zákazníkovi, peníze už u něj, doklady a maily).
+    try {
+      const { data: pre, error: preErr } = await supabase.from('bookings').select('status, payment_status').eq('id', bookingId).maybeSingle()
+      if (preErr) {
+        console.warn('[confirmBookingPayment] status pre-check failed:', preErr.message)
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'confirm_booking_precheck_failed', component: 'stripe',
+            status: 'error', request_data: { booking_id: bookingId, transaction_id: transactionId }, error_message: preErr.message } as never)
+        } catch { /* ignore */ }
+        return 'retry'
+      }
+      const p = pre as { status?: string; payment_status?: string } | null
+      if (p?.status === 'cancelled' && ['refunded', 'partial_refund', 'refund_pending'].includes(String(p.payment_status))) {
+        try {
+          await supabase.from('debug_log').insert({ source: 'webhook-receiver', action: 'confirm_booking_skip_cancelled_refunded', component: 'stripe',
+            status: 'warning', request_data: { booking_id: bookingId, transaction_id: transactionId, payment_intent_id: stripePaymentIntentId || null,
+              payment_status: p.payment_status } } as never)
+        } catch { /* ignore */ }
+        return 'skipped'
+      }
+    } catch (e) {
+      console.warn('[confirmBookingPayment] status pre-check threw:', (e as Error).message)
+      return 'retry'
+    }
     // ── ATOMIC dedup: confirm_payment RPC interně dělá UPDATE WHERE payment_status != 'paid'
     //    RETURNING — jen JEDNA paralelní Stripe webhook session získá was_already_paid=false,
     //    druhý event (checkout.session.completed vs payment_intent.succeeded přicházejí <1 s
@@ -113,7 +143,23 @@ export async function confirmBookingPayment(
           request_data: { booking_id: bookingId, transaction_id: transactionId },
         })
       } catch { /* ignore */ }
-      return
+      return 'duplicate'
+    }
+
+    // Pozdní platba ZRUŠENÉ rezervace (cron ji zrušil během placení), kterou confirm_payment
+    // nedokázal oživit — motorku si mezitím zarezervoval někdo jiný (překryv) → rezervace
+    // zůstává zrušená, peníze se automaticky vrátí (volající webhook). Bez mailu a dokladů.
+    if (!error && (data as Record<string, unknown> | null)?.success === false) {
+      const { data: bkSt } = await supabase.from('bookings').select('status').eq('id', bookingId).maybeSingle()
+      if ((bkSt as { status?: string } | null)?.status === 'cancelled') {
+        try {
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'confirm_booking_revive_failed', component: 'stripe', status: 'error',
+            request_data: { booking_id: bookingId, transaction_id: transactionId }, response_data: data,
+          } as never)
+        } catch { /* ignore */ }
+        return 'revive_failed'
+      }
     }
 
     try {
@@ -130,23 +176,33 @@ export async function confirmBookingPayment(
 
     if (error) {
       console.error('confirm_payment RPC failed:', error.message)
-      const { data: bk } = await supabase.from('bookings')
-        .select('start_date')
-        .eq('id', bookingId)
-        .single()
-      const today = new Date().toISOString().slice(0, 10)
-      const startDate = bk?.start_date || today
-      const isToday = startDate <= today
-      await supabase.from('bookings')
-        .update({
-          payment_status: 'paid',
-          payment_method: 'card',
-          status: isToday ? 'active' : 'reserved',
-          ...(isToday
-            ? { picked_up_at: new Date().toISOString() }
-            : { confirmed_at: new Date().toISOString() }),
-        })
-        .eq('id', bookingId)
+      // Oprava i6r1 (verify:charges N1): chyba přenosu (timeout / 5xx / reset) — RPC mohla i doběhnout. Stav znovu z DB:
+      // nečitelný → 'retry'; už 'paid' (RPC commitla) → dál jako dřív; ZRUŠENÁ → 'retry' (rozhodne confirm_payment při
+      // dalším doručení: oživí, nebo revive_failed → automatická vratka). Dřív záložní zápis zrušenou nepřepsal (i5r2),
+      // ale webhook dál poslal zákazníkovi „rezervováno“ a odpověděl 200 → peníze stržené u zrušené rezervace bez vratky.
+      const { data: curRaw, error: rdErr } = await supabase.from('bookings').select('status, payment_status, start_date').eq('id', bookingId).maybeSingle()
+      const cur = curRaw as { status?: string; payment_status?: string; start_date?: string } | null
+      if (rdErr || !cur) return 'retry'
+      if (cur.payment_status !== 'paid') {
+        if (cur.status === 'cancelled') return 'retry'
+        const today = new Date().toISOString().slice(0, 10)
+        const startDate = cur.start_date || today
+        const isToday = startDate <= today
+        const { data: fb, error: fbErr } = await supabase.from('bookings')
+          .update({
+            payment_status: 'paid',
+            payment_method: 'card',
+            status: isToday ? 'active' : 'reserved',
+            ...(isToday
+              ? { picked_up_at: new Date().toISOString() }
+              : { confirmed_at: new Date().toISOString() }),
+          })
+          .eq('id', bookingId)
+          .neq('status', 'cancelled') // i5r2: záložní zápis nikdy neoživí zrušenou rezervaci
+          .neq('payment_status', 'paid')
+          .select('id')
+        if (fbErr || !Array.isArray(fb) || fb.length === 0) return 'retry'
+      }
     }
 
     // Save Stripe IDs for future refunds
@@ -170,7 +226,7 @@ export async function confirmBookingPayment(
           request_data: { booking_id: bookingId, transaction_id: transactionId },
         })
       } catch { /* ignore */ }
-      return
+      return 'ok'
     }
 
     // Auto-generate documents + send confirmation email with attachments (best-effort)
@@ -275,8 +331,10 @@ export async function confirmBookingPayment(
         })
       } catch { /* ignore */ }
     }
+    return 'ok'
   } catch (err) {
     console.error('confirmBookingPayment error:', err)
+    return 'error'
   }
 }
 
@@ -379,12 +437,15 @@ export async function confirmSosPayment(
   }
 }
 
-/** Confirm shop payment via existing RPC */
+/** Confirm shop payment via existing RPC.
+ *  `method` (2026-10-16, D2): 'free' = objednávka do 1 Kč potvrzená bez platby
+ *  (process-payment, odpuštění částky pod minimum karty); jinak 'card'. */
 export async function confirmShopPayment(
   supabase: ReturnType<typeof createClient>,
   orderId: string,
   transactionId: string,
-  stripePaymentIntentId?: string | null
+  stripePaymentIntentId?: string | null,
+  method: string = 'card',
 ) {
   try {
     // RPC vrací { success, was_already_paid, ... }. ATOMIC dedup:
@@ -393,7 +454,7 @@ export async function confirmShopPayment(
     // was_already_paid=true a okamžitě skipne — žádné race condition na mailu.
     const { data, error } = await supabase.rpc('confirm_shop_payment', {
       p_order_id: orderId,
-      p_method: 'card',
+      p_method: method,
     })
 
     const wasAlreadyPaid = !!(data as Record<string, unknown> | null)?.was_already_paid
@@ -429,7 +490,7 @@ export async function confirmShopPayment(
       // Direct UPDATE — trigger auto_process_voucher_order should still fire BEFORE UPDATE
       // because OLD.payment_status='pending' a NEW.payment_status='paid'.
       const { error: directErr } = await supabase.from('shop_orders')
-        .update({ payment_status: 'paid', payment_method: 'card', confirmed_at: new Date().toISOString() })
+        .update({ payment_status: 'paid', payment_method: method, confirmed_at: new Date().toISOString() })
         .eq('id', orderId)
       if (directErr) {
         console.error('[confirmShopPayment] direct update fallback failed:', directErr.message)

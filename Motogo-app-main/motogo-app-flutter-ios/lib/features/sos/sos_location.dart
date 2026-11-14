@@ -19,10 +19,29 @@ SosLocResult _fromGps(GpsStatus s) => switch (s) {
 
 /// Poloha pro SOS hlášení s limitem (hlášení nesmí čekat na GPS déle než
 /// [limit]). Nic neotevírá — důvod chybějící polohy vrací ve [status].
-Future<({Position? pos, GpsStatus status})> sosLocate(
-    {Duration limit = const Duration(seconds: 20)}) {
-  return GpsService.locate().timeout(limit,
-      onTimeout: () => (pos: null, status: GpsStatus.noFix));
+/// Bez čerstvého fixu (i po vypršení limitu) se jako ve 4.1.3 použije
+/// poslední známá poloha (nejvýš [lastKnownLimit]); vypnutá poloha a
+/// odepřené oprávnění zůstávají beze změny (zákazník se dozví, co zapnout).
+/// [locate] a [lastKnown] = jen pro testy.
+Future<({Position? pos, GpsStatus status})> sosLocate({
+  Duration limit = const Duration(seconds: 20),
+  Duration lastKnownLimit = const Duration(seconds: 3),
+  Future<({Position? pos, GpsStatus status})> Function()? locate,
+  Future<Position?> Function()? lastKnown,
+}) async {
+  final r = await (locate ?? GpsService.locate)()
+      .then<({Position? pos, GpsStatus status})>((v) => v)
+      .timeout(limit, onTimeout: () => (pos: null, status: GpsStatus.noFix));
+  if (r.pos != null || r.status != GpsStatus.noFix) return r;
+  Position? last;
+  try {
+    last = await (lastKnown ?? Geolocator.getLastKnownPosition)()
+        .then<Position?>((v) => v)
+        .timeout(lastKnownLimit, onTimeout: () => null);
+  } catch (_) {
+    last = null;
+  }
+  return last == null ? r : (pos: last, status: GpsStatus.ok);
 }
 
 /// Pošle polohu k incidentu (RPC `sos_share_location` → true jen když

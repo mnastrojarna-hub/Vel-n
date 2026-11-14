@@ -46,6 +46,8 @@ import 'payment_refusals.dart';
 import 'payment_ui_helpers.dart';
 import 'payment_verify.dart';
 import 'widgets/card_rounding_note.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/payment_view_v2.dart';
 
 part 'payment_screen_problems.dart';
 part 'payment_screen_changes.dart';
@@ -1516,7 +1518,31 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop) _onBack();
         },
-        child: Scaffold(
+        // v2 (PS-01/02): same values and callbacks, logic stays here.
+        child: MgV2.on(context)
+            ? PaymentViewV2(
+                ctx: _ctx,
+                moto: moto,
+                draft: ref.watch(bookingDraftProvider),
+                breakdown: breakdown,
+                extras: ref.watch(effectiveExtrasProvider),
+                bundledUpsell: _upsellBundled ? upsellItems : const [],
+                amount: amount,
+                charge: charge,
+                serverAmount: _serverAmount,
+                forceMin: _forceMinCharge,
+                defaultCard: defaultCard,
+                processing: _processing,
+                expired: _expired,
+                verifying: _verifying,
+                timeRemaining: _timeRemaining,
+                lastMinutes: _deadline.difference(DateTime.now()) < const Duration(minutes: 5),
+                upsellProducts: cardCharge(_bookingDue).kind == CardChargeKind.normal &&
+                    ref.watch(reservationUpsellEnabledProvider).maybeWhen(data: (v) => v, orElse: () => false),
+                onBack: _onBack,
+                onPay: _doPayment,
+              )
+            : Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: SafeArea(
         child: Column(

@@ -292,7 +292,18 @@ class _DocumentCameraScreenState extends State<DocumentCameraScreen>
 class DocumentFramePainter extends CustomPainter {
   final bool isPassport;
 
-  DocumentFramePainter({this.isPassport = false});
+  /// Barvy (v2 skener: rámeček bílý@.35, rohy neon, scrim night@.55);
+  /// výchozí = dosavadní vzhled.
+  final Color scrim;
+  final Color border;
+  final Color corner;
+
+  DocumentFramePainter({
+    this.isPassport = false,
+    this.scrim = const Color(0x80000000),
+    this.border = const Color(0xFF4ADE80),
+    this.corner = Colors.white,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -307,7 +318,7 @@ class DocumentFramePainter extends CustomPainter {
     );
 
     // Draw semi-transparent overlay outside the frame
-    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.5);
+    final overlayPaint = Paint()..color = scrim;
     final path = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
       ..addRRect(RRect.fromRectAndRadius(frameRect, const Radius.circular(16)))
@@ -316,7 +327,7 @@ class DocumentFramePainter extends CustomPainter {
 
     // Draw frame border
     final borderPaint = Paint()
-      ..color = const Color(0xFF4ADE80) // MotoGoColors.green
+      ..color = border // MotoGoColors.green
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
     canvas.drawRRect(
@@ -326,7 +337,7 @@ class DocumentFramePainter extends CustomPainter {
 
     // Draw corner accents
     final cornerPaint = Paint()
-      ..color = Colors.white
+      ..color = corner
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;

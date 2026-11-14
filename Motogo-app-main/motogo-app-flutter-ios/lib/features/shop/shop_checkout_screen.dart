@@ -30,6 +30,10 @@ import 'shop_provider.dart';
 import 'widgets/checkout_payment_card.dart';
 import 'widgets/checkout_shipping_section.dart';
 import 'widgets/checkout_summary_section.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../payment/v2/pay_parts_v2.dart' show PayRoundingNoteV2;
+import 'v2/checkout_parts_v2.dart';
+import 'v2/checkout_view_v2.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 
@@ -47,6 +51,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
   final _streetCtrl = TextEditingController();
   final _zipCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
+  final _shipKey = GlobalKey<CheckoutShippingSectionState>();
   final _promoCtrl = TextEditingController();
   bool _processing = false;
   bool _promoExpanded = false;
@@ -115,6 +120,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       _streetCtrl.text = profile['street'] ?? '';
       _zipCtrl.text = profile['zip'] ?? '';
       _cityCtrl.text = profile['city'] ?? '';
+      if (mounted) setState(() {});
     } catch (_) {}
   }
 
@@ -422,14 +428,20 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
     }
 
     if (!digitalOnly && shipMode == ShipMode.post) {
-      if (_nameCtrl.text.trim().isEmpty ||
-          _streetCtrl.text.trim().isEmpty ||
-          _cityCtrl.text.trim().isEmpty ||
-          _zipCtrl.text.trim().isEmpty) {
+      // Co chybí, jmenovitě — a sekce adresy se rozbalí přímo u pole.
+      final tr = t(context);
+      final missing = [
+        if (_nameCtrl.text.trim().isEmpty) tr.tr('fullNameLabel'),
+        if (_streetCtrl.text.trim().isEmpty) tr.tr('streetShort'),
+        if (_cityCtrl.text.trim().isEmpty) tr.tr('city'),
+        if (_zipCtrl.text.trim().isEmpty) tr.tr('zip'),
+      ];
+      if (missing.isNotEmpty) {
+        _shipKey.currentState?.reveal();
         showMotoGoToast(context,
             icon: '⚠️',
-            title: t(context).tr('deliveryDetails'),
-            message: t(context).tr('deliveryDetails'));
+            title: tr.tr('shopFillDeliveryTitle'),
+            message: tr.trArgs('shopMissingFields', {'fields': missing.join(', ')}));
         return;
       }
     }
@@ -680,7 +692,44 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _onBack();
       },
-      child: Scaffold(
+      // v2 (PS-11): the same sections, keys, back and pay handler.
+      child: MgV2.on(context)
+          ? CheckoutViewV2(
+              sections: [
+                if (!digitalOnly)
+                  CheckoutShippingSection(
+                    key: _shipKey,
+                    nameCtrl: _nameCtrl,
+                    streetCtrl: _streetCtrl,
+                    zipCtrl: _zipCtrl,
+                    cityCtrl: _cityCtrl,
+                  ),
+                const CheckoutPaymentCard(),
+                _buildPromoCard(appliedCodes),
+                CheckoutSummarySection(
+                  cart: cart,
+                  digitalOnly: digitalOnly,
+                  shipMode: shipMode,
+                  shipping: shipping,
+                  discount: discount,
+                  total: total,
+                ),
+                const SizedBox(height: 12),
+                PayRoundingNoteV2(due: total, roundKey: 'pdRoundShopHint', waiveKey: 'pdWaiveShopHint'),
+              ],
+              label: (total <= 0
+                      ? t(context).tr('confirmOrderFree')
+                      : cardCharge(total).isWaive
+                          ? t(context).tr('pdConfirmFree')
+                          : t(context).tr('payBtn'))
+                  .replaceAll('→', '')
+                  .trim(),
+              price: total <= 0 || cardCharge(total).noCharge ? null : Money.czk(cardCharge(total).charge),
+              processing: _processing,
+              onPay: _finalize,
+              onBack: _onBack,
+            )
+          : Scaffold(
       backgroundColor: MotoGoColors.bg,
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
@@ -720,6 +769,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
                     // Shipping method card (hide for digital)
                     if (!digitalOnly)
                       CheckoutShippingSection(
+                        key: _shipKey,
                         nameCtrl: _nameCtrl,
                         streetCtrl: _streetCtrl,
                         zipCtrl: _zipCtrl,
@@ -807,6 +857,19 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
 
   /// Promo code card — inline expandable (no bottom sheet).
   Widget _buildPromoCard(List<AppliedDiscount> appliedCodes) {
+    if (MgV2.on(context)) {
+      return CheckoutPromoV2(
+        expanded: _promoExpanded,
+        onExpand: () => setState(() => _promoExpanded = true),
+        ctrl: _promoCtrl,
+        loading: _promoLoading,
+        onApply: _applyPromo,
+        msg: _promoMsg,
+        ok: _promoOk,
+        applied: appliedCodes,
+        onRemove: _removeCode,
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(14),
       margin: const EdgeInsets.only(bottom: 12),

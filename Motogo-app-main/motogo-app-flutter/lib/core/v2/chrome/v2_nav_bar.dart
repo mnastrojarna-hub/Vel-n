@@ -10,6 +10,7 @@ import '../motion/mg_motion.dart';
 import '../rank/rank_frame.dart';
 import '../rank/rank_provider.dart';
 import '../rank/rank_tokens.dart';
+import '../shell/shell_nav_map.dart' show v2TabReselectProvider;
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import 'v2_nav_fit.dart';
@@ -57,6 +58,7 @@ class V2NavBar extends ConsumerWidget {
     final base = DefaultTextStyle.of(context).style.merge(MgType.navActive);
     final bottom = MediaQuery.paddingOf(context).bottom;
     final reduced = MgMotion.reduced(context);
+    final reselect = ref.watch(v2TabReselectProvider);
 
     return Semantics(
       container: true,
@@ -119,6 +121,7 @@ class V2NavBar extends ConsumerWidget {
                       dot: i == 2 && bookingsNeedAction,
                       count: i == 4 ? profileBadge : 0,
                       tooltip: fit.compromised && (fit.shortened[i] || fit.rung > 1),
+                      nudge: reselect.$1 == i ? reselect.$2 : 0,
                       onTap: () => onTap(i),
                     ),
                   ),
@@ -183,6 +186,9 @@ class _Tab extends StatelessWidget {
   final bool tooltip;
   final VoidCallback onTap;
 
+  /// Re-tap sequence of this tab (0 = none): a 3 px upward nudge.
+  final int nudge;
+
   const _Tab({
     required this.label,
     required this.fullLabel,
@@ -196,6 +202,7 @@ class _Tab extends StatelessWidget {
     required this.count,
     required this.tooltip,
     required this.onTap,
+    this.nudge = 0,
   });
 
   @override
@@ -234,7 +241,7 @@ class _Tab extends StatelessWidget {
             width: 52,
             height: 30,
             child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-              visual,
+              _Nudge(trigger: nudge, child: _ActivePop(active: active, child: visual)),
               if (dot)
                 Positioned(
                   top: 2,
@@ -273,17 +280,20 @@ class _Tab extends StatelessWidget {
             ]),
           ),
           const SizedBox(height: 5),
-          Text(
-            label,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.visible,
-            textScaler: TextScaler.noScaling,
+          AnimatedDefaultTextStyle(
+            duration: MgMotion.of(context, MgMotion.color),
             style: base.copyWith(
               fontSize: px,
               height: 14 / 11,
               fontWeight: active ? FontWeight.w800 : FontWeight.w700,
               color: active ? MgColors.onDark : MgColors.onDarkSecondary,
+            ),
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.visible,
+              textScaler: TextScaler.noScaling,
             ),
           ),
         ]),
@@ -306,4 +316,65 @@ class _Tab extends StatelessWidget {
       child: tab,
     );
   }
+}
+
+/// Pops the icon of a tab that just became active (V2 §4.1).
+class _ActivePop extends StatefulWidget {
+  final bool active;
+  final Widget child;
+  const _ActivePop({required this.active, required this.child});
+
+  @override
+  State<_ActivePop> createState() => _ActivePopState();
+}
+
+class _ActivePopState extends State<_ActivePop> {
+  int _seq = 0;
+
+  @override
+  void didUpdateWidget(covariant _ActivePop oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _seq++;
+  }
+
+  @override
+  Widget build(BuildContext context) => MgPop(trigger: _seq, child: widget.child);
+}
+
+/// Re-tap of the active tab: the icon nudges 3 px up and back (`pop`).
+class _Nudge extends StatefulWidget {
+  final int trigger;
+  final Widget child;
+  const _Nudge({required this.trigger, required this.child});
+
+  @override
+  State<_Nudge> createState() => _NudgeState();
+}
+
+class _NudgeState extends State<_Nudge> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: MgMotion.pop, value: 1);
+
+  @override
+  void didUpdateWidget(covariant _Nudge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.trigger != 0 && widget.trigger != oldWidget.trigger && !MgMotion.reduced(context)) {
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _c,
+        child: widget.child,
+        builder: (_, child) => Transform.translate(
+          offset: Offset(0, _c.isAnimating ? -3 * math.sin(math.pi * _c.value) : 0),
+          child: child,
+        ),
+      );
 }

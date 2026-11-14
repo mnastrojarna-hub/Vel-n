@@ -7,6 +7,30 @@ import '../../home/widgets/license_chip.dart';
 import '../catalog_provider.dart';
 import 'availability_calendar.dart';
 import 'filter_branch_chip.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../v2/moto_filter_card_v2.dart';
+import '../v2/moto_filter_panel_v2.dart';
+
+/// Řazení výpisu (hodnota → klíč popisku) — sdílí starý panel i v2 list.
+const kFilterSortOptions = [
+  ('default', 'homeFilterSortDefault'),
+  ('price_asc', 'homeFilterSortPriceAsc'),
+  ('price_desc', 'homeFilterSortPriceDesc'),
+  ('power_asc', 'homeFilterSortPowerAsc'),
+  ('power_desc', 'homeFilterSortPowerDesc'),
+];
+
+/// Skupiny ŘP (null = všechny) — sdílí starý panel i v2 list.
+const kFilterLicenseOptions = <(String?, String)>[
+  (null, 'homeFilterLicenseAll'),
+  ('AM', 'homeFilterLicenseAM'),
+  ('A1', 'homeFilterLicenseA1'),
+  ('A2', 'homeFilterLicenseA2'),
+  ('A', 'homeFilterLicenseA'),
+  ('B', 'homeFilterLicenseB'),
+  ('N', 'homeFilterLicenseN'),
+];
 
 /// Filtr motorek — JEDEN panel sdílený obrazovkami Domů a Rezervovat.
 ///
@@ -20,14 +44,27 @@ class MotoFilterPanel extends ConsumerStatefulWidget {
   /// Zobrazit uvnitř filtru i výběr termínu (jen Domů).
   final bool showDates;
 
-  const MotoFilterPanel({super.key, this.showDates = false});
+  /// Panel otevřený hned po zobrazení (v2 listy „Filtry" — panel je tam
+  /// jediný obsah). Výchozí false = dosavadní chování (sbalený).
+  final bool initiallyOpen;
+
+  /// Vložený do v2 listu „Filtry": bez vlastní karty a hlavičky (titulek
+  /// a zavření kreslí list), jen „Resetovat" + obsah. Stejná logika.
+  final bool embedded;
+
+  const MotoFilterPanel({
+    super.key,
+    this.showDates = false,
+    this.initiallyOpen = false,
+    this.embedded = false,
+  });
 
   @override
   ConsumerState<MotoFilterPanel> createState() => _MotoFilterPanelState();
 }
 
 class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
-  bool _open = false;
+  late bool _open = widget.initiallyOpen;
   /// Živé hodnoty posuvníků během tažení (klíč = popisek posuvníku). Do
   /// filtru se zapisují až po puštění jezdce.
   final Map<String, RangeValues> _drag = {};
@@ -75,6 +112,92 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   Widget build(BuildContext context) {
     final filter = ref.watch(catalogFilterProvider);
     final active = filter.activeCount;
+
+    // v2 list „Filtry" (CB-01): stejný stav a stejné settery, nový vzhled.
+    if (widget.embedded && MgV2.on(context)) {
+      return MotoFilterPanelV2View(
+        filter: filter,
+        sort: ref.watch(catalogSortProvider),
+        branches: ref.watch(branchesProvider),
+        ranges: _ranges(context, filter),
+        licenseOptions: kFilterLicenseOptions,
+        sortOptions: kFilterSortOptions,
+        showReset: active > 0,
+        onReset: _reset,
+        onCategory: (v) => _set(_f.copyWith(category: () => v)),
+        onLicense: (v) => _set(_f.copyWith(licenseGroup: () => v)),
+        onBranch: (v) => _set(_f.copyWith(branch: () => v)),
+        onToday: (v) => _set(_f.copyWith(availableTodayOnly: v)),
+        onSort: (v) => ref.read(catalogSortProvider.notifier).state = v,
+      );
+    }
+
+    // v2 vložený panel (Motorky, Domů): stejná sbalitelná karta, stejný stav
+    // a settery, jen v2 vzhled (MotoFilterCardV2 + obsah MotoFilterPanelV2View).
+    if (!widget.embedded && MgV2.on(context)) {
+      String? branchName;
+      for (final b in ref.watch(branchesProvider)) {
+        if (b['id'] == filter.branch) branchName = b['name'] as String?;
+      }
+      return MotoFilterCardV2(
+        open: _open,
+        active: active,
+        onToggle: () => setState(() => _open = !_open),
+        onReset: _reset,
+        branchName: filter.branch == null ? null : branchName,
+        datesValue: widget.showDates ? _dateLabel(context, filter) : null,
+        calendar: widget.showDates
+            ? AvailabilityCalendar(
+                selectedStart: filter.startDate,
+                selectedEnd: filter.endDate,
+                onRangeSelected: (start, end) => _set(
+                  _f.copyWith(startDate: () => start, endDate: () => end),
+                ),
+                onReset: () =>
+                    _set(_f.copyWith(startDate: () => null, endDate: () => null)),
+              )
+            : null,
+        body: MotoFilterPanelV2View(
+          filter: filter,
+          sort: ref.watch(catalogSortProvider),
+          branches: ref.watch(branchesProvider),
+          ranges: _ranges(context, filter),
+          licenseOptions: kFilterLicenseOptions,
+          sortOptions: kFilterSortOptions,
+          showReset: false,
+          onReset: _reset,
+          onCategory: (v) => _set(_f.copyWith(category: () => v)),
+          onLicense: (v) => _set(_f.copyWith(licenseGroup: () => v)),
+          onBranch: (v) => _set(_f.copyWith(branch: () => v)),
+          onToday: (v) => _set(_f.copyWith(availableTodayOnly: v)),
+          onSort: (v) => ref.read(catalogSortProvider.notifier).state = v,
+        ),
+      );
+    }
+
+    if (widget.embedded) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (active > 0)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _reset,
+                child: Text(
+                  t(context).tr('homeFilterReset'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: MotoGoColors.red,
+                  ),
+                ),
+              ),
+            ),
+          _body(context, filter),
+        ],
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -176,8 +299,81 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   }
 
   Widget _body(BuildContext context, CatalogFilter filter) {
-    final ranges = ref.watch(motoRangesProvider);
     final branches = ref.watch(branchesProvider);
+    final todayToggle = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _set(
+          _f.copyWith(availableTodayOnly: !filter.availableTodayOnly)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: filter.availableTodayOnly
+                  ? MotoGoColors.green
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: filter.availableTodayOnly
+                    ? MotoGoColors.green
+                    : MotoGoColors.g200,
+                width: 1.5,
+              ),
+            ),
+            child: filter.availableTodayOnly
+                ? const Icon(Icons.check, size: 14, color: Colors.black)
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              t(context).tr('homeFilterShowAvailableToday'),
+              // v2 (pod sebou, celá šířka): smí na 2 řádky, ne „…".
+              maxLines: widget.embedded ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: MotoGoColors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    final sortBox = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: MotoGoColors.g200),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: ref.watch(catalogSortProvider),
+          isDense: true,
+          // v2 list: full width + ellipsis (fr / uk sort labels are long).
+          isExpanded: widget.embedded,
+          dropdownColor: Colors.white,
+          style: _ddStyle(context, const TextStyle(fontSize: 12, color: MotoGoColors.black)),
+          items: [
+            for (final o in kFilterSortOptions)
+              DropdownMenuItem(
+                  value: o.$1,
+                  child: widget.embedded
+                      // v2: dlouhé popisky řazení (uk / fr) se zmenší, ne useknou.
+                      ? MgWordFit(
+                          minScale: 0.7,
+                          child: Text(t(context).tr(o.$2), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        )
+                      : Text(t(context).tr(o.$2))),
+          ],
+          onChanged: (v) => ref.read(catalogSortProvider.notifier).state =
+              v ?? 'default',
+        ),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -241,15 +437,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            for (final g in const [
-              (null, 'homeFilterLicenseAll'),
-              ('AM', 'homeFilterLicenseAM'),
-              ('A1', 'homeFilterLicenseA1'),
-              ('A2', 'homeFilterLicenseA2'),
-              ('A', 'homeFilterLicenseA'),
-              ('B', 'homeFilterLicenseB'),
-              ('N', 'homeFilterLicenseN'),
-            ])
+            for (final g in kFilterLicenseOptions)
               LicenseChip(
                 label: t(context).tr(g.$2),
                 active: filter.licenseGroup == g.$1,
@@ -285,13 +473,13 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                 children: [
                   const Icon(Icons.store_outlined, size: 18, color: MotoGoColors.g400),
                   const SizedBox(width: 8),
-                  Text(
+                  _fit(Text(
                     t(context).tr('homeFilterAllBranches'),
                     style: const TextStyle(fontSize: 14, color: MotoGoColors.black),
-                  ),
+                  )),
                 ],
               ),
-              style: const TextStyle(fontSize: 14, color: MotoGoColors.black),
+              style: _ddStyle(context, const TextStyle(fontSize: 14, color: MotoGoColors.black)),
               items: [
                 DropdownMenuItem(
                   value: null,
@@ -299,7 +487,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
                     children: [
                       const Icon(Icons.store_outlined, size: 18, color: MotoGoColors.g400),
                       const SizedBox(width: 8),
-                      Text(t(context).tr('homeFilterAllBranches')),
+                      _fit(Text(t(context).tr('homeFilterAllBranches'))),
                     ],
                   ),
                 ),
@@ -315,141 +503,67 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
         const SizedBox(height: 16),
 
         // ── VÝKON / VÝŠKA SEDLA / TOČIVÝ MOMENT / HMOTNOST ──
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterPower',
-          unit: 'kW',
-          bounds: ranges.power,
-          lo: filter.minPowerKw,
-          hi: filter.maxPowerKw,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minPowerKw: () => lo, maxPowerKw: () => hi)),
-        ),
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterSeatHeight',
-          unit: 'mm',
-          bounds: ranges.seat,
-          lo: filter.minSeatMm,
-          hi: filter.maxSeatMm,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minSeatMm: () => lo, maxSeatMm: () => hi)),
-        ),
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterTorque',
-          unit: 'Nm',
-          bounds: ranges.torque,
-          lo: filter.minTorqueNm,
-          hi: filter.maxTorqueNm,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minTorqueNm: () => lo, maxTorqueNm: () => hi)),
-        ),
-        _rangeSlider(
-          context,
-          labelKey: 'homeFilterWeight',
-          unit: 'kg',
-          bounds: ranges.weight,
-          lo: filter.minWeightKg,
-          hi: filter.maxWeightKg,
-          onChanged: (lo, hi) =>
-              _set(_f.copyWith(minWeightKg: () => lo, maxWeightKg: () => hi)),
-        ),
+        for (final m in _ranges(context, filter)) _rangeSlider(context, m),
 
-        // ── Dnes volné + řazení ──
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _set(
-                    _f.copyWith(availableTodayOnly: !filter.availableTodayOnly)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: filter.availableTodayOnly
-                            ? MotoGoColors.green
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: filter.availableTodayOnly
-                              ? MotoGoColors.green
-                              : MotoGoColors.g200,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: filter.availableTodayOnly
-                          ? const Icon(Icons.check, size: 14, color: Colors.black)
-                          : null,
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        t(context).tr('homeFilterShowAvailableToday'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: MotoGoColors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: MotoGoColors.g200),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: ref.watch(catalogSortProvider),
-                  isDense: true,
-                  dropdownColor: Colors.white,
-                  style: const TextStyle(fontSize: 12, color: MotoGoColors.black),
-                  items: [
-                    for (final o in const [
-                      ('default', 'homeFilterSortDefault'),
-                      ('price_asc', 'homeFilterSortPriceAsc'),
-                      ('price_desc', 'homeFilterSortPriceDesc'),
-                      ('power_asc', 'homeFilterSortPowerAsc'),
-                      ('power_desc', 'homeFilterSortPowerDesc'),
-                    ])
-                      DropdownMenuItem(
-                          value: o.$1, child: Text(t(context).tr(o.$2))),
-                  ],
-                  onChanged: (v) => ref.read(catalogSortProvider.notifier).state =
-                      v ?? 'default',
-                ),
-              ),
-            ),
-          ],
-        ),
+        // ── Dnes volné + řazení ── (ve v2 listu pod sebou: dlouhé popisky
+        // řazení v fr/uk jinak přetečou řádek; starý vzhled beze změny)
+        if (widget.embedded)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [todayToggle, const SizedBox(height: 12), sortBox],
+          )
+        else
+          Row(
+            children: [
+              Expanded(child: todayToggle),
+              const SizedBox(width: 8),
+              sortBox,
+            ],
+          ),
       ],
     );
   }
 
-  Widget _label(BuildContext context, String key, {String? value}) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            t(context).tr(key),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: MotoGoColors.g400,
-              letterSpacing: 0.5,
+  /// `DropdownButton.style` NAHRAZUJE zděděný styl (bez rodiny písma by
+  /// v2 list kreslil Roboto místo Montserratu); starý vzhled beze změny.
+  TextStyle _ddStyle(BuildContext context, TextStyle base) {
+    if (!widget.embedded) return base;
+    final f = Theme.of(context).textTheme.bodyMedium ?? DefaultTextStyle.of(context).style;
+    return base.copyWith(fontFamily: f.fontFamily, fontFamilyFallback: f.fontFamilyFallback);
+  }
+
+  /// Ve v2 listu (embedded) se dlouhý popisek pobočky zalomí do „…"
+  /// místo přetečení řádku (es/fr/pl/uk); starý vzhled beze změny.
+  Widget _fit(Text text) => widget.embedded
+      ? Flexible(
+          // v2: nejdřív zmenšit (do 70 %), „…" až úplně nakonec.
+          child: MgWordFit(
+            minScale: 0.7,
+            child: Text(
+              text.data ?? '',
+              style: text.style,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+        )
+      : text;
+
+  Widget _label(BuildContext context, String key, {String? value}) {
+    final title = Text(
+      t(context).tr(key),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: MotoGoColors.g400,
+        letterSpacing: 0.5,
+      ),
+    );
+    return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // v2: název smí na 2 řádky, hodnota zůstane celá (pl přetékal).
+          if (widget.embedded) Flexible(child: title) else title,
           if (value != null)
             Text(
               value,
@@ -461,10 +575,58 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             ),
         ],
       );
+  }
+
+  /// Čtyři posuvníky filtru (stejné meze a settery pro starý vzhled i v2).
+  List<FilterRangeModel> _ranges(BuildContext context, CatalogFilter filter) {
+    final ranges = ref.watch(motoRangesProvider);
+    return [
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterPower',
+        unit: 'kW',
+        bounds: ranges.power,
+        lo: filter.minPowerKw,
+        hi: filter.maxPowerKw,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minPowerKw: () => lo, maxPowerKw: () => hi)),
+      ),
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterSeatHeight',
+        unit: 'mm',
+        bounds: ranges.seat,
+        lo: filter.minSeatMm,
+        hi: filter.maxSeatMm,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minSeatMm: () => lo, maxSeatMm: () => hi)),
+      ),
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterTorque',
+        unit: 'Nm',
+        bounds: ranges.torque,
+        lo: filter.minTorqueNm,
+        hi: filter.maxTorqueNm,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minTorqueNm: () => lo, maxTorqueNm: () => hi)),
+      ),
+      _rangeModel(
+        context,
+        labelKey: 'homeFilterWeight',
+        unit: 'kg',
+        bounds: ranges.weight,
+        lo: filter.minWeightKg,
+        hi: filter.maxWeightKg,
+        onChanged: (lo, hi) =>
+            _set(_f.copyWith(minWeightKg: () => lo, maxWeightKg: () => hi)),
+      ),
+    ].whereType<FilterRangeModel>().toList();
+  }
 
   /// Posuvník od–do. Krajní polohy = BEZ omezení (null), takže motorky
-  /// s nevyplněným údajem zůstávají ve výpisu.
-  Widget _rangeSlider(
+  /// s nevyplněným údajem zůstávají ve výpisu. null = neplatné meze.
+  FilterRangeModel? _rangeModel(
     BuildContext context, {
     required String labelKey,
     required String unit,
@@ -473,7 +635,7 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
     required int? hi,
     required void Function(int? lo, int? hi) onChanged,
   }) {
-    if (!bounds.valid) return const SizedBox.shrink();
+    if (!bounds.valid) return null;
     final min = bounds.min.toDouble();
     final max = bounds.max.toDouble();
     // Uložená hodnota mimo aktuální meze (data dorazila až po nastavení
@@ -489,11 +651,31 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
     // motorek = desítky dotazů za vteřinu).
     final shownLo = drag == null ? loIn : (drag.start <= min ? null : drag.start.round());
     final shownHi = drag == null ? hiIn : (drag.end >= max ? null : drag.end.round());
+    return FilterRangeModel(
+      labelKey: labelKey,
+      valueLabel: _rangeLabel(context, shownLo, shownHi, unit),
+      values: values,
+      min: min,
+      max: max,
+      onDrag: (v) => setState(() => _drag[labelKey] = v),
+      onDragEnd: (v) {
+        setState(() => _drag.remove(labelKey));
+        // Krajní poloha (i po zaokrouhlení) = BEZ omezení, ať se do
+        // filtru nezapisuje hodnota, která nic nefiltruje, ale svítí
+        // v odznaku aktivních filtrů.
+        final a = v.start.round();
+        final b = v.end.round();
+        onChanged(a <= bounds.min ? null : a, b >= bounds.max ? null : b);
+      },
+    );
+  }
+
+  /// Starý vzhled posuvníku (beze změny).
+  Widget _rangeSlider(BuildContext context, FilterRangeModel m) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(context, labelKey,
-            value: _rangeLabel(context, shownLo, shownHi, unit)),
+        _label(context, m.labelKey, value: m.valueLabel),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: MotoGoColors.green,
@@ -504,19 +686,11 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 8),
           ),
           child: RangeSlider(
-            values: values,
-            min: min,
-            max: max,
-            onChanged: (v) => setState(() => _drag[labelKey] = v),
-            onChangeEnd: (v) {
-              setState(() => _drag.remove(labelKey));
-              // Krajní poloha (i po zaokrouhlení) = BEZ omezení, ať se do
-              // filtru nezapisuje hodnota, která nic nefiltruje, ale svítí
-              // v odznaku aktivních filtrů.
-              final a = v.start.round();
-              final b = v.end.round();
-              onChanged(a <= bounds.min ? null : a, b >= bounds.max ? null : b);
-            },
+            values: m.values,
+            min: m.min,
+            max: m.max,
+            onChanged: m.onDrag,
+            onChangeEnd: m.onDragEnd,
           ),
         ),
         const SizedBox(height: 8),

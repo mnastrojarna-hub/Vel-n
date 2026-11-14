@@ -37,6 +37,8 @@ Map<String, List<Override> Function()> homeCases() {
     's0-noloyalty': () => homeOverrides(funnel: two, loyaltyFails: true, unread: 0, banner: false),
     's1': () => homeOverrides(reservations: [r8], sos: sos),
     's2': () => homeOverrides(reservations: [r2], pending: pending),
+    // fix:r2:core — unpaid ticket + 2 paid bookings: both one tap (old Home).
+    's2-paid2': () => homeOverrides(reservations: [r2, r6, r6b], pending: pending),
     's2-verifying': () => homeOverrides(
         reservations: [r2],
         pending: PendingBooking(id: r2.id, totalPrice: 12027, createdAt: r2.createdAt, verifying: true)),

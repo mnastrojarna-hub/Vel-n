@@ -69,21 +69,30 @@ class _MgFabAvoidState extends State<MgFabAvoid> {
 }
 
 /// Placement decision of the floating AI button.
-enum MgFabState { rest, peek, off }
+enum MgFabState { rest, peek, off, lift }
 
-/// Pure placement rule (unit-tested): the button slot (disc inflated by 8)
-/// against the avoid zones — any `cta` / `sos` overlap → off, only `tap`
-/// overlaps → peek, otherwise rest.
-MgFabState mgFabStateFor(Rect slot, List<(Rect, MgAvoidKind)> zones) {
+/// Full placement rule with the lift option (V2 §4.2, first free wins):
+/// **rest** (slot clear) → **lift** (bottom = top of the zones under the
+/// slot − 12, at most [maxLift], lifted slot clear of EVERY zone) → **off**
+/// (a `cta` / `sos` under the rest or the peek slot) → **peek** (only
+/// `tap` / `keep` in the way). Returns the state and the lift in px.
+(MgFabState, double) mgFabPlacementFor(Rect slot, List<(Rect, MgAvoidKind)> zones, {double maxLift = 56}) {
   final s = slot.inflate(8);
-  var peek = false;
-  for (final z in zones) {
-    if (!z.$1.overlaps(s)) continue;
-    if (z.$2 == MgAvoidKind.tap) {
-      peek = true;
-    } else {
-      return MgFabState.off;
-    }
+  final hits = [for (final z in zones) if (z.$1.overlaps(s)) z];
+  if (hits.isEmpty) return (MgFabState.rest, 0);
+  var top = double.infinity;
+  for (final z in hits) {
+    if (z.$1.top < top) top = z.$1.top;
   }
-  return peek ? MgFabState.peek : MgFabState.rest;
+  final lift = slot.bottom - (top - 12);
+  if (lift > 0 && lift <= maxLift) {
+    final lifted = slot.translate(0, -lift).inflate(8);
+    if (!zones.any((z) => z.$1.overlaps(lifted))) return (MgFabState.lift, lift);
+  }
+  final peekSlot = slot.translate(26, 0).inflate(8);
+  for (final z in zones) {
+    final hard = z.$2 == MgAvoidKind.cta || z.$2 == MgAvoidKind.sos;
+    if (hard && (z.$1.overlaps(s) || z.$1.overlaps(peekSlot))) return (MgFabState.off, 0);
+  }
+  return (MgFabState.peek, 0);
 }

@@ -6,8 +6,8 @@ import '../../../core/v2/states/mg_state_banner.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_icon_tile.dart';
 import 'res_edit_sections_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// A note line of the edit (V22 `.ed-nt`): ok = tint (move is free), warn =
 /// amber (storno conditions), plain = well.
@@ -67,7 +67,7 @@ class ResEditGroupV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) => EditCardV2(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          MgEyebrow(title, dark: false),
+          ResSectionEyebrowV2(title),
           const SizedBox(height: 12),
           child,
         ]),
@@ -102,7 +102,16 @@ class ResPickupTimeV2 extends StatelessWidget {
             alignment: Alignment.center,
             child: Text('½', style: MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon)),
           ),
-          Expanded(child: Text(tr.tr('ssPickupHint'), style: MgType.small.copyWith(color: MgColors.body2))),
+          // E3-10: the rule as a bold headline + the rest in the "ty" voice
+          // (same content as ssPickupHint, which the old look keeps).
+          Expanded(
+            key: const ValueKey('res-edit-late-hint'),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr.tr('jxLateHead'), style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+              const SizedBox(height: 2),
+              Text(tr.tr('jxLateBody'), style: MgType.small.copyWith(color: MgColors.body2)),
+            ]),
+          ),
         ]),
       ],
     ]);

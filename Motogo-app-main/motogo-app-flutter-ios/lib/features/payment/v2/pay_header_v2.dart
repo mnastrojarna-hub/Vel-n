@@ -1,0 +1,72 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/v2/chrome/mg_status_bar.dart';
+import '../../../core/v2/rank/rank_hero.dart';
+import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_shadows.dart';
+import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_back_v2.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
+
+/// Dark rank header of the v2 payment page (Booking board step 3 and the
+/// board's "Režim platby"): ‹ = the screen's EXISTING back action, title
+/// 17/800 + sub (bike / reservation number), then [chip] (the countdown;
+/// the old payment header had no step bar). Bottom padding leaves room
+/// for the −24 overlap.
+class PayHeaderV2 extends StatelessWidget {
+  final String title;
+  final String? sub;
+  final VoidCallback onBack;
+  final Widget? chip;
+
+  /// false = plain dark header without the rank aura (SOS never carries
+  /// the rank — V22 §1.4 / §2.4).
+  final bool rank;
+
+  const PayHeaderV2({
+    super.key,
+    required this.title,
+    this.sub,
+    required this.onBack,
+    this.chip,
+    this.rank = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sub;
+    const pad = EdgeInsets.fromLTRB(16, 8, 16, 40);
+    final content = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          MgV2Back(onTap: onBack),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                MgWordFit(minScale: 0.8, child: Text(title, style: MgType.section.copyWith(color: MgColors.onDark))),
+                if (s != null && s.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(s, maxLines: 2, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDarkLead)),
+                ],
+              ]),
+            ),
+          ),
+        ]),
+        if (chip != null) ...[const SizedBox(height: 12), chip!],
+      ]);
+    if (rank) return MgRankHero(ambientKey: 'payment', padding: pad, child: content);
+    return MgStatusBar(
+      dark: true,
+      extendAbove: MgStatusBar.bounce,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: MgGradients.dark,
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top).add(pad),
+        child: content,
+      ),
+    );
+  }
+}

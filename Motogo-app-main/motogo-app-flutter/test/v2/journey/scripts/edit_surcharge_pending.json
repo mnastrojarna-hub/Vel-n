@@ -1,0 +1,10 @@
+[
+ {"tapText": "Rezervace", "note": "tab Rezervace"},
+ {"wait": 300},
+ {"tapText": "Upravit", "note": "Upravit on the booking card"},
+ {"wait": 500},
+ {"scroll": [180, 500, 330]},
+ {"tap": [265, 227], "note": "tap 21. = extension with a surcharge"},
+ {"tapText": "ZAPLATIT DOPLATEK", "note": "a surcharge of this booking is still being verified"},
+ {"wait": 500}
+]

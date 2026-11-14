@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/friendly_error.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
 import '../booking/booking_entry.dart';
+import '../booking/booking_models.dart' show BookingDraft;
+import '../booking/booking_provider.dart' show bookingDraftProvider;
 import 'catalog_provider.dart';
 import 'moto_model.dart';
 import 'widgets/availability_calendar.dart';
@@ -20,10 +23,16 @@ import 'widgets/specs_section.dart';
 import 'widgets/validation_banner.dart';
 import '../../core/date_days.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/widgets/error_feedback.dart' show callMotoGo, openFixSettings;
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/states/mg_state_screen.dart';
+import '../../core/v2/icons/mg_icon.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
+import 'v2/detail/detail_dates_carry_v2.dart';
+import 'v2/detail/detail_states_v2.dart';
 import 'v2/detail/moto_detail_view_v2.dart';
+import 'v2/motorky_error_v2.dart' show friendlyWhy;
 
 /// Detail content for a single motorcycle.
 /// Used inside the pager (MotoDetailScreen) — one page per motorcycle.
@@ -56,15 +65,23 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
     super.initState();
     _pageCtrl = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final filter = ref.read(catalogFilterProvider);
-      if (filter.startDate != null && filter.endDate != null) {
+      if (!mounted) return;
+      // v2: termín rozpracované rezervace TÉTO motorky má přednost (2026-10-22).
+      final (s, e) = detailStartDates(context, ref, widget.motoId);
+      if (s != null && e != null) {
         setState(() {
-          _selStart = filter.startDate;
-          _selEnd = filter.endDate;
+          _selStart = s;
+          _selEnd = e;
           _calendarExpanded = false;
         });
       }
     });
+  }
+
+  /// v2: termín změněný ve formuláři („Změnit“) se propíše do detailu pod ním.
+  void _followDraftDates(BookingDraft? prev, BookingDraft next) {
+    final r = detailFollowDraft(prev, next, widget.motoId, _selStart, _selEnd);
+    if (r != null) _pickRange(r.$1, r.$2);
   }
 
   @override
@@ -106,12 +123,27 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         _selEnd = null;
       });
 
+  /// v2: termín vybraný (nebo zrušený) v detailu platí pro celý katalog —
+  /// další motorky v pageru, seznam Motorek, pilulka na Domů (stejný zápis
+  /// jako výběr termínu v Motorkách; majitel 2026-10-22 „nic nevyplňovat
+  /// dvakrát“). Jen začátek (jednodenní výběr) zůstává v detailu.
+  void _pickRange(DateTime s, DateTime e) {
+    _onCalendarRange(s, e);
+    detailShareRange(ref, s, e);
+  }
+
+  void _pickReset() {
+    _onCalendarReset();
+    detailShareReset(ref);
+  }
+
   /// REZERVOVAT — jen začátek = jednodenní rezervace (PM-3).
   void _reserve(BuildContext ctx, Motorcycle moto) =>
       startBookingFromSelection(ctx, ref, moto, _selStart!, _selEnd ?? _selStart!);
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) ref.listen<BookingDraft>(bookingDraftProvider, _followDraftDates);
     final motosAsync = ref.watch(motorcyclesProvider);
     final bookedAsync = ref.watch(bookedDatesProvider(widget.motoId));
 
@@ -149,15 +181,40 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         }
         return _buildDetail(context, moto, bookedAsync);
       },
-      // Po 15 s „trvá to déle" + Zkusit znovu / Zpět (nikdy holý spinner).
-      loading: () => _stateFrame(MgLoadingView(
-        onRetry: () => ref.invalidate(motorcyclesProvider),
-        onBack: _back,
-      )),
-      // Důvod + Zkusit znovu / Zpět, nikdy syrová výjimka.
-      error: (e, _) => _stateFrame(MgErrorView(
+      // Po 15 s „trvá to déle" + Zkusit znovu / Zpět (nikdy holý spinner);
+      // v2: kostra fotky a listu detailu, stejné akce.
+      loading: () => _stateFrame(MgV2.on(context)
+          ? DetailLoadingV2(onRetry: () => ref.invalidate(motorcyclesProvider), onBack: _back)
+          : MgLoadingView(
+              onRetry: () => ref.invalidate(motorcyclesProvider),
+              onBack: _back,
+            )),
+      // Důvod + Zkusit znovu / Zpět, nikdy syrová výjimka (v2: jedna motorka).
+      // v2 (CB-21): T1 světlá stránka, dok „Zkusit znovu" / „Zpět na
+      // Motorky" (stejné akce), syrová chyba jen v Technických detailech.
+      error: (e, _) => MgV2.on(context)
+          ? MgStateScreen(
+              tone: MgTone.err,
+              title: t(context).tr('v2DetLoadFail'),
+              // The error's own reason + fix (old MgErrorView), not a fixed text.
+              why: '${friendlyWhy(t(context), FriendlyError.of(e))} ${FriendlyError.of(e).body(t(context))}',
+              tech: '$e',
+              primary: MgStateAction(t(context).tr('eoRetry'), () => ref.invalidate(motorcyclesProvider)),
+              secondary: MgStateAction(t(context).tr('v2UxCbBackToMotos'), _back),
+              onClose: widget.showBackButton ? _back : null,
+              closeIsBack: true,
+              children: [
+                if (FriendlyError.of(e).needsSettings)
+                  MgBtnGhostLight(
+                      label: t(context).tr('eoOpenSettings'), onTap: () => openFixSettings(FriendlyError.of(e))),
+                // G-145: the old error view's "Zavolat MotoGo" button.
+                if (FriendlyError.of(e).suggestContact)
+                  MgBtnText(label: t(context).tr('eoCall'), icon: MgIcons.phone, onTap: callMotoGo),
+              ],
+            )
+          : _stateFrame(MgErrorView(
         error: e,
-        what: t(context).tr('eoMotosLoadFail'),
+        what: t(context).tr(MgV2.on(context) ? 'v2DetLoadFail' : 'eoMotosLoadFail'),
         onRetry: () => ref.invalidate(motorcyclesProvider),
         onBack: _back,
       )),
@@ -194,6 +251,9 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
 
     // v2 vzhled (kill-switch app_v2_ui): stejný stav i obsluha, jen jiný strom.
     if (MgV2.on(ctx)) {
+      // Přenesený termín s obsazeným dnem: kalendář otevřený, varování,
+      // REZERVOVAT vypnuté (jinak by to odmítla až platba).
+      final busy = detailRangeBusy(ref, bookedAsync, moto.id, _selStart, _selEnd);
       return MotoDetailV2View(
         moto: moto,
         images: images,
@@ -208,13 +268,15 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         hasDates: hasDates,
         dayCount: dayCount,
         totalPrice: totalPrice,
-        calendarExpanded: _calendarExpanded,
+        calendarExpanded: _calendarExpanded || busy,
         onToggleCalendar: _toggleCalendar,
-        onRangeSelected: _onCalendarRange,
+        onRangeSelected: _pickRange,
         onStartSelected: _onCalendarStart,
-        onReset: _onCalendarReset,
+        onReset: _pickReset,
         bookedAsync: bookedAsync,
-        onReserve: _selStart != null ? () => _reserve(ctx, moto) : null,
+        busy: busy,
+        onPickDates: _expandCalendar,
+        onReserve: _selStart != null && !busy ? () => _reserve(ctx, moto) : null,
       );
     }
 

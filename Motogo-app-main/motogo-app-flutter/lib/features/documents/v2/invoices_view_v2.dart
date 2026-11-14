@@ -172,7 +172,16 @@ class InvoiceRowV2 extends StatelessWidget {
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     MgWordFit(minScale: 0.85, child: Text(title, style: titleStyle)),
-                    Text(date, style: MgType.tab(MgType.meta.copyWith(color: MgColors.meta))),
+                    // "{number} · {date}": the line breaks only BETWEEN the
+                    // pieces, never inside the invoice number.
+                    Builder(builder: (_) {
+                      final parts = date.split(' · ');
+                      final st = MgType.tab(MgType.meta.copyWith(color: MgColors.meta));
+                      return Wrap(spacing: 4, children: [
+                        for (var i = 0; i < parts.length; i++)
+                          Text(i < parts.length - 1 ? '${parts[i]} ·' : parts[i], style: st),
+                      ]);
+                    }),
                     if (!side && amountText != null) ...[const SizedBox(height: 2), amountText],
                   ]),
                 ),

@@ -32,6 +32,7 @@ import 'widgets/profile_menu_item.dart';
 import 'widgets/consent_sheet.dart';
 import 'widgets/settings_sheets.dart';
 import '../../core/v2/flag/v2_scope.dart';
+import 'v2/profile_booking_fix_v2.dart';
 import 'v2/profile_hub_v2.dart';
 import 'v2/profile_personal_v2.dart' show PfFormData;
 import 'v2/profile_groups_v2.dart' show PfGroupActions;
@@ -68,9 +69,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// Available driver-license categories offered in the picker.
   static const _licCategoryOptions = ['AM', 'A1', 'A2', 'A', 'B'];
 
+  /// První volání didChangeDependencies (= hned po initState, před prvním build).
+  bool _freshRequested = false;
+
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_freshRequested) return;
+    _freshRequested = true;
+    // Dřív v initState — tam `ref.invalidate` shazoval debug assert
+    // (dependOnInheritedWidgetOfExactType před dokončením initState). Flutter
+    // volá didChangeDependencies hned po initState ve stejném synchronním
+    // kroku před prvním build, takže časování je stejné.
     // Vynuť čerstvé načtení profilu z DB při každém otevření. Hned po registraci
     // byl `profileProvider` naplněn JEŠTĚ PŘED zápisem profilu (RPC běží až po
     // vzniku session), takže cache mohla držet prázdná pole, i když data v DB
@@ -231,7 +241,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     // v2 vzhled (PLAN §2.5.1): stejný stav, stejné ovladače a akce.
     if (MgV2.on(context)) {
+      // Pushed z formuláře rezervace („Doplnit v profilu"): zpět + doplnění.
+      final back = pfPushedBack(context);
       return ProfileHubV2View(
+        onBack: back,
+        bookingFix: back != null && pfBookingFixRequested(context),
         profile: profile,
         loading: loading,
         error: error,
@@ -250,7 +264,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           dobLastYear: (_dob != null && _dob!.year > DateTime.now().year - 18)
               ? _dob!.year
               : DateTime.now().year - 18,
-          licFirstYear: DateTime.now().year,
+          // Propadlý ŘP z dřívějška zůstane v nabídce (jinak assert dropdownu).
+          licFirstYear: (_licExp != null && _licExp!.year < DateTime.now().year)
+              ? _licExp!.year
+              : DateTime.now().year,
           licLastYear: DateTime.now().year + 20,
           licCategories: _licCategories,
           licOptions: _licCategoryOptions,
@@ -528,7 +545,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (MgV2.on(ctx)) {
           return DestructiveDialogV2(
             title: t(context).tr('deleteAccountTitle'),
-            body: t(context).tr('deleteAccountDesc'),
+            body: t(context).tr('v2UxRpDeleteDesc'),
             cancelLabel: t(context).cancel,
             deleteLabel: t(context).tr('deleteAccountBtn'),
             onCancel: () => Navigator.pop(ctx),

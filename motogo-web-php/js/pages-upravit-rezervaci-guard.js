@@ -77,6 +77,10 @@
   // jdou převodem na účet do 14 dnů. Heuristika dle chybějícího payment intentu
   // (_loadBookings ho selectuje); autoritativní je odpověď process-refund
   // (manual:true) tam, kde ji voláme přímo (gear/swap).
+  // Vratky se provádějí v Kč (Stripe vrací na kartu částku v CZK) — v přepočtené měně webu (EUR/PLN…) by
+  // zákazník na výpisu viděl jiné číslo. card-rounding.js (MG.fmtCzkExact) se načítá před tímto souborem.
+  function fmtRefundCzk(n) { return typeof MG.fmtCzkExact === 'function' ? MG.fmtCzkExact(n) : MG.formatPrice(n); }
+
   function manualRefundLikely(b) {
     return !!b && !b.stripe_payment_intent_id;
   }
@@ -110,7 +114,7 @@
       var pct = res.data.refund_percent != null ? res.data.refund_percent : cliPct;
       var text = (pct === 0 || amount <= 0)
         ? MG.t('editRez.shorten.successNoRefund')
-        : MG.t('editRez.shorten.success', { amount: MG.formatPrice(amount), percent: pct });
+        : MG.t('editRez.shorten.success', { amount: fmtRefundCzk(amount), percent: pct });
       if (amount > 0 && manualRefundLikely(b)) text += manualNoteHtml();
       var content = document.getElementById('edit-rez-tab-content');
       if (content) {
@@ -150,7 +154,7 @@
       }
       var srvAmount = (body.refund_amount != null) ? body.refund_amount : amount;
       var srvPct = (body.refund_percent != null) ? body.refund_percent : pct;
-      var text = MG.t('editRez.cancel.success', { amount: MG.formatPrice(srvAmount), percent: srvPct });
+      var text = MG.t('editRez.cancel.success', { amount: fmtRefundCzk(srvAmount), percent: srvPct });
       if (srvAmount > 0 && manualRefundLikely(b)) text += manualNoteHtml();
       var content = document.getElementById('edit-rez-tab-content');
       if (content) {

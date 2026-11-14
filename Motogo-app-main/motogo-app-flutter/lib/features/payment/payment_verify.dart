@@ -10,6 +10,9 @@ enum VerifyState {
   notPaid,
   /// Pořád nevíme / banka ještě zpracovává — NEnabízet další platbu.
   pending,
+  /// Platba u Stripe prošla, ale rezervace je mezitím zrušená (nezaplacená
+  /// včas) → peníze se vracejí; zákazník nesmí vidět „čeká“ ani platit znovu.
+  cancelledRefund,
 }
 
 /// Ověří platbu podle DB (zdroj pravdy = webhook) a, je-li na zařízení znám
@@ -52,7 +55,19 @@ Future<VerifyState> verifyPayment({
   final cs = (marker?.clientSecretCurrent ?? false) ? marker!.clientSecret : null;
   if (cs != null) {
     final o = StripeService.outcomeForStatus(await StripeService.fetchIntentStatus(cs));
-    if (intentOnly && o == NextActionOutcome.succeeded) {
+    if (o == NextActionOutcome.succeeded) {
+      // Úspěšná platba NIKDY nekončí jako „čeká“: zrušená rezervace = platbu
+      // vracíme, jinak zaplaceno (zápis dorovná webhook).
+      if (!intentOnly && orderId == null && expectedTotal == null) {
+        final cancelled = await StripeService.bookingIsCancelled(bookingId!);
+        // Stav rezervace teď nezjistíme (síť) → raději „ověřujeme“ než
+        // tvrdit zaplaceno u možná zrušené rezervace; další ověření dořeší.
+        if (cancelled == null) return VerifyState.pending;
+        if (cancelled) {
+          await PaymentPendingMarker.clear(id);
+          return VerifyState.cancelledRefund;
+        }
+      }
       await PaymentPendingMarker.clear(id);
       return VerifyState.paid;
     }

@@ -21,6 +21,7 @@ import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/chrome/mg_dock.dart';
 import 'package:motogo_app/core/v2/chrome/mg_fab_avoid.dart';
+import 'package:motogo_app/core/v2/chrome/mg_nav_band.dart';
 import 'package:motogo_app/core/v2/chrome/mg_status_strip.dart';
 import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
@@ -145,6 +146,20 @@ Rect? _rectOf(WidgetTester t, Element e) {
   return ro == null ? null : paintedRect(t.binding.renderViews.first, ro);
 }
 
+/// A nav folded by hide-on-scroll (`MgNavBand`) is not on screen.
+bool _foldedNav(Element e) {
+  var folded = false;
+  e.visitAncestorElements((a) {
+    final w = a.widget;
+    if (w is MgNavBand) {
+      folded = w.folded;
+      return false;
+    }
+    return true;
+  });
+  return folded;
+}
+
 /// FAB rect (when painted) + the zones it must never cover.
 (Rect?, List<Rect>) _fabZones(WidgetTester t) {
   final discs = find.descendant(of: find.byType(MgAiFab), matching: find.byType(MgAiDisc)).evaluate();
@@ -159,6 +174,7 @@ Rect? _rectOf(WidgetTester t, Element e) {
   }
   for (final type in [V2NavBar, MgStatusStrip, MgDock]) {
     for (final e in find.byType(type).evaluate()) {
+      if (type == V2NavBar && _foldedNav(e)) continue;
       final r = _rectOf(t, e);
       if (r != null) zones.add(r);
     }
@@ -168,9 +184,16 @@ Rect? _rectOf(WidgetTester t, Element e) {
 
 List<RFinding> _inspect(WidgetTester t, String lang, Size size, {bool first = false}) {
   final (fab, zones) = _fabZones(t);
-  // Map markers at the map edge are clipped by design.
-  final maps = find.byType(FlutterMap).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
+  // Map markers at the map edge are clipped by design — also of a map
+  // scrolled out of view (offstage sliver: the default finder skips it).
+  final maps = find
+      .byType(FlutterMap, skipOffstage: false)
+      .evaluate()
+      .map((e) => e.renderObject)
+      .whereType<RenderObject>()
+      .toSet();
   final navs = find.byType(V2NavBar).evaluate().map((e) => e.renderObject).whereType<RenderObject>().toSet();
+  // (a folded nav is ignored as a FAB zone; its texts stay excluded too)
   final out = inspectFrame(t.binding.renderViews.first, lang, size, fab: fab, avoid: zones, ignore: maps, nav: navs);
   if (first && _env('MG_VERIFY_BACKCHECK') != null) {
     // Every screen / sheet needs a visible back or close control (tab roots
@@ -273,7 +296,7 @@ bool get renderEnabled => _env('MG_VERIFY_RENDER') != null;
 /// Always-on smoke subset (runs in the default `flutter test` too): key
 /// screens at the narrowest phone in cs / de / uk at the app's text scale
 /// (main.dart forces no system scaling) — a render regression there fails
-/// CI without the opt-in matrix. The full matrix stays the 4.2.0 release
+/// CI without the opt-in matrix. The full matrix stays the 5.0.0 release
 /// gate: `MG_VERIFY_RENDER=1 flutter test test/v2/render/` (+ MG_VERIFY_SCALE=1.0).
 const kRenderSmokeCases = {
   'reservations__list__all',
@@ -339,7 +362,10 @@ Future<void> _runCase(WidgetTester tester, RenderCase c, String lang, Size size,
     fs.addAll(_inspect(tester, lang, size, first: true));
     await _shot(tester, key, '${c.id}__${lang}__${w}x$h');
     fs.addAll(await _scrollInspect(tester, lang, size, key, '${c.id}__${lang}__${w}x$h'));
-    await tester.pump(const Duration(seconds: 3));
+    // Scroll shots run image encoding in real async; the image cache
+    // manager then leaves a 10 s cleanup timer → drain it, else the test
+    // fails on a pending timer only in scroll-shot mode.
+    await tester.pump(Duration(seconds: _env('MG_VERIFY_SCROLLSHOTS') != null ? 11 : 3));
     if (c.end != null) await c.end!(tester);
   } finally {
     FlutterError.onError = orig;

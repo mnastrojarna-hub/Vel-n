@@ -6,6 +6,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../shop_models.dart';
 import '../shop_provider.dart';
 import 'ship_card.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/checkout_parts_v2.dart';
 
 /// Shipping method selector + collapsible delivery address fields.
 /// Mirrors original s-checkout: address fields hidden behind a toggle.
@@ -25,16 +27,54 @@ class CheckoutShippingSection extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<CheckoutShippingSection> createState() =>
-      _CheckoutShippingSectionState();
+      CheckoutShippingSectionState();
 }
 
-class _CheckoutShippingSectionState
+class CheckoutShippingSectionState
     extends ConsumerState<CheckoutShippingSection> {
   bool _addressOpen = false;
+
+  /// Pokladna nahlásila chybějící údaje → rozbalit adresu a ukázat ji.
+  void reveal() {
+    if (!mounted) return;
+    setState(() => _addressOpen = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scrollable.ensureVisible(context,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          alignment: 0.1);
+    });
+  }
+
+  /// Sbalená hlavička: „jméno · ulice, obec“ (dřív jen jméno).
+  String _summary() => [
+        widget.nameCtrl.text.trim(),
+        [widget.streetCtrl.text.trim(), widget.cityCtrl.text.trim()]
+            .where((x) => x.isNotEmpty)
+            .join(', '),
+      ].where((x) => x.isNotEmpty).join(' · ');
 
   @override
   Widget build(BuildContext context) {
     final shipMode = ref.watch(shipModeProvider);
+
+    // v2 (PS-11): same provider, controllers and open flag (reveal() too).
+    if (MgV2.on(context)) {
+      return CheckoutShippingV2(
+        mode: shipMode,
+        onPost: () => ref.read(shipModeProvider.notifier).state = ShipMode.post,
+        onPickup: () => ref.read(shipModeProvider.notifier).state = ShipMode.pickup,
+        addressOpen: _addressOpen,
+        onToggle: () => setState(() => _addressOpen = !_addressOpen),
+        fields: Listenable.merge([widget.nameCtrl, widget.streetCtrl, widget.cityCtrl]),
+        summary: _summary,
+        name: widget.nameCtrl,
+        street: widget.streetCtrl,
+        zip: widget.zipCtrl,
+        city: widget.cityCtrl,
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -93,24 +133,32 @@ class _CheckoutShippingSectionState
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Row(children: [
-                      Text('📋 ${t(context).tr('deliveryDetails')}',
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w700)),
-                      if (widget.nameCtrl.text.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            '· ${widget.nameCtrl.text}',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: MotoGoColors.g400),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ]),
+                    // Poslouchá pole (i doplnění z profilu po načtení).
+                    child: ListenableBuilder(
+                      listenable: Listenable.merge(
+                          [widget.nameCtrl, widget.streetCtrl, widget.cityCtrl]),
+                      builder: (context, _) {
+                        final summary = _summary();
+                        return Row(children: [
+                          Text('📋 ${t(context).tr('deliveryDetails')}',
+                              style: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w700)),
+                          if (summary.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '· $summary',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: MotoGoColors.g400),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ]);
+                      },
+                    ),
                   ),
                   AnimatedRotation(
                     turns: _addressOpen ? 0.25 : 0,

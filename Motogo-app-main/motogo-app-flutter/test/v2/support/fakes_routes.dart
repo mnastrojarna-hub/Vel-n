@@ -2,6 +2,7 @@
 // sample places / routes near Velké Němčice and Mezná (research
 // trasy_inventory §4), every Supabase / GPS backed provider faked.
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import 'package:motogo_app/core/i18n/translations_ext_56_v2_routes_b.dart';
 import 'package:motogo_app/core/widgets/map_tile_errors.dart';
 import 'package:motogo_app/features/routes/my_experiences_provider.dart';
 import 'package:motogo_app/features/routes/places_filter.dart';
+import 'package:motogo_app/features/routes/road_line.dart';
 import 'package:motogo_app/features/routes/ride_provider.dart';
 import 'package:motogo_app/features/routes/ride_recorder.dart';
 import 'package:motogo_app/features/routes/routes_map_provider.dart';
@@ -150,6 +152,24 @@ class FakeSelection extends PlacesSelectionNotifier {
   Set<String> build() => initial;
 }
 
+/// A fake road line through [stops]: every leg densified with a gentle
+/// sideways wiggle — what Mapy.com routing returns looks like this (many
+/// points, never the bare straight legs between the stops).
+List<LatLng> fakeRoadLine(List<LatLng> stops) {
+  if (stops.length < 2) return const [];
+  final out = <LatLng>[stops.first];
+  for (var i = 0; i < stops.length - 1; i++) {
+    final a = stops[i], b = stops[i + 1];
+    for (var k = 1; k <= 8; k++) {
+      final f = k / 8;
+      final w = k == 8 ? 0.0 : math.sin(f * math.pi * 2) * 0.004;
+      out.add(LatLng(a.latitude + (b.latitude - a.latitude) * f + w,
+          a.longitude + (b.longitude - a.longitude) * f - w));
+    }
+  }
+  return out;
+}
+
 /// Everything the Trasy v2 screens read, faked.
 List<Override> routesOverrides({
   List<RouteItem>? routes,
@@ -172,8 +192,13 @@ List<Override> routesOverrides({
       selectionRoadRouteProvider.overrideWith((ref, key) async => null),
       routeDisplayProvider.overrideWith((ref, id) async {
         final r = (routes ?? kRtRoutes).firstWhere((x) => x.id == id, orElse: () => kRtRoutes.first);
-        return RouteDisplay(geometry: r.waypoints, start: const LatLng(48.9918, 16.6705));
+        return RouteDisplay(geometry: fakeRoadLine(r.waypoints), start: const LatLng(48.9918, 16.6705));
       }),
+      routeRoadLineProvider.overrideWith((ref, id) async {
+        final r = (routes ?? kRtRoutes).firstWhere((x) => x.id == id, orElse: () => kRtRoutes.first);
+        return fakeRoadLine(r.waypoints);
+      }),
+      roadLineProvider.overrideWith((ref, key) async => fakeRoadLine(key.stops)),
       routeRealLengthKmProvider.overrideWith((ref, id) async => 41.6),
       routeApproachProvider.overrideWith((ref, id) async => (km: 14.0, min: 14, exact: false)),
       myRidesProvider.overrideWith((ref) async => const []),

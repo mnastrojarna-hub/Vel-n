@@ -7,9 +7,10 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
-import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../../booking/v2/time_sheet_v2.dart';
 import 'res_fit_v2.dart';
+import 'res_detail_bits_v2.dart';
 
 /// v2 shell of `EditCard` (white card, 1 px line, r16) with the SAME outer
 /// gutter, so the edit sections drop into the v2 page unchanged.
@@ -35,58 +36,35 @@ class EditCardV2 extends StatelessWidget {
       );
 }
 
-/// v2 look of `EditTimePicker`: the SAME two dropdowns (hours 00–23,
-/// minutes by quarter) with the same `onChanged` composition.
+/// v2 look of `EditTimePicker` (same as booking CB-22): an input-like
+/// "09:00 ⌄" field; a tap opens the light time sheet with every time of the
+/// old two dropdowns (hours 00–23 × 00 / 15 / 30 / 45), the current one
+/// selected; a tap calls the SAME [onChanged] with "HH:MM" and closes.
 class EditTimePickerV2 extends StatelessWidget {
   final String label;
   final String hour;
   final String minute;
-  final ValueChanged<String?> onHour;
-  final ValueChanged<String?> onMinute;
+  final ValueChanged<String> onChanged;
   const EditTimePickerV2({
     super.key,
     required this.label,
     required this.hour,
     required this.minute,
-    required this.onHour,
-    required this.onMinute,
+    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget box(String value, List<String> items, ValueChanged<String?> onChanged) => Expanded(
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 48),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: MgColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: MgColors.lineInput, width: 1.5),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: value,
-                isExpanded: true,
-                dropdownColor: MgColors.surface,
-                icon: const MgIcon(MgIcons.chevronDown, size: 18, color: MgColors.link),
-                style: MgType.tab(MgType.h3.copyWith(color: MgColors.ink)),
-                items: [for (final v in items) DropdownMenuItem(value: v, child: Center(child: Text(v)))],
-                onChanged: onChanged,
-              ),
-            ),
-          ),
-        );
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text(label.toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.link)),
       const SizedBox(height: 8),
-      Row(children: [
-        box(hour, [for (var i = 0; i < 24; i++) i.toString().padLeft(2, '0')], onHour),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(':', style: MgType.h3.copyWith(color: MgColors.ink)),
-        ),
-        box(minute, const ['00', '15', '30', '45'], onMinute),
-      ]),
+      TimeFieldV2(
+        hour: int.tryParse(hour) ?? 9,
+        minute: int.tryParse(minute) ?? 0,
+        minutes: const [0, 15, 30, 45],
+        onChanged: onChanged,
+        sheetTitle: label,
+      ),
     ]);
   }
 }
@@ -127,7 +105,7 @@ class EditCalendarSectionV2 extends StatelessWidget {
     return EditCardV2(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Expanded(child: MgEyebrow(tr.tr('termLabel'), dark: false)),
+          Expanded(child: ResSectionEyebrowV2(tr.tr('termLabel'))),
           if (diffDays != 0)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -258,7 +236,20 @@ class EditRiderHeaderV2 extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 44),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                MgIcon(ownGear ? MgIcons.checkCircle : MgIcons.check, size: 18, color: ownGear ? MgColors.link : MgColors.meta),
+                // G-657: OFF = an empty box (as the old checkbox), never a tick.
+                if (ownGear)
+                  const MgIcon(MgIcons.checkCircle, size: 18, color: MgColors.link)
+                else
+                  Container(
+                    key: const ValueKey('own-gear-v2-empty-box'),
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: MgColors.surface,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: MgColors.lineInput, width: 2),
+                    ),
+                  ),
                 const SizedBox(width: 6),
                 // Delší popisek (de „Ich habe meine eigene Ausrüstung") se
                 // zalomí v mezeře místo přetečení vpravo.

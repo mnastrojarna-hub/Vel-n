@@ -6,6 +6,8 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/widgets/pickup_location_link.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_states_v2.dart';
 
 /// Confirmation page shown after successful edit save.
 class EditConfirmPage extends StatelessWidget {
@@ -16,6 +18,16 @@ class EditConfirmPage extends StatelessWidget {
   const EditConfirmPage({super.key, required this.title, required this.message, this.isRefund = false, this.pickup});
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): Stavy T1, stejný cíl (Rezervace).
+    if (MgV2.on(context)) {
+      return EditConfirmV2(
+        title: title,
+        message: message,
+        isRefund: isRefund,
+        pickup: pickup,
+        onDone: () => context.go(Routes.reservations),
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: Stack(children: [

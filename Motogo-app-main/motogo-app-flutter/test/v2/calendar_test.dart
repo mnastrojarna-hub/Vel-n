@@ -4,6 +4,7 @@
 // V-seam keeps its own tap logic.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/v2/states/mg_state_banner.dart';
 import 'package:motogo_app/core/v2/calendar/trip_calendar.dart';
 import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
@@ -151,7 +152,9 @@ void main() {
       expect(e?.day, d2.day);
     });
 
-    testWidgets('v2: occupied range still shows the old snackbar', (tester) async {
+    // CB-24 (V22 §3.3): v2 answers with an inline note (shakes), not the
+    // old SnackBar; the start stays, nothing is selected.
+    testWidgets('v2: occupied range → inline note instead of the old snackbar', (tester) async {
       final base = DateTime.now().add(const Duration(days: 40));
       final m = DateTime(base.year, base.month, 1);
       await pumpV2(tester, SingleChildScrollView(
@@ -166,7 +169,8 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('15').first);
       await tester.pump();
-      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(MgStateBanner), findsOneWidget);
     });
 
     testWidgets('flag OFF: the old calendar', (tester) async {

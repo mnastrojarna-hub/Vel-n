@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../reservations/reservation_provider.dart' show hasActiveReservationProvider;
 import '../../sos/sos_provider.dart' show hasActiveRentalProvider;
 import 'profile_v2_parts.dart';
 
@@ -43,7 +41,7 @@ class PfGroupActions {
 }
 
 /// Nastavení · Pomoc a podpora · Ostatní (V21 §1.2) + version footer.
-/// Values come from existing providers (language, currency, rental lock).
+/// Rows without values on the right, like the old menu items (look only).
 class ProfileGroupsV2 extends ConsumerWidget {
   final PfGroupActions actions;
   final GlobalKey settingsKey;
@@ -54,41 +52,21 @@ class ProfileGroupsV2 extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final a = actions;
-    final locked = ref.watch(hasActiveReservationProvider);
     final sos = ref.watch(hasActiveRentalProvider);
-    final lang = ref.watch(localeProvider).languageCode;
-    final cur = ref.watch(currencyProvider);
-    final curInfo = supportedCurrencies.firstWhere((c) => c.code == cur, orElse: () => supportedCurrencies.first);
-    final lockText = tr.tr('v2PfLockedRental');
+    // „jen vzhled“ (majitel 2026-11-07): řádky nastavení BEZ hodnot vpravo —
+    // jako položky menu v původní appce (jazyk, měna, kanály i zámek
+    // souhlasů ukazují až otevřené listy, stejně jako dřív).
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       PfSectionLabel(tr.tr('settings'), icon: MgIcons.gear, key: settingsKey),
       MgReveal(
         sessionKey: 'pf-set',
         child: PfGroup(rows: [
-          PfRow(
-            icon: MgIcons.shield,
-            title: tr.tr('permissions'),
-            value: locked ? tr.tr('requiredLabel') : null,
-            valueIcon: locked ? MgIcons.lock : null,
-            onTap: a.onPermissions,
-          ),
-          PfRow(
-            icon: MgIcons.bell,
-            title: tr.tr('notifications'),
-            value: locked ? lockText : null,
-            valueIcon: locked ? MgIcons.lock : null,
-            onTap: a.onNotif,
-          ),
-          PfRow(
-            icon: MgIcons.lock,
-            title: tr.tr('privacy'),
-            value: locked ? lockText : null,
-            valueIcon: locked ? MgIcons.lock : null,
-            onTap: a.onPrivacy,
-          ),
+          PfRow(icon: MgIcons.shield, title: tr.tr('permissions'), onTap: a.onPermissions),
+          PfRow(icon: MgIcons.bell, title: tr.tr('notifications'), onTap: a.onNotif),
+          PfRow(icon: MgIcons.lock, title: tr.tr('privacy'), onTap: a.onPrivacy),
           PfRow(icon: MgIcons.key, title: tr.tr('changePassword'), onTap: a.onPassword),
-          PfRow(icon: MgIcons.globe, title: tr.tr('language'), value: kPfLanguageNames[lang] ?? lang, onTap: a.onLanguage),
-          PfRow(icon: MgIcons.cash, title: tr.tr('currency'), value: '${curInfo.code} — ${curInfo.symbol}', onTap: a.onCurrency),
+          PfRow(icon: MgIcons.globe, title: tr.tr('language'), onTap: a.onLanguage),
+          PfRow(icon: MgIcons.cash, title: tr.tr('currency'), onTap: a.onCurrency),
         ]),
       ),
       PfSectionLabel(tr.tr('helpAndSupport'), icon: MgIcons.help),
@@ -97,15 +75,8 @@ class ProfileGroupsV2 extends ConsumerWidget {
         child: PfGroup(rows: [
           if (sos) PfRow(icon: MgIcons.sos, title: tr.sosTitle, tone: PfRowTone.sos, onTap: () => context.push(Routes.sos)),
           PfRow(
-            icon: MgIcons.ai,
-            title: tr.tr('aiServiceAgent'),
-            value: tr.tr('v2PfAiSub'),
-            onTap: () => context.push(Routes.aiAgent),
-          ),
-          PfRow(
             icon: MgIcons.help,
             title: tr.tr('helpFaq'),
-            value: 'motogo24.cz',
             trail: PfTrail.external,
             onTap: a.onFaq,
           ),

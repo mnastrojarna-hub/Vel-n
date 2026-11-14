@@ -19,6 +19,9 @@ import '../../payment/widgets/card_rounding_note.dart';
 import 'reservation_edit_states.dart' show blockIfSurchargePending;
 import '../reservation_models.dart';
 import 'reservation_edit_widgets.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_swap_v2.dart';
+import '../v2/res_swap_date_sheet_v2.dart';
 import '../../../core/date_days.dart';
 import '../../../core/booking_rules.dart';
 
@@ -166,7 +169,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    // v2: light calendar sheet (same range, same result path); v1: dialog.
+    final picked = MgV2.on(context)
+        ? await showSwapDateSheetV2(context,
+            first: _rangeStart, last: _rangeEnd, initial: _swapDate ?? _rangeStart, title: t(context).tr('swap.pickDate'))
+        : await showDatePicker(
       context: context,
       initialDate: _swapDate ?? _rangeStart,
       firstDate: _rangeStart,
@@ -359,6 +366,33 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
 
   String _fmt(DateTime? d) => d == null ? '–' : '${d.day}.${d.month}.${d.year}';
 
+  // Akce sdílené starým i v2 vzhledem (logika beze změny, jen vytažená).
+
+  /// Čas výměny mění cenu (late sleva nového kusu) → nový náhled.
+  void _onTime(String v) {
+    setState(() => _swapTime = v);
+    _recomputeNet();
+  }
+
+  /// Filtr dle pobočky — zvolená motorka mimo pobočku se odznačí.
+  void _onBranch(String? v, AsyncValue<List<Motorcycle>> motosAsync) {
+    final list = motosAsync.valueOrNull ?? const <Motorcycle>[];
+    final keep = v == null || _newMotoId == null ||
+        list.any((m) => m.id == _newMotoId && m.branchId == v);
+    setState(() {
+      _branch = v;
+      if (!keep) _newMotoId = null;
+    });
+    if (!keep) _recomputeNet();
+  }
+
+  bool _trailerBlocked(Motorcycle m) => widget.booking.trailerMotoId != null && m.branchType == 'samoobslužná';
+
+  void _tapMoto(Motorcycle m, bool selected) {
+    setState(() => _newMotoId = selected ? null : m.id);
+    _recomputeNet();
+  }
+
   @override
   Widget build(BuildContext context) {
     final motosAsync = ref.watch(motorcyclesProvider);
@@ -373,6 +407,30 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
     }
 
     final canConfirm = !_saving && _swapDate != null && _newMotoId != null;
+
+    // v2 vzhled: tentýž stav, tytéž akce (res_edit_swap_v2.dart).
+    if (MgV2.on(context)) {
+      return SwapMotoViewV2(
+        rangeText: '${t(context).tr('swap.rangeLabel')}: ${_fmt(widget.booking.startDate)} – ${_fmt(widget.booking.endDate)}',
+        dateText: _fmt(_swapDate),
+        onPickDate: _pickDate,
+        timePicker: EditTimePicker(label: t(context).tr('swap.pickTime'), value: _swapTime, onChanged: _onTime),
+        currentMotoName: widget.booking.motoName,
+        branchFilter: EditBranchFilter(value: _branch, onChanged: (v) => _onBranch(v, motosAsync)),
+        motos: motosAsync,
+        candidates: (motos) => _candidates(motos).where((m) => _branch == null || m.branchId == _branch).toList(),
+        avail: _avail,
+        availLoading: _availLoading,
+        selectedId: _newMotoId,
+        trailerBlocked: _trailerBlocked,
+        onTapMoto: _tapMoto,
+        net: _net,
+        netLoading: _netLoading,
+        saving: _saving,
+        canConfirm: canConfirm,
+        onConfirm: _confirm,
+      );
+    }
 
     return Column(children: [
       // === INFO / CENA ===
@@ -443,10 +501,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
             label: t(context).tr('swap.pickTime'),
             value: _swapTime,
             // Čas výměny mění cenu (late sleva nového kusu) → nový náhled.
-            onChanged: (v) {
-              setState(() => _swapTime = v);
-              _recomputeNet();
-            },
+            onChanged: _onTime,
           ),
         ]),
       ),
@@ -473,16 +528,7 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
           // Filtr dle pobočky — zvolená motorka mimo pobočku se odznačí.
           EditBranchFilter(
             value: _branch,
-            onChanged: (v) {
-              final list = motosAsync.valueOrNull ?? const <Motorcycle>[];
-              final keep = v == null || _newMotoId == null ||
-                  list.any((m) => m.id == _newMotoId && m.branchId == v);
-              setState(() {
-                _branch = v;
-                if (!keep) _newMotoId = null;
-              });
-              if (!keep) _recomputeNet();
-            },
+            onChanged: (v) => _onBranch(v, motosAsync),
           ),
           motosAsync.when(
             data: (motos) {
@@ -502,17 +548,11 @@ class _SwapMotoSectionState extends ConsumerState<SwapMotoSection> {
                   // ale FYZICKY s ním zákazník dojede na samoobslužnou pobočku,
                   // kde ho nemá kdo převzít. Server to vrací už v dry-runu
                   // (split_booking_moto_swap rev.10, 20260921h), tedy PŘED platbou.
-                  final trailerBlocked = widget.booking.trailerMotoId != null &&
-                      m.branchType == 'samoobslužná';
+                  final trailerBlocked = _trailerBlocked(m);
                   final selectable = free == true && !trailerBlocked;
                   final selected = _newMotoId == m.id;
                   return GestureDetector(
-                    onTap: selectable
-                        ? () {
-                            setState(() => _newMotoId = selected ? null : m.id);
-                            _recomputeNet();
-                          }
-                        : null,
+                    onTap: selectable ? () => _tapMoto(m, selected) : null,
                     child: Opacity(
                       opacity: (free == false || trailerBlocked) ? 0.45 : 1,
                       child: Container(

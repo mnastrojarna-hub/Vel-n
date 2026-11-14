@@ -11,6 +11,9 @@ import 'document_models.dart';
 import 'document_provider.dart';
 import 'doc_open_runner.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_format.dart' show mgNum;
+import 'v2/invoices_view_v2.dart';
 
 /// Invoices list — mirrors s-invoices from templates-done-pages.js.
 class InvoicesScreen extends ConsumerWidget {
@@ -20,17 +23,30 @@ class InvoicesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final invoicesAsync = ref.watch(invoicesProvider);
 
-    return Scaffold(
-      backgroundColor: MotoGoColors.bg,
-      appBar: AppBar(
-        leading: MgBackTap(
-          onTap: () {
+    void onBack() {
             if (context.canPop()) {
               context.pop();
             } else {
               context.go(Routes.profile);
             }
-          },
+          }
+
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejná data i akce.
+    if (MgV2.on(context)) {
+      return InvoicesViewV2(
+        invoicesAsync: invoicesAsync,
+        groupByYear: groupInvoicesByYear,
+        onBack: onBack,
+        onBackOr: () => context.backOr(Routes.profile),
+        onRetry: () => ref.invalidate(invoicesProvider),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: MotoGoColors.bg,
+      appBar: AppBar(
+        leading: MgBackTap(
+          onTap: onBack,
           child: Center(
             child: Container(
               width: 36, height: 36,
@@ -54,11 +70,7 @@ class InvoicesScreen extends ConsumerWidget {
             ));
           }
 
-          final grouped = <int, List<UserInvoice>>{};
-          for (final inv in invoices) {
-            grouped.putIfAbsent(inv.createdAt.year, () => []).add(inv);
-          }
-          final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+          final (grouped, years) = groupInvoicesByYear(invoices);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -91,6 +103,16 @@ class InvoicesScreen extends ConsumerWidget {
   }
 }
 
+/// Doklady po rocích (nejnovější rok první) — sdílené starým i v2 vzhledem.
+(Map<int, List<UserInvoice>>, List<int>) groupInvoicesByYear(List<UserInvoice> invoices) {
+          final grouped = <int, List<UserInvoice>>{};
+          for (final inv in invoices) {
+            grouped.putIfAbsent(inv.createdAt.year, () => []).add(inv);
+          }
+          final years = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+  return (grouped, years);
+}
+
 /// Řádek dokladu (otevře doklad 1:1) — i v detailu rezervace → Podrobnosti o platbě.
 class InvoiceTile extends StatelessWidget {
   final UserInvoice invoice;
@@ -100,6 +122,24 @@ class InvoiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCN = invoice.isCreditNote;
     final date = '${invoice.createdAt.day}. ${invoice.createdAt.month}. ${invoice.createdAt.year}';
+    // dobropis má v DB zápornou částku → abs(), jinak „−-500 Kč“
+    final amount = invoice.total == null ? null : '${isCN ? "−" : ""}${invoice.total!.abs().toStringAsFixed(0)} Kč';
+
+    // v2 vzhled řádku (kill-switch) — stejné otevření dokladu.
+    if (MgV2.on(context)) {
+      // Board Faktury: název = druh dokladu, pod ním „číslo · datum"; částka
+      // v Kč s mezerou v tisících („12 027 Kč", NBSP), bez převodu měny.
+      final tr = t(context);
+      final number = (invoice.number ?? '').trim();
+      return InvoiceRowV2(
+        type: invoice.type,
+        title: tr.tr(invoice.typeKey),
+        date: number.isEmpty ? date : '$number · $date',
+        amount: invoice.total == null ? null : '${isCN ? "−" : ""}${mgNum(invoice.total!.abs(), tr.lang)}\u00A0Kč',
+        creditNote: isCN,
+        onTap: () => _openInvoice(context),
+      );
+    }
 
     return GestureDetector(
       onTap: () => _openInvoice(context),
@@ -122,10 +162,9 @@ class InvoiceTile extends StatelessWidget {
               Text(date, style: const TextStyle(fontSize: 10, color: MotoGoColors.g400)),
             ],
           )),
-          if (invoice.total != null)
+          if (amount != null)
             Text(
-              // dobropis má v DB zápornou částku → abs(), jinak „−-500 Kč“
-              '${isCN ? "−" : ""}${invoice.total!.abs().toStringAsFixed(0)} Kč',
+              amount,
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: isCN ? MotoGoColors.red : MotoGoColors.black),
             ),
         ]),

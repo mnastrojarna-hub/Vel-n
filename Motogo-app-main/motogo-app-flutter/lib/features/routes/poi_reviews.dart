@@ -11,6 +11,11 @@ import 'routes_model.dart';
 import 'routes_provider.dart' show routesDataProvider, catalogPoisProvider, userPoisProvider;
 import 'route_reviews.dart' show routeReviewTile, routeStars;
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/motion/mg_motion.dart';
+import 'v2/poi_reviews_v2.dart';
+import 'v2/review_editor_v2.dart';
+import 'v2/route_reviews_v2.dart' show RtReviewsData;
 
 double? _toD(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 int _toI(dynamic v) => v == null ? 0 : (v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0);
@@ -79,11 +84,14 @@ class _PoiReviewsSectionState extends ConsumerState<PoiReviewsSection> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewLogin'))));
       return;
     }
+    final v2 = MgV2.on(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: v2 ? Colors.transparent : Colors.white,
+      barrierColor: v2 ? rtSheetScrimV2 : null,
+      sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
+      shape: v2 ? null : const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _PoiReviewEditor(
         target: widget.target,
         existing: _my,
@@ -114,6 +122,12 @@ class _PoiReviewsSectionState extends ConsumerState<PoiReviewsSection> {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return PoiReviewsSectionV2(
+          data: RtReviewsData(avg: _avg, count: _count, my: _my, reviews: _reviews, loading: _loading),
+          onWrite: _openEditor,
+          onDelete: _delete);
+    }
     if (_loading) {
       return const Padding(padding: EdgeInsets.symmetric(vertical: 16),
           child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.greenDark))));
@@ -269,6 +283,18 @@ class _PoiReviewEditorState extends State<_PoiReviewEditor> {
   @override
   Widget build(BuildContext context) {
     final total = _photos.length + _newPhotos.length;
+    if (MgV2.on(context)) {
+      return ReviewEditorV2(
+        title: widget.existing != null ? t(context).tr('routeReviewEdit') : t(context).tr('routeReviewAdd'),
+        rating: _rating,
+        onRate: (i) => setState(() => _rating = i),
+        controller: _txt,
+        photoCount: total,
+        onPick: _pick,
+        busy: _busy,
+        onSubmit: _submit,
+      );
+    }
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: Column(

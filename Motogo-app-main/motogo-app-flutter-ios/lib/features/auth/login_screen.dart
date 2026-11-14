@@ -14,10 +14,20 @@ import 'widgets/login_header.dart';
 import 'widgets/login_form_fields.dart';
 import 'widgets/login_buttons.dart';
 import 'widgets/login_footer.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../core/i18n/app_lang.dart';
+import '../../core/web_links.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/login_states_v2.dart';
+import 'v2/login_view_v2.dart';
 
 /// Login screen — 1:1 replica of the Capacitor MotoGo24 login UI.
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  /// E-mail z registrace („účet už existuje → Přihlásit“) — zákazník ho
+  /// nepíše znovu (`/login?email=…`, stejně jako obnova hesla).
+  final String? initialEmail;
+  const LoginScreen({super.key, this.initialEmail});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -30,10 +40,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _bioAvailable = false;
   bool _bioEnabled = false;
   bool _obscurePass = true;
+  // Zapamatovaný e-mail posledního přihlášení (do registrace se nenese —
+  // ten účet už existuje).
+  String? _savedEmail;
+  // v2: chyby přímo u pole (Stavy 18.1) a oznámení o odhlášení (8.10).
+  String? _v2EmailErr;
+  String? _v2PassErr;
+  bool _v2SignedOut = false;
 
   @override
   void initState() {
     super.initState();
+    _carryEmail(widget.initialEmail);
     _prefillEmail();
     _checkBiometric();
     // Appka zákazníka odhlásila sama (neplatné / zneplatněné přihlášení) →
@@ -42,6 +60,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ForcedSignOut.pending = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        if (MgV2.peek(context)) {
+          setState(() => _v2SignedOut = true);
+          return;
+        }
         showMotoGoToast(context,
             icon: '🔒',
             title: t(context).tr('eoAuthTitle'),
@@ -51,11 +73,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  @override
+  void didUpdateWidget(LoginScreen old) {
+    super.didUpdateWidget(old);
+    // Návrat z registrace na už otevřené přihlášení (`go` stránku znovu použije).
+    if (widget.initialEmail != old.initialEmail) _carryEmail(widget.initialEmail);
+  }
+
+  void _carryEmail(String? email) {
+    final e = email?.trim() ?? '';
+    if (e.isNotEmpty) _emailCtrl.text = e;
+  }
+
   Future<void> _prefillEmail() async {
     final email = await AuthService.getSavedEmail();
+    _savedEmail = email;
     if (email != null && _emailCtrl.text.isEmpty) {
       _emailCtrl.text = email;
     }
+  }
+
+  /// Registrace s e-mailem, který zákazník už napsal (ne zapamatovaný
+  /// e-mail existujícího účtu; [unknown] = ověřeně bez účtu) — nepíše ho
+  /// podruhé.
+  void _openRegister({bool unknown = false}) {
+    final e = _emailCtrl.text.trim();
+    final carry = e.isNotEmpty && (unknown || e != _savedEmail?.trim());
+    context.push(carry
+        ? Uri(path: Routes.register, queryParameters: {'email': e}).toString()
+        : Routes.register);
   }
 
   Future<void> _checkBiometric() async {
@@ -75,6 +121,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final pass = _passCtrl.text;
 
     if (email.isEmpty || pass.isEmpty) {
+      if (MgV2.peek(context)) {
+        setState(() {
+          _v2EmailErr = email.isEmpty ? t(context).tr('v2UxAsmFillEmail') : null;
+          _v2PassErr = pass.isEmpty ? t(context).tr('v2UxAsmFillPassword') : null;
+        });
+        return;
+      }
       showMotoGoToast(context, icon: '✗', title: t(context).error, message: t(context).tr('fillEmailAndPassword'));
       return;
     }
@@ -92,6 +145,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _loading = false);
       if (known == false) {
         _showUnknownEmailDialog();
+      } else if (MgV2.peek(context)) {
+        showLoginFailedV2(context, error, onForgot: _forgotPassword);
       } else {
         showMotoGoToast(context,
             icon: '✗',
@@ -108,6 +163,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   /// Neznámý e-mail při přihlášení → nabídni vytvoření registrace.
   void _showUnknownEmailDialog() {
+    if (MgV2.peek(context)) {
+      showUnknownEmailV2(context, onRegister: () => _openRegister(unknown: true));
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -122,7 +181,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.push(Routes.register);
+              _openRegister(unknown: true);
             },
             child: Text(t(context).registerBtn,
                 style: const TextStyle(color: MotoGoColors.greenDark, fontWeight: FontWeight.w800)),
@@ -160,6 +219,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context.go(Routes.home);
     } else if (restore == BioRestore.offline) {
       // Bez signálu nemazat nastavení biometrie — stačí to zkusit znovu.
+      if (MgV2.peek(context)) {
+        showBioOfflineV2(context, onRetry: _doBioLogin);
+        return;
+      }
       showMotoGoToast(context,
           icon: '📡',
           title: t(context).tr('eoOfflineTitle'),
@@ -167,7 +230,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           duration: const Duration(seconds: 7));
     } else {
       await AuthService.clearBioData();
-      showMotoGoToast(context, icon: 'ℹ️', title: t(context).tr('biometricTitle'), message: t(context).tr('sessionExpired'));
+      if (!mounted) return;
+      if (MgV2.peek(context)) {
+        showBioSessionGoneV2(context);
+      } else {
+        showMotoGoToast(context, icon: 'ℹ️', title: t(context).tr('biometricTitle'), message: t(context).tr('sessionExpired'));
+      }
       setState(() {
         _bioAvailable = false;
         _bioEnabled = false;
@@ -191,9 +259,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  /// v2 patička: web v jazyce appky (stejný odkaz jako stará patička).
+  void _openWeb() => launchUrl(Uri.parse(WebLinks.home(normalizeAppLang(
+      Localizations.maybeLocaleOf(context)?.languageCode ?? lastKnownAppLang))));
+
+  void _clearV2Errors() {
+    if (_v2EmailErr == null && _v2PassErr == null) return;
+    setState(() => _v2EmailErr = _v2PassErr = null);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    if (MgV2.on(context)) {
+      return LoginViewV2(
+        emailCtrl: _emailCtrl,
+        passCtrl: _passCtrl,
+        loading: _loading,
+        bioVisible: _bioAvailable && _bioEnabled,
+        emailError: _v2EmailErr,
+        passError: _v2PassErr,
+        signedOutNotice: _v2SignedOut,
+        onLogin: _doLogin,
+        onBio: _doBioLogin,
+        onForgot: _forgotPassword,
+        onRegister: () => _openRegister(),
+        onEdited: _clearV2Errors,
+        onWeb: _openWeb,
+      );
+    }
+    // Root route: the dark gradient header lies under the status bar →
+    // light icons in v2 whatever the previous page declared.
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
@@ -305,7 +401,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                       // REGISTROVAT SE button
                       LoginRegisterButton(
-                        onPressed: () => context.push(Routes.register),
+                        onPressed: () => _openRegister(),
                       ),
 
                       const SizedBox(height: 24),
@@ -322,6 +418,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }

@@ -105,10 +105,10 @@ Deno.test({ name: 'regrese: nezaplacená rezervace + trigger → jeden storno ma
   await trigger(); money('hromadně nezaplaceno', 0); mailsSay('hromadně nezaplaceno', null, 1)
 } })
 
-Deno.test({ name: 'regrese: „Potvrdit vrácení“ obsluhy po stornu 50 % (další vratka 2000 → zbytek) se neblokuje', ignore: !MAPPED, fn: async () => {
+Deno.test({ name: 'regrese: „Potvrdit vrácení“ obsluhy po stornu 50 % (celkem 3000 → zbytek, P2) se neblokuje', ignore: !MAPPED, fn: async () => {
   fresh(10); await velinCancel(1500); await deliver()
   const before = rows('debug_log').length
-  await velinConfirm(2000); await deliver()
+  await velinConfirm(3000); await deliver() // P2: zadaná částka = CELKOVÁ vratka storna
   money('potvrzení obsluhy', 3000)
   if (rows('debug_log').slice(before).some((d) => d.action === 'cancellation_refund_exists')) throw new Error('kontrola zablokovala obsluhu')
 } })

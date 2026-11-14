@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
@@ -9,6 +10,7 @@ import '../../../core/v2/rank/rank_tokens.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../messages_provider.dart';
 import '../../profile/v2/profile_v2_parts.dart' show PfAnimatedSize;
@@ -31,6 +33,8 @@ String msgDate(DateTime d) => '${d.day}. ${d.month}. ${d.hour}:${d.minute.toStri
 
 /// Two-segment switch in the dark header (web `.km-sw`): sliding thumb in
 /// the rank CTA material, red count on the first segment.
+final _noDrag = ValueNotifier<double>(0);
+
 class MsgSegmentsV2 extends StatelessWidget {
   final String left;
   final String right;
@@ -38,6 +42,10 @@ class MsgSegmentsV2 extends StatelessWidget {
   final int badge;
   final RankTokens rank;
   final ValueChanged<bool> onChanged;
+
+  /// Body swipe progress (`MgSwipeSegments.progress`, + toward Konverzace):
+  /// the thumb follows the finger.
+  final ValueListenable<double>? dragProgress;
   const MsgSegmentsV2({
     super.key,
     required this.left,
@@ -46,12 +54,29 @@ class MsgSegmentsV2 extends StatelessWidget {
     required this.badge,
     required this.rank,
     required this.onChanged,
+    this.dragProgress,
   });
+
+  static const _minScale = 0.8;
+
+  TextStyle _style(BuildContext context, bool on) => DefaultTextStyle.of(context).style.merge(
+      MgType.ctaCompact.copyWith(letterSpacing: 0, color: on ? rank.ctaLabel : MgColors.onDarkLead));
+
+  /// Both labels' longest word fits half the switch at ≥ 80 % (r2: was
+  /// 60 % — large text must stay large); otherwise the options stack.
+  bool _fitsSideBySide(BuildContext context, double segW) =>
+      [left, right].every((l) => mgWordsFit(context, l, _style(context, true), segW - 16 + 0.5, minScale: _minScale));
+
+  BoxDecoration get _thumb => BoxDecoration(
+        gradient: rank.ctaGradient,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: rank.ctaEdge.first),
+        boxShadow: rank.softGlow(blur: 12, dy: 4),
+      );
 
   @override
   Widget build(BuildContext context) {
-    Widget seg(String label, bool on, bool isRight, int count) => Expanded(
-          child: Semantics(
+    Widget seg(String label, bool on, bool isRight, int count, {bool stacked = false}) => Semantics(
             selected: on,
             button: true,
             label: count > 0 ? '$label, $count' : label,
@@ -59,18 +84,18 @@ class MsgSegmentsV2 extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onChanged(isRight),
-              child: Stack(clipBehavior: Clip.none, children: [
+              // stacked: the row's min height reaches the Center → label centred.
+              child: Stack(clipBehavior: Clip.none, fit: stacked ? StackFit.passthrough : StackFit.loose, children: [
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: AnimatedDefaultTextStyle(
                       duration: MgMotion.of(context, MgMotion.color),
-                      style: DefaultTextStyle.of(context).style.merge(MgType.ctaCompact.copyWith(
-                          letterSpacing: 0, color: on ? rank.ctaLabel : MgColors.onDarkLead)),
+                      style: _style(context, on),
                       // One long word ("Benachrichtigungen", large text)
-                      // scales down instead of breaking (verify:render).
+                      // scales down a little; too long → options stack.
                       child: MgWordFit(
-                        minScale: 0.6,
+                        minScale: _minScale,
                         alignment: Alignment.center,
                         child: Text(label, textAlign: TextAlign.center, maxLines: 2),
                       ),
@@ -103,37 +128,59 @@ class MsgSegmentsV2 extends StatelessWidget {
                   ),
               ]),
             ),
-          ),
+          );
+    final shell = BoxDecoration(
+      color: MgColors.white(0.06),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: MgColors.neonA(0.2)),
+    );
+    return LayoutBuilder(builder: (context, c) {
+      if (c.maxWidth.isFinite && !_fitsSideBySide(context, (c.maxWidth - 8) / 2)) {
+        // Úzký telefon + velké písmo: volby pod sebou (palec přejde barvou).
+        Widget row(String l, bool on, bool isRight, int n) => AnimatedContainer(
+              duration: MgMotion.of(context, MgMotion.color),
+              constraints: const BoxConstraints(minHeight: 44),
+              decoration: on ? _thumb : BoxDecoration(borderRadius: BorderRadius.circular(12)),
+              child: seg(l, on, isRight, n, stacked: true),
+            );
+        return Container(
+          padding: const EdgeInsets.all(4),
+          decoration: shell,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            row(left, !rightOn, false, badge),
+            const SizedBox(height: 4),
+            row(right, rightOn, true, 0),
+          ]),
         );
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: MgColors.white(0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: MgColors.neonA(0.2)),
-      ),
-      child: Stack(children: [
-        AnimatedAlign(
-          duration: MgMotion.of(context, MgMotion.thumb),
-          curve: MgMotion.out,
-          alignment: rightOn ? Alignment.centerRight : Alignment.centerLeft,
-          child: FractionallySizedBox(
-            widthFactor: 0.5,
-            heightFactor: 1,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: rank.ctaGradient,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: rank.ctaEdge.first),
-                boxShadow: rank.softGlow(blur: 12, dy: 4),
-              ),
+      }
+      return Container(
+        height: 52,
+        padding: const EdgeInsets.all(4),
+        decoration: shell,
+        child: Stack(children: [
+          ValueListenableBuilder<double>(
+            valueListenable: dragProgress ?? _noDrag,
+            // Palec jde s prstem (x = poloha + posun tahu), po puštění se
+            // dorovná přes MgMotion.thumb.
+            builder: (context, p, child) => AnimatedAlign(
+              duration: p != 0 ? Duration.zero : MgMotion.of(context, MgMotion.thumb),
+              curve: MgMotion.out,
+              alignment: Alignment(((rightOn ? 1 : 0) + p).clamp(0.0, 1.0) * 2 - 1, 0),
+              child: child,
+            ),
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              heightFactor: 1,
+              child: Container(decoration: _thumb),
             ),
           ),
-        ),
-        Row(children: [seg(left, !rightOn, false, badge), seg(right, rightOn, true, 0)]),
-      ]),
-    );
+          Row(children: [
+            Expanded(child: seg(left, !rightOn, false, badge)),
+            Expanded(child: seg(right, rightOn, true, 0)),
+          ]),
+        ]),
+      );
+    });
   }
 }
 

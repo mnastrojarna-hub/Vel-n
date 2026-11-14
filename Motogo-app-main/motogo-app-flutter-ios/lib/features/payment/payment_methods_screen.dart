@@ -10,6 +10,9 @@ import '../auth/widgets/toast_helper.dart';
 import 'payment_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_dialog.dart';
+import 'v2/payment_methods_view_v2.dart';
 
 /// Payment methods management — mirrors profile → Platební metody
 /// from profile-ui-2.js + api-payment-methods.js.
@@ -19,6 +22,37 @@ class PaymentMethodsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cardsAsync = ref.watch(paymentMethodsProvider);
+
+    // v2 (PS-13): same provider, actions, back and states.
+    if (MgV2.on(context)) {
+      final state = cardsAsync.when<Widget?>(
+        data: (_) => null,
+        loading: () => MgLoadingView(onRetry: () => ref.invalidate(paymentMethodsProvider)),
+        error: (e, _) => MgErrorView(
+          error: e,
+          what: t(context).tr('fxCardsLoadFail'),
+          onRetry: () => ref.invalidate(paymentMethodsProvider),
+          contact: false,
+        ),
+      );
+      return PaymentMethodsViewV2(
+        cards: state == null ? cardsAsync.valueOrNull : null,
+        body: state,
+        onBack: () async {
+          final popped = await Navigator.of(context).maybePop();
+          if (!popped && context.mounted) context.go(Routes.profile);
+        },
+        onRefresh: () async => ref.invalidate(paymentMethodsProvider),
+        onDelete: (c) => _deleteCard(context, ref, c),
+        onSetDefault: (c) => _setDefault(context, ref, c),
+        onAdd: null, // iOS: cards are saved at checkout — never manual entry (5.1.1)
+        emptyNote: t(context).tr('cardsSavedAtCheckout'),
+        // Old iOS list: with cards the "saved at checkout" note, always Stripe.
+        footNote: (cardsAsync.valueOrNull?.isNotEmpty ?? false)
+            ? '${t(context).tr('cardsSavedAtCheckout')}\n\n${t(context).tr('cardsSecuredByStripe')}'
+            : t(context).tr('cardsSecuredByStripe'),
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -121,7 +155,14 @@ class PaymentMethodsScreen extends ConsumerWidget {
 
   Future<void> _deleteCard(
       BuildContext context, WidgetRef ref, SavedCard card) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = MgV2.peek(context)
+        ? await showMgConfirm(context,
+            title: t(context).tr('removeCard'),
+            body: '•••• ${card.last4} ${card.displayBrand}',
+            safeLabel: t(context).cancel,
+            actionLabel: t(context).tr('removeBtn'),
+            destructive: true)
+        : await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(t(context).tr('removeCard')),

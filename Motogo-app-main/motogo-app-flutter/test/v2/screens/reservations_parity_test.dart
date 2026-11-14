@@ -58,6 +58,7 @@ void main() {
   _parity('detail', ['$_r/reservation_detail_screen.dart', '$_r/widgets/res_detail_tab_content.dart'], [
     '$_r/v2/',
     '$_r/reservation_detail_screen.dart', // loading / error / open-document paths are shared by both looks
+    '$_r/widgets/res_detail_tab_content.dart', // v2 detail (res_detail_view_v2.dart) renders the old tab content
     '$_r/res_actions.dart',
     '$_r/widgets/res_access_codes_card.dart',
     '$_r/widgets/res_pickup_procedure.dart',

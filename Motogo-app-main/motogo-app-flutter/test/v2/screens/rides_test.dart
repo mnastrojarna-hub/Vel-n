@@ -101,18 +101,18 @@ void main() {
   }
 
   group('Moje actions', () {
-    testWidgets('sub-chips switch Jízdy ↔ Uložené trasy and keep the old tab index', (tester) async {
+    // lookonly-fix: the OLD three tabs; the first page shows the rides AND
+    // the saved routes at once (no "Uložené trasy" sub-chip).
+    testWidgets('three tabs; rides + saved routes on the first page; chips keep the old tab index', (tester) async {
       final taps = RideTaps();
-      await pumpV2(tester, mojeView(taps: taps), size: const Size(412, 2000), overrides: ridesOverrides(), scaffold: false);
+      await pumpV2(tester, mojeView(taps: taps), size: const Size(412, 4000), overrides: ridesOverrides(), scaffold: false);
       await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(MgFilterChip), findsNWidgets(3));
       expect(find.byType(RideCardV2), findsNWidgets(kRides.length));
-      await tester.tap(find.byType(MgFilterChip).at(1));
-      await tester.pump(const Duration(milliseconds: 600));
       expect(find.byType(SavedRouteCardV2), findsNWidgets(kSavedRoutes.length));
-      expect(taps.log, contains('tab:0'));
-      await tester.ensureVisible(find.byType(MgFilterChip).at(3));
+      await tester.ensureVisible(find.byType(MgFilterChip).at(2));
       await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.byType(MgFilterChip).at(3));
+      await tester.tap(find.byType(MgFilterChip).at(2));
       expect(taps.log.last, 'tab:2');
       await tester.pump(const Duration(seconds: 1));
       await ridesEnd(tester);
@@ -120,13 +120,13 @@ void main() {
 
     testWidgets('saved route card: open / navigate / delete', (tester) async {
       final taps = RideTaps();
-      await pumpV2(tester, mojeView(taps: taps), size: const Size(412, 2000), overrides: ridesOverrides(), scaffold: false);
+      await pumpV2(tester, mojeView(taps: taps), size: const Size(412, 4000), overrides: ridesOverrides(), scaffold: false);
       await tester.pump(const Duration(milliseconds: 600));
-      await tester.tap(find.byType(MgFilterChip).at(1));
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.tap(find.text('Navigovat').first);
-      await tester.tap(find.byType(MojeDeleteButton).first);
-      await tester.tap(find.text('Upravit').first);
+      await tester.ensureVisible(find.byType(SavedRouteCardV2).first);
+      await tester.pump();
+      await tester.tap(find.descendant(of: find.byType(SavedRouteCardV2).first, matching: find.text('Navigovat')));
+      await tester.tap(find.descendant(of: find.byType(SavedRouteCardV2).first, matching: find.byType(MojeDeleteButton)));
+      await tester.tap(find.descendant(of: find.byType(SavedRouteCardV2).first, matching: find.text('Upravit')));
       expect(taps.log, containsAll(['navSaved:s1', 'delSaved:s1', 'openSaved:s1']));
       await tester.pump(const Duration(seconds: 1));
       await ridesEnd(tester);

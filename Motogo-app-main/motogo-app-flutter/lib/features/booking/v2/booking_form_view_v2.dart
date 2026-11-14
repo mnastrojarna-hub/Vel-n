@@ -9,19 +9,23 @@ import '../../../core/booking_form_return_section.dart';
 import '../../../core/booking_form_time_section.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/states/mg_state_banner.dart';
 import '../../../core/v2/states/mg_state_screen.dart';
-import '../../../core/v2/states/mg_support_row.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../catalog/moto_model.dart';
 import '../booking_models.dart';
+import '../booking_validator.dart';
 import 'booking_consents_v2.dart';
 import 'booking_date_v2.dart';
 import 'booking_dock_v2.dart';
+import 'booking_express_v2.dart' show BookingChipButtonV2;
 import 'booking_header_v2.dart';
 import 'booking_note_v2.dart';
 import 'booking_recap_v2.dart';
+import 'booking_sync_v2.dart' show BookingErrKind;
 import 'booking_v2_parts.dart';
 import 'booking_warning_v2.dart';
 
@@ -49,11 +53,24 @@ class BookingFormV2View extends StatefulWidget {
   final List<String> missingSizes;
   final bool canProceed;
   final AsyncValue<List<BookedDateRange>>? booked;
+
+  /// The draft range contains a day the bike's calendar shows booked
+  /// (`bookingDraftRangeBusy`) — the form keeps the calendar open and the
+  /// CTA locked.
+  final bool rangeBusy;
+
+  /// What the validation error is about → where it is fixed (null = none).
+  final BookingErrKind? errKind;
   final bool calOpen;
+  final VoidCallback onCloseCalendar;
   final bool noteOpen;
   final TextEditingController noteCtrl;
   final void Function(BookingDraft Function(BookingDraft)) onUpd;
   final VoidCallback onBack;
+
+  /// "Vybrat jinou motorku" on the licence card: the bike list (owner
+  /// 2026-11-14, M3-04). null = [onBack] (views pumped without a form).
+  final VoidCallback? onPickOtherMoto;
   final VoidCallback onOpenCalendar;
   final void Function(DateTime, DateTime) onDatesSelected;
   final VoidCallback onDatesReset;
@@ -87,11 +104,15 @@ class BookingFormV2View extends StatefulWidget {
     required this.missingSizes,
     required this.canProceed,
     required this.booked,
+    this.rangeBusy = false,
+    this.errKind,
     required this.calOpen,
+    required this.onCloseCalendar,
     required this.noteOpen,
     required this.noteCtrl,
     required this.onUpd,
     required this.onBack,
+    this.onPickOtherMoto,
     required this.onOpenCalendar,
     required this.onDatesSelected,
     required this.onDatesReset,
@@ -113,35 +134,104 @@ class BookingFormV2View extends StatefulWidget {
 
 class _BookingFormV2ViewState extends State<BookingFormV2View> {
   final _dateKey = GlobalKey();
-  final _gearKey = GlobalKey();
-  final _priceKey = GlobalKey();
   final _consentKey = GlobalKey();
   final _warnKey = GlobalKey();
+  final _timeKey = GlobalKey();
+  final _sizesKey = GlobalKey();
+  final _pickupKey = GlobalKey();
+  final _returnKey = GlobalKey();
 
   void _scrollTo(GlobalKey key) {
     final c = key.currentContext;
     if (c == null) return;
-    Scrollable.ensureVisible(c,
-        duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out, alignment: 0.08);
+    MgPinnedBack.reveal(c, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
   }
 
-  /// First reason the CTA is locked (display only — the lock itself is the
-  /// form's `canProceed`) and where it is fixed.
-  (String, GlobalKey)? _blocker(AppTranslations tr) {
+  /// Date card open (calendar) and in view — "Změnit termín" fixes.
+  void _openDates() {
+    widget.onOpenCalendar();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollTo(_dateKey);
+    });
+  }
+
+  /// K4-01: the pickup-time error, and not even the picker's last slot
+  /// (23:45) passes the SAME lead-time check on the start day — no later
+  /// time exists, the fix is another date. Display only (the validator,
+  /// the lock and the error text stay as they are). RL-02: never for
+  /// delivery — a branch pickup may still be possible today, so delivery
+  /// keeps the earlier time guidance.
+  bool get _noTimeLeft {
+    final w = widget;
+    if (w.err == null || w.errKind != BookingErrKind.time) return false;
+    if (w.draft.pickupMethod == 'delivery') return false;
+    return BookingValidator.checkPickupLeadTime(
+          startDate: w.draft.startDate,
+          pickupTime: '23:45',
+          isDelivery: false,
+          branchType: w.moto.branchType,
+        ) !=
+        null;
+  }
+
+  /// The error banner's working actions (navigation only).
+  List<(String, VoidCallback)> _errActions(AppTranslations tr) => switch (widget.errKind) {
+        // J2 / P2-03: the profile fix first (the one way on with no fitting
+        // licence), also when the amber profile card is shown — that card
+        // then drops its own copy, so the button stays once on the page and
+        // the red card no longer points only to "another bike".
+        BookingErrKind.licence => [
+            (tr.tr('completeProfileBtn'), widget.onCompleteProfile),
+            (tr.tr('pdPickOtherMoto'), widget.onPickOtherMoto ?? widget.onBack),
+          ],
+        BookingErrKind.dates => [(tr.tr('psChangeDates'), _openDates)],
+        BookingErrKind.time => _noTimeLeft
+            ? [(tr.tr('psChangeDates'), _openDates)]
+            : [(tr.tr('v2BkFixTime'), () => _scrollTo(_timeKey))],
+        null => const [],
+      };
+
+  /// First reason the CTA is locked — display only, the lock itself is the
+  /// form's `canProceed` (the old form's hints next to its CTA: dates,
+  /// availability, error, profile, sizes, consents).
+  String? _blocker(AppTranslations tr) {
     final w = widget;
     if (w.canProceed) return null;
     final b = w.booked;
     final d = w.draft;
-    if (!w.hasDates) return (tr.tr('v2BkBlockDates'), _dateKey);
-    if (b != null && !b.hasValue && !b.hasError) return (tr.tr('v2BkBlockAvail'), _dateKey);
-    if (b != null && !b.hasValue && b.hasError) return (tr.tr('v2BkBlockAvailFail'), _warnKey);
-    if (w.err != null) return (tr.tr('v2BkBlockError'), _warnKey);
-    if (w.profileErr != null) return (tr.tr('v2BkBlockProfile'), _warnKey);
-    if (w.missingSizes.isNotEmpty) return (tr.tr('v2BkBlockSizes'), _gearKey);
-    if (!(d.consentVop && d.consentGdpr && (!w.isKids || d.consentKids))) {
-      return (tr.tr('v2BkBlockConsent'), _consentKey);
+    if (!w.hasDates) return tr.tr('v2BkBlockDates');
+    if (b != null && !b.hasValue && !b.hasError) return tr.tr('v2BkBlockAvail');
+    if (b != null && !b.hasValue && b.hasError) return tr.tr('v2BkBlockAvailFail');
+    if (w.rangeBusy) return tr.tr('v2BkBlockBusy');
+    if (w.err != null) {
+      return tr.tr(switch (w.errKind) {
+        BookingErrKind.licence => 'coBkBlockLicence',
+        BookingErrKind.dates => 'coBkBlockDatesBad',
+        BookingErrKind.time => _noTimeLeft ? 'elBkNoTimeLeft' : 'coBkBlockTime',
+        null => 'v2BkBlockError',
+      });
     }
+    if (w.profileErr != null) return tr.tr('v2BkBlockProfile');
+    if (w.missingSizes.isNotEmpty) return tr.tr('v2BkBlockSizes');
+    if (!(d.consentVop && d.consentGdpr && (!w.isKids || d.consentKids))) return tr.tr('v2BkBlockConsent');
     return null;
+  }
+
+  /// Where the first blocker ([_blocker], same order) is shown / fixed —
+  /// the dock's "Ukázat proč" scrolls there (J1). Display only.
+  GlobalKey _blockerTarget() {
+    final w = widget;
+    final b = w.booked;
+    if (!w.hasDates) return _dateKey;
+    if (b != null && !b.hasValue && !b.hasError) return _dateKey;
+    if (b != null && !b.hasValue && b.hasError) return _warnKey;
+    if (w.rangeBusy) return _dateKey;
+    if (w.err != null) return w.errKind == BookingErrKind.time ? (_noTimeLeft ? _dateKey : _timeKey) : _warnKey;
+    if (w.profileErr != null) return _warnKey;
+    // P2-05: missing sizes → the gear block with the size buttons itself
+    // (the amber card at the bottom only names them).
+    if (w.missingSizes.isNotEmpty) return _sizesKey;
+    return _consentKey;
   }
 
   @override
@@ -149,94 +239,143 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
     final tr = t(context);
     final w = widget;
     final d = w.draft;
-    final step = !(w.hasDates && w.err == null) ? 0 : (w.missingSizes.isNotEmpty ? 1 : 2);
     final blocker = _blocker(tr);
     final booked = w.booked;
+    // R3-03: delivery chosen but no address yet — a hint in the dock (no
+    // lock: canProceed, prices and the server guard stay as they are).
+    bool noAddr(String method, String? addr, String? city) =>
+        method == 'delivery' && ((addr ?? '').trim().isEmpty || (city ?? '').trim().isEmpty);
+    final noAddrKey = !w.canProceed
+        ? null
+        : noAddr(d.pickupMethod, d.pickupAddress, d.pickupCity)
+            ? _pickupKey
+            : noAddr(d.returnMethod, d.returnAddress, d.returnCity)
+                ? _returnKey
+                : null;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     var i = 0;
     Widget reveal(Widget child) => MgReveal(index: i++, sessionKey: 'booking-form', child: child);
+    // The old form's order, every section open: moto card → date → time →
+    // pickup → return → extras → price → promo → note → consents → hints.
     final sections = <Widget>[
-        reveal(BookingRecapV2(moto: w.moto)),
-        reveal(KeyedSubtree(
-          key: _dateKey,
-          child: BookingDateCardV2(
-            start: d.startDate,
-            end: d.endDate,
-            hasDates: w.hasDates,
-            dayCount: w.dayCount,
-            basePrice: w.bd.basePrice,
-            calOpen: w.calOpen,
-            booked: booked,
-            onOpenCalendar: w.onOpenCalendar,
-            onRangeSelected: w.onDatesSelected,
-            onReset: w.onDatesReset,
-            onRetryBooked: w.onRetryBooked,
-          ),
-        )),
-        reveal(BookingFormTimeSection(
-          draft: d,
-          onTimeChanged: w.onPickupTime,
-          onReturnTimeChanged: w.onReturnTime,
-          showReturn: !w.hideReturnTime,
-          selfService: w.selfServiceAtBranch,
-        )),
-        reveal(BookingFormPickupSection(
-            draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked)),
-        reveal(BookingFormReturnSection(
-            draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked)),
-        reveal(KeyedSubtree(
-          key: _gearKey,
-          child: BookingFormExtrasSection(
-            draft: d,
-            onUpd: w.onUpd,
-            isKids: w.isKids,
-            selfService: w.selfService,
-            motoId: w.moto.id,
-          ),
-        )),
-        KeyedSubtree(
-          key: _priceKey,
-          child: BookingFormPriceSection(draft: d, bd: w.bd, dayCount: w.dayCount, pricedExtras: w.pricedExtras),
+      // Old `BookingFormMotoCard`: model, "od {price}", "Pobočka: {name},
+      // {city}" (+ the branch type, disclosure rule).
+      reveal(BookingRecapV2(moto: w.moto, withCity: true)),
+      KeyedSubtree(
+        key: _dateKey,
+        child: BookingDateCardV2(
+          dayPrices: w.moto.prices,
+          start: d.startDate,
+          end: d.endDate,
+          hasDates: w.hasDates,
+          dayCount: w.dayCount,
+          basePrice: w.bd.basePrice,
+          calOpen: w.calOpen,
+          busy: w.rangeBusy,
+          booked: booked,
+          onOpenCalendar: w.onOpenCalendar,
+          onKeep: w.onCloseCalendar,
+          onRangeSelected: w.onDatesSelected,
+          onReset: w.onDatesReset,
+          onRetryBooked: w.onRetryBooked,
         ),
-        BookingFormPromoSection(draft: d, onUpd: w.onUpd),
+      ),
+      KeyedSubtree(
+        key: _timeKey,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          BookingFormTimeSection(
+            draft: d,
+            onTimeChanged: w.onPickupTime,
+            onReturnTimeChanged: w.onReturnTime,
+            showReturn: !w.hideReturnTime,
+            selfService: w.selfServiceAtBranch,
+          ),
+          // P2-01: the pickup-time error right where "Ukázat proč" lands
+          // (the same text as the red card below, which stays).
+          if (w.err != null && w.errKind == BookingErrKind.time)
+            Padding(
+              key: const ValueKey('bk-time-err'),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: MgStateBanner(
+                tone: MgTone.err,
+                icon: MgIcons.clock,
+                title: w.err!,
+                text: _noTimeLeft ? tr.tr('elBkNoTimeLeft') : null,
+              ),
+            ),
+        ]),
+      ),
+      KeyedSubtree(
+        key: _pickupKey,
+        child: BookingFormPickupSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
+      ),
+      KeyedSubtree(
+        key: _returnKey,
+        child: BookingFormReturnSection(draft: d, onUpd: w.onUpd, branchLabel: w.branchLabel, deliveryBlocked: w.deliveryBlocked),
+      ),
+      KeyedSubtree(
+        key: _sizesKey,
+        child: BookingFormExtrasSection(
+          draft: d,
+          onUpd: w.onUpd,
+          isKids: w.isKids,
+          selfService: w.selfService,
+          motoId: w.moto.id,
+        ),
+      ),
+      BookingFormPriceSection(draft: d, bd: w.bd, dayCount: w.dayCount, pricedExtras: w.pricedExtras),
+      // Promo + note as two pills while nothing is entered (board);
+      // an applied code, own vouchers or an open note show their card.
+      BookingFormPromoSection(
+        draft: d,
+        onUpd: w.onUpd,
+        express: true,
+        expressNote: w.noteOpen || w.noteCtrl.text.trim().isNotEmpty
+            ? null
+            : BookingChipButtonV2(icon: MgIcons.doc, label: tr.tr('v2UxCbNoteChip'), onTap: w.onToggleNote),
+      ),
+      if (w.noteOpen || w.noteCtrl.text.trim().isNotEmpty)
         BookingNoteCardV2(
           controller: w.noteCtrl,
           open: w.noteOpen,
           onToggle: w.onToggleNote,
           onChanged: w.onNoteChanged,
         ),
-        KeyedSubtree(
-          key: _consentKey,
-          child: BookingConsentsV2(
-            vop: d.consentVop,
-            gdpr: d.consentGdpr,
-            kids: d.consentKids,
-            isKids: w.isKids,
-            onVop: w.onVop,
-            onGdpr: w.onGdpr,
-            onKids: w.onKids,
-          ),
+      KeyedSubtree(
+        key: _consentKey,
+        child: BookingConsentsV2(
+          vop: d.consentVop,
+          gdpr: d.consentGdpr,
+          kids: d.consentKids,
+          isKids: w.isKids,
+          onVop: w.onVop,
+          onGdpr: w.onGdpr,
+          onKids: w.onKids,
         ),
-        KeyedSubtree(
-          key: _warnKey,
-          child: BookingWarningsV2(
-            missingSizes: w.missingSizes,
-            err: w.err,
-            profileErr: w.profileErr,
-            bookedFailed: booked != null && booked.hasError && !booked.hasValue,
-            onCompleteProfile: w.onCompleteProfile,
-            onRetryBooked: w.onRetryBooked,
-          ),
+      ),
+      KeyedSubtree(
+        key: _warnKey,
+        child: BookingWarningsV2(
+          missingSizes: w.missingSizes,
+          err: w.err,
+          errActions: _errActions(tr),
+          errPrimaryFirst: w.errKind == BookingErrKind.licence,
+          profileFixInErr: w.err != null && w.errKind == BookingErrKind.licence,
+          profileErr: w.profileErr,
+          bookedFailed: booked != null && booked.hasError && !booked.hasValue,
+          onCompleteProfile: w.onCompleteProfile,
+          onRetryBooked: w.onRetryBooked,
         ),
-        const Padding(padding: EdgeInsets.fromLTRB(16, 16, 16, 0), child: MgSupportRow()),
+      ),
     ];
     return MgPage(
       overlapHero: false,
       pinnedBack: w.onBack,
+      pinnedTitle: w.moto.model,
       sections: [
         // Hlavička a pod ní obsah vytažený o 24 px nahoru — kreslený PO
         // hlavičce, takže rekapitulace leží na jejím zaobleném okraji.
-        BookingHeaderV2(bikeName: w.moto.model, onBack: w.onBack, currentStep: step),
+        BookingHeaderV2(bikeName: w.moto.model, onBack: w.onBack),
         Transform.translate(
           offset: const Offset(0, -24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: sections),
@@ -246,14 +385,20 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
           ? null
           : BookingDockV2(
               canProceed: w.canProceed,
-              blocker: blocker?.$1,
-              context2: w.hasDates ? '${tr.tr('v2YourPrice')} · ${bkDays(tr, w.dayCount)}' : null,
+              blocker: blocker,
+              context2: noAddrKey != null
+                  ? tr.tr(noAddrKey == _pickupKey ? 'efoNoAddrCtx' : 'efoNoRetAddrCtx')
+                  : w.hasDates
+                      ? [tr.tr('v2YourPrice'), bkDays(tr, w.dayCount)].join(' · ')
+                      : null,
               price: w.hasDates ? bkNb(bkMoney(w.bd.total)) : null,
               onProceed: w.onProceed,
-              trailingLabel: blocker != null ? tr.tr('v2BkFix') : (w.hasDates ? tr.tr('v2Breakdown') : null),
               onTrailing: blocker != null
-                  ? () => _scrollTo(blocker.$2)
-                  : (w.hasDates ? () => _scrollTo(_priceKey) : null),
+                  ? () => _scrollTo(_blockerTarget())
+                  : noAddrKey != null
+                      ? () => _scrollTo(noAddrKey)
+                      : null,
+              trailingLabel: blocker != null || noAddrKey != null ? tr.tr('coBkShowWhy') : null,
             ),
     );
   }

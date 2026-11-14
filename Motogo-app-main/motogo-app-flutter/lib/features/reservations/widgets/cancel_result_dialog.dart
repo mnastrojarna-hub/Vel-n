@@ -34,10 +34,14 @@ Widget cancelResultDialog(
                 .replaceAll('{amount}', Money.czk(r.refundAmount))
                 .replaceAll('{pct}', '${r.refundPercent}')
             : tr.tr('psCancelNoRefund');
-    // v2 vzhled (kill-switch app_v2_ui): stejný text i tlačítko.
+    // v2 vzhled (kill-switch app_v2_ui): stejný výsledek i tlačítko; vratka
+    // rodově neutrálně (RP-20) — stejná částka a procento.
     if (MgV2.on(context)) {
+      final v2Body = r.error != 'already' && wasPaid && r.refundKnown && r.refundAmount > 0
+          ? tr.trArgs('v2UxRpCancelRefund', {'amount': Money.czk(r.refundAmount), 'pct': r.refundPercent})
+          : body;
       return ResCancelResultV2(
-          ok: true, title: tr.tr('psCancelDoneTitle'), body: body, closeLabel: tr.tr('close'), onClose: onClose);
+          ok: true, title: tr.tr('psCancelDoneTitle'), body: v2Body, closeLabel: tr.tr('close'), onClose: onClose);
     }
     return AlertDialog(
       title: Text('✓ ${tr.tr('psCancelDoneTitle')}',

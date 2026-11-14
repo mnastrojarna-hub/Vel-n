@@ -2,7 +2,7 @@
 // call the SAME actions as the old ones — card tap (sibling ids + detail),
 // REZERVOVAT (PM-3: identical draft from the old and the v2 detail), the
 // date sheet writes `catalogFilterProvider` like the old screen, the
-// calculator hands its pickup time to the draft; `quoteFor` == the booking
+// calculator leaves the pickup time to the form; `quoteFor` == the booking
 // form's `priceBreakdownProvider`; flag OFF = the old trees; ext_52 strings.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -18,7 +18,6 @@ import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
-import 'package:motogo_app/core/v2/widgets/mg_chips.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/booking/booking_models.dart';
 import 'package:motogo_app/features/booking/booking_provider.dart';
@@ -27,7 +26,7 @@ import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_page.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
+import 'package:motogo_app/features/catalog/v2/calc/calc_total_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_text.dart';
 import 'package:motogo_app/features/catalog/v2/detail/detail_pager_v2.dart';
@@ -100,36 +99,25 @@ void main() {
   final (ws, we) = futureWeekend();
   final dated = CatalogFilter(startDate: ws, endDate: we);
 
-  testWidgets('card CTA → detail with the shown (sorted) sibling ids', (t) async {
+  // The card CTA is the old "Detail" (lookonly-fix): it opens the detail.
+  testWidgets('card CTA (no dates) → detail with the shown (sorted) sibling ids', (t) async {
     final (router, c) = await _pumpRouted(t,
         initial: '/search',
         path: '/search',
         screen: (_) => const MotorkyScreenV2(),
-        overrides: catalogOverrides(filter: dated, filtered: [kBmw, kHusq, kKids]));
+        overrides: catalogOverrides(filtered: [kBmw, kHusq, kKids]));
+    for (var i = 0; i < 12 && find.byType(MgCta).evaluate().isEmpty; i++) {
+      await t.drag(find.byType(CustomScrollView).first, const Offset(0, -300));
+      await t.pump(const Duration(milliseconds: 300));
+    }
+    await t.ensureVisible(find.byType(MgCta).first);
+    await t.pump(const Duration(milliseconds: 300));
     await t.tap(find.byType(MgCta).first);
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('detail:m-bmw'), findsOneWidget);
     expect(c.read(filteredMotoIdsProvider), ['m-bmw', 'm-husq', 'm-kid']);
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 2));
-  });
-
-  testWidgets('date sheet: preset writes the filter, ✕ in the pill clears it', (t) async {
-    final (_, c) = await _pumpRouted(t,
-        initial: '/search', path: '/search', screen: (_) => const MotorkyScreenV2(), overrides: catalogOverrides());
-    showCatalogDateSheet(t.element(find.byType(MotorkyScreenV2)));
-    await t.pump();
-    await t.pump(const Duration(milliseconds: 400));
-    final tr = AppTranslations.of('cs');
-    await t.tap(find.widgetWithText(MgChoiceChip, tr.tr('v2CatPresetWeekend')));
-    await t.pump();
-    final w = catWeekend(DateTime.now());
-    expect(c.read(catalogFilterProvider).startDate, w.$1);
-    expect(c.read(catalogFilterProvider).endDate, w.$2);
-    await t.tap(find.widgetWithText(MgChoiceChip, tr.tr('v2CatPresetNone')));
-    await t.pump();
-    expect(c.read(catalogFilterProvider).startDate, isNull);
-    expect(c.read(catalogFilterProvider).endDate, isNull);
   });
 
   Future<BookingDraft> reserveFromDetail(WidgetTester t, {required bool v2}) async {
@@ -181,23 +169,28 @@ void main() {
     expect([neu.glovesSize, neu.pantsSize, neu.ownGear, neu.motoImage], [old.glovesSize, old.pantsSize, old.ownGear, old.motoImage]);
   });
 
-  testWidgets('calculator REZERVOVAT hands the 12:00 pickup to the draft', (t) async {
+  // Owner 2026-10-22: no pickup-time choice before the form — the
+  // calculator books the bike + dates only, the time is chosen in /booking.
+  testWidgets('calculator REZERVOVAT leaves the pickup time to the booking form', (t) async {
     final (_, c) = await _pumpRouted(t,
         initial: '/search',
         path: '/search',
         screen: (_) => const MotorkyScreenV2(),
         overrides: [
-          ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we, pickupTime: '12:00'), profile: _profile),
+          ...catalogOverrides(calc: CalcState(motoId: 'm-bmw', start: ws, end: we), profile: _profile),
           catalogCalcRequestProvider.overrideWith((ref) => true),
         ]);
-    final cta = find.byType(MgCta).last;
+    // The total block's own CTA (the sticky dock mirrors it while it is
+    // below the edge — calc_sticky_test.dart).
+    final cta = find.descendant(of: find.byType(CalcTotalV2), matching: find.byType(MgCta));
     await t.ensureVisible(cta);
     await t.pump();
+    await t.pump(const Duration(milliseconds: 400));
     await t.tap(cta);
     await t.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
     expect(find.text('booking'), findsOneWidget);
     final d = c.read(bookingDraftProvider);
-    expect([d.motoId, d.startDate, d.endDate, d.pickupTime], ['m-bmw', ws, we, '12:00']);
+    expect([d.motoId, d.startDate, d.endDate, d.pickupTime], ['m-bmw', ws, we, null]);
     await t.pumpWidget(const SizedBox());
     await t.pump(const Duration(seconds: 2));
   });
@@ -253,12 +246,6 @@ void main() {
   });
 
   group('helpers', () {
-    test('weekend presets', () {
-      expect(catWeekend(DateTime(2026, 10, 21)), (DateTime(2026, 10, 23), DateTime(2026, 10, 25))); // Wed
-      expect(catWeekend(DateTime(2026, 10, 24)), (DateTime(2026, 10, 24), DateTime(2026, 10, 25))); // Sat
-      expect(catWeekend(DateTime(2026, 10, 21), skip: 1), (DateTime(2026, 10, 30), DateTime(2026, 11, 1)));
-      expect(catWeekend(DateTime(2026, 10, 25), skip: 1), (DateTime(2026, 10, 30), DateTime(2026, 11, 1))); // Sun, DST end
-    });
     test('count plurals', () {
       final cs = AppTranslations.of('cs');
       expect([catCount(cs, 1), catCount(cs, 3), catCount(cs, 12)], ['1 motorka', '3 motorky', '12 motorek']);

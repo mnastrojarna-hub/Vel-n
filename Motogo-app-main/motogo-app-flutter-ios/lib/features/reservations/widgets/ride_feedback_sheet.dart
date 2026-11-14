@@ -10,15 +10,23 @@ import '../ride_feedback.dart';
 import 'res_rating_widgets.dart' show RatingMiniStars;
 import '../../../core/friendly_error.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/tokens/mg_colors.dart';
+import '../v2/ride_feedback_sheet_v2.dart';
 
 /// Otevře sheet „Napiš nám přímo, co máme zlepšit“. Vrací id konverzace,
 /// do které zpráva odešla (null = zavřeno bez odeslání).
 Future<String?> showRideFeedbackSheet(BuildContext context, {required Reservation res, required int rating}) async {
   Future<RideFeedbackResult>? sending;
+  // v2 vzhled: scrim a pohyb v2 sheetu; route, výsledek i logika beze změny.
+  final v2 = MgV2.on(context);
   final id = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
+    barrierColor: v2 ? MgColors.nightA(0.55) : null,
+    sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
     builder: (_) => _RideFeedbackSheet(res: res, rating: rating, onSending: (f) => sending = f),
   );
   final pending = sending;
@@ -104,6 +112,17 @@ class _RideFeedbackSheetState extends State<_RideFeedbackSheet> {
   Widget build(BuildContext context) {
     final tr = t(context);
     final canSend = _ctrl.text.trim().isNotEmpty && !_sending;
+    if (MgV2.on(context)) {
+      return RideFeedbackSheetV2(
+        res: widget.res,
+        rating: widget.rating,
+        controller: _ctrl,
+        sending: _sending,
+        emptyTried: _emptyTried,
+        maxLength: kRideFeedbackMaxLen,
+        onSend: _send,
+      );
+    }
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(

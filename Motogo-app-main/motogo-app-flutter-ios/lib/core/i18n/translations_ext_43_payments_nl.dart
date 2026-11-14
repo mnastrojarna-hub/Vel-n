@@ -43,7 +43,7 @@ const Map<String, String> ext43PaymentsNl = {
   'pdCancelForbidden': 'Je kunt deze boeking niet annuleren vanuit dit account. Log in met het account waarmee je haar hebt gemaakt en annuleer haar daar.',
   'pdSwapUnknown': 'De ruil kan nu niet worden uitgevoerd. Er is niets veranderd – probeer een andere ruildag of een andere motor.',
   'pdSlevomatUnverified': 'We konden de Slevomat-voucher nu niet bij Slevomat controleren. De code blijft geldig – probeer het over een paar minuten opnieuw.',
-  'pdRefundManual': 'De automatische terugbetaling is mislukt. Ons team rondt de terugbetaling binnen 2 werkdagen af – je hoeft niets te doen, de bevestiging en creditnota komen per e-mail.',
+  'pdRefundManual': 'De automatische terugbetaling is mislukt. Ons team rondt de terugbetaling binnen 2 werkdagen af – je hoeft niets te doen, het terugbetaalde bedrag zie je daarna in de details van de reservering.',
   'pdCurrencyTitle': 'De kaart kan niet in kronen betalen',
   'pdCurrencyBody': 'Je kaart kan niet in Tsjechische kronen (CZK) betalen. Er is niets afgeschreven – betaal met een andere kaart, de meeste Visa- en Mastercard-kaarten kunnen dat.',
   'pdWalletDeclinedTitle': 'De wallet heeft de betaling geweigerd',

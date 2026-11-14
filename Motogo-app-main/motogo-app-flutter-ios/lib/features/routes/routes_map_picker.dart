@@ -7,10 +7,18 @@ import '../../core/widgets/moto_fx.dart';
 import 'routes_map_provider.dart' show fmtRideMinutes;
 import 'routes_model.dart';
 import 'routes_provider.dart' show polylineLengthM;
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import '../../core/v2/tokens/mg_format.dart';
+import 'v2/routes_map_panel_v2.dart';
 
 /// Výška spodního panelu s kartami tras — mapa tras podle ní posouvá kulatá
 /// tlačítka a čip „Tvoje trasa", aby je panel nepřekryl.
 const double kRoutesMapPickerHeight = 150;
+
+/// Panel height in the current look (v2 sheet is taller, F-13).
+double routesMapPickerHeight(BuildContext context) =>
+    MgV2.on(context) ? routesMapPanelV2Height(context) : kRoutesMapPickerHeight;
 
 /// Barvy tras na mapě tras — každá trasa vybraného bodu má svou, karta dole
 /// nese stejnou, takže je jasné, která čára je která.
@@ -22,8 +30,11 @@ const List<Color> kRoutesMapPalette = [
   Color(0xFF7C3AED), // fialová
 ];
 
-Color routesMapColor(int index) =>
-    kRoutesMapPalette[index % kRoutesMapPalette.length];
+/// [v2] = v2 vzhled: fialová → petrolejová (bez fialové v appce, V22).
+Color routesMapColor(int index, {bool v2 = false}) {
+  final c = kRoutesMapPalette[index % kRoutesMapPalette.length];
+  return v2 && c == const Color(0xFF7C3AED) ? MgColors.petrol : c;
+}
 
 /// Šířka karty + mezera — podle toho se panel doscrolluje na zvolenou kartu.
 const double _kCardW = 250;
@@ -98,7 +109,8 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
     if (i < 0) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
-      final target = (i * (_kCardW + _kCardGap))
+      final step = MgV2.peek(context) ? kRoutesMapCardV2Extent : _kCardW + _kCardGap;
+      final target = (i * step)
           .clamp(0.0, _scroll.position.maxScrollExtent);
       if (!animate) {
         _scroll.jumpTo(target);
@@ -112,6 +124,15 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
   @override
   Widget build(BuildContext context) {
     final routes = widget.routes;
+    if (MgV2.on(context)) {
+      final tr = t(context);
+      return RoutesMapPanelV2(
+        title: '${tr.tr('routesMapPickTitle')} · ${routes.length}',
+        hint: tr.tr('routesMapPickHint'),
+        controller: _scroll,
+        cards: [for (var i = 0; i < routes.length; i++) _v2Card(context, routes[i], i)],
+      );
+    }
     return SizedBox(
       height: kRoutesMapPickerHeight,
       child: Container(
@@ -167,7 +188,7 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
   }
 
   Widget _card(BuildContext context, RouteItem r, int i) {
-    final color = routesMapColor(i);
+    final color = routesMapColor(i, v2: MgV2.on(context));
     final active = r.id == widget.activeId;
     final line = widget.lines[r.id];
     final busy = widget.computing.contains(r.id);
@@ -292,6 +313,30 @@ class _RoutesMapPickerState extends State<RoutesMapPicker> {
           ],
         ),
       ),
+    );
+  }
+
+  /// v2 card data — the same values as [_card] (road km when computed,
+  /// "Počítám…" / failed line), km in the locale format.
+  RtMapCardDataV2 _v2Card(BuildContext context, RouteItem r, int i) {
+    final tr = t(context);
+    final line = widget.lines[r.id];
+    final busy = widget.computing.contains(r.id);
+    final failed = line != null && line.length < 2 && !busy;
+    final km = (line != null && line.length >= 2) ? polylineLengthM(line) / 1000 : r.distanceKm;
+    final meta = <String>[
+      if (km != null) '${mgNum(km, tr.lang)}\u00A0km',
+      if (r.durationMin != null) fmtRideMinutes(r.durationMin!),
+      if (r.difficulty != null) _difficulty(context, r.difficulty!),
+    ];
+    return RtMapCardDataV2(
+      name: r.nameFor(widget.lang),
+      meta: busy ? tr.tr('routesMapComputing') : (failed ? tr.tr('routesMapLineFailed') : meta.join(' · ')),
+      sub: r.branchId != null ? widget.branches[r.branchId]?.name : null,
+      color: routesMapColor(i, v2: true),
+      active: r.id == widget.activeId,
+      onPick: () => widget.onPick(r),
+      onOpen: () => widget.onOpen(r),
     );
   }
 

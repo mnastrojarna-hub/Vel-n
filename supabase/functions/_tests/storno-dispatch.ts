@@ -1,7 +1,7 @@
 // ===== _tests/storno-dispatch.ts =====
 // Volající storna pro flow testy (HOTFIX 2026-10-29) — přesná těla a pořadí jako v živém kódu.
 // deno-lint-ignore-file no-explicit-any
-import { ADMIN_ID, BID, EMAIL, bk, call, creditNotes, dbNow, deliver, insert, pgNow, rows, tier, world } from './storno-harness.ts'
+import { ADMIN_ID, BID, EMAIL, FN, bk, call, creditNotes, dbNow, deliver, insert, pgNow, rows, tier, world } from './storno-harness.ts'
 
 /** DB trigger trg_notify_booking_cancelled_email → notify_booking_cancelled_email() → pg_net (service klíč). */
 export const trigger = () => call('send-cancellation-email', { booking_id: BID, cancellation_reason: bk().cancellation_reason || '',
@@ -10,10 +10,11 @@ export const trigger = () => call('send-cancellation-email', { booking_id: BID, 
 /** Kdy dorazí volání z triggeru vůči Velínu: před jeho process-refund / uvnitř (hned po refunds.create) / souběžně / po něm. */
 export type TriggerMode = 'none' | 'before' | 'mid' | 'concurrent' | 'after'
 
-/** Velín cancelBookingFromVelin (velin/src/pages/booking/bookingMessageHelpers.js) — admin JWT. */
+/** Velín cancelBookingFromVelin (velin/src/pages/booking/bookingMessageHelpers.js) — admin JWT.
+ *  i3 (2026-11-07): „zaplacená“ = paid | partial_refund | refund_pending (paidForRefund), mail vždy nese volbu vratky. */
 export async function velinCancel(choice: number | 'full', mode: TriggerMode = 'none') {
   const b = bk()
-  const wasPaid = b.payment_status === 'paid'
+  const wasPaid = ['paid', 'partial_refund', 'refund_pending'].includes(b.payment_status)
   const total = Math.max(0, Math.round(Number(b.total_price) || 0))
   let refundAmount = wasPaid ? total : 0
   if (wasPaid && choice !== 'full') refundAmount = Math.min(total, Math.max(0, Math.round(choice)))
@@ -39,8 +40,16 @@ export async function velinCancel(choice: number | 'full', mode: TriggerMode = '
   if (mode === 'after') await trigger()
   await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, customer_name: 'Test Zákazník', motorcycle: b.booking_kind === 'gear' ? undefined : 'Test Moto',
     start_date: b.start_date, end_date: b.end_date, cancellation_reason: 'Storno (Velín)', cancelled_by_source: 'velin', source: 'app',
-    ...(wasPaid ? { refund_amount: refundAmount, refund_percent: refundPercent } : {}) }, 'admin')
+    refund_amount: wasPaid ? refundAmount : 0, refund_percent: wasPaid ? refundPercent : 0 }, 'admin')
   return { refundAmount, refundPercent }
+}
+
+/** Velín PŘED opravou i3 (živý během nasazení): rezervace mimo 'paid' = „nezaplacená“ → jen UPDATE + mail BEZ volby vratky. */
+export async function velinCancelLegacyUnpaid() {
+  const b = bk()
+  Object.assign(b, { status: 'cancelled', cancelled_by: ADMIN_ID, cancelled_by_source: 'velin', cancellation_reason: 'Storno (Velín)', cancelled_at: new Date().toISOString() })
+  await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, customer_name: 'Test Zákazník', motorcycle: 'Test Moto',
+    start_date: b.start_date, end_date: b.end_date, cancellation_reason: 'Storno (Velín)', cancelled_by_source: 'velin', source: 'app' }, 'admin')
 }
 
 /** RPC cancel_booking_tracked (20261023e): pásmo k LEAST(refund_pickup_time, pickup_time), strop po posunu; UPDATE +
@@ -74,17 +83,60 @@ export async function bulkCancel(withTrigger: boolean) {
   if (withTrigger) await trigger()
 }
 
-/** Velín „Potvrdit (částečné) vrácení“ u zrušené rezervace (BookingDetail confirmCancelledRefund). */
+/** Velín helpery (velin/src/pages/booking/manualRefundState.js) ze stromu pod testem (STORNO_FN_DIR) — starší strom je nemá. */
+let velinMod: any = null
+export async function velinHelpers(): Promise<any> {
+  if (!velinMod) { try { velinMod = await import(new URL('../../velin/src/pages/booking/manualRefundState.js', FN).href) } catch { velinMod = {} } }
+  return velinMod
+}
+
+/** Velín „Potvrdit (částečné) vrácení“ u zrušené rezervace (BookingDetail confirmCancelledRefund).
+ *  i6r1 (W2b): přeskočení vratky dle dobropisů TOHOTO storna z DB (cancelRefundAlreadyIssued), starší Velín dle všech. */
 export async function velinConfirm(amt: number) {
   const total = Math.max(0, Math.round(Number(bk().total_price) || 0))
-  const pct = total > 0 ? Math.round(amt / total * 100) : 0
-  if (amt > 0 && !creditNotes().find((c) => Math.abs(Number(c.total) || 0) === amt)) {
-    await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) }, 'admin')
+  let pct = total > 0 ? Math.round(amt / total * 100) : 0
+  const v = await velinHelpers()
+  // P2 (majitel 2026-11-08): zadaná částka = CELKOVÁ vratka storna (max. zaplaceno), odejde jen rozdíl proti
+  // dobropisům tohoto storna — stejně jako BookingDetail.confirmCancelledRefund (strom s cancelRefundedSoFarCzk).
+  if (typeof v.cancelRefundedSoFarCzk === 'function') {
+    const db = (globalThis as any).__STORNO_DB
+    const paidDocs = await v.livePaidDocsCzk(db, BID)
+    const cap = paidDocs != null && paidDocs > 0 ? Math.round(paidDocs) : total
+    const target = Math.min(cap, Math.max(0, Math.round(amt)))
+    const done = await v.cancelRefundedSoFarCzk(db, BID)
+    if (done == null) return { failed: true, res: null }
+    amt = Math.max(target, done)
+    const delta = target - done
+    if (delta > 0) {
+      const full = target >= cap && done === 0
+      const res = await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(full ? {} : { amount: delta, cancel_total: target }) }, 'admin')
+      if (!res || typeof res !== 'object' || res.success === false) return { failed: true, res }
+      const sum = Math.round(Number(res.cancel_refunded_total))
+      if (Number.isFinite(sum) && sum > 0) amt = Math.min(cap, sum)
+    }
+    pct = total > 0 ? Math.round(amt / total * 100) : 0
+    const lastP2 = rows('booking_cancellations').at(-1)
+    if (lastP2) Object.assign(lastP2, { refund_amount: amt, refund_percent: pct })
+    await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, cancellation_reason: bk().cancellation_reason, cancelled_by_source: 'velin',
+      source: 'app', refund_amount: amt, refund_percent: pct, skip_refund: true, force: true }, 'admin')
+    return { failed: false }
+  }
+  const issued = typeof v.cancelRefundAlreadyIssued === 'function'
+    ? await v.cancelRefundAlreadyIssued((globalThis as any).__STORNO_DB, BID, amt)
+    : !!creditNotes().find((c) => Math.abs(Number(c.total) || 0) === amt)
+  if (amt > 0 && !issued) {
+    const res = await call('process-refund', { booking_id: BID, reason: 'cancellation', ...(amt >= total ? {} : { amount: amt }) }, 'admin')
+    // BookingDetail: vratka selhala (ne-2xx / success:false) → chyba v UI, bez záznamu i mailu (i1)
+    if (!res || typeof res !== 'object' || res.success === false) return { failed: true, res }
+    // i4 (S2): skutečně vrácený součet k tomuto stornu (cancel_refunded_total) místo zvolené částky
+    const sum = Math.round(Number(res.cancel_refunded_total))
+    if (Number.isFinite(sum) && sum > amt) { amt = Math.min(total, sum); pct = total > 0 ? Math.round(amt / total * 100) : 0 }
   }
   const last = rows('booking_cancellations').at(-1)
   if (last) Object.assign(last, { refund_amount: amt, refund_percent: pct })
   await call('send-cancellation-email', { booking_id: BID, customer_email: EMAIL, cancellation_reason: bk().cancellation_reason, cancelled_by_source: 'velin',
     source: 'app', refund_amount: amt, refund_percent: pct, skip_refund: true, force: true }, 'admin')
+  return { failed: false }
 }
 
 /** Plná vratka ručně v Stripe dashboardu u ŽIVÉ rezervace → webhook ji zruší (+ trigger po jeho UPDATE). */

@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'places_filter.dart';
+import 'road_line.dart' show retryRoadLineLater;
 import 'routes_model.dart';
 import 'routes_provider.dart';
 
@@ -39,7 +40,9 @@ final routeRoadLineProvider =
   if (pts.length < 2) return const <LatLng>[];
   final geo = await fetchMapyRoute(pts);
   // Když routing selže, radši NIC než rovné čáry — uživatel výslovně chtěl
-  // vidět trasu po silnici, ne vzdušné spojnice.
+  // vidět trasu po silnici, ne vzdušné spojnice. Neúspěch se ale nesmí
+  // zapamatovat na celý běh appky → za chvíli se zkusí znovu.
+  if (geo == null) retryRoadLineLater(ref, 'line:$routeId');
   return geo ?? const <LatLng>[];
 });
 

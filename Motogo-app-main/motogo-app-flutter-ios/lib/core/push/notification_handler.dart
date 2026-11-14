@@ -10,6 +10,9 @@ import '../i18n/i18n_provider.dart';
 import '../../features/reservations/reservation_provider.dart' show reservationsProvider;
 import '../../features/sos/sos_provider.dart' show hasActiveRentalProvider;
 import 'push_service.dart';
+import '../v2/chrome/mg_chrome_metrics.dart' show MgChromeScope;
+import '../v2/flag/v2_scope.dart';
+import '../../features/shell/v2/push_banner_v2.dart';
 
 /// Notification handler — connects PushService to UI.
 /// Shows in-app banners for foreground notifications,
@@ -41,6 +44,25 @@ class NotificationHandler {
     if (context == null) return;
 
     final isDoorCodes = data['type'] == 'door_codes';
+    // v2 vzhled (V22 §6.4): týž SnackBar / délka / akce, jen nový vzhled.
+    if (MgV2.peek(context)) {
+      final messenger = ScaffoldMessenger.of(context);
+      final tr = AppTranslations.of(lastKnownAppLang);
+      messenger.showSnackBar(pushBannerSnackV2(
+        title: title,
+        body: body,
+        doorCodes: isDoorCodes,
+        viewLabel: tr.tr('manualView'),
+        closeLabel: tr.tr('close'),
+        onView: () {
+          messenger.hideCurrentSnackBar(reason: SnackBarClosedReason.action);
+          _handleDeepLink(data);
+        },
+        onClose: () => messenger.hideCurrentSnackBar(reason: SnackBarClosedReason.dismiss),
+        lift: MgChromeScope.chromeOf(context)?.dockHeight ?? 0,
+      ));
+      return;
+    }
     final emoji = isDoorCodes ? '🔑' : '📩';
     final bgColor = isDoorCodes ? const Color(0xFF1A2E22) : MotoGoColors.dark;
     final duration = isDoorCodes ? 8 : 5;

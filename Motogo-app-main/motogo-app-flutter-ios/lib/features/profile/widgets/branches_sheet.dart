@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
@@ -6,6 +7,9 @@ import '../../../core/supabase_client.dart';
 import '../../auth/widgets/toast_helper.dart';
 import 'branch_detail_card.dart';
 import '../../../core/widgets/mg_nav_controls.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/widgets/mg_sheet.dart';
+import '../v2/branches_sheet_v2.dart';
 
 /// Shows a draggable bottom sheet listing all active branches.
 /// Each branch is an expandable card with detailed info + motorcycles.
@@ -50,6 +54,15 @@ Future<void> showBranchesSheet(BuildContext context) async {
     }
 
     if (!context.mounted) return;
+    // v2 vzhled (kill-switch app_v2_ui): světlý v2 sheet, tatáž data i akce.
+    if (MgV2.on(context)) {
+      showMgSheet<void>(
+        context,
+        title: t(context).tr('branchesTitle'),
+        builder: (_) => BranchesSheetV2(branches: branches, motosByBranch: motosByBranch, onLaunch: launchUrl),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

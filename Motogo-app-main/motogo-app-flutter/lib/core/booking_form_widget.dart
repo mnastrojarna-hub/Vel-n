@@ -25,6 +25,8 @@ import 'currency.dart';
 import 'engagement_service.dart';
 import 'v2/flag/v2_scope.dart';
 import '../features/booking/v2/booking_form_view_v2.dart';
+import '../features/booking/v2/booking_sync_v2.dart';
+import '../features/catalog/v2/bike_screen_list_v2.dart' show catalogShowListStart;
 
 // ═══════════════════════════════════════════════════════════════════
 // INLINE BOOKING FORM — everything in ONE file, per-section try-catch
@@ -74,8 +76,13 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
   void _onDatesSelected(DateTime s, DateTime e) {
     _upd((d) =>
         d.copyWith(startDate: () => s, endDate: () => e));
+    // v2: nový termín i pro seznam, Domů a kalkulačku (nic dvakrát).
+    if (MgV2.peek(context)) bookingFormShareDates(ref, ref.read(bookingDraftProvider).motoId, s, e);
     setState(() => _calOpen = false);
   }
+
+  /// v2 „Ponechat termín“: zavře kalendář beze změny termínu.
+  void _closeCalendar() => setState(() => _calOpen = false);
 
   void _onDatesReset() {
     _upd((d) => d.copyWith(
@@ -553,6 +560,10 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     // jen jiný strom (PLAN §2.3.1, technika S).
     if (MgV2.on(context)) {
       final motoKey = draft.motoId ?? '';
+      final booked = motoKey.isEmpty ? null : ref.watch(bookedDatesProvider(motoKey));
+      // Přenesený termín s obsazeným dnem → kalendář otevřený + zámek
+      // (DB by rezervaci odmítla až při platbě).
+      final rangeBusy = bookingDraftRangeBusy(ref, draft, booked);
       return BookingFormV2View(
         moto: moto,
         draft: draft,
@@ -569,13 +580,23 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         deliveryBlocked: deliveryBlocked,
         branchLabel: branchLabel,
         missingSizes: missingSizes,
-        canProceed: canProceedNow(),
-        booked: motoKey.isEmpty ? null : ref.watch(bookedDatesProvider(motoKey)),
-        calOpen: _calOpen,
+        canProceed: canProceedNow() && !rangeBusy,
+        booked: booked,
+        rangeBusy: rangeBusy,
+        errKind: bookingErrKind(ref),
+        calOpen: _calOpen || rangeBusy,
+        onCloseCalendar: _closeCalendar,
         noteOpen: _noteOpen,
         noteCtrl: _noteCtrl,
         onUpd: _upd,
         onBack: () => bookingFormBack(context, draft),
+        // Majitel 2026-11-14 (M3-04): seznam motorek (kořen záložky Motorky,
+        // stejný cíl jako ostatní „jiná motorka“); draft zůstává jako při Zpět,
+        // termín nese filtr katalogu (bookingFormShareDates).
+        onPickOtherMoto: () {
+          catalogShowListStart(ref); // seznam od začátku, ne na téže motorce
+          GoRouter.of(context).go('/search');
+        },
         onOpenCalendar: _openCalendar,
         onDatesSelected: _onDatesSelected,
         onDatesReset: _onDatesReset,
@@ -588,7 +609,9 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         onGdpr: setGdpr,
         onKids: setKids,
         onProceed: () => GoRouter.of(context).push('/payment'),
-        onCompleteProfile: () => GoRouter.of(context).push('/profile'),
+        // Stejný cíl jako staré tlačítko „Doplnit profil“; `?edit=personal`
+        // jen zapne v2 navigaci k chybějícím údajům (R3-02, profile_booking_fix_v2).
+        onCompleteProfile: () => GoRouter.of(context).push('/profile?edit=personal'),
       );
     }
 

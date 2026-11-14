@@ -4,14 +4,18 @@ import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
+import '../../../../core/v2/tokens/mg_format.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
+import '../../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../../core/v2/widgets/mg_word_fit.dart';
 import '../../active_ride_provider.dart' show ActiveRide;
 import '../../my_experiences_provider.dart';
 import '../../ride_card.dart' show rideDate;
 import '../../route_image.dart';
 import '../rt_v2_text.dart' show rtDur;
+import '../route_road_sketch_v2.dart' show SavedRouteRoadSketchV2;
 import 'ride_track_sketch_v2.dart';
 
 /// Delete icon of a light card (48 hit, red glyph) — same callback as the
@@ -59,7 +63,7 @@ class SavedRouteCardV2 extends StatelessWidget {
     final tr = t(context);
     final r = route;
     final meta = [
-      if (r.distanceKm != null) '${r.distanceKm!.toStringAsFixed(0)} km',
+      if (r.distanceKm != null) '${mgNum(r.distanceKm!, t(context).lang)}\u00A0km',
       if (r.durationMin != null) rtDur(r.durationMin!),
       '${r.waypoints.length}× ${tr.tr('routeBuilderStop').toLowerCase()}',
       if (r.createdAt != null) rideDate(r.createdAt!),
@@ -71,7 +75,7 @@ class SavedRouteCardV2 extends StatelessWidget {
       semanticLabel: r.name,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          RideTrackSketch.line(r.waypoints, size: 56),
+          SavedRouteRoadSketchV2(route: r, size: 56),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -93,11 +97,19 @@ class SavedRouteCardV2 extends StatelessWidget {
         const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.only(right: 8),
-          child: Row(children: [
-            Expanded(child: MgBtnInk(label: tr.tr('myExpNavigate'), icon: MgIcons.navigate, neonLabel: true, height: 48, onTap: onNavigate)),
-            const SizedBox(width: 10),
-            Expanded(child: MgBtnGhostLight(label: tr.tr('myExpEdit'), icon: MgIcons.edit, onTap: onOpen)),
-          ]),
+          // Side by side while both labels keep whole words (icon 20 + 8 +
+          // ~36 padding); else one under the other (uk at 320, large text).
+          child: LayoutBuilder(builder: (context, c) {
+            final nav = MgBtnInk(label: tr.tr('myExpNavigate'), icon: MgIcons.navigate, neonLabel: true, height: 48, onTap: onNavigate);
+            final edit = MgBtnGhostLight(label: tr.tr('myExpEdit'), icon: MgIcons.edit, onTap: onOpen);
+            final half = (c.maxWidth - 10) / 2 - 64;
+            final side = mgWordsFit(context, tr.tr('myExpNavigate'), MgType.button, half) &&
+                mgWordsFit(context, tr.tr('myExpEdit'), MgType.button, half);
+            if (!side) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [nav, const SizedBox(height: 8), edit]);
+            }
+            return Row(children: [Expanded(child: nav), const SizedBox(width: 10), Expanded(child: edit)]);
+          }),
         ),
       ]),
     );
@@ -136,9 +148,24 @@ class VisitedPlaceCardV2 extends StatelessWidget {
           child: SizedBox(
             width: 92,
             height: 92,
-            child: p.imageUrl != null
-                ? RouteImage(url: p.imageUrl!, targetWidth: 300, placeholder: fallback, error: fallback)
-                : fallback(context),
+            child: Stack(fit: StackFit.expand, children: [
+              p.imageUrl != null
+                  ? RouteImage(url: p.imageUrl!, targetWidth: 300, placeholder: fallback, error: fallback)
+                  : fallback(context),
+              // F-38 (board): "2×" visit badge on the photo.
+              if (p.visitCount > 1)
+                Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: ExcludeSemantics(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(color: MgColors.neon, borderRadius: BorderRadius.circular(999)),
+                      child: Text('${p.visitCount}×', style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon))),
+                    ),
+                  ),
+                ),
+            ]),
           ),
         ),
         const SizedBox(width: 12),
@@ -234,27 +261,31 @@ class HistoryCardV2 extends StatelessWidget {
       onTap: onOpen,
       semanticLabel: name,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // r1: název má celou šířku (stav jde pod něj), slovo se nedělí.
         Row(children: [
           Expanded(
-            child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
-          ),
-          if (chip != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: isActive ? MgColors.neon : MgColors.tintOk,
-                borderRadius: BorderRadius.circular(999),
-                border: isActive ? null : Border.all(color: MgColors.tintOkBorder),
-              ),
-              child: Text(chip,
-                  style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: isActive ? MgColors.onNeon : MgColors.onTintOk)),
+            child: MgWordFit(
+              minScale: 0.8,
+              child: Text(name, maxLines: 2, overflow: TextOverflow.ellipsis, style: MgType.title.copyWith(color: MgColors.ink)),
             ),
+          ),
           MojeDeleteButton(onTap: onDelete, label: '${tr.tr('myExpDelete')}: $name'),
         ]),
         Padding(
           padding: const EdgeInsets.only(right: 10),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Wrap(spacing: 12, runSpacing: 4, children: [
+            Wrap(spacing: 12, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              if (chip != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isActive ? MgColors.neon : MgColors.tintOk,
+                    borderRadius: BorderRadius.circular(999),
+                    border: isActive ? null : Border.all(color: MgColors.tintOkBorder),
+                  ),
+                  child: Text(chip,
+                      style: MgType.micro.copyWith(fontWeight: FontWeight.w800, color: isActive ? MgColors.onNeon : MgColors.onTintOk)),
+                ),
               RideMetaV2(MgIcons.calendarCheck, rideDate(r.updatedAt)),
               if (r.totalStops > 0) RideMetaV2(MgIcons.pin, '${r.reached.length}/${r.totalStops}'),
             ]),

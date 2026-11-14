@@ -5,6 +5,15 @@ import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import 'my_experiences_provider.dart' show VisitResult;
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/motion/mg_motion.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import '../../core/v2/tokens/mg_format.dart';
+import 'v2/nav/nav_cards_v2.dart';
+import 'v2/nav/nav_hud_v2.dart';
+import 'v2/nav/nav_sheets_v2.dart';
+import 'v2/review_editor_v2.dart' show rtSheetScrimV2;
 
 /// Widgety navigační obrazovky — HUD, kompas, markery, karta dojezdu na bod,
 /// karta dokončení trasy a sheet se zastávkami trasy.
@@ -20,6 +29,14 @@ class NavCompassButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return NavMapButtonV2(
+          icon: MgIcons.navigate,
+          label: t(context).tr('v2UxRrNorth'),
+          onTap: onTap,
+          rotation: rotationDeg * math.pi / 180 - math.pi / 4,
+          iconColor: MgColors.sos);
+    }
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -56,6 +73,11 @@ class NavNextStopPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = distanceM == null ? null : formatNavDist(distanceM!);
+    if (MgV2.on(context)) {
+      final dd = distanceM == null ? null : navDistV2(distanceM!, t(context).lang);
+      return NavNextStopPillV2(
+          text: '${t(context).tr('routeNavNext')}: $name${dd == null ? '' : ' · $dd'}', progress: progress, onTap: onTap);
+    }
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -145,6 +167,18 @@ class NavHud extends StatelessWidget {
       arrTxt = '${arr.hour.toString().padLeft(2, '0')}:${arr.minute.toString().padLeft(2, '0')}';
     }
     final altTxt = altitude == null ? '–' : '${altitude!.round()} m';
+    if (MgV2.on(context)) {
+      final lang = t(context).lang;
+      return NavHudV2(
+        arrived: arrived,
+        fraction: fraction,
+        speedKmh: speedKmh,
+        remaining: remainingM == null ? '–' : navDistV2(remainingM!, lang),
+        eta: etaTxt,
+        arrival: arrTxt,
+        altitude: altitude == null ? '–' : mgMeters(altitude!, lang),
+      );
+    }
 
     return Container(
       margin: EdgeInsets.fromLTRB(12, 0, 12, MediaQuery.of(context).padding.bottom + 12),
@@ -315,6 +349,23 @@ class NavNumPin extends StatelessWidget {
   const NavNumPin({super.key, required this.index, this.visited = false});
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      // v2 (board Navigace): ink disc + neon number, visited = tint ✓.
+      return Container(
+        decoration: BoxDecoration(
+          color: visited ? MgColors.tintOk : MgColors.ink,
+          shape: BoxShape.circle,
+          border: Border.all(color: visited ? MgColors.tintOkBorder : MgColors.neon, width: 2),
+          boxShadow: const [BoxShadow(color: Color(0x400A1F14), blurRadius: 4, offset: Offset(0, 2))],
+        ),
+        child: Center(
+          child: visited
+              ? const MgIcon(MgIcons.check, size: 14, color: MgColors.link)
+              : Text('${index + 1}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: MgColors.neon, decoration: TextDecoration.none)),
+        ),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: visited ? MotoGoColors.g400 : MotoGoColors.greenDarker,
@@ -357,6 +408,24 @@ class StopReachedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      final tr = t(context);
+      final v = visit;
+      return StopReachedCardV2(
+        name: name,
+        visitLine: v == null
+            ? null
+            : (v.firstVisit
+                ? '${tr.tr('navPlaceDiscovered')} · ${tr.tr('navPlacesTotal').replaceFirst('{n}', '${v.totalPlaces}')}'
+                : tr.tr('navVisited')),
+        firstVisit: v?.firstVisit ?? false,
+        nextLabel: nextLabel,
+        onNext: onNext,
+        onChoose: onChoose,
+        onClose: onClose,
+        onRate: onRate,
+      );
+    }
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
       decoration: BoxDecoration(
@@ -522,6 +591,9 @@ class RouteDoneCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return RouteDoneCardV2(canRate: canRate, canSave: canSave, onRate: onRate, onSave: onSave, onClose: onClose);
+    }
     Widget btn(IconData ic, String label, VoidCallback onTap, {bool primary = false}) =>
         Expanded(
           child: GestureDetector(
@@ -632,6 +704,39 @@ void showNavStopsSheet(
   String? branchLabel,
   VoidCallback? onNavigateToBranch,
 }) {
+  if (MgV2.on(context)) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: rtSheetScrimV2,
+      sheetAnimationStyle: MgMotion.sheetStyle(context),
+      builder: (sc) => NavStopsSheetV2(rows: [
+        for (final s in stops)
+          NavStopRowV2(
+            number: s.index + 1,
+            label: s.label,
+            reached: s.reached,
+            isNext: s.isNext,
+            onNavigate: () {
+              Navigator.of(sc).pop();
+              onNavigateTo(s.index);
+            },
+          ),
+        if (branchLabel != null)
+          NavStopRowV2(
+            label: branchLabel,
+            onNavigate: onNavigateToBranch == null
+                ? null
+                : () {
+                    Navigator.of(sc).pop();
+                    onNavigateToBranch();
+                  },
+          ),
+      ]),
+    );
+    return;
+  }
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.white,
@@ -813,6 +918,9 @@ class NavForkHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return NavForkHintV2(leftLabel: leftLabel, rightLabel: rightLabel, nextIsLeft: nextIsLeft, onTap: onTap);
+    }
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -916,3 +1024,6 @@ class NavForkHint extends StatelessWidget {
     );
   }
 }
+
+/// v2 distance ("3,2 km" / "850 m", locale decimals) — display only.
+String navDistV2(double m, String lang) => m >= 1000 ? '${mgNum(m / 1000, lang, decimals: 1)}\u00A0km' : mgMeters(m, lang);

@@ -20,25 +20,12 @@ import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_step_moto_v2.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_date_sheet_v2.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_filter_sheet_v2.dart';
 import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
-import 'package:motogo_app/features/catalog/v2/catalog_price.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 
 import '../support/fakes_catalog.dart';
 import 'render_harness.dart';
 
-Future<void> _openSheet(WidgetTester t, Future<void> Function(BuildContext) open) async {
-  open(t.element(find.byType(MotorkyScreenV2)));
-  await t.pump();
-  await t.pump(const Duration(milliseconds: 400));
-}
-
-Future<void> _toGrid(WidgetTester t) async {
-  await t.tap(find.byWidgetPredicate((w) => w is CatPathIcon && w.d == CatPathIcon.grid));
-  await t.pump(const Duration(milliseconds: 300));
-}
 
 Future<void> _expandCalendar(WidgetTester t) async {
   await t.pump(const Duration(milliseconds: 50));
@@ -81,17 +68,13 @@ List<RenderCase> catalogRenderCases() {
     m('find_nodates', () => catalogOverrides()),
     m('find_banner', () => catalogOverrides(banner: banner)),
     m('find_dates', () => catalogOverrides(filter: dated, filtered: available)),
-    m('grid', () => catalogOverrides(filter: dated, filtered: available), after: _toGrid),
     // Grid without dates: "Dnes volná" badge + "od … /den" prices.
-    m('grid_nodates', () => catalogOverrides(), after: _toGrid),
     m('empty', () => catalogOverrides(filter: dated, filtered: const [])),
     m('error', () => catalogOverrides(filteredError: Exception('net'))),
     m('loading', () => catalogOverrides(filteredLoading: true), loading: true),
-    m('sheet_dates', () => catalogOverrides(filter: dated, filtered: available), after: (t) => _openSheet(t, showCatalogDateSheet)),
-    m('sheet_filters', () => catalogOverrides(), after: (t) => _openSheet(t, showCatalogFilterSheet)),
     calc('none', null),
     calc('all_selected', CalcState(motoId: 'm-bmw', start: ws, end: we)),
-    calc('late_12', CalcState(motoId: 'm-bmw', start: ws, end: we, pickupTime: '12:00')),
+    calc('one_day', CalcState(motoId: 'm-bmw', start: ws, end: ws)),
     calc('no_bike_dates', CalcState(start: ws, end: we)),
     calc('free_none', CalcState(start: ws, end: we), free: const []),
     calc('bike_no_dates', const CalcState(motoId: 'm-husq')),
@@ -110,6 +93,11 @@ List<RenderCase> catalogRenderCases() {
     d('loading', () => catalogOverrides(motosLoading: true), loading: true),
     d('error', () => catalogOverrides(motosError: Exception('net'))),
     d('gone', () => catalogOverrides(), build: () => detail('m-gone')),
+    // Carried dates over a booked day (r2): open calendar, warning, CTA off;
+    // r4: no band across the busy day, only the start capsule (V22 §3.3).
+    d('dates_busy', () => catalogOverrides(filter: dated, booked: {
+          'm-bmw': [BookedDateRange(start: we, end: we, status: 'confirmed')],
+        })),
     d('booked_loading', () => catalogOverrides(bookedLoading: true), loading: true),
     d('booked_error', () => catalogOverrides(bookedError: Exception('x'))),
     d('loyalty_fail', () => catalogOverrides(filter: dated, loyaltyError: Exception('rpc'))),

@@ -7,6 +7,12 @@ import '../../../core/debug_logger.dart';
 import '../../../core/theme.dart';
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/motion/mg_motion.dart';
+import '../../../core/v2/tokens/mg_colors.dart';
+import '../v2/card_sheet_v2.dart';
+import '../../../core/v2/widgets/mg_buttons.dart';
+import '../../../core/v2/widgets/mg_dialog.dart';
 import 'apple_pay_failure.dart';
 
 /// Výsledek vlastního platebního sheetu s kartou.
@@ -62,14 +68,20 @@ class CardPaymentSheet {
     Future<void> Function()? onSubmitting,
   }) async {
     final guard = _WalletGuard();
+    final v2 = MgV2.peek(context);
     final result = await showModalBottomSheet<CardSheetResult>(
       context: context,
       isScrollControlled: true,
       isDismissible: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      // v2 (PS-05): light r22 sheet, night scrim, v2 motion.
+      backgroundColor: v2 ? MgColors.surface : Colors.white,
+      barrierColor: v2 ? MgColors.nightA(0.55) : null,
+      sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
+      shape: v2
+          ? kCardSheetShapeV2
+          : const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: _CardSheetBody(
@@ -213,6 +225,19 @@ class _CardSheetBodyState extends State<_CardSheetBody>
         widget.guard.uncertain = false; // ověřeno: peníze neodešly
         setState(() => _processing = false);
         final info = o.info!;
+        if (MgV2.peek(context)) {
+          // v2 (PS-05): the same information in the v2 dialog, close = the
+          // app's "Zavřít" label instead of the hard-coded "OK".
+          await showMgDialog<void>(
+            context,
+            builder: (dctx) => MgDialogFrame(
+              title: info.title,
+              body: info.message,
+              action: MgBtnInk(label: t(dctx).tr('close'), onTap: () => Navigator.of(dctx).pop()),
+            ),
+          );
+          return;
+        }
         await showDialog<void>(
           context: context,
           builder: (dctx) => AlertDialog(
@@ -387,7 +412,60 @@ class _CardSheetBodyState extends State<_CardSheetBody>
   @override
   Widget build(BuildContext context) {
     final tt = t(context);
-    final sheet = SafeArea(
+    final cardField = CardField(
+        controller: _cardController,
+        autofocus: true,
+        // Bílé pozadí sheetu → text karty MUSÍ být tmavý (jinak
+        // bílá na bílé = neviditelné).
+        style: const TextStyle(
+          color: Color(0xFF0F1A14),
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+        cursorColor: MotoGoColors.greenDark,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintStyle: TextStyle(color: Color(0xFF8AAB99)),
+        ),
+        onCardChanged: (card) {
+          setState(() => _cardComplete = card?.complete ?? false);
+        },
+      );
+    final Widget sheet;
+    if (MgV2.on(context)) {
+      // Apple Pay (iOS, vždy) / Google Pay (Android, jen podporované) — oficiální tlačítka.
+      final Widget? wallet = !(Platform.isIOS || _platformPayReady)
+          ? null
+          : Platform.isIOS
+              ? SizedBox(
+                  height: 48,
+                  child: PlatformPayButton(
+                    type: PlatformButtonType.plain,
+                    appearance: PlatformButtonStyle.black,
+                    borderRadius: 8,
+                    onPressed: () {
+                      if (!_processing) _tapApplePay();
+                    },
+                  ),
+                )
+              : _GooglePayButton(onPressed: _processing ? null : _payWithPlatformPay);
+      sheet = CardSheetV2(
+        title: tt.tr('payByCardTitle'),
+        sub: tt.trArgs('v2UxPsCardSheetSub', {'amount': Money.czk(widget.amount)}),
+        processing: _processing,
+        onClose: () => Navigator.of(context).maybePop(),
+        wallet: wallet,
+        dividerLabel: tt.tr('orPayByCardDivider'),
+        cardField: cardField,
+        helper: tt.tr('v2UxPsCardHelper'),
+        payLabel: '${tt.tr('payBtn')} ${Money.czk(widget.amount)} →',
+        payAmount: Money.czk(widget.amount),
+        onPay: (_processing || !_cardComplete) ? null : _payWithCard,
+        note: _processing ? tt.tr('psSheetProcessing') : _note,
+        noteIsStatus: _processing,
+      );
+    } else {
+    sheet = SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 8, 20),
@@ -483,25 +561,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: SizedBox(
                 height: 56,
-                child: CardField(
-                  controller: _cardController,
-                  autofocus: true,
-                  // Bílé pozadí sheetu → text karty MUSÍ být tmavý (jinak
-                  // bílá na bílé = neviditelné).
-                  style: const TextStyle(
-                    color: Color(0xFF0F1A14),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  cursorColor: MotoGoColors.greenDark,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(color: Color(0xFF8AAB99)),
-                  ),
-                  onCardChanged: (card) {
-                    setState(() => _cardComplete = card?.complete ?? false);
-                  },
-                ),
+                child: cardField,
               ),
             ),
             const SizedBox(height: 16),
@@ -546,6 +606,7 @@ class _CardSheetBodyState extends State<_CardSheetBody>
         ),
       ),
     );
+    }
     // Během platby: „zpět" / klepnutí vedle nezavře (PopScope) a stažení
     // dolů nic nedělá (vlastní pohlcení svislého tahu před BottomSheetem).
     // Struktura stromu se NEmění (jinak by se znovu vytvořil nativní

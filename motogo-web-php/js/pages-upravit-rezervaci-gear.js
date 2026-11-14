@@ -272,7 +272,7 @@
       if (commit.data.new_total != null) b.total_price = commit.data.new_total;
 
       var okMsg = net < 0
-        ? MG.t('editRez.change.successWithRefund', { amount: MG.formatPrice(-net) })
+        ? MG.t('editRez.change.successWithRefund', { amount: (typeof MG.fmtCzkExact === 'function' ? MG.fmtCzkExact(-net) : MG.formatPrice(-net)) }) // vratka v Kč (card-rounding.js)
         : MG.t('editRez.gear.saved');
       if (manualRefund) {
         okMsg += '<br><span class="muted" style="font-size:.9em">' + MG.t('editRez.refund.manualNote') + '</span>';

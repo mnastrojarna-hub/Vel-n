@@ -13,6 +13,12 @@ import 'payment_error_mapper.dart';
 import 'payment_provider.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_dialog.dart';
+import 'v2/payment_methods_view_v2.dart';
+import '../../core/v2/motion/mg_motion.dart';
+import '../../core/v2/tokens/mg_colors.dart';
+import 'v2/card_sheet_v2.dart';
 
 /// Payment methods management — mirrors profile → Platební metody
 /// from profile-ui-2.js + api-payment-methods.js.
@@ -30,6 +36,34 @@ class PaymentMethodsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cardsAsync = ref.watch(paymentMethodsProvider);
+
+    // v2 (PS-13): same provider, actions, back and states.
+    if (MgV2.on(context)) {
+      final state = cardsAsync.when<Widget?>(
+        data: (_) => null,
+        loading: () => MgLoadingView(onRetry: () => ref.invalidate(paymentMethodsProvider)),
+        error: (e, _) => MgErrorView(
+          error: e,
+          what: t(context).tr('fxCardsLoadFail'),
+          onRetry: () => ref.invalidate(paymentMethodsProvider),
+          contact: false,
+        ),
+      );
+      return PaymentMethodsViewV2(
+        cards: state == null ? cardsAsync.valueOrNull : null,
+        body: state,
+        onBack: () async {
+          final popped = await Navigator.of(context).maybePop();
+          if (!popped && context.mounted) context.go(Routes.profile);
+        },
+        onRefresh: () async => ref.invalidate(paymentMethodsProvider),
+        onDelete: (c) => _deleteCard(context, ref, c),
+        onSetDefault: (c) => _setDefault(context, ref, c),
+        onAdd: () => _addNewCard(context, ref),
+        emptyNote: t(context).tr('v2UxPsAddCardFaster'),
+        footNote: t(context).tr('cardsSecuredByStripe'),
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
@@ -132,7 +166,14 @@ class PaymentMethodsScreen extends ConsumerWidget {
 
   Future<void> _deleteCard(
       BuildContext context, WidgetRef ref, SavedCard card) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = MgV2.peek(context)
+        ? await showMgConfirm(context,
+            title: t(context).tr('removeCard'),
+            body: '•••• ${card.last4} ${card.displayBrand}',
+            safeLabel: t(context).cancel,
+            actionLabel: t(context).tr('removeBtn'),
+            destructive: true)
+        : await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(t(context).tr('removeCard')),
@@ -183,13 +224,19 @@ class PaymentMethodsScreen extends ConsumerWidget {
   }
 
   Future<void> _addNewCard(BuildContext context, WidgetRef ref) async {
+    final v2 = MgV2.peek(context);
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      // v2 (PS-13): the card-sheet chrome of the payment (PS-05).
+      backgroundColor: v2 ? MgColors.surface : Colors.white,
+      barrierColor: v2 ? MgColors.nightA(0.55) : null,
+      sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
+      shape: v2
+          ? kCardSheetShapeV2
+          : const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: const _AddCardSheetBody(),
@@ -296,6 +343,40 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
   @override
   Widget build(BuildContext context) {
     final tt = t(context);
+    final cardField = CardField(
+        controller: _cardController,
+        autofocus: true,
+        // Sheet má bílé pozadí — text karty MUSÍ být tmavý (jinak
+        // bílá na bílé = neviditelné). Placeholder zešedlý, kurzor zelený.
+        style: const TextStyle(
+          color: Color(0xFF0F1A14),
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+        cursorColor: MotoGoColors.greenDark,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintStyle: TextStyle(color: Color(0xFF8AAB99)),
+        ),
+        onCardChanged: (card) {
+          setState(() => _cardComplete = card?.complete ?? false);
+        },
+      );
+    if (MgV2.on(context)) {
+      return PopScope(
+        canPop: !_processing,
+        child: CardSheetV2(
+          title: tt.tr('addPaymentCard'),
+          processing: _processing,
+          onClose: () => Navigator.of(context).maybePop(),
+          cardField: cardField,
+          helper: tt.tr('v2UxPsCardHelper'),
+          payLabel: tt.tr('saveCard'),
+          onPay: (_processing || !_cardComplete) ? null : _save,
+          note: _error,
+        ),
+      );
+    }
     // Během ukládání nejde sheet zavřít „zpět" / klepnutím vedle.
     return PopScope(
       canPop: !_processing,
@@ -350,25 +431,7 @@ class _AddCardSheetBodyState extends State<_AddCardSheetBody> {
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: SizedBox(
                 height: 56,
-                child: CardField(
-                  controller: _cardController,
-                  autofocus: true,
-                  // Sheet má bílé pozadí — text karty MUSÍ být tmavý (jinak
-                  // bílá na bílé = neviditelné). Placeholder zešedlý, kurzor zelený.
-                  style: const TextStyle(
-                    color: Color(0xFF0F1A14),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  cursorColor: MotoGoColors.greenDark,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(color: Color(0xFF8AAB99)),
-                  ),
-                  onCardChanged: (card) {
-                    setState(() => _cardComplete = card?.complete ?? false);
-                  },
-                ),
+                child: cardField,
               ),
             ),
             const SizedBox(height: 16),

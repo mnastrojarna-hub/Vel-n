@@ -7,6 +7,10 @@ import 'edit_reservation_calendar.dart';
 import 'reservation_edit_widgets.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../v2/res_edit_sections_v2.dart';
+import '../v2/res_edit_calendar_v2.dart' show resEditV2Instruction;
+import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/states/mg_tone.dart';
+import '../../../core/v2/widgets/mg_toast_rich.dart';
 
 /// Calendar + date-range card for the reservation edit screen.
 class EditCalendarSection extends StatelessWidget {
@@ -62,8 +66,11 @@ class EditCalendarSection extends StatelessWidget {
       onDatesChanged: onDatesChanged,
       onError: onError,
     );
-    // v2 vzhled (kill-switch app_v2_ui): tytéž údaje, volby i kalendář.
+    // v2 vzhled (kill-switch app_v2_ui): tytéž údaje, volby i kalendář;
+    // pokyn tykáním (stejná volba jako obrazovka) a hláška kalendáře v2
+    // toastem (stejný text, stejná chvíle).
     if (MgV2.on(context)) {
+      final tr = t(context);
       return EditCalendarSectionV2(
         tab: tab,
         isActive: isActive,
@@ -71,8 +78,20 @@ class EditCalendarSection extends StatelessWidget {
         newEnd: newEnd,
         diffDays: diffDays,
         shortenDir: shortenDir,
-        instruction: calendarInstruction,
-        calendar: calendar,
+        instruction: resEditV2Instruction(tr,
+            tab: tab, isActive: isActive, origStart: origStart, origEnd: origEnd, shortenDir: shortenDir),
+        calendar: EditReservationCalendar(
+          bookedDates: bookedDates,
+          origStart: origStart,
+          origEnd: origEnd,
+          newStart: newStart,
+          newEnd: newEnd,
+          isActive: isActive,
+          mode: tab,
+          shortenDir: shortenDir,
+          onDatesChanged: onDatesChanged,
+          onError: (msg) => showMgToastRich(context, title: msg, tone: MgTone.info, icon: MgIcons.info),
+        ),
         onShortenStart: onShortenStart,
         onShortenEnd: onShortenEnd,
       );

@@ -12,6 +12,8 @@ import 'shop_models.dart';
 import 'shop_provider.dart';
 import '../../core/currency.dart';
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/cart_view_v2.dart';
 
 /// Cart screen — mirrors s-cart from cart-engine.js renderCart().
 class CartScreen extends ConsumerWidget {
@@ -27,6 +29,27 @@ class CartScreen extends ConsumerWidget {
     final subtotal = notifier.subtotal;
     final shipping = digitalOnly ? 0.0 : (shipMode == ShipMode.post ? shippingCost : 0);
     final total = (subtotal + shipping - discount).clamp(0.0, double.infinity);
+
+    // v2 (PS-10): same provider methods, numbers and routes.
+    if (MgV2.on(context)) {
+      return CartViewV2(
+        items: items,
+        count: notifier.itemCount,
+        subtotal: subtotal,
+        digitalOnly: digitalOnly,
+        shippingLabel: shipMode == ShipMode.post ? t(context).tr('shippingPost') : t(context).tr('shippingPickup'),
+        shipping: shipping.toDouble(),
+        discount: discount,
+        total: total.toDouble(),
+        onPlus: (id) => notifier.changeQty(id, 1),
+        onMinus: (id) => notifier.changeQty(id, -1),
+        onRemove: notifier.removeItem,
+        onClear: () { notifier.clear(); showMotoGoToast(context, icon: '✓', title: t(context).tr('cartTitle'), message: t(context).tr('emptied')); },
+        onCheckout: () => context.push(Routes.checkout),
+        onShop: () => context.go(Routes.shop),
+        onBack: () => context.backOr(Routes.shop),
+      );
+    }
 
     return Scaffold(
       backgroundColor: MotoGoColors.bg,

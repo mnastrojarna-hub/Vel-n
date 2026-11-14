@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme.dart';
 import '../../../core/widgets/moto_fx.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_detail_parts_v2.dart';
 
 /// Detail button — matches original CSS: btn-g (green), btn-out (outlined),
 /// danger (red bg), sos (light-red bg).
@@ -14,6 +16,9 @@ class ResDetailButton extends StatelessWidget {
   final Color? borderColor;
   final VoidCallback onTap;
 
+  /// Druh tlačítka pro v2 vzhled (stejný popisek i akce).
+  final ResDetailButtonKind kind;
+
   /// Primary green button (btn-g).
   const ResDetailButton.primary({
     super.key,
@@ -21,7 +26,8 @@ class ResDetailButton extends StatelessWidget {
     this.emoji,
     this.icon,
     required this.onTap,
-  })  : bgColor = MotoGoColors.green,
+  })  : kind = ResDetailButtonKind.primary,
+        bgColor = MotoGoColors.green,
         textColor = Colors.black,
         iconColor = Colors.black,
         borderColor = null;
@@ -34,7 +40,8 @@ class ResDetailButton extends StatelessWidget {
     this.icon,
     required this.onTap,
     this.iconColor,
-  })  : bgColor = Colors.white,
+  })  : kind = ResDetailButtonKind.outlined,
+        bgColor = Colors.white,
         textColor = MotoGoColors.dark,
         borderColor = MotoGoColors.green;
 
@@ -45,7 +52,8 @@ class ResDetailButton extends StatelessWidget {
     this.emoji,
     this.icon,
     required this.onTap,
-  })  : bgColor = MotoGoColors.red,
+  })  : kind = ResDetailButtonKind.danger,
+        bgColor = MotoGoColors.red,
         textColor = Colors.white,
         iconColor = Colors.white,
         borderColor = null;
@@ -57,13 +65,16 @@ class ResDetailButton extends StatelessWidget {
     this.emoji,
     this.icon,
     required this.onTap,
-  })  : bgColor = const Color(0xFFFEE2E2),
+  })  : kind = ResDetailButtonKind.sos,
+        bgColor = const Color(0xFFFEE2E2),
         textColor = const Color(0xFFB91C1C),
         iconColor = const Color(0xFFB91C1C),
         borderColor = null;
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): stejný popisek i akce.
+    if (MgV2.on(context)) return ResDetailButtonV2(kind: kind, label: label, onTap: onTap);
     final hasShadow = bgColor == MotoGoColors.green;
     return PressableScale(
       pressedScale: 0.95,

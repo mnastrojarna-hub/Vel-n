@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
+import '../../../core/v2/states/mg_support_row.dart';
 import '../../../core/v2/states/mg_tone.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -60,8 +61,10 @@ class ResCancelConfirmV2 extends StatelessWidget {
             MgWordFit(
               child: Text(tr.tr('stornoConditions'), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
             ),
-            const SizedBox(height: 2),
-            Text(tr.tr('stornoRules'), style: MgType.meta.copyWith(color: MgColors.body2)),
+            const SizedBox(height: 4),
+            // Čitelná pravidla (Stavy 12.21): tři řádky místo „7+ dní = 100% · …".
+            for (final k in ['v2UxRpStorno100', 'v2UxRpStorno50', 'v2UxRpStorno0'])
+              Text(tr.tr(k), style: MgType.meta.copyWith(color: MgColors.body2)),
             const SizedBox(height: 6),
             Text(refundLine, style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: fg))),
           ]),
@@ -78,9 +81,9 @@ class ResCancelConfirmV2 extends StatelessWidget {
           decoration: mgInputDecoration(context, hint: tr.tr('cancelReasonHint')).copyWith(hintMaxLines: 4),
         ),
       ]),
-      safe: MgBtnGhostLight(label: t(context).back, onTap: loading ? null : onKeep),
+      safe: MgBtnGhostLight(label: tr.tr('v2UxRpKeepRes'), onTap: loading ? null : onKeep),
       action: MgBtnDestructive(label: tr.tr('cancelReservationBtn'), onTap: loading ? null : onCancel, busy: loading),
-      safeLabel: t(context).back,
+      safeLabel: tr.tr('v2UxRpKeepRes'),
       actionLabel: tr.tr('cancelReservationBtn'),
     );
   }
@@ -120,6 +123,8 @@ class ResCancelResultV2 extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(body, textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.body2)),
+        // Storno se nepovedlo (Stavy 12.23): kudy dál — zavolat nám.
+        if (!ok) ...[const SizedBox(height: 8), const MgSupportRow(showWrite: false)],
       ]),
       safe: onRetry == null ? null : MgBtnGhostLight(label: closeLabel, onTap: onClose),
       action: onRetry == null ? MgBtnInk(label: closeLabel, onTap: onClose) : MgBtnInk(label: tr.tr('retry'), onTap: onRetry),

@@ -10,6 +10,10 @@ import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/net_image.dart';
 import 'routes_provider.dart' show routesDataProvider;
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/motion/mg_motion.dart';
+import 'v2/review_editor_v2.dart';
+import 'v2/route_reviews_v2.dart';
 
 double? _toD(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 int _toI(dynamic v) => v == null ? 0 : (v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0);
@@ -85,11 +89,14 @@ Widget routeReviewTile(BuildContext context, Map<String, dynamic> r) {
 /// (stejný editor jako v detailu trasy) — hodnocení je tak na dva kliky přímo
 /// ze seznamu tras.
 void showRouteReviewsSheet(BuildContext context, {required String routeId, required String routeName}) {
+  final v2 = MgV2.on(context);
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    backgroundColor: v2 ? Colors.transparent : Colors.white,
+    barrierColor: v2 ? rtSheetScrimV2 : null,
+    sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
+    shape: v2 ? null : const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => _ReviewsSheet(routeId: routeId, routeName: routeName),
   );
 }
@@ -144,11 +151,14 @@ class _ReviewsSheetState extends ConsumerState<_ReviewsSheet> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewLogin'))));
       return;
     }
+    final v2 = MgV2.on(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: v2 ? Colors.transparent : Colors.white,
+      barrierColor: v2 ? rtSheetScrimV2 : null,
+      sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
+      shape: v2 ? null : const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _ReviewEditor(
         routeId: widget.routeId,
         existing: _my,
@@ -164,6 +174,12 @@ class _ReviewsSheetState extends ConsumerState<_ReviewsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return RouteReviewsSheetV2(
+          routeName: widget.routeName,
+          data: RtReviewsData(avg: _avg, count: _count, my: _my, reviews: _reviews, loading: _loading),
+          onWrite: _openEditor);
+    }
     final maxH = MediaQuery.of(context).size.height * 0.75;
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
@@ -291,11 +307,14 @@ class _RouteReviewsSectionState extends ConsumerState<RouteReviewsSection> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context).tr('routeReviewLogin'))));
       return;
     }
+    final v2 = MgV2.on(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: v2 ? Colors.transparent : Colors.white,
+      barrierColor: v2 ? rtSheetScrimV2 : null,
+      sheetAnimationStyle: v2 ? MgMotion.sheetStyle(context) : null,
+      shape: v2 ? null : const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _ReviewEditor(
         routeId: widget.routeId,
         existing: _my,
@@ -322,6 +341,12 @@ class _RouteReviewsSectionState extends ConsumerState<RouteReviewsSection> {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) {
+      return RouteReviewsSectionV2(
+          data: RtReviewsData(avg: _avg, count: _count, my: _my, reviews: _reviews, loading: _loading),
+          onWrite: _openEditor,
+          onDelete: _delete);
+    }
     if (_loading) {
       return const Padding(padding: EdgeInsets.symmetric(vertical: 16),
           child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: MotoGoColors.greenDark))));
@@ -476,6 +501,18 @@ class _ReviewEditorState extends State<_ReviewEditor> {
   @override
   Widget build(BuildContext context) {
     final total = _photos.length + _newPhotos.length;
+    if (MgV2.on(context)) {
+      return ReviewEditorV2(
+        title: widget.existing != null ? t(context).tr('routeReviewEdit') : t(context).tr('routeReviewAdd'),
+        rating: _rating,
+        onRate: (i) => setState(() => _rating = i),
+        controller: _txt,
+        photoCount: total,
+        onPick: _pick,
+        busy: _busy,
+        onSubmit: _submit,
+      );
+    }
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: Column(

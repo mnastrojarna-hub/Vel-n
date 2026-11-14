@@ -17,6 +17,8 @@ import '../../core/widgets/state_views.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import 'active_ride_provider.dart';
 import 'route_nav_status.dart';
+import 'nav_gps_health.dart';
+import 'ride_pause_sheet.dart';
 import 'routes_model.dart';
 import 'routes_provider.dart';
 import 'route_nav_loop.dart';
@@ -27,6 +29,13 @@ import 'route_reviews.dart';
 import 'my_experiences_provider.dart';
 import 'ride_location.dart' show RideForeignStreams;
 import '../../core/widgets/map_tile_errors.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_v1_pass.dart';
+import 'v2/route_nav_skin_v2.dart';
+import 'v2/nav/nav_hud_v2.dart' show NavMapButtonV2;
+import 'v2/nav/nav_sheets_v2.dart' show navEndDialogV2, navSaveDialogV2;
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/tokens/mg_colors.dart';
 
 /// Navigace trasy PŘÍMO v aplikaci — plnohodnotný navigátor: fullscreen mapa
 /// Mapy.com, živá poloha jezdce, sledování (follow) s otáčením mapy po směru
@@ -275,7 +284,8 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     }
   }
 
-  /// Hlídá vypnutí polohy a stáří posledního fixu (> 20 s = slabý signál) a
+  /// Hlídá vypnutí polohy a stáří posledního fixu (> 20 s v pohybu = slabý
+  /// signál, stojící telefon fixy neposílá — [navGpsWeak]) a
   /// bez internetu (spojnice bodů) zkouší trasu přepočítat znovu.
   void _watchGpsHealth() {
     _svcSub ??= () {
@@ -293,7 +303,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
     _statusTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
       final at = _fixAt;
-      final weak = at != null && DateTime.now().difference(at) > const Duration(seconds: 20);
+      final weak = navGpsWeak(sinceFix: at == null ? null : DateTime.now().difference(at), lastSpeedKmh: _speedKmh);
       if (weak != _weakGps) setState(() => _weakGps = weak);
       // Přepočet po silnicích zkoušet jen každých ~30 s (šetří baterii offline).
       if (_straightLine && !_navLoading && ++_straightTicks % 6 == 0) {
@@ -1118,7 +1128,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
   Future<void> _endRide() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dc) => AlertDialog(
+      builder: (dc) => MgV2.on(dc) ? navEndDialogV2(dc) : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(dc).tr('routeEndConfirmTitle'),
             style: const TextStyle(
@@ -1185,7 +1195,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         text: route.name.isNotEmpty ? route.name : '');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (dc) => AlertDialog(
+      builder: (dc) => MgV2.on(dc) ? navSaveDialogV2(dc, nameCtrl) : AlertDialog(
         backgroundColor: Colors.white,
         title: Text(t(dc).tr('routeSaveTitle'),
             style: const TextStyle(
@@ -1347,15 +1357,17 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         WidgetsBinding.instance.addPostFrameCallback((_) => _maybeComputeNav());
       }
       final geometry = _navGeo ?? custom.geometry;
-      return Scaffold(
+      // Root route (nothing below it is painted): the dark gradient panel
+      // over the map lies under the status bar → light icons in v2.
+      return mgV1StatusBar(context, dark: true, child: Scaffold(
         backgroundColor: MotoGoColors.bg,
         body: _content(context, custom, null, geometry, lang),
-      );
+      ));
     }
 
     final dataAsync = ref.watch(routesDataProvider);
 
-    return Scaffold(
+    return mgV1StatusBar(context, dark: true, child: Scaffold(
       backgroundColor: MotoGoColors.bg,
       body: dataAsync.when(
         // Načítání i chyba mají hlavičku se šipkou zpět (navigace je přes
@@ -1400,7 +1412,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
           return _content(context, route, branch, geometry, lang);
         },
       ),
-    );
+    ));
   }
 
   Widget _content(BuildContext context, RouteItem route, RouteBranch? branch,
@@ -1506,6 +1518,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
     final showDoneCard = _routeDone && !_doneCardDismissed;
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final v2 = MgV2.on(context);
 
     return Stack(
       children: [
@@ -1535,20 +1548,23 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                 errorTileCallback: MapTileErrors.report,
                 reset: MapTileErrors.reset,
               ),
-              const MapTileErrorChip(),
+              // v2: the strip goes under the HUD, below the GPS banner.
+              const MapTileErrorInset(child: MapTileErrorChip()),
               // Projetá část — zešedne (vizuálně se „odečte").
               if (doneGeo.length >= 2)
                 PolylineLayer(
                   polylines: [
-                    Polyline(points: doneGeo, strokeWidth: 3.5, color: MotoGoColors.g400.withValues(alpha: 0.5)),
+                    Polyline(points: doneGeo, strokeWidth: 3.5,
+                        color: v2 ? MgColors.disabled.withValues(alpha: 0.6) : MotoGoColors.g400.withValues(alpha: 0.5)),
                   ],
                 ),
               // Zbývající část — výrazná zelená s jemným tmavým podkladem.
               if (aheadGeo.length >= 2)
                 PolylineLayer(
                   polylines: [
-                    Polyline(points: aheadGeo, strokeWidth: 6, color: MotoGoColors.dark.withValues(alpha: 0.22)),
-                    Polyline(points: aheadGeo, strokeWidth: 4, color: MotoGoColors.greenDark),
+                    Polyline(points: aheadGeo, strokeWidth: 6,
+                        color: v2 ? MgColors.nightA(0.22) : MotoGoColors.dark.withValues(alpha: 0.22)),
+                    Polyline(points: aheadGeo, strokeWidth: 4, color: v2 ? MgColors.link : MotoGoColors.greenDark),
                   ],
                 ),
               MarkerLayer(markers: [
@@ -1621,11 +1637,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                     ],
                   ),
                 ),
+                if (MgV2.on(context)) const NavRecChipV2() else const RideNavRecChip(),
                 if (_stops.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () => _openStopsSheet(lang),
-                    child: Container(
+                    child: MgV2.on(context)
+                        ? NavStopsChipV2('$reachedCount/${_stops.length}')
+                        : Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -1680,7 +1699,7 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
             ),
           ),
         // Ztráta GPS / slabý signál / trasa bez silnic (offline) — nahoře.
-        if (!_denied && (_gpsLost || _weakGps || _straightLine))
+        if (!v2 && !_denied && (_gpsLost || _weakGps || _straightLine))
           Positioned(
             left: 16, right: 72, top: MediaQuery.of(context).padding.top + 64,
             child: NavStatusBanner(
@@ -1688,6 +1707,22 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
                   ? NavStatus.gpsLost
                   : (_weakGps ? NavStatus.weakGps : NavStatus.straightLine),
             ),
+          ),
+        // v2: the same banner + under it the map-tiles strip (offline).
+        if (v2)
+          Positioned(
+            left: 16, right: 72, top: MediaQuery.of(context).padding.top + 64,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (!_denied && (_gpsLost || _weakGps || _straightLine)) ...[
+                NavStatusBanner(
+                  status: _gpsLost
+                      ? NavStatus.gpsLost
+                      : (_weakGps ? NavStatus.weakGps : NavStatus.straightLine),
+                ),
+                const MapTileErrorStripV2(padding: EdgeInsets.only(top: 8)),
+              ] else
+                const MapTileErrorStripV2(),
+            ]),
           ),
 
         // Potvrzovací karta dojezdu na bod / dokončení trasy — přednost před
@@ -1771,6 +1806,14 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
               const SizedBox(height: 8),
               _mapBtn(Icons.remove, () => _zoomBy(-0.8)),
               const SizedBox(height: 14),
+              if (MgV2.on(context))
+                NavMapButtonV2(
+                  icon: MgIcons.target,
+                  label: t(context).tr('v2RtMyLocation'),
+                  ink: _follow,
+                  onTap: _recenter,
+                )
+              else
               FloatingActionButton(
                 heroTag: 'route-nav-recenter',
                 mini: true,
@@ -1809,7 +1852,9 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
 
   // Zpět / ukončit jízdu: dotyková plocha 48 px + popisek pro čtečku.
   Widget _circleBtn(IconData icon, VoidCallback onTap, {Color? color}) =>
-      MgBackTap(
+      MgV2.on(context)
+          ? NavCircleV2(end: icon == Icons.close, onTap: onTap)
+          : MgBackTap(
         onTap: onTap,
         close: icon == Icons.close,
         label: icon == Icons.close ? t(context).tr('routeEndBtn') : null,
@@ -1824,7 +1869,13 @@ class _RouteNavigationScreenState extends ConsumerState<RouteNavigationScreen>
         ),
       );
 
-  Widget _mapBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+  Widget _mapBtn(IconData icon, VoidCallback onTap) => MgV2.on(context)
+      ? NavMapButtonV2(
+          icon: MgIcons.plus,
+          minus: icon == Icons.remove,
+          label: t(context).tr(icon == Icons.remove ? 'v2UxRrZoomOut' : 'v2UxRrZoomIn'),
+          onTap: onTap)
+      : GestureDetector(
         onTap: onTap,
         child: Container(
           width: 40, height: 40,

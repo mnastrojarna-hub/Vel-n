@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/widgets/mg_emoji_map.dart';
+import '../../../core/v2/widgets/mg_toast_rich.dart';
 
 /// MotoGo24 toast notification — mirrors showT() from ui-toast-helpers.js.
 /// Shows a styled snackbar with icon, title, and message.
@@ -13,6 +16,20 @@ void showMotoGoToast(
   String message = '',
   Duration duration = const Duration(seconds: 3),
 }) {
+  // v2 vzhled: stejný text, délka i vibrace — emoji → čárová ikona + tón.
+  if (MgV2.peek(context)) {
+    HapticFeedback.lightImpact();
+    final (i, tone) = mgToastLookFor(icon);
+    showMgToastRich(
+      context,
+      title: mgStripEmoji(title),
+      message: message.isEmpty ? null : mgStripEmoji(message),
+      tone: tone,
+      icon: i,
+      duration: duration,
+    );
+    return;
+  }
   // Haptic feedback — matches Capacitor Haptics.impact({style: 'LIGHT'})
   HapticFeedback.lightImpact();
 

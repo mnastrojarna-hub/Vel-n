@@ -22,6 +22,12 @@ import 'res_rating_card.dart';
 import 'paid_change_banner.dart';
 import '../../../core/currency.dart';
 import '../../../core/booking_rules.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_detail_parts_v2.dart';
+import '../v2/res_detail_hints_v2.dart';
+import '../v2/res_pay_now_v2.dart';
+import '../v2/res_status_v2.dart' show resPayTarget;
+import '../../../core/pending_booking_fab_provider.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
@@ -76,6 +82,14 @@ class ResDetailTabContent extends ConsumerWidget {
     final st = res.displayStatus;
     final sosAsync = ref.watch(sosIncidentsProvider(res.id));
     final sosIncidents = sosAsync.valueOrNull ?? <SosIncident>[];
+    // D2 (v2 only): own „Zaplatit" for the booking the pay strip offers —
+    // primary; „Upravit rezervaci" then outlined. Old look untouched.
+    final pay = MgV2.on(context) ? resPayTarget(res, ref.watch(pendingBookingFabProvider).valueOrNull) : null;
+    final payBtn = [if (pay != null) ...[ResPayNowV2(booking: pay), const SizedBox(height: 8)]];
+    Widget mainBtn(String emoji, String label, VoidCallback onTap) => pay != null
+        ? ResDetailButton.outlined(emoji: emoji, label: label, onTap: onTap)
+        : ResDetailButton.primary(emoji: emoji, label: label, onTap: onTap);
+    Widget editBtn() => mainBtn('✏️', t(context).tr('editReservation'), () => context.push('/reservations/${res.id}/edit'));
 
     return SliverPadding(
       padding: const EdgeInsets.all(16),
@@ -83,57 +97,64 @@ class ResDetailTabContent extends ConsumerWidget {
         children: [
           // Zaplacená výměna / úprava se ještě zapisuje (D6).
           PaidChangeBanner(bookingId: res.id),
+          // v2: bez dokladů se kódy nevydají — řečeno předem (AFT-03b).
+          if (MgV2.on(context)) ResDocsCodesBannerV2(res: res),
           ResDetailCard(children: [
-            // Motorcycle name + ID
-            Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
-            const SizedBox(height: 2),
-            Text(res.shortId, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
-            const SizedBox(height: 10),
+            // v2 vzhled: tentýž název, #ID, stav (+ hodnocení) — jen v2 typ.
+            if (MgV2.on(context)) ResDetailHeadV2(res: res) else ...[
+              // Motorcycle name + ID
+              Text(res.motoName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: MotoGoColors.black)),
+              const SizedBox(height: 2),
+              Text(res.shortId, style: const TextStyle(fontSize: 11, color: MotoGoColors.g400)),
+              const SizedBox(height: 10),
 
-            // Status badge (+ trvale viditelné hodnocení jízdy, je-li)
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(50),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    statusTitle,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: statusColor),
-                  ),
-                ),
-                if ((res.rating ?? 0) > 0)
+              // Status badge (+ trvale viditelné hodnocení jízdy, je-li)
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: MotoGoColors.amberBg,
+                      color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(50),
-                      border: Border.all(color: MotoGoColors.amberBorder),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.star_rounded, size: 13, color: Color(0xFFF59E0B)),
-                      const SizedBox(width: 3),
-                      Text(
-                        '${res.rating}/5',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
-                      ),
-                    ]),
+                    child: Text(
+                      statusTitle,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: statusColor),
+                    ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                  if ((res.rating ?? 0) > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: MotoGoColors.amberBg,
+                        borderRadius: BorderRadius.circular(50),
+                        border: Border.all(color: MotoGoColors.amberBorder),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.star_rounded, size: 13, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${res.rating}/5',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFB45309)),
+                        ),
+                      ]),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Info rows
             ResDetailRow(label: t(context).tr('resCategory'), value: res.category ?? '–'),
-            ResDetailRow(label: '${res.category ?? ""} – ${res.branchName ?? ""}', value: ''),
+            ResDetailRow(label: '${res.category ?? ""} – ${res.branchName ?? ""}', value: '', line: true),
             ResDetailRow(label: t(context).date, value: res.dateRange),
             ResDetailRow(label: t(context).tr('resDuration'), value: '${res.dayCount} ${res.dayCount == 1 ? t(context).tr("day1") : res.dayCount < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
-            ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
+            // K4-12: v2 shows the length once (the same number as above).
+            if (!MgV2.on(context))
+              ResDetailRow(label: t(context).tr('resDurationTotal'), value: '${res.dayCount} ${t(context).tr("days5")}'),
             // Čas vyzvednutí (HH:MM) i na samoobsluze (zadání 2026-10-01 večer);
             // stará značka 00:01 = „kdykoliv během prvního dne“.
             if (res.pickupAllDayLegacy)
@@ -167,7 +188,13 @@ class ResDetailTabContent extends ConsumerWidget {
           // Kiosk kódy (šatna i motorka) pustí až od 12:00 dne začátku — dokud
           // výdej nenastal, vysvětlení + cesta k dřívějšímu času (sleva zanikne,
           // doplatek). CTA jen u nevyzvednuté 'reserved' (aktivní čas nezmění).
-          if (res.kioskReleasePending) ...[
+          if (res.kioskReleasePending && MgV2.on(context))
+            ResLateGateV2(
+              text: t(context).tr('ssLateGateNote').replaceAll('{datum}', fmtReleaseDate(pragueWallClock(res.startDate))),
+              ctaLabel: res.status == 'reserved' ? t(context).tr('ssLateGateCta') : null,
+              onCta: res.status == 'reserved' ? () => context.push('/reservations/${res.id}/edit') : null,
+            )
+          else if (res.kioskReleasePending) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -194,6 +221,9 @@ class ResDetailTabContent extends ConsumerWidget {
 
           // ===== PRICE CARD =====
           ResDetailCard(children: [
+            if (MgV2.on(context))
+              ResDetailLabelV2(t(context).tr('financialSummary'), title: true)
+            else
             Text(t(context).tr('financialSummary'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
             const SizedBox(height: 8),
             ResDetailRow(label: t(context).tr('totalPrice'), value: '${Money.czk(res.totalPrice)}', bold: true),
@@ -214,6 +244,10 @@ class ResDetailTabContent extends ConsumerWidget {
                 value: '−${Money.czk(res.discountAmount!)}',
                 valueColor: MotoGoColors.greenDarker,
               ),
+            if (MgV2.on(context))
+              // v2: přeložený stav (Nezaplaceno jantarově), bez „✓“ glyfu (AFT-02).
+              ResDetailRow(label: t(context).tr('payment'), child: ResPayStatusValueV2(res: res))
+            else
             ResDetailRow(
               label: t(context).tr('payment'),
               value: res.paymentStatus == 'paid' ? '✓ ${t(context).tr('paid')}' : res.paymentStatus.toUpperCase(),
@@ -230,17 +264,21 @@ class ResDetailTabContent extends ConsumerWidget {
           ResAccessCodesCard(res: res, doorCodesAsync: doorCodesAsync),
 
           // ===== POSTUP PŘI VYZVEDNUTÍ (samoobsluha, výchozí zabalený) =====
+          // v2: kdy se kódy ukážou (před termínem je karta kódů skrytá, AFT-04).
+          if (MgV2.on(context)) ResCodesWhenLineV2(res: res),
           ResPickupProcedure(res: res, codes: doorCodesAsync.valueOrNull),
 
           // ===== HODNOCENÍ JÍZDY (Completed only) — hvězdy + 2 rovnocenné volby =====
           if (st == ResStatus.dokoncene) ...[
-            ResRatingCard(res: res),
+            ResRatingCard(res: res, look: MgV2.on(context) ? RatingLook.dark : RatingLook.classic),
             const SizedBox(height: 12),
 
             // Action buttons for completed — documents section
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
+              child: MgV2.on(context)
+                  ? ResDetailLabelV2(t(context).tr('documentsSection'))
+                  : Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
             ),
             ResDetailButton.outlined(
               emoji: '💰',
@@ -268,22 +306,16 @@ class ResDetailTabContent extends ConsumerWidget {
 
           // ===== CANCELLED — restore button =====
           if (st == ResStatus.cancelled) ...[
-            ResDetailButton.primary(
-              emoji: '🔄',
-              label: t(context).tr('restoreBooking'),
-              onTap: () => onRestoreBooking(context, res),
-            ),
+            ...payBtn,
+            mainBtn('🔄', t(context).tr('restoreBooking'), () => onRestoreBooking(context, res)),
           ],
 
           // ===== ACTIVE ACTIONS (motorka vydaná) =====
           // Jediné tlačítko úprav „Upravit rezervaci“ (dřív tu bylo i duplicitní
           // „Upravit“ — zadání majitele 2026-09-29).
           if (st == ResStatus.aktivni) ...[
-            ResDetailButton.primary(
-              emoji: '✏️',
-              label: t(context).tr('editReservation'),
-              onTap: () => context.push('/reservations/${res.id}/edit'),
-            ),
+            ...payBtn,
+            editBtn(),
             if (res.sosAllowed) ...[
               const SizedBox(height: 8),
               ResDetailButton.sos(
@@ -306,7 +338,9 @@ class ResDetailTabContent extends ConsumerWidget {
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
+                child: MgV2.on(context)
+                  ? ResDetailLabelV2(t(context).tr('documentsSection'))
+                  : Text(t(context).tr('documentsSection'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
               ),
               ..._bookingDocButtons(context, ref, includeContract: true),
             ],
@@ -318,11 +352,8 @@ class ResDetailTabContent extends ConsumerWidget {
           // Vydaná motorka (`aktivni`, i když DB kvůli vratce drží 'reserved')
           // storno nenabízí — cancel_booking_tracked by zrušil i rozjetou jízdu.
           if (st == ResStatus.nadchazejici) ...[
-            ResDetailButton.primary(
-              emoji: '✏️',
-              label: t(context).tr('editReservation'),
-              onTap: () => context.push('/reservations/${res.id}/edit'),
-            ),
+            ...payBtn,
+            editBtn(),
             const SizedBox(height: 8),
             ResDetailButton.danger(
               emoji: '🗑️',

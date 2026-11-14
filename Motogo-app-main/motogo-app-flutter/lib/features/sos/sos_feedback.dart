@@ -6,6 +6,9 @@ import '../../core/theme.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'sos_location.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/widgets/mg_buttons.dart';
+import 'v2/sos_feedback_v2.dart';
 
 /// Hlášky SOS (2026-10-16): v nouzi NIKDY falešný úspěch ani slepá ulička —
 /// vždy důvod + volání na nonstop linku / 112 (hovor jde i bez dat).
@@ -26,7 +29,9 @@ Future<bool> showSosActionFailed(
   final fe = FriendlyError.of(error);
   final why = '${fe.reason(tr)[0].toUpperCase()}${fe.reason(tr).substring(1)}.';
   final body = [why, if (extra != null) extra, tr.tr('eoSosCallUs')].join(' ');
-  final r = await showErrorDialog(context,
+  final r = MgV2.peek(context)
+      ? await showSosFailSheetV2(context, title: title, body: body)
+      : await showErrorDialog(context,
       title: title,
       body: body,
       actions: [
@@ -44,6 +49,10 @@ Future<bool> showSosActionFailed(
 Future<bool> showSosLocationResult(BuildContext context, SosLocResult r) async {
   final tr = t(context);
   if (r == SosLocResult.ok) {
+    if (MgV2.peek(context)) {
+      showSosLocSentV2(context);
+      return false;
+    }
     showMotoGoToast(context,
         icon: '📍', title: tr.tr('locationShared'), message: tr.tr('locationSharedMsg'));
     return false;
@@ -56,7 +65,12 @@ Future<bool> showSosLocationResult(BuildContext context, SosLocResult r) async {
     _ => tr.tr('eoUnknownReason'),
   };
   final settings = r == SosLocResult.noPermission || r == SosLocResult.serviceOff;
-  final choice = await showErrorDialog(context,
+  final choice = MgV2.peek(context)
+      ? await showSosLocFailSheetV2(context,
+          title: tr.tr('eoSosLocFailTitle'),
+          body: tr.trArgs('eoSosLocFailBody', {'reason': reason}),
+          settings: settings)
+      : await showErrorDialog(context,
       title: tr.tr('eoSosLocFailTitle'),
       body: tr.trArgs('eoSosLocFailBody', {'reason': reason}),
       actions: [
@@ -88,6 +102,7 @@ class SosCallButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MgV2.on(context)) return MgBtnSos(label: t(context).tr('eoCallNonstop'), onTap: callMotoGo);
     return OutlinedButton(
       onPressed: callMotoGo,
       style: OutlinedButton.styleFrom(

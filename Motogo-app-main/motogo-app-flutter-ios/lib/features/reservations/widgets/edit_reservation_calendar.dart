@@ -3,6 +3,8 @@ import '../../../core/theme.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../../core/date_days.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_edit_calendar_v2.dart';
 
 /// Calendar widget for editing reservations (extend/shorten).
 /// Mirrors pickE() + buildECal() + highlightEditResDates() from
@@ -183,12 +185,17 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
     // Click inside original reservation → block
     if (!d.isBefore(origS) && !d.isAfter(origE)) {
+      // v2: stejná hláška tykáním (RP-20).
+      final v2 = MgV2.on(context);
       if (widget.isActive) {
-        widget.onError(
-            t(context).tr('clickDayAfterForExtend').replaceAll('{date}', '${origE.day}.${origE.month}.'));
+        widget.onError(v2
+            ? t(context).trArgs('v2UxRpExtendAfter', {'date': '${origE.day}.\u00A0${origE.month}.'})
+            : t(context).tr('clickDayAfterForExtend').replaceAll('{date}', '${origE.day}.${origE.month}.'));
       } else {
-        widget.onError(
-            t(context).tr('clickDayBeforeOrAfterForExtend').replaceAll('{startDate}', '${origS.day}.${origS.month}.').replaceAll('{endDate}', '${origE.day}.${origE.month}.'));
+        widget.onError(v2
+            ? t(context).trArgs('v2UxRpExtendBeforeAfter',
+                {'start': '${origS.day}.\u00A0${origS.month}.', 'end': '${origE.day}.\u00A0${origE.month}.'})
+            : t(context).tr('clickDayBeforeOrAfterForExtend').replaceAll('{startDate}', '${origS.day}.${origS.month}.').replaceAll('{endDate}', '${origE.day}.${origE.month}.'));
       }
       return;
     }
@@ -238,8 +245,9 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
     if (widget.isActive) {
       if (!d.isBefore(origE)) {
-        widget.onError(
-            t(context).tr('clickDayBeforeForShorten').replaceAll('{date}', '${origE.day}.${origE.month}.'));
+        widget.onError(MgV2.on(context)
+            ? t(context).trArgs('v2UxRpShortenBefore', {'date': '${origE.day}.\u00A0${origE.month}.'})
+            : t(context).tr('clickDayBeforeForShorten').replaceAll('{date}', '${origE.day}.${origE.month}.'));
         return;
       }
       if (d.isBefore(today)) {
@@ -282,6 +290,24 @@ class _EditReservationCalendarState extends State<EditReservationCalendar> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui, V22 §3.4): jednolitý pás výsledného
+    // termínu; klepnutí i měsíce řeší tentýž State jako dosud.
+    if (MgV2.on(context)) {
+      return EditReservationCalendarV2View(
+        year: _year,
+        month: _month,
+        mode: widget.mode,
+        origStart: widget.origStart,
+        origEnd: widget.origEnd,
+        newStart: widget.newStart,
+        newEnd: widget.newEnd,
+        isOccupied: _isOccupiedOrPending,
+        onDayTap: _onDayTap,
+        onPrevMonth: _prevMonth,
+        onNextMonth: _nextMonth,
+        isActive: widget.isActive,
+      );
+    }
     final daysInMonth = DateTime(_year, _month + 1, 0).day;
     final firstWeekday = DateTime(_year, _month, 1).weekday;
     final offset = firstWeekday - 1;

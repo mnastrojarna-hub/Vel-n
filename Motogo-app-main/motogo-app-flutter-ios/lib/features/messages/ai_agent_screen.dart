@@ -16,6 +16,10 @@ import '../../core/widgets/error_feedback.dart';
 import '../auth/widgets/toast_helper.dart';
 import '../sos/sos_provider.dart' show hasActiveRentalProvider;
 import '../../core/widgets/mg_nav_controls.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import 'v2/ai_chat_parts_v2.dart';
+import 'v2/ai_chat_view_v2.dart';
+import 'v2/ai_photo_sheet_v2.dart';
 
 /// AI Moto Agent chat — mirrors s-ai-agent from ai-agent-ui.js + ai-agent-send.js.
 /// Calls ai-moto-agent edge function with booking context.
@@ -201,7 +205,13 @@ class _AiAgentState extends State<AiAgentScreen> {
     }
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => MgV2.on(ctx)
+          // v2 vzhled výběru zdroje (kill-switch) — stejné návratové hodnoty.
+          ? AiPhotoSheetV2(
+              onCamera: () => Navigator.pop(ctx, ImageSource.camera),
+              onGallery: () => Navigator.pop(ctx, ImageSource.gallery),
+            )
+          : SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const MgSheetHandle(margin: EdgeInsets.fromLTRB(12, 4, 12, 0)),
           ListTile(
@@ -257,6 +267,33 @@ class _AiAgentState extends State<AiAgentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui, PLAN §2.5.2): stejný stav i akce.
+    if (MgV2.on(context)) {
+      return AiChatViewV2(
+        items: [
+          for (final m in _messages)
+            AiChatItemV2(
+              text: m.text,
+              isBot: m.isBot,
+              isSosHint: m.isSosHint,
+              isError: m.errorFor != null && !m.isSosHint,
+              failed: m.failed,
+              images: m.images,
+              onRetry: () => _retry(m),
+            ),
+        ],
+        sending: _sending,
+        slow: _slow,
+        pendingImages: _pendingImages,
+        onRemoveImage: (i) => setState(() => _pendingImages.removeAt(i)),
+        inputCtrl: _inputCtrl,
+        scrollCtrl: _scrollCtrl,
+        onBack: () => context.backOr(Routes.home),
+        onSend: _send,
+        onAttach: _attachPhoto,
+        onSos: () => context.push(Routes.sos),
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.bg,
       appBar: AppBar(

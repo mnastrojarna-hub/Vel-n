@@ -14,6 +14,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/widgets/mg_back.dart' show mgIsTopmost;
 import '../../active_ride_provider.dart' show ActiveRide;
 import '../../community_submit.dart' show showCommunityAddMenu;
+import '../../../reservations/v2/page_swipe_v2.dart';
 import '../../my_experiences_provider.dart';
 import '../../ride_model.dart';
 import '../../ride_recorder.dart' show RideRecorderState;
@@ -40,7 +41,7 @@ Future<void> mojeNavTab(BuildContext context, WidgetRef ref, int i) async {
 /// navigace (swipe still switches), the record dock and the v2 nav (the
 /// route lives outside the shell). A dumb view: data + callbacks from
 /// `_MyExperiencesScreenState` (seam); local state = UI only (sub-chip
-/// within the old first tab, ride filter, hint open).
+/// within the old first tab, hint open).
 class MojeViewV2 extends StatefulWidget {
   final bool loggedIn;
   final int tab;
@@ -105,10 +106,8 @@ class MojeViewV2 extends StatefulWidget {
 
 class _MojeViewV2State extends State<MojeViewV2> {
   final MgShellChrome _chrome = MgShellChrome();
-  bool _saved = false;
-  RideFilter _filter = RideFilter.all;
   bool _hint = false;
-  double _dx = 0;
+  int _dir = 0; // směr posledního přepnutí podzáložky (animace obsahu)
 
   @override
   void dispose() {
@@ -120,16 +119,17 @@ class _MojeViewV2State extends State<MojeViewV2> {
   }
 
   MojeSub get _sub => switch (widget.tab) {
-        0 => _saved ? MojeSub.saved : MojeSub.rides,
+        // The old first tab = ONE page: rides AND the saved routes.
+        0 => MojeSub.rides,
         1 => MojeSub.places,
         _ => MojeSub.history,
       };
 
-  void _select(MojeSub s, [RideFilter? f]) {
-    setState(() {
-      if (s == MojeSub.rides || s == MojeSub.saved) _saved = s == MojeSub.saved;
-      if (f != null) _filter = f;
-    });
+  void _select(MojeSub s) {
+    // "Uložené trasy" live on the first tab's page (under the rides).
+    if (s == MojeSub.saved) s = MojeSub.rides;
+    final d = MojeSub.values.indexOf(s) - MojeSub.values.indexOf(_sub);
+    setState(() => _dir = d.sign);
     widget.onTab(switch (s) {
       MojeSub.rides || MojeSub.saved => 0,
       MojeSub.places => 1,
@@ -137,11 +137,6 @@ class _MojeViewV2State extends State<MojeViewV2> {
     });
   }
 
-  void _swipe(int delta) {
-    final i = MojeSub.values.indexOf(_sub) + delta;
-    if (i < 0 || i >= MojeSub.values.length) return;
-    _select(MojeSub.values[i]);
-  }
 
   void _segment(TrasySeg s) {
     // Moje leží mimo shell → na Místa / Trasy vždy `go` (ne pop do Domů).
@@ -160,12 +155,17 @@ class _MojeViewV2State extends State<MojeViewV2> {
       data: w,
       rides: rides,
       historyItems: historyItems,
-      filter: _filter,
-      onFilter: (f) => setState(() => _filter = f),
       hintOpen: _hint,
       onHint: () => setState(() => _hint = !_hint),
       onOpenRecorder: () => openRideRecorderV2(context),
       onHistoryTab: () => _select(MojeSub.history),
+      direction: _dir,
+      onPlacesMap: () => context.pushOrGo(Routes.placesMap),
+      // Záložky šly i dřív přepínat swipem do stran (F-15: obsah teď jde
+      // za prstem a přijede ze strany, kam se přepnulo).
+      onSwipe: (s) {
+        if (mgIsTopmost(context)) _select(s);
+      },
     );
     final page = MgPage(
       overlapHero: false,
@@ -187,6 +187,7 @@ class _MojeViewV2State extends State<MojeViewV2> {
             rides: rides,
             savedCount: w.routes.valueOrNull?.length,
             placesCount: w.places.valueOrNull?.length,
+            ridesLoading: w.rides.isLoading && !w.rides.hasValue,
             onSub: _select,
             onCreateRoute: w.onCreateRoute,
             onLogin: w.onLogin,
@@ -196,12 +197,8 @@ class _MojeViewV2State extends State<MojeViewV2> {
         MojeSubChipsV2(
           value: sub,
           onChanged: _select,
-          counts: {
-            MojeSub.rides: w.loggedIn ? w.rides.valueOrNull?.length : null,
-            MojeSub.saved: w.loggedIn ? w.routes.valueOrNull?.length : null,
-            MojeSub.places: w.loggedIn ? w.places.valueOrNull?.length : null,
-            MojeSub.history: historyItems.length,
-          },
+          // The old tab buttons: labels only.
+          counts: const {},
         ),
         const SizedBox(height: 12),
       ],
@@ -214,15 +211,16 @@ class _MojeViewV2State extends State<MojeViewV2> {
         chrome: _chrome,
         navVisible: true,
         fabVisible: false,
-        child: GestureDetector(
-          // Záložky šly i dřív přepínat swipem do stran.
-          onHorizontalDragStart: (_) => _dx = 0,
-          onHorizontalDragUpdate: (d) => _dx += d.delta.dx,
-          onHorizontalDragEnd: (d) {
-            final v = d.primaryVelocity ?? 0;
-            if (v.abs() < 300 && _dx.abs() < 80) return;
-            if (!mgIsTopmost(context)) return;
-            _swipe((v.abs() >= 300 ? v < 0 : _dx < 0) ? 1 : -1);
+        // The whole page (header, summary, chips, empty space under a
+        // short list) switches the sub-tab too, as before F-15; the list
+        // body itself follows the finger (MgSwipeSegments wins there).
+        child: V2PageSwipe(
+          onStep: (dir) {
+            const v = MojeSub.values;
+            final j = v.indexOf(sub) + dir;
+            if (j < 0 || j >= v.length || !mgIsTopmost(context)) return false;
+            _select(v[j]);
+            return true;
           },
           child: page,
         ),

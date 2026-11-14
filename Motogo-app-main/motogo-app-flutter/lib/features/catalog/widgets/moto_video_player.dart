@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/tokens/mg_space.dart';
+import '../v2/detail/video_chrome_v2.dart';
 
 /// Přehrávač MP4 videí motorky — používá se POUZE na detailu motorky.
 /// Videa se spustí automaticky po otevření detailu (muted, lze odmutovat).
@@ -86,6 +89,30 @@ class _MotoVideoPlayerState extends State<MotoVideoPlayer> {
     final ar = (c != null && c.value.isInitialized && c.value.aspectRatio > 0)
         ? c.value.aspectRatio
         : 16 / 9;
+    // v2 (CB-23): same controller and state, v2 chrome (skeleton, glass
+    // discs, MgIcon); old look below unchanged.
+    if (MgV2.on(context)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(MgRadius.card),
+        child: AspectRatio(
+          aspectRatio: ar,
+          child: VideoChromeV2(
+            ready: c != null && _ready,
+            muted: _muted,
+            index: _idx,
+            count: widget.urls.length,
+            onToggleMute: _toggleMute,
+            video: c == null
+                ? const SizedBox.shrink()
+                : FittedBox(
+                    fit: BoxFit.cover,
+                    clipBehavior: Clip.hardEdge,
+                    child: SizedBox(width: c.value.size.width, height: c.value.size.height, child: VideoPlayer(c)),
+                  ),
+          ),
+        ),
+      );
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: AspectRatio(

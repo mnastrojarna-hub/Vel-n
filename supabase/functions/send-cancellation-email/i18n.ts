@@ -38,6 +38,25 @@ export function refundIsPositive(v: unknown): boolean {
   return Number.isFinite(n) && n > 0
 }
 
+/** Oprava i1 (2026-11-05): storno vratku process-refund nepotvrdil (chyba / jen část / odloženo) — věta místo
+ *  „byl zpracován a vrácen“; `informal` = tykání (výpůjčka výbavy, jen cs; ostatní jazyky stejné).
+ *  Oprava i3 (2026-11-07): bez slibu „potvrzení pošleme zvlášť“ — žádný takový mail neexistuje. */
+const REFUND_DEFERRED: Record<Lang, (a: string) => string> = {
+  cs: (a) => `Vratku <strong>${a} Kč</strong> dokončuje obsluha – nemusíte nic dělat.`,
+  en: (a) => `The refund of <strong>${a} CZK</strong> is being completed by our staff – you don't need to do anything.`,
+  de: (a) => `Die Rückerstattung von <strong>${a} CZK</strong> wird von unserem Team abgeschlossen – Sie müssen nichts tun.`,
+  nl: (a) => `De terugbetaling van <strong>${a} CZK</strong> wordt door ons team afgerond – je hoeft niets te doen.`,
+  es: (a) => `Nuestro equipo está completando el reembolso de <strong>${a} CZK</strong> – no tienes que hacer nada.`,
+  fr: (a) => `Le remboursement de <strong>${a} CZK</strong> est finalisé par notre équipe – vous n'avez rien à faire.`,
+  pl: (a) => `Zwrot <strong>${a} CZK</strong> finalizuje nasza obsługa – nie musisz nic robić.`,
+  uk: (a) => `Повернення <strong>${a} CZK</strong> завершує наша служба – вам нічого робити не потрібно.`,
+}
+export function refundDeferredNote(lang: string, amount: string, o: { informal?: boolean } = {}): string {
+  const l = (lang in REFUND_DEFERRED ? lang : 'cs') as Lang
+  if (o.informal && l === 'cs') return `Vratku <strong>${amount} Kč</strong> dokončuje obsluha – nemusíš nic dělat.`
+  return REFUND_DEFERRED[l](amount)
+}
+
 export function normalizeLang(lang: string | null | undefined): Lang {
   if (!lang) return DEFAULT_LANG
   const l = lang.toLowerCase().trim().slice(0, 2)
@@ -659,52 +678,54 @@ ${v.door_codes_block || `<p style="color:#dc2626">Коди буде видано
   },
 
   // -------- booking_cancelled (storno) --------
+  // Oprava i1 (2026-11-05): refund_state 'deferred' = process-refund vratku nepotvrdil (chyba / jen část /
+  // odloženo) → místo „byl zpracován“ věta o dokončení obsluhou (bez slibu částky na kartě). Okno 5–10 dnů = Stripe.
   booking_cancelled: {
     cs: v => `<p>${HELLO.cs}</p>
 <p>vaše rezervace č. <strong>${v.booking_number}</strong> motocyklu byla úspěšně stornována.</p>
-${refundIsPositive(v.refund_amount) ? `<p>Refund <strong>${v.refund_amount} Kč</strong> (${v.refund_percent || 0} %) byl zpracován a vrácen na původní platební kartu — peníze obvykle dorazí do 5–7 pracovních dnů. V příloze najdete dobropis.</p>` : '<p>Dle storno podmínek nárok na vrácení částky bohužel nevzniká.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('cs', v.refund_amount)}</p>` : `<p>Refund <strong>${v.refund_amount} Kč</strong> (${v.refund_percent || 0} %) byl zpracován a vrácen na původní platební kartu — peníze obvykle dorazí do 5–10 pracovních dnů. V příloze najdete dobropis.</p>`) : '<p>Dle storno podmínek nárok na vrácení částky bohužel nevzniká.</p>'}
 <p>${v.cancellation_reason ? `<strong>Důvod:</strong> ${v.cancellation_reason}</p><p>` : ''}Pokud je to omyl nebo si rezervaci chcete obnovit, kontaktujte nás na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Děkujeme za pochopení.</p>
 <p>${SIGN.cs}</p>`,
     en: v => `<p>${HELLO.en}</p>
 <p>your booking <strong>#${v.booking_number}</strong> has been cancelled.</p>
-${refundIsPositive(v.refund_amount) ? `<p>A refund of <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) has been processed back to your original payment card — funds typically arrive within 5–7 business days. The credit note is attached.</p>` : '<p>According to our cancellation policy, no refund is due.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('en', v.refund_amount)}</p>` : `<p>A refund of <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) has been processed back to your original payment card — funds typically arrive within 5–10 business days. The credit note is attached.</p>`) : '<p>According to our cancellation policy, no refund is due.</p>'}
 <p>${v.cancellation_reason ? `<strong>Reason:</strong> ${v.cancellation_reason}</p><p>` : ''}If this was a mistake or you wish to restore your booking, contact us at <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Thank you for understanding.</p>
 <p>${SIGN.en}</p>`,
     de: v => `<p>${HELLO.de}</p>
 <p>Ihre Buchung Nr. <strong>${v.booking_number}</strong> wurde storniert.</p>
-${refundIsPositive(v.refund_amount) ? `<p>Eine Rückerstattung von <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) wurde auf Ihre ursprüngliche Zahlungskarte veranlasst — der Betrag erscheint in der Regel innerhalb von 5–7 Werktagen. Die Gutschrift finden Sie im Anhang.</p>` : '<p>Gemäß unseren Stornobedingungen besteht kein Anspruch auf Rückerstattung.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('de', v.refund_amount)}</p>` : `<p>Eine Rückerstattung von <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) wurde auf Ihre ursprüngliche Zahlungskarte veranlasst — der Betrag erscheint in der Regel innerhalb von 5–10 Werktagen. Die Gutschrift finden Sie im Anhang.</p>`) : '<p>Gemäß unseren Stornobedingungen besteht kein Anspruch auf Rückerstattung.</p>'}
 <p>${v.cancellation_reason ? `<strong>Grund:</strong> ${v.cancellation_reason}</p><p>` : ''}War das ein Versehen oder möchten Sie die Buchung wiederherstellen, kontaktieren Sie uns unter <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Danke für Ihr Verständnis.</p>
 <p>${SIGN.de}</p>`,
     nl: v => `<p>${HELLO.nl}</p>
 <p>je boeking nr. <strong>${v.booking_number}</strong> is geannuleerd.</p>
-${refundIsPositive(v.refund_amount) ? `<p>Een terugbetaling van <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) is teruggeboekt op je oorspronkelijke betaalkaart — het bedrag verschijnt doorgaans binnen 5–7 werkdagen. De creditnota vind je in de bijlage.</p>` : '<p>Volgens ons annuleringsbeleid is geen terugbetaling van toepassing.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('nl', v.refund_amount)}</p>` : `<p>Een terugbetaling van <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) is teruggeboekt op je oorspronkelijke betaalkaart — het bedrag verschijnt doorgaans binnen 5–10 werkdagen. De creditnota vind je in de bijlage.</p>`) : '<p>Volgens ons annuleringsbeleid is geen terugbetaling van toepassing.</p>'}
 <p>${v.cancellation_reason ? `<strong>Reden:</strong> ${v.cancellation_reason}</p><p>` : ''}Was dit een vergissing of wil je je boeking herstellen, neem contact op via <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Bedankt voor je begrip.</p>
 <p>${SIGN.nl}</p>`,
     es: v => `<p>${HELLO.es}</p>
 <p>tu reserva nº <strong>${v.booking_number}</strong> ha sido cancelada.</p>
-${refundIsPositive(v.refund_amount) ? `<p>Se ha procesado un reembolso de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a tu tarjeta original — el importe suele llegar en 5–7 días hábiles. La nota de crédito está adjunta.</p>` : '<p>Según nuestra política de cancelación, no procede reembolso.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('es', v.refund_amount)}</p>` : `<p>Se ha procesado un reembolso de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a tu tarjeta original — el importe suele llegar en 5–10 días hábiles. La nota de crédito está adjunta.</p>`) : '<p>Según nuestra política de cancelación, no procede reembolso.</p>'}
 <p>${v.cancellation_reason ? `<strong>Motivo:</strong> ${v.cancellation_reason}</p><p>` : ''}Si fue un error o deseas restaurar tu reserva, contáctanos en <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Gracias por tu comprensión.</p>
 <p>${SIGN.es}</p>`,
     fr: v => `<p>${HELLO.fr}</p>
 <p>votre réservation n° <strong>${v.booking_number}</strong> a été annulée.</p>
-${refundIsPositive(v.refund_amount) ? `<p>Un remboursement de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a été émis sur votre carte d'origine — la somme arrive généralement sous 5 à 7 jours ouvrés. L'avoir est joint.</p>` : '<p>Selon nos conditions d\'annulation, aucun remboursement n\'est applicable.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('fr', v.refund_amount)}</p>` : `<p>Un remboursement de <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) a été émis sur votre carte d'origine — la somme arrive généralement sous 5 à 10 jours ouvrés. L'avoir est joint.</p>`) : '<p>Selon nos conditions d\'annulation, aucun remboursement n\'est applicable.</p>'}
 <p>${v.cancellation_reason ? `<strong>Motif :</strong> ${v.cancellation_reason}</p><p>` : ''}En cas d'erreur ou si vous souhaitez rétablir la réservation, contactez-nous à <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Merci pour votre compréhension.</p>
 <p>${SIGN.fr}</p>`,
     pl: v => `<p>${HELLO.pl}</p>
 <p>Twoja rezerwacja nr <strong>${v.booking_number}</strong> została anulowana.</p>
-${refundIsPositive(v.refund_amount) ? `<p>Zwrot w wysokości <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) został przekazany na pierwotną kartę płatniczą — środki zwykle pojawiają się w ciągu 5–7 dni roboczych. Notę kredytową znajdziesz w załączniku.</p>` : '<p>Zgodnie z polityką anulowania nie przysługuje zwrot.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('pl', v.refund_amount)}</p>` : `<p>Zwrot w wysokości <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) został przekazany na pierwotną kartę płatniczą — środki zwykle pojawiają się w ciągu 5–10 dni roboczych. Notę kredytową znajdziesz w załączniku.</p>`) : '<p>Zgodnie z polityką anulowania nie przysługuje zwrot.</p>'}
 <p>${v.cancellation_reason ? `<strong>Powód:</strong> ${v.cancellation_reason}</p><p>` : ''}Jeśli to pomyłka lub chcesz przywrócić rezerwację, napisz na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Dziękujemy za zrozumienie.</p>
 <p>${SIGN.pl}</p>`,
     uk: v => `<p>${HELLO.uk}</p>
 <p>ваше бронювання № <strong>${v.booking_number}</strong> скасовано.</p>
-${refundIsPositive(v.refund_amount) ? `<p>Повернення <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) оброблено на вашу початкову платіжну картку — кошти зазвичай надходять протягом 5–7 робочих днів. Кредит-ноту знайдете у вкладенні.</p>` : '<p>Згідно з умовами скасування повернення коштів не передбачено.</p>'}
+${refundIsPositive(v.refund_amount) ? (v.refund_state === 'split' && v.refund_split ? `<p>${v.refund_split}</p>` : v.refund_state === 'deferred' ? `<p>${refundDeferredNote('uk', v.refund_amount)}</p>` : `<p>Повернення <strong>${v.refund_amount} CZK</strong> (${v.refund_percent || 0} %) оброблено на вашу початкову платіжну картку — кошти зазвичай надходять протягом 5–10 робочих днів. Кредит-ноту знайдете у вкладенні.</p>`) : '<p>Згідно з умовами скасування повернення коштів не передбачено.</p>'}
 <p>${v.cancellation_reason ? `<strong>Причина:</strong> ${v.cancellation_reason}</p><p>` : ''}Якщо це помилка або ви хочете відновити бронювання, напишіть на <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
 <p>Дякуємо за розуміння.</p>
 <p>${SIGN.uk}</p>`,

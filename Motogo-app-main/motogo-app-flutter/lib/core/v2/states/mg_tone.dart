@@ -1,12 +1,11 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../icons/mg_icon.dart';
 import '../motion/mg_anim.dart';
-import '../motion/mg_anim_loops.dart';
-import '../motion/mg_motion.dart';
 import '../tokens/mg_colors.dart';
+import 'mg_tone_motion.dart';
+
+export 'mg_tone_motion.dart';
 
 /// Tones of result / error states (DESIGN_V22 §5.2). Meaning colours only —
 /// a tone NEVER takes the rank colour.
@@ -41,10 +40,13 @@ MgToneStyle mgToneStyle(MgTone tone, {bool dark = false}) => switch (tone) {
       MgTone.sos => const MgToneStyle(MgColors.sos, MgColors.onDark, MgColors.onDark, MgIcons.alert),
     };
 
-/// Tone disc with its one motion: ✓ pop + one ripple · ⏳ ring sweep (the
-/// screen's live loop) · ⚠ pop · ✕ one shake · info / SOS static. Reduced
-/// motion → end state. [icon] overrides the tone icon (wifi-off, lock…).
-class MgToneDisc extends StatelessWidget {
+/// Tone disc with its one motion (V22 §5.2, design M4): ✓ draws itself in
+/// (300) → pop → one neon ripple (700) · ⏳ ring sweep (the screen's live
+/// loop) — when the SAME disc turns pending → ok, the ring completes and
+/// closes into the ✓ (450) · ⚠ pop · ✕ one shake · info / SOS static.
+/// Reduced motion → end state. [icon] overrides the tone icon (wifi-off,
+/// lock…).
+class MgToneDisc extends StatefulWidget {
   final MgTone tone;
   final double size;
   final bool dark;
@@ -60,111 +62,46 @@ class MgToneDisc extends StatelessWidget {
   });
 
   @override
+  State<MgToneDisc> createState() => _MgToneDiscState();
+}
+
+class _MgToneDiscState extends State<MgToneDisc> {
+  int _morph = 0;
+
+  @override
+  void didUpdateWidget(covariant MgToneDisc oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tone == MgTone.pending && widget.tone == MgTone.ok) {
+      _morph++;
+    } else if (oldWidget.tone != widget.tone) {
+      _morph = 0;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final s = mgToneStyle(tone, dark: dark);
-    final disc = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: s.disc,
-        shape: BoxShape.circle,
-        border: s.ring == null ? null : Border.all(color: s.ring!, width: 3),
-      ),
-      child: Center(child: MgIcon(icon ?? s.iconName, size: size * 0.46, color: s.icon, stroke: 2.2)),
-    );
-    final semantics = ExcludeSemantics(child: disc);
-    if (!animate) return semantics;
-    return switch (tone) {
-      MgTone.ok => _SuccessDisc(color: s.accent, size: size, child: semantics),
-      MgTone.pending => _PendingRing(color: s.icon, size: size, child: semantics),
-      MgTone.warn => MgPop(playOnMount: true, child: semantics),
-      MgTone.err => MgShake(child: semantics),
-      MgTone.info || MgTone.sos => semantics,
+    final w = widget;
+    final s = mgToneStyle(w.tone, dark: w.dark);
+    final icon = w.icon ?? s.iconName;
+    final face = ExcludeSemantics(child: MgToneFace(style: s, size: w.size, icon: icon));
+    if (!w.animate) return face;
+    if (_morph > 0 && w.tone == MgTone.ok) {
+      return ExcludeSemantics(
+        child: MgToneMorph(
+          key: ValueKey(_morph),
+          from: mgToneStyle(MgTone.pending, dark: w.dark),
+          to: s,
+          size: w.size,
+          icon: icon,
+        ),
+      );
+    }
+    return switch (w.tone) {
+      MgTone.ok => ExcludeSemantics(child: MgToneSuccess(style: s, size: w.size, icon: icon)),
+      MgTone.pending => MgTonePendingRing(color: s.icon, size: w.size, child: face),
+      MgTone.warn => MgPop(playOnMount: true, child: face),
+      MgTone.err => MgShake(child: face),
+      MgTone.info || MgTone.sos => face,
     };
   }
-}
-
-class _SuccessDisc extends StatelessWidget {
-  final Color color;
-  final double size;
-  final Widget child;
-  const _SuccessDisc({required this.color, required this.size, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    if (MgMotion.reduced(context)) return child;
-    return MgProgressOnce(
-      duration: MgMotion.connector,
-      curve: Curves.easeOut,
-      builder: (_, t) {
-        final pop = t < 0.3 ? 0.85 + 0.23 * (t / 0.3) : (t < 0.43 ? 1.08 - 0.08 * ((t - 0.3) / 0.13) : 1.0);
-        return SizedBox(
-          width: size,
-          height: size,
-          child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-            if (t < 1)
-              Container(
-                width: size * (1 + 0.5 * t),
-                height: size * (1 + 0.5 * t),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: color.withValues(alpha: 0.6 * (1 - t)), width: 2),
-                ),
-              ),
-            Transform.scale(scale: pop, child: child),
-          ]),
-        );
-      },
-    );
-  }
-}
-
-class _PendingRing extends StatelessWidget {
-  final Color color;
-  final double size;
-  final Widget child;
-  const _PendingRing({required this.color, required this.size, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return MgLoopClock(
-      active: true,
-      builder: (_, clock) {
-        if (clock == null) return child;
-        return ValueListenableBuilder<double>(
-          valueListenable: clock,
-          child: child,
-          builder: (_, s, c) => CustomPaint(
-            foregroundPainter: _SweepPainter(color, (s % 1.2) / 1.2),
-            child: c,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SweepPainter extends CustomPainter {
-  final Color color;
-  final double p;
-  _SweepPainter(this.color, this.p);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = (Offset.zero & size).deflate(1.5);
-    canvas.drawArc(
-      rect,
-      -math.pi / 2 + 2 * math.pi * p,
-      math.pi * 0.6,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..color = color,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SweepPainter o) => o.p != p || o.color != color;
 }

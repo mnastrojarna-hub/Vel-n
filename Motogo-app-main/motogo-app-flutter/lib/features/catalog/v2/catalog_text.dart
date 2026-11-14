@@ -1,9 +1,15 @@
+import 'package:flutter/widgets.dart' show BuildContext;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/currency.dart';
 import '../../../core/date_days.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/calendar/trip_day_state.dart';
+import '../../auth/auth_provider.dart';
+import '../../booking/booking_validator.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
+import '../widgets/validation_banner.dart' show bookingRangeErrors;
 
 /// Presentation helpers of the v2 catalog (labels only — no logic of their
 /// own; every rule is the one the old cards / filter already used).
@@ -61,17 +67,71 @@ String catMoney(num czk) => Money.czk(czk);
 double catFromPerDay(Motorcycle m, int pct) =>
     ((m.prices?.cheapest ?? 0) * (100 - pct) / 100).roundToDouble();
 
-/// Nearest weekend (Fri–Sun; from today when it is already the weekend)
-/// and the one after — the two date presets of the v2 date sheets.
-(DateTime, DateTime) catWeekend(DateTime today, {int skip = 0}) {
-  // Day arithmetic through the DateTime constructor (DST-safe).
-  final wd = today.weekday; // 1 = Mon … 7 = Sun
-  // Sat / Sun: the rest of this weekend; otherwise the coming Friday.
-  final start = DateTime(today.year, today.month, today.day + (wd <= 5 ? 5 - wd : 0));
-  final sunday = DateTime(start.year, start.month, start.day + (7 - start.weekday));
-  if (skip == 0) return (start, sunday);
-  return (
-    DateTime(sunday.year, sunday.month, sunday.day + 5),
-    DateTime(sunday.year, sunday.month, sunday.day + 7),
-  );
+/// Branch type label ("s obsluhou" / "samoobsluha nonstop", the calculator's
+/// keys); null when the branch type is unknown (never guessed).
+String? catBranchType(AppTranslations tr, Motorcycle m) => m.branchType == null
+    ? null
+    : (m.branchType == 'samoobslužná' ? tr.tr('v2CalcBranchSelf') : tr.tr('v2CalcBranchStaffed'));
+
+/// "Mezná · s obsluhou" (CB-06: branch + type wherever a branch is named);
+/// null without a branch.
+String? catBranchLine(AppTranslations tr, Motorcycle m) {
+  final name = m.branchName ?? m.branchCity;
+  if (name == null || name.trim().isEmpty) return null;
+  final type = catBranchType(tr, m);
+  return type == null ? name : '$name · $type';
+}
+
+/// The old detail's branch info WITH its city ("{name}, {city}", as
+/// `moto_detail_page` builds `branchInfo`) + the branch type: "MotoGo24
+/// Mezná, Pelhřimov · s obsluhou". The city is skipped when the name
+/// already contains it. Null when the bike has no branch.
+String? catBranchLineCity(AppTranslations tr, Motorcycle m) {
+  final name = (m.branchName ?? '').trim();
+  final city = (m.branchCity ?? '').trim();
+  final place = [if (name.isNotEmpty) name, if (city.isNotEmpty && !name.contains(city)) city].join(', ');
+  if (place.isEmpty) return null;
+  final type = catBranchType(tr, m);
+  return type == null ? place : '$place · $type';
+}
+
+/// Street address of the branch ("Mezná 9, Pelhřimov"); null when unknown.
+String? catBranchAddress(Motorcycle m) {
+  final parts = [
+    if ((m.branchAddress ?? '').trim().isNotEmpty) m.branchAddress!.trim(),
+    if ((m.branchCity ?? '').trim().isNotEmpty && !(m.branchAddress ?? '').contains(m.branchCity!)) m.branchCity!.trim(),
+  ];
+  return parts.isEmpty ? null : parts.join(', ');
+}
+
+/// The customer's licence groups (loaded profile) do not cover [m] — the
+/// SAME check and inputs as `bookingRangeErrors` / the booking form, read
+/// only to mark the bike early (J4/J5); null profile (not loaded / signed
+/// out) = no mark. Display only: nothing is hidden or blocked here.
+bool catLicenceFails(WidgetRef ref, Motorcycle m) => catLicenceError(ref, m) != null;
+
+/// The same check as [catLicenceFails], returning the validator's own
+/// message in [lang] (P2-07: the detail dock says it before dates too).
+String? catLicenceError(WidgetRef ref, Motorcycle m, {String lang = 'cs'}) {
+  final profile = ref.watch(profileProvider).valueOrNull;
+  if (profile == null) return null;
+  final raw = profile['license_group'];
+  final groups = <String>[
+    if (raw is List)
+      for (final g in raw)
+        if (g != null) g.toString(),
+  ];
+  return BookingValidator.checkLicense(userLicenseGroups: groups, motoLicenseGroups: m.licenseGroupsOrFallback, lang: lang);
+}
+
+/// RD-02: [bookingRangeErrors] for the v2 Home funnel and detail dock. While
+/// the profile is still loading or failed to load (null) the licence line is
+/// left out, as [catLicenceError] does; overlap and length errors stay. The
+/// booking form keeps its own hard checks.
+List<String> catRangeErrorsV2(BuildContext context, WidgetRef ref, Motorcycle m, DateTime start, DateTime end) {
+  final errs = bookingRangeErrors(context, ref, m, start, end);
+  if (ref.watch(profileProvider).valueOrNull != null) return errs;
+  final noLicence = BookingValidator.checkLicense(
+      userLicenseGroups: const [], motoLicenseGroups: m.licenseGroupsOrFallback, lang: t(context).lang);
+  return [for (final e in errs) if (e != noLicence) e];
 }

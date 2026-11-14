@@ -7,8 +7,10 @@
 // Při běhu s import mapou (flow testy běží přímo) nebo bez oprávnění `run` se přeskočí.
 const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/@supabase/supabase-js@2').startsWith('file:') } catch { return false } })()
 const CAN_RUN = (() => { try { return Deno.permissions.querySync({ name: 'run' }).state === 'granted' } catch { return false } })()
-const FLOW_FILES = ['./gear_flow_test.ts', './gear_payment_flow_test.ts', './gear_refund_flow_test.ts']
-const FLOW_MIN = 8 + 9 + 5 // počet flow testů v FLOW_FILES (ubyl-li by některý, runner selže)
+const FLOW_FILES = ['./gear_flow_test.ts', './gear_payment_flow_test.ts', './gear_refund_flow_test.ts',
+  './pp_charges_flow_test.ts', // + verify:charges (2026-11-05): částky process-payment (appka, intent)
+  './pp_currency_flow_test.ts'] // + verify:charges (2026-11-07): předchozí doplatek v cizí měně se nezapíše
+const FLOW_MIN = 8 + 9 + 5 + 10 + 1 // počet flow testů v FLOW_FILES (ubyl-li by některý, runner selže); +2 oprava i2 (cena 0: spodní mez, setup session)
 
 Deno.test({ name: 'gear flow testy celých handlerů (podproces s import mapou gear-flow-map.json)', ignore: MAPPED || !CAN_RUN, fn: async () => {
   const p = (f: string) => new URL(f, import.meta.url).pathname

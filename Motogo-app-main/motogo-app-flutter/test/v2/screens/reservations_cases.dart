@@ -3,12 +3,16 @@
 // the data their seams pass (PLAN §5.2: S screens load in initState).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:motogo_app/core/currency.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/widgets/pickup_location_link.dart';
 import 'package:motogo_app/features/booking/widgets/address_picker.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/documents/booking_doc_viewer.dart';
+import 'package:motogo_app/features/documents/docs_gate_provider.dart';
+import 'package:motogo_app/features/documents/document_provider.dart' show DocsVerification;
 import 'package:motogo_app/features/reservations/reservation_edit_price_calc.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
@@ -91,6 +95,14 @@ Map<String, ResCase> detailCases() {
       () => resOverrides(pending: PendingBooking(id: unpaid.id, totalPrice: 12027, createdAt: _fresh(), verifying: true))
     ),
     'docs': (() => detailView(ready, codes: held), () => resOverrides()),
+    // AFT-03b / AFT-04: upcoming self-service before the term, documents missing.
+    'no-docs': (
+      () => detailView(resv('d11', status: 'reserved', from: 4, to: 6)),
+      () => [
+            ...resOverrides(),
+            docsFabStatusProvider.overrideWith((ref) async => const DocsScreenStatus(DocsVerification(), null)),
+          ]
+    ),
     'active': (() => detailView(active, codes: sent), () => resOverrides(docs: docs)),
     'codes-error': (
       () => detailView(active, codesAsync: AsyncError(Exception('offline'), StackTrace.empty)),
@@ -98,8 +110,11 @@ Map<String, ResCase> detailCases() {
     ),
     'done-0': (() => detailView(resv('d5', status: 'completed', from: -6, to: -4)), () => resOverrides(docs: docs)),
     'done-2': (() => detailView(resv('d6', status: 'completed', from: -6, to: -4, rating: 2)), () => resOverrides()),
+    // Timeline dates pinned to the widest format (2-digit day / month /
+    // hour) — the fit matrix gives the same answer every day.
     'done-5': (
-      () => detailView(resv('d7', status: 'completed', from: -6, to: -4, rating: 5, ownGear: true)),
+      () => detailView(resv('d7',
+          status: 'completed', from: -6, to: -4, rating: 5, ownGear: true, created: _wideAt, rated: _wideAt)),
       () => resOverrides(docs: docs)
     ),
     'cancelled': (() => detailView(resv('d8', status: 'cancelled', from: 10, to: 12)), () => resOverrides()),
@@ -132,6 +147,9 @@ EditPriceCalc _calc(Reservation b, {int addDays = 0}) => EditPriceCalc(
       returnTime: '23:59',
     );
 
+/// The fixture's price calc (shared with the res_profile UX tests).
+EditPriceCalc editCalc(Reservation b, {int addDays = 0}) => _calc(b, addDays: addDays);
+
 Widget editView(
   Reservation b, {
   String tab = 'extend',
@@ -140,10 +158,13 @@ Widget editView(
   bool active = false,
   int? stornoPct,
   List<String> missing = const [],
+  VoidCallback? onShorten,
 }) {
   final calc = _calc(b, addDays: addDays);
   final datesOrSwap = tab == 'move' || tab == 'swap';
-  return ResEditV2View(
+  // RP-11: the seam passes a card surcharge as label + price + "Původně → nově".
+  final pay = addDays > 0 && tab != 'move' && tab != 'swap';
+  return Builder(builder: (c) => ResEditV2View(
     booking: b,
     tab: tab,
     isActive: active,
@@ -245,16 +266,24 @@ Widget editView(
     ),
     stornoPct: stornoPct,
     missingSizes: missing,
-    saveLabel: tab == 'swap' ? null : (tab == 'move' ? 'Posunout zdarma' : 'POKRAČOVAT K PLATBĚ (+4 997 Kč)'),
+    saveLabel: tab == 'swap'
+        ? null
+        : (tab == 'move' ? t(c).tr('moveSaveBtn') : (pay ? t(c).tr('v2UxRpPayDiffCta') : t(c).tr('saveChangesBtn'))),
+    savePrice: pay ? Money.czk(calc.effectivePriceDiff) : null,
+    saveContext: pay
+        ? t(c).trArgs('v2UxRpPayDiff', {'from': Money.czk(b.totalPrice), 'to': Money.czk(calc.newTotal)})
+        // AFT-05: shorten → the refund in the dock, as the screen's seam.
+        : tab == 'shorten' && calc.effectivePriceDiff < 0
+            ? t(c).trArgs('claRpRefundCtx', {'amount': Money.czk(-calc.effectivePriceDiff), 'pct': '${calc.stornoPercent}'})
+            : null,
     onSave: addDays != 0 || tab == 'move' ? () {} : null,
     saving: false,
     onBack: () {},
     onSelectExtend: () {},
-    onSelectShorten: () {},
+    onSelectShorten: onShorten ?? () {},
     onSelectMove: () {},
     onSelectSwap: () {},
-    initialIntent: intent,
-  );
+  ));
 }
 
 Map<String, ResCase> editCases() {
@@ -301,5 +330,9 @@ Map<String, ResCase> editCases() {
 
 void _noop() {}
 
-/// Unpaid bookings older than 30 min read as cancelled (server window).
+/// A past moment with the widest timeline date ("28.12.2025 23:58").
+final _wideAt = DateTime(2025, 12, 28, 23, 58);
+
+/// Unpaid bookings older than 30 min read as cancelled (server window) —
+/// so this one stays relative to now.
 DateTime _fresh() => DateTime.now().subtract(const Duration(minutes: 5));

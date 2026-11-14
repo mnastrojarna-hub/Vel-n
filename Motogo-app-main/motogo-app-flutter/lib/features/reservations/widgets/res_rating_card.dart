@@ -15,9 +15,11 @@ import 'res_rating_widgets.dart';
 import 'ride_feedback_sheet.dart';
 import '../../../core/friendly_error.dart';
 import '../../home/v2/home_review_card_v2.dart' show HomeReviewLightView;
+import '../v2/res_rating_dark_v2.dart';
 
-/// Vzhled karty hodnocení: původní tmavá / světlá na Domů (v2).
-enum RatingLook { classic, light }
+/// Vzhled karty hodnocení: původní tmavá / světlá na Domů (v2) / tmavá
+/// uvnitř CO TEĎ detailu dokončené rezervace (v2, V21 §5.3).
+enum RatingLook { classic, light, dark }
 
 /// Karta „Hodnocení jízdy“ (dokončená rezervace). Hvězdy 1–5 se ukládají do
 /// `bookings.rating/rated_at` a lze je kdykoli změnit. Po ohodnocení KAŽDÝ
@@ -113,6 +115,19 @@ class _ResRatingCardState extends ConsumerState<ResRatingCard> {
         ? tr.tr('rfHowWasRide')
         : tr.tr('rfYourRating').replaceAll('{n}', '$rating') +
             (ratedAt != null && _pending == null ? ' · ${fmtReleaseDate(ratedAt.toLocal())}' : '');
+
+    if (widget.look == RatingLook.dark) {
+      return ResRatingDarkV2(
+        rating: rating,
+        question: subtitle,
+        popTick: _popTick,
+        sentThreadId: _sentThreadId,
+        onRate: _rate,
+        onGoogle: _openGoogle,
+        onFeedback: _openFeedback,
+        onOpenThread: () => context.push('/messages/$_sentThreadId'),
+      );
+    }
 
     if (widget.look == RatingLook.light) {
       return HomeReviewLightView(

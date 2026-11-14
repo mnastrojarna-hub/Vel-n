@@ -7,6 +7,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/widgets/state_views.dart';
+import '../../core/v2/flag/v2_scope.dart';
+import '../../core/v2/icons/mg_icon.dart';
+import '../../core/v2/widgets/mg_buttons.dart';
+import 'v2/doc_viewer_chrome_v2.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show StorageException;
 
 /// PDF dokument rezervace (smlouva, protokol v PDF…) PŘÍMO v appce na Androidu.
@@ -68,6 +72,47 @@ class _PdfPagesScreenState extends State<PdfPagesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // v2 vzhled (kill-switch app_v2_ui): ✕ v tmavé liště, A4 kostra, bílé
+    // stránky r12 na plátně; tytéž stránky, zoom, chyba i otevření mimo appku.
+    if (MgV2.on(context)) {
+      void close() => Navigator.of(context).maybePop();
+      return DocViewerScaffoldV2(
+        title: widget.title,
+        onClose: close,
+        body: FutureBuilder<List<Uint8List>>(
+          future: _pages,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) return DocA4SkeletonV2(onRetry: _retry, onBack: close);
+            if (snap.hasError || !snap.hasData) {
+              debugPrint('[PDF_VIEW] render failed: ${snap.error}');
+              return _error(context, snap.error);
+            }
+            final pages = snap.data!;
+            return LayoutBuilder(
+              builder: (context, c) => InteractiveViewer(
+                constrained: false,
+                minScale: 1,
+                maxScale: 5,
+                boundaryMargin: EdgeInsets.zero,
+                child: SizedBox(
+                  width: c.maxWidth,
+                  child: Column(children: [
+                    for (final p in pages)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        child: DocPageCardV2(
+                          child: Image.memory(p, width: c.maxWidth - 24, fit: BoxFit.fitWidth, gaplessPlayback: true),
+                        ),
+                      ),
+                    const SizedBox(height: 24),
+                  ]),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: MotoGoColors.g200,
       appBar: AppBar(
@@ -131,6 +176,13 @@ class _PdfPagesScreenState extends State<PdfPagesScreen> {
         onRetry: _retry,
         onBack: () => Navigator.of(context).maybePop(),
         extra: [
+          if (MgV2.on(context))
+            MgBtnGhostLight(
+              label: t(context).tr('openOutsideApp'),
+              icon: MgIcons.external,
+              onTap: () => launchUrl(Uri.parse(_url), mode: LaunchMode.externalApplication),
+            )
+          else
           TextButton.icon(
             onPressed: () => launchUrl(Uri.parse(_url), mode: LaunchMode.externalApplication),
             icon: const Icon(Icons.open_in_new, size: 16),

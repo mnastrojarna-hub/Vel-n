@@ -28,7 +28,11 @@ class ResLocationRow extends StatelessWidget {
     this.when,
   });
 
-  Future<void> _openNavigation() async {
+  Future<void> _openNavigation() => openNavigation(lat: lat, lng: lng, fallbackAddress: fallbackAddress);
+
+  /// Navigace řádku (GPS, jinak hledání adresy) — sdílí ji i v2 CO TEĎ a
+  /// dlaždice detailu, aby „Navigovat" všude dělalo totéž.
+  static Future<void> openNavigation({double? lat, double? lng, String? fallbackAddress}) async {
     // Try GPS coordinates first, then fall back to address search
     Uri? uri;
     if (lat != null && lng != null) {
@@ -40,8 +44,8 @@ class ResLocationRow extends StatelessWidget {
         uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       }
-    } else if (fallbackAddress != null && fallbackAddress!.isNotEmpty) {
-      final encoded = Uri.encodeComponent(fallbackAddress!);
+    } else if (fallbackAddress != null && fallbackAddress.isNotEmpty) {
+      final encoded = Uri.encodeComponent(fallbackAddress);
       uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encoded');
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }

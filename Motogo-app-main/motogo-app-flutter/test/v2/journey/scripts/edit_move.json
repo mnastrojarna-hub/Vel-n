@@ -1,0 +1,11 @@
+[
+ {"tapText": "Rezervace", "note": "tab Rezervace"},
+ {"wait": 300},
+ {"tapText": "Upravit", "note": "Upravit on the booking card"},
+ {"wait": 500},
+ {"tapText": "Posunout termín", "note": "tab Posunout termín"},
+ {"scroll": [180, 560, 300]},
+ {"tap": [52, 479], "note": "tap 23. = new first day (same number of days)"},
+ {"tapText": "POSUNOUT ZDARMA", "note": "move for free"},
+ {"wait": 3000, "note": "server answer"}
+]

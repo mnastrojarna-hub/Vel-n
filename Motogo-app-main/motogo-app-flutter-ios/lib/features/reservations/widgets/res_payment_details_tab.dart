@@ -13,6 +13,8 @@ import '../../payment/card_minimum.dart' show kcExact;
 import '../reservation_models.dart';
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../v2/res_payment_details_v2.dart';
 
 /// Platební údaje rezervace — vlastní řádek `bookings` (RLS vlastníka, `*`,
 /// ať chybějící sloupec nerozbije dotaz) + doklady z `invoices` (i vratky =
@@ -83,6 +85,22 @@ class ResPaymentDetailsTab extends ConsumerWidget {
       if (paid && paidAt == null && i.type == 'payment_receipt') paidAt = i.issuedAt ?? i.createdAt;
     }
     final surcharge = d != null && d.s('mod_surcharge_paid_at') == null ? d.n('mod_surcharge_due') : 0.0;
+
+    // v2 vzhled (kill-switch app_v2_ui): tytéž řádky ve světlé sekci Peníze.
+    if (MgV2.on(context)) {
+      return ResPaymentDetailsV2(
+        res: res,
+        d: d,
+        statusLabel: _statusLabel(tr, res.paymentStatus, res.status),
+        methodLabel: _methodLabel(tr, d, paid),
+        card: card,
+        paidAt: paidAt == null ? null : _fmtDateTime(paidAt.toLocal()),
+        stripeTx: stripeTx,
+        refunded: refunded,
+        surcharge: surcharge,
+        loading: async.isLoading,
+      );
+    }
 
     return SliverPadding(
       padding: const EdgeInsets.all(16),

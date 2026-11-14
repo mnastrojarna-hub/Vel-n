@@ -2,8 +2,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 /// What a zone is to the AI button (DESIGN_V2 §4.2 FabAvoid): `cta` / `sos`
-/// must never be covered (button goes off), `tap` may be peeked over.
-enum MgAvoidKind { cta, sos, tap }
+/// must never be covered (button goes off), `tap` may be peeked over,
+/// `keep` = text the button must not be lifted onto (peeks like `tap`).
+enum MgAvoidKind { cta, sos, tap, keep }
 
 /// Live chrome state of the v2 shell: heights of the status strips and of
 /// a screen dock, and the avoid zones registered by `MgFabAvoid`. Provided
@@ -105,11 +106,17 @@ class MgChromeScope extends InheritedNotifier<MgShellChrome> {
   final bool navVisible;
   final bool fabVisible;
 
+  /// Height of the shell body while the hide-on-scroll chrome is folded
+  /// (screen − the nav's safe-area band − the banner's status-bar strip):
+  /// the "one bike per screen" card height. 0 = unknown.
+  final double foldedViewport;
+
   const MgChromeScope({
     super.key,
     required MgShellChrome chrome,
     required this.navVisible,
     required this.fabVisible,
+    this.foldedViewport = 0,
     required super.child,
   }) : super(notifier: chrome);
 
@@ -124,6 +131,7 @@ class MgChromeScope extends InheritedNotifier<MgShellChrome> {
   bool updateShouldNotify(MgChromeScope oldWidget) =>
       oldWidget.navVisible != navVisible ||
       oldWidget.fabVisible != fabVisible ||
+      oldWidget.foldedViewport != foldedViewport ||
       super.updateShouldNotify(oldWidget);
 }
 

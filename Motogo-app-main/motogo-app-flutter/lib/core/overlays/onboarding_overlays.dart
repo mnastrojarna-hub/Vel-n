@@ -7,6 +7,9 @@ import '../currency.dart';
 import '../theme.dart';
 import '../i18n/i18n_provider.dart';
 import '../native/permission_service.dart';
+import '../v2/flag/v2_scope.dart';
+import '../../features/shell/v2/onboarding_lang_v2.dart';
+import '../../features/shell/v2/onboarding_perm_v2.dart';
 import '../widgets/mg_back.dart';
 import '../widgets/state_views.dart' show MgBackArrow;
 
@@ -37,6 +40,13 @@ class LanguageOverlay extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // v2 vzhled (deska Prihlaseni „Jazyk"): stejné jazyky, stejné _selectLang.
+    if (MgV2.on(context)) {
+      return OnboardingLangV2(
+        langs: [for (final l in _langs) (l.$1, l.$3)],
+        onPick: (code) => _selectLang(code, ref),
+      );
+    }
     return Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
       child: SafeArea(
@@ -198,7 +208,17 @@ class _PermissionOverlayState extends State<PermissionOverlay> {
         _back();
         return true;
       },
-      child: Material(
+      // v2 vzhled (deska Prihlaseni „Oprávnění"): tytéž callbacky a stav.
+      child: MgV2.on(context)
+          ? OnboardingPermV2(
+              perms: [for (final p in PermissionOverlay._perms) (p.$2, p.$3)],
+              allowLabel: t(context).tr('v2UxShPermAllow'),
+              onAllow: _requesting ? null : _onAllowTap,
+              onSkip: widget.onSkip,
+              onBack: onBack == null ? null : _back,
+              busy: _requesting,
+            )
+          : Material(
       color: MotoGoColors.black.withValues(alpha: 0.97),
       child: SafeArea(
         child: SingleChildScrollView(

@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/widgets/state_views.dart';
-import 'profile_attention_v2.dart';
+import '../../auth/auth_provider.dart' show profileProvider;
+import 'profile_booking_fix_v2.dart';
 import 'profile_groups_v2.dart';
 import 'profile_header_v2.dart';
 import 'profile_personal_v2.dart';
@@ -16,8 +20,11 @@ import 'profile_v2_parts.dart';
 /// `ProfileScreen._buildProfile`). Dumb: every value and action comes from
 /// the old State (same controllers, same closures). Like today the menu is
 /// visible while loading and on error; the personal form opens only when
-/// the profile is loaded (`ready`). No back control — the nav is the way out.
-class ProfileHubV2View extends StatefulWidget {
+/// the profile is loaded (`ready`). On the tab root there is no back control
+/// — the nav is the way out; PUSHED (from the booking form) [onBack] puts a
+/// back in the header and pins it, and [bookingFix] (`?edit=personal`) opens
+/// the personal form at the fields the booking needs (profile_booking_fix_v2).
+class ProfileHubV2View extends ConsumerStatefulWidget {
   final Map<String, dynamic>? profile;
   final bool loading;
   final Object? error;
@@ -29,6 +36,8 @@ class ProfileHubV2View extends StatefulWidget {
   final PfFormData form;
   final PfGroupActions actions;
   final String version;
+  final VoidCallback? onBack;
+  final bool bookingFix;
 
   const ProfileHubV2View({
     super.key,
@@ -43,51 +52,124 @@ class ProfileHubV2View extends StatefulWidget {
     required this.form,
     required this.actions,
     required this.version,
+    this.onBack,
+    this.bookingFix = false,
   });
 
   @override
-  State<ProfileHubV2View> createState() => _ProfileHubV2ViewState();
+  ConsumerState<ProfileHubV2View> createState() => _ProfileHubV2ViewState();
 }
 
-class _ProfileHubV2ViewState extends State<ProfileHubV2View> {
+class _ProfileHubV2ViewState extends ConsumerState<ProfileHubV2View> {
   final _settingsKey = GlobalKey();
+  final _bannerKey = GlobalKey();
+  final _addressKey = GlobalKey();
+  final _docsKey = GlobalKey();
+  bool _fixStarted = false;
+  Timer? _fixTimer;
 
-  void _toSettings() {
-    final c = _settingsKey.currentContext;
-    if (c == null) return;
-    Scrollable.ensureVisible(
+  bool get _fix => widget.bookingFix && widget.onBack != null;
+
+  @override
+  void dispose() {
+    _fixTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Booking fix: once the profile is loaded, open the form (the screen's own
+  /// toggle) and, after it has grown, bring the group with the first missing
+  /// field (address, else licence) — or, with nothing missing, the green
+  /// banner with "Zpět k rezervaci" — under the pinned back.
+  void _maybeStartFix() {
+    if (!_fix || _fixStarted || !widget.ready) return;
+    _fixStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!widget.personalExpanded) widget.onTogglePersonal();
+      final wait = MgMotion.reduced(context) ? const Duration(milliseconds: 50) : const Duration(milliseconds: 360);
+      _fixTimer = Timer(wait, _toFix);
+    });
+  }
+
+  GlobalKey _fixTarget() {
+    if (!pfBookingFixOpenNow(ref)) return _bannerKey;
+    final f = widget.form;
+    return [f.street, f.zip, f.city].any((c) => c.text.trim().isEmpty) ? _addressKey : _docsKey;
+  }
+
+  Future<void> _toFix([bool again = false, int tries = 0]) async {
+    if (!mounted) return;
+    final c = _fixTarget().currentContext;
+    if (c == null) {
+      // The form is not built yet (slow first frame): look again shortly
+      // instead of leaving the customer at the top of the page (K4-02).
+      if (tries < 20) _fixTimer = Timer(const Duration(milliseconds: 100), () => _toFix(again, tries + 1));
+      return;
+    }
+    await MgPinnedBack.reveal(
       c,
       duration: MgMotion.reduced(context) ? Duration.zero : MgMotion.sheet,
       curve: MgMotion.out,
-      alignment: 0.02,
     );
+    if (again || !mounted) return;
+    // The form may still have been growing (scroll extent too short): once more.
+    final box = _fixTarget().currentContext?.findRenderObject();
+    if (box is RenderBox && box.hasSize && box.localToGlobal(Offset.zero).dy > MediaQuery.sizeOf(context).height / 2) {
+      await _toFix(true);
+    }
+  }
+
+  /// Pull-to-refresh (V21 §1.2) = the existing retry (reload the profile),
+  /// held until it lands (max 8 s). Off while the personal form is open —
+  /// a reload must never touch what is being typed.
+  Future<void> _refresh() async {
+    widget.onRetry();
+    try {
+      await ref.read(profileProvider.future).timeout(const Duration(seconds: 8));
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final w = widget;
+    _maybeStartFix();
     return MgPage(
       tabIndex: 4,
       overlapHero: false,
-      header: ProfileHeaderV2(profile: w.profile, onSettings: _toSettings),
+      onRefresh: w.personalExpanded ? null : _refresh,
+      keepScrollOnRefreshToggle: true,
+      pinnedBack: w.onBack,
+      pinnedTitle: _fix ? tr.tr('v2PfFixTitle') : null,
+      header: ProfileHeaderV2(
+        profile: w.profile,
+        onBack: w.onBack,
+        loading: w.loading && w.profile == null,
+      ),
       sections: [
         if (w.error != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: MgErrorView(compact: true, error: w.error, what: tr.tr('eoProfileLoadFail'), onRetry: w.onRetry),
           ),
-        const ProfileAttentionV2(),
+        // The old order: (rank in the header) → Pobočky (+ E-shop) → Můj
+        // účet: Osobní údaje (+ form), Zprávy, Doklady, Faktury, Smlouvy,
+        // Platební metody → Nastavení → Pomoc → Ostatní → verze.
+        const SizedBox(height: 16),
+        ProfileTilesV2(onPaymentMethods: w.onPaymentMethods, branches: true),
         PfSectionLabel(tr.tr('myAccount'), icon: MgIcons.person),
-        ProfileTilesV2(onPaymentMethods: w.onPaymentMethods),
-        const SizedBox(height: 24),
         ProfilePersonalV2(
           profile: w.loading ? null : w.profile,
           ready: w.ready,
           expanded: w.personalExpanded,
           onToggle: w.onTogglePersonal,
           form: w.form,
+          fixBack: _fix ? w.onBack : null,
+          bannerKey: _bannerKey,
+          addressKey: _addressKey,
+          docsKey: _docsKey,
         ),
+        ProfileTilesV2(onPaymentMethods: w.onPaymentMethods),
         ProfileGroupsV2(actions: w.actions, settingsKey: _settingsKey, version: w.version),
       ],
     );

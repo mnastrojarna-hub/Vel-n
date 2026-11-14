@@ -19,7 +19,11 @@ import '../v2/res_procedure_v2.dart';
 class ResPickupProcedure extends ConsumerWidget {
   final Reservation res;
   final List<DoorCode>? codes;
-  const ResPickupProcedure({super.key, required this.res, this.codes});
+
+  /// Jen v2: postup je hlavním tlačítkem CO TEĎ („POSTUP NA POBOČCE“)
+  /// místo odkazu — tytéž kroky, týž sheet.
+  final bool cta;
+  const ResPickupProcedure({super.key, required this.res, this.codes, this.cta = false});
 
   static bool visibleFor(Reservation r) =>
       (r.status == 'reserved' || r.status == 'active') &&
@@ -73,6 +77,7 @@ class ResPickupProcedure extends ConsumerWidget {
         gateTitle: gate.hasGate ? tr.tr('gateProcTitle') : null,
         steps: steps,
         important: gate.hasGate ? tr.tr('procStepImportant') : null,
+        cta: cta,
       );
     }
     return Padding(

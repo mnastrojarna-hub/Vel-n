@@ -25,10 +25,17 @@ export class World {
   refundStatus: () => string = () => 'succeeded'
   /** awaited uvnitř refunds.create po vzniku vratky (webhook doručený dřív, než process-refund doběhne) */
   onRefundCreated: ((r: Refund) => Promise<void>) | null = null
+  /** před refunds.create (i1: přechodná chyba Stripe u konkrétní platby — hoď výjimku) */
+  onBeforeCreate: ((p: any) => void) | null = null
+  /** paymentIntents.search padá (i1: limit 20 req/s / výpadek) */
+  failSearch: Error | null = null
+  /** hosted Checkout Session vytvořené přes checkout.sessions.create (process-payment web flows) */
+  sessions: any[] = []
 
-  addPi(id: string, czk: number, md: Md) {
+  /** `createdOffsetS` = stáří platby (výchozí 20 dní; doplatky úprav mladší než původní platba) */
+  addPi(id: string, czk: number, md: Md, createdOffsetS = -86400 * 20) {
     const h = Math.round(czk * 100)
-    const created = this.clock - 86400 * 20
+    const created = this.clock + createdOffsetS
     const ch: Charge = { id: 'ch_' + id.slice(3), object: 'charge', payment_intent: id, amount: h, amount_captured: h, amount_refunded: 0,
       created, refunded: false, payment_method_details: { card: { brand: 'visa', last4: '4242' } } }
     this.charges.set(ch.id, ch)
@@ -56,12 +63,17 @@ export class World {
           const pi = w.intents.get(id)
           return pi ? Promise.resolve(clone(pi)) : Promise.reject(Object.assign(new Error(`No such payment_intent: '${id}'`), { code: 'resource_missing' }))
         },
-        search: (_p: any) => Promise.resolve({ data: [...w.intents.values()].map(clone) }),
+        search: (_p: any) => w.failSearch ? Promise.reject(w.failSearch) : Promise.resolve({ data: [...w.intents.values()].map(clone) }),
         list: (_p: any) => Promise.resolve({ data: [...w.intents.values()].map(clone) }),
         update: (id: string) => Promise.resolve(clone(w.intents.get(id))),
       },
       charges: { retrieve: (id: string) => Promise.resolve(clone(w.charges.get(id))) },
-      checkout: { sessions: { retrieve: () => Promise.reject(new Error('No such checkout.session')) } },
+      checkout: { sessions: {
+        retrieve: () => Promise.reject(new Error('No such checkout.session')),
+        list: () => Promise.resolve({ data: [] }),
+        expire: (id: string) => Promise.resolve({ id }),
+        create: (p: any) => { w.sessions.push(clone(p)); const id = `cs_test_${w.sessions.length}`; return Promise.resolve({ id, url: `https://checkout.stripe.test/${id}`, payment_intent: null }) },
+      } },
       refunds: {
         list: (p: any) => Promise.resolve({ data: clone(w.refunds
           .filter((r) => (!p.payment_intent || r.payment_intent === p.payment_intent) && (!p.charge || r.charge === p.charge))
@@ -69,6 +81,13 @@ export class World {
         retrieve: (id: string) => {
           const r = w.refunds.find((x) => x.id === id)
           return r ? Promise.resolve(clone(r)) : Promise.reject(new Error('No such refund'))
+        },
+        /** metadata se slučují (jako Stripe) — snížení cíle storna z více plateb (mg_target) */
+        update: (id: string, p: any) => {
+          const r = w.refunds.find((x) => x.id === id)
+          if (!r) return Promise.reject(new Error('No such refund'))
+          Object.assign(r.metadata, p?.metadata || {})
+          return Promise.resolve(clone(r))
         },
         create: async (p: any, o: any = {}) => {
           const key: string | null = o?.idempotencyKey || null
@@ -79,6 +98,7 @@ export class World {
             w.creates.push({ params: p, key, result: 'replayed:' + prev.refund.id })
             return clone(prev.refund)
           }
+          if (w.onBeforeCreate) w.onBeforeCreate(p)
           const pi = w.intents.get(p.payment_intent)
           if (!pi || !(pi.amount_received > 0)) throw new Error(`This PaymentIntent (${p.payment_intent}) does not have a successful charge to refund.`)
           const amt = p.amount != null ? Number(p.amount) : w.left(pi.id)
