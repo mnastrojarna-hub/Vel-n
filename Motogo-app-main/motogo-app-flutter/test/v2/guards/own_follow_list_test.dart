@@ -36,8 +36,9 @@ import '../support/v2_harness.dart';
 
 String _tr(String key) => translations['cs']![key]!;
 
-/// [datedDropsKids]: with dates the Kids bike is not free → the dated list
-/// is shorter than the undated one (SF-1).
+/// [datedDropsKids]: with dates the Kids bike (the FIRST undated card) is
+/// not free → the dated list is shorter and starts with another bike (SF-1,
+/// SG-2: the stale undated ids would publish the Kids bike).
 Future<(GoRouter, ProviderContainer)> _pump(WidgetTester t, CatalogFilter filter, {bool datedDropsKids = false}) async {
   t.view.physicalSize = const Size(412, 915) * 2;
   t.view.devicePixelRatio = 2;
@@ -59,7 +60,7 @@ Future<(GoRouter, ProviderContainer)> _pump(WidgetTester t, CatalogFilter filter
         motos: [kHusq, kShotgun, kBmw, kKids], filter: filter, profile: {...kProfileOk, 'license_group': ['A2', 'B']}),
     if (datedDropsKids)
       filteredMotorcyclesProvider.overrideWith((ref) async =>
-          ref.watch(catalogFilterProvider).startDate == null ? [kHusq, kShotgun, kKids, kBmw] : [kHusq, kShotgun, kBmw]),
+          ref.watch(catalogFilterProvider).startDate == null ? [kKids, kHusq, kShotgun, kBmw] : [kHusq, kShotgun, kBmw]),
   ]);
   addTearDown(c.dispose);
   await t.pumpWidget(UncontrolledProviderScope(
@@ -165,7 +166,7 @@ void main() {
     final (r, c) = await _pump(t, const CatalogFilter(), datedDropsKids: true);
     BikeScreenList list() => t.widget<BikeScreenList>(find.byType(BikeScreenList, skipOffstage: false));
     final undated = list().ids;
-    expect(undated, ['m-husq', 'm-shot', 'm-kid', 'm-bmw']);
+    expect(undated, ['m-kid', 'm-husq', 'm-shot', 'm-bmw']);
     await _openFromList(t, 'm-bmw', 3);
     final el = t.element(find.byType(MotorkyScreenV2, skipOffstage: false));
     detailShareRange(el as WidgetRef, ws, we); // dates picked in the detail
@@ -196,7 +197,41 @@ void main() {
     await t.pump(const Duration(seconds: 2));
   });
 
-  test('catalogShowListStart: the list shown now (sorted); stale ids only while it is not loaded; nothing when empty', () async {
+  testWidgets('SG-1: pager swiped back to the first bike while the list sits on a later card; the button still moves the list', (t) async {
+    final (r, c) = await _pump(t, const CatalogFilter(), datedDropsKids: true);
+    BikeScreenList list() => t.widget<BikeScreenList>(find.byType(BikeScreenList, skipOffstage: false));
+    await _openFromList(t, 'm-bmw', 3);
+    final el = t.element(find.byType(MotorkyScreenV2, skipOffstage: false));
+    detailShareRange(el as WidgetRef, ws, we); // dates picked in the detail
+    await _settle(t);
+    final dated = list().ids;
+    expect(dated, ['m-husq', 'm-shot', 'm-bmw']);
+    // Swipe the pager (stale undated ids) back from the BMW to the Husqvarna.
+    for (var i = 0; i < 2; i++) {
+      await t.drag(find.byType(PageView).first, const Offset(350, 0));
+      await _settle(t);
+    }
+    expect(c.read(catalogShownMotoProvider), dated.first, reason: 'the first bike of the list shown now is already published');
+    final covered = t.state<ScrollableState>(find
+        .descendant(of: find.byType(MotorkyScreenV2, skipOffstage: false), matching: find.byType(Scrollable, skipOffstage: false))
+        .first);
+    expect(covered.position.pixels, greaterThan(_zone(t).offsetOf(0) + 1), reason: 'the list itself still sits on a later card');
+    startBookingFromSelection(el, el as WidgetRef, kBmw, ws, we);
+    await _settle(t);
+    final btn = find.text(_tr('pdPickOtherMoto'));
+    await t.ensureVisible(btn);
+    await t.pump();
+    await t.tap(btn);
+    await _settle(t);
+    expect(r.routerDelegate.currentConfiguration.uri.path, '/search');
+    expect(list().ids, dated, reason: 'order untouched');
+    expect(c.read(catalogShownMotoProvider), 'm-husq');
+    expect(_page(t).pixels, moreOrLessEquals(_zone(t).offsetOf(0), epsilon: 1));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 2));
+  });
+
+  test('catalogShowListStart: the list shown now (sorted); stale ids only while it is not loaded; nothing when there are no ids', () async {
     final shown = Completer<List<Motorcycle>>();
     final c = ProviderContainer(overrides: [filteredMotorcyclesProvider.overrideWith((ref) => shown.future)]);
     addTearDown(c.dispose);

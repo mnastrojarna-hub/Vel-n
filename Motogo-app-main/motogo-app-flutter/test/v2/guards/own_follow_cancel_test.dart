@@ -14,6 +14,7 @@ import 'package:motogo_app/core/currency.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/supabase_client.dart';
+import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/v2/res_cancel_v2.dart';
 import 'package:motogo_app/features/reservations/widgets/res_cancel_dialog.dart';
@@ -138,6 +139,37 @@ void main() {
       expect(find.text(_t('coCancelPendingBody')), findsNothing);
     });
   }
+
+  // SF-3: starts tomorrow → under 48 h (0 % band), whatever the weekday or hour.
+  final unpaidSoon = resv('u2', status: 'pending', pay: 'unpaid', from: 1, to: 2, self: false,
+      created: DateTime.now().subtract(const Duration(minutes: 5)));
+  final paidSoon = resv('p2', status: 'reserved', from: 1, to: 2, self: false);
+  Color lineColor(WidgetTester t, String s) => t.widget<Text>(find.text(s)).style!.color!;
+  Color? boxColor(WidgetTester t, String s) =>
+      (t.widget<Container>(find.ancestor(of: find.text(s), matching: find.byType(Container)).first).decoration as BoxDecoration).color;
+
+  testWidgets('SF-3 new look, never paid, starts tomorrow: "nothing will be paid" in the calm colours, not amber/red', (t) async {
+    expect(StornoCalc.effectiveRefundPercent(unpaidSoon.startDate, unpaidSoon), lessThan(100));
+    await _open(t, unpaidSoon, _pending(unpaidSoon));
+    final line = _t('coCancelPendingBody');
+    expect(lineColor(t, line), MgColors.onTintOk);
+    expect(lineColor(t, line), isNot(anyOf(MgColors.warn, MgColors.err)));
+    expect(boxColor(t, line), MgColors.tintOk);
+    expect(find.text(_refundNow(unpaidSoon)), findsNothing);
+    for (final k in ['v2UxRpStorno100', 'v2UxRpStorno50', 'v2UxRpStorno0', 'v2UxRpKeepRes', 'cancelReservationBtn']) {
+      expect(find.text(_t(k)), findsOneWidget, reason: k);
+    }
+  });
+
+  testWidgets('SF-3 new look, paid, starts tomorrow: the refund tier colours exactly as before', (t) async {
+    final pct = StornoCalc.effectiveRefundPercent(paidSoon.startDate, paidSoon);
+    expect(pct, lessThan(100));
+    await _open(t, paidSoon, null);
+    expect(t.widget<ResCancelConfirmV2>(find.byType(ResCancelConfirmV2)).pct, pct);
+    final line = _refundNow(paidSoon);
+    expect(lineColor(t, line), pct == 50 ? MgColors.warn : MgColors.err);
+    expect(boxColor(t, line), pct == 50 ? MgColors.warnBg : MgColors.errBg);
+  });
 
   for (final r in [unpaid, paid]) {
     testWidgets('old look unchanged (${r.paymentStatus}): its refund line, no new text', (t) async {

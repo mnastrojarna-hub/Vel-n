@@ -31,7 +31,12 @@ void catalogShowListStart(WidgetRef ref) {
         sortMotorcycles(motos, ref.read(catalogSortProvider)).map((m) => m.id).toList();
   }
   final ids = ref.read(filteredMotoIdsProvider);
-  if (ids.isNotEmpty) ref.read(catalogShownMotoProvider.notifier).state = ids.first;
+  if (ids.isEmpty) return;
+  // The same id again notifies nobody (the list would stay put): null first
+  // — the list's follow ignores null.
+  final shown = ref.read(catalogShownMotoProvider.notifier);
+  shown.state = null;
+  shown.state = ids.first;
 }
 
 /// Gap between two full-screen bike cards.

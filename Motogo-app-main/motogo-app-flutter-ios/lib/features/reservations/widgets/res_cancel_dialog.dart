@@ -49,7 +49,8 @@ class _ResCancelDialogState extends State<ResCancelDialog> {
           return ResCancelConfirmV2(
             motoName: widget.reservation.motoName,
             dateRange: resRangeShort(t(context), widget.reservation),
-            pct: pct,
+            // Jen barva rámečku: nezaplacená = klidná (nic se nezaplatí).
+            pct: unpaid ? 100 : pct,
             // Táž vratka, čitelně („6 014 Kč", NBSP) — RP-21.
             refundLine: unpaid
                 ? t(context).tr('coCancelPendingBody')
