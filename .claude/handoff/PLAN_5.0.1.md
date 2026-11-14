@@ -1,4 +1,4 @@
-# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 17:45 UTC)
+# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 18:00 UTC)
 
 Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .claude/handoff`).
 
@@ -14,14 +14,36 @@ Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .cl
 ## 1. Co je hotové (commit `c64109ed` a starší)
 - Část 1 (`9accacfa`): ikona motorky = Material `two_wheeler`, zářivé spodní menu, listování vždy o jednu, šipka nahoru, štítek pobočky. Výsledky: `$W/core_result.json`.
 - Část 2 (`4c18cb85`): Domů bez předvybraného termínu a se všemi motorkami („od X Kč/den“, „Volná od“, střídání), nový filtr, trasy jedna na obrazovku, fotka → video jen na Wi-Fi, štítek pobočky na fotkách; kontroly + opravy. Výsledky: `$W/screens_result.json`. Skutečné fotky pro snímky: `$W/img` (env `MG_SHOT_IMG_DIR=$W/img`), stavy nástroje: `test/v2/journey/README.md`.
-- Část 3 běží: workflow `v501-finish`, běh `wf_0bc29e1d-e18` (skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/v501-finish-wf_0bc29e1d-e18.js`, journal `…/subagents/workflows/wf_0bc29e1d-e18/journal.jsonl`). Agent `docs` už doběhl: verze `5.0.1+119` v obou `pubspec.yaml`, `DESIGN_V22.md` u Android appky, CLAUDE.md bod 6, STATE_2/STATE_6, jedna věta ve Velínu (zkontrolováno, v pořádku). Zbývá v něm: `final:sceptic`, `final:visual` (vyrobí `$W/gallery/*.png` + `manifest.json`), případně `final:repair` a `final:recheck`.
+- Část 3 (workflow `v501-finish`, běh `wf_0bc29e1d-e18`; skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/v501-finish-wf_0bc29e1d-e18.js`, journal `…/subagents/workflows/wf_0bc29e1d-e18/journal.jsonl`; výsledky dosud: `$W/finish_result.json`) — stav 14. 11. 18:00 UTC:
+  - HOTOVO `docs`: verze `5.0.1+119` v obou `pubspec.yaml`, `Motogo-app-main/motogo-app-flutter/DESIGN_V22.md`, CLAUDE.md bod 6, STATE_2/STATE_6, jedna věta nápovědy ve Velínu (`velin/src/pages/FleetDetailPhotos.jsx`). Zkontrolováno, v pořádku.
+  - HOTOVO `final:sceptic`: 0 závažných, 6 drobných (starý vzhled beze změny, žádná oslabená pojistka).
+  - HOTOVO `final:visual`: sada náhledů `$W/gallery` (35 PNG + `manifest.json`: 21 obrazovek 360×780, 6 ve 320×640, 8 snímků „před“); 3 závažné a 5 drobných nálezů (níže).
+  - BĚŽÍ `final:repair` (opravuje nálezy níže a přefotí dotčené snímky galerie), po něm se sám spustí `final:recheck` (skeptik).
+- Upřesnění pravidla od majitele (14. 11., už v CLAUDE.md bod 6): „v2 = jen vzhled“ znamená hlavně zachovat vstupy, rozsah a funkčnost uživatelského zadávání; zdvojené navigační prvky se rušit smí.
+
+Nálezy závěrečné kontroly, které `final:repair` řeší (ověř v jeho hlášení, co opravil a co přeskočil):
+  - `FV-01` (major): In winter every day in the Motorky calendar is hatched and struck through, but nothing says why. No 'zavřeno' line, no 'Volná od 25. 3.', no jump button. The legend has only Volno / Tvůj termín / Obsazeno / Čeká na potvrzení, and 
+  - `FV-02` (major): At 320x640 the landscape bike photo is letterboxed into the middle of the card. The whole caption sits directly on top of the sharp photo: category pills, a stray 'samoobsluha' pill on its own line, 'Husqvarna 701 SM', '693 ccm', 
+  - `FV-03` (major): The owner complained that Home had no photo. The photo is now a strip about 120 px tall at 320 (about 150 px at 360). The bike name block covers its left half and the 'Tvoje cena od / 1 930 Kč/den / 1 990 Kč' block covers its righ
+  - `FV-04` (minor): With one filter on, the 'Filtry 1' button gets wider and the sort dropdown 'Od mé polohy' wraps to a second row. The map button is left alone at the right of the first row, so the toolbar jumps from one row to two and looks unbala
+  - `FV-05` (minor): A route without photos shows the road sketch pinned to the top-left area (y≈80–250). The rest of the panel down to the title (about 200 px) is empty dark gradient, so the card looks unfinished next to the photo cards.
+  - `FV-06` (minor): The branch chip in the hero's top row is cut off to 'Velké Něm…' because it shares the row with the back button and the '2 / 12' pager.
+  - `FV-07` (minor): The loud 'Filtry zapnuté (2)' strip shrinks its text to about 11 px at 320 width (about 15 px bold at 360). On small phones the warning becomes quiet again, which is the 'nemastný neslaný' problem the owner raised.
+  - `FV-08` (minor): 'Zobrazeno: 4 motorek' is ungrammatical Czech (it should be '4 motorky'). The text is unchanged from the original app, but the 5.0.1 filter card now puts this line right under the loud card where people read it.
+  - `FS-01` (minor): SR-03 W-05 is only half solved. On the empty Home list, 'Vybrat jiný termín' (shown when the reason is closed or booked) scrolls to the Home filter card but does not open it. The calendar exists only inside the opened card, so the
+  - `FS-02` (minor): The closed-day hatching can block days that are actually bookable. The set of branches leaves out trailers (`!m.isTrailer`) and bikes with no branch (`m.branchId != null`), but the Motorky list shows both: filteredMotorcyclesProvi
+  - `FS-03` (minor): The 8 s auto-close of the AI coach (VR-12) marks the coach as seen even when the bubble was never visible. The timer starts when _coachWanted turns true. During those 8 s the bubble can be Offstage (_coachBlocked), or the FAB can 
+  - `FS-04` (minor): How the Home offer narrows is inconsistent with the branch. With only a branch set, filterCount is 0, so the offer shows bikes from every branch while the list below shows only that branch. The claim that the pager count matches t
+  - `FS-05` (minor): The offer pager's key includes the NUMBER of filters, not which bikes passed them. Changing one filter value for another (category A to B, still 1 filter) keeps the old PageView and its offset. The carousel then stays on index n o
+  - `FS-06` (minor): The Home filter card's calendar and the Motorky date card write the same catalogFilterProvider dates. Only the Motorky one now hatches days on which every branch is closed. On Home the customer can still pick a range that Motorky 
 
 ## 2. Zbývající kroky (v tomto pořadí)
 
-### A. Dokončit část 3
-1. Až workflow doběhne (nebo ho po restartu obnov), přečti výsledek z journalu (řádky `type=result`; mapuj `agentId → label` z řádků `started`).
-2. Když `final:recheck` (nebo `final:sceptic`/`final:visual` bez následné opravy) hlásí **major**: pusť malý workflow „jeden opravář (jen on mění soubory) → jeden skeptik“ se stejnými pravidly jako ve skriptu části 3; opakuj, dokud skeptik nenajde 0 major. Minor: oprav jen malé a bezpečné, zbytek vypiš majiteli.
-3. Commit.
+### A. Dokončit část 3 (zbývá jen oprava a její kontrola)
+1. Počkej na doběhnutí `final:repair` a `final:recheck` (po restartu kontejneru workflow obnov: `Workflow({scriptPath, resumeFromRunId: 'wf_0bc29e1d-e18'})` — hotové kroky se přehrají z paměti). Výsledek čti z journalu (řádky `type=result`; `agentId → label` z řádků `started`).
+2. V hlášení `final:repair` zkontroluj, že jsou vyřešené všechny tři závažné nálezy `FV-01..03` (seznam v oddílu 1). Co přeskočil, posuď: závažné nesmí zůstat.
+3. Když `final:recheck` hlásí **major** (nebo zůstal neopravený závažný nález): pusť malý workflow „jeden opravář (jen on mění soubory) → jeden skeptik“ se stejnými pravidly jako ve skriptu části 3; opakuj, dokud skeptik nenajde 0 major. Minor: oprav jen malé a bezpečné, zbytek vypiš majiteli.
+4. Commit + push.
 
 ### B. Zrušit duplicitní tlačítko profilu nahoře (zadání majitele 14. 11.)
 Majitel: „Nahoře mi vadí duplicitní tlačítko profilu… dole je v pohodě, nahoře bych ho zrušil.“ Upřesnil i pravidlo „v2 = jen vzhled“: „to pravidlo bylo hlavně o zachování vstupů a rozsahu a funkčnosti uživatelského zadávání“ — tedy zdvojené navigační prvky se rušit smí, formuláře, zadávané údaje a to, co zákazník může udělat, se nemění (už zapsáno v CLAUDE.md, bod 6).
