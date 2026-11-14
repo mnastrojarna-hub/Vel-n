@@ -10,6 +10,8 @@ class ResDetailRow extends StatelessWidget {
   final Widget? child;
   final bool bold;
   final Color? valueColor;
+  /// New look only: the label as one full-width line (see ResDetailRowV2).
+  final bool line;
   const ResDetailRow({
     super.key,
     required this.label,
@@ -17,12 +19,13 @@ class ResDetailRow extends StatelessWidget {
     this.child,
     this.bold = false,
     this.valueColor,
+    this.line = false,
   });
 
   @override
   Widget build(BuildContext context) {
     if (MgV2.on(context)) {
-      return ResDetailRowV2(label: label, value: value, bold: bold, valueColor: valueColor, child: child);
+      return ResDetailRowV2(label: label, value: value, bold: bold, valueColor: valueColor, line: line, child: child);
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),

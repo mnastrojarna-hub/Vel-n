@@ -73,7 +73,10 @@ class SwapMotoViewV2 extends StatelessWidget {
     final tr = t(context);
     final n = net;
     final loaded = motos.valueOrNull;
-    final hasCands = loaded != null && candidates(loaded).isNotEmpty;
+    // RL-03: the K4-04 hint only when a "Volno" row really exists (free,
+    // not trailer-blocked) and availability is not (re)loading.
+    final anyFree =
+        !availLoading && loaded != null && candidates(loaded).any((m) => avail[m.id] == true && !trailerBlocked(m));
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -193,7 +196,7 @@ class SwapMotoViewV2 extends StatelessWidget {
           child: PayRoundingNoteV2(due: n!, roundKey: 'pdRoundSwapHint', waiveKey: 'pdWaiveSwapHint', showLine: false),
         ),
       // K4-04: the locked confirm says what comes first (the lock stays).
-      if (selectedId == null && hasCands)
+      if (selectedId == null && anyFree)
         Padding(
           key: const ValueKey('swap-v2-pick-first'),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),

@@ -138,7 +138,7 @@ class ResDetailTabContent extends ConsumerWidget {
 
             // Info rows
             ResDetailRow(label: t(context).tr('resCategory'), value: res.category ?? '–'),
-            ResDetailRow(label: '${res.category ?? ""} – ${res.branchName ?? ""}', value: ''),
+            ResDetailRow(label: '${res.category ?? ""} – ${res.branchName ?? ""}', value: '', line: true),
             ResDetailRow(label: t(context).date, value: res.dateRange),
             ResDetailRow(label: t(context).tr('resDuration'), value: '${res.dayCount} ${res.dayCount == 1 ? t(context).tr("day1") : res.dayCount < 5 ? t(context).tr("days24") : t(context).tr("days5")}'),
             // K4-12: v2 shows the length once (the same number as above).

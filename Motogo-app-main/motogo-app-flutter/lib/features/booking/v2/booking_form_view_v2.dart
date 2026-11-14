@@ -153,14 +153,17 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
   /// K4-01: the pickup-time error, and not even the picker's last slot
   /// (23:45) passes the SAME lead-time check on the start day — no later
   /// time exists, the fix is another date. Display only (the validator,
-  /// the lock and the error text stay as they are).
+  /// the lock and the error text stay as they are). RL-02: never for
+  /// delivery — a branch pickup may still be possible today, so delivery
+  /// keeps the earlier time guidance.
   bool get _noTimeLeft {
     final w = widget;
     if (w.err == null || w.errKind != BookingErrKind.time) return false;
+    if (w.draft.pickupMethod == 'delivery') return false;
     return BookingValidator.checkPickupLeadTime(
           startDate: w.draft.startDate,
           pickupTime: '23:45',
-          isDelivery: w.draft.pickupMethod == 'delivery',
+          isDelivery: false,
           branchType: w.moto.branchType,
         ) !=
         null;

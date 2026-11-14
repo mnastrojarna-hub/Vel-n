@@ -46,13 +46,15 @@ class ResDetailRowV2 extends StatelessWidget {
   final Widget? child;
   final bool bold;
   final Color? valueColor;
-  const ResDetailRowV2({super.key, required this.label, this.value, this.child, this.bold = false, this.valueColor});
+  /// K4-12 / RL-04: opt-in only (the category – branch row) — the label
+  /// as one full-width line; every other row keeps label + value.
+  final bool line;
+  const ResDetailRowV2(
+      {super.key, required this.label, this.value, this.child, this.bold = false, this.valueColor, this.line = false});
 
   @override
   Widget build(BuildContext context) {
-    // K4-12: a line without a value (category – branch) reads as one
-    // full-width line, not as a label missing its value.
-    if (child == null && (value ?? '').isEmpty) {
+    if (line) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),

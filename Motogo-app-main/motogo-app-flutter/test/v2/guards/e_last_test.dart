@@ -233,9 +233,9 @@ void main() {
     });
   });
 
-  testWidgets('K4-12 a row without a value is one full-width line; with a value label + value', (t) async {
+  testWidgets('K4-12 the opted-in row (RL-04) is one full-width line; with a value label + value', (t) async {
     await pumpV2(t, const Column(children: [
-      ResDetailRowV2(label: 'supermoto – Velké Němčice', value: ''),
+      ResDetailRowV2(label: 'supermoto – Velké Němčice', value: '', line: true),
       ResDetailRowV2(label: 'Délka', value: '3 dny'),
     ]));
     final line = find.text('supermoto – Velké Němčice');
