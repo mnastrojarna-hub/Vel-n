@@ -56,6 +56,17 @@ class _DateSheetBodyState extends State<_DateSheetBody> {
   /// "Přejít na 26. 3.": the calendar rebuilt on the bike's first free day.
   DateTime? _jump;
 
+  /// "Použít termín": scrolled into view once it can be used (after
+  /// "Přejít na" / a finished range) — on a short phone it sits below.
+  final _apply = GlobalKey();
+
+  void _showApply() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        final c = _apply.currentContext;
+        if (c == null || !c.mounted) return;
+        Scrollable.ensureVisible(c,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd, duration: const Duration(milliseconds: 250));
+      });
+
   @override
   void initState() {
     super.initState();
@@ -100,11 +111,14 @@ class _DateSheetBodyState extends State<_DateSheetBody> {
               ),
               MgBtnText(
                 label: tr.trArgs('homeSheetJumpTo', {'date': funnelDate(tr, next)}),
-                onTap: () => setState(() {
-                  _jump = next;
-                  _start = next;
-                  _end = next;
-                }),
+                onTap: () {
+                  setState(() {
+                    _jump = next;
+                    _start = next;
+                    _end = next;
+                  });
+                  _showApply();
+                },
               ),
             ]),
             const SizedBox(height: 8),
@@ -121,10 +135,13 @@ class _DateSheetBodyState extends State<_DateSheetBody> {
               _start = d;
               _end = null;
             }),
-            onRangeSelected: (a, b) => setState(() {
-              _start = a;
-              _end = b;
-            }),
+            onRangeSelected: (a, b) {
+              setState(() {
+                _start = a;
+                _end = b;
+              });
+              _showApply();
+            },
             onReset: () => setState(() {
               _start = null;
               _end = null;
@@ -132,6 +149,7 @@ class _DateSheetBodyState extends State<_DateSheetBody> {
           ),
           const SizedBox(height: 16),
           MgBtnInk(
+            key: _apply,
             label: widget.applyLabel,
             neonLabel: true,
             onTap: ready ? () => Navigator.of(context).pop(FunnelRange(s, e)) : null,

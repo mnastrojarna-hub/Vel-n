@@ -11,7 +11,8 @@
 //   {"tapKey":"motoFltClear"}  tapText with the Czech text of an i18n key
 //   {"tapType":"MotoFilterCardV2","dy":24}  tap a widget by its class name,
 //                          at its centre x and dy px below its top
-//                          (no dy = its centre); "index" = n-th match
+//                          (no dy = its centre); "index" = n-th match;
+//                          "dxEnd": n px left of its right edge (a chip's ✕)
 //   {"lifecycle":"pause"|"resume"|"cycle"}  app to background / back
 //   {"note":"…"}           any step may carry a note (copied to the log)
 // After every step the rig settles and writes <dir>/<nn>.png + one log line.
@@ -225,7 +226,8 @@ Future<String> _step(JourneyRig rig, Map<String, dynamic> s) async {
         ? 'UNKNOWN I18N KEY "$k"'
         : 'key $k = "$text" ${await _tapText(rig, text, (s['index'] as num?)?.toInt() ?? 0)}';
   } else if (s['tapType'] is String) {
-    what = await _tapType(t, s['tapType'] as String, (s['dy'] as num?)?.toDouble(), (s['index'] as num?)?.toInt() ?? 0);
+    what = await _tapType(t, s['tapType'] as String, (s['dy'] as num?)?.toDouble(), (s['index'] as num?)?.toInt() ?? 0,
+        dxEnd: (s['dxEnd'] as num?)?.toDouble());
   } else if (s['lifecycle'] is String) {
     what = await _lifecycle(t, s['lifecycle'] as String);
   } else if (s['go'] is String) {
@@ -237,13 +239,14 @@ Future<String> _step(JourneyRig rig, Map<String, dynamic> s) async {
   return what;
 }
 
-Future<String> _tapType(WidgetTester t, String type, double? dy, int index) async {
+Future<String> _tapType(WidgetTester t, String type, double? dy, int index, {double? dxEnd}) async {
   final hits = find.byWidgetPredicate((w) => w.runtimeType.toString() == type).evaluate().toList();
   if (hits.length <= index) return 'NOT FOUND (no widget $type)';
   final ro = hits[index].renderObject;
   if (ro is! RenderBox || !ro.hasSize) return 'NOT FOUND ($type has no box)';
   final r = ro.localToGlobal(Offset.zero) & ro.size;
-  final p = dy == null ? r.center : Offset(r.center.dx, r.top + dy);
+  final x = dxEnd == null ? r.center.dx : r.right - dxEnd;
+  final p = dy == null ? Offset(x, r.center.dy) : Offset(x, r.top + dy);
   final what = probe(t, p);
   await t.tapAt(p);
   return '$type @(${p.dx.round()},${p.dy.round()}) $what';

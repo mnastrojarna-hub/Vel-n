@@ -23,6 +23,7 @@ import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/documents/document_provider.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
+import 'package:motogo_app/features/home/v2/home_offer_provider.dart' show homeOfferSeedProvider;
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 import 'package:motogo_app/features/loyalty/rank_names.dart' show loyaltyDefaultRankNamesCs;
 import 'package:motogo_app/features/messages/messages_provider.dart';
@@ -193,8 +194,11 @@ List<Override> homeOverrides({
   // true = the real funnelCandidatesProvider (tests swap homeRangeCheckProvider).
   bool realFunnel = false,
   List<Motorcycle>? motos,
+  // Pins the offer order (`homeOfferSeedProvider`); null = a random order.
+  int? offerSeed,
 }) =>
     [
+      if (offerSeed != null) homeOfferSeedProvider.overrideWith((ref) => offerSeed),
       reservationsProvider.overrideWith((ref) => resLoading ? StreamController<List<Reservation>>().stream : Stream.value(reservations)),
       pendingBookingFabProvider.overrideWith((ref) => Stream.value(pending)),
       pendingSosFabProvider.overrideWith((ref) => Stream.value(sos)),

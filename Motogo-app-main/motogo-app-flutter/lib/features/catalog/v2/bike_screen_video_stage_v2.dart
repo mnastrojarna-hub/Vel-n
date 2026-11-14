@@ -67,7 +67,7 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
   late final BikeVideoHandle _h = BikeVideoHandle(widget.videos.length);
   final List<ScrollPosition> _positions = [];
   Animation<double>? _routeAnim;
-  Timer? _debounce, _preload, _autoplay;
+  Timer? _debounce, _preload, _autoplay, _handover;
   bool _armed = false, _swiped = false, _failed = false, _want = false;
   bool _fg = true, _routeOk = true, _ticker = true, _checkQueued = false;
   int _armGen = 0, _playerGen = 0;
@@ -303,6 +303,12 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
     _next = p;
     _nextIdx = i;
     p.addListener(_onNext);
+    // A next video that neither starts nor fails (stalled MP4 on weak LTE):
+    // back to the photo after [kBikeVideoHandoverMax], not a frozen frame.
+    _handover?.cancel();
+    _handover = Timer(kBikeVideoHandoverMax, () {
+      if (mounted && g == _playerGen && identical(_next, p)) _fail();
+    });
     () async {
       try {
         await p.initialize();
@@ -323,6 +329,7 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
     if (!(p.isInitialized && p.isPlaying && p.position > Duration.zero)) return;
     p.removeListener(_onNext);
     _next = null;
+    _handover?.cancel();
     final old = _h.player;
     old?.removeListener(_onPlayer);
     old?.dispose().catchError((Object _) {});
@@ -339,6 +346,7 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
   }
 
   void _disposePlayer() {
+    _handover?.cancel();
     final n = _next;
     if (n != null) {
       _next = null;

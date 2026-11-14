@@ -30,6 +30,7 @@ import 'package:motogo_app/features/home/v2/funnel_carousel_v2.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_parts.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
+import 'package:motogo_app/features/home/v2/home_offer_provider.dart' show homeOfferShuffle;
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,6 +41,16 @@ import '../support/v2_harness.dart';
 String _cs(String key) => translations['cs']![key]!;
 
 final _two = kMotos.take(2).toList();
+
+/// A seed whose offer order keeps bike 1 before bike 2 (the tests price
+/// `_two[n]` as the n-th card; a random seed made them a coin flip).
+final int _seed = () {
+  const profile = {'license_group': ['A']};
+  for (var s = 0;; s++) {
+    final o = homeOfferShuffle(homeEligibleMotos(kMotos, profile, const []), s).map((m) => m.id).toList();
+    if (o.indexOf(_two[0].id) < o.indexOf(_two[1].id)) return s;
+  }
+}();
 const _funnel = SingleChildScrollView(child: HomeFunnelV2());
 
 ProviderContainer _c(WidgetTester t) => ProviderScope.containerOf(t.element(find.byType(HomeFunnelV2)));
@@ -102,7 +113,7 @@ void main() {
     final c = ProviderContainer(overrides: [
       rankTokensProvider.overrideWithValue(RankTokens.forLevel(3)),
       rankArcPctProvider.overrideWithValue(50),
-      ...homeOverrides(funnel: _two),
+      ...homeOverrides(funnel: _two, offerSeed: _seed),
       bookedDatesProvider.overrideWith((ref, id) async => const <BookedDateRange>[]),
     ]);
     addTearDown(c.dispose);
@@ -145,7 +156,7 @@ void main() {
   });
 
   testWidgets('funnel pick fills Motorky; Motorky dates show in the funnel; ✕ clears both', (t) async {
-    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
     final p = funnelPresets(DateTime.now());
@@ -177,7 +188,7 @@ void main() {
   });
 
   testWidgets('Domů tab reset of the catalogue keeps the dates; a bike tap gives them again', (t) async {
-    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
     final p = funnelPresets(DateTime.now()).$2;
@@ -195,7 +206,7 @@ void main() {
 
   testWidgets('stale (past) catalogue dates are ignored, not shown', (t) async {
     await pumpV2(t, _funnel, size: const Size(412, 915), overrides: [
-      ...homeOverrides(funnel: _two),
+      ...homeOverrides(funnel: _two, offerSeed: _seed),
       catalogFilterProvider.overrideWith((ref) => CatalogFilter(startDate: day(-3), endDate: day(1))),
     ]);
     await _frames(t);
@@ -207,7 +218,7 @@ void main() {
   testWidgets('a remount (new visit of Domů) starts at the first bike; new dates → bike 1', (t) async {
     final show = ValueNotifier(true);
     await pumpV2(t, ValueListenableBuilder<bool>(valueListenable: show, builder: (_, v, __) => v ? _funnel : const SizedBox()),
-        size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+        size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
     final r = funnelPresets(DateTime.now()).$1;
@@ -243,7 +254,7 @@ void main() {
   // the dates before the detail opens) is the same range: the centred bike
   // stays (photo = "n / m" = CTA = the booked bike).
   testWidgets('same range given again (card tap) keeps the centred bike', (t) async {
-    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
     final r = funnelPresets(DateTime.now()).$1;
@@ -281,7 +292,7 @@ void main() {
     final c = ProviderContainer(overrides: [
       rankTokensProvider.overrideWithValue(RankTokens.forLevel(3)),
       rankArcPctProvider.overrideWithValue(50),
-      ...homeOverrides(funnel: _two),
+      ...homeOverrides(funnel: _two, offerSeed: _seed),
     ]);
     addTearDown(c.dispose);
     await t.pumpWidget(UncontrolledProviderScope(
@@ -334,7 +345,7 @@ void main() {
       testWidgets('home funnel with given dates $lang ${w}x$h', (t) async {
         final key = GlobalKey();
         await pumpV2(t, const HomeScreenV2(), lang: lang, size: size, boundaryKey: key, overrides: [
-          ...homeOverrides(funnel: _two),
+          ...homeOverrides(funnel: _two, offerSeed: _seed),
           catalogFilterProvider.overrideWith((ref) => CatalogFilter(startDate: day(9), endDate: day(12))),
         ]);
         await expectCleanFrames(t);

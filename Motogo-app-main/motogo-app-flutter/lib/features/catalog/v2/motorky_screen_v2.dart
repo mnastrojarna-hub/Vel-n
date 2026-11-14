@@ -14,6 +14,8 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
+import '../../home/v2/home_offer_provider.dart' show homeNextFreeProvider;
+import 'bike_free_label_v2.dart';
 import 'bike_screen_list_v2.dart';
 import 'calc/calc_body_v2.dart';
 import 'calc/calc_sticky_v2.dart';
@@ -298,9 +300,11 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     }
     // G-125: "Volná v termínu" only once the list for THESE dates is loaded
     // (while it reloads the old cards may include bikes busy then).
+    // No dates: a bike busy today says from when it is free (as on Domů).
+    final nextFree = ref.watch(homeNextFreeProvider).valueOrNull ?? const <String, DateTime>{};
     String? avail(Motorcycle m) => hasDates
         ? (reloading ? null : tr.tr('v2CatFreeInRange'))
-        : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null);
+        : bikeFreeLabel(tr, m, nextFree).$1;
     final h = _cardHeight(context);
     final top = MediaQuery.paddingOf(context).top;
     // Same card tap as before; the card's button is the old "Detail".
@@ -319,6 +323,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
               moto: motos[i],
               price: catCardPrice(tr, motos[i], s, e, loyalty),
               availability: avail(motos[i]),
+              availabilityLater: !hasDates && !bikeFreeLabel(tr, motos[i], nextFree).$2,
               live: i == 0,
               ctaLabel: tr.tr('motoCardDetail'),
               height: h,

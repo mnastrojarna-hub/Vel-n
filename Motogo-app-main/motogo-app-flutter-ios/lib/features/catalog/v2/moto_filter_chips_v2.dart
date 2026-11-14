@@ -92,17 +92,22 @@ class MotoFilterChipV2 extends StatelessWidget {
         border: Border.all(color: place ? MgColors.tintOkBorder : MgColors.ink, width: 1.5),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        MgPress(
-          onTap: onOpen,
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(10, 0, 2, 0),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (place) ...[MgIcon(MgIcons.pin, size: 15, color: MgColors.link), const SizedBox(width: 4)],
-              Text(item.label,
-                  maxLines: 1,
-                  style: MgType.small
-                      .copyWith(fontWeight: FontWeight.w800, color: place ? MgColors.onTintOk : MgColors.onDark)),
-            ]),
+        Flexible(
+          child: MgPress(
+            onTap: onOpen,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(10, 0, 2, 0),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (place) ...[MgIcon(MgIcons.pin, size: 15, color: MgColors.link), const SizedBox(width: 4)],
+                Flexible(
+                  child: Text(item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: MgType.small
+                          .copyWith(fontWeight: FontWeight.w800, color: place ? MgColors.onTintOk : MgColors.onDark)),
+                ),
+              ]),
+            ),
           ),
         ),
         Semantics(

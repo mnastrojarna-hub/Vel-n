@@ -11,11 +11,15 @@ import '../../../core/widgets/state_views.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/v2/catalog_mode_sync.dart' show catBeforeToday;
+import '../../catalog/v2/bike_free_label_v2.dart';
 import '../../catalog/v2/bike_screen_list_v2.dart';
 import '../../catalog/v2/catalog_price.dart';
 import '../../catalog/v2/moto_card_full_v2.dart';
+import '../../catalog/v2/motorky_empty_v2.dart';
 import '../../catalog/v2/motorky_loading_v2.dart';
 import '../../loyalty/loyalty_provider.dart';
+import 'home_funnel_parts.dart' show homeShowFilterCard;
+import 'home_offer_provider.dart' show homeNextFreeProvider;
 
 /// Full card height on Domů (the Motorky list geometry: one bike per
 /// screen).
@@ -71,12 +75,28 @@ class HomeBikeListV2 extends ConsumerWidget {
     final f = ref.watch(catalogFilterProvider);
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
     final h = homeBikeCardHeight(context);
+    // No dates: a bike busy today says from when it is free (as the offer).
+    final nextFree = ref.watch(homeNextFreeProvider).valueOrNull ?? const <String, DateTime>{};
     return motosAsync.when(
       skipLoadingOnReload: true,
       data: (all) {
         final motos = sortMotorcycles(all, sort);
         final s = f.startDate, e = f.endDate;
         final hasDates = s != null && e != null && !catBeforeToday(s);
+        // Nothing to show: why + what to do (the Motorky empty state), never
+        // only "Zobrazeno: 0 motorek".
+        if (motos.isEmpty) {
+          return SliverToBoxAdapter(
+            child: MotorkyEmptyV2(
+              filter: f,
+              onClearFilters: () {
+                final n = ref.read(catalogFilterProvider.notifier);
+                n.state = n.state.withoutFilters();
+              },
+              onPickDates: () => homeShowFilterCard(context),
+            ),
+          );
+        }
         void open(Motorcycle m) {
           ref.read(filteredMotoIdsProvider.notifier).state = motos.map((m) => m.id).toList();
           context.push('/moto/${m.id}');
@@ -101,7 +121,8 @@ class HomeBikeListV2 extends ConsumerWidget {
                   // G-125: no "Volná v termínu" while the list for the new dates reloads.
                   availability: hasDates
                       ? (motosAsync.isLoading ? null : tr.tr('v2CatFreeInRange'))
-                      : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null),
+                      : bikeFreeLabel(tr, m, nextFree).$1,
+                  availabilityLater: !hasDates && bikeFreeLabel(tr, m, nextFree).$2 == false,
                   ctaLabel: tr.tr('motoCardDetail'),
                   height: h,
                   topInset: top,

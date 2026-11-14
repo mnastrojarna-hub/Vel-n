@@ -130,7 +130,12 @@ class HomeOffer {
   /// [free]: more bikes are still being checked.
   final bool more;
 
-  const HomeOffer(this.mode, {this.bikes = const [], this.range, this.closed = false, this.more = false});
+  /// Real panel filters (`CatalogFilter.filterCount`) the [bikes] follow;
+  /// 0 = none on, or none of the bikes matches them (all shown).
+  final int filters;
+
+  const HomeOffer(this.mode,
+      {this.bikes = const [], this.range, this.closed = false, this.more = false, this.filters = 0});
 
   bool get hasBikes => bikes.isNotEmpty;
 }
@@ -144,8 +149,20 @@ final homeOfferEligibleProvider = Provider.autoDispose<AsyncValue<List<Motorcycl
   return all.whenData((a) => homeOfferShuffle(homeEligibleMotos(a, profile, reservations), seed));
 });
 
-/// The offer card's state for the dates given (or none).
+/// The offer card's state for the dates given (or none). With real panel
+/// filters on (5.0.1 re-check) it shows only the bikes they let through —
+/// the same predicate as the list under it (display only: availability,
+/// prices and the booking stay as they are); when none passes, all bikes.
 final homeOfferProvider = Provider.autoDispose<HomeOffer>((ref) {
+  final o = ref.watch(_homeOfferAllProvider);
+  final f = ref.watch(catalogFilterProvider);
+  if (f.filterCount == 0 || o.bikes.isEmpty) return o;
+  final l = f.apply(o.bikes);
+  if (l.isEmpty) return o;
+  return HomeOffer(o.mode, bikes: l, range: o.range, closed: o.closed, more: o.more, filters: f.filterCount);
+});
+
+final _homeOfferAllProvider = Provider.autoDispose<HomeOffer>((ref) {
   final range = ref.watch(funnelRangeProvider);
   final eligible = ref.watch(homeOfferEligibleProvider);
   HomeOffer fromEligible(HomeOfferMode mode, {bool closed = false}) {

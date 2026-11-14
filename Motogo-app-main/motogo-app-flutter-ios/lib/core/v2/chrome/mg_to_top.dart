@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../i18n/i18n_provider.dart';
 import '../gestures/mg_zone_snap.dart';
@@ -117,6 +118,12 @@ class _MgToTopLayerState extends State<MgToTopLayer> {
   /// Scroll went idle: hide while a CTA / SOS control lies under the slot.
   void _avoid() {
     if (!mounted) return;
+    // `scrollIdle` can fire while a frame builds (Back to Motorky): no
+    // setState then — check again right after the frame.
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _avoid());
+      return;
+    }
     final box = _key.currentContext?.findRenderObject();
     var blocked = false;
     if (box is RenderBox && box.attached && box.hasSize) {

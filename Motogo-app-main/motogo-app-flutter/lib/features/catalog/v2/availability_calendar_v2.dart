@@ -91,7 +91,8 @@ class AvailabilityCalendarV2View extends StatelessWidget {
       kind: kind,
       price: _price(d),
       selected: crosses ? (startOnly ? TripSel.single : TripSel.none) : tripSelOf(d, start, end),
-      today: isToday(d),
+      // A booked / closed today gets no green outline (it read as a picked day).
+      today: isToday(d) && !occupied,
       pendingStart: startOnly || (step == 2 && end == null && start != null && tripSameDay(d, start!)),
       enabled: !readOnly && !past && !occupied,
     );

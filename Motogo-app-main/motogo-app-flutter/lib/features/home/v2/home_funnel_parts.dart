@@ -6,6 +6,7 @@ import '../../../core/v2/calendar/trip_day_state.dart';
 import '../../../core/v2/chrome/mg_nav_helpers.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/states/mg_tone_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -22,10 +23,23 @@ export 'funnel_presets_v2.dart' show FunnelPresets;
 /// Bike detail from Home (the same `/moto/:id` push the old list used).
 void homePushMoto(BuildContext context, String id) => mgPushOrGo(context, '/moto/$id');
 
+/// The Domů filter card (`MotoFilterPanel`), for the offer card's
+/// "Filtry zapnuté (n)" pill to scroll to.
+final homeFilterCardKey = GlobalKey(debugLabel: 'home-filter-card');
+
+/// Scrolls Domů to its filter card (no-op when it is not built).
+void homeShowFilterCard(BuildContext context) {
+  final ctx = homeFilterCardKey.currentContext;
+  if (ctx == null) return;
+  Scrollable.ensureVisible(ctx, alignment: 0.1, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
+}
+
 /// Eyebrow "TVOJE PŘÍŠTÍ JÍZDA" + pager ‹ 1 / n › (single-pointer
 /// alternative to swiping). The full eyebrow stays beside the pager when
 /// its label fits (≥ 85 % size); only on narrow screens / long languages
-/// it collapses to its icon.
+/// it disappears (never a bare icon pill). With real panel filters on
+/// ([filters] > 0) a green "Filtry zapnuté (n)" pill takes its place (a tap
+/// = [onFilters], the filter card); too narrow → the filter icon + n.
 class FunnelTopRow extends ConsumerWidget {
   final int count;
   final int index;
@@ -34,7 +48,19 @@ class FunnelTopRow extends ConsumerWidget {
 
   /// More bikes are still being checked: "1 / 6" + a spinning ring.
   final bool more;
-  const FunnelTopRow({super.key, required this.count, required this.index, this.onPrev, this.onNext, this.more = false});
+
+  /// Real filters the offer follows (`HomeOffer.filters`).
+  final int filters;
+  final VoidCallback? onFilters;
+  const FunnelTopRow(
+      {super.key,
+      required this.count,
+      required this.index,
+      this.onPrev,
+      this.onNext,
+      this.more = false,
+      this.filters = 0,
+      this.onFilters});
 
   /// Pager width (‹ 44 + "n / m" 48 + › 44) and the eyebrow's own chrome
   /// (padding 2 × 10, icon 16, gap 6, border 2).
@@ -45,45 +71,62 @@ class FunnelTopRow extends ConsumerWidget {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
     final pager = count > 1;
-    final label = tr.tr('v2HomeFnEyebrow');
-    final labelStyle = MgType.eyebrow.copyWith(height: 1, color: rank.accentOnDark);
-    Widget eyebrow(bool full) => Semantics(
-          label: label,
-          excludeSemantics: true,
-          child: Container(
-            height: 28,
-            padding: EdgeInsets.symmetric(horizontal: full ? 10 : 0),
-            width: full ? null : 32,
-            decoration: BoxDecoration(
-              color: MgColors.white(0.07),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: MgColors.white(0.12)),
+    final flt = filters > 0;
+    final label = flt ? tr.trArgs('motoFltOn', {'n': filters}) : tr.tr('v2HomeFnEyebrow');
+    final labelStyle = MgType.eyebrow.copyWith(height: 1, color: flt ? MgColors.onNeon : rank.accentOnDark);
+    Widget eyebrow(bool full) {
+      final pill = Container(
+        height: 28,
+        padding: EdgeInsets.symmetric(horizontal: full || flt ? 10 : 0),
+        width: full || flt ? null : 32,
+        decoration: BoxDecoration(
+          color: flt ? MgColors.neon : MgColors.white(0.07),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: flt ? MgColors.neon : MgColors.white(0.12)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+          MgIcon(flt ? MgIcons.filter : MgIcons.route, size: 16, color: flt ? MgColors.onNeon : rank.accentOnDark),
+          if (flt && !full) ...[
+            const SizedBox(width: 4),
+            Text('$filters', style: MgType.tab(labelStyle.copyWith(fontWeight: FontWeight.w800))),
+          ],
+          if (full) ...[
+            const SizedBox(width: 6),
+            // „TWÓJ NASTĘPNY PRZEJAZD" celé — raději menší než useknuté.
+            Flexible(
+              child: MgWordFit(
+                minScale: 0.7,
+                child: Text(label.toUpperCase(),
+                    maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: labelStyle),
+              ),
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
-              MgIcon(MgIcons.route, size: 16, color: rank.accentOnDark),
-              if (full) ...[
-                const SizedBox(width: 6),
-                // „TWÓJ NASTĘPNY PRZEJAZD" celé — raději menší než useknuté.
-                Flexible(
-                  child: MgWordFit(
-                    minScale: 0.7,
-                    child: Text(label.toUpperCase(),
-                        maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: labelStyle),
-                  ),
-                ),
-              ],
-            ]),
-          ),
-        );
+          ],
+        ]),
+      );
+      if (!flt) return Semantics(label: label, excludeSemantics: true, child: pill);
+      return Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        onTap: onFilters,
+        child: MgPress(key: const ValueKey('funnel-filters-on'), onTap: onFilters, child: pill),
+      );
+    }
+
     return SizedBox(
       height: 36,
       child: LayoutBuilder(builder: (context, c) {
         if (!pager) return Row(children: [Flexible(child: eyebrow(true))]);
+        Widget short() => flt ? eyebrow(false) : const SizedBox.shrink();
         // Eyebrow smí na 70 % (jako jeho MgWordFit), než se schová do ikony (SH-21).
-        final need = mgLineWidth(context, label.toUpperCase(), labelStyle) * 0.7 + _ebChrome + _gap + _pagerW + (more ? 18 : 0);
+        final need =
+            mgLineWidth(context, label.toUpperCase(), labelStyle) * 0.7 + _ebChrome + _gap + _pagerW + (more ? 18 : 0);
         final full = need <= c.maxWidth;
         return Row(children: [
-          if (full) Flexible(child: Align(alignment: AlignmentDirectional.centerStart, child: eyebrow(true))) else eyebrow(false),
+          if (full)
+            Flexible(child: Align(alignment: AlignmentDirectional.centerStart, child: eyebrow(true)))
+          else
+            short(),
           if (full) const SizedBox(width: _gap) else const Spacer(),
           _PagerBtn(icon: MgIcons.chevronLeft, label: tr.tr('v2HomeFnPrev'), onTap: onPrev),
           ConstrainedBox(
@@ -104,7 +147,8 @@ class FunnelTopRow extends ConsumerWidget {
                   child: Container(
                     width: 12,
                     height: 12,
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: MgColors.white(0.25), width: 2)),
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle, border: Border.all(color: MgColors.white(0.25), width: 2)),
                   ),
                 ),
               ],
@@ -128,33 +172,33 @@ class _PagerBtn extends StatelessWidget {
   Widget build(BuildContext context) => MgFabAvoid(
         kind: MgAvoidKind.tap,
         child: Semantics(
-        button: true,
-        enabled: onTap != null,
-        label: label,
-        excludeSemantics: true,
-        child: MgPress(
-          scale: 0.9,
-          onTap: onTap,
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Center(
-              child: Opacity(
-                opacity: onTap == null ? 0.35 : 1,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: MgColors.white(0.10),
-                    border: Border.all(color: MgColors.white(0.25)),
+          button: true,
+          enabled: onTap != null,
+          label: label,
+          excludeSemantics: true,
+          child: MgPress(
+            scale: 0.9,
+            onTap: onTap,
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Center(
+                child: Opacity(
+                  opacity: onTap == null ? 0.35 : 1,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: MgColors.white(0.10),
+                      border: Border.all(color: MgColors.white(0.25)),
+                    ),
+                    child: Center(child: MgIcon(icon, size: 18, color: MgColors.onDark)),
                   ),
-                  child: Center(child: MgIcon(icon, size: 18, color: MgColors.onDark)),
                 ),
               ),
             ),
           ),
-        ),
         ),
       );
 }
@@ -237,7 +281,9 @@ class FunnelSubLine extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Expanded(
-          child: compact ? MgWordFit(minScale: 0.88, fitLines: 1, child: Text(text, style: style)) : Text(text, style: style),
+          child: compact
+              ? MgWordFit(minScale: 0.88, fitLines: 1, child: Text(text, style: style))
+              : Text(text, style: style),
         ),
       ]),
     );
@@ -253,13 +299,15 @@ class FunnelDateLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final txt = '${tripShortDate(tr, range.start)} → ${tripShortDate(tr, range.end)} · ${range.days} ${tr.daysWord(range.days)}';
+    final txt =
+        '${tripShortDate(tr, range.start)} → ${tripShortDate(tr, range.end)} · ${range.days} ${tr.daysWord(range.days)}';
     return MgEnter(
       child: Row(children: [
         const MgIcon(MgIcons.calendarCheck, size: 16, color: MgColors.neonText),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(txt, style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText))),
+          child: Text(txt,
+              style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText))),
         ),
         Semantics(
           button: true,

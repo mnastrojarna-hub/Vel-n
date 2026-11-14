@@ -106,7 +106,13 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
     if (_noPhoto || i == 1) {
       return GestureDetector(
         onTap: widget.onTap,
-        child: RtSketchPage(route: widget.route, topInset: top, labelTop: _noPhoto ? 20 : 56, bottom: _mediaH * 0.42),
+        // Down to just above the place tiles (they start ~a quarter above
+        // the media's end): the road fills the page, not its top third.
+        child: RtSketchPage(
+            route: widget.route,
+            topInset: top,
+            labelTop: _noPhoto ? 20 : 56,
+            bottom: _mediaH * (_compact(context) || _noPhoto ? 0.42 : 0.22)),
       );
     }
     final k = i == 0 ? 0 : i - 1;

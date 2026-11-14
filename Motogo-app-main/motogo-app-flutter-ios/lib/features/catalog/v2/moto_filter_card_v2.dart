@@ -18,7 +18,7 @@ import 'moto_filter_chips_v2.dart';
 /// motorky", an ink "Filtrovat" pill) or, with real filters on ([active]
 /// > 0 — never the dates or the branch), LOUD: a green card "Filtry
 /// zapnuté (n)", "Nevidíš všechny motorky", every filter as a chip with ✕
-/// (one sideways row) and "Zrušit vše". The branch ("kam vyrážím") is a pin chip with ✕ in both states. A tap
+/// (wrapping over the card width) and "Zrušit vše". The branch ("kam vyrážím") is a pin chip with ✕ in both states. A tap
 /// anywhere else opens the panel as before; open, [body] (on Domů first
 /// "TERMÍN · [datesValue]" + [calendar]). Every value and closure is the
 /// panel state's; it starts folded as before ([open] comes from the state).
@@ -111,39 +111,21 @@ class MotoFilterCardV2 extends StatelessWidget {
     final shown = open ? const <MotoFilterChipItem>[] : chips;
     final clear = on ? MotoFilterClearAllV2(label: tr.tr('motoFltClear'), onTap: onReset) : null;
     Widget? chipRow;
-    if (shown.isNotEmpty) {
-      // One row: the chips scroll sideways, "Zrušit vše" stays on the right.
+    if (shown.isNotEmpty || clear != null) {
+      // The chips wrap over the full card width (never one faded sideways
+      // row that hides the 2nd chip's ✕ at 360/320 dp); "Zrušit vše" ends
+      // the wrap, on the right of the last line.
       chipRow = LayoutBuilder(
-          builder: (context, box) => Row(children: [
-                Expanded(
-                  // The trailing edge fades out: more chips wait sideways.
-                  child: ShaderMask(
-                    blendMode: BlendMode.dstIn,
-                    shaderCallback: (r) => LinearGradient(
-                      colors: const [Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
-                      stops: [0, r.width <= 32 ? 0 : (r.width - 32) / r.width, 1],
-                    ).createShader(r),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      clipBehavior: Clip.hardEdge,
-                      child: Row(children: [
-                        for (final c in shown) ...[
-                          MotoFilterChipV2(
-                              item: c, removeLabel: tr.trArgs('motoFltRemove', {'f': c.label}), onOpen: onToggle),
-                          const SizedBox(width: 8),
-                        ],
-                        const SizedBox(width: 32), // the last ✕ clears the fade
-                      ]),
-                    ),
+          builder: (context, box) =>
+              Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                for (final c in shown)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: box.maxWidth),
+                    child: MotoFilterChipV2(
+                        item: c, removeLabel: tr.trArgs('motoFltRemove', {'f': c.label}), onOpen: onToggle),
                   ),
-                ),
-                // At most ~40 % of the row (long pl / fr labels wrap), so the chips
-                // keep room for their ✕.
-                if (clear != null)
-                  ConstrainedBox(constraints: BoxConstraints(maxWidth: box.maxWidth * 0.42), child: clear),
+                if (clear != null) ConstrainedBox(constraints: BoxConstraints(maxWidth: box.maxWidth), child: clear),
               ]));
-    } else if (clear != null) {
-      chipRow = Align(alignment: AlignmentDirectional.centerEnd, child: clear);
     }
     // A tap anywhere on the folded part (padding included) opens the panel;
     // the chips' ✕ and "Zrušit vše" keep their own taps.

@@ -44,6 +44,9 @@ class MotoCardFullV2 extends StatefulWidget {
   /// Pill text ("Volná v termínu" / "Dnes volná") or null.
   final String? availability;
 
+  /// [availability] is a later day ("Volná od …"): calendar icon, no dot.
+  final bool availabilityLater;
+
   /// The live ping on the availability dot + looping CTA (first card only).
   final bool live;
   final String ctaLabel;
@@ -65,6 +68,7 @@ class MotoCardFullV2 extends StatefulWidget {
     required this.moto,
     required this.price,
     required this.availability,
+    this.availabilityLater = false,
     required this.ctaLabel,
     required this.onOpen,
     this.onCta,
@@ -121,7 +125,15 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final imgs = _images;
     final multi = imgs.length > 1;
     // The old card's "Základní údaje": up to 6 (Velín short_desc_fields).
-    final specs = m.shortDescItems(tr.tr).take(6).map((e) => e.card).toList();
+    // Without what the tag row above the name already says (category, kW):
+    // the same fact never shows twice (5.0.1 re-check VR-05).
+    final catTag = m.category == null || m.category!.isEmpty ? null : catCategoryLabel(tr, m.category!).toLowerCase();
+    final specs = m
+        .shortDescItems(tr.tr)
+        .take(6)
+        .map((e) => e.card)
+        .where((c) => c != '${m.powerKw} kW' && c.toLowerCase() != catTag)
+        .toList();
     final lic = catLicenseLabel(tr, m);
     final branch = mgBikeBranchChipLabel(tr, m);
     final short = mgBranchShortName(m.branchName, m.branchCity);
@@ -251,7 +263,8 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                 _zone(left: false, label: tr.tr('v2CatPhotoNext')),
               ],
               if (widget.availability != null)
-                Positioned(top: top + 20, left: 12, child: BikeCardAvailabilityPill(text: widget.availability!, live: widget.live)),
+                Positioned(top: top + 20, left: 12, child: BikeCardAvailabilityPill(
+                    text: widget.availability!, live: widget.live, later: widget.availabilityLater)),
               // Where the bike is (owner v5.0.1): the neon chip, top right.
               if (branch != null)
                 Positioned(

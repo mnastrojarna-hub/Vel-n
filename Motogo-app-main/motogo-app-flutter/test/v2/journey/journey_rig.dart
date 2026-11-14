@@ -30,7 +30,8 @@ import 'journey_media.dart';
 import 'journey_overrides.dart';
 import 'journey_states.dart';
 
-const kJourneySize = Size(360, 780);
+/// MG_W / MG_H (dp) pick another phone size (default 360x780).
+final kJourneySize = Size(double.parse(Platform.environment['MG_W'] ?? '360'), double.parse(Platform.environment['MG_H'] ?? '780'));
 
 bool _iconsTried = false;
 

@@ -77,6 +77,10 @@ const Duration kBikeVideoPreload = Duration(seconds: 1);
 /// Settle → the photo cross-fades to the video.
 const Duration kBikeVideoAutoplay = Duration(seconds: 5);
 
+/// Longest wait for the next hero video to show its first frame; then the
+/// hero goes back to the photo (the stage's hand-over).
+const Duration kBikeVideoHandoverMax = Duration(seconds: 8);
+
 /// The one bike video player alive in the app: a stage that claims it stops
 /// the previous holder first (never two downloads / decoders at once).
 class BikeVideoSlot {

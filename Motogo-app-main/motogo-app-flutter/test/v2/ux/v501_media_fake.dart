@@ -1,5 +1,7 @@
 // Fake bike video player + Wi-Fi switch for the 5.0.1 photo → video tests
 // (no network, no platform channel).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
@@ -18,6 +20,8 @@ class FakeVideo extends ChangeNotifier implements BikeVideoPlayer {
   @override
   Future<void> initialize() async {
     await Future<void>.delayed(const Duration(milliseconds: 300));
+    // A stalled MP4: neither starts nor fails.
+    if (owner.stalling) await Completer<void>().future;
     if (owner.failing) throw StateError('cannot play');
     if (disposed) return;
     _init = true;
@@ -79,6 +83,9 @@ class FakeVideos {
   int alive = 0, maxAlive = 0;
   bool wifi;
   bool failing = false;
+
+  /// New players' initialize() never completes (SR-06).
+  bool stalling = false;
   final BikeVideoPlayer Function(String) _oldFactory;
   final Future<bool> Function() _oldWifi;
 

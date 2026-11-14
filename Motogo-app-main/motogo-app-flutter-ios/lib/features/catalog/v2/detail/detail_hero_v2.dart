@@ -15,6 +15,8 @@ import '../../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../../core/v2/widgets/mg_branch_chip.dart';
 import '../../../../core/widgets/net_image.dart';
 import '../../moto_model.dart';
+import '../../../home/v2/home_offer_provider.dart' show homeNextFreeProvider;
+import '../bike_free_label_v2.dart';
 import '../bike_screen_video_layer_v2.dart';
 import '../bike_screen_video_stage_v2.dart';
 import '../catalog_text.dart';
@@ -252,8 +254,16 @@ class DetailHeroV2 extends StatelessWidget {
                     _pill(tr.tr('v2CatFreeInRange'), live: true)
                   // Otherwise "Dnes volná" as the old hero always showed it
                   // (no dates, availability still loading, or not free in range).
+                  // Without dates, busy today: "Volná od 19. 11." (as the list card).
                   else if (moto.availableToday == true)
-                    _pill(tr.tr('v2CatFreeToday'), live: true),
+                    _pill(tr.tr('v2CatFreeToday'), live: true)
+                  else if (!hasDates)
+                    Consumer(builder: (context, ref, _) {
+                      final (text, now) =
+                          bikeFreeLabel(tr, moto, ref.watch(homeNextFreeProvider).valueOrNull ?? const {});
+                      if (text == null) return const SizedBox.shrink();
+                      return now ? _pill(text, live: true) : _pill(text, icon: MgIcons.calendarCheck);
+                    }),
                   const Spacer(),
                   BikeVideoHeroControls(video: video, otherwise: counter),
                 ]),

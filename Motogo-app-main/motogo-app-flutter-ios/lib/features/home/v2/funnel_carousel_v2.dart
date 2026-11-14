@@ -12,6 +12,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_branch_chip.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../catalog/moto_model.dart';
+import '../../catalog/v2/bike_screen_card_parts_v2.dart' show bikeCardModeTag;
 import 'funnel_provider.dart';
 import 'home_fit.dart';
 import 'home_ticket_parts.dart';
@@ -108,6 +109,18 @@ class FunnelBikeCard extends StatelessWidget {
           // nic nepřekryje název motorky.
           final compact = box.maxHeight < 170;
           final lic = compact && !again ? badge : null;
+          // The chip shortened to the branch name: its mode ("samoobsluha")
+          // goes to the category line (as the list card's mode tag).
+          final short = mgBranchShortName(moto.branchName, moto.branchCity);
+          final mode = branchLabel == null ||
+                  MgBranchChip(
+                        label: branchLabel,
+                        shortLabel: short,
+                        maxWidth: _TopRow.chipMaxFor(context, box.maxWidth - 24, avail, compact ? null : badge),
+                      ).fitted(context) ==
+                      branchLabel
+              ? null
+              : bikeCardModeTag(tr, moto);
           return Stack(fit: StackFit.expand, children: [
           ClipRect(child: photo),
           DecoratedBox(
@@ -163,7 +176,7 @@ class FunnelBikeCard extends StatelessWidget {
                             color: MgColors.onDark,
                             shadows: [Shadow(color: MgColors.black(0.55), blurRadius: 10, offset: const Offset(0, 2))])),
                   ),
-                  if (meta.isNotEmpty || lic != null) ...[
+                  if (meta.isNotEmpty || lic != null || mode != null) ...[
                     const SizedBox(height: 2),
                     // Kategorie celá, raději menší; když se nevejde ani
                     // zmenšená (úzký telefon, velké písmo), odpadne. Nízká
@@ -172,8 +185,13 @@ class FunnelBikeCard extends StatelessWidget {
                       final style = MgType.meta.copyWith(color: MgColors.white(0.86));
                       final small = style.copyWith(fontSize: style.fontSize! * 0.75);
                       bool fits(String x) => x.isNotEmpty && homeLinesFitIn(context, x, small, c.maxWidth, 1);
-                      final both = [if (meta.isNotEmpty) meta, if (lic != null) lic].join(' · ');
-                      final text = fits(both) ? both : (fits(meta) ? meta : null);
+                      String join(List<String?> l) => l.whereType<String>().where((x) => x.isNotEmpty).join(' · ');
+                      final text = [
+                        join([meta, lic, mode]),
+                        join([meta, mode]),
+                        join([meta, lic]),
+                        meta,
+                      ].where(fits).firstOrNull;
                       if (text == null) return const SizedBox.shrink();
                       return MgWordFit(
                         minScale: 0.75,
@@ -235,6 +253,7 @@ class _TopRow extends StatelessWidget {
   final bool ping;
   final String? branch;
   final String? branchShort;
+
   const _TopRow({
     required this.avail,
     required this.availLive,
@@ -249,6 +268,26 @@ class _TopRow extends StatelessWidget {
 
   static final _freeStyle = MgType.micro.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark);
   static final _badgeStyle = MgType.micro.copyWith(height: 1.15, fontWeight: FontWeight.w800);
+
+  /// Room of the branch chip in a row [width] wide next to the pills.
+  static double chipMaxFor(BuildContext context, double width, String? a, String? b) {
+    var leftW = 0.0;
+    if (a != null || b != null) {
+      var need = 96.0;
+      if (a != null) {
+        final tp = TextPainter(
+          text: TextSpan(text: a, style: DefaultTextStyle.of(context).style.merge(_freeStyle)),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        need = tp.width * 0.75 + 37;
+        tp.dispose();
+      }
+      leftW = need.clamp(96.0, width * 0.58);
+    }
+    return (width - 12 - leftW).clamp(110.0, 250.0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -293,22 +332,7 @@ class _TopRow extends StatelessWidget {
       // Štítek dostupnosti dostane aspoň místo na svůj text zmenšený na
       // 75 % (jinak by se useknul), pobočka zbytek (min. 110 — pak jen
       // název bez režimu, v nouzi zkrácený); nic se nepřekryje.
-      var leftW = 0.0;
-      if (a != null || b != null) {
-        var need = 96.0;
-        if (a != null) {
-          final tp = TextPainter(
-            text: TextSpan(text: a, style: DefaultTextStyle.of(context).style.merge(_freeStyle)),
-            textDirection: TextDirection.ltr,
-            textScaler: MediaQuery.textScalerOf(context),
-            maxLines: 1,
-          )..layout();
-          need = tp.width * 0.75 + 37;
-          tp.dispose();
-        }
-        leftW = need.clamp(96.0, c.maxWidth * 0.58);
-      }
-      final chipMax = (c.maxWidth - 12 - leftW).clamp(110.0, 250.0);
+      final chipMax = chipMaxFor(context, c.maxWidth, a, b);
       return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(child: Align(alignment: Alignment.topLeft, child: left)),
         const SizedBox(width: 12),
@@ -337,8 +361,11 @@ class _GlassPill extends StatelessWidget {
 }
 
 /// [name] with its last word glued to the one before when it is only 1–2
-/// characters ("Benelli TRK 502 X" never leaves a lone "X" on line two).
-String homeNoOrphan(String name) {
+/// characters ("Benelli TRK 502 X" never leaves a lone "X" on line two),
+/// and a hyphen inside a word never breaks ("V-strom" moves as a whole;
+/// U+2060 word joiner, zero width — no glyph needed).
+String homeNoOrphan(String raw) {
+  final name = raw.replaceAllMapped(RegExp(r'(?<=\w)-(?=\w)'), (_) => '-\u2060');
   final i = name.lastIndexOf(' ');
   if (i <= 0 || name.length - i - 1 > 2) return name;
   return '${name.substring(0, i)}\u00A0${name.substring(i + 1)}';

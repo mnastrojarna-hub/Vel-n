@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -24,7 +25,10 @@ String? bikeCardModeTag(AppTranslations tr, Motorcycle m) {
 class BikeCardAvailabilityPill extends StatelessWidget {
   final String text;
   final bool live;
-  const BikeCardAvailabilityPill({super.key, required this.text, required this.live});
+
+  /// Not free now ("Volná od 19. 11."): a calendar icon, no dot.
+  final bool later;
+  const BikeCardAvailabilityPill({super.key, required this.text, required this.live, this.later = false});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -32,7 +36,10 @@ class BikeCardAvailabilityPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(color: MgColors.nightA(0.8), borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          RepaintBoundary(child: MgPing(size: 8, color: MgColors.neon, active: live)),
+          if (later)
+            MgIcon(MgIcons.calendarCheck, size: 14, color: MgColors.neon)
+          else
+            RepaintBoundary(child: MgPing(size: 8, color: MgColors.neon, active: live)),
           const SizedBox(width: 8),
           Text(text, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onDark, height: 1)),
         ]),

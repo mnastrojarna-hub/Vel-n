@@ -38,12 +38,14 @@
   "note": "Motorky: below the calendar, the loud filter card"
  },
  {
-  "tapText": "ŘP A2",
-  "note": "tap the chip: that filter goes, the count drops"
+  "tapType": "MotoFilterChipV2",
+  "dxEnd": 18,
+  "note": "tap the ✕ of the first chip (ŘP A2): that filter goes, the count drops"
  },
  {
   "tapKey": "motoFltClear",
-  "note": "'Zrušit vše': the calm card"
+  "index": 0,
+  "note": "'Zrušit vše' (first visible match): the calm card"
  },
  {
   "tapType": "MotoFilterCardV2",

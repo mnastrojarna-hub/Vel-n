@@ -190,8 +190,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
           anchor: _swipe,
           axis: Axis.horizontal,
           child: PageView.builder(
-            key: ValueKey((range, seed, free)),
-            controller: _pager((range, seed, free), center),
+            key: ValueKey((range, seed, free, offer.filters)),
+            controller: _pager((range, seed, free, offer.filters), center),
             itemCount: list.length,
             pageSnapping: false,
             physics: MgOnePagePhysics(anchor: _swipe),
@@ -273,6 +273,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
               FunnelTopRow(
                 count: list.length,
                 more: offer.more,
+                filters: offer.filters,
+                onFilters: () => homeShowFilterCard(context),
                 index: center,
                 onPrev: center > 0 ? () => _go(center - 1) : null,
                 onNext: center < list.length - 1 ? () => _go(center + 1) : null,

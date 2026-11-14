@@ -13,6 +13,7 @@ import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../catalog_provider.dart';
 import '../widgets/availability_calendar.dart';
 import 'catalog_date_sheet_v2.dart' show catClearDates, catSetDates;
+import 'motorky_closed_days_v2.dart';
 
 /// The old search screen's date block INLINE and always open (owner
 /// 2026-11-07 "jen upgrade vzhledu"): VYZVEDNUTÍ / VRÁCENÍ tabs (a tap only
@@ -104,6 +105,8 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
           Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
           const SizedBox(height: 8),
           AvailabilityCalendar(
+            // Days every branch is closed: drawn as not free (VR-03).
+            bookedDates: ref.watch(motorkyClosedDaysProvider),
             onRangeSelected: (s, e) {
               setState(() => _pickingStart = true);
               catSetDates(ref, s, e);

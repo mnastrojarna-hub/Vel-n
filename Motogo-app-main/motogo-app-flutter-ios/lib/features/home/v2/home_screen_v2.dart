@@ -15,6 +15,7 @@ import '../home_actions.dart';
 import 'home_bike_list_v2.dart';
 import 'home_bookings_v2.dart';
 import 'home_calc_row_v2.dart';
+import 'home_funnel_parts.dart' show homeFilterCardKey;
 import 'home_funnel_v2.dart';
 import 'home_header_v2.dart';
 import 'home_rank_card_v2.dart';
@@ -137,7 +138,7 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
             const HomeRecordRowV2(),
             // Stará Domů: MotoFilterPanel(showDates: true) — jeho v2 vzhled
             // (sbalená karta, TERMÍN + kalendář, obsah filtru) je v panelu.
-            const MotoFilterPanel(showDates: true),
+            KeyedSubtree(key: homeFilterCardKey, child: const MotoFilterPanel(showDates: true)),
             const HomeBikeCountV2(),
           ],
         ),
