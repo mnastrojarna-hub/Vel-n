@@ -2,6 +2,8 @@
 
 Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .claude/handoff`).
 
+> **Pokyn majitele 14. 11. 19:45 UTC:** „pushni a v klidu dokonči vše rozjeté, pokračování po resetu limitu.“ → dokončí se jen běžící workflow `v501-cal-banner` (H + I), výsledek se uloží a zapíše sem; **další kroky (galerie, C, E, G) až po resetu limitu, když majitel napíše „Pokračuj podle `.claude/handoff/PLAN_5.0.1.md`“.**
+
 ## 0. Pravidla, která nesmíš porušit
 - Pracuj jen na větvi `claude/moto-go-mobile-conversion-gqg5qo`. `main` = `4d63843b` (appka 5.0.0, živá). **Nic nemerguj.** PR založ až po výslovném „ano“ majitele (AskUserQuestion).
 - Dva stromy appky: Android `Motogo-app-main/motogo-app-flutter` (má `test/`), iOS `…-ios`. Každý změněný soubor v `lib/` zkopíruj 1:1 do iOS; `diff -rq <android>/lib <ios>/lib` musí dát **přesně 20 řádků**. V iOS stromu v repu **nikdy** nespouštěj `flutter pub get/test/build` (`git diff --quiet HEAD -- Motogo-app-main/motogo-app-flutter-ios/.dart_tool` musí projít).
