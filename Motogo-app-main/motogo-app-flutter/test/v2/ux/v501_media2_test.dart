@@ -91,14 +91,16 @@ void main() {
     expect(boxes.every((b) => '${b.key}'.contains('fake-video')), isTrue, reason: 'no opaque slab');
   });
 
-  testWidgets('card at 320: the chip stays on the pill row; the mode joins the tags', (t) async {
+  testWidgets('card at 320: the chip stays on the pill row; the mode stays IN the chip, second line (FV-02)',
+      (t) async {
     await pumpV2(t, _slot(_self('s', videos: const [])), size: const Size(320, 690));
     await t.pump();
     final chip = t.getRect(find.byType(MgBranchChip));
     final pill = t.getRect(find.byType(BikeCardAvailabilityPill));
-    expect((chip.center.dy - pill.center.dy).abs(), lessThan(3), reason: 'one row, no staircase');
+    expect((chip.top - pill.top).abs(), lessThan(3), reason: 'one row, no staircase');
     expect(find.text('Velké Němčice'), findsOneWidget);
-    expect(find.widgetWithText(BikeCardTag, _cs('v2UxRpTypeSelf')), findsOneWidget);
+    expect(find.descendant(of: find.byType(MgBranchChip), matching: find.text(_cs('v2UxRpTypeSelf'))), findsOneWidget);
+    expect(find.widgetWithText(BikeCardTag, _cs('v2UxRpTypeSelf')), findsNothing, reason: 'no stray mode pill');
   });
 
   testWidgets('card at 360 with a short name: the mode stays in the chip, no extra tag', (t) async {

@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/gestures/mg_zone_snap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
+import 'package:motogo_app/core/i18n/translations_ext_65_v501_final.dart' show motoShownCount;
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/chrome/mg_status_strip.dart';
@@ -281,7 +282,11 @@ void main() {
       for (final v2 in [true, false]) {
         await t.pumpWidget(const SizedBox());
         await _app(t, v2 ? const HomeScreenV2() : const HomeScreen(), homeCases()['s6']!(), v2: v2);
-        expect(find.text('Zobrazeno: ${kMotos.length} motorek'), findsOneWidget, reason: 'v2=$v2');
+        // New look: the Czech plural (5.0.1 FV-08); the old look keeps its text.
+        final count = v2
+            ? motoShownCount('cs', AppTranslations.of('cs').tr, kMotos.length, 'homeMotorcycleCount')
+            : 'Zobrazeno: ${kMotos.length} motorek';
+        expect(find.text(count), findsOneWidget, reason: 'v2=$v2');
         final last = kMotos.last;
         final card = v2 ? find.byKey(ValueKey('home-mc-${last.id}')) : find.byType(MotoCard).last;
         await t.scrollUntilVisible(card, 300, scrollable: find.byType(Scrollable).first, maxScrolls: 80);

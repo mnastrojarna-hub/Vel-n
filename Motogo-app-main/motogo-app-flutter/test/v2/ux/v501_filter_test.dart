@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
+import 'package:motogo_app/core/i18n/translations_ext_65_v501_final.dart' show motoShownCount;
 import 'package:motogo_app/core/v2/calendar/trip_day_state.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
@@ -259,10 +260,10 @@ void main() {
           return f.startDate == null ? Future.value(kMotos) : pending.future;
         }),
       ]);
-      expect(find.text(_cs.tr('searchShownMotorcycles').replaceAll('{n}', '${kMotos.length}')), findsOneWidget);
+      expect(find.text(motoShownCount('cs', _cs.tr, kMotos.length, 'searchShownMotorcycles')), findsOneWidget);
       c.read(catalogFilterProvider.notifier).state = CatalogFilter(startDate: ws, endDate: we);
       await t.pump(const Duration(milliseconds: 100));
-      expect(find.text(_cs.tr('searchShownMotorcycles').replaceAll('{n}', '${kMotos.length}')), findsNothing);
+      expect(find.text(motoShownCount('cs', _cs.tr, kMotos.length, 'searchShownMotorcycles')), findsNothing);
       expect(find.text(_cs.tr('searchSearching')), findsOneWidget);
       pending.complete([kBmw]);
       await t.pump(const Duration(milliseconds: 300));
