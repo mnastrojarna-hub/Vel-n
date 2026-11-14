@@ -1,8 +1,8 @@
 // 5.0.1 last repair: the Home photo is sized from the room left (FR-01);
 // "Přejít na …" moves the Motorky calendar with dates picked too (FR-02);
 // the Home filter card's calendar blocks closed days (FR-03); plural of the
-// "volných motorek" line + Ukrainian rule (FR-04); closed days have their
-// own tone and the date-filter legend drops "Obsazeno" (FR-05); the photo
+// "volných motorek" line + Ukrainian rule (FR-04); closed days are one
+// "Obsazeno" with booked ones (step H, was FR-05); the photo
 // of a short card keeps its size while the nav hides (FR-06); "Zrušit"
 // stays a word on narrow phones (FR-07); no profile button in the headers,
 // the Profil tab keeps the unread badge (owner 2026-11-14).
@@ -26,7 +26,6 @@ import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
 import 'package:motogo_app/core/v2/shell/app_shell_v2.dart';
-import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
 import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
@@ -224,7 +223,7 @@ void main() {
     });
   });
 
-  testWidgets('Home filter card calendar: closed days disabled, "Zavřeno" in the legend, no "Obsazeno" (FR-03/05)',
+  testWidgets('Home filter card calendar: closed days disabled and "Obsazeno", no "Zavřeno" (FR-03, step H)',
       (t) async {
     final closed = [BookedDateRange(start: _d(0), end: _d(10), status: 'branch_closed')];
     await pumpV2(t, const SingleChildScrollView(child: MotoFilterPanel(showDates: true)),
@@ -236,34 +235,37 @@ void main() {
     final today = t.widget<TripDayCell>(_cell(_d(0)));
     expect(today.state.kind, TripDayKind.closed);
     expect(today.state.enabled, isFalse);
-    expect(find.text(_cs('calLegClosed')), findsOneWidget);
-    expect(find.byKey(const ValueKey('trip-legend-closed')), findsOneWidget);
-    expect(find.text(_cs('v2CalLegBusy')), findsNothing, reason: 'no bookings drawn here');
+    // Owner 2026-11-14: a closed branch is just "Obsazeno" for the customer.
+    expect(find.text(_cs('calLegClosed')), findsNothing);
+    expect(find.text(_cs('v2CalLegBusy')), findsOneWidget);
     await t.tap(_cell(_d(0)));
     await t.pump();
     final c = ProviderScope.containerOf(t.element(find.byType(MotoFilterPanel)));
     expect(c.read(catalogFilterProvider).startDate, isNull, reason: 'a closed day cannot be picked');
   });
 
-  testWidgets('closed and booked days look different (FR-05)', (t) async {
+  // Date-independent (LS2-02): the days sit in next month, always shown whole.
+  testWidgets('closed, booked and pending days are one "Obsazeno" (step H)', (t) async {
+    final now = DateTime.now();
+    final m = DateTime(now.year, now.month + 1);
+    DateTime day(int d) => DateTime(m.year, m.month, d);
     await pumpV2(
         t,
         SingleChildScrollView(
-          child: AvailabilityCalendar(bookedDates: [
-            BookedDateRange(start: _d(0), end: _d(0), status: 'branch_closed'),
-            BookedDateRange(start: _d(1), end: _d(1), status: 'confirmed'),
+          child: AvailabilityCalendar(showMonth: m, bookedDates: [
+            BookedDateRange(start: day(10), end: day(10), status: 'branch_closed'),
+            BookedDateRange(start: day(11), end: day(11), status: 'confirmed'),
+            BookedDateRange(start: day(12), end: day(12), status: 'pending'),
           ]),
         ),
         size: const Size(360, 1400));
     await t.pump();
-    expect(t.widget<TripDayCell>(_cell(_d(0))).state.kind, TripDayKind.closed);
-    if (_d(1).month == _d(0).month) expect(t.widget<TripDayCell>(_cell(_d(1))).state.kind, TripDayKind.busy);
-    // Busy = the hatch; closed = its own plain slate swatch.
+    expect([for (final d in [10, 11, 12]) t.widget<TripDayCell>(_cell(day(d))).state.kind],
+        [TripDayKind.closed, TripDayKind.busy, TripDayKind.pending], reason: 'the kinds stay for the tap rules');
     expect(find.byKey(const ValueKey('trip-legend-busy-hatch')), findsOneWidget);
-    final sw = t.widget<Container>(find.byKey(const ValueKey('trip-legend-closed')));
-    expect((sw.decoration as BoxDecoration).color, MgColors.closedCell);
-    expect(MgColors.closedCell, isNot(MgColors.hatchA));
     expect(find.text(_cs('v2CalLegBusy')), findsOneWidget);
+    expect(find.text(_cs('calLegClosed')), findsNothing);
+    expect(find.text(_cs('v2CalLegPending')), findsNothing);
   });
 
   group('plural of the count lines (FR-04)', () {

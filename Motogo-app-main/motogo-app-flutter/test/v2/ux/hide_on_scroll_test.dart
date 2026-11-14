@@ -231,11 +231,12 @@ void main() {
     final banner = find.byType(MgTopBanner);
     expect(banner, findsOneWidget);
     final open = t.getSize(banner).height;
-    expect(open, 47 + MgTopBanner.height);
+    // The line + its hairline (5.0.1) under the status bar.
+    expect(open, 47 + MgTopBanner.height + MgTopBanner.hairline);
     await t.drag(find.byKey(const ValueKey('long')), const Offset(0, -300));
     await settleChrome(t);
     expect(t.widget<MgTopBanner>(banner).folded, isTrue);
-    expect(t.getSize(banner).height, 47, reason: 'only the status-bar strip');
+    expect(t.getSize(banner).height, 47, reason: 'only the status-bar strip (the hairline folds too)');
     await t.drag(find.byKey(const ValueKey('long')), const Offset(0, 60));
     await settleChrome(t);
     expect(t.getSize(banner).height, open);

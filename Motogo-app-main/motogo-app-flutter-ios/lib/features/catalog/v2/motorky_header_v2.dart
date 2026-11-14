@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/banner_provider.dart';
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/rank/rank_hero.dart';
 import '../../../core/v2/shell/mg_origin_chip.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -17,11 +14,10 @@ import 'catalog_mode_switch_v2.dart';
 /// header's controls (owner 2026-11-07 "jen upgrade vzhledu"): the always
 /// visible back (tab root → Domů, as `MgBackArrow` there) and the title (no
 /// profile button: it doubled the Profil tab, owner 2026-11-14), then the
-/// calculator mode
-/// switch (V21 #2) and the CMS banner as its last line (the v2 shell does
-/// not draw the banner on `/search`). The dates, the filter panel and the
+/// calculator mode switch (V21 #2). The Velín banner is the shell's band
+/// above it (5.0.1, as on every page). The dates, the filter panel and the
 /// count are in the page (inline, as on the old screen), not here.
-class MotorkyHeaderV2 extends ConsumerWidget {
+class MotorkyHeaderV2 extends StatelessWidget {
   final CatalogMode mode;
   final ValueChanged<CatalogMode> onMode;
   final VoidCallback onBack;
@@ -34,9 +30,8 @@ class MotorkyHeaderV2 extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final tr = t(context);
-    final banner = ref.watch(bannerProvider).valueOrNull;
     return MgRankHero(
       ambientKey: 'motorky',
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -58,28 +53,6 @@ class MotorkyHeaderV2 extends ConsumerWidget {
         ]),
         const SizedBox(height: 12),
         CatalogModeSwitchV2(mode: mode, onChanged: onMode),
-        if (banner != null && banner.enabled && banner.text.trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
-          // G-350: Velín colours as the old ShellHeaderBanner strip.
-          Container(
-            key: const ValueKey('motorky-banner-strip'),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: banner.bg, borderRadius: BorderRadius.circular(8)),
-            child: Semantics(
-              liveRegion: false,
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                MgIcon(MgIcons.info, size: 18, color: banner.color),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(banner.text,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: banner.color)),
-                ),
-              ]),
-            ),
-          ),
-        ],
       ]),
     );
   }

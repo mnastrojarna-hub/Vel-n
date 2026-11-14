@@ -11,6 +11,7 @@ import 'package:motogo_app/core/v2/chrome/mg_chrome_lift.dart';
 import 'package:motogo_app/core/v2/chrome/mg_hide_on_scroll.dart';
 import 'package:motogo_app/core/v2/chrome/mg_nav_band.dart';
 import 'package:motogo_app/core/v2/chrome/mg_to_top.dart';
+import 'package:motogo_app/core/v2/chrome/mg_top_banner.dart';
 import 'package:motogo_app/core/v2/gestures/mg_zone_snap.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/catalog/v2/bike_screen_list_v2.dart';
@@ -19,6 +20,7 @@ import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 
 import '../screens/home_test.dart' show homeCases;
 import '../support/bars_harness.dart';
+import '../support/fake_banner.dart' show kLiveBanner;
 import '../support/v2_harness.dart';
 
 ScrollPosition _pos(WidgetTester t, Type screen) =>
@@ -118,6 +120,32 @@ void main() {
     expect(navFolded(t), isFalse);
     final k = find.byKey(k2).evaluate().isNotEmpty ? k2 : key;
     expect(_cta(t, k).bottom, lessThanOrEqualTo(_navTop(t) + 0.5));
+    await _drain(t);
+  });
+
+  // 5.0.1: the Velín banner band is on Motorky too; its shown line pushes
+  // the body down, so the caption rides up by it as well (MgChromeScope.topFold).
+  testWidgets('Motorky + Velín banner: caption above the nav with the bars shown, at the foot when folded', (t) async {
+    await pumpBarsShell(t, '/search', _search, banner: kLiveBanner);
+    await t.pump(const Duration(milliseconds: 500));
+    expect(find.byType(MgTopBanner), findsOneWidget);
+    final z = _zone(t);
+    final ids = _ids(t);
+    final pos = _pos(t, MotorkyScreenV2);
+    pos.jumpTo(z.offsetOf(1));
+    await _settle(t);
+    final key = ValueKey('mc-${ids[1]}');
+    expect(navFolded(t), isFalse);
+    expect(t.getSize(find.byKey(key)).height, 844 - 34 - 47);
+    expect(_caption(t, key).bottom, lessThanOrEqualTo(_navTop(t) + 0.5), reason: 'caption never under the nav');
+    expect(_cta(t, key).bottom, lessThanOrEqualTo(_navTop(t)));
+    // Folded (a user drag onto bike 2): the band line folds, the card IS the body.
+    await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.65));
+    await _settle(t);
+    expect(navFolded(t), isTrue);
+    final k2 = ValueKey('mc-${ids[2]}');
+    expect(t.getRect(find.byKey(k2)).top, moreOrLessEquals(47, epsilon: 1));
+    expect(_caption(t, k2).bottom, moreOrLessEquals(844 - 34, epsilon: 0.5));
     await _drain(t);
   });
 

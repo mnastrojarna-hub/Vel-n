@@ -1,5 +1,5 @@
 // 5.0.1 final repair: Motorky calendar says why every day is struck through
-// in winter (+ "Zavřeno" in the legend, jump to the first free day); the
+// in winter ("Obsazeno" in the legend, jump to the first free day); the
 // closed days follow the bikes Motorky lists; Home "Vybrat jiný termín"
 // opens the filter card; the AI hint times out only once seen; the Home
 // offer narrows by a branch like the list; the branch chip keeps the mode
@@ -61,7 +61,7 @@ void main() {
     });
   });
 
-  testWidgets('Motorky calendar in winter: why + "Přejít na" + "Zavřeno" (FV-01)', (t) async {
+  testWidgets('Motorky calendar in winter: why + "Přejít na" + "Obsazeno" (FV-01, step H)', (t) async {
     final closed = [BookedDateRange(start: _d(0), end: _d(130), status: 'branch_closed')];
     await pumpV2(
       t,
@@ -72,9 +72,10 @@ void main() {
     final next = _d(131);
     expect(find.byKey(const ValueKey('motorky-closed-row')), findsOneWidget);
     expect(find.textContaining(_cs('motoCalClosedFreeFrom').split('{').first.trim()), findsOneWidget);
-    // Own plain swatch, not the taken-day hatch (5.0.1 FR-05).
-    expect(find.byKey(const ValueKey('trip-legend-closed')), findsOneWidget);
-    expect(find.text(_cs('calLegClosed')), findsOneWidget);
+    // Closed = "Obsazeno" for the customer (owner 2026-11-14): the hatch.
+    expect(find.byKey(const ValueKey('trip-legend-busy-hatch')), findsOneWidget);
+    expect(find.text(_cs('v2CalLegBusy')), findsOneWidget);
+    expect(find.text(_cs('calLegClosed')), findsNothing);
     final jump = find.textContaining(_cs('homeSheetJumpTo').split('{').first.trim());
     expect(jump, findsOneWidget, reason: 'the first free day is months away');
     await t.ensureVisible(jump);
@@ -88,13 +89,15 @@ void main() {
     expect(jump, findsNothing);
   });
 
-  testWidgets('no closed day: no row, no "Zavřeno" in the legend', (t) async {
+  testWidgets('no closed day: no row, the same legend', (t) async {
     await pumpV2(t, const SingleChildScrollView(child: MotorkyDatesCardV2()),
         overrides: [motorkyClosedDaysProvider.overrideWithValue(const [])]);
     await t.pump();
     expect(find.byKey(const ValueKey('motorky-closed-row')), findsNothing);
     expect(find.text(_cs('calLegClosed')), findsNothing);
     expect(find.byType(TripLegend), findsOneWidget);
+    expect(t.widget<TripLegend>(find.byType(TripLegend)).items,
+        [TripLegendKind.free, TripLegendKind.yours, TripLegendKind.busy]);
   });
 
   testWidgets('Home "Vybrat jiný termín" request opens the folded filter card (FS-01)', (t) async {

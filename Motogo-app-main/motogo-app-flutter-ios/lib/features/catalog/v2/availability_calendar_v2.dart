@@ -38,20 +38,13 @@ class AvailabilityCalendarV2View extends StatelessWidget {
   final DateTime? blockedDay;
   final int blockedTry;
 
-  /// Days every branch is closed are drawn (`branch_closed`): the legend
-  /// gets "Zavřeno" (5.0.1 FV-01) — its own cell tone, not the taken-day
-  /// hatch (FR-05).
-  final bool closedLegend;
+  /// Days every branch is closed (`branch_closed`): their own kind for the
+  /// owner, drawn "Obsazeno" like every not-free day (5.0.1 step H).
   final bool Function(DateTime)? isClosed;
-
-  /// "Obsazeno" in the legend (off = no bookings drawn, FR-05).
-  final bool legendBusy;
 
   const AvailabilityCalendarV2View({
     this.dayPrices,
-    this.closedLegend = false,
     this.isClosed,
-    this.legendBusy = true,
     this.blockedDay,
     this.blockedTry = 0,
     super.key,
@@ -157,16 +150,9 @@ class AvailabilityCalendarV2View extends StatelessWidget {
                 title: tr.trArgs('v2UxCbRangeBusy', {'date': tripShortDate(tr, blockedDay!)}),
               ),
             ),
-      legend: showLegend
-          // Hatched swatch: the taken cells are hatched too.
-          ? TripLegend(hatchBusy: true, items: [
-              TripLegendKind.free,
-              TripLegendKind.yours,
-              if (legendBusy) TripLegendKind.busy,
-              TripLegendKind.pending,
-              if (closedLegend) TripLegendKind.closed,
-            ])
-          : null,
+      // Only "Volno" / "Tvůj termín" / "Obsazeno" (5.0.1 step H); hatched
+      // swatch: every not-free cell is hatched too.
+      legend: showLegend ? const TripLegend(hatchBusy: true) : null,
       note: !_hasPrices
           ? (helper == null ? null : TripCalendarNote(helper))
           : Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [

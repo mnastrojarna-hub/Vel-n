@@ -33,6 +33,11 @@ import 'journey_states.dart';
 /// MG_W / MG_H (dp) pick another phone size (default 360x780).
 final kJourneySize = Size(double.parse(Platform.environment['MG_W'] ?? '360'), double.parse(Platform.environment['MG_H'] ?? '780'));
 
+/// MG_TOP (dp) = status-bar height (default 0); MG_JOURNEY_BANNER=live =
+/// the live Velín banner (`test/v2/support/fake_banner.dart`), else none.
+final kJourneyTop = double.parse(Platform.environment['MG_TOP'] ?? '0');
+final kJourneyBanner = Platform.environment['MG_JOURNEY_BANNER'] == 'live';
+
 bool _iconsTried = false;
 
 /// Material icons from the Flutter SDK cache (the test font draws boxes).
@@ -151,9 +156,11 @@ class JourneyRig {
     await tester.runAsync(() => journeySetLoggedIn(data.loggedIn));
     tester.view.physicalSize = kJourneySize * 2;
     tester.view.devicePixelRatio = 2;
+    if (kJourneyTop > 0) tester.view.padding = FakeViewPadding(top: kJourneyTop * 2);
     addTearDown(tester.view.reset);
     final key = GlobalKey();
-    await tester.pumpWidget(ProviderScope(overrides: journeyOverrides(data, v2: v2), child: _JourneyApp(boundary: key, motion: motion)));
+    await tester.pumpWidget(ProviderScope(
+        overrides: journeyOverrides(data, v2: v2, banner: kJourneyBanner), child: _JourneyApp(boundary: key, motion: motion)));
     // Semantics on: the step log names what a tap hit (its label).
     final rig = JourneyRig._(tester, data, key, tester.ensureSemantics(), v2, motion);
     await rig.settle();

@@ -157,8 +157,9 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
     final path = Uri.tryParse(location)?.path ?? location;
     final banner = ref.watch(bannerProvider);
     final bannerVisible = banner.valueOrNull != null && banner.valueOrNull!.enabled;
-    // `/` a `/search` mají banner jako poslední řádek své v2 hlavičky.
-    final topBanner = bannerVisible && banner.valueOrNull!.text.trim().isNotEmpty && path != '/' && path != '/search';
+    // 5.0.1: banner z Velínu = první věc nahoře na KAŽDÉ stránce (i Domů
+    // a Motorky), jako na webu.
+    final topBanner = bannerVisible && banner.valueOrNull!.text.trim().isNotEmpty;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     // As the old AppShell: the nav on every shell route, hidden only while
     // the keyboard is open.
@@ -209,10 +210,11 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
             navVisible: !navHidden,
             fabVisible: !fabHidden,
             foldedViewport: outer.size.height - (navHidden ? 0 : outer.padding.bottom) - (topBanner ? outer.padding.top : 0),
+            topFold: topBanner ? MgTopBanner.height + MgTopBanner.hairline : 0,
             child: Stack(children: [
               Column(children: [
                 // v2 jednořádkový banner (marquee; při omezení pohybu statický
-                // řádek, klepnutí = celý text) — stejný jako v hlavičce Domů.
+                // řádek, klepnutí = celý text) hned pod stavovým řádkem.
                 if (topBanner)
                   MgTopBanner(
                       text: banner.valueOrNull!.text,

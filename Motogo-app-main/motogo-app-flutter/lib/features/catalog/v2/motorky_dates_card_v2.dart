@@ -153,10 +153,8 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
           AvailabilityCalendar(
             showMonth: _jump,
             onMonthShown: _onShown,
-            // Days every branch is closed: drawn as not free (VR-03); no
-            // bike's bookings here → no "Obsazeno" in the legend (FR-05).
+            // Days every branch is closed: drawn "Obsazeno" (VR-03, step H).
             bookedDates: closed,
-            legendBusy: false,
             onRangeSelected: (s, e) {
               setState(() => _pickingStart = true);
               catSetDates(ref, s, e);

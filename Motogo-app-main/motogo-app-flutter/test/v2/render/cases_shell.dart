@@ -1,7 +1,7 @@
 // verify:render cases — the v2 shell with REAL tab screens in a GoRouter:
 // 5-tab nav (Profil label in every language), floating AI button vs CTAs
 // / strips / nav, payment + SOS status strips, Rezervace dot, Profil
-// badge, top banner on non-Home tabs.
+// badge, the Velín banner band at the top (every tab, Domů too since 5.0.1).
 import 'dart:async';
 
 import 'package:flutter/material.dart';

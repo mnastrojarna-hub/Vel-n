@@ -78,11 +78,10 @@ class TripWeekdays extends StatelessWidget {
   }
 }
 
-/// Legend entry kinds.
-/// [closed] = days every branch is closed (`branch_closed`, 5.0.1): its own
-/// plain slate swatch (the closed cell's tone, FR-05) — never the hatch of
-/// a taken day.
-enum TripLegendKind { free, yours, busy, pending, other, added, removed, closed }
+/// Legend entry kinds — the customer's only looks (owner 2026-11-14, 5.0.1
+/// step H): "Volno", the selection, "Obsazeno" (every not-free day) and,
+/// only in the reservation edit, the red days that leave the booking.
+enum TripLegendKind { free, yours, busy, removed }
 
 /// Legend under the grid (12.5/600, 14 px swatches). Pass only the kinds
 /// that occur.
@@ -95,7 +94,7 @@ class TripLegend extends StatelessWidget {
   final bool hatchBusy;
   const TripLegend({
     super.key,
-    this.items = const [TripLegendKind.free, TripLegendKind.yours, TripLegendKind.busy, TripLegendKind.pending],
+    this.items = const [TripLegendKind.free, TripLegendKind.yours, TripLegendKind.busy],
     this.skin = TripSkin.light,
     this.hatchBusy = false,
   });
@@ -108,23 +107,15 @@ class TripLegend extends StatelessWidget {
           TripLegendKind.free => 'v2CalLegFree',
           TripLegendKind.yours => 'v2CalLegYours',
           TripLegendKind.busy => 'v2CalLegBusy',
-          TripLegendKind.pending => 'v2CalLegPending',
-          TripLegendKind.other => 'v2CalLegOther',
-          TripLegendKind.added => 'v2CalLegAdded',
           TripLegendKind.removed => 'v2CalLegRemoved',
-          TripLegendKind.closed => 'calLegClosed',
         });
     Widget swatch(TripLegendKind k) {
       final (Color fill, Color border) = switch (k) {
         TripLegendKind.free => (dark ? MgColors.white(0.08) : MgColors.surface, dark ? MgColors.white(0.2) : MgColors.line),
         TripLegendKind.yours => (MgColors.calBand, dark ? MgColors.calBand : MgColors.calContour),
         TripLegendKind.busy => (dark ? MgColors.white(0.10) : MgColors.hatchA, dark ? MgColors.white(0.2) : MgColors.line),
-        TripLegendKind.pending => (const Color(0x00000000), dark ? MgColors.warnDark : MgColors.pending),
-        TripLegendKind.other => (dark ? MgColors.warnDarkBg : MgColors.warnBg, MgColors.warnBorder),
-        TripLegendKind.added => (MgColors.calBand, MgColors.calContour),
-        TripLegendKind.removed => (const Color(0x00000000), MgColors.err),
-        TripLegendKind.closed =>
-          (dark ? MgColors.closedCellDark : MgColors.closedCell, dark ? MgColors.white(0.2) : MgColors.closedBorder),
+        // The removed day's red box (`TripDayCell`).
+        TripLegendKind.removed => (dark ? MgColors.errDarkBg : MgColors.errBg, dark ? MgColors.errDark : MgColors.err),
       };
       if (k == TripLegendKind.busy && hatchBusy) {
         return CustomPaint(
@@ -134,7 +125,7 @@ class TripLegend extends StatelessWidget {
         );
       }
       return Container(
-        key: k == TripLegendKind.closed ? const ValueKey('trip-legend-closed') : null,
+        key: ValueKey('trip-legend-${k.name}'),
         width: 14,
         height: 14,
         decoration: BoxDecoration(
@@ -142,10 +133,6 @@ class TripLegend extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: border, width: 1.5),
         ),
-        // Ikona, ne text: '+' v písmu přetékal 14px čtvereček při větším písmu.
-        child: k == TripLegendKind.added
-            ? const Center(child: MgIcon(MgIcons.plus, size: 10, color: MgColors.onNeon, stroke: 2.6))
-            : null,
       );
     }
 

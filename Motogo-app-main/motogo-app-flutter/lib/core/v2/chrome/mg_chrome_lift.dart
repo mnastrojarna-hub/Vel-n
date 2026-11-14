@@ -13,7 +13,8 @@ import 'mg_hide_on_scroll.dart';
 /// is unfolded (64) its foot is under / below the nav. [child] rides up by
 /// the bottom chrome that covers the card's foot — the unfolded nav, the
 /// status strips and [extra] (a button slot shown only with the bars, e.g.
-/// Domů's scroll-to-top) — in step with the nav (`MgMotion.sticky` +
+/// Domů's scroll-to-top) — and by the shown banner line that pushes the
+/// body down (`MgChromeScope.topFold`, 5.0.1) — in step with the nav (`MgMotion.sticky` +
 /// emphasized, instant under reduced motion), and only as far as the card
 /// has [room] ([room] = the card's height): a card grown by a very large
 /// text size keeps its layout. [child] = the Stack's non-positioned bottom
@@ -25,12 +26,13 @@ class MgChromeLift extends StatelessWidget {
   final Widget child;
   const MgChromeLift({super.key, required this.room, this.extra = 0, required this.child});
 
-  /// The lift with the bars SHOWN (strips + nav + [extra]; 0 outside the
-  /// shell) — steady while hide-on-scroll animates (5.0.1 FR-06).
+  /// The lift with the bars SHOWN (strips + banner line + nav + [extra];
+  /// 0 outside the shell) — steady while hide-on-scroll animates (5.0.1
+  /// FR-06).
   static double shownLift(BuildContext context, [double extra = 0]) {
     final s = MgChromeScope.maybeOf(context);
     if (s == null) return 0;
-    return s.notifier!.stripsHeight + (s.navVisible ? MgChrome.nav + extra : 0);
+    return s.notifier!.stripsHeight + s.topFold + (s.navVisible ? MgChrome.nav + extra : 0);
   }
 
   @override
@@ -38,8 +40,9 @@ class MgChromeLift extends StatelessWidget {
     final s = MgChromeScope.maybeOf(context);
     var lift = 0.0;
     if (s != null) {
-      final open = s.navVisible && !MgBarsScope.hiddenOf(context);
-      lift = s.notifier!.stripsHeight + (open ? MgChrome.nav + extra : 0);
+      final shown = !MgBarsScope.hiddenOf(context);
+      final open = s.navVisible && shown;
+      lift = s.notifier!.stripsHeight + (shown ? s.topFold : 0) + (open ? MgChrome.nav + extra : 0);
     }
     return TweenAnimationBuilder<double>(
       tween: Tween(end: lift),

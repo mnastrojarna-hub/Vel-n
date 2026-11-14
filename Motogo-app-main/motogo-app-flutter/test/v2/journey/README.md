@@ -115,6 +115,8 @@ shows first differs per run; counts, banners and pills do not.
 | `MG_SHOT_IMG_DIR=<dir>` | real photos: every CachedNetworkImage (MgImage, RouteImage, precache) gets a local file from `<dir>/moto/*.jpg` / `<dir>/route/*.jpg` through an in-memory cache manager (`test/v2/support/shot_images.dart`). Fixture URLs `…/media/shot/moto/07.jpg` (`shotUrl('moto', 7)`) map to that file, URLs listed in `<dir>/manifest.json` to theirs, any other URL to a stable hash pick (route/place-looking URLs from `route/`). Unset = placeholders as before. Also honoured by the render harness. The photos are NOT in the repo; the 5.0.1 set (14 bike + 14 route photos, ≤ 900 px, live public storage) is in the scratchpad folder `v501/img`. |
 | `MG_JOURNEY_VIDEO=wifi\|mobile\|fail` | fake bike video player (`journey_media.dart`): a blue 16:9 frame "TEST VIDEO <file>"; `wifi` = autoplay allowed, `mobile` = play button only, `fail` = every video fails while loading. Unset = the app's own player against mocked channels (no Wi-Fi → play button). |
 | `MG_JOURNEY_MOTION=full` | animations on (default: reduced motion). Autoplay never happens under reduced motion. Steps then take longer (looping animations keep `settle` at its 3 s cap). |
+| `MG_W` / `MG_H` / `MG_TOP` | phone size in dp (default 360×780) and the status-bar height in dp (default 0). |
+| `MG_JOURNEY_BANNER=live` | the Velín banner exactly as it is live (2026-11-14 winter text, `#1a2e22` / `#74FB71`, `test/v2/support/fake_banner.dart`); unset = no banner. |
 
 The header line of `log.txt` names all three (`photos=real video=wifi
 reducedMotion=off`); each step line carries `t=<s>` (fake time since boot).

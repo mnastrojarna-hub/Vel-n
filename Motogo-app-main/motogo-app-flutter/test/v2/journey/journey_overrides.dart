@@ -30,6 +30,7 @@ import 'package:motogo_app/features/routes/places_filter.dart';
 import 'package:motogo_app/features/routes/ride_provider.dart';
 import 'package:motogo_app/features/shop/shop_provider.dart';
 
+import '../support/fake_banner.dart' show liveBannerOverride;
 import '../support/fakes_catalog.dart' as cat;
 import '../support/fakes_home.dart' show kRides;
 import '../support/fakes_profile.dart' show PfDocs, profileOverrides;
@@ -58,7 +59,8 @@ const _card = SavedCard(
 /// Adventure (Mezná, staffed, licence A), Husqvarna 701 SM (Velké Němčice,
 /// self-service, A2/A), Royal Enfield Shotgun 650 (A2, in service = busy
 /// 60 days), Yamaha PW50 (kids' bike).
-List<Override> journeyOverrides(JourneyData d, {bool v2 = true}) {
+/// [banner] = the live Velín banner (`fake_banner.dart`), else none.
+List<Override> journeyOverrides(JourneyData d, {bool v2 = true, bool banner = false}) {
   final list = d.reservations;
   final profile = d.loggedIn ? d.profile : null;
   final level = d.loyalty?.level ?? 1;
@@ -79,7 +81,7 @@ List<Override> journeyOverrides(JourneyData d, {bool v2 = true}) {
     rankArcPctProvider.overrideWithValue(50),
     appV2UiProvider.overrideWith((ref) => AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: v2)),
     paidAfterRestartProvider.overrideWith((ref) async => null),
-    bannerProvider.overrideWithValue(const AsyncData(null)),
+    if (banner) liveBannerOverride() else bannerProvider.overrideWithValue(const AsyncData(null)),
     pendingBookingFabProvider.overrideWith((ref) => Stream.value(d.pending)),
     pendingSosFabProvider.overrideWith((ref) => Stream.value(null)),
     profileProvider.overrideWith((ref) async => profile),

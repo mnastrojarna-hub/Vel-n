@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 
 import '../motion/mg_anim.dart';
@@ -14,6 +12,12 @@ import 'trip_day_state.dart';
 /// identical fill, number colour and weight for start, every middle day and
 /// end — they differ only by the r11 cap; a wrapping row ends / starts r6.
 /// Unselected days draw a 2 px inset box so the grid still looks spaced.
+///
+/// Owner 2026-11-14 (5.0.1 step H): only three looks — free (white box;
+/// weekend a subtle green tone of it), "Obsazeno" (ONE hatched box with a
+/// struck number for EVERY not-free kind; a past day's number is muted)
+/// and, in the reservation edit only, red for days taken off the booking.
+/// Added days are just the band. The owners' tap rules are unchanged.
 class TripDayCell extends StatelessWidget {
   final TripDayState state;
   final bool rowStart;
@@ -47,30 +51,22 @@ class TripDayCell extends StatelessWidget {
 
   bool get _dark => skin == TripSkin.dark;
 
+  /// Red "Ubereš" day of the reservation edit (never on a band day).
+  bool get _removed => !state.isSelected && state.editMark == TripEditMark.removed;
+
   Color get _numberColor {
     if (state.isSelected) return MgColors.onNeon;
-    if (state.editMark == TripEditMark.removed) return MgColors.err;
-    switch (state.kind) {
-      case TripDayKind.past:
-      case TripDayKind.outOfLimit:
-      case TripDayKind.closed:
-      case TripDayKind.loading:
-        return _dark ? MgColors.white(0.36) : MgColors.disabled;
-      case TripDayKind.busy:
-        return _dark ? MgColors.white(0.38) : MgColors.lead;
-      case TripDayKind.yourOther:
-      case TripDayKind.pending:
-        return _dark ? MgColors.warnDark : MgColors.warn;
-      case TripDayKind.free:
-      case TripDayKind.freeWeekend:
-        return _dark ? MgColors.onDark : MgColors.ink;
-    }
+    if (_removed) return _dark ? MgColors.errDark : MgColors.err;
+    if (tripKindFree(state.kind)) return _dark ? MgColors.onDark : MgColors.ink;
+    // "Obsazeno": the taken day's number; a past day the muted one.
+    if (state.kind == TripDayKind.past) return _dark ? MgColors.white(0.36) : MgColors.disabled;
+    return _dark ? MgColors.white(0.38) : MgColors.lead;
   }
 
   @override
   Widget build(BuildContext context) {
     final s = state;
-    final struck = s.kind == TripDayKind.busy || s.editMark == TripEditMark.removed;
+    final struck = !s.isSelected && (_removed || !tripKindFree(s.kind));
     final number = Text(
       '${s.date.day}',
       style: MgType.tab(MgType.calDay.copyWith(
@@ -115,18 +111,10 @@ class TripDayCell extends StatelessWidget {
       ],
     );
     final reduced = MgMotion.reduced(context);
+    // Added days of an edit are just the band (no extra mark, step H).
     Widget painted(double grow) => CustomPaint(
           painter: _DayPainter(s, rowStart, rowEnd, _dark, grow),
-          child: Stack(children: [
-            Positioned.fill(child: Center(child: content)),
-            if (s.editMark == TripEditMark.added)
-              Positioned(
-                top: 3,
-                right: 5,
-                child: Text('+',
-                    style: MgType.micro.copyWith(fontWeight: FontWeight.w900, color: MgColors.onNeon)),
-              ),
-          ]),
+          child: Center(child: content),
         );
     Widget cell;
     if (s.isSelected && !reduced) {
@@ -182,31 +170,20 @@ class _DayPainter extends CustomPainter {
       return;
     }
     final box = RRect.fromRectAndRadius((Offset.zero & size).deflate(2), _cap);
-    switch (s.kind) {
-      case TripDayKind.free:
-      case TripDayKind.freeWeekend:
-      case TripDayKind.loading:
-        final fill = dark
-            ? MgColors.white(0.08)
-            : (s.kind == TripDayKind.freeWeekend ? MgColors.weekendCell : MgColors.surface);
-        canvas.drawRRect(box, Paint()..color = fill);
-        if (!dark) _stroke(canvas, box, MgColors.line, 1);
-      case TripDayKind.busy:
-        _hatch(canvas, box);
-      case TripDayKind.closed:
-        // Branch closed (FR-05): plain slate, unlike the taken-day hatch.
-        canvas.drawRRect(box, Paint()..color = dark ? MgColors.closedCellDark : MgColors.closedCell);
-        if (!dark) _stroke(canvas, box, MgColors.closedBorder, 1);
-      case TripDayKind.yourOther:
-        canvas.drawRRect(box, Paint()..color = dark ? MgColors.warnDarkBg : MgColors.warnBg);
-        _dashed(canvas, box, dark ? MgColors.warnDark.withValues(alpha: 0.75) : MgColors.warnBorder);
-      case TripDayKind.pending:
-        _dashed(canvas, box, dark ? MgColors.warnDark.withValues(alpha: 0.75) : MgColors.pending);
-      case TripDayKind.past:
-      case TripDayKind.outOfLimit:
-        break;
+    if (s.editMark == TripEditMark.removed) {
+      // Red: the day leaves the booking (reservation edit only).
+      canvas.drawRRect(box, Paint()..color = dark ? MgColors.errDarkBg : MgColors.errBg);
+      _stroke(canvas, box.deflate(0.75), dark ? MgColors.errDark : MgColors.err, 1.5);
+    } else if (tripKindFree(s.kind)) {
+      final fill = dark
+          ? MgColors.white(0.08)
+          : (s.kind == TripDayKind.freeWeekend ? MgColors.weekendCell : MgColors.surface);
+      canvas.drawRRect(box, Paint()..color = fill);
+      if (!dark) _stroke(canvas, box, MgColors.line, 1);
+    } else {
+      // "Obsazeno": one look for every not-free kind.
+      _hatch(canvas, box);
     }
-    if (s.editMark == TripEditMark.removed) _dashed(canvas, box, MgColors.err);
     if (s.today) {
       // Neutral (not the green of "Tvůj termín"): today is not a picked day.
       _stroke(canvas, box.deflate(0.75), dark ? MgColors.white(0.75) : MgColors.meta, 1.5);
@@ -268,19 +245,6 @@ class _DayPainter extends CustomPainter {
     }
     canvas.restore();
     if (!dark) _stroke(canvas, box, MgColors.line, 1);
-  }
-
-  void _dashed(Canvas canvas, RRect box, Color c) {
-    final path = Path()..addRRect(box.deflate(0.75));
-    final p = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..color = c;
-    for (final ui.PathMetric m in path.computeMetrics()) {
-      for (double d = 0; d < m.length; d += 7) {
-        canvas.drawPath(m.extractPath(d, d + 4), p);
-      }
-    }
   }
 
   @override

@@ -8,7 +8,8 @@ import 'res_edit_notes_v2.dart';
 /// owns the month, every tap rule (`_onDayTap`: extend / shorten / move,
 /// occupied and past checks with their messages) and the month steps; this
 /// view only maps that state to `TripDayState`s — the resulting range is
-/// one uniform band, added days carry "+", removed days are red dashed.
+/// one uniform band (added days are just band), days that leave the
+/// booking are red — the only calendar with red (5.0.1 step H).
 class EditReservationCalendarV2View extends StatelessWidget {
   final int year;
   final int month;
@@ -59,7 +60,9 @@ class EditReservationCalendarV2View extends StatelessWidget {
             : (d.weekday >= 6 ? TripDayKind.freeWeekend : TripDayKind.free);
     final mark = switch (mode) {
       'extend' when inNew && !inOrig => TripEditMark.added,
-      'shorten' when inOrig && !inNew => TripEditMark.removed,
+      // Red = the day leaves the booking (shortened, or the old days of a
+      // move — owner 2026-11-14); drawing only, the taps stay as they are.
+      'shorten' || 'move' when inOrig && !inNew => TripEditMark.removed,
       _ => TripEditMark.none,
     };
     return TripDayState(
@@ -74,11 +77,10 @@ class EditReservationCalendarV2View extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final legend = switch (mode) {
-      'shorten' => const [TripLegendKind.yours, TripLegendKind.removed, TripLegendKind.busy],
-      'move' => const [TripLegendKind.free, TripLegendKind.yours, TripLegendKind.busy],
-      _ => const [TripLegendKind.yours, TripLegendKind.added, TripLegendKind.busy],
-    };
+    final moved = mode == 'move' && newStart != null && newEnd != null && !tripSameDay(newStart!, origStart);
+    final legend = mode == 'shorten'
+        ? const [TripLegendKind.yours, TripLegendKind.removed, TripLegendKind.busy]
+        : [TripLegendKind.free, TripLegendKind.yours, if (moved) TripLegendKind.removed, TripLegendKind.busy];
     final cal = TripCalendar(
       month: DateTime(year, month),
       dayStateOf: _state,

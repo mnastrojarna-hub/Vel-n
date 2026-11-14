@@ -7,6 +7,8 @@
 // 24 dp status bar, rank 6 and the rank derived from loyalty (level 3:
 // longer rank chip, gear motto): compact preset dates, one-line title,
 // discount-only sub line, greeting beside the chip.
+// 5.0.1 (LS2-01): every case WITH the live Velín banner (the shell's band
+// above the header, support/fake_banner.dart) and WITHOUT it.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -14,9 +16,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:motogo_app/core/banner_provider.dart';
 import 'package:motogo_app/core/feature_flags.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
+import 'package:motogo_app/core/v2/chrome/mg_top_banner.dart';
 import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
@@ -28,6 +32,7 @@ import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_test.dart' show homeCases;
+import 'support/fake_banner.dart';
 import 'support/fakes_home.dart' show mockPathProvider;
 import 'support/fakes_routes_http.dart';
 import 'support/v2_harness.dart';
@@ -60,8 +65,10 @@ void main() {
   ];
   for (final (size, top, rank) in cases) {
     for (final lang in kV2Langs) {
+    for (final banner in [true, false]) {
       final w = size.width.toInt(), h = size.height.toInt();
-      testWidgets('home funnel CTA above the nav · $lang ${w}x$h top $top rank ${rank ?? 'real'}', (tester) async {
+      final b = banner ? 'banner' : 'no banner';
+      testWidgets('home funnel CTA above the nav · $lang ${w}x$h top $top rank ${rank ?? 'real'} · $b', (tester) async {
         tester.view.physicalSize = size * 2;
         tester.view.devicePixelRatio = 2;
         tester.view.padding = FakeViewPadding(top: top * 2);
@@ -74,6 +81,8 @@ void main() {
             appV2UiProvider
                 .overrideWith((ref) => AppV2UiNotifier(fetch: () async => null, autoRefresh: false, initial: true)),
             paidAfterRestartProvider.overrideWith((ref) async => null),
+            // The live banner in the test language (fresh translation).
+            bannerProvider.overrideWith((ref) => AsyncData(banner ? kLiveBanner.forLang(lang) : null)),
           ],
           child: MaterialApp.router(
             debugShowCheckedModeBanner: false,
@@ -102,11 +111,15 @@ void main() {
         expect(cta, findsWidgets, reason: 'funnel CTA ($lang)');
         final ctaBottom = tester.getRect(cta.first).bottom;
         final navTop = tester.getRect(find.byType(V2NavBar)).top;
-        expect(ctaBottom, lessThanOrEqualTo(navTop), reason: 'REZERVOVAT under the nav in $lang ${w}x$h');
+        expect(ctaBottom, lessThanOrEqualTo(navTop), reason: 'REZERVOVAT under the nav in $lang ${w}x$h · $b');
+        // The band is there exactly when a banner is set (and only once).
+        expect(find.byType(MgTopBanner), banner ? findsOneWidget : findsNothing);
+        expect(find.text(kLiveBanner.forLang(lang).text), banner ? findsWidgets : findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(seconds: 1));
       });
+    }
     }
   }
 }
