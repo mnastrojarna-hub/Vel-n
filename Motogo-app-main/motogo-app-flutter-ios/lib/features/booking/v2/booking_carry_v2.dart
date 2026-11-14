@@ -18,8 +18,13 @@ import '../booking_provider.dart' show bookingDraftProvider;
 ///   pouští vždy — kus se při výběru neověřuje znovu, G-207); souhlasy
 ///   VOP/GDPR/zákonného zástupce se potvrzují znovu jako ve starém vzhledu
 ///   (každý vstup = čerstvý draft, G-159/G-228–G-231);
+/// * slevové kódy a poukazy se při novém vstupu (stejná i jiná motorka)
+///   NEpřenášejí — zadávají a ověřují se znovu jako ve starém vzhledu
+///   (majitel 2026-11-14, RGO-2; sleva se počítá jen z `discounts`, takže
+///   bez kódu není ani sleva). Formulář → platba → zpět v jedné návštěvě
+///   tudy nevede, tam kódy zůstávají;
 /// * JINÁ motorka → to, co na motorce nezávisí: čas vyzvednutí a návratu,
-///   poznámka, slevové kódy, „vlastní výbava“, velikosti řidiče. Souhlasy
+///   poznámka, „vlastní výbava“, velikosti řidiče. Souhlasy
 ///   VOP/GDPR se u jiné motorky potvrzují znovu (patří k rezervaci —
 ///   přenos jen po rozhodnutí majitele, r2). Místo předání (přistavení/odvoz i adresa) jen u stejné
 ///   pobočky, doplňky jen u stejné pobočky a stejného typu (dětská /
@@ -47,6 +52,7 @@ BookingDraft carryBookingDraft({
       consentVop: false,
       consentGdpr: false,
       consentKids: false,
+      discounts: const [],
     );
   }
   final pm = prevMoto != null && prevMoto.id == prev.motoId ? prevMoto : null;
@@ -57,7 +63,6 @@ BookingDraft carryBookingDraft({
     pickupTime: () => prev.pickupTime,
     returnTime: () => prev.returnTime,
     notes: () => prev.notes,
-    discounts: List.of(prev.discounts),
     ownGear: prev.ownGear,
     helmetSize: () => rider(prev.helmetSize, fresh.helmetSize),
     glovesSize: () => rider(prev.glovesSize, fresh.glovesSize),

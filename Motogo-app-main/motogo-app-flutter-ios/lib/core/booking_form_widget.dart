@@ -589,6 +589,10 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         noteCtrl: _noteCtrl,
         onUpd: _upd,
         onBack: () => bookingFormBack(context, draft),
+        // Majitel 2026-11-14 (M3-04): seznam motorek (kořen záložky Motorky,
+        // stejný cíl jako ostatní „jiná motorka“); draft zůstává jako při Zpět,
+        // termín nese filtr katalogu (bookingFormShareDates).
+        onPickOtherMoto: () => GoRouter.of(context).go('/search'),
         onOpenCalendar: _openCalendar,
         onDatesSelected: _onDatesSelected,
         onDatesReset: _onDatesReset,

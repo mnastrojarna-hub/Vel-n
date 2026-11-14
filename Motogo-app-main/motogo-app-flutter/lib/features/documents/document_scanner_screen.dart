@@ -630,7 +630,26 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     return keys.any((k) => !done(k));
   }
 
+  /// G-556 / D4 (owner 2026-11-14, both looks): a second "Přeskočit" (or a
+  /// skip together with another trigger) on the last step ran [_finalize]
+  /// twice → documents verified twice. It now runs once: a call while one is
+  /// running or after one finished does nothing; one that threw (nothing
+  /// left the screen) can be started again, as before.
+  bool _finalizeStarted = false;
+
   Future<void> _finalize() async {
+    if (_finalizeStarted) return;
+    _finalizeStarted = true;
+    var finished = false;
+    try {
+      await _finalizeOnce();
+      finished = true;
+    } finally {
+      if (!finished) _finalizeStarted = false;
+    }
+  }
+
+  Future<void> _finalizeOnce() async {
     showMotoGoToast(context,
         icon: '⏳', title: t(context).tr('verifyingDocs'), message: '');
     await Future.delayed(const Duration(milliseconds: 500));

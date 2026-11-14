@@ -25,6 +25,9 @@ import '../../../core/booking_rules.dart';
 import '../../../core/v2/flag/v2_scope.dart';
 import '../v2/res_detail_parts_v2.dart';
 import '../v2/res_detail_hints_v2.dart';
+import '../v2/res_pay_now_v2.dart';
+import '../v2/res_status_v2.dart' show resPayTarget;
+import '../../../core/pending_booking_fab_provider.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
@@ -79,6 +82,14 @@ class ResDetailTabContent extends ConsumerWidget {
     final st = res.displayStatus;
     final sosAsync = ref.watch(sosIncidentsProvider(res.id));
     final sosIncidents = sosAsync.valueOrNull ?? <SosIncident>[];
+    // D2 (v2 only): own „Zaplatit" for the booking the pay strip offers —
+    // primary; „Upravit rezervaci" then outlined. Old look untouched.
+    final pay = MgV2.on(context) ? resPayTarget(res, ref.watch(pendingBookingFabProvider).valueOrNull) : null;
+    final payBtn = [if (pay != null) ...[ResPayNowV2(booking: pay), const SizedBox(height: 8)]];
+    Widget mainBtn(String emoji, String label, VoidCallback onTap) => pay != null
+        ? ResDetailButton.outlined(emoji: emoji, label: label, onTap: onTap)
+        : ResDetailButton.primary(emoji: emoji, label: label, onTap: onTap);
+    Widget editBtn() => mainBtn('✏️', t(context).tr('editReservation'), () => context.push('/reservations/${res.id}/edit'));
 
     return SliverPadding(
       padding: const EdgeInsets.all(16),
@@ -295,22 +306,16 @@ class ResDetailTabContent extends ConsumerWidget {
 
           // ===== CANCELLED — restore button =====
           if (st == ResStatus.cancelled) ...[
-            ResDetailButton.primary(
-              emoji: '🔄',
-              label: t(context).tr('restoreBooking'),
-              onTap: () => onRestoreBooking(context, res),
-            ),
+            ...payBtn,
+            mainBtn('🔄', t(context).tr('restoreBooking'), () => onRestoreBooking(context, res)),
           ],
 
           // ===== ACTIVE ACTIONS (motorka vydaná) =====
           // Jediné tlačítko úprav „Upravit rezervaci“ (dřív tu bylo i duplicitní
           // „Upravit“ — zadání majitele 2026-09-29).
           if (st == ResStatus.aktivni) ...[
-            ResDetailButton.primary(
-              emoji: '✏️',
-              label: t(context).tr('editReservation'),
-              onTap: () => context.push('/reservations/${res.id}/edit'),
-            ),
+            ...payBtn,
+            editBtn(),
             if (res.sosAllowed) ...[
               const SizedBox(height: 8),
               ResDetailButton.sos(
@@ -347,11 +352,8 @@ class ResDetailTabContent extends ConsumerWidget {
           // Vydaná motorka (`aktivni`, i když DB kvůli vratce drží 'reserved')
           // storno nenabízí — cancel_booking_tracked by zrušil i rozjetou jízdu.
           if (st == ResStatus.nadchazejici) ...[
-            ResDetailButton.primary(
-              emoji: '✏️',
-              label: t(context).tr('editReservation'),
-              onTap: () => context.push('/reservations/${res.id}/edit'),
-            ),
+            ...payBtn,
+            editBtn(),
             const SizedBox(height: 8),
             ResDetailButton.danger(
               emoji: '🗑️',

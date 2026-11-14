@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_hero_photo.dart';
@@ -36,6 +37,9 @@ class ReservationCardV2 extends ConsumerWidget {
   /// stub with the glowing CTA; false = white stub (V22 R5.2).
   final bool primary;
 
+  /// D2: the booking the pay strip offers (`resPayTarget`) → own "Zaplatit".
+  final PendingBooking? pay;
+
   const ReservationCardV2({
     super.key,
     required this.reservation,
@@ -44,6 +48,7 @@ class ReservationCardV2 extends ConsumerWidget {
     this.onRestore,
     this.payFlag = ResPayFlag.none,
     this.primary = true,
+    this.pay,
   });
 
   @override
@@ -111,6 +116,7 @@ class ReservationCardV2 extends ConsumerWidget {
             onEdit: onEdit,
             onRestore: onRestore,
             primary: primary,
+            pay: pay,
           ),
         ]),
       ),

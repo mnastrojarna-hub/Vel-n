@@ -15,6 +15,7 @@ import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
 import '../reservation_models.dart';
 import 'res_fit_v2.dart';
+import 'res_pay_now_v2.dart';
 import 'res_status_v2.dart';
 
 /// The ONE card of the list with the dark rank stub (V22 R5.2 — one dark
@@ -49,6 +50,10 @@ class ResCardActionsV2 extends ConsumerWidget {
   final VoidCallback? onRestore;
   final bool primary;
 
+  /// D2: the booking the pay strip offers (`resPayTarget`) → own
+  /// "Zaplatit" CTA on top; every other button stays, as secondary.
+  final PendingBooking? pay;
+
   const ResCardActionsV2({
     super.key,
     required this.reservation,
@@ -56,7 +61,11 @@ class ResCardActionsV2 extends ConsumerWidget {
     this.onEdit,
     this.onRestore,
     this.primary = true,
+    this.pay,
   });
+
+  /// The rank CTA is the card's main button unless "Zaplatit" takes it (D2).
+  bool get _cta => primary && pay == null;
 
   static final _textStyle = MgType.small.copyWith(fontWeight: FontWeight.w800);
 
@@ -83,10 +92,17 @@ class ResCardActionsV2 extends ConsumerWidget {
     final aura = ref.watch(rankTokensProvider).aura;
     // Úzký telefon (320 dp): tlačítka pod sebou na celou šířku, ať se
     // „Wiederherstellen" / „Редагувати" nikdy nedělí uprostřed slova.
-    final strip = LayoutBuilder(builder: (context, c) {
+    Widget strip = LayoutBuilder(builder: (context, c) {
       if (c.maxWidth >= 300 && _fits(context, tr, st, c.maxWidth)) return Row(children: _row(tr, st));
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _stacked(tr, st));
     });
+    if (pay != null) {
+      strip = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        ResPayNowV2(booking: pay!, size: MgCtaSize.sm48),
+        const SizedBox(height: 8),
+        strip,
+      ]);
+    }
     if (primary) {
       return Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -104,9 +120,11 @@ class ResCardActionsV2 extends ConsumerWidget {
   }
 
   /// Main action: the rank CTA on the dark stub, `btnGhostLight` on white.
-  Widget _main(String label, {bool expand = true}) => primary
+  Widget _main(String label, {bool expand = true}) => _cta
       ? MgCta(label: label, onTap: onTap, size: MgCtaSize.sm48, showMarks: false, expand: expand)
-      : MgBtnGhostLight(label: label, onTap: onTap, height: 48, expand: expand);
+      : primary
+          ? MgBtnGhostDark(label: label, onTap: onTap, height: 48, expand: expand)
+          : MgBtnGhostLight(label: label, onTap: onTap, height: 48, expand: expand);
 
   /// Second action: glass ghost on dark, `btnText` on white.
   Widget _second(String label, VoidCallback onPressed) =>
@@ -144,7 +162,7 @@ class ResCardActionsV2 extends ConsumerWidget {
   bool _fits(BuildContext context, AppTranslations tr, ResStatus st, double width) {
     final cta = MgType.ctaCompact.copyWith(letterSpacing: 0.3);
     const ctaPad = 27.0, ghostPad = 35.0, textPad = 32.0, gap = 8.0;
-    bool mainFits(String l, double w) => primary
+    bool mainFits(String l, double w) => _cta
         ? resWordsFit(context, l.toUpperCase(), cta, w - ctaPad, minScale: 0.8)
         : resWordsFit(context, l, MgType.button, w - ghostPad, minScale: 0.8);
     bool secondFits(String l, double w) => primary
@@ -155,7 +173,7 @@ class ResCardActionsV2 extends ConsumerWidget {
       case ResStatus.aktivni:
         if (reservation.sosAllowed) {
           // Detail na šířku popisku (jeden řádek), Upravit zbytek, SOS 56 dp.
-          final detailW = primary
+          final detailW = _cta
               ? resLineWidth(context, tr.detail.toUpperCase(), cta) + ctaPad
               : resLineWidth(context, tr.detail, MgType.button) + ghostPad;
           if (onEdit == null) return detailW + gap + 56 <= width;

@@ -69,8 +69,9 @@ void main() {
           ['12:00', '18:00', 'Přijedu vlakem', 'Jihlava', 'Masarykovo náměstí 1', null]);
       expect(d.extras.map((x) => x.id), ['extra-spolujezdec', 'extra-boty-ridic']);
       // Souhlasy se potvrzují znovu jako ve starém vzhledu (G-159/G-230).
-      expect([d.helmetSize, d.consentVop, d.consentGdpr, d.consentKids, d.discounts.single.code],
-          ['M', false, false, false, 'POUKAZ500']);
+      expect([d.helmetSize, d.consentVop, d.consentGdpr, d.consentKids], ['M', false, false, false]);
+      // Codes are typed and checked again, as in the old look (RGO-2).
+      expect(d.discounts, isEmpty);
     });
 
     test('same bike, new dates → only the dates move; the trailer piece is released', () {
@@ -90,7 +91,7 @@ void main() {
       // VOP / GDPR belong to the booking — re-confirmed for another bike
       // until the owner decides otherwise (r2).
       expect([d.trailerMotoId, d.consentVop, d.consentGdpr, d.consentKids], [null, false, false, false]);
-      expect(d.discounts.single.code, 'POUKAZ500');
+      expect(d.discounts, isEmpty);
       expect(carryDropsDelivery(filled(), kBmw, kShotgun), isFalse);
     });
 

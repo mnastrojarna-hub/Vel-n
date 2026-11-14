@@ -139,7 +139,9 @@ void _expectKept(BookingDraft d) {
   // Consents are asked again on every entry, as in the old look (G-159).
   expect([d.pickupTime, d.pickupMethod, d.pickupCity, d.notes, d.consentVop, d.consentGdpr],
       ['12:00', 'delivery', 'Jihlava', 'Přijedu vlakem', false, false]);
-  expect(d.discounts.map((x) => x.code), ['JARO10']);
+  // Codes are typed and checked again on every entry, as in the old look
+  // (owner 2026-11-14, RGO-2).
+  expect(d.discounts, isEmpty);
 }
 
 void main() {
@@ -260,7 +262,7 @@ void main() {
     await _unmount(t);
   });
 
-  testWidgets('another bike → time, note and code carried, consents asked again; a confirmed booking starts fresh', (t) async {
+  testWidgets('another bike → time and note carried, code and consents asked again; a confirmed booking starts fresh', (t) async {
     final (_, c) = await _pump(t, '/moto/m-bmw', catalogOverrides(filter: dated, profile: _profile));
     await _tapCta(t);
     c.read(bookingDraftProvider.notifier).state = _fill(c.read(bookingDraftProvider));
@@ -269,6 +271,7 @@ void main() {
     await _settle(t);
     var d = c.read(bookingDraftProvider);
     expect([d.motoId, d.pickupTime, d.notes, d.consentVop, d.pickupMethod], ['m-husq', '12:00', 'Přijedu vlakem', false, 'store']);
+    expect(d.discounts, isEmpty);
     expect(c.read(bookingMotoProvider)?.id, 'm-husq');
     // Paid meanwhile (payment sets lastConfirmedBookingProvider) → the
     // draft belongs to that booking; the next entry starts fresh.

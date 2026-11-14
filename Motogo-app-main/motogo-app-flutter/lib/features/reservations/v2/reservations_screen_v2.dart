@@ -152,6 +152,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
           final card = ReservationCardV2(
             reservation: res,
             payFlag: resPayFlag(res, pending),
+            pay: resPayTarget(res, pending),
             primary: res.id == primaryId,
             onTap: () => context.push('/reservations/${res.id}'),
             onEdit: () => context.push('/reservations/${res.id}/edit'),
