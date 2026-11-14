@@ -15,9 +15,9 @@ import 'trip_day_state.dart';
 ///
 /// Owner 2026-11-14 (5.0.1 step H): only three looks — free (white box;
 /// weekend a subtle green tone of it), "Obsazeno" (ONE hatched box with a
-/// struck, muted number for EVERY not-free kind) and, in the reservation
-/// edit only, red for days taken off the booking. Added days are just the
-/// band. The kinds still drive taps / semantics in their owners.
+/// struck number for EVERY not-free kind; a past day's number is muted)
+/// and, in the reservation edit only, red for days taken off the booking.
+/// Added days are just the band. The owners' tap rules are unchanged.
 class TripDayCell extends StatelessWidget {
   final TripDayState state;
   final bool rowStart;
@@ -58,7 +58,9 @@ class TripDayCell extends StatelessWidget {
     if (state.isSelected) return MgColors.onNeon;
     if (_removed) return _dark ? MgColors.errDark : MgColors.err;
     if (tripKindFree(state.kind)) return _dark ? MgColors.onDark : MgColors.ink;
-    return _dark ? MgColors.calOffNumberDark : MgColors.calOffNumber;
+    // "Obsazeno": the taken day's number; a past day the muted one.
+    if (state.kind == TripDayKind.past) return _dark ? MgColors.white(0.36) : MgColors.disabled;
+    return _dark ? MgColors.white(0.38) : MgColors.lead;
   }
 
   @override

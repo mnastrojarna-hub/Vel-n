@@ -195,7 +195,10 @@ void main() {
     pos.jumpTo(z.offsetOf(0));
     await t.pump();
     final card = find.byKey(ValueKey('home-mc-${ids[0]}'));
-    expect(t.getSize(card).height, 844 - 34);
+    // homeCases s0 has a Velín banner: since 5.0.1 its band is on Domů too
+    // and keeps the status-bar strip (47) when folded → the card is the
+    // folded body below it.
+    expect(t.getSize(card).height, 844 - 34 - 47);
     await t.tap(card, warnIfMissed: false);
     await t.pump();
     await t.pump(const Duration(milliseconds: 600));

@@ -32,16 +32,11 @@ class AvailabilityCalendar extends StatefulWidget {
   /// The month the grid shows (first frame, arrows, [showMonth]).
   final void Function(DateTime month)? onMonthShown;
 
-  /// v2 legend lists "Obsazeno" (off where no bookings are drawn, e.g. a
-  /// date filter that draws only closed days — 5.0.1 FR-05).
-  final bool legendBusy;
-
   const AvailabilityCalendar({
     super.key,
     this.dayPrices,
     this.showMonth,
     this.onMonthShown,
-    this.legendBusy = true,
     this.bookedDates = const [],
     this.selectedStart,
     this.selectedEnd,
@@ -241,8 +236,6 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         onNextMonth: _nextMonth,
         dayPrices: widget.dayPrices,
         isClosed: _isClosed,
-        closedLegend: widget.bookedDates.any((r) => r.status == 'branch_closed'),
-        legendBusy: widget.legendBusy,
         blockedDay: _step == 2 ? _blockedDay : null,
         blockedTry: _blockedTry,
       );

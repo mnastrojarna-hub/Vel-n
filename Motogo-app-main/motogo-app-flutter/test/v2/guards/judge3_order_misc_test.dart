@@ -2,8 +2,8 @@ import 'dart:async';
 
 // RGO-3: safeguards of partition "order" tested as BEHAVIOUR (not only via
 // helpers): G-346 a tap on the highlighted tab inside the booking form keeps
-// the form (AppShellV2._onTab); G-350 Home and Motorky headers draw the
-// Velín banner in its own colours (BannerData.bg / color passed through);
+// the form (AppShellV2._onTab); G-350 Home and Motorky headers leave the
+// Velín banner to the shell band (5.0.1; its colours: order_misc_test);
 // G-154 a rental shorter than the bike's minimum is warned in the detail
 // dock; G-125 the Home bike list shows no "Volná v termínu" while the list
 // for new dates reloads.
@@ -107,25 +107,27 @@ void main() {
     expect(find.text('PAGE /booking'), findsOneWidget);
   });
 
-  testWidgets('G-350: Home header strip in the Velín colours', (t) async {
+  // 5.0.1: Domů and Motorky show the Velín banner as the shell's band (in
+  // the Velín colours: order_misc_test G-350, ux/banner_top_test), so their
+  // headers carry no banner line of their own.
+  testWidgets('G-350: Home header has no banner line (the shell band shows it)', (t) async {
     await _pump(t, '/', [...homeOverrides(), bannerProvider.overrideWithValue(const AsyncData(_banner))],
         home: const SingleChildScrollView(child: HomeHeaderV2()));
-    final strip = t.widget<Container>(find.byKey(const ValueKey('mg-top-banner-strip')));
-    expect((strip.decoration as BoxDecoration).color, _red);
-    expect(t.widgetList<Text>(find.text('Dnes zavřeno')).every((x) => x.style?.color == _white), isTrue);
+    expect(find.byType(HomeHeaderV2), findsOneWidget);
+    expect(find.text('Dnes zavřeno'), findsNothing);
+    expect(find.byKey(const ValueKey('mg-top-banner-strip')), findsNothing);
     await _unmount(t);
   });
 
-  testWidgets('G-350: Motorky header strip in the Velín colours', (t) async {
+  testWidgets('G-350: Motorky header has no banner line (the shell band shows it)', (t) async {
     await pumpV2(
         t,
         SingleChildScrollView(
             child: MotorkyHeaderV2(mode: CatalogMode.find, onMode: (_) {}, onBack: () {})),
         overrides: [...catalogOverrides(), bannerProvider.overrideWithValue(const AsyncData(_banner))]);
     await t.pump(const Duration(milliseconds: 300));
-    final strip = t.widget<Container>(find.byKey(const ValueKey('motorky-banner-strip')));
-    expect((strip.decoration as BoxDecoration).color, _red);
-    expect(t.widget<Text>(find.text('Dnes zavřeno')).style?.color, _white);
+    expect(find.byType(MotorkyHeaderV2), findsOneWidget);
+    expect(find.text('Dnes zavřeno'), findsNothing);
   });
 
   testWidgets('G-154: range shorter than the bike minimum → dock warning (validationMinDays)', (t) async {

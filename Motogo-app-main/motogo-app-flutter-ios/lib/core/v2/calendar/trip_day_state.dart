@@ -4,8 +4,16 @@ import '../../i18n/i18n_provider.dart';
 
 /// What a calendar day IS (DESIGN_V22 §3.3). Decided by the logic owner
 /// (catalog / detail / edit / booking / calculator) — `TripCalendar` only
-/// draws it.
+/// draws it. The customer sees only TWO looks (owner 2026-11-14, 5.0.1
+/// step H): free ([free], [freeWeekend] = a subtle tone of free) and
+/// "Obsazeno" — every other kind (booked, pending, the customer's other
+/// booking, out of limit, closed branch, loading; [past] with a muted
+/// number) is drawn and read the same. The kinds stay distinct for the
+/// owners' tap rules.
 enum TripDayKind { free, freeWeekend, past, busy, yourOther, pending, outOfLimit, closed, loading }
+
+/// Drawn as a free day; every other kind is drawn and read "Obsazeno".
+bool tripKindFree(TripDayKind k) => k == TripDayKind.free || k == TripDayKind.freeWeekend;
 
 /// Where the day sits in the selected range.
 enum TripSel { none, start, mid, end, single }
@@ -47,9 +55,7 @@ class TripDayState {
   bool get isSelected => selected != TripSel.none;
 
   /// Price shows only on free days (and inside the band).
-  bool get showsPrice =>
-      price != null &&
-      (isSelected || kind == TripDayKind.free || kind == TripDayKind.freeWeekend);
+  bool get showsPrice => price != null && (isSelected || tripKindFree(kind));
 
   TripDayState copyWith({
     TripDayKind? kind,
@@ -102,27 +108,12 @@ String tripMonthTitle(AppTranslations tr, DateTime month) =>
     '${tr.tr('v2CalMonth${month.month}')} ${month.year}';
 
 /// Screen-reader label of a day: "pátek 23. 10. 2026, 3 514 Kč, vybráno, vyzvednutí".
+/// Every not-free day reads the one word of the legend, "Obsazeno".
 String tripDayA11y(AppTranslations tr, TripDayState s, {String? currency}) {
   final parts = <String>['${tr.tr('v2CalWdFull${s.date.weekday}')} ${tripDate(tr, s.date)}'];
   if (s.today) parts.add(tr.tr('v2CalToday'));
   if (s.showsPrice) parts.add(currency == null ? s.price! : '${s.price} $currency');
-  switch (s.kind) {
-    case TripDayKind.busy:
-      parts.add(tr.tr('v2CalLegBusy'));
-    case TripDayKind.closed:
-      parts.add(tr.tr('calLegClosed'));
-    case TripDayKind.pending:
-      parts.add(tr.tr('v2CalLegPending'));
-    case TripDayKind.yourOther:
-      parts.add(tr.tr('v2CalLegOther'));
-    case TripDayKind.past:
-    case TripDayKind.outOfLimit:
-    case TripDayKind.loading:
-      parts.add(tr.tr('v2CalUnavailable'));
-    case TripDayKind.free:
-    case TripDayKind.freeWeekend:
-      break;
-  }
+  if (!tripKindFree(s.kind)) parts.add(tr.tr('v2CalLegBusy'));
   if (s.isSelected) parts.add(tr.tr('v2CalSelected'));
   if (s.selected == TripSel.start || s.selected == TripSel.single) parts.add(tr.tr('v2CalPickup'));
   if (s.selected == TripSel.end || (s.selected == TripSel.single && !s.pendingStart)) {

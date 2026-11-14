@@ -111,12 +111,18 @@ class MgChromeScope extends InheritedNotifier<MgShellChrome> {
   /// the "one bike per screen" card height. 0 = unknown.
   final double foldedViewport;
 
+  /// The banner band's line (+ hairline) that folds with the bars (0 = no
+  /// banner): while shown it pushes the body down, so a card as tall as
+  /// [foldedViewport] rides up by it too (`MgChromeLift`, 5.0.1).
+  final double topFold;
+
   const MgChromeScope({
     super.key,
     required MgShellChrome chrome,
     required this.navVisible,
     required this.fabVisible,
     this.foldedViewport = 0,
+    this.topFold = 0,
     required super.child,
   }) : super(notifier: chrome);
 
@@ -132,6 +138,7 @@ class MgChromeScope extends InheritedNotifier<MgShellChrome> {
       oldWidget.navVisible != navVisible ||
       oldWidget.fabVisible != fabVisible ||
       oldWidget.foldedViewport != foldedViewport ||
+      oldWidget.topFold != topFold ||
       super.updateShouldNotify(oldWidget);
 }
 

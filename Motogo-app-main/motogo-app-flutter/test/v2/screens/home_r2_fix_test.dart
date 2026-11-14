@@ -71,7 +71,8 @@ void main() {
     await _end(t);
   });
 
-  testWidgets('header = the old one ("jen vzhled"): no concierge / unread note, pilot + search, banner last', (t) async {
+  // 5.0.1: the Velín banner is the shell's band above the header (banner_top_test), never a header line.
+  testWidgets('header = the old one ("jen vzhled"): no concierge / unread note, pilot + search, no banner line', (t) async {
     final msg = _s('cs', 'v2HomeNoteMsg').split('{title}').first.trim();
     final idle = _s('cs', 'v2HomeNoteIdle');
     for (final banner in [true, false]) {
@@ -81,7 +82,7 @@ void main() {
       expect(find.text(idle), findsNothing);
       expect(find.text('PILOT: Jan'), findsOneWidget);
       expect(find.byKey(const ValueKey('home-search')), findsOneWidget);
-      expect(find.textContaining('zavřeno'), banner ? findsWidgets : findsNothing);
+      expect(find.textContaining('zavřeno'), findsNothing);
       expect(t.takeException(), isNull);
       await _end(t);
     }

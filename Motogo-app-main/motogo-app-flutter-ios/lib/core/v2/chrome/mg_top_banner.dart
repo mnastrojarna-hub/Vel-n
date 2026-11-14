@@ -23,7 +23,9 @@ import 'mg_status_bar.dart';
 /// [bg] / [fg] = the colours chosen in Velín (`BannerData.bg/color`, as the
 /// old `ShellHeaderBanner`, G-350): the band is painted in [bg], an inline
 /// row gets a rounded [bg] strip; the text and icon use [fg]. null = neon
-/// on night.
+/// on night. The band ends with a [hairline] in [fg] (5.0.1): a dark header
+/// right under it never blends with a dark Velín colour; it folds with the
+/// line.
 class MgTopBanner extends StatelessWidget {
   final String text;
   final bool band;
@@ -33,6 +35,9 @@ class MgTopBanner extends StatelessWidget {
   const MgTopBanner({super.key, required this.text, this.band = false, this.folded = false, this.bg, this.fg});
 
   static const double height = 28;
+
+  /// The band's bottom line in the text colour (band only).
+  static const double hairline = 1;
 
   void _open(BuildContext context) {
     final tr = t(context);
@@ -79,8 +84,20 @@ class MgTopBanner extends StatelessWidget {
       dark: fill.computeLuminance() < 0.5,
       child: Container(
         color: fill,
-        padding: EdgeInsets.fromLTRB(16, top, 16, 0),
-        child: MgStickySlide(visible: !folded, from: AxisDirection.up, collapse: true, child: line),
+        padding: EdgeInsets.only(top: top),
+        child: MgStickySlide(
+          visible: !folded,
+          from: AxisDirection.up,
+          collapse: true,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: line),
+            ColoredBox(
+              key: const ValueKey('mg-top-banner-hairline'),
+              color: fg ?? MgColors.neon,
+              child: const SizedBox(height: hairline),
+            ),
+          ]),
+        ),
       ),
     );
   }

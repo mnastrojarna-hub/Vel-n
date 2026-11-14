@@ -6,12 +6,13 @@ import '../../i18n/i18n_provider.dart';
 /// (catalog / detail / edit / booking / calculator) — `TripCalendar` only
 /// draws it. The customer sees only TWO looks (owner 2026-11-14, 5.0.1
 /// step H): free ([free], [freeWeekend] = a subtle tone of free) and
-/// "Obsazeno" — every other kind (past, booked, pending, the customer's
-/// other booking, out of limit, closed branch, loading) is drawn and read
-/// the same. The kinds stay distinct for the owners' tap rules.
+/// "Obsazeno" — every other kind (booked, pending, the customer's other
+/// booking, out of limit, closed branch, loading; [past] with a muted
+/// number) is drawn and read the same. The kinds stay distinct for the
+/// owners' tap rules.
 enum TripDayKind { free, freeWeekend, past, busy, yourOther, pending, outOfLimit, closed, loading }
 
-/// The day can be booked as far as the customer is shown (not "Obsazeno").
+/// Drawn as a free day; every other kind is drawn and read "Obsazeno".
 bool tripKindFree(TripDayKind k) => k == TripDayKind.free || k == TripDayKind.freeWeekend;
 
 /// Where the day sits in the selected range.

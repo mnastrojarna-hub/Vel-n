@@ -17,9 +17,10 @@ double homeFunnelPhotoGuess(BuildContext context) {
 /// above the card's bottom edge) still ends [gap] above the bottom of the
 /// scroll view (= above the bottom menu). Measured only while the page is
 /// at its top — scrolling or the hide-on-scroll menu never resize it.
-/// Re-checked after every frame (LS1-01): content above the card that lands
-/// later (the Velín banner, a longer nickname) moves the card, and the
-/// photo then gives that room back. The check never schedules a frame.
+/// Re-checked after every frame (LS1-01): content that lands later (the
+/// Velín banner band of the shell shortens the scroll view, a longer
+/// nickname moves the card) takes room, and the photo then gives that room
+/// back. The check never schedules a frame.
 class FunnelPhotoFit extends StatefulWidget {
   final Widget Function(BuildContext context, double photoH) builder;
   final double bottomPad;

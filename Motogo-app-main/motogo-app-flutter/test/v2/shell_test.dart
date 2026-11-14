@@ -16,6 +16,7 @@ import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/pending_sos_fab_provider.dart';
 import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/chrome/mg_status_strip.dart';
+import 'package:motogo_app/core/v2/chrome/mg_top_banner.dart';
 import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/motion/mg_sticky_slide.dart';
@@ -186,12 +187,22 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('banner: shown on other tab roots, left to the v2 header on / and /search', (tester) async {
+  testWidgets('banner: the band at the top of every tab root, Domů and Motorky included (5.0.1)', (tester) async {
     await _pump(tester, '/', banner: true);
-    expect(find.text('Sezóna 2027 začíná'), findsNothing);
-    await tester.tap(find.text('Rezervace'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Sezóna 2027 začíná'), findsWidgets);
+    for (final tab in ['Motorky', 'Rezervace', 'Trasy', 'Profil', 'Domů']) {
+      expect(find.byType(MgTopBanner), findsOneWidget);
+      expect(tester.getTopLeft(find.byType(MgTopBanner)).dy, 0);
+      expect(find.text('Sezóna 2027 začíná'), findsWidgets);
+      await tester.tap(find.descendant(of: find.byType(V2NavBar), matching: find.text(tab)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(find.byType(MgTopBanner), findsOneWidget);
+  });
+
+  testWidgets('banner: none set → no band, the page starts at the top', (tester) async {
+    await _pump(tester, '/');
+    expect(find.byType(MgTopBanner), findsNothing);
+    expect(tester.getTopLeft(find.ancestor(of: find.text('PAGE /'), matching: find.byType(Scaffold)).first).dy, 0);
   });
 }
