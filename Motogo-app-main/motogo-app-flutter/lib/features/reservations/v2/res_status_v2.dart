@@ -47,6 +47,11 @@ ResPayFlag resPayFlag(Reservation r, PendingBooking? p) {
   return p.verifying ? ResPayFlag.verifying : ResPayFlag.unpaid;
 }
 
+/// D2 (owner 2026-11-14): the booking the shell pay strip offers to pay,
+/// when it is THIS one — the same provider and the same rule as the strip
+/// ([resPayFlag] unpaid); null = no own "Zaplatit" button.
+PendingBooking? resPayTarget(Reservation r, PendingBooking? p) => resPayFlag(r, p) == ResPayFlag.unpaid ? p : null;
+
 /// Status pill over a photo (V22 `.stp` / `.ls-pl`): active = dark pill
 /// with a live neon dot, upcoming = neon, completed / cancelled = white.
 class ResStatusPill extends StatelessWidget {

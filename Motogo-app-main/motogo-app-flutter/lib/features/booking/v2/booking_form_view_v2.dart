@@ -67,6 +67,10 @@ class BookingFormV2View extends StatefulWidget {
   final TextEditingController noteCtrl;
   final void Function(BookingDraft Function(BookingDraft)) onUpd;
   final VoidCallback onBack;
+
+  /// "Vybrat jinou motorku" on the licence card: the bike list (owner
+  /// 2026-11-14, M3-04). null = [onBack] (views pumped without a form).
+  final VoidCallback? onPickOtherMoto;
   final VoidCallback onOpenCalendar;
   final void Function(DateTime, DateTime) onDatesSelected;
   final VoidCallback onDatesReset;
@@ -108,6 +112,7 @@ class BookingFormV2View extends StatefulWidget {
     required this.noteCtrl,
     required this.onUpd,
     required this.onBack,
+    this.onPickOtherMoto,
     required this.onOpenCalendar,
     required this.onDatesSelected,
     required this.onDatesReset,
@@ -177,7 +182,7 @@ class _BookingFormV2ViewState extends State<BookingFormV2View> {
         // the red card no longer points only to "another bike".
         BookingErrKind.licence => [
             (tr.tr('completeProfileBtn'), widget.onCompleteProfile),
-            (tr.tr('pdPickOtherMoto'), widget.onBack),
+            (tr.tr('pdPickOtherMoto'), widget.onPickOtherMoto ?? widget.onBack),
           ],
         BookingErrKind.dates => [(tr.tr('psChangeDates'), _openDates)],
         BookingErrKind.time => _noTimeLeft
