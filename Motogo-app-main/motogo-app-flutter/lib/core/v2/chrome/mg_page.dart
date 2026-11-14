@@ -10,6 +10,7 @@ import 'mg_chrome_metrics.dart';
 import 'mg_hide_on_scroll.dart';
 import 'mg_pinned_back.dart';
 import 'mg_status_bar.dart';
+import 'mg_to_top.dart';
 
 export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 
@@ -39,7 +40,12 @@ export 'mg_pinned_back.dart' show MgPinnedBack, MgPinnedScope;
 /// together with [pinnedBack]. Hide-on-scroll (owner 2026-11-08): the
 /// pinned back / bar fold away while the content scrolls down
 /// (`MgBarsScope` of the v2 shell; a page outside the shell listens to its
-/// own scroll). [snap] = a "one per screen" zone the scroll settles on.
+/// own scroll). [snap] = a "one per screen" zone the scroll settles on;
+/// one swipe moves one of its items (`MgZoneSnapPhysics` + the page's
+/// `MgSwipeAnchorListener`). [toTop] (opt-in, v5.0.1) = the round
+/// "back to the top" arrow bottom-right (`MgToTopLayer`): shown once the
+/// first item is left, one tap = the same animated scroll as a tab
+/// re-tap; [toTopShown] reports when it shows (lift what it would cover).
 class MgPage extends ConsumerStatefulWidget {
   final Widget? header;
   final List<Widget> sections;
@@ -64,6 +70,8 @@ class MgPage extends ConsumerStatefulWidget {
   final Widget? pinnedBar;
   final double? pinnedBarAfter;
   final MgSnapZone? snap;
+  final bool toTop;
+  final ValueNotifier<bool>? toTopShown;
 
   /// Opt-in (Profil only): keep the scroll position when [onRefresh]
   /// switches on / off. Off by default, so pages whose refresh follows a
@@ -90,6 +98,8 @@ class MgPage extends ConsumerStatefulWidget {
     this.pinnedBar,
     this.pinnedBarAfter,
     this.snap,
+    this.toTop = false,
+    this.toTopShown,
     this.keepScrollOnRefreshToggle = false,
   }) : assert(pinnedBar == null || pinnedBack == null, 'pinnedBar and pinnedBack exclude each other');
 
@@ -191,6 +201,8 @@ class _MgPageState extends ConsumerState<MgPage> {
           : MgZoneSnapPhysics(zone: widget.snap!, parent: const AlwaysScrollableScrollPhysics()),
       slivers: content,
     );
+    // One swipe = one item: the snap physics need where the drag began.
+    if (widget.snap != null) scroll = MgSwipeAnchorListener(anchor: widget.snap!.anchor, child: scroll);
     if (widget.onRefresh != null) {
       scroll = Theme.of(context).platform == TargetPlatform.iOS
           ? RefreshIndicator.adaptive(onRefresh: widget.onRefresh!, color: MgColors.neon, child: scroll)
@@ -223,6 +235,16 @@ class _MgPageState extends ConsumerState<MgPage> {
                     if (mounted && (s.height - _dockH).abs() > 0.5) setState(() => _dockH = s.height);
                   },
                   child: widget.dock!,
+                ),
+              ),
+            if (widget.toTop)
+              Positioned.fill(
+                child: MgToTopLayer(
+                  controller: _ctrl,
+                  zone: widget.snap,
+                  dockHeight: widget.dock != null ? _dockH : 0,
+                  shown: widget.toTopShown,
+                  onTap: _toTop,
                 ),
               ),
             if (widget.pinnedBack != null)

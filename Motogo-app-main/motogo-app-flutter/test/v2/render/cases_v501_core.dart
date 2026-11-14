@@ -2,14 +2,16 @@
 // real surroundings (menu, tiles, placeholders), the neon bottom menu on
 // every tab, the branch chip on a bike photo.
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/chrome/v2_nav_bar.dart';
 import 'package:motogo_app/core/v2/icons/mg_icon.dart';
 import 'package:motogo_app/core/v2/tokens/mg_colors.dart';
+import 'package:motogo_app/core/v2/widgets/mg_branch_chip.dart';
 import 'package:motogo_app/core/v2/widgets/mg_icon_tile.dart';
+import 'package:motogo_app/features/catalog/moto_model.dart';
 
 import 'render_harness.dart';
 
@@ -70,8 +72,60 @@ Widget _navSheet() => ColoredBox(
       ]),
     );
 
+/// A 220 px "photo" ([bright] sky / dark night) with the top-left pills
+/// the chip must leave room for and the chip top-right.
+Widget _photo(BuildContext context, Motorcycle m, bool bright) => LayoutBuilder(builder: (context, c) {
+      final label = mgBikeBranchChipLabel(t(context), m) ?? '';
+      return Container(
+        height: 200,
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: bright
+                ? const [Color(0xFFF2F7FF), Color(0xFFFFF3C4), Color(0xFF9CC7E8)]
+                : const [Color(0xFF1C2A22), MgColors.night],
+          ),
+        ),
+        child: Stack(children: [
+          Positioned(
+            top: 12,
+            left: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: MgColors.nightA(0.8), borderRadius: BorderRadius.circular(999)),
+              child: Text('1 / 4', style: TextStyle(color: MgColors.onDark, fontWeight: FontWeight.w800, fontSize: 12)),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: MgBranchChip(
+              label: label,
+              shortLabel: mgBranchShortName(m.branchName, m.branchCity),
+              maxWidth: mgBranchChipMaxWidth(c.maxWidth),
+            ),
+          ),
+        ]),
+      );
+    });
+
+Widget _chipSheet() => Builder(
+      builder: (context) => ListView(padding: const EdgeInsets.all(12), children: [
+        for (final m in const [
+          Motorcycle(id: 'a', model: 'A', branchName: 'MotoGo24 Mezná', branchType: 'obslužná'),
+          Motorcycle(id: 'b', model: 'B', branchName: 'MotoGo24 Velké Němčice', branchType: 'samoobslužná'),
+        ]) ...[
+          _photo(context, m, true),
+          _photo(context, m, false),
+        ],
+      ]),
+    );
+
 List<RenderCase> v501CoreCases() => [
       RenderCase('v501', 'icons', 'moto_glyph', _iconSheet, () => const [], level: 1),
       RenderCase('v501', 'nav', 'tabs_l1', _navSheet, () => const [], level: 1),
       RenderCase('v501', 'nav', 'tabs_l12', _navSheet, () => const [], level: 12),
+      RenderCase('v501', 'branch_chip', 'photos', _chipSheet, () => const []),
     ];

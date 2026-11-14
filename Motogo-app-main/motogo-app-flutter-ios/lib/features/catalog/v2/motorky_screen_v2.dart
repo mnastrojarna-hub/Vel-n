@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
 import '../../../core/v2/gestures/mg_zone_snap.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
@@ -66,6 +67,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
   /// One bike per screen: the list's cards the page scroll settles on.
   final MgSnapZone _zone = MgSnapZone();
 
+  /// The page's "back to the top" arrow is shown (captions ride above it).
+  final ValueNotifier<bool> _topShown = ValueNotifier(false);
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +93,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _modeFade.dispose();
+    _topShown.dispose();
     super.dispose();
   }
 
@@ -205,6 +210,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
       overlapHero: false,
       tabIndex: 1,
       snap: _zone,
+      // v5.0.1: šipka nahoru vpravo dole (seznam i kalkulačka).
+      toTop: true,
+      toTopShown: _topShown,
       dock: sticky == null ? null : CalcStickyV2(data: sticky),
       // CB-18: pull-to-refresh only where "Zkusit znovu" exists (the list).
       onRefresh: mode == CatalogMode.find ? _refresh : null,
@@ -255,16 +263,20 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
         height: h,
         onOpen: (i) => _open(motos, motos[i]),
         card: (context, i, open) {
-          final card = MotoCardFullV2(
-            key: ValueKey('mc-${motos[i].id}'),
-            moto: motos[i],
-            price: catCardPrice(tr, motos[i], s, e, loyalty),
-            availability: avail(motos[i]),
-            live: i == 0,
-            ctaLabel: tr.tr('motoCardDetail'),
-            height: h,
-            topInset: top,
-            onOpen: open,
+          final card = ValueListenableBuilder<bool>(
+            valueListenable: _topShown,
+            builder: (_, toTop, __) => MotoCardFullV2(
+              key: ValueKey('mc-${motos[i].id}'),
+              moto: motos[i],
+              price: catCardPrice(tr, motos[i], s, e, loyalty),
+              availability: avail(motos[i]),
+              live: i == 0,
+              ctaLabel: tr.tr('motoCardDetail'),
+              height: h,
+              topInset: top,
+              liftExtra: toTop ? kMgToTopSlot : 0,
+              onOpen: open,
+            ),
           );
           // CB-28: the first three cards reveal once per session.
           return i < 3 ? MgReveal(index: i, sessionKey: 'motorky-cards', child: card) : card;

@@ -8,6 +8,7 @@ import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/pending_booking_fab_provider.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
+import '../../../core/v2/gestures/mg_one_step.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
@@ -49,6 +50,9 @@ class HomeFunnelV2 extends ConsumerStatefulWidget {
 }
 
 class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
+  /// One bike per swipe, however fast (owner v5.0.1).
+  final MgSwipeAnchor _swipe = MgSwipeAnchor();
+
   PageController? _pc;
   FunnelRange? _pcRange;
   AppLifecycleListener? _life;
@@ -167,10 +171,15 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
       error: (_, __) => FunnelEmptySlot(error: true, title: tr.tr('eoMotosLoadFail'), text: tr.tr('v2HomeFnLoadFailText')),
       data: (l) => l.isEmpty
           ? FunnelEmptySlot(error: false, title: tr.tr('v2HomeFnNoneTitle'), text: tr.tr('v2HomeFnNoneText'))
-          : PageView.builder(
+          : MgSwipeAnchorListener(
+              anchor: _swipe,
+              axis: Axis.horizontal,
+              child: PageView.builder(
               key: ValueKey(range),
               controller: _pager(range, center),
               itemCount: l.length,
+              pageSnapping: false,
+              physics: MgOnePagePhysics(anchor: _swipe),
               onPageChanged: (i) => ref.read(funnelCenterProvider.notifier).state = i,
               itemBuilder: (_, i) {
                 final m = l[i];
@@ -195,6 +204,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                   },
                 );
               },
+              ),
             ),
     );
 

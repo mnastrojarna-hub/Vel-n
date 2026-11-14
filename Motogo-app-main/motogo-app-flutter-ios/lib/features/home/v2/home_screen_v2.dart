@@ -2,14 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/v2/chrome/mg_chrome_metrics.dart';
-import '../../../core/v2/chrome/mg_hide_on_scroll.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/gestures/mg_zone_snap.dart';
-import '../../../core/v2/icons/mg_icon.dart';
-import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_skeleton.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../catalog/widgets/moto_filter_panel.dart';
@@ -46,7 +41,10 @@ class HomeScreenV2 extends ConsumerStatefulWidget {
 
 class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
   final ScrollController _scroll = ScrollController();
-  bool _showTop = false;
+
+  /// The page's "back to the top" arrow is shown (the bike captions ride
+  /// above its slot meanwhile).
+  final ValueNotifier<bool> _topShown = ValueNotifier(false);
 
   /// One bike per screen: the bike list the page scroll settles on.
   final MgSnapZone _zone = MgSnapZone();
@@ -54,11 +52,6 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
   @override
   void initState() {
     super.initState();
-    // Jako stará Domů: šipka nahoru po odrolování o 600 px.
-    _scroll.addListener(() {
-      final show = _scroll.hasClients && _scroll.positions.length == 1 && _scroll.offset > 600;
-      if (show != _showTop) setState(() => _showTop = show);
-    });
     // Warm-up tabu „Trasy" — stejné zpoždění i kontrola jako stará Domů.
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
@@ -69,16 +62,8 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
   @override
   void dispose() {
     _scroll.dispose();
+    _topShown.dispose();
     super.dispose();
-  }
-
-  void _toTop() {
-    if (!_scroll.hasClients) return;
-    if (MgMotion.reduced(context)) {
-      _scroll.jumpTo(0);
-    } else {
-      _scroll.animateTo(0, duration: MgMotion.enter, curve: MgMotion.emphasized);
-    }
   }
 
   @override
@@ -123,6 +108,10 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
       onRefresh: () => refreshHome(ref),
       overlapHero: false,
       snap: _zone,
+      // Jako stará Domů: šipka nahoru po odrolování o 600 px (v5.0.1 vpravo
+      // dole vedle AI tlačítka, `MgToTopLayer`).
+      toTop: true,
+      toTopShown: _topShown,
       sections: [
         HomeHeroStack(
           overlap: overlap,
@@ -153,63 +142,15 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
           ],
         ),
       ],
-      slivers: [HomeBikeListV2(heroes: !funnel, zone: _zone, toTop: _showTop)],
+      slivers: [
+        ValueListenableBuilder<bool>(
+          valueListenable: _topShown,
+          builder: (_, top, __) => HomeBikeListV2(heroes: !funnel, zone: _zone, toTop: top),
+        ),
+      ],
     );
 
-    return Stack(children: [
-      Positioned.fill(child: page),
-      Positioned(
-        left: 16,
-        bottom: 0,
-        // Folds with the hide-on-scroll chrome: while the bikes scroll down
-        // it would sit on the card's price line; back on any scroll up
-        // (own Builder: only the button listens, not the whole Domů).
-        child: Builder(
-          builder: (context) => _ToTopButton(visible: _showTop && !MgBarsScope.hiddenOf(context), onTap: _toTop),
-        ),
-      ),
-    ]);
-  }
-}
-
-/// Old Domů scroll-to-top button (bottom left — the AI button is on the
-/// right in v2), above the status strips; pops in / out (snaps under reduced
-/// motion).
-class _ToTopButton extends StatelessWidget {
-  final bool visible;
-  final VoidCallback onTap;
-  const _ToTopButton({required this.visible, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final chrome = MgChromeScope.chromeOf(context);
-    Widget build(double strips) => Padding(
-          padding: EdgeInsets.only(bottom: 12 + strips),
-          child: IgnorePointer(
-            ignoring: !visible,
-            child: AnimatedScale(
-              scale: visible ? 1 : 0.6,
-              duration: MgMotion.of(context, MgMotion.pop),
-              curve: MgMotion.spring,
-              child: AnimatedOpacity(
-                opacity: visible ? 1 : 0,
-                duration: MgMotion.of(context, MgMotion.color),
-                child: ExcludeSemantics(
-                  excluding: !visible,
-                  child: MgIconButton(
-                    key: const ValueKey('home-to-top'),
-                    icon: MgIcons.up,
-                    style: MgIconButtonStyle.light,
-                    semanticLabel: t(context).tr('v2UxCoreToTop'),
-                    onTap: onTap,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-    if (chrome == null) return build(0);
-    return ListenableBuilder(listenable: chrome, builder: (_, __) => build(chrome.stripsHeight));
+    return page;
   }
 }
 

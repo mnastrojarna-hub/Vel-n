@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/v2/chrome/mg_chrome_lift.dart';
 import 'package:motogo_app/core/v2/chrome/mg_hide_on_scroll.dart';
 import 'package:motogo_app/core/v2/chrome/mg_nav_band.dart';
+import 'package:motogo_app/core/v2/chrome/mg_to_top.dart';
 import 'package:motogo_app/core/v2/gestures/mg_zone_snap.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/catalog/v2/bike_screen_list_v2.dart';
@@ -97,7 +98,12 @@ void main() {
     expect(navFolded(t), isFalse);
     expect(_navTop(t), 844 - 34 - 64);
     expect(_cta(t, key).bottom, lessThanOrEqualTo(_navTop(t)), reason: 'Detail fully above the tab row');
-    expect(_caption(t, key).bottom, moreOrLessEquals(_navTop(t), epsilon: 0.5));
+    // v5.0.1: past the first bike the "back to the top" arrow shows → the
+    // caption also rides above its slot.
+    expect(_caption(t, key).bottom, moreOrLessEquals(_navTop(t) - kMgToTopSlot, epsilon: 0.5));
+    final arrow = t.getRect(find.byKey(const ValueKey('mg-to-top')));
+    expect(arrow.bottom, lessThanOrEqualTo(_navTop(t)));
+    expect(_caption(t, key).bottom, lessThanOrEqualTo(arrow.top + 0.5), reason: 'never under the arrow');
     // Folded (a user drag onto bike 2): the caption rides down to the card's foot.
     await slowDrag(t, find.byType(CustomScrollView), -(z.extent * 0.65));
     await _settle(t);
@@ -124,7 +130,7 @@ void main() {
     _pos(t, HomeScreenV2).jumpTo(z.offsetOf(1));
     await _settle(t);
     final key = ValueKey('home-mc-${ids[1]}');
-    final toTop = t.getRect(find.byKey(const ValueKey('home-to-top')));
+    final toTop = t.getRect(find.byKey(const ValueKey('mg-to-top')));
     expect(navFolded(t), isFalse);
     expect(toTop.bottom, lessThanOrEqualTo(_navTop(t)));
     expect(_caption(t, key).bottom, lessThanOrEqualTo(toTop.top + 0.5), reason: 'never under the to-top button');

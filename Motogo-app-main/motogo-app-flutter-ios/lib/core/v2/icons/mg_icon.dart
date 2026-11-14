@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'mg_icon_glyphs.dart';
 import 'mg_icons.dart';
 import 'mg_svg_path.dart';
 
@@ -65,6 +66,13 @@ class MgIconPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Names drawn from a font glyph (the motorcycle, v5.0.1) instead of
+    // path data; [progress] fades them in (no stroke to draw along).
+    final g = kMgGlyphIcons[name];
+    if (g != null) {
+      if (progress > 0) paintMgGlyph(canvas, size, g, progress >= 1 ? color : color.withValues(alpha: color.a * progress));
+      return;
+    }
     final p = _paths(name);
     if (p == null) return;
     final k = size.shortestSide / 24;

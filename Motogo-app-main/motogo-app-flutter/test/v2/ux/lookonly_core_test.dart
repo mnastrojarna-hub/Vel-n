@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/v2/gestures/mg_zone_snap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
@@ -294,12 +295,20 @@ void main() {
     });
 
     for (final reduced in [false, true]) {
-      testWidgets('scroll-to-top after 600 px, tap → top (reduced=$reduced)', (t) async {
+      testWidgets('scroll-to-top once the first bike is left (v5.0.1), tap → top (reduced=$reduced)', (t) async {
         await _app(t, const HomeScreenV2(), homeCases()['s6']!(), reduced: reduced);
-        final btn = find.byKey(const ValueKey('home-to-top'));
+        final btn = find.byKey(const ValueKey('mg-to-top'));
         double opacity() => t.widget<AnimatedOpacity>(find.ancestor(of: btn, matching: find.byType(AnimatedOpacity))).opacity;
         expect(opacity(), 0);
-        await t.drag(find.byType(Scrollable).first, const Offset(0, -900));
+        // v5.0.1 (`MgToTopLayer`): shown once the first bike is left (the
+        // old 600 px rule only on pages without a bike list); it folds with
+        // the hide-on-scroll chrome like before — a little scroll up brings
+        // the bars and it back.
+        final z = t.renderObject<RenderMgSnapZone>(find.byType(MgSnapZoneSliver, skipOffstage: false)).zone;
+        t.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(z.offsetOf(1) + 60);
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 400));
+        await t.drag(find.byType(Scrollable).first, const Offset(0, 40));
         await t.pump();
         await t.pump(const Duration(milliseconds: 400));
         expect(opacity(), 1);

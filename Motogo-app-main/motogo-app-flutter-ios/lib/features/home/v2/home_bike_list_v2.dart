@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
 import '../../../core/v2/gestures/mg_zone_snap.dart';
-import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/widgets/state_views.dart';
@@ -21,9 +21,9 @@ import '../../loyalty/loyalty_provider.dart';
 /// screen).
 double homeBikeCardHeight(BuildContext context) => bikeScreenHeight(context);
 
-/// Domů's scroll-to-top button slot above the strips (12 + the 44 disc's
-/// 48 hit box): while the button shows, the bike caption rides above it.
-const double kHomeToTopSlot = 12 + MgSize.touch + 4;
+/// Domů's scroll-to-top arrow slot above the strips (`kMgToTopSlot`):
+/// while the arrow shows, the bike caption rides above it.
+const double kHomeToTopSlot = kMgToTopSlot;
 
 /// "Zobrazeno: n motorek" under the filter (old Domů count line, same
 /// loading / error texts).
