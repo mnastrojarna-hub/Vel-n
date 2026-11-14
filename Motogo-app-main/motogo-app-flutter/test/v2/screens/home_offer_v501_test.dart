@@ -130,7 +130,7 @@ void main() {
     await _end(t);
   });
 
-  testWidgets('H2 dates: every free bike, no cap; first batch shown while the rest loads ("+")', (t) async {
+  testWidgets('H2 dates: every free bike, no cap; first batch shown while the rest loads (ring)', (t) async {
     final r = FunnelRange(day(9), day(11));
     await pumpV2(t, _funnel, size: const Size(412, 915), overrides: [
       ...homeOverrides(funnel: fleet(12)),
@@ -147,9 +147,10 @@ void main() {
     ]);
     await _frames(t);
     final c = _c(t);
-    c.read(funnelPartialProvider((r, 1)).notifier).state = fleet(3);
+    c.read(funnelPartialProvider(r).notifier).state = fleet(3);
     await _frames(t);
-    expect(find.text('1 / 3+'), findsOneWidget);
+    expect(find.text('1 / 3'), findsOneWidget);
+    expect(find.byKey(const ValueKey('funnel-pager-more')), findsOneWidget, reason: 'a spinning ring, not "+"');
     expect(find.byType(FunnelBikeCard), findsWidgets);
     await _end(t);
   });

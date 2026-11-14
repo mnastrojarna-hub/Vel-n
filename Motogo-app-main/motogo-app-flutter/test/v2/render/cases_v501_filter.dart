@@ -1,7 +1,8 @@
 // verify:render cases — v5.0.1 bike filter: the collapsed card in every
 // state (calm, calm + branch, one filter, many filters + branch) and the
 // real Motorky screen scrolled to the card (dates only / filters on /
-// open), plus a 12-bike fleet count line.
+// open), plus a 12-bike fleet count line, the "filters on" strip on
+// arrival and the empty list with its reason.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/catalog/v2/moto_filter_card_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_filter_chips_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
+import 'package:motogo_app/features/home/v2/home_offer_provider.dart';
 
 import '../support/fakes_catalog.dart';
 import 'render_harness.dart';
@@ -62,6 +64,20 @@ Future<void> _open(WidgetTester t) async {
   await t.pump(const Duration(milliseconds: 400));
 }
 
+Future<void> _arrive(WidgetTester t) => t.pump(const Duration(milliseconds: 400));
+
+Future<void> _toEmpty(WidgetTester t) async {
+  await t.pump(const Duration(milliseconds: 300));
+  await t.pump(const Duration(milliseconds: 100));
+  final empty = find.byKey(const ValueKey('motorky-empty'));
+  final page = find.byType(Scrollable).first;
+  await t.scrollUntilVisible(empty, 200, scrollable: page, maxScrolls: 40);
+  await t.pump();
+  final top = t.getTopLeft(empty).dy;
+  await t.drag(page, Offset(0, 260 - top), warnIfMissed: false);
+  await t.pump(const Duration(milliseconds: 400));
+}
+
 List<Motorcycle> _fleet12() => [
       for (var i = 0; i < 12; i++)
         Motorcycle(
@@ -76,6 +92,16 @@ List<Motorcycle> _fleet12() => [
         ),
     ];
 
+/// Closures (both branches from [closedFrom] for 4 months) and the next
+/// free day of every bike.
+List<Override> _reason({DateTime? closedFrom, DateTime? nextFree}) => [
+      homeClosuresProvider.overrideWith((ref) async => [
+            if (closedFrom != null)
+              for (final b in ['b-mezna', 'b-vn']) HomeClosure(b, closedFrom, closedFrom.add(const Duration(days: 120))),
+          ]),
+      homeNextFreeProvider.overrideWith((ref) async => {if (nextFree != null) for (final m in kMotos) m.id: nextFree}),
+    ];
+
 List<RenderCase> v501FilterCases() {
   final (ws, we) = futureWeekend();
   RenderCase m(String state, List<Override> Function() o, {Future<void> Function(WidgetTester)? after}) =>
@@ -87,5 +113,17 @@ List<RenderCase> v501FilterCases() {
     m('filters_on', () => catalogOverrides(filter: on, filtered: [kHusq])),
     m('filters_open', () => catalogOverrides(filter: on, filtered: [kHusq]), after: _open),
     m('fleet12', () => catalogOverrides(motos: _fleet12())),
+    // 5.0.1 fixes: the strip above the calendar on arrival, and the empty
+    // list with its reason (filters / closed / booked out).
+    m('arrival_filters', () => catalogOverrides(filter: on, filtered: [kHusq]), after: _arrive),
+    m('empty_filters', () => [...catalogOverrides(filter: on, filtered: const []), ..._reason()], after: _toEmpty),
+    m('empty_closed', () => [
+          ...catalogOverrides(filter: CatalogFilter(startDate: ws, endDate: we), filtered: const []),
+          ..._reason(closedFrom: ws, nextFree: DateTime(we.year, we.month, we.day + 30)),
+        ], after: _toEmpty),
+    m('empty_booked', () => [
+          ...catalogOverrides(filter: CatalogFilter(category: 'naked', startDate: ws, endDate: we).withoutFilters(), filtered: const []),
+          ..._reason(nextFree: DateTime(we.year, we.month, we.day + 5)),
+        ], after: _toEmpty),
   ];
 }

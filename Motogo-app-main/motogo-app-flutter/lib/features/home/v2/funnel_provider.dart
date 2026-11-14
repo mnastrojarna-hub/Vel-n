@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/date_days.dart';
+import '../../../core/supabase_client.dart';
 import '../../auth/auth_provider.dart';
 import '../../booking/booking_validator.dart';
 import '../../catalog/catalog_provider.dart';
@@ -142,32 +143,79 @@ final homeLastBikeIdProvider = Provider<String?>((ref) {
   return last?.motoId;
 });
 
-/// EVERY bike free on every day of [range] (owner v5.0.1: no cap) —
-/// availability through the EXISTING `motoAvailableForRange` (the same
-/// check the catalogue date filter uses; read-only RPCs), checked in
-/// batches in the offer order; each finished batch is published to
-/// `funnelPartialProvider`, so the first bikes show quickly.
+/// One bike's availability for a range, tri-state (a failed check is
+/// `unknown`, never "busy" — v5.0.1: an offline phone must not read "vše
+/// obsazené"). The SAME two read-only checks as `motoAvailableForRange`
+/// (`check_moto_availability` + no service block from
+/// `get_moto_booked_dates`, fail-open); only the failure is told apart.
+Future<MotoAvailability> homeRangeCheck(String motoId, FunnelRange r) async {
+  final res = await Future.wait<Object>([
+    checkMotoAvailabilityTri(motoId, r.start, r.end),
+    _homeNoServiceBlock(motoId, r),
+  ]);
+  final a = res[0] as MotoAvailability;
+  return a == MotoAvailability.free && res[1] == false ? MotoAvailability.busy : a;
+}
+
+/// Same rule as the catalogue's service check: no `service` block touches
+/// a day of [r]; error → true (fail-open).
+Future<bool> _homeNoServiceBlock(String motoId, FunnelRange r) async {
+  try {
+    final res = await MotoGoSupabase.client.rpc('get_moto_booked_dates', params: {'p_moto_id': motoId});
+    for (final item in (res as List)) {
+      final b = BookedDateRange.fromJson(item as Map<String, dynamic>);
+      if (b.status != 'service') continue;
+      final bs = DateTime(b.start.year, b.start.month, b.start.day);
+      final be = DateTime(b.end.year, b.end.month, b.end.day);
+      if (!r.start.isAfter(be) && !bs.isAfter(r.end)) return false;
+    }
+    return true;
+  } catch (_) {
+    return true;
+  }
+}
+
+/// The check `funnelCandidatesProvider` runs per bike (tests swap it).
+final homeRangeCheckProvider =
+    Provider<Future<MotoAvailability> Function(String motoId, FunnelRange range)>((ref) => homeRangeCheck);
+
+/// Thrown when no bike is free and at least one check failed: the card
+/// shows "Zkusit znovu", not "vše obsazené".
+class HomeAvailabilityUnknown implements Exception {
+  const HomeAvailabilityUnknown();
+}
+
+/// EVERY bike free on every day of [range] (owner v5.0.1: no cap), checked
+/// in batches of 6; each finished batch is published to
+/// `funnelPartialProvider`, so the first bikes show quickly. Keyed by the
+/// range only: the checks run in the offer order of the moment (read, not
+/// watched) and a new order (app resume, `homeOfferSeedProvider`) only
+/// re-sorts the result in `homeOfferProvider` — no new RPCs.
 final funnelCandidatesProvider =
     FutureProvider.autoDispose.family<List<Motorcycle>, FunnelRange>((ref, range) async {
-  final seed = ref.watch(homeOfferSeedProvider);
+  final seed = ref.read(homeOfferSeedProvider);
+  final check = ref.watch(homeRangeCheckProvider);
   final all = await ref.watch(motorcyclesProvider.future);
   final profile = ref.watch(profileProvider).valueOrNull;
   final reservations = ref.watch(reservationsProvider).valueOrNull ?? const <Reservation>[];
   final eligible = homeOfferShuffle(homeEligibleMotos(all, profile, reservations), seed);
   final out = <Motorcycle>[];
+  var unknown = false;
   const batch = 6;
   var alive = true;
   ref.onDispose(() => alive = false);
   for (var i = 0; i < eligible.length && alive; i += batch) {
     final chunk = eligible.skip(i).take(batch).toList();
-    final ok = await Future.wait(chunk.map((m) => motoAvailableForRange(m.id, range.start, range.end)));
+    final ok = await Future.wait(chunk.map((m) => check(m.id, range)));
     for (var j = 0; j < chunk.length; j++) {
-      if (ok[j]) out.add(chunk[j]);
+      if (ok[j] == MotoAvailability.free) out.add(chunk[j]);
+      if (ok[j] == MotoAvailability.unknown) unknown = true;
     }
     if (alive && out.isNotEmpty && i + batch < eligible.length) {
-      ref.read(funnelPartialProvider((range, seed)).notifier).state = List.of(out);
+      ref.read(funnelPartialProvider(range).notifier).state = List.of(out);
     }
   }
+  if (out.isEmpty && unknown) throw const HomeAvailabilityUnknown();
   return out;
 });
 

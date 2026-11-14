@@ -7,12 +7,10 @@ import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
 import '../../../core/v2/gestures/mg_zone_snap.dart';
-import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
@@ -26,7 +24,9 @@ import 'catalog_text.dart';
 import 'moto_card_full_v2.dart';
 import '../widgets/moto_filter_panel.dart';
 import 'motorky_dates_card_v2.dart';
+import 'motorky_empty_v2.dart';
 import 'motorky_error_v2.dart';
+import 'motorky_filter_strip_v2.dart';
 import 'motorky_header_v2.dart';
 import 'motorky_loading_v2.dart';
 
@@ -69,6 +69,24 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
 
   /// The page's "back to the top" arrow is shown (captions ride above it).
   final ValueNotifier<bool> _topShown = ValueNotifier(false);
+
+  /// Scroll targets of the filter strip / the empty result (5.0.1).
+  final GlobalKey _datesKey = GlobalKey();
+  final GlobalKey _filterKey = GlobalKey();
+
+  void _scrollTo(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(ctx,
+        alignment: 0.08, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
+  }
+
+  /// "Zrušit vše" / "Zrušit filtry (n)": exactly the counted filters (the
+  /// card's own `_resetV2`); dates, branch and sort stay.
+  void _clearFilters() {
+    final n = ref.read(catalogFilterProvider.notifier);
+    n.state = n.state.withoutFilters();
+  }
 
   @override
   void initState() {
@@ -187,8 +205,13 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
       // The old search screen's order: dates (inline, open) → filter panel
       // → count line → the list.
       slivers = [
-        const SliverToBoxAdapter(child: MotorkyDatesCardV2()),
-        const SliverToBoxAdapter(child: MotoFilterPanel()),
+        // 5.0.1: filters on → said at once, above the calendar.
+        SliverToBoxAdapter(
+          child: MotorkyFilterStripV2(
+              active: filter.filterCount, onShow: () => _scrollTo(_filterKey), onReset: _clearFilters),
+        ),
+        SliverToBoxAdapter(child: KeyedSubtree(key: _datesKey, child: const MotorkyDatesCardV2())),
+        SliverToBoxAdapter(child: KeyedSubtree(key: _filterKey, child: const MotoFilterPanel())),
         SliverToBoxAdapter(child: _countLine(tr, motosAsync, filter)),
         motosAsync.when(
           // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
@@ -252,7 +275,11 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
   Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty, {bool reloading = false}) {
     final s = f.startDate, e = f.endDate;
     final hasDates = s != null && e != null && !catBeforeToday(s);
-    if (motos.isEmpty) return SliverToBoxAdapter(child: _empty(tr));
+    if (motos.isEmpty) {
+      return SliverToBoxAdapter(
+        child: MotorkyEmptyV2(filter: f, onClearFilters: _clearFilters, onPickDates: () => _scrollTo(_datesKey)),
+      );
+    }
     // G-125: "Volná v termínu" only once the list for THESE dates is loaded
     // (while it reloads the old cards may include bikes busy then).
     String? avail(Motorcycle m) => hasDates
@@ -290,31 +317,4 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
       ),
     ]);
   }
-
-  /// The old empty result: icon, "searchNoMotorcycles" + "zkus jiné
-  /// filtry" (the dates and the filter panel are right above it).
-  Widget _empty(AppTranslations tr) => Padding(
-        key: const ValueKey('motorky-empty'),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: MgCard(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-          child: Column(children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: MgColors.well,
-                shape: BoxShape.circle,
-                border: Border.all(color: MgColors.line),
-              ),
-              child: Center(child: MgIcon(MgIcons.moto, size: 32, color: MgColors.ink)),
-            ),
-            const SizedBox(height: 16),
-            Text(tr.tr('searchNoMotorcycles'), textAlign: TextAlign.center, style: MgType.h3.copyWith(color: MgColors.ink)),
-            const SizedBox(height: 8),
-            Text(tr.tr('searchTryDifferentFilters'),
-                textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.body2)),
-          ]),
-        ),
-      );
 }

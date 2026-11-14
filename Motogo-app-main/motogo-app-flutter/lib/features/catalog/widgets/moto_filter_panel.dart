@@ -149,7 +149,8 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
         active: filter.filterCount,
         onToggle: () => setState(() => _open = !_open),
         onReset: _resetV2,
-        chips: motoFilterChips(t(context), filter, set: _set, branchName: filter.branch == null ? null : branchName),
+        chips: motoFilterChips(t(context), filter,
+            set: _set, live: () => _f, branchName: filter.branch == null ? null : branchName),
         datesValue: widget.showDates ? _dateLabel(context, filter) : null,
         calendar: widget.showDates
             ? AvailabilityCalendar(

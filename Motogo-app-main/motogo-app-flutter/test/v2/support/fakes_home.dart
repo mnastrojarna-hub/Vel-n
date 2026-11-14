@@ -190,6 +190,9 @@ List<Override> homeOverrides({
   bool funnelError = false,
   bool banner = true,
   bool resLoading = false,
+  // true = the real funnelCandidatesProvider (tests swap homeRangeCheckProvider).
+  bool realFunnel = false,
+  List<Motorcycle>? motos,
 }) =>
     [
       reservationsProvider.overrideWith((ref) => resLoading ? StreamController<List<Reservation>>().stream : Stream.value(reservations)),
@@ -218,7 +221,8 @@ List<Override> homeOverrides({
               bg: Color(0xFF0E2A1C),
               color: Color(0xFF74FB71))
           : null)),
-      motorcyclesProvider.overrideWith((ref) => Stream.value(kMotos)),
+      motorcyclesProvider.overrideWith((ref) => Stream.value(motos ?? kMotos)),
+      if (!realFunnel)
       funnelCandidatesProvider.overrideWith((ref, range) async {
         if (funnelLoading) await Completer<void>().future;
         if (funnelError) throw Exception('offline');

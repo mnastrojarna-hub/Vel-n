@@ -36,9 +36,8 @@ List<Motorcycle> homeOfferFocusFirst(List<Motorcycle> list, String? id) {
 
 /// Bikes found free so far while `funnelCandidatesProvider` still checks
 /// the rest (first bikes show quickly; null = nothing yet).
-/// Keyed by range and order seed, so a new order never shows an old list.
-final funnelPartialProvider =
-    StateProvider.autoDispose.family<List<Motorcycle>?, (FunnelRange, int)>((ref, key) => null);
+/// Keyed by range (the offer order is applied in `homeOfferProvider`).
+final funnelPartialProvider = StateProvider.autoDispose.family<List<Motorcycle>?, FunnelRange>((ref, key) => null);
 
 /// Next free day of every bike (existing RPC `get_motos_availability_status`,
 /// one call for the whole fleet: bookings, service, closed branch). Read
@@ -158,17 +157,30 @@ final homeOfferProvider = Provider.autoDispose<HomeOffer>((ref) {
   if (range == null) return fromEligible(HomeOfferMode.noDates);
   final cand = ref.watch(funnelCandidatesProvider(range));
   final focus = ref.watch(homeOfferFocusProvider);
+  // The found bikes in the current offer order (a new order = a re-sort,
+  // never a new check); the bike just picked from its calendar first.
+  List<Motorcycle> ordered(List<Motorcycle> l) => homeOfferFocusFirst(homeOfferInOrder(l, eligible.valueOrNull), focus);
   if (cand.hasValue) {
     final l = cand.requireValue;
-    if (l.isNotEmpty) return HomeOffer(HomeOfferMode.free, bikes: homeOfferFocusFirst(l, focus), range: range);
+    if (l.isNotEmpty) return HomeOffer(HomeOfferMode.free, bikes: ordered(l), range: range);
     final closures = ref.watch(homeClosuresProvider).valueOrNull ?? const <HomeClosure>[];
     final bikes = eligible.valueOrNull ?? const <Motorcycle>[];
     return fromEligible(HomeOfferMode.noneFree, closed: homeOfferAllClosed(bikes, closures, range));
   }
   if (cand.hasError) return HomeOffer(HomeOfferMode.error, range: range);
-  final part = ref.watch(funnelPartialProvider((range, ref.watch(homeOfferSeedProvider))));
+  final part = ref.watch(funnelPartialProvider(range));
   if (part != null && part.isNotEmpty) {
-    return HomeOffer(HomeOfferMode.free, bikes: homeOfferFocusFirst(part, focus), range: range, more: true);
+    return HomeOffer(HomeOfferMode.free, bikes: ordered(part), range: range, more: true);
   }
   return HomeOffer(HomeOfferMode.loading, range: range);
 });
+
+/// [list] sorted like [order] (the shuffled eligible list); bikes missing
+/// from it keep their place at the end.
+List<Motorcycle> homeOfferInOrder(List<Motorcycle> list, List<Motorcycle>? order) {
+  if (order == null) return list;
+  final pos = {for (var i = 0; i < order.length; i++) order[i].id: i};
+  final idx = {for (var i = 0; i < list.length; i++) list[i].id: i};
+  int key(Motorcycle m) => pos[m.id] ?? (order.length + idx[m.id]!);
+  return List.of(list)..sort((a, b) => key(a).compareTo(key(b)));
+}

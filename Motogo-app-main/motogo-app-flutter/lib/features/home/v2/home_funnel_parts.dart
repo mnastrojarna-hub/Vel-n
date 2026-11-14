@@ -7,6 +7,7 @@ import '../../../core/v2/chrome/mg_nav_helpers.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/rank/rank_provider.dart';
+import '../../../core/v2/states/mg_tone_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
@@ -31,7 +32,7 @@ class FunnelTopRow extends ConsumerWidget {
   final VoidCallback? onPrev;
   final VoidCallback? onNext;
 
-  /// More bikes are still being checked: "1 / 6+".
+  /// More bikes are still being checked: "1 / 6" + a spinning ring.
   final bool more;
   const FunnelTopRow({super.key, required this.count, required this.index, this.onPrev, this.onNext, this.more = false});
 
@@ -79,7 +80,7 @@ class FunnelTopRow extends ConsumerWidget {
       child: LayoutBuilder(builder: (context, c) {
         if (!pager) return Row(children: [Flexible(child: eyebrow(true))]);
         // Eyebrow smí na 70 % (jako jeho MgWordFit), než se schová do ikony (SH-21).
-        final need = mgLineWidth(context, label.toUpperCase(), labelStyle) * 0.7 + _ebChrome + _gap + _pagerW;
+        final need = mgLineWidth(context, label.toUpperCase(), labelStyle) * 0.7 + _ebChrome + _gap + _pagerW + (more ? 18 : 0);
         final full = need <= c.maxWidth;
         return Row(children: [
           if (full) Flexible(child: Align(alignment: AlignmentDirectional.centerStart, child: eyebrow(true))) else eyebrow(false),
@@ -87,10 +88,27 @@ class FunnelTopRow extends ConsumerWidget {
           _PagerBtn(icon: MgIcons.chevronLeft, label: tr.tr('v2HomeFnPrev'), onTap: onPrev),
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 48),
-            child: Text('${index + 1} / $count${more ? '+' : ''}',
-                key: const ValueKey('funnel-pager-count'),
-                textAlign: TextAlign.center,
-                style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDarkBody))),
+            // Ještě se hledají další (v5.0.1): „1 / 6" + točící se kroužek,
+            // ne nejasné „+".
+            child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('${index + 1} / $count',
+                  key: const ValueKey('funnel-pager-count'),
+                  textAlign: TextAlign.center,
+                  style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDarkBody))),
+              if (more) ...[
+                const SizedBox(width: 6),
+                MgTonePendingRing(
+                  key: const ValueKey('funnel-pager-more'),
+                  color: MgColors.neon,
+                  size: 12,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: MgColors.white(0.25), width: 2)),
+                  ),
+                ),
+              ],
+            ]),
           ),
           _PagerBtn(icon: MgIcons.chevronRight, label: tr.tr('v2HomeFnNext'), onTap: onNext),
         ]);
