@@ -38,8 +38,13 @@ class AvailabilityCalendarV2View extends StatelessWidget {
   final DateTime? blockedDay;
   final int blockedTry;
 
+  /// Days every branch is closed are drawn (`branch_closed`): the legend
+  /// gets a hatched "Zavřeno" (5.0.1 FV-01).
+  final bool closedLegend;
+
   const AvailabilityCalendarV2View({
     this.dayPrices,
+    this.closedLegend = false,
     this.blockedDay,
     this.blockedTry = 0,
     super.key,
@@ -144,11 +149,13 @@ class AvailabilityCalendarV2View extends StatelessWidget {
               ),
             ),
       legend: showLegend
-          ? const TripLegend(items: [
+          // Hatched swatch: the taken cells are hatched too.
+          ? TripLegend(hatchBusy: true, items: [
               TripLegendKind.free,
               TripLegendKind.yours,
               TripLegendKind.busy,
               TripLegendKind.pending,
+              if (closedLegend) TripLegendKind.closed,
             ])
           : null,
       note: !_hasPrices

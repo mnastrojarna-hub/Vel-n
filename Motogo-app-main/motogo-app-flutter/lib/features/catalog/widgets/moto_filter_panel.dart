@@ -5,6 +5,7 @@ import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/theme.dart';
 import '../../home/widgets/license_chip.dart';
 import '../catalog_provider.dart';
+import '../v2/motorky_closed_days_v2.dart';
 import 'availability_calendar.dart';
 import 'filter_branch_chip.dart';
 import '../../../core/v2/flag/v2_scope.dart';
@@ -32,6 +33,10 @@ const kFilterLicenseOptions = <(String?, String)>[
   ('B', 'homeFilterLicenseB'),
   ('N', 'homeFilterLicenseN'),
 ];
+
+/// Nový vzhled (5.0.1 FS-01): žádost o rozbalení panelu s termínem (Domů
+/// „Vybrat jiný termín" — kalendář je jen v rozbaleném panelu).
+final motoFilterOpenRequest = ValueNotifier<int>(0);
 
 /// Filtr motorek — JEDEN panel sdílený obrazovkami Domů a Rezervovat.
 ///
@@ -66,6 +71,22 @@ class MotoFilterPanel extends ConsumerStatefulWidget {
 
 class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
   late bool _open = widget.initiallyOpen;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.showDates) motoFilterOpenRequest.addListener(_openRequested);
+  }
+
+  @override
+  void dispose() {
+    motoFilterOpenRequest.removeListener(_openRequested);
+    super.dispose();
+  }
+
+  void _openRequested() {
+    if (mounted && !_open) setState(() => _open = true);
+  }
   /// Živé hodnoty posuvníků během tažení (klíč = popisek posuvníku). Do
   /// filtru se zapisují až po puštění jezdce.
   final Map<String, RangeValues> _drag = {};
@@ -154,6 +175,8 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
         datesValue: widget.showDates ? _dateLabel(context, filter) : null,
         calendar: widget.showDates
             ? AvailabilityCalendar(
+                // Dny, kdy mají všechny pobočky zavřeno (jako Motorky, FS-06).
+                bookedDates: ref.watch(motorkyClosedDaysProvider),
                 selectedStart: filter.startDate,
                 selectedEnd: filter.endDate,
                 onRangeSelected: (start, end) => _set(

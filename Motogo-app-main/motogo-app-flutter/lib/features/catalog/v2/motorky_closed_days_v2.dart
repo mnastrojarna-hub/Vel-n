@@ -11,9 +11,11 @@ import '../moto_model.dart';
 /// set = only that branch counts. Failure / no closure → none.
 List<BookedDateRange> motorkyClosedDays(List<Motorcycle> motos, List<HomeClosure> closures,
     {String? branch, DateTime? now}) {
-  final branches = branch != null
-      ? {branch}
-      : {for (final m in motos) if (m.branchIsOpen != false && !m.isTrailer && m.branchId != null) m.branchId!};
+  // The same bikes Motorky lists (trailers included); a listed bike with no
+  // branch is never closed (`branch_is_closed(NULL)` = false) → none (FS-02).
+  final listed = [for (final m in motos) if (m.branchIsOpen != false) m];
+  if (branch == null && listed.any((m) => m.branchId == null)) return const [];
+  final branches = branch != null ? {branch} : {for (final m in listed) m.branchId!};
   if (branches.isEmpty || closures.isEmpty) return const [];
   final n = now ?? DateTime.now();
   final today = DateTime(n.year, n.month, n.day);

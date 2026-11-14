@@ -112,7 +112,8 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
             route: widget.route,
             topInset: top,
             labelTop: _noPhoto ? 20 : 56,
-            bottom: _mediaH * (_compact(context) || _noPhoto ? 0.42 : 0.22)),
+            // No photo (no tiles): down to just above the name (FV-05).
+            bottom: _mediaH * (_compact(context) ? 0.42 : (_noPhoto ? 0.1 : 0.22))),
       );
     }
     final k = i == 0 ? 0 : i - 1;

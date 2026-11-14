@@ -86,6 +86,9 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
   final PageController _pc = PageController();
   int _page = 0;
 
+  /// Caption block height (FV-02): a short card keeps the photo above it.
+  double _capH = 0;
+
   List<String> get _images {
     final m = widget.moto;
     if (m.images.isNotEmpty) return m.images;
@@ -139,13 +142,13 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final short = mgBranchShortName(m.branchName, m.branchCity);
     final chipMax = mgBranchChipMaxWidth(MediaQuery.sizeOf(context).width,
         leftPill: widget.availability == null ? 0 : _pillWidth(context, widget.availability!));
-    // The mode word leaves the chip only when the chip has to shorten.
-    final modeTag = branch == null || MgBranchChip(label: branch, shortLabel: short, maxWidth: chipMax).fitted(context) == branch
-        ? null
-        : bikeCardModeTag(tr, m);
+    // No room for "name · mode" on one line: the chip takes two (FV-02).
+    final twoLine = branch != null && MgBranchChip(label: branch, shortLabel: short, maxWidth: chipMax).fitted(context) != branch;
     final top = widget.topInset;
-    // A full-screen card: the photo in the upper part, above the caption.
+    // A full-screen card: the photo in the upper part, above the caption;
+    // a short card (≤ 640) fits it in the room above the caption (FV-02).
     final photoAlign = widget.height > 640 ? const Alignment(0, -0.4) : Alignment.center;
+    final pad = widget.height > 640 || _capH == 0 ? 0.0 : (_capH - top - 52).clamp(0.0, widget.height * 0.6);
     // [height] is the MINIMUM: with large text / long words the card grows
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).
@@ -212,12 +215,16 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                           ),
                         );
                         if (i == 0 && widget.live) img = MgKenBurns(sessionKey: 'motorky-card-${m.id}', child: img);
-                        return GestureDetector(onTap: widget.onOpen, child: img);
+                        return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: widget.onOpen,
+                            child: Padding(padding: EdgeInsets.only(bottom: pad), child: img));
                       },
                     ),
                   ),
                 ),
-              if (m.videos.isNotEmpty) Positioned.fill(child: BikeVideoLayer(video: video, alignment: photoAlign)),
+              if (m.videos.isNotEmpty)
+                Positioned(left: 0, top: 0, right: 0, bottom: pad, child: BikeVideoLayer(video: video, alignment: photoAlign)),
               Positioned.fill(
                 child: IgnorePointer(
                   child: DecoratedBox(
@@ -270,12 +277,12 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                 Positioned(
                   top: top + 21,
                   right: 12,
-                  child: IgnorePointer(child: MgBranchChip(label: branch, shortLabel: short, maxWidth: chipMax)),
+                  child: IgnorePointer(child: MgBranchChip(label: branch, shortLabel: short, maxWidth: chipMax, wrap: true)),
                 ),
               // Off the bike: top right, under the chip.
               if (m.videos.isNotEmpty)
                 Positioned(
-                  top: top + (branch == null ? 17 : 55),
+                  top: top + (branch == null ? 17 : (twoLine ? 70 : 55)),
                   right: 12,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width - 24),
@@ -284,7 +291,11 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                 ),
               // With the bars shown the body is a nav row shorter than the
               // card: the caption rides above the nav (and the strips).
-              MgChromeLift(
+              BikeCaptionMeasure(
+                onHeight: (h) {
+                  if (mounted && (h - _capH).abs() > 0.5) setState(() => _capH = h);
+                },
+                child: MgChromeLift(
                 room: widget.height,
                 extra: widget.liftExtra,
                 child: Padding(
@@ -305,7 +316,6 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                             ),
                           // The old card's "{kW} KW" badge.
                           if (m.powerKw != null) BikeCardTag('${m.powerKw} KW'),
-                          if (modeTag != null) BikeCardTag(modeTag),
                         ]),
                         const SizedBox(height: 8),
                         Text(m.model,
@@ -348,6 +358,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                     }),
                   ]),
                 ),
+              ),
               ),
             ]),
           ),

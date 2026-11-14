@@ -180,12 +180,24 @@ class _MgAiFabState extends State<MgAiFab> {
         // The bubble checks its place against the zones (never over a
         // CTA / SOS / key control such as the to-top arrow) once laid out.
         _schedule();
-        // It does not sit over the content for good (5.0.1 re-check): gone
-        // by itself after [MgAiCoach.shownFor], like a tap on ✕.
-        _coachTimer = Timer(MgAiCoach.shownFor, () {
-          if (mounted) _dismissCoach();
-        });
       });
+    });
+  }
+
+  /// The [MgAiCoach.shownFor] timeout runs from the first frame the bubble
+  /// is really on screen (not offstage, FAB not peek / off / hidden): it
+  /// does not sit over the content for good, and it is never marked seen
+  /// unseen (5.0.1 FS-03).
+  bool _coachArmed = false;
+  bool get _coachVisible =>
+      _coachWanted && !widget.hidden && _state != MgFabState.off && _state != MgFabState.peek && !_coachBlocked;
+
+  void _armCoach() {
+    if (!mounted || _coachArmed || !_coachVisible) return;
+    _coachArmed = true;
+    _coachTimer?.cancel();
+    _coachTimer = Timer(MgAiCoach.shownFor, () {
+      if (mounted) _dismissCoach();
     });
   }
 
@@ -299,6 +311,7 @@ class _MgAiFabState extends State<MgAiFab> {
       ),
     );
     final coach = _coachWanted && !widget.hidden && !off && !peek;
+    if (coach && !_coachBlocked && !_coachArmed) WidgetsBinding.instance.addPostFrameCallback((_) => _armCoach());
     return Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
       if (coach)
         Offstage(

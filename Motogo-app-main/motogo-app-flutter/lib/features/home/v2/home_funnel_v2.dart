@@ -108,7 +108,14 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
   PageController _pager(Object key, int center) {
     final cur = _pc;
     if (cur != null && _pcKey == key) return cur;
-    if (cur != null) WidgetsBinding.instance.addPostFrameCallback((_) => cur.dispose());
+    if (cur != null) {
+      // Another list (dates, order, filters — FS-05): its first bike.
+      center = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        cur.dispose();
+        if (mounted) ref.read(funnelCenterProvider.notifier).state = 0;
+      });
+    }
     _pcKey = key;
     return _pc = PageController(initialPage: center);
   }
@@ -171,14 +178,12 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final none = offer.mode == HomeOfferMode.noneFree;
 
     final emptyOrError = offer.mode == HomeOfferMode.error || offer.mode == HomeOfferMode.noBikes;
-    // Nižší telefon (< 800 dp) fotka 150, velmi nízký (< 700 dp: 360×640,
-    // 375×667) těsnější mezery a při běžném písmu fotka 124 (větší písmo
-    // potřebuje 150, jinak by se štítky fotky překryly) — tlačítko nad
-    // spodní lištou.
+    // Fotka je hlavní (5.0.1 FV-03): nižší telefon (< 800 dp) 190, velmi
+    // nízký (< 700 dp: 320×640, 360×640, 375×667) 150 a těsnější mezery —
+    // tlačítko pořád nad spodní lištou.
     final screenH = MediaQuery.sizeOf(context).height;
     final short = screenH < 700;
-    final bigText = MediaQuery.textScalerOf(context).scale(10) > 10.5;
-    final photoH = emptyOrError || screenH >= 800 ? 200.0 : (short && !bigText ? 124.0 : 150.0);
+    final photoH = emptyOrError || screenH >= 800 ? 200.0 : (short ? 150.0 : 190.0);
     final today = funnelDay(DateTime.now());
     final Widget slot = switch (offer.mode) {
       HomeOfferMode.loading => const FunnelSkeleton(),
@@ -190,8 +195,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
           anchor: _swipe,
           axis: Axis.horizontal,
           child: PageView.builder(
-            key: ValueKey((range, seed, free, offer.filters)),
-            controller: _pager((range, seed, free, offer.filters), center),
+            key: ValueKey((range, seed, free, offer.filterKey)),
+            controller: _pager((range, seed, free, offer.filterKey), center),
             itemCount: list.length,
             pageSnapping: false,
             physics: MgOnePagePhysics(anchor: _swipe),

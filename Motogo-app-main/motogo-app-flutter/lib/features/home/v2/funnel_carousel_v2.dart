@@ -107,7 +107,7 @@ class FunnelBikeCard extends StatelessWidget {
           // Nízká fotka (≤ 170: telefon < 800 dp): štítky jen v JEDNOM řádku
           // (dostupnost + pobočka), „Znovu" jde k názvu, štítek ŘP odpadne —
           // nic nepřekryje název motorky.
-          final compact = box.maxHeight < 170;
+          final compact = box.maxHeight < 195;
           final lic = compact && !again ? badge : null;
           // The chip shortened to the branch name: its mode ("samoobsluha")
           // goes to the category line (as the list card's mode tag).
@@ -209,7 +209,8 @@ class FunnelBikeCard extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.bottomRight,
                   child: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                Text(mgNbsp(priceLabel), style: MgType.micro.copyWith(color: MgColors.neonText)),
+                // Bílá na tmavém přechodu: čitelná i na světlé fotce (FV-03).
+                Text(mgNbsp(priceLabel), style: MgType.micro.copyWith(color: MgColors.onDark, fontWeight: FontWeight.w800)),
                 MgBump(
                   trigger: price,
                   child: Text.rich(

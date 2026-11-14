@@ -65,7 +65,11 @@ class MgBranchChip extends StatelessWidget {
   final String label;
   final String? shortLabel;
   final double maxWidth;
-  const MgBranchChip({super.key, required this.label, this.shortLabel, this.maxWidth = 220});
+
+  /// When [label] does not fit: two lines (name, then the mode) instead of
+  /// [shortLabel] alone — the Motorky card keeps "samoobsluha" in the chip.
+  final bool wrap;
+  const MgBranchChip({super.key, required this.label, this.shortLabel, this.maxWidth = 220, this.wrap = false});
 
   static const TextStyle _style = TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.2);
 
@@ -76,19 +80,31 @@ class MgBranchChip extends StatelessWidget {
   String fitted(BuildContext context) {
     final short = shortLabel;
     if (short == null || short == label) return label;
+    return fits(context, label) ? label : short;
+  }
+
+  /// [text] fits the chip in one line, uncut.
+  bool fits(BuildContext context, String text) {
     final tp = TextPainter(
-      text: TextSpan(text: label, style: DefaultTextStyle.of(context).style.merge(MgType.small).merge(_style)),
+      text: TextSpan(text: text, style: DefaultTextStyle.of(context).style.merge(MgType.small).merge(_style)),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
     final w = tp.width;
     tp.dispose();
-    return w <= textRoom(maxWidth) ? label : short;
+    return w <= textRoom(maxWidth);
   }
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
+  Widget build(BuildContext context) {
+    final shown = fitted(context);
+    final short = shortLabel;
+    final two = wrap && short != null && shown != label && label.startsWith(short);
+    final style = MgType.small.merge(_style).copyWith(color: MgColors.onNeon);
+    // Each line whole or cut with "…", never wrapped inside the name.
+    Text line(String s) => Text(s, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: style);
+    return ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxWidth),
         child: Container(
           key: const ValueKey('mg-branch-chip'),
@@ -106,15 +122,15 @@ class MgBranchChip extends StatelessWidget {
             const MgIcon(MgIcons.pin, size: 15, color: MgColors.onNeon, stroke: 2.4),
             const SizedBox(width: 4),
             Flexible(
-              child: Text(
-                fitted(context),
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: MgType.small.merge(_style).copyWith(color: MgColors.onNeon),
-              ),
+              child: two
+                  ? Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      line(short),
+                      line(label.substring(short.length).replaceFirst(RegExp(r'^\s*·\s*'), '')),
+                    ])
+                  : line(shown),
             ),
           ]),
         ),
       );
+  }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/i18n/translations_ext_65_v501_final.dart' show motoShownCount;
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
@@ -276,7 +277,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     if (motos != null && !motosAsync.isLoading) {
       text = days > 0
           ? '${tr.tr('searchAvailableMotorcycles').replaceAll('{n}', '${motos.length}')} · ${catDays(tr, days)}'
-          : tr.tr('searchShownMotorcycles').replaceAll('{n}', '${motos.length}');
+          : motoShownCount(tr.lang, tr.tr, motos.length, 'searchShownMotorcycles');
     } else if (motosAsync.isLoading) {
       text = tr.tr('searchSearching');
     } else {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/icons/mg_icon.dart';
@@ -111,4 +112,34 @@ class BikeCardPriceBlock extends StatelessWidget {
         const SizedBox(height: 4),
         MgWordFit(child: Text(price.sub, style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w600, color: MgColors.onDarkLead)))),
       ]);
+}
+
+/// Reports [child]'s laid-out height after the frame (the card's caption
+/// block: a short card keeps the sharp photo above it, 5.0.1 FV-02).
+class BikeCaptionMeasure extends SingleChildRenderObjectWidget {
+  final ValueChanged<double> onHeight;
+  const BikeCaptionMeasure({super.key, required this.onHeight, super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => RenderBikeCaptionMeasure(onHeight);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderBikeCaptionMeasure renderObject) => renderObject.onHeight = onHeight;
+}
+
+class RenderBikeCaptionMeasure extends RenderProxyBox {
+  RenderBikeCaptionMeasure(this.onHeight);
+  ValueChanged<double> onHeight;
+  double? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final h = size.height;
+    if (h == _last) return;
+    _last = h;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (attached) onHeight(h);
+    });
+  }
 }

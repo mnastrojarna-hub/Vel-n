@@ -66,7 +66,16 @@ class RoutesToolbarV2 extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: LayoutBuilder(builder: (context, c) {
+          final need = _ToolButton.widthOf(context, tr.tr('routesFilter'), extra: on ? 29 : 0) +
+              _ToolButton.widthOf(context, sortValue ?? sortLabel, extra: 20) +
+              44;
+          // A badge must not push the sort pill to a row of its own (FV-04):
+          // first the two labelled buttons tighten their side padding.
+          final dense = need > c.maxWidth + 12;
+          final one = need - (dense ? 16 : 0) <= c.maxWidth + 12;
+          final tight = dense && one;
           final filter = _ToolButton(
+            dense: tight,
             key: const ValueKey('rt-tool-filter'),
             label: tr.tr('routesFilter'),
             icon: MgIcons.filter,
@@ -75,6 +84,7 @@ class RoutesToolbarV2 extends StatelessWidget {
             onTap: onFilter,
           );
           final sort = _ToolButton(
+            dense: tight,
             key: const ValueKey('rt-tool-sort'),
             label: sortValue ?? sortLabel,
             semantic: sortLabel,
@@ -91,11 +101,8 @@ class RoutesToolbarV2 extends StatelessWidget {
             iconOnly: true,
             onTap: onMap,
           );
-          final need = _ToolButton.widthOf(context, tr.tr('routesFilter'), extra: on ? 29 : 0) +
-              _ToolButton.widthOf(context, sortValue ?? sortLabel, extra: 20) +
-              44;
           // A little over still fits one row: the sort label scales down (MgWordFit).
-          if (need <= c.maxWidth + 12) {
+          if (one) {
             return Row(children: [
               filter,
               Expanded(child: Align(alignment: AlignmentDirectional.centerStart, child: sort)),
@@ -144,7 +151,11 @@ class _ToolButton extends StatelessWidget {
     this.caret = false,
     this.iconOnly = false,
     this.semantic,
+    this.dense = false,
   });
+
+  /// 10 px side padding instead of 14 (a tight one-row toolbar).
+  final bool dense;
 
   static TextStyle get _labelStyle => MgType.small.copyWith(fontWeight: FontWeight.w800, height: 1.25);
 
@@ -183,7 +194,7 @@ class _ToolButton extends StatelessWidget {
           child: AnimatedContainer(
             duration: MgMotion.of(context, MgMotion.color),
             constraints: BoxConstraints(minHeight: 44, minWidth: iconOnly ? 44 : 0),
-            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : 14),
+            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : (dense ? 10 : 14)),
             decoration: BoxDecoration(
               color: bg,
               gradient: grad,
@@ -202,7 +213,8 @@ class _ToolButton extends StatelessWidget {
                     const SizedBox(width: 7),
                     Flexible(
                       child: MgWordFit(
-                        minScale: 0.85,
+                        minScale: dense ? 0.75 : 0.85,
+                        fitLines: dense ? 1 : null,
                         child: Text(label, maxLines: 2, style: _labelStyle.copyWith(color: fg)),
                       ),
                     ),

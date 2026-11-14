@@ -134,8 +134,17 @@ class HomeOffer {
   /// 0 = none on, or none of the bikes matches them (all shown).
   final int filters;
 
+  /// Which filter values (and branch) narrowed [bikes]; null = none. The
+  /// pager restarts at bike 1 when it changes (FS-05).
+  final Object? filterKey;
+
   const HomeOffer(this.mode,
-      {this.bikes = const [], this.range, this.closed = false, this.more = false, this.filters = 0});
+      {this.bikes = const [],
+      this.range,
+      this.closed = false,
+      this.more = false,
+      this.filters = 0,
+      this.filterKey});
 
   bool get hasBikes => bikes.isNotEmpty;
 }
@@ -153,13 +162,20 @@ final homeOfferEligibleProvider = Provider.autoDispose<AsyncValue<List<Motorcycl
 /// filters on (5.0.1 re-check) it shows only the bikes they let through —
 /// the same predicate as the list under it (display only: availability,
 /// prices and the booking stay as they are); when none passes, all bikes.
+/// A branch alone narrows it too, like the list (the pill counts only the
+/// real filters, FS-04).
 final homeOfferProvider = Provider.autoDispose<HomeOffer>((ref) {
   final o = ref.watch(_homeOfferAllProvider);
   final f = ref.watch(catalogFilterProvider);
-  if (f.filterCount == 0 || o.bikes.isEmpty) return o;
+  if ((f.filterCount == 0 && f.branch == null) || o.bikes.isEmpty) return o;
   final l = f.apply(o.bikes);
   if (l.isEmpty) return o;
-  return HomeOffer(o.mode, bikes: l, range: o.range, closed: o.closed, more: o.more, filters: f.filterCount);
+  final key = Object.hashAll([
+    f.category, f.licenseGroup, f.branch, f.minPowerKw, f.maxPowerKw, f.minSeatMm, f.maxSeatMm, //
+    f.minTorqueNm, f.maxTorqueNm, f.minWeightKg, f.maxWeightKg, f.availableTodayOnly,
+  ]);
+  return HomeOffer(o.mode,
+      bikes: l, range: o.range, closed: o.closed, more: o.more, filters: f.filterCount, filterKey: key);
 });
 
 final _homeOfferAllProvider = Provider.autoDispose<HomeOffer>((ref) {

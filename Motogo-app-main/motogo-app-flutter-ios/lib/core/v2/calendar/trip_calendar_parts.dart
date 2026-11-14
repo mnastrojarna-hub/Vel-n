@@ -79,7 +79,9 @@ class TripWeekdays extends StatelessWidget {
 }
 
 /// Legend entry kinds.
-enum TripLegendKind { free, yours, busy, pending, other, added, removed }
+/// [closed] = days every branch is closed (`branch_closed`, 5.0.1): the
+/// same hatch as a taken day, its own label.
+enum TripLegendKind { free, yours, busy, pending, other, added, removed, closed }
 
 /// Legend under the grid (12.5/600, 14 px swatches). Pass only the kinds
 /// that occur.
@@ -109,6 +111,7 @@ class TripLegend extends StatelessWidget {
           TripLegendKind.other => 'v2CalLegOther',
           TripLegendKind.added => 'v2CalLegAdded',
           TripLegendKind.removed => 'v2CalLegRemoved',
+          TripLegendKind.closed => 'calLegClosed',
         });
     Widget swatch(TripLegendKind k) {
       final (Color fill, Color border) = switch (k) {
@@ -119,10 +122,11 @@ class TripLegend extends StatelessWidget {
         TripLegendKind.other => (dark ? MgColors.warnDarkBg : MgColors.warnBg, MgColors.warnBorder),
         TripLegendKind.added => (MgColors.calBand, MgColors.calContour),
         TripLegendKind.removed => (const Color(0x00000000), MgColors.err),
+        TripLegendKind.closed => (dark ? MgColors.white(0.10) : MgColors.hatchA, dark ? MgColors.white(0.2) : MgColors.line),
       };
-      if (k == TripLegendKind.busy && hatchBusy) {
+      if (k == TripLegendKind.closed || (k == TripLegendKind.busy && hatchBusy)) {
         return CustomPaint(
-          key: const ValueKey('trip-legend-busy-hatch'),
+          key: ValueKey(k == TripLegendKind.closed ? 'trip-legend-closed-hatch' : 'trip-legend-busy-hatch'),
           size: const Size(14, 14),
           painter: _HatchSwatch(dark: dark),
         );

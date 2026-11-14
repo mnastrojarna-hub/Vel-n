@@ -89,6 +89,7 @@ import 'translations_ext_61_shared_r2.dart';
 import 'translations_ext_64_sos_replace.dart';
 import 'translations_ext_65_v501_filter.dart';
 import 'translations_ext_65_v501_filter2.dart';
+import 'translations_ext_65_v501_final.dart';
 import 'translations_ext_65_v501_home.dart';
 import 'translations_ext_65_v501_home2.dart';
 import 'translations_ext_65_v501_media.dart';
@@ -244,6 +245,7 @@ final translations = _mergeAll([
   translationsExt64SosReplace,
   translationsExt65V501Filter,
   translationsExt65V501Filter2,
+  translationsExt65V501Final,
   translationsExt65V501Home,
   translationsExt65V501Home2,
   translationsExt65V501Media,

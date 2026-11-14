@@ -24,9 +24,14 @@ class AvailabilityCalendar extends StatefulWidget {
   /// (jen zobrazení, výpočet ceny beze změny); starý vzhled ji ignoruje.
   final DayPrices? dayPrices;
 
+  /// Month shown first when nothing is selected (null = this month); only
+  /// the new look passes it (Motorky "Přejít na …", 5.0.1).
+  final DateTime? initialMonth;
+
   const AvailabilityCalendar({
     super.key,
     this.dayPrices,
+    this.initialMonth,
     this.bookedDates = const [],
     this.selectedStart,
     this.selectedEnd,
@@ -71,8 +76,8 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _year = widget.selectedStart?.year ?? now.year;
-    _month = widget.selectedStart?.month ?? now.month;
+    _year = widget.selectedStart?.year ?? widget.initialMonth?.year ?? now.year;
+    _month = widget.selectedStart?.month ?? widget.initialMonth?.month ?? now.month;
     _start = widget.selectedStart;
     _end = widget.selectedEnd;
     if (_start != null && _end != null) _step = 1;
@@ -209,6 +214,7 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         onPrevMonth: _prevMonth,
         onNextMonth: _nextMonth,
         dayPrices: widget.dayPrices,
+        closedLegend: widget.bookedDates.any((r) => r.status == 'branch_closed'),
         blockedDay: _step == 2 ? _blockedDay : null,
         blockedTry: _blockedTry,
       );

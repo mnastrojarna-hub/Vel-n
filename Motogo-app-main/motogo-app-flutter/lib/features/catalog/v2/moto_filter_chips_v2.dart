@@ -144,7 +144,12 @@ class MotoFilterClearAllV2 extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final String keyName;
-  const MotoFilterClearAllV2({super.key, required this.label, required this.onTap, this.keyName = 'moto-filter-clear'});
+
+  /// Only the ✕ in a 40 px circle ([label] stays the semantics): a narrow
+  /// strip keeps its title big (FV-07).
+  final bool iconOnly;
+  const MotoFilterClearAllV2(
+      {super.key, required this.label, required this.onTap, this.keyName = 'moto-filter-clear', this.iconOnly = false});
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -155,7 +160,14 @@ class MotoFilterClearAllV2 extends StatelessWidget {
         child: MgPress(
           key: ValueKey(keyName),
           onTap: onTap,
-          child: ConstrainedBox(
+          child: iconOnly
+              ? Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: MgColors.link, width: 1.5)),
+                  child: Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.link)),
+                )
+              : ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 40),
             child: Padding(
               padding: const EdgeInsetsDirectional.only(start: 8, end: 2),

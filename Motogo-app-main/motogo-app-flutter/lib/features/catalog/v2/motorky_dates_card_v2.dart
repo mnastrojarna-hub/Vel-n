@@ -8,9 +8,12 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../../home/v2/funnel_dates.dart' show funnelDate;
 import '../catalog_provider.dart';
+import '../moto_model.dart' show BookedDateRange;
 import '../widgets/availability_calendar.dart';
 import 'catalog_date_sheet_v2.dart' show catClearDates, catSetDates;
 import 'motorky_closed_days_v2.dart';
@@ -31,10 +34,15 @@ class MotorkyDatesCardV2 extends ConsumerStatefulWidget {
 class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
   bool _pickingStart = true;
 
+  /// "Přejít na 25. 3.": the calendar rebuilt on that month (no selection).
+  DateTime? _jump;
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
     final f = ref.watch(catalogFilterProvider);
+    final closed = ref.watch(motorkyClosedDaysProvider);
+    final next = motorkyClosedUntil(closed, DateTime.now());
     Widget tab(String label, DateTime? d, bool on, VoidCallback onTap) => Expanded(
           child: Semantics(
             button: true,
@@ -104,9 +112,30 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
           const SizedBox(height: 6),
           Text(tr.tr('v2BkSingleDayHint'), style: MgType.small.copyWith(color: MgColors.lead)),
           const SizedBox(height: 8),
+          // Every branch closed today (winter): why the days are struck
+          // through, and a jump to the first free day (FV-01, as the Home
+          // sheet's "Volná od · Přejít na").
+          if (next != null) ...[
+            Row(key: const ValueKey('motorky-closed-row'), children: [
+              const MgIcon(MgIcons.calendarX, size: 18, color: MgColors.warn),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr.trArgs('motoCalClosedFreeFrom', {'date': funnelDate(tr, next)}),
+                    style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+              ),
+              if (_jump == null && (next.year != DateTime.now().year || next.month != DateTime.now().month))
+                MgBtnText(
+                  label: tr.trArgs('homeSheetJumpTo', {'date': funnelDate(tr, next)}),
+                  onTap: () => setState(() => _jump = next),
+                ),
+            ]),
+            const SizedBox(height: 8),
+          ],
           AvailabilityCalendar(
+            key: ValueKey(_jump),
+            initialMonth: _jump,
             // Days every branch is closed: drawn as not free (VR-03).
-            bookedDates: ref.watch(motorkyClosedDaysProvider),
+            bookedDates: closed,
             onRangeSelected: (s, e) {
               setState(() => _pickingStart = true);
               catSetDates(ref, s, e);
@@ -122,4 +151,14 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
       ),
     );
   }
+}
+
+/// The first day after today's closed block of [closed] (every branch
+/// closed today), or null when today is not closed.
+DateTime? motorkyClosedUntil(List<BookedDateRange> closed, DateTime now) {
+  final today = DateTime(now.year, now.month, now.day);
+  for (final r in closed) {
+    if (r.containsDate(today)) return DateTime(r.end.year, r.end.month, r.end.day + 1);
+  }
+  return null;
 }

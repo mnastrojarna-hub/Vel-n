@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/i18n/translations_ext_65_v501_final.dart' show motoShownCount;
 import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
 import '../../../core/v2/gestures/mg_zone_snap.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -44,7 +45,7 @@ class HomeBikeCountV2 extends ConsumerWidget {
       child: motosAsync.when(
         // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
         skipLoadingOnReload: true,
-        data: (motos) => Text(tr.tr('homeMotorcycleCount').replaceAll('{n}', '${motos.length}'),
+        data: (motos) => Text(motoShownCount(tr.lang, tr.tr, motos.length, 'homeMotorcycleCount'),
             key: const ValueKey('home-bike-count'), style: style),
         loading: () => Text(tr.tr('homeLoadingMotorcycles'), style: style),
         error: (_, __) => Text(tr.tr('homeLoadingError'), style: style.copyWith(color: MgColors.err)),
@@ -93,7 +94,7 @@ class HomeBikeListV2 extends ConsumerWidget {
                 final n = ref.read(catalogFilterProvider.notifier);
                 n.state = n.state.withoutFilters();
               },
-              onPickDates: () => homeShowFilterCard(context),
+              onPickDates: () => homeShowFilterCard(context, open: true),
             ),
           );
         }

@@ -14,6 +14,7 @@ import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/widgets/mg_text_fit.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../../catalog/widgets/moto_filter_panel.dart' show motoFilterOpenRequest;
 import '../../loyalty/loyalty_provider.dart';
 import 'funnel_provider.dart';
 import 'home_fit.dart';
@@ -27,11 +28,20 @@ void homePushMoto(BuildContext context, String id) => mgPushOrGo(context, '/moto
 /// "Filtry zapnuté (n)" pill to scroll to.
 final homeFilterCardKey = GlobalKey(debugLabel: 'home-filter-card');
 
-/// Scrolls Domů to its filter card (no-op when it is not built).
-void homeShowFilterCard(BuildContext context) {
+/// Scrolls Domů to its filter card (no-op when it is not built); [open]
+/// also unfolds it (its calendar is only in the open card, FS-01).
+void homeShowFilterCard(BuildContext context, {bool open = false}) {
   final ctx = homeFilterCardKey.currentContext;
   if (ctx == null) return;
-  Scrollable.ensureVisible(ctx, alignment: 0.1, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
+  final d = MgMotion.of(context, MgMotion.sheet);
+  if (!open) {
+    Scrollable.ensureVisible(ctx, alignment: 0.1, duration: d, curve: MgMotion.out);
+    return;
+  }
+  motoFilterOpenRequest.value++;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (ctx.mounted) Scrollable.ensureVisible(ctx, alignment: 0.1, duration: d, curve: MgMotion.out);
+  });
 }
 
 /// Eyebrow "TVOJE PŘÍŠTÍ JÍZDA" + pager ‹ 1 / n › (single-pointer

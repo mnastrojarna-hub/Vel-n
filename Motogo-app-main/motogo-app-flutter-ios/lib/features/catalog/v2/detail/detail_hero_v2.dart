@@ -225,18 +225,31 @@ class DetailHeroV2 extends StatelessWidget {
               Positioned(top: top + 12, left: 16, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
             // Where the bike is (owner v5.0.1): the neon chip, top right,
             // level with the back / pager controls.
-            if (branchChip != null)
-              Positioned(
-                top: top + 21,
-                right: 16,
-                child: IgnorePointer(
-                  child: MgBranchChip(
-                    label: branchChip,
-                    shortLabel: mgBranchShortName(moto.branchName, moto.branchCity),
-                    maxWidth: mgBranchChipMaxWidth(MediaQuery.sizeOf(context).width, leftPill: leftControls - 8.0),
+            if (branchChip != null) ...[
+              Builder(builder: (context) {
+                final w = MediaQuery.sizeOf(context).width;
+                final short = mgBranchShortName(moto.branchName, moto.branchCity);
+                final chip = MgBranchChip(
+                    label: branchChip, shortLabel: short, maxWidth: mgBranchChipMaxWidth(w, leftPill: leftControls - 8.0));
+                // Narrow phone: even the name is cut next to the back / pager
+                // controls → the chip goes under the back button, left of
+                // "Pustit video", name + mode in two lines (FV-06).
+                if (chip.fits(context, chip.fitted(context))) {
+                  return Positioned(top: top + 21, right: 16, child: IgnorePointer(child: chip));
+                }
+                return Positioned(
+                  top: top + 64,
+                  left: 16,
+                  child: IgnorePointer(
+                    child: MgBranchChip(
+                        label: branchChip,
+                        shortLabel: short,
+                        wrap: true,
+                        maxWidth: (w - 40 - (moto.videos.isEmpty ? 0 : 140)).clamp(120.0, 280.0)),
                   ),
-                ),
-              ),
+                );
+              }),
+            ],
             // Off the bike: top right, under the chip.
             if (moto.videos.isNotEmpty)
               Positioned(
