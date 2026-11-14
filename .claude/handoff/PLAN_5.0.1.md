@@ -1,4 +1,4 @@
-# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 18:00 UTC)
+# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 18:15 UTC)
 
 Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .claude/handoff`).
 
@@ -18,41 +18,17 @@ Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .cl
   - HOTOVO `docs`: verze `5.0.1+119` v obou `pubspec.yaml`, `Motogo-app-main/motogo-app-flutter/DESIGN_V22.md`, CLAUDE.md bod 6, STATE_2/STATE_6, jedna věta nápovědy ve Velínu (`velin/src/pages/FleetDetailPhotos.jsx`). Zkontrolováno, v pořádku.
   - HOTOVO `final:sceptic`: 0 závažných, 6 drobných (starý vzhled beze změny, žádná oslabená pojistka).
   - HOTOVO `final:visual`: sada náhledů `$W/gallery` (35 PNG + `manifest.json`: 21 obrazovek 360×780, 6 ve 320×640, 8 snímků „před“); 3 závažné a 5 drobných nálezů (níže).
-  - BĚŽÍ `final:repair` (opravuje nálezy níže a přefotí dotčené snímky galerie), po něm se sám spustí `final:recheck` (skeptik).
+  - HOTOVO `final:repair` (FV-01..08, FS-01..06) a `final:recheck`: re-check našel 2 závažné a 5 drobných nálezů (FR-01..FR-07, detail v `$W/finish_result.json` pod `final:recheck`).
 - Upřesnění pravidla od majitele (14. 11., už v CLAUDE.md bod 6): „v2 = jen vzhled“ znamená hlavně zachovat vstupy, rozsah a funkčnost uživatelského zadávání; zdvojené navigační prvky se rušit smí.
-
-Nálezy závěrečné kontroly, které `final:repair` řeší (ověř v jeho hlášení, co opravil a co přeskočil):
-  - `FV-01` (major): In winter every day in the Motorky calendar is hatched and struck through, but nothing says why. No 'zavřeno' line, no 'Volná od 25. 3.', no jump button. The legend has only Volno / Tvůj termín / Obsazeno / Čeká na potvrzení, and 
-  - `FV-02` (major): At 320x640 the landscape bike photo is letterboxed into the middle of the card. The whole caption sits directly on top of the sharp photo: category pills, a stray 'samoobsluha' pill on its own line, 'Husqvarna 701 SM', '693 ccm', 
-  - `FV-03` (major): The owner complained that Home had no photo. The photo is now a strip about 120 px tall at 320 (about 150 px at 360). The bike name block covers its left half and the 'Tvoje cena od / 1 930 Kč/den / 1 990 Kč' block covers its righ
-  - `FV-04` (minor): With one filter on, the 'Filtry 1' button gets wider and the sort dropdown 'Od mé polohy' wraps to a second row. The map button is left alone at the right of the first row, so the toolbar jumps from one row to two and looks unbala
-  - `FV-05` (minor): A route without photos shows the road sketch pinned to the top-left area (y≈80–250). The rest of the panel down to the title (about 200 px) is empty dark gradient, so the card looks unfinished next to the photo cards.
-  - `FV-06` (minor): The branch chip in the hero's top row is cut off to 'Velké Něm…' because it shares the row with the back button and the '2 / 12' pager.
-  - `FV-07` (minor): The loud 'Filtry zapnuté (2)' strip shrinks its text to about 11 px at 320 width (about 15 px bold at 360). On small phones the warning becomes quiet again, which is the 'nemastný neslaný' problem the owner raised.
-  - `FV-08` (minor): 'Zobrazeno: 4 motorek' is ungrammatical Czech (it should be '4 motorky'). The text is unchanged from the original app, but the 5.0.1 filter card now puts this line right under the loud card where people read it.
-  - `FS-01` (minor): SR-03 W-05 is only half solved. On the empty Home list, 'Vybrat jiný termín' (shown when the reason is closed or booked) scrolls to the Home filter card but does not open it. The calendar exists only inside the opened card, so the
-  - `FS-02` (minor): The closed-day hatching can block days that are actually bookable. The set of branches leaves out trailers (`!m.isTrailer`) and bikes with no branch (`m.branchId != null`), but the Motorky list shows both: filteredMotorcyclesProvi
-  - `FS-03` (minor): The 8 s auto-close of the AI coach (VR-12) marks the coach as seen even when the bubble was never visible. The timer starts when _coachWanted turns true. During those 8 s the bubble can be Offstage (_coachBlocked), or the FAB can 
-  - `FS-04` (minor): How the Home offer narrows is inconsistent with the branch. With only a branch set, filterCount is 0, so the offer shows bikes from every branch while the list below shows only that branch. The claim that the pager count matches t
-  - `FS-05` (minor): The offer pager's key includes the NUMBER of filters, not which bikes passed them. Changing one filter value for another (category A to B, still 1 filter) keeps the old PageView and its offset. The carousel then stays on index n o
-  - `FS-06` (minor): The Home filter card's calendar and the Motorky date card write the same catalogFilterProvider dates. Only the Motorky one now hatches days on which every branch is closed. On Home the customer can still pick a range that Motorky 
+- **BĚŽÍ (spuštěno 14. 11. 18:15 UTC): workflow `v501-last`, běh `wf_4f018613-c58`** (skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/v501-last-wf_4f018613-c58.js`, journal `…/subagents/workflows/wf_4f018613-c58/journal.jsonl`). Dělá **kroky A i B najednou**: opravuje FR-01 (hlavní tlačítko nabídky na Domů pod spodním menu při 360×640 v nl/pl/uk – padá `home_fold_test`), FR-02 („Přejít na“ v zimním kalendáři Motorek nefunguje, když už je vybraný termín), drobné FR-03..07, **ruší horní tlačítko profilu v hlavičce Domů** (L8) a přefotí dotčené snímky galerie; opravář na konci sám pouští celou Android sadu. Pak skeptik; při závažném nálezu ještě jedno kolo oprava → skeptik.
 
 ## 2. Zbývající kroky (v tomto pořadí)
 
-### A. Dokončit část 3 (zbývá jen oprava a její kontrola)
-1. Počkej na doběhnutí `final:repair` a `final:recheck` (po restartu kontejneru workflow obnov: `Workflow({scriptPath, resumeFromRunId: 'wf_0bc29e1d-e18'})` — hotové kroky se přehrají z paměti). Výsledek čti z journalu (řádky `type=result`; `agentId → label` z řádků `started`).
-2. V hlášení `final:repair` zkontroluj, že jsou vyřešené všechny tři závažné nálezy `FV-01..03` (seznam v oddílu 1). Co přeskočil, posuď: závažné nesmí zůstat.
-3. Když `final:recheck` hlásí **major** (nebo zůstal neopravený závažný nález): pusť malý workflow „jeden opravář (jen on mění soubory) → jeden skeptik“ se stejnými pravidly jako ve skriptu části 3; opakuj, dokud skeptik nenajde 0 major. Minor: oprav jen malé a bezpečné, zbytek vypiš majiteli.
+### A + B. Poslední oprava a zrušení horního tlačítka profilu (běží jako workflow `wf_4f018613-c58`)
+1. Počkej na doběhnutí (po restartu kontejneru obnov: `Workflow({scriptPath, resumeFromRunId: 'wf_4f018613-c58'})`). Výsledek čti z journalu (řádky `type=result`; `agentId → label` z řádků `started`): `last:repair` (pole `fixed`, `skipped`, `suite` = poslední řádek celé Android sady), `last:sceptic:1`, případně `last:repair2` a `last:sceptic:2`.
+2. Hotovo je, když poslední skeptik nehlásí žádný **major** a v `last:repair` jsou vyřešené L1 (FR-01), L2 (FR-02) a L8 (tlačítko profilu pryč, badge nepřečtených zpráv zůstává na záložce Profil, `test/v2/ux/lookonly_core_test.dart` upravený bez oslabení). Když major zůstal: pusť další kolo „jeden opravář → jeden skeptik“ podle stejného skriptu; opakuj do 0 major. Minor: jen malé a bezpečné, zbytek vypiš majiteli.
+3. Sám si prohlédni přefocené snímky v `$W/gallery` (hlavička Domů bez tlačítka profilu, fotka v nabídce na Domů, zimní kalendář Motorek, pruh filtru na 320 px).
 4. Commit + push.
-
-### B. Zrušit duplicitní tlačítko profilu nahoře (zadání majitele 14. 11.)
-Majitel: „Nahoře mi vadí duplicitní tlačítko profilu… dole je v pohodě, nahoře bych ho zrušil.“ Upřesnil i pravidlo „v2 = jen vzhled“: „to pravidlo bylo hlavně o zachování vstupů a rozsahu a funkčnosti uživatelského zadávání“ — tedy zdvojené navigační prvky se rušit smí, formuláře, zadávané údaje a to, co zákazník může udělat, se nemění (už zapsáno v CLAUDE.md, bod 6).
-- `lib/features/home/v2/home_header_v2.dart`: odstraň `MgIconButton(key: ValueKey('home-menu'), icon: MgIcons.user, badge: unread, … onTap: router.go(Routes.profile))` i `SizedBox(width: 8)` před ním; logo dostane celou šířku (zkontroluj `_LogoRow(narrow: …)`); odstraň `unread`/`adminUnreadCountProvider` a import, pokud zůstanou nevyužité; oprav komentář třídy.
-- Počet nepřečtených zpráv zůstává na záložce Profil ve spodním menu (`lib/core/v2/chrome/v2_nav_bar.dart`) — ověř testem, že tam badge je.
-- Projdi hlavičky ostatních kořenových stránek nového vzhledu (Motorky, Rezervace, Trasy): `grep -rn "Routes.profile" lib/features/*/v2 lib/core/v2 lib/core/shell_*.dart`. Odstraň jen tlačítka v hlavičce, která pouze otevírají profil; kontextové odkazy („Doplnit v profilu“ apod.) nech.
-- Testy: `grep -rn "home-menu" test` → uprav na nový stav (nikdy neoslabuj jiné kontroly); přidej test „hlavička Domů nemá tlačítko profilu, záložka Profil má badge“. Doplň jednu větu do sekce 5.0.1 v `Motogo-app-main/motogo-app-flutter/DESIGN_V22.md`.
-- Zkopíruj do iOS, `diff -rq` = 20. Přefoť snímky galerie, na kterých je hlavička Domů (stejné názvy souborů v `$W/gallery`, `MG_SHOT_IMG_DIR=$W/img`), a **podívej se na ně**.
-- Je to malé: udělej přímo, nebo jedním agentem + jedním skeptikem. Commit.
 
 ### C. Závěrečné kontroly (Bash na pozadí, ~40 min, sám, ne přes agenta)
 ```
