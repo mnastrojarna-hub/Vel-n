@@ -1,4 +1,4 @@
-# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 19:05 UTC)
+# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 19:15 UTC)
 
 Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .claude/handoff`).
 
@@ -20,7 +20,7 @@ Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .cl
   - HOTOVO `final:visual`: sada náhledů `$W/gallery` (35 PNG + `manifest.json`: 21 obrazovek 360×780, 6 ve 320×640, 8 snímků „před“); 3 závažné a 5 drobných nálezů (níže).
   - HOTOVO `final:repair` (FV-01..08, FS-01..06) a `final:recheck`: re-check našel 2 závažné a 5 drobných nálezů (FR-01..FR-07, detail v `$W/finish_result.json` pod `final:recheck`).
 - Upřesnění pravidla od majitele (14. 11., už v CLAUDE.md bod 6): „v2 = jen vzhled“ znamená hlavně zachovat vstupy, rozsah a funkčnost uživatelského zadávání; zdvojené navigační prvky se rušit smí.
-- **BĚŽÍ (spuštěno 14. 11. 18:15 UTC): workflow `v501-last`, běh `wf_4f018613-c58`** (skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/v501-last-wf_4f018613-c58.js`, journal `…/subagents/workflows/wf_4f018613-c58/journal.jsonl`). Dělá **kroky A i B najednou**: opravuje FR-01 (hlavní tlačítko nabídky na Domů pod spodním menu při 360×640 v nl/pl/uk – padá `home_fold_test`), FR-02 („Přejít na“ v zimním kalendáři Motorek nefunguje, když už je vybraný termín), drobné FR-03..07, **ruší horní tlačítko profilu v hlavičce Domů** (L8) a přefotí dotčené snímky galerie; opravář na konci sám pouští celou Android sadu. Pak skeptik; při závažném nálezu ještě jedno kolo oprava → skeptik.
+- **`last:repair` HOTOVO (celá Android sada 7 218 / 0 selhání; L1–L9 včetně zrušení horního tlačítka profilu; snímky přefocené a zkontrolované), BĚŽÍ skeptik.** Workflow `v501-last`, běh `wf_4f018613-c58`** (skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/v501-last-wf_4f018613-c58.js`, journal `…/subagents/workflows/wf_4f018613-c58/journal.jsonl`). Dělá **kroky A i B najednou**: opravuje FR-01 (hlavní tlačítko nabídky na Domů pod spodním menu při 360×640 v nl/pl/uk – padá `home_fold_test`), FR-02 („Přejít na“ v zimním kalendáři Motorek nefunguje, když už je vybraný termín), drobné FR-03..07, **ruší horní tlačítko profilu v hlavičce Domů** (L8) a přefotí dotčené snímky galerie; opravář na konci sám pouští celou Android sadu. Pak skeptik; při závažném nálezu ještě jedno kolo oprava → skeptik.
 
 ## 2. Zbývající kroky (pořadí: A+B → F → C → D → E; krok G až po dodání 5.0.1)
 
@@ -56,6 +56,7 @@ diff -rq $A/lib $I/lib | wc -l
 Musí vyjít: všech 7 běhů „weekday“ rc=0 (testy nesmí záviset na dni/hodině — když některý spadne, oprav test, ne appku, pokud appka počítá správně); analyze Android **142 / 0 chyb**, iOS **137 / 0 chyb**; obě sady `rc=0` a 0 selhání (počet prošlých bude vyšší než 7 055); `diff -rq` = 20; iOS `.dart_tool` beze změny; `git status` čistý a HEAD = testovaný commit. Po restartu kontejneru přečti `.rc` soubory a dopusť jen chybějící část. Cokoli po testech změníš v `lib/` nebo `test/` = testy znovu.
 
 ### D. Náhledy pro majitele
+**Stav 14. 11. 19:15 UTC: zveřejněno** jako soukromý Artifact https://claude.ai/artifact/HzT7sg5a1pKXvC2mUY1tVv (zdroj `$W/site/index.html` + `$W/site/img/*`, sestavuje `$W/site/build.py` z `$W/gallery/manifest.json`). Když se snímky v `$W/gallery` ještě změní: spusť znovu `python3 -I $W/site/build.py` a publikuj **stejnou cestu** `$W/site/index.html` (zachová odkaz) se stejným seznamem `files` a `root=$W/site`.
 `$W/gallery/manifest.json` + PNG → publikuj jako soukromý Artifact (nejdřív načti skill `artifact-design`; obrázky jako supporting files; česky, u každého snímku krátký nadpis a jedna věta, kde existuje i snímek „před“). Pošli majiteli odkaz. Každý snímek si předtím sám prohlédni; co vypadá špatně, vrať do kroku A/B.
 
 ### E. Uzavření
