@@ -12,6 +12,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:motogo_app/core/currency.dart';
 import 'package:motogo_app/core/i18n/translations.dart';
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/router.dart';
@@ -32,7 +33,7 @@ import 'package:motogo_app/features/reservations/v2/reservation_card_v2.dart';
 import 'package:motogo_app/features/reservations/widgets/res_payment_details_tab.dart' show PaymentDetails;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../screens/reservations_cases.dart' show editView;
+import '../screens/reservations_cases.dart' show editCalc, editView;
 import '../support/fakes_home.dart' show mockPathProvider;
 import '../support/fakes_reservations.dart';
 import '../support/supabase_stub.dart';
@@ -215,7 +216,12 @@ void main() {
       await _frames(t);
       final ctx = t.widget<Text>(find.byKey(const ValueKey('res-edit-pay-diff')));
       expect(ctx.data, startsWith('Vrátíme ti '));
-      expect(ctx.data, matches(RegExp(r'^Vrátíme ti 2\s658\sKč \(50 %\)$')));
+      // Částka závisí na tom, který den v týdnu se krátí (víkend je dražší),
+      // proto se bere ze stejné kalkulace, ne jako pevné číslo.
+      final calc = editCalc(b, addDays: -1);
+      expect(calc.effectivePriceDiff, lessThan(0));
+      expect(ctx.data, contains(Money.czk(-calc.effectivePriceDiff)));
+      expect(ctx.data, matches(RegExp(r'^Vrátíme ti \d{1,3}(\s\d{3})*\sKč \(50 %\)$')));
       expect(ctx.data, isNot(contains('−')));
     });
 
