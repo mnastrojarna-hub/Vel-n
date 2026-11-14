@@ -3,6 +3,8 @@
 // FIRST bike, not on the bike shown last (the one that cannot be booked);
 // the dates stay. Opening the list in any other way still returns to the
 // bike shown last (`catalogShownMotoProvider`).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +24,9 @@ import 'package:motogo_app/features/booking/booking_provider.dart';
 import 'package:motogo_app/features/booking/my_vouchers.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_screen.dart';
+import 'package:motogo_app/features/catalog/moto_model.dart' show Motorcycle;
 import 'package:motogo_app/features/catalog/v2/bike_screen_list_v2.dart';
+import 'package:motogo_app/features/catalog/v2/detail/detail_dates_carry_v2.dart' show detailShareRange;
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,7 +36,9 @@ import '../support/v2_harness.dart';
 
 String _tr(String key) => translations['cs']![key]!;
 
-Future<(GoRouter, ProviderContainer)> _pump(WidgetTester t, CatalogFilter filter) async {
+/// [datedDropsKids]: with dates the Kids bike is not free → the dated list
+/// is shorter than the undated one (SF-1).
+Future<(GoRouter, ProviderContainer)> _pump(WidgetTester t, CatalogFilter filter, {bool datedDropsKids = false}) async {
   t.view.physicalSize = const Size(412, 915) * 2;
   t.view.devicePixelRatio = 2;
   addTearDown(t.view.reset);
@@ -51,6 +57,9 @@ Future<(GoRouter, ProviderContainer)> _pump(WidgetTester t, CatalogFilter filter
     // third card here (the list order is the catalogue order).
     ...catalogOverrides(
         motos: [kHusq, kShotgun, kBmw, kKids], filter: filter, profile: {...kProfileOk, 'license_group': ['A2', 'B']}),
+    if (datedDropsKids)
+      filteredMotorcyclesProvider.overrideWith((ref) async =>
+          ref.watch(catalogFilterProvider).startDate == null ? [kHusq, kShotgun, kKids, kBmw] : [kHusq, kShotgun, kBmw]),
   ]);
   addTearDown(c.dispose);
   await t.pumpWidget(UncontrolledProviderScope(
@@ -152,17 +161,60 @@ void main() {
     await t.pump(const Duration(seconds: 2));
   });
 
-  test('catalogShowListStart: publishes the first bike of the shown list; nothing for an empty list', () {
-    final c = ProviderContainer();
+  testWidgets('SF-1: dates picked in the detail re-filter the list; the button still lands on its first card', (t) async {
+    final (r, c) = await _pump(t, const CatalogFilter(), datedDropsKids: true);
+    BikeScreenList list() => t.widget<BikeScreenList>(find.byType(BikeScreenList, skipOffstage: false));
+    final undated = list().ids;
+    expect(undated, ['m-husq', 'm-shot', 'm-kid', 'm-bmw']);
+    await _openFromList(t, 'm-bmw', 3);
+    final el = t.element(find.byType(MotorkyScreenV2, skipOffstage: false));
+    detailShareRange(el as WidgetRef, ws, we); // dates picked in the detail
+    await _settle(t);
+    final dated = list().ids;
+    expect(dated, ['m-husq', 'm-shot', 'm-bmw'], reason: 'the covered list changed under the detail');
+    expect(c.read(filteredMotoIdsProvider), undated, reason: 'the pager ids are the stale undated ones');
+    startBookingFromSelection(el, el as WidgetRef, kBmw, ws, we);
+    await _settle(t);
+    final btn = find.text(_tr('pdPickOtherMoto'));
+    await t.ensureVisible(btn);
+    await t.pump();
+    await t.tap(btn);
+    await _settle(t);
+    expect(r.routerDelegate.currentConfiguration.uri.path, '/search');
+    expect(list().ids, dated, reason: 'order untouched');
+    expect(c.read(catalogShownMotoProvider), 'm-husq');
+    expect(_page(t).pixels, moreOrLessEquals(_zone(t).offsetOf(0), epsilon: 1));
+    final f = c.read(catalogFilterProvider);
+    expect([f.startDate, f.endDate], [ws, we]);
+    // Ordinary way afterwards: open the BMW (now card 2) and go back → on it.
+    await _openFromList(t, 'm-bmw', 2);
+    r.pop();
+    await _settle(t);
+    expect(c.read(catalogShownMotoProvider), 'm-bmw');
+    expect(_page(t).pixels, moreOrLessEquals(_zone(t).offsetOf(2), epsilon: 1));
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 2));
+  });
+
+  test('catalogShowListStart: the list shown now (sorted); stale ids only while it is not loaded; nothing when empty', () async {
+    final shown = Completer<List<Motorcycle>>();
+    final c = ProviderContainer(overrides: [filteredMotorcyclesProvider.overrideWith((ref) => shown.future)]);
     addTearDown(c.dispose);
     final read = _Reader(c);
     c.read(catalogShownMotoProvider.notifier).state = 'm-bmw';
     c.read(filteredMotoIdsProvider.notifier).state = const [];
-    catalogShowListStart(read);
+    catalogShowListStart(read); // not loaded, no ids
     expect(c.read(catalogShownMotoProvider), 'm-bmw');
-    c.read(filteredMotoIdsProvider.notifier).state = const ['m-husq', 'm-bmw'];
+    c.read(filteredMotoIdsProvider.notifier).state = const ['m-shot', 'm-bmw'];
+    catalogShowListStart(read); // not loaded → the ids the list wrote
+    expect(c.read(catalogShownMotoProvider), 'm-shot');
+    shown.complete([kBmw, kHusq]);
+    await c.read(filteredMotorcyclesProvider.future);
+    c.read(catalogSortProvider.notifier).state = 'power_asc';
     catalogShowListStart(read);
-    expect(c.read(catalogShownMotoProvider), 'm-husq');
+    final sorted = sortMotorcycles([kBmw, kHusq], 'power_asc').map((m) => m.id).toList();
+    expect(c.read(filteredMotoIdsProvider), sorted);
+    expect(c.read(catalogShownMotoProvider), sorted.first);
   });
 }
 

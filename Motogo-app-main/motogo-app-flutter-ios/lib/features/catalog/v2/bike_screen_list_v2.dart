@@ -8,7 +8,8 @@ import '../../../core/v2/chrome/mg_chrome_metrics.dart';
 import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/gestures/mg_zone_snap.dart';
 import '../../../core/v2/motion/mg_motion.dart';
-import '../catalog_provider.dart' show filteredMotoIdsProvider;
+import '../catalog_provider.dart'
+    show catalogSortProvider, filteredMotoIdsProvider, filteredMotorcyclesProvider, sortMotorcycles;
 
 /// The bike the v2 detail pager shows right now (`MotoDetailPagerV2View`).
 /// The list the detail was opened from follows it while covered, so going
@@ -20,7 +21,15 @@ final catalogShownMotoProvider = StateProvider<String?>((_) => null);
 /// booked). The covered list follows [catalogShownMotoProvider], so its
 /// first bike is published before the list comes back; other ways into the
 /// list keep the bike shown last. The order of the list is not touched.
+/// The ids are the ones the list shows NOW (dates picked in the detail or
+/// the form re-filter it), written like the list's own open writes them —
+/// the list follows only when they match its own.
 void catalogShowListStart(WidgetRef ref) {
+  final motos = ref.read(filteredMotorcyclesProvider).valueOrNull;
+  if (motos != null && motos.isNotEmpty) {
+    ref.read(filteredMotoIdsProvider.notifier).state =
+        sortMotorcycles(motos, ref.read(catalogSortProvider)).map((m) => m.id).toList();
+  }
   final ids = ref.read(filteredMotoIdsProvider);
   if (ids.isNotEmpty) ref.read(catalogShownMotoProvider.notifier).state = ids.first;
 }
