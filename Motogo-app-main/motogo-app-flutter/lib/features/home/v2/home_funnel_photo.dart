@@ -17,6 +17,9 @@ double homeFunnelPhotoGuess(BuildContext context) {
 /// above the card's bottom edge) still ends [gap] above the bottom of the
 /// scroll view (= above the bottom menu). Measured only while the page is
 /// at its top — scrolling or the hide-on-scroll menu never resize it.
+/// Re-checked after every frame (LS1-01): content above the card that lands
+/// later (the Velín banner, a longer nickname) moves the card, and the
+/// photo then gives that room back. The check never schedules a frame.
 class FunnelPhotoFit extends StatefulWidget {
   final Widget Function(BuildContext context, double photoH) builder;
   final double bottomPad;
@@ -31,6 +34,18 @@ class _FunnelPhotoFitState extends State<FunnelPhotoFit> {
   final GlobalKey _card = GlobalKey();
   double? _h;
   double _used = 0;
+  bool _queued = false;
+
+  void _queue() {
+    if (_queued) return;
+    _queued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _queued = false;
+      if (!mounted) return;
+      _measure();
+      _queue();
+    });
+  }
 
   void _measure() {
     if (!mounted) return;
@@ -52,7 +67,7 @@ class _FunnelPhotoFitState extends State<FunnelPhotoFit> {
   Widget build(BuildContext context) {
     final h = _h ?? homeFunnelPhotoGuess(context);
     _used = h;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    _queue();
     return KeyedSubtree(key: _card, child: widget.builder(context, h));
   }
 }
