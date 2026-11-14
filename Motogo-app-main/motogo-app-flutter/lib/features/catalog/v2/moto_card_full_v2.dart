@@ -239,17 +239,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
               if (widget.availability != null)
                 Positioned(top: top + 20, left: 12, child: BikeCardAvailabilityPill(text: widget.availability!, live: widget.live)),
               // Where the bike is (owner v5.0.1): the neon chip, top right.
-              if (branch != null)
-                Positioned(
-                  top: top + 21,
-                  right: 12,
-                  child: MgBranchChip(
-                    label: branch,
-                    shortLabel: mgBranchShortName(m.branchName, m.branchCity),
-                    maxWidth: mgBranchChipMaxWidth(MediaQuery.sizeOf(context).width,
-                        leftPill: widget.availability == null ? 0 : _pillWidth(context, widget.availability!)),
-                  ),
-                ),
+              if (branch != null) _branchChip(context, branch),
               if (m.videos.isNotEmpty)
                 Positioned.fill(child: Align(alignment: photoAlign, child: BikeVideoPlayButton(video: video))),
               // With the bars shown the body is a nav row shorter than the
@@ -322,6 +312,28 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Where the bike is (owner v5.0.1): the neon chip in the photo's top-right
+  /// corner, beside the availability pill; when "name · mode" does not fit
+  /// there it moves one row down (full width) so the card never loses the
+  /// branch mode the old caption line showed.
+  Widget _branchChip(BuildContext context, String label) {
+    final m = widget.moto;
+    final w = MediaQuery.sizeOf(context).width;
+    final short = mgBranchShortName(m.branchName, m.branchCity);
+    final pill = widget.availability == null ? 0.0 : _pillWidth(context, widget.availability!);
+    var max = mgBranchChipMaxWidth(w, leftPill: pill);
+    var dy = 21.0;
+    if (pill > 0 && MgBranchChip(label: label, shortLabel: short, maxWidth: max).fitted(context) != label) {
+      max = mgBranchChipMaxWidth(w, leftPill: 0);
+      dy = 20 + 30 + 8;
+    }
+    return Positioned(
+      top: widget.topInset + dy,
+      right: 12,
+      child: IgnorePointer(child: MgBranchChip(label: label, shortLabel: short, maxWidth: max)),
     );
   }
 

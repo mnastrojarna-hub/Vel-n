@@ -1,0 +1,62 @@
+[
+ {
+  "note": "12 bikes, no dates: '1 / 12'",
+  "wait": 500
+ },
+ {
+  "tapText": "Nejbližší víkend",
+  "note": "dates set; every availability answer takes 2.5 s"
+ },
+ {
+  "wait": 2000,
+  "note": "first batch of 6 checked: '1 / n+' while the rest is checked"
+ },
+ {
+  "wait": 2500,
+  "note": "all checked: the real count"
+ },
+ {
+  "tap": [
+   304,
+   318
+  ],
+  "note": "next free bike"
+ },
+ {
+  "tapText": "Motorky",
+  "note": "Motorky tab with the same dates"
+ },
+ {
+  "wait": 3500
+ },
+ {
+  "scroll": [
+   180,
+   600,
+   500
+  ],
+  "note": "one bike per swipe"
+ },
+ {
+  "scroll": [
+   180,
+   600,
+   500
+  ]
+ },
+ {
+  "scroll": [
+   180,
+   400,
+   -80
+  ],
+  "note": "a small scroll up brings the nav back"
+ },
+ {
+  "tapText": "Domů"
+ },
+ {
+  "wait": 3500,
+  "note": "back on Home: new order"
+ }
+]

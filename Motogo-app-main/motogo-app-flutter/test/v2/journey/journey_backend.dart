@@ -1,7 +1,8 @@
 // Journey rig — fake Supabase backend. Initialised once per isolate with a
-// mock HTTP client (no network): a few RPCs the screens call directly
-// answer from the current start state, every other request answers an
-// empty list. Login = a locally recovered session with a far-future JWT
+// mock HTTP client (no network): a few RPCs / tables the screens call
+// directly (availability, next free days, branch closures, documents gate,
+// profile) answer from the current start state, every other request
+// answers an empty list. Login = a locally recovered session with a far-future JWT
 // (no auth server call), so the REAL router redirect sees
 // `MotoGoSupabase.currentSession`.
 import 'dart:convert';
@@ -48,6 +49,46 @@ List<(DateTime, DateTime, String, String)> journeyBlocks(String motoId, JourneyD
     for (final r in d?.reservations ?? const [])
       if (r.motoId == motoId && const ['pending', 'reserved', 'active'].contains(r.status))
         (r.startDate, r.endDate, r.status, r.id),
+    // Seasonal closure of the bike's branch (JourneyData.closures).
+    for (final c in d?.closures ?? const <(String, int, int)>[])
+      if (c.$1 == _branchOf(motoId, d)) (at(c.$2), at(c.$3), 'branch_closed', 'closed-${c.$1}'),
+  ];
+}
+
+String? _branchOf(String motoId, JourneyData? d) {
+  for (final m in d?.motos ?? const []) {
+    if (m.id == motoId) return m.branchId;
+  }
+  return null;
+}
+
+/// RPC `get_motos_availability_status` (no params): the first day from
+/// today on which the bike has no block at all (bookings, service, closed
+/// branch) — computed from the same data as `get_moto_booked_dates`.
+List<Map<String, dynamic>> _nextFree(JourneyData? d) {
+  final n = DateTime.now();
+  final ids = [for (final m in d?.motos ?? const []) m.id];
+  if (ids.isEmpty) ids.addAll(const ['m-bmw', 'm-husq', 'm-shot', 'm-kid']);
+  return [
+    for (final id in ids)
+      () {
+        final blocks = journeyBlocks(id, d);
+        var day = DateTime(n.year, n.month, n.day);
+        for (var i = 0; i < 400 && blocks.any((b) => !day.isBefore(b.$1) && !day.isAfter(b.$2)); i++) {
+          day = DateTime(day.year, day.month, day.day + 1);
+        }
+        return {'moto_id': id, 'next_available_date': _ymd(day)};
+      }(),
+  ];
+}
+
+/// `branch_closures` rows that have not ended yet (`closed_to=gte.<today>`).
+List<Map<String, dynamic>> _closures(JourneyData? d) {
+  final n = DateTime.now();
+  DateTime at(int k) => DateTime(n.year, n.month, n.day + k);
+  return [
+    for (final c in d?.closures ?? const <(String, int, int)>[])
+      if (c.$3 >= 0) {'branch_id': c.$1, 'closed_from': _ymd(at(c.$2)), 'closed_to': _ymd(at(c.$3))},
   ];
 }
 
@@ -60,7 +101,14 @@ Future<http.Response> _handle(http.Request r) async {
   if (path.endsWith('/rpc/get_docs_gate_checklist')) {
     return _json(d?.gateJson ?? {'error': 'not_logged_in'});
   }
+  if (path.endsWith('/rpc/get_motos_availability_status')) return _json(_nextFree(d));
+  if (path.endsWith('/rest/v1/branch_closures') && r.method == 'GET') return _json(_closures(d));
   if (path.endsWith('/rpc/get_moto_booked_dates') || path.endsWith('/rpc/check_moto_availability')) {
+    // A slow server (JourneyData.availDelayMs; fake time, advanced by steps).
+    if ((d?.availDelayMs ?? 0) > 0) {
+      await Future<void>.delayed(Duration(milliseconds: d!.availDelayMs));
+      _req = r;
+    }
     Map<String, dynamic> p = const {};
     try {
       p = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
@@ -77,6 +125,7 @@ Future<http.Response> _handle(http.Request r) async {
     if (s == null || e == null) return _json(true);
     // p_exclude_booking_id = the booking being changed (like the server).
     final skip = '${p['p_exclude_booking_id'] ?? ''}';
+    // A closed branch blocks the bike (like the server's branch check).
     final busy = blocks.any((b) => b.$3 != 'service' && b.$4 != skip && !s.isAfter(b.$2) && !b.$1.isAfter(e));
     return _json(!busy);
   }

@@ -162,7 +162,7 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
                 decoration: BoxDecoration(color: MgColors.grabberLight, borderRadius: BorderRadius.circular(3)),
               ),
             ),
-            // The old detail's order: video → branch → description →
+            // The old detail's order: (video in the hero) → branch → description →
             // parameters → prices → calendar (+ total) → manual.
             DetailMoreV2(moto: moto, branchInfo: w.branchInfo),
             const SizedBox(height: 20),

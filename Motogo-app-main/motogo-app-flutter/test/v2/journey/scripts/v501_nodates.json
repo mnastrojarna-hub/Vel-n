@@ -1,0 +1,11 @@
+[
+ {"wait":1000,"note":"Home without dates: every bike, 'od' price, Volná dnes / Volná od, branch chip"},
+ {"tap":[304,318],"note":"pager arrow: next bike"},
+ {"tap":[304,318]},
+ {"scroll":[180,600,420],"note":"below the offer: rank, 'Aktivní rezervace' rows with dark neon tiles"},
+ {"scroll":[180,600,-420]},
+ {"tapText":"Motorky","note":"tab switch: Home unmounts"},
+ {"tapText":"Domů","note":"back on Home: a new shuffled order"},
+ {"lifecycle":"cycle","note":"app to background and back: a new order"},
+ {"tapText":"VYBRAT TERMÍN","note":"the shown bike's own calendar sheet"}
+]

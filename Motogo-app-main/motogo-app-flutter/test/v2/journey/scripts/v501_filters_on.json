@@ -1,0 +1,53 @@
+[
+ {
+  "wait": 500,
+  "note": "Home with 2 filters left set (licence A2, 30-60 kW)"
+ },
+ {
+  "scroll": [
+   180,
+   600,
+   420
+  ]
+ },
+ {
+  "scroll": [
+   180,
+   600,
+   420
+  ],
+  "note": "the filter card above the Home list"
+ },
+ {
+  "scroll": [
+   180,
+   400,
+   -80
+  ]
+ },
+ {
+  "tapText": "Motorky",
+  "note": "Motorky: loud card 'Filtry zapnuté (2)', chips, 'Zrušit vše'"
+ },
+ {
+  "scroll": [
+   180,
+   600,
+   380
+  ],
+  "note": "Motorky: below the calendar, the loud filter card"
+ },
+ {
+  "tapText": "ŘP A2",
+  "note": "tap the chip: that filter goes, the count drops"
+ },
+ {
+  "tapKey": "motoFltClear",
+  "note": "'Zrušit vše': the calm card"
+ },
+ {
+  "tapType": "MotoFilterCardV2",
+  "dy": 28,
+  "note": "heading row opens the panel"
+ }
+]

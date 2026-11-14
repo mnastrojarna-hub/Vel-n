@@ -222,14 +222,16 @@ class DetailHeroV2 extends StatelessWidget {
               Positioned(
                 top: top + 21,
                 right: 16,
-                child: MgBranchChip(
-                  label: branchChip,
-                  shortLabel: mgBranchShortName(moto.branchName, moto.branchCity),
-                  maxWidth: mgBranchChipMaxWidth(MediaQuery.sizeOf(context).width, leftPill: leftControls - 8.0),
+                child: IgnorePointer(
+                  child: MgBranchChip(
+                    label: branchChip,
+                    shortLabel: mgBranchShortName(moto.branchName, moto.branchCity),
+                    maxWidth: mgBranchChipMaxWidth(MediaQuery.sizeOf(context).width, leftPill: leftControls - 8.0),
+                  ),
                 ),
               ),
             if (moto.videos.isNotEmpty)
-              Positioned.fill(top: top, child: Center(child: BikeVideoPlayButton(video: video))),
+              Positioned.fill(top: top, child: Align(alignment: const Alignment(0, -0.3), child: BikeVideoPlayButton(video: video))),
             Positioned(
               left: 16,
               right: 16,

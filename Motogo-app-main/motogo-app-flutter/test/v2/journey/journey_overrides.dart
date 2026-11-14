@@ -26,6 +26,7 @@ import 'package:motogo_app/features/messages/messages_provider.dart';
 import 'package:motogo_app/features/payment/payment_provider.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:motogo_app/features/routes/my_experiences_provider.dart';
+import 'package:motogo_app/features/routes/places_filter.dart';
 import 'package:motogo_app/features/routes/ride_provider.dart';
 import 'package:motogo_app/features/shop/shop_provider.dart';
 
@@ -41,6 +42,13 @@ class _CsLocale extends LocaleNotifier {
   _CsLocale() {
     state = const Locale('cs');
   }
+}
+
+class _Countries extends PlacesFilterNotifier {
+  final Set<String> countries;
+  _Countries(this.countries);
+  @override
+  PlacesFilter build() => PlacesFilter(countries: countries);
 }
 
 const _card = SavedCard(
@@ -59,7 +67,7 @@ List<Override> journeyOverrides(JourneyData d, {bool v2 = true}) {
   return [
     // Layer 1 — area fakes (routes / places, reservation detail parts,
     // profile, messages, documents, loyalty).
-    ...routesOverrides(),
+    ...routesOverrides(routes: d.routes),
     ...resOverrides(list: list, pending: d.pending),
     ...profileOverrides(profile: profile, loyalty: d.loyalty, docs: docsOk ? PfDocs.ok : PfDocs.none, reservations: list, unread: 1),
     ...messagesOverrides(unread: 1),
@@ -76,7 +84,10 @@ List<Override> journeyOverrides(JourneyData d, {bool v2 = true}) {
     pendingSosFabProvider.overrideWith((ref) => Stream.value(null)),
     profileProvider.overrideWith((ref) async => profile),
     loyaltyStatusProvider.overrideWith((ref) async => d.loggedIn ? d.loyalty : null),
-    motorcyclesProvider.overrideWith((ref) => Stream.value(cat.kMotos)),
+    motorcyclesProvider.overrideWith((ref) => Stream.value(d.motos ?? cat.kMotos)),
+    // 5.0.1 states: the filter the customer left set, route countries.
+    if (d.filter != null) catalogFilterProvider.overrideWith((ref) => d.filter!),
+    if (d.routeCountries.isNotEmpty) placesFilterProvider.overrideWith(() => _Countries(d.routeCountries)),
     reservationsProvider.overrideWith((ref) => Stream.value(list)),
     reservationByIdProvider.overrideWith((ref, id) async {
       for (final r in list) {

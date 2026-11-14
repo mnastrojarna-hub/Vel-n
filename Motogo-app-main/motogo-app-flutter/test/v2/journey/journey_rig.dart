@@ -23,8 +23,10 @@ import 'package:motogo_app/core/widgets/mg_back.dart' show mgCurrentLocation;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fakes_home.dart' show mockPathProvider;
+import '../support/shot_images.dart' show installShotImages, warmShotImages;
 import '../support/v2_harness.dart' show loadMontserrat, v2TestTheme;
 import 'journey_backend.dart';
+import 'journey_media.dart';
 import 'journey_overrides.dart';
 import 'journey_states.dart';
 
@@ -101,7 +103,10 @@ class JourneyRig {
 
   /// true = new look (flag on), false = old look (flag off).
   final bool v2;
-  JourneyRig._(this.tester, this.data, this.boundary, this._semantics, this.v2);
+
+  /// true = animations on (MG_JOURNEY_MOTION=full), false = reduced motion.
+  final bool motion;
+  JourneyRig._(this.tester, this.data, this.boundary, this._semantics, this.v2, this.motion);
 
   GoRouter get router {
     final el = tester.element(find.byType(_JourneyApp));
@@ -131,6 +136,11 @@ class JourneyRig {
     mockPathProvider();
     _mockPlugins();
     MgMotion.resetSession();
+    // Real photos (MG_SHOT_IMG_DIR) and the fake video player
+    // (MG_JOURNEY_VIDEO) — both no-ops without their env var.
+    installShotImages();
+    installJourneyVideo(journeyVideoMode);
+    final motion = journeyFullMotion;
     // Onboarding done (language, permissions, intro) — those overlays live
     // in main.dart's MotoGoApp, which the rig does not mount.
     final data = journeyData(state);
@@ -142,10 +152,12 @@ class JourneyRig {
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
     final key = GlobalKey();
-    await tester.pumpWidget(ProviderScope(overrides: journeyOverrides(data, v2: v2), child: _JourneyApp(boundary: key)));
+    await tester.pumpWidget(ProviderScope(overrides: journeyOverrides(data, v2: v2), child: _JourneyApp(boundary: key, motion: motion)));
     // Semantics on: the step log names what a tap hit (its label).
-    final rig = JourneyRig._(tester, data, key, tester.ensureSemantics(), v2);
+    final rig = JourneyRig._(tester, data, key, tester.ensureSemantics(), v2, motion);
     await rig.settle();
+    // The state's own start page (e.g. /routes-list) unless [start] is given.
+    start ??= data.start;
     if (start != null && start.isNotEmpty) {
       rig.router.go(start);
       await rig.settle();
@@ -190,6 +202,7 @@ class JourneyRig {
 
   Future<void> _settle(int maxMs) async {
     await tester.pump();
+    await warmShotImages(tester);
     var t = 0;
     while (t < maxMs) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -200,6 +213,7 @@ class JourneyRig {
 
   /// Writes the whole screen (incl. dialogs / sheets) as a 360×780 PNG.
   Future<void> shot(String path) async {
+    await guard(() => warmShotImages(tester, rounds: 2));
     await tester.runAsync(() async {
       final ro = boundary.currentContext?.findRenderObject();
       if (ro is! RenderRepaintBoundary) return;
@@ -229,7 +243,8 @@ class JourneyRig {
 
 class _JourneyApp extends ConsumerWidget {
   final GlobalKey boundary;
-  const _JourneyApp({required this.boundary});
+  final bool motion;
+  const _JourneyApp({required this.boundary, required this.motion});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -248,9 +263,10 @@ class _JourneyApp extends ConsumerWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        // Like main.dart: no system text scaling; reduced motion on.
+        // Like main.dart: no system text scaling; reduced motion on
+        // (MG_JOURNEY_MOTION=full turns animations on).
         builder: (c, child) => MediaQuery(
-          data: MediaQuery.of(c).copyWith(textScaler: TextScaler.noScaling, disableAnimations: true),
+          data: MediaQuery.of(c).copyWith(textScaler: TextScaler.noScaling, disableAnimations: !motion),
           child: MgV2Gate(router: router, child: child!),
         ),
       ),

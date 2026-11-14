@@ -80,7 +80,7 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
     _h._tap = _tapPlay;
     _h._mute = _toggleMute;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _evaluate());
+    if (_videos.isNotEmpty) WidgetsBinding.instance.addPostFrameCallback((_) => _evaluate());
   }
 
   @override
@@ -105,6 +105,7 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
       _swiped = false;
       _stop();
       _h.count = widget.videos.length;
+      _wire();
       _queueEvaluate();
     }
   }
@@ -123,6 +124,7 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
   /// Listen to every scrollable around the stage (the list / page and the
   /// bike pager): a scroll stops the countdown; it re-arms once settled.
   void _wire() {
+    if (_videos.isEmpty) return _unwire();
     final next = <ScrollPosition>[];
     BuildContext ctx = context;
     for (var k = 0; k < 3; k++) {
@@ -162,6 +164,7 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
 
   void _queueEvaluate() {
     _debounce?.cancel();
+    if (_videos.isEmpty) return;
     _debounce = Timer(const Duration(milliseconds: 200), _evaluate);
   }
 

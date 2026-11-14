@@ -1,0 +1,10 @@
+[
+ {"wait":500,"note":"Trasy list: 20 routes, header, toolbar, sorted from my location"},
+ {"scroll":[180,600,450],"note":"onto the first full-screen route card"},
+ {"tap":[340,250],"note":"right edge of the photo: page 2 (large road preview)"},
+ {"tap":[340,250],"note":"page 3: a place photo with its name"},
+ {"scroll":[180,600,500],"note":"one route per swipe"},
+ {"scroll":[180,600,500]},
+ {"tapText":"Detail trasy","note":"opens the route detail"},
+ {"back":true,"note":"back: the same card is on screen"}
+]

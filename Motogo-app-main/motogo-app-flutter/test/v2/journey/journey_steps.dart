@@ -4,9 +4,15 @@
 //                          contains); {"tapText":"…","index":1} = 2nd match
 //   {"type":"…"}           replace the text of the focused field
 //   {"scroll":[x,y,dy]}    drag from (x,y); dy > 0 reveals content BELOW
+//   {"swipe":[x,y,dy]}     quick flick over dy px (snapping lists: next item)
 //   {"back":true}          system back (Android back button / predictive back)
 //   {"wait":ms}            let time pass
 //   {"go":"/path"}         JUMP: router.go — not a click, logged as JUMP
+//   {"tapKey":"motoFltClear"}  tapText with the Czech text of an i18n key
+//   {"tapType":"MotoFilterCardV2","dy":24}  tap a widget by its class name,
+//                          at its centre x and dy px below its top
+//                          (no dy = its centre); "index" = n-th match
+//   {"lifecycle":"pause"|"resume"|"cycle"}  app to background / back
 //   {"note":"…"}           any step may carry a note (copied to the log)
 // After every step the rig settles and writes <dir>/<nn>.png + one log line.
 import 'dart:convert';
@@ -16,9 +22,12 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/i18n/translations.dart';
 
 import 'journey_backend.dart';
+import 'journey_media.dart';
 import 'journey_rig.dart';
+import '../support/shot_images.dart' show shotImagesOn;
 
 const _detectors = {'GestureDetector', 'RawGestureDetector', 'InkWell', 'InkResponse'};
 
@@ -115,11 +124,37 @@ Future<void> _scroll(WidgetTester t, Offset from, double dy) async {
 
 /// Runs [steps]; writes `<dir>/00.png` (boot) … `<dir>/<nn>.png` + log.txt.
 Future<void> runJourney(JourneyRig rig, List<dynamic> steps, String dir) async {
+  // The same debug-only assertion as [JourneyRig.guard], when the framework
+  // reports it through FlutterError.onError (a notifier fired during a
+  // build): logged as DEBUG-ASSERT, everything else still fails the run.
+  final prev = FlutterError.onError;
+  FlutterError.onError = (d) {
+    final msg = d.exceptionAsString();
+    if (msg.contains('markNeedsBuild() called during build')) {
+      final who = RegExp(r'This (\w+) widget cannot be marked').firstMatch(msg)?.group(1) ?? '?';
+      final by = '${d.stack}'.split('\n').where((l) => l.contains('package:motogo_app')).take(1).join().trim();
+      rig.debugAsserts.add('markNeedsBuild during build ($who; $by)');
+      return;
+    }
+    prev?.call(d);
+  };
+  try {
+    await _run(rig, steps, dir);
+  } finally {
+    FlutterError.onError = prev;
+  }
+}
+
+Future<void> _run(JourneyRig rig, List<dynamic> steps, String dir) async {
   final t = rig.tester;
+  // Fake (test) time since boot, so a script's waits can be read.
+  final t0 = t.binding.clock.now();
+  String clock() => ' | t=${(t.binding.clock.now().difference(t0).inMilliseconds / 1000).toStringAsFixed(1)}s';
   Directory(dir).createSync(recursive: true);
   final log = File('$dir/log.txt')..writeAsStringSync('');
   void line(String s) => log.writeAsStringSync('$s\n', mode: FileMode.append);
-  line('state=${rig.data.state.id} size=360x780 lang=cs textScale=1.0 reducedMotion=on flag=${rig.v2 ? 'v2' : 'old'}');
+  line('state=${rig.data.state.id} size=360x780 lang=cs textScale=1.0 reducedMotion=${rig.motion ? 'off' : 'on'} flag=${rig.v2 ? 'v2' : 'old'}'
+      ' photos=${shotImagesOn ? 'real' : 'placeholder'} video=${journeyVideoMode ?? 'app'}');
   String err() {
     final e = t.takeException();
     final dbg = rig.debugAsserts.toSet().map((a) => ' | DEBUG-ASSERT $a').join();
@@ -145,7 +180,7 @@ Future<void> runJourney(JourneyRig rig, List<dynamic> steps, String dir) async {
     final note = s['note'] == null ? '' : ' | note=${s['note']}';
     final step = jsonEncode(Map.of(s)..remove('note'));
     line('$n | $step | $what | route=${rig.location} | modal=${modalOpen() ? 'yes' : 'no'}'
-        '${calls.isEmpty ? '' : ' | server=[$calls]'}$note${err()}');
+        '${calls.isEmpty ? '' : ' | server=[$calls]'}${clock()}$note${err()}');
   }
 }
 
@@ -170,6 +205,12 @@ Future<String> _step(JourneyRig rig, Map<String, dynamic> s) async {
     final a = s['scroll'] as List;
     await _scroll(t, Offset((a[0] as num).toDouble(), (a[1] as num).toDouble()), (a[2] as num).toDouble());
     what = 'scrolled';
+  } else if (s['swipe'] is List) {
+    // A quick flick (like a thumb): snapping lists move one item.
+    final a = s['swipe'] as List;
+    final dy = (a[2] as num).toDouble();
+    await t.flingFrom(Offset((a[0] as num).toDouble(), (a[1] as num).toDouble()), Offset(0, -dy), 1200);
+    what = 'swiped';
   } else if (s['back'] == true) {
     // ignore: invalid_use_of_protected_member
     final handled = await t.binding.handlePopRoute();
@@ -177,6 +218,16 @@ Future<String> _step(JourneyRig rig, Map<String, dynamic> s) async {
   } else if (s['wait'] is num) {
     await t.pump(Duration(milliseconds: (s['wait'] as num).toInt()));
     what = 'waited';
+  } else if (s['tapKey'] is String) {
+    final k = s['tapKey'] as String;
+    final text = translations['cs']?[k];
+    what = text == null
+        ? 'UNKNOWN I18N KEY "$k"'
+        : 'key $k = "$text" ${await _tapText(rig, text, (s['index'] as num?)?.toInt() ?? 0)}';
+  } else if (s['tapType'] is String) {
+    what = await _tapType(t, s['tapType'] as String, (s['dy'] as num?)?.toDouble(), (s['index'] as num?)?.toInt() ?? 0);
+  } else if (s['lifecycle'] is String) {
+    what = await _lifecycle(t, s['lifecycle'] as String);
   } else if (s['go'] is String) {
     rig.router.go(s['go'] as String);
     what = 'JUMP (router.go, not a click)';
@@ -184,4 +235,35 @@ Future<String> _step(JourneyRig rig, Map<String, dynamic> s) async {
     what = 'UNKNOWN STEP';
   }
   return what;
+}
+
+Future<String> _tapType(WidgetTester t, String type, double? dy, int index) async {
+  final hits = find.byWidgetPredicate((w) => w.runtimeType.toString() == type).evaluate().toList();
+  if (hits.length <= index) return 'NOT FOUND (no widget $type)';
+  final ro = hits[index].renderObject;
+  if (ro is! RenderBox || !ro.hasSize) return 'NOT FOUND ($type has no box)';
+  final r = ro.localToGlobal(Offset.zero) & ro.size;
+  final p = dy == null ? r.center : Offset(r.center.dx, r.top + dy);
+  final what = probe(t, p);
+  await t.tapAt(p);
+  return '$type @(${p.dx.round()},${p.dy.round()}) $what';
+}
+
+/// Background (inactive → hidden → paused) and back (→ resumed), in the
+/// order the platform reports them.
+Future<String> _lifecycle(WidgetTester t, String what) async {
+  const pause = [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused];
+  const resume = [AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed];
+  final states = switch (what) {
+    'pause' => pause,
+    'resume' => resume,
+    'cycle' => [...pause, ...resume],
+    _ => const <AppLifecycleState>[],
+  };
+  if (states.isEmpty) return 'UNKNOWN LIFECYCLE "$what" (pause | resume | cycle)';
+  for (final st in states) {
+    t.binding.handleAppLifecycleStateChanged(st);
+    await t.pump(const Duration(milliseconds: 50));
+  }
+  return 'app ${what == 'pause' ? 'in background' : what == 'resume' ? 'back in front' : 'to background and back'}';
 }

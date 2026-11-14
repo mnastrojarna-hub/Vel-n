@@ -1,0 +1,8 @@
+[
+ {"tapText":"Motorky","note":"run with MG_JOURNEY_VIDEO=mobile MG_JOURNEY_MOTION=full (state nodates)"},
+ {"scroll":[180,700,500]},
+ {"scroll":[180,700,500],"note":"BMW card: on mobile data the photo stays with 'Pustit video'"},
+ {"wait":6500,"note":"no autoplay, nothing downloaded"},
+ {"tapText":"Pustit video","note":"the customer starts it"},
+ {"wait":1500,"note":"the video plays"}
+]

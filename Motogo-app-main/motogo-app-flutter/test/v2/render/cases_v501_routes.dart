@@ -21,6 +21,7 @@ import 'package:motogo_app/features/routes/routes_screen.dart';
 import 'package:motogo_app/features/routes/v2/route_card_photos_v2.dart';
 
 import '../support/fakes_routes.dart';
+import '../support/shot_images.dart' show shotImgDir;
 import 'render_harness.dart';
 
 /// Stand-in photos: a sky / land gradient per URL + its name.
@@ -127,7 +128,8 @@ Future<void> Function(WidgetTester) toCard(int i, {int page = 0}) => (t) async {
     };
 
 Future<void> setUpRoutePhotos() async {
-  RtCardImage.debugBuilder = fakeRoutePhoto;
+  // With MG_SHOT_IMG_DIR the real photos load (support/shot_images.dart).
+  RtCardImage.debugBuilder = shotImgDir == null ? fakeRoutePhoto : null;
 }
 
 List<RenderCase> v501RoutesCases() {

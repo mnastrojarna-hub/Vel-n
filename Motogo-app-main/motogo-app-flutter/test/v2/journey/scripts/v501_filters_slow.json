@@ -1,0 +1,22 @@
+[
+ {
+  "wait": 3500,
+  "note": "Motorky with A2 + power and days 7-9; availability answers take 3 s"
+ },
+ {
+  "scroll": [
+   180,
+   600,
+   380
+  ],
+  "note": "the filter card and the count line"
+ },
+ {
+  "tapText": "ŘP A2",
+  "note": "a filter goes: the list recounts, the count line reads 'Hledám…'"
+ },
+ {
+  "wait": 3500,
+  "note": "the new count"
+ }
+]
