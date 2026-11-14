@@ -6,6 +6,7 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_branch_chip.dart' show mgBranchShortName;
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../catalog_provider.dart';
 
 /// One removable chip of the folded filter card (5.0.1): what it says and
@@ -99,7 +100,8 @@ class MotoFilterChipV2 extends StatelessWidget {
               if (place) ...[MgIcon(MgIcons.pin, size: 15, color: MgColors.link), const SizedBox(width: 4)],
               Text(item.label,
                   maxLines: 1,
-                  style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: place ? MgColors.onTintOk : MgColors.onDark)),
+                  style: MgType.small
+                      .copyWith(fontWeight: FontWeight.w800, color: place ? MgColors.onTintOk : MgColors.onDark)),
             ]),
           ),
         ),
@@ -120,7 +122,8 @@ class MotoFilterChipV2 extends StatelessWidget {
                   height: 22,
                   decoration: BoxDecoration(shape: BoxShape.circle, color: place ? MgColors.well : MgColors.neon),
                   child: Center(
-                      child: MgIcon(MgIcons.close, size: 13, stroke: 2.6, color: place ? MgColors.ink : MgColors.onNeon)),
+                      child:
+                          MgIcon(MgIcons.close, size: 13, stroke: 2.6, color: place ? MgColors.ink : MgColors.onNeon)),
                 ),
               ),
             ),
@@ -154,13 +157,20 @@ class MotoFilterClearAllV2 extends StatelessWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 MgIcon(MgIcons.close, size: 16, color: MgColors.link),
                 const SizedBox(width: 4),
-                Text(label,
-                    maxLines: 1,
-                    style: MgType.small.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: MgColors.link,
-                        decoration: TextDecoration.underline,
-                        decorationColor: MgColors.link)),
+                // Long labels (pl "Wyczyść wszystko") shrink, then wrap.
+                Flexible(
+                  child: MgWordFit(
+                    minScale: 0.75,
+                    fitLines: 1,
+                    child: Text(label,
+                        maxLines: 2,
+                        style: MgType.small.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: MgColors.link,
+                            decoration: TextDecoration.underline,
+                            decorationColor: MgColors.link)),
+                  ),
+                ),
               ]),
             ),
           ),

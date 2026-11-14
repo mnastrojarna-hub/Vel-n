@@ -119,7 +119,9 @@ void main() {
       expect(_filter(t, RoutesScreen).countries, {'AT'});
       await _open(t, v2 ? find.byKey(const ValueKey('rt-tool-sort')) : _textWhere((s) => s.startsWith('${_tr('sortTitle')}: ')));
       await _tap(t, find.text(_tr('sortLength')));
-      expect(find.text(_tr('sortLength')), findsNothing, reason: 'sheet closed');
+      // 5.0.1: the v2 sort pill shows the value alone ("Délka"), so the
+      // closed sheet is checked by an option only the sheet shows.
+      expect(find.text(_tr('sortDuration')), findsNothing, reason: 'sheet closed');
       expect(_textWhere((s) => s.contains(_tr('sortLength'))), findsWidgets);
       await rtEnd(t);
     });

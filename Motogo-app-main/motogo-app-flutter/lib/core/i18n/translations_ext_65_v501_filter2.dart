@@ -88,7 +88,7 @@ const Map<String, Map<String, String>> translationsExt65V501Filter2 = {
     'motoFltPickDates': 'Wybierz inny termin',
   },
   'uk': {
-    'motoFltFilter': 'Фільтрувати',
+    'motoFltFilter': 'Фільтри',
     'motoFltAtBranch': 'Мотоцикли філії',
     'motoFltNoneTitle': 'Фільтрам нічого не відповідає',
     'motoFltNoneText': 'Зніми якийсь фільтр.',

@@ -24,13 +24,30 @@ import 'home_offer_provider.dart';
 /// The availability pill of an offer bike outside a free range: "Volná
 /// dnes" (`availableToday`, as the bike list), else "Volná od 26. 3." from
 /// `get_motos_availability_status`, else none. (text, live dot)
+/// Dates given and nothing free (v5.0.1): the next free day counts from
+/// TODAY, so it is shown only when it falls after the first chosen day —
+/// otherwise "Obsazená v termínu" (never "free" next to "all booked").
 (String?, bool) homeOfferAvail(AppTranslations tr, HomeOffer offer, Motorcycle m, Map<String, DateTime> nextFree,
     DateTime today) {
   if (offer.mode == HomeOfferMode.free) return (tr.tr('v2HomeFnFree'), true);
-  if (m.availableToday == true) return (tr.tr('v2CatFreeToday'), true);
+  final r = offer.range;
   final next = nextFree[m.id];
+  if (offer.mode == HomeOfferMode.noneFree && r != null) {
+    if (homeOfferBusy(offer, m, nextFree)) return (tr.tr('homeOfferBusyInRange'), false);
+    return (tr.trArgs('homeOfferFreeFrom', {'date': funnelDate(tr, next!)}), false);
+  }
+  if (m.availableToday == true) return (tr.tr('v2CatFreeToday'), true);
   if (next == null || !next.isAfter(today)) return (null, false);
   return (tr.trArgs('homeOfferFreeFrom', {'date': funnelDate(tr, next)}), false);
+}
+
+/// Dates given, nothing free and no known free day after the first chosen
+/// day: the pill reads "Obsazená v termínu".
+bool homeOfferBusy(HomeOffer offer, Motorcycle m, Map<String, DateTime> nextFree) {
+  final r = offer.range;
+  if (offer.mode != HomeOfferMode.noneFree || r == null) return false;
+  final next = nextFree[m.id];
+  return next == null || !next.isAfter(r.start);
 }
 
 /// Price shown on an offer card: with free dates "Tvoje cena · n dny" + the
@@ -54,14 +71,14 @@ import 'home_offer_provider.dart';
 }
 
 /// "Nothing free in these dates" heading of the offer card (closed branch
-/// told apart from booked out).
-Widget homeOfferNoneBanner(AppTranslations tr, HomeOffer offer) => MgStateBanner(
+/// told apart from booked out); [brief] = the heading only (low phone).
+Widget homeOfferNoneBanner(AppTranslations tr, HomeOffer offer, {bool brief = false}) => MgStateBanner(
       key: const ValueKey('home-offer-none'),
       tone: MgTone.info,
       dark: true,
       icon: MgIcons.calendarX,
       title: tr.tr(offer.closed ? 'homeOfferClosedTitle' : 'homeOfferNoneTitle'),
-      text: tr.tr(offer.closed ? 'homeOfferClosedText' : 'homeOfferNoneText'),
+      text: brief ? null : tr.tr(offer.closed ? 'homeOfferClosedText' : 'homeOfferNoneText'),
     );
 
 /// The card's one action for [offer] and its centred bike [m].

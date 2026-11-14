@@ -62,18 +62,26 @@ void main() {
     await t.pump();
     expect(first.volume, 1);
     first.finish();
+    // SB-4: while the next video initialises the finished one keeps its
+    // last frame and the video controls — no fade back to the photo.
+    await t.pump(const Duration(milliseconds: 100));
+    expect(first.disposed, isFalse);
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(find.byKey(const ValueKey('fake-video-https://x/1.mp4')), findsOneWidget);
     await wait(t, const Duration(seconds: 1));
-    expect(first.disposed, isTrue);
+    expect(first.disposed, isTrue, reason: 'handed over once the next one plays');
     final second = fake.created.last;
     expect(second.url, 'https://x/2.mp4');
     expect(second.playing, isTrue);
     expect(second.volume, 1, reason: 'the mute choice carries over');
     expect(find.text('2 / 2'), findsOneWidget);
-    expect(fake.maxAlive, 1);
+    expect(fake.alive, 1);
+    expect(fake.maxAlive, 2, reason: 'two players only during the hand-over');
     second.finish();
     await wait(t, const Duration(seconds: 1));
     expect(fake.created.last.url, 'https://x/1.mp4', reason: 'after the last one the first again');
-    expect(fake.maxAlive, 1);
+    expect(fake.alive, 1);
+    expect(fake.maxAlive, 2);
   });
 
   testWidgets('hero: one video loops; mobile data keeps the photo with the play button', (t) async {

@@ -32,6 +32,7 @@ class DetailMoreV2 extends StatelessWidget {
     final desc = m.descriptionPlainFor(tr.lang);
     final specs = m.specList(tr.tr);
     final branch = catBranchLineCity(tr, m) ?? branchInfo;
+    final b = detailBranchRow(tr, m, branch);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (branch.isNotEmpty)
         Padding(
@@ -40,9 +41,8 @@ class DetailMoreV2 extends StatelessWidget {
             child: MgRow(
               key: const ValueKey('det-branch'),
               icon: MgIcons.pin,
-              title: '${tr.tr('detailBranchLabel')}$branch',
-              // Street address only (the city is already in the title).
-              sub: (m.branchAddress ?? '').trim().isEmpty ? null : catBranchAddress(m),
+              title: '${tr.tr('detailBranchLabel')}${b.title}',
+              sub: b.sub,
               divider: false,
             ),
           ),
@@ -83,4 +83,23 @@ class DetailManualSectionV2 extends StatelessWidget {
         padding: const EdgeInsets.only(top: 20),
         child: ManualCard(moto: moto),
       );
+}
+
+/// "Pobočka" row text: the branch name in the title, then its city, type
+/// and street address under it (the old "{name}, {city} · type" + address,
+/// all kept) — a long city ("Brno - Velké Němčice") is never cut by the
+/// title's two lines.
+({String title, String? sub}) detailBranchRow(AppTranslations tr, Motorcycle m, String fallback) {
+  final name = (m.branchName ?? '').trim();
+  final city = (m.branchCity ?? '').trim();
+  final addr = (m.branchAddress ?? '').trim();
+  if (name.isEmpty) return (title: fallback, sub: addr.isEmpty ? null : catBranchAddress(m));
+  final type = catBranchType(tr, m);
+  final lines = [
+    if (city.isNotEmpty && !name.contains(city)) city,
+    if (type != null) type,
+    // Street address (the city is already named).
+    if (addr.isNotEmpty) addr,
+  ];
+  return (title: name, sub: lines.isEmpty ? null : lines.join(' · '));
 }

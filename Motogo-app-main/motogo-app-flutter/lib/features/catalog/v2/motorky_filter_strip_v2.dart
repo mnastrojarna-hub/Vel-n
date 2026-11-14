@@ -58,7 +58,7 @@ class MotorkyFilterStripV2 extends StatelessWidget {
                       child: MgWordFit(
                         minScale: 0.75,
                         fitLines: 1,
-                        child: Text(title, maxLines: 2, style: MgType.title.copyWith(color: MgColors.link)),
+                        child: Text(title, maxLines: 3, style: MgType.title.copyWith(color: MgColors.link)),
                       ),
                     ),
                     MgIcon(MgIcons.chevronDown, size: 18, color: MgColors.link),
@@ -68,7 +68,11 @@ class MotorkyFilterStripV2 extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          MotoFilterClearAllV2(label: tr.tr('motoFltClear'), onTap: onReset, keyName: 'motorky-filter-strip-clear'),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.36),
+            child: MotoFilterClearAllV2(
+                label: tr.tr('motoFltClear'), onTap: onReset, keyName: 'motorky-filter-strip-clear'),
+          ),
         ]),
       ),
     );

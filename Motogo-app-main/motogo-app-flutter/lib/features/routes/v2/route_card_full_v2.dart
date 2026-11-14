@@ -81,8 +81,15 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
   /// Media pager height (the caption rides over its lower part).
   double get _mediaH => math.max(300.0, widget.height * 0.64);
 
+  /// No photo at all: the LARGE road preview is the card's only page.
+  bool get _noPhoto => _photos.isEmpty;
+
   /// Pages: 0 = cover, 1 = road preview, 2.. = the other photos.
-  int get _count => 2 + math.max(0, _photos.length - 1);
+  int get _count => _noPhoto ? 1 : 2 + math.max(0, _photos.length - 1);
+
+  /// Short phone / large text: the caption drops the tiles and the branch
+  /// line so the photo stays big (the tiles' photos stay pager pages).
+  bool _compact(BuildContext context) => widget.height < 720 || MediaQuery.textScalerOf(context).scale(10) > 11.5;
 
   void _go(int page) {
     final next = page.clamp(0, _count - 1);
@@ -96,7 +103,12 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
 
   Widget _pageAt(int i) {
     final top = widget.topInset;
-    if (i == 1) return RtSketchPage(route: widget.route, topInset: top, bottom: _mediaH * 0.42);
+    if (_noPhoto || i == 1) {
+      return GestureDetector(
+        onTap: widget.onTap,
+        child: RtSketchPage(route: widget.route, topInset: top, labelTop: _noPhoto ? 20 : 56, bottom: _mediaH * 0.42),
+      );
+    }
     final k = i == 0 ? 0 : i - 1;
     final img = k < _photos.length
         ? RtCardImage(url: _photos[k].url, targetWidth: kRtCardCoverWidth, fallback: rtCardFallback)
@@ -120,8 +132,15 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
     final a = widget.approach;
     final fromMe = a == null ? null : '${tr.tr('routeFromMe')} ~${a.km.round()} km · ~${rtDur(a.min)}';
     final rating = r.reviewCount > 0 ? '${mgRating(r.reviewAvg ?? 0, tr.lang)} (${r.reviewCount})' : '(0)';
-    final picks = routeCardPicks(_photos);
-    final shownPlace = _page >= 2 && _page - 1 < _photos.length ? _photos[_page - 1].place : null;
+    final compact = _compact(context);
+    final picks = compact ? const <RtCardPhoto>[] : routeCardPicks(_photos);
+    // The place pill only when no tile below already names that photo.
+    final shownPlace =
+        _page >= 2 && _page - 1 < _photos.length && _page - 2 >= picks.length ? _photos[_page - 1].place : null;
+    final nameStyle =
+        MgType.h2.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 16)]);
+    // Two name lines reserved: the caption grid stays put from card to card.
+    final nameMin = MediaQuery.textScalerOf(context).scale(nameStyle.fontSize ?? 24) * (nameStyle.height ?? 1.2) * 2;
     final branch = widget.branch;
     final open = tr.tr('rtListOpen');
 
@@ -151,12 +170,15 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text(name,
-                // A short phone keeps more of the photo: two lines there.
-                maxLines: widget.height < 720 ? 2 : 3,
-                overflow: TextOverflow.ellipsis,
-                style: MgType.h2.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 16)])),
-            if (branch != null) ...[
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: nameMin),
+              child: Align(
+                alignment: AlignmentDirectional.bottomStart,
+                heightFactor: 1,
+                child: Text(name, maxLines: 3, overflow: TextOverflow.ellipsis, style: nameStyle),
+              ),
+            ),
+            if (branch != null && !compact) ...[
               const SizedBox(height: 6),
               Row(children: [
                 const MgIcon(MgIcons.flag, size: 15, color: MgColors.neon),
@@ -170,9 +192,15 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
               ]),
             ],
             const SizedBox(height: 10),
-            RtCardMeta(
-              items: meta,
-              trailing: r.difficulty == null ? null : RouteDiffPillV2(difficulty: r.difficulty!),
+            RtCardMeta(items: meta),
+            // Difficulty in its own fixed row (the caption never jumps).
+            const SizedBox(height: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 24),
+              child: r.difficulty == null
+                  ? const SizedBox(height: 24)
+                  : Align(
+                      alignment: AlignmentDirectional.centerStart, child: RouteDiffPillV2(difficulty: r.difficulty!)),
             ),
             if (fromMe != null) ...[
               const SizedBox(height: 8),
@@ -190,29 +218,32 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
       ),
       const SizedBox(height: 6),
       Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Semantics(
-              button: true,
-              label: '${tr.tr('routeReviewsHeader')}: $rating',
-              excludeSemantics: true,
-              child: MgPress(
-                onTap: widget.onReviews,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 44, minWidth: 64),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    MgIcon(r.reviewCount > 0 ? MgIcons.starFilled : MgIcons.star, size: 18, color: MgColors.star),
-                    const SizedBox(width: 5),
-                    Text(rating,
-                        style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
-                  ]),
-                ),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Semantics(
+            button: true,
+            label: '${tr.tr('routeReviewsHeader')}: $rating',
+            excludeSemantics: true,
+            child: MgPress(
+              onTap: widget.onReviews,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44, minWidth: 64),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  MgIcon(r.reviewCount > 0 ? MgIcons.starFilled : MgIcons.star, size: 18, color: MgColors.star),
+                  const SizedBox(width: 5),
+                  Text(rating,
+                      style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark))),
+                ]),
               ),
             ),
-          ]),
-        ),
+          ),
+        ]),
         const SizedBox(width: 10),
-        RtOpenButton(label: open, semantic: '$open · $name', onTap: widget.onTap),
+        Expanded(
+          child: Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: RtOpenButton(label: open, semantic: '$open · $name', onTap: widget.onTap),
+          ),
+        ),
       ]),
     ]);
 
@@ -254,7 +285,13 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [MgColors.nightA(0.5), MgColors.nightA(0), MgColors.nightA(0), MgColors.nightA(0.75), MgColors.night],
+                      colors: [
+                        MgColors.nightA(0.5),
+                        MgColors.nightA(0),
+                        MgColors.nightA(0),
+                        MgColors.nightA(0.75),
+                        MgColors.night
+                      ],
                       stops: const [0, 0.16, 0.45, 0.8, 1],
                     ),
                   ),
@@ -263,11 +300,12 @@ class _RouteCardFullV2State extends State<RouteCardFullV2> {
             ),
             _zone(left: true, label: tr.tr('v2CatPhotoPrev'), mediaH: mediaH),
             _zone(left: false, label: tr.tr('v2CatPhotoNext'), mediaH: mediaH),
-            Positioned(top: top + 12, left: 12, child: RtCountPill(index: _page, total: _count)),
+            if (!_noPhoto) Positioned(top: top + 12, left: 12, child: RtCountPill(index: _page, total: _count)),
             if (shownPlace != null)
               Positioned(top: top + 50, left: 12, child: RtPlacePill(name: shownPlace.name, maxWidth: w * 0.7)),
-            if (_page == 0)
-              Positioned(top: top + 12, right: 12, child: RtSmallSketch(route: r, onTap: () => _go(1))),
+            if (_page == 0 && !_noPhoto)
+              Positioned(
+                  top: top + 12, right: 12, child: RtSmallSketch(route: r, compact: compact, onTap: () => _go(1))),
             MgChromeLift(
               room: widget.height,
               extra: widget.liftExtra,

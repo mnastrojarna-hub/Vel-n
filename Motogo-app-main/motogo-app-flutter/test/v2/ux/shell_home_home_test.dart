@@ -61,11 +61,15 @@ void main() {
   // corner; the line under the name keeps only the category.
   testWidgets('SH-40: branch chip on the funnel photo, category line; the calculator row names the centred bike', (tester) async {
     await _home(tester, homeCases()['s0-dates']!());
-    final card = find.byType(FunnelBikeCard).first;
+    // v5.0.1: the order is shuffled — check the centred bike, whichever it is.
+    final card = find.byWidgetPredicate((w) => w is FunnelBikeCard && w.center);
+    final moto = tester.widget<FunnelBikeCard>(card).moto;
+    final branch = moto.branchName!.split(' ').first;
     expect(find.descendant(of: card, matching: find.byKey(const ValueKey('mg-branch-chip'))), findsOneWidget);
-    expect(find.descendant(of: card, matching: find.textContaining('Mezná')), findsOneWidget);
-    expect(tester.widget<Text>(find.byKey(const ValueKey('funnel-meta')).first).data, isNot(contains('Mezná')));
-    expect(find.textContaining('BMW R 1200 GS Adventure ·'), findsWidgets);
+    expect(find.descendant(of: card, matching: find.textContaining(branch)), findsOneWidget);
+    expect(tester.widget<Text>(find.descendant(of: card, matching: find.byKey(const ValueKey('funnel-meta')))).data,
+        isNot(contains(branch)));
+    expect(find.textContaining('${moto.model} ·'), findsWidgets);
   });
 
   testWidgets('SH-23 bookings skeleton in the funnel geometry (±10 %)', (tester) async {

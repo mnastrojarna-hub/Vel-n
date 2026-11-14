@@ -40,6 +40,9 @@ class FunnelBikeCard extends StatelessWidget {
   final String? avail;
   final bool availLive;
 
+  /// "Obsazená v termínu" (dates given, nothing free): amber calendar.
+  final bool availBusy;
+
   /// "/den" after an "od" price (no dates).
   final String? unit;
 
@@ -60,6 +63,7 @@ class FunnelBikeCard extends StatelessWidget {
     required this.onTap,
     required this.avail,
     this.availLive = true,
+    this.availBusy = false,
     this.unit,
   });
 
@@ -103,6 +107,7 @@ class FunnelBikeCard extends StatelessWidget {
           // (dostupnost + pobočka), „Znovu" jde k názvu, štítek ŘP odpadne —
           // nic nepřekryje název motorky.
           final compact = box.maxHeight < 170;
+          final lic = compact && !again ? badge : null;
           return Stack(fit: StackFit.expand, children: [
           ClipRect(child: photo),
           DecoratedBox(
@@ -124,6 +129,7 @@ class FunnelBikeCard extends StatelessWidget {
               ping: ping,
               avail: avail,
               availLive: availLive,
+              availBusy: availBusy,
               center: center,
               badge: compact ? null : badge,
               again: again,
@@ -151,23 +157,27 @@ class FunnelBikeCard extends StatelessWidget {
                   MgWordFit(
                     minScale: 0.7,
                     fitLines: 2,
-                    child: Text(moto.model,
+                    child: Text(homeNoOrphan(moto.model),
                         maxLines: 2,
                         style: MgType.section.copyWith(
                             color: MgColors.onDark,
                             shadows: [Shadow(color: MgColors.black(0.55), blurRadius: 10, offset: const Offset(0, 2))])),
                   ),
-                  if (meta.isNotEmpty) ...[
+                  if (meta.isNotEmpty || lic != null) ...[
                     const SizedBox(height: 2),
                     // Kategorie celá, raději menší; když se nevejde ani
-                    // zmenšená (úzký telefon, velké písmo), odpadne.
+                    // zmenšená (úzký telefon, velké písmo), odpadne. Nízká
+                    // fotka: štítek ŘP sem za kategorii (na fotce není místo).
                     LayoutBuilder(builder: (context, c) {
                       final style = MgType.meta.copyWith(color: MgColors.white(0.86));
                       final small = style.copyWith(fontSize: style.fontSize! * 0.75);
-                      if (!homeLinesFitIn(context, meta, small, c.maxWidth, 1)) return const SizedBox.shrink();
+                      bool fits(String x) => x.isNotEmpty && homeLinesFitIn(context, x, small, c.maxWidth, 1);
+                      final both = [if (meta.isNotEmpty) meta, if (lic != null) lic].join(' · ');
+                      final text = fits(both) ? both : (fits(meta) ? meta : null);
+                      if (text == null) return const SizedBox.shrink();
                       return MgWordFit(
                         minScale: 0.75,
-                        child: Text(meta, key: const ValueKey('funnel-meta'), maxLines: 1, softWrap: false, style: style),
+                        child: Text(text, key: const ValueKey('funnel-meta'), maxLines: 1, softWrap: false, style: style),
                       );
                     }),
                   ],
@@ -218,6 +228,7 @@ class FunnelBikeCard extends StatelessWidget {
 class _TopRow extends StatelessWidget {
   final String? avail;
   final bool availLive;
+  final bool availBusy;
   final bool center;
   final String? badge;
   final bool again;
@@ -227,6 +238,7 @@ class _TopRow extends StatelessWidget {
   const _TopRow({
     required this.avail,
     required this.availLive,
+    this.availBusy = false,
     required this.center,
     required this.badge,
     required this.again,
@@ -245,10 +257,12 @@ class _TopRow extends StatelessWidget {
       if (a != null)
         _GlassPill(
           key: const ValueKey('funnel-avail'),
-          border: MgColors.neonA(0.42),
+          border: availBusy ? MgColors.warnDark.withValues(alpha: 0.5) : MgColors.neonA(0.42),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             if (availLive)
               MgPing(size: 7, color: MgColors.neon, active: center && ping)
+            else if (availBusy)
+              const MgIcon(MgIcons.calendarX, size: 13, color: MgColors.warnDark)
             else
               const MgIcon(MgIcons.calendarCheck, size: 13, color: MgColors.neon),
             const SizedBox(width: 6),
@@ -322,3 +336,10 @@ class _GlassPill extends StatelessWidget {
       );
 }
 
+/// [name] with its last word glued to the one before when it is only 1–2
+/// characters ("Benelli TRK 502 X" never leaves a lone "X" on line two).
+String homeNoOrphan(String name) {
+  final i = name.lastIndexOf(' ');
+  if (i <= 0 || name.length - i - 1 > 2) return name;
+  return '${name.substring(0, i)}\u00A0${name.substring(i + 1)}';
+}

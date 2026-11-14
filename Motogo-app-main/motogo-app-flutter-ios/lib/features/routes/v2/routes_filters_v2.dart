@@ -9,7 +9,6 @@ import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
-import 'places_parts_v2.dart' show TrasyChipRailV2;
 
 /// One active filter of the Trasy list as a removable chip (5.0.1): what it
 /// says and how its ✕ drops exactly that filter (the screen's own setters).
@@ -28,6 +27,9 @@ class RtFilterChipItem {
 class RoutesToolbarV2 extends StatelessWidget {
   final int activeCount;
   final String sortLabel;
+
+  /// Shown on the sort pill (the sort glyph says "Řadit"); null = [sortLabel].
+  final String? sortValue;
   final bool sortOn;
   final VoidCallback onFilter;
   final VoidCallback onSort;
@@ -35,16 +37,22 @@ class RoutesToolbarV2 extends StatelessWidget {
   final VoidCallback onClear;
   final List<RtFilterChipItem> chips;
 
+  /// A filter that HIDES routes is on (countries, length, search) — only
+  /// then the card says "Nevidíš všechny trasy" (sort / approach reorder).
+  final bool narrowing;
+
   const RoutesToolbarV2({
     super.key,
     required this.activeCount,
     required this.sortLabel,
+    this.sortValue,
     required this.sortOn,
     required this.onFilter,
     required this.onSort,
     required this.onMap,
     required this.onClear,
     this.chips = const [],
+    this.narrowing = true,
   });
 
   @override
@@ -52,35 +60,59 @@ class RoutesToolbarV2 extends StatelessWidget {
     final tr = t(context);
     final on = activeCount > 0;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-      TrasyChipRailV2(children: [
-        _ToolButton(
-          key: const ValueKey('rt-tool-filter'),
-          label: tr.tr('routesFilter'),
-          icon: MgIcons.filter,
-          style: on ? _ToolStyle.neon : _ToolStyle.dark,
-          count: on ? activeCount : null,
-          onTap: onFilter,
-        ),
-        _ToolButton(
-          key: const ValueKey('rt-tool-sort'),
-          label: sortLabel,
-          icon: MgIcons.sort,
-          style: sortOn ? _ToolStyle.on : _ToolStyle.outline,
-          caret: true,
-          onTap: onSort,
-        ),
-        _ToolButton(
-          key: const ValueKey('rt-tool-map'),
-          label: tr.tr('routesMapBtn'),
-          icon: MgIcons.map,
-          style: _ToolStyle.outline,
-          onTap: onMap,
-        ),
-      ]),
+      // Nothing scrolls off the edge: one row when the labels fit, else the
+      // sort pill takes its own row (whole label, never cut). The map (also
+      // in the header) is an icon square.
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: LayoutBuilder(builder: (context, c) {
+          final filter = _ToolButton(
+            key: const ValueKey('rt-tool-filter'),
+            label: tr.tr('routesFilter'),
+            icon: MgIcons.filter,
+            style: on ? _ToolStyle.neon : _ToolStyle.dark,
+            count: on ? activeCount : null,
+            onTap: onFilter,
+          );
+          final sort = _ToolButton(
+            key: const ValueKey('rt-tool-sort'),
+            label: sortValue ?? sortLabel,
+            semantic: sortLabel,
+            icon: MgIcons.sort,
+            style: sortOn ? _ToolStyle.on : _ToolStyle.outline,
+            caret: true,
+            onTap: onSort,
+          );
+          final map = _ToolButton(
+            key: const ValueKey('rt-tool-map'),
+            label: tr.tr('routesMapBtn'),
+            icon: MgIcons.map,
+            style: _ToolStyle.outline,
+            iconOnly: true,
+            onTap: onMap,
+          );
+          final need = _ToolButton.widthOf(context, tr.tr('routesFilter'), extra: on ? 29 : 0) +
+              _ToolButton.widthOf(context, sortValue ?? sortLabel, extra: 20) +
+              44;
+          // A little over still fits one row: the sort label scales down (MgWordFit).
+          if (need <= c.maxWidth + 12) {
+            return Row(children: [
+              filter,
+              Expanded(child: Align(alignment: AlignmentDirectional.centerStart, child: sort)),
+              map
+            ]);
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Row(children: [filter, const Spacer(), map]),
+            const SizedBox(height: 8),
+            sort,
+          ]);
+        }),
+      ),
       if (on)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: RoutesActiveFiltersV2(count: activeCount, chips: chips, onClear: onClear),
+          child: RoutesActiveFiltersV2(count: activeCount, chips: chips, onClear: onClear, narrowing: narrowing),
         ),
     ]);
   }
@@ -95,6 +127,12 @@ class _ToolButton extends StatelessWidget {
   final _ToolStyle style;
   final int? count;
   final bool caret;
+
+  /// A 44 px square with the glyph only (the label is the semantics).
+  final bool iconOnly;
+
+  /// Screen-reader label when it differs from [label].
+  final String? semantic;
   final VoidCallback onTap;
   const _ToolButton({
     super.key,
@@ -104,7 +142,25 @@ class _ToolButton extends StatelessWidget {
     required this.onTap,
     this.count,
     this.caret = false,
+    this.iconOnly = false,
+    this.semantic,
   });
+
+  static TextStyle get _labelStyle => MgType.small.copyWith(fontWeight: FontWeight.w800, height: 1.25);
+
+  /// The full width of a labelled control ([extra] = badge / caret).
+  static double widthOf(BuildContext context, String label, {double extra = 0}) {
+    final tp = TextPainter(
+      // The inherited family (the theme's font), as the Text resolves it.
+      text: TextSpan(text: label, style: DefaultTextStyle.of(context).style.merge(_labelStyle)),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final w = tp.width;
+    tp.dispose();
+    return 14 + 17 + 7 + w + extra + 14 + 3 + 8 + 1;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,21 +170,20 @@ class _ToolButton extends StatelessWidget {
       _ToolStyle.on => (MgColors.tintOk, null, MgColors.link, MgColors.onTintOk, MgColors.link),
       _ToolStyle.outline => (MgColors.surface, null, MgColors.ink, MgColors.ink, MgColors.link),
     };
-    final w = MediaQuery.sizeOf(context).width;
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: EdgeInsets.only(right: iconOnly ? 0 : 8),
       child: Semantics(
         button: true,
         selected: style == _ToolStyle.neon || style == _ToolStyle.on,
-        label: count == null ? label : '$label, $count',
+        label: count == null ? (semantic ?? label) : '${semantic ?? label}, $count',
         excludeSemantics: true,
         onTap: onTap,
         child: MgPress(
           onTap: onTap,
           child: AnimatedContainer(
             duration: MgMotion.of(context, MgMotion.color),
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            constraints: BoxConstraints(minHeight: 44, minWidth: iconOnly ? 44 : 0),
+            padding: EdgeInsets.symmetric(horizontal: iconOnly ? 0 : 14),
             decoration: BoxDecoration(
               color: bg,
               gradient: grad,
@@ -140,31 +195,30 @@ class _ToolButton extends StatelessWidget {
                       ? MgShadows.card
                       : null,
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              MgIcon(icon, size: 17, color: ic),
-              const SizedBox(width: 7),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: w < 360 ? 200 : w - 150),
-                child: MgWordFit(
-                  child: Text(label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: fg, height: 1.25)),
-                ),
-              ),
-              if (count != null) ...[
-                const SizedBox(width: 7),
-                Container(
-                  constraints: const BoxConstraints(minWidth: 22),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: MgColors.onNeon, borderRadius: BorderRadius.circular(999)),
-                  child: Text('$count',
-                      textAlign: TextAlign.center,
-                      style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.neon))),
-                ),
-              ],
-              if (caret) ...[const SizedBox(width: 4), MgIcon(MgIcons.chevronDown, size: 16, color: fg)],
-            ]),
+            child: iconOnly
+                ? SizedBox(width: 41, height: 41, child: Center(child: MgIcon(icon, size: 20, color: ic)))
+                : Row(mainAxisSize: MainAxisSize.min, children: [
+                    MgIcon(icon, size: 17, color: ic),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: MgWordFit(
+                        minScale: 0.85,
+                        child: Text(label, maxLines: 2, style: _labelStyle.copyWith(color: fg)),
+                      ),
+                    ),
+                    if (count != null) ...[
+                      const SizedBox(width: 7),
+                      Container(
+                        constraints: const BoxConstraints(minWidth: 22),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: MgColors.onNeon, borderRadius: BorderRadius.circular(999)),
+                        child: Text('$count',
+                            textAlign: TextAlign.center,
+                            style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.neon))),
+                      ),
+                    ],
+                    if (caret) ...[const SizedBox(width: 4), MgIcon(MgIcons.chevronDown, size: 16, color: fg)],
+                  ]),
           ),
         ),
       ),
@@ -178,7 +232,9 @@ class RoutesActiveFiltersV2 extends StatelessWidget {
   final int count;
   final List<RtFilterChipItem> chips;
   final VoidCallback onClear;
-  const RoutesActiveFiltersV2({super.key, required this.count, required this.chips, required this.onClear});
+  final bool narrowing;
+  const RoutesActiveFiltersV2(
+      {super.key, required this.count, required this.chips, required this.onClear, this.narrowing = true});
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +252,7 @@ class RoutesActiveFiltersV2 extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
         Semantics(
           header: true,
-          label: '$title. ${tr.tr('rtListFltHint')}',
+          label: narrowing ? '$title. ${tr.tr('rtListFltHint')}' : title,
           excludeSemantics: true,
           child: Row(children: [
             Container(
@@ -217,9 +273,11 @@ class RoutesActiveFiltersV2 extends StatelessWidget {
                   minScale: 0.75,
                   child: Text(title, maxLines: 1, style: MgType.section.copyWith(color: MgColors.link)),
                 ),
-                const SizedBox(height: 2),
-                Text(tr.tr('rtListFltHint'),
-                    style: MgType.small.copyWith(color: MgColors.onTintOk, fontWeight: FontWeight.w700)),
+                if (narrowing) ...[
+                  const SizedBox(height: 2),
+                  Text(tr.tr('rtListFltHint'),
+                      style: MgType.small.copyWith(color: MgColors.onTintOk, fontWeight: FontWeight.w700)),
+                ],
               ]),
             ),
           ]),

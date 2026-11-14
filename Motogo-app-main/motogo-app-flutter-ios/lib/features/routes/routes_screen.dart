@@ -531,7 +531,8 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
         toTopShown: _topShown,
         dock: MgSizeReporter(
           onSize: (sz) => _dockH.value = sz.height,
-          child: TrasyRecordDockV2(onOpenRecorder: () => openRideRecorderV2(context)),
+          // Quiet idle action: "Detail trasy" stays the card's main button.
+          child: TrasyRecordDockV2(quiet: true, onOpenRecorder: () => openRideRecorderV2(context)),
         ),
       );
     }
@@ -829,12 +830,14 @@ class _RoutesScreenState extends ConsumerState<RoutesScreen>
       return RoutesToolbarV2(
         activeCount: n,
         sortLabel: '${t(context).tr('sortTitle')}: ${_sortLabel(context, _sort)}',
+        sortValue: _sortLabel(context, _sort),
         sortOn: _sort != _RouteSort.nearMe,
         onFilter: () => _openFilterSheet(context, data, me),
         onSort: () => _openSortSheet(context, me != null, routeAvail),
         onMap: () => context.push(Routes.routesMap),
         onClear: _clearFilters,
         chips: _filterChipsV2(context),
+        narrowing: _fCountry.isNotEmpty || _fDist != null || _query.trim().isNotEmpty,
       );
     }
 

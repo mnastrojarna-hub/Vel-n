@@ -257,7 +257,9 @@ void main() {
       final cta = t.widget<MgCta>(_ctaIn(DetailDockV2));
       expect(cta.label, _cs.tr('v2CalcPickDatesCta'));
       // „jen vzhled“: ceníková cena jako v původním detailu (sleva za rank až v rezervaci).
-      expect(cta.price, _cs.trArgs('v2CatGridFrom', {'amount': catMoney(kBmw.prices!.cheapest)}));
+      // 5.0.1: the same "od" as the card's "Tvoje cena od" (rank price,
+      // catFromPerDay), so the figure does not jump up after the tap.
+      expect(cta.price, _cs.trArgs('v2CatGridFrom', {'amount': catMoney(catFromPerDay(kBmw, kLoyalty3.percent))}));
       await t.tap(_ctaIn(DetailDockV2));
       await _settle(t);
       expect(t.widget<DetailTripCardV2>(_tripOf('m-bmw')).calendarExpanded, isTrue);

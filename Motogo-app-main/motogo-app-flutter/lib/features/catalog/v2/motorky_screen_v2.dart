@@ -73,12 +73,26 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
   /// Scroll targets of the filter strip / the empty result (5.0.1).
   final GlobalKey _datesKey = GlobalKey();
   final GlobalKey _filterKey = GlobalKey();
+  final GlobalKey _stripKey = GlobalKey();
 
   void _scrollTo(GlobalKey key) {
     final ctx = key.currentContext;
     if (ctx == null) return;
-    Scrollable.ensureVisible(ctx,
-        alignment: 0.08, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
+    Scrollable.ensureVisible(ctx, alignment: 0.08, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
+  }
+
+  /// The strip above the calendar goes away with the last filter: when it
+  /// was scrolled out above, the page moves up by its height so what the
+  /// customer looks at (the filter card, the list) stays where it was.
+  void _keepPlaceWithoutStrip() {
+    final box = _stripKey.currentContext?.findRenderObject() as RenderBox?;
+    final pos = _datesKey.currentContext == null ? null : Scrollable.maybeOf(_datesKey.currentContext!)?.position;
+    if (box == null || !box.hasSize || pos == null) return;
+    final h = box.size.height;
+    if (h <= 0 || pos.pixels < h) return;
+    // Same frame as the strip's removal (no visible jump) and no scroll
+    // notification (the one-bike snap must not take it for a swipe).
+    pos.correctPixels(pos.pixels - h);
   }
 
   /// "Zrušit vše" / "Zrušit filtry (n)": exactly the counted filters (the
@@ -178,6 +192,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     // are already answered there too.
     ref.listen<CatalogFilter>(catalogFilterProvider, (prev, next) {
       if (_mode == CatalogMode.calc) catCalcFollowFilter(ref, prev, next);
+      if ((prev?.filterCount ?? 0) > 0 && next.filterCount == 0) _keepPlaceWithoutStrip();
     });
     final mode = _mode;
     final motosAsync = ref.watch(filteredMotorcyclesProvider);
@@ -208,7 +223,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
         // 5.0.1: filters on → said at once, above the calendar.
         SliverToBoxAdapter(
           child: MotorkyFilterStripV2(
-              active: filter.filterCount, onShow: () => _scrollTo(_filterKey), onReset: _clearFilters),
+              key: _stripKey, active: filter.filterCount, onShow: () => _scrollTo(_filterKey), onReset: _clearFilters),
         ),
         SliverToBoxAdapter(child: KeyedSubtree(key: _datesKey, child: const MotorkyDatesCardV2())),
         SliverToBoxAdapter(child: KeyedSubtree(key: _filterKey, child: const MotoFilterPanel())),
@@ -272,7 +287,8 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     );
   }
 
-  Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty, {bool reloading = false}) {
+  Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty,
+      {bool reloading = false}) {
     final s = f.startDate, e = f.endDate;
     final hasDates = s != null && e != null && !catBeforeToday(s);
     if (motos.isEmpty) {

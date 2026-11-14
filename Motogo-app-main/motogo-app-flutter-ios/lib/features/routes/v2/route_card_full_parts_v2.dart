@@ -6,6 +6,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
+import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../home/v2/home_sketch.dart';
 import '../routes_model.dart';
 import 'route_card_photos_v2.dart';
@@ -77,7 +78,10 @@ class RtPlacePill extends StatelessWidget {
 class RtSmallSketch extends ConsumerWidget {
   final RouteItem route;
   final VoidCallback onTap;
-  const RtSmallSketch({super.key, required this.route, required this.onTap});
+
+  /// Short phone: a smaller thumbnail (more of the photo stays visible).
+  final bool compact;
+  const RtSmallSketch({super.key, required this.route, required this.onTap, this.compact = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -96,7 +100,7 @@ class RtSmallSketch extends ConsumerWidget {
             border: Border.all(color: MgColors.white(0.3)),
             boxShadow: [BoxShadow(color: MgColors.black(0.35), blurRadius: 12, offset: const Offset(0, 3))],
           ),
-          child: HomeSketch(points: line, width: 104, height: 76),
+          child: HomeSketch(points: line, width: compact ? 64 : 104, height: compact ? 52 : 76),
         ),
       ),
     );
@@ -108,9 +112,13 @@ class RtSketchPage extends ConsumerWidget {
   final RouteItem route;
   final double topInset;
 
+  /// The label's distance under the status bar (below the "1 / n" pill).
+  final double labelTop;
+
   /// The lower part covered by the caption: the sketch stays above it.
   final double bottom;
-  const RtSketchPage({super.key, required this.route, required this.topInset, required this.bottom});
+  const RtSketchPage(
+      {super.key, required this.route, required this.topInset, required this.bottom, this.labelTop = 56});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,7 +133,7 @@ class RtSketchPage extends ConsumerWidget {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(28, topInset + 56, 28, bottom),
+        padding: EdgeInsets.fromLTRB(28, topInset + labelTop, 28, bottom),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(t(context).tr('rtListPreview').toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.neonText)),
           const SizedBox(height: 10),
@@ -234,17 +242,24 @@ class RtOpenButton extends StatelessWidget {
         child: MgPress(
           onTap: onTap,
           child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.fromLTRB(14, 0, 10, 0),
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.fromLTRB(18, 0, 12, 0),
             decoration: BoxDecoration(
               color: MgColors.neon,
               borderRadius: BorderRadius.circular(999),
               boxShadow: [BoxShadow(color: MgColors.neonA(0.3), blurRadius: 14, offset: const Offset(0, 3))],
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(label, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onNeon)),
+              Flexible(
+                child: MgWordFit(
+                  child: Text(label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.onNeon, height: 1.15)),
+                ),
+              ),
               const SizedBox(width: 4),
-              const MgIcon(MgIcons.chevronRight, size: 18, color: MgColors.onNeon),
+              const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.onNeon),
             ]),
           ),
         ),

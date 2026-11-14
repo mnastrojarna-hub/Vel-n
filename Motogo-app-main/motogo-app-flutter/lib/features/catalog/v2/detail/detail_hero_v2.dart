@@ -24,11 +24,13 @@ import '../catalog_text.dart';
 /// a single photo has no PageView so a horizontal swipe still moves the
 /// bike pager, as before), tap → the existing `FullscreenGallery`
 /// ([onOpenGallery]), segments, availability pill, photo counter, category
-/// + licence tags, H1 and the branch line. [onBack] null = the pager
-/// overlay draws the back control. Photo first, then the bike's videos in
-/// their order (owner v5.0.1, [BikeVideoStage]: settled ~5 s, Wi-Fi only,
-/// else "Pustit video"; mute disc + "n / m" while it plays, instead of the
-/// photo counter); the branch chip sits in the top-right corner.
+/// + licence tags and H1. [onBack] null = the pager overlay draws the back
+/// control. Photo first, then the bike's videos in their order (owner
+/// v5.0.1, [BikeVideoStage]: settled ~5 s, Wi-Fi only, else "Pustit video"
+/// under the chip; mute disc + "n / m" while it plays, instead of the photo
+/// counter); the branch chip sits in the top-right corner. The full branch
+/// line ("{name}, {city} · type") is the first section under the hero
+/// (`DetailMoreV2` "Pobočka"), so the hero no longer repeats it.
 class DetailHeroV2 extends StatelessWidget {
   final Motorcycle moto;
   final List<String> images;
@@ -175,7 +177,10 @@ class DetailHeroV2 extends StatelessWidget {
                 child: GestureDetector(
                   onTap: onOpenGallery,
                   child: Stack(fit: StackFit.expand, children: [
-                    MgKenBurns(sessionKey: 'detail-hero-${moto.id}', child: photo),
+                    if (moto.videos.isEmpty)
+                      MgKenBurns(sessionKey: 'detail-hero-${moto.id}', child: photo)
+                    else
+                      BikePhotoFade(video: video, child: MgKenBurns(sessionKey: 'detail-hero-${moto.id}', child: photo)),
                     if (moto.videos.isNotEmpty) BikeVideoLayer(video: video),
                   ]),
                 ),
@@ -230,8 +235,13 @@ class DetailHeroV2 extends StatelessWidget {
                   ),
                 ),
               ),
+            // Off the bike: top right, under the chip.
             if (moto.videos.isNotEmpty)
-              Positioned.fill(top: top, child: Align(alignment: const Alignment(0, -0.3), child: BikeVideoPlayButton(video: video))),
+              Positioned(
+                top: top + (branchChip == null ? 17 : 55),
+                right: 16,
+                child: BikeVideoPlayButton(video: video),
+              ),
             Positioned(
               left: 16,
               right: 16,
@@ -266,19 +276,6 @@ class DetailHeroV2 extends StatelessWidget {
                   child: Text(moto.model,
                       style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
                 ),
-                if ((catBranchLineCity(tr, moto) ?? branchInfo).isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    MgIcon(MgIcons.pin, size: 18, color: MgColors.neon),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      // The old hero's "{name}, {city}" + type (CB-06):
-                      // "MotoGo24 Mezná, Pelhřimov · s obsluhou".
-                      child: Text(catBranchLineCity(tr, moto) ?? branchInfo,
-                          style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
-                    ),
-                  ]),
-                ],
               ]),
             ),
           ]),
@@ -306,7 +303,8 @@ class DetailHeroV2 extends StatelessWidget {
   Widget _tag(String text, {bool neon = false, bool bad = false}) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.white(0.14)),
+          // Solid dark ink (as the list card's tag): readable on a white tank.
+          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.nightA(0.85)),
           borderRadius: BorderRadius.circular(neon ? 6 : 999),
           border: neon ? null : Border.all(color: MgColors.white(0.24)),
         ),

@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/motion/mg_anim_loops.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../moto_model.dart';
 import 'catalog_price.dart';
 
 // Pieces of the full-screen bike card (`MotoCardFullV2`), split out so the
 // card file stays under the size rule.
+
+/// The branch mode as a caption tag ("samoobsluha" / "s obsluhou", the
+/// chip's own words) when the branch chip has to drop it for room; null
+/// when the branch type is unknown.
+String? bikeCardModeTag(AppTranslations tr, Motorcycle m) {
+  final type = (m.branchType ?? '').trim();
+  if (type.isEmpty) return null;
+  return tr.tr(type == 'samoobslužná' ? 'v2UxRpTypeSelf' : 'v2UxRpTypeStaffed');
+}
 
 /// "● Volná v termínu" / "● Dnes volná" over the card photo.
 class BikeCardAvailabilityPill extends StatelessWidget {

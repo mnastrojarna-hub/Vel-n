@@ -51,8 +51,9 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
                   border: Border.all(color: on ? MgColors.tintOkBorder : MgColors.line, width: on ? 1.5 : 1),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  // uk "ПОВЕРНЕННЯ" at 320 dp + large text: shrink, never split.
                   MgWordFit(
-                    minScale: 0.8,
+                    minScale: 0.65,
                     child: Text(label.toUpperCase(), style: MgType.eyebrow.copyWith(color: MgColors.meta)),
                   ),
                   const SizedBox(height: 2),
@@ -88,7 +89,8 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
               height: 24,
               alignment: Alignment.center,
               decoration: const BoxDecoration(color: MgColors.neon, shape: BoxShape.circle),
-              child: Text('1', style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.onNeon))),
+              child: Text('1',
+                  style: MgType.tab(MgType.meta.copyWith(fontWeight: FontWeight.w800, color: MgColors.onNeon))),
             ),
             const SizedBox(width: 8),
             Expanded(

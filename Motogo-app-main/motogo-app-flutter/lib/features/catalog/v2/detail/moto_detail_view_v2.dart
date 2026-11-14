@@ -124,9 +124,6 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
   Widget build(BuildContext context) {
     final w = widget;
     final moto = w.moto;
-    final cheapest = moto.prices?.cheapest ?? 0;
-    // „jen vzhled“: ceníková cena jako v původním detailu (sleva za rank až v rezervaci).
-    final from = cheapest > 0 ? t(context).trArgs('v2CatGridFrom', {'amount': catMoney(cheapest)}) : null;
     final heroH = detailHeroHeight(context);
     return MgPage(
       background: MgColors.surface,
@@ -196,6 +193,12 @@ class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
           final errs = w.hasDates
               ? catRangeErrorsV2(context, ref, moto, w.selStart!, w.selEnd!)
               : [if (lic != null) lic];
+          // The no-date "od" = the card's "Tvoje cena od" (same helper, the
+          // rank discount the booking applies), so the figure never jumps
+          // up after the tap (5.0.1). Display only; the list price stays
+          // in the price list below.
+          final perDay = catFromPerDay(moto, ref.watch(loyaltyStatusProvider).valueOrNull?.percent ?? 0);
+          final from = perDay > 0 ? t(context).trArgs('v2CatGridFrom', {'amount': catMoney(perDay)}) : null;
           return DetailDockV2(
             selStart: w.selStart,
             selEnd: w.selEnd,

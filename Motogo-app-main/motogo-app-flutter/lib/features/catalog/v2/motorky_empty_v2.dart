@@ -71,7 +71,8 @@ class MotorkyEmptyV2 extends ConsumerWidget {
     final tr = t(context);
     final all = ref.watch(motorcyclesProvider).valueOrNull ?? const <Motorcycle>[];
     final dated = filter.filterCount == 0 && filter.startDate != null && filter.endDate != null;
-    final closures = dated ? ref.watch(homeClosuresProvider).valueOrNull ?? const <HomeClosure>[] : const <HomeClosure>[];
+    final closures =
+        dated ? ref.watch(homeClosuresProvider).valueOrNull ?? const <HomeClosure>[] : const <HomeClosure>[];
     final reason = motorkyEmptyReason(filter, all, closures);
     final next = reason == MotorkyEmptyReason.booked || reason == MotorkyEmptyReason.closed
         ? motorkyNextFree(filter, all, ref.watch(homeNextFreeProvider).valueOrNull ?? const {})

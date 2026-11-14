@@ -82,10 +82,12 @@ class MotoFilterCardV2 extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                // One line; only a very long title at 320 dp (uk) may wrap.
                 MgWordFit(
                   minScale: 0.75,
+                  fitLines: 1,
                   child: Text(title,
-                      maxLines: 1,
+                      maxLines: 2,
                       style: (on ? MgType.section : MgType.title).copyWith(color: on ? MgColors.link : MgColors.ink)),
                 ),
                 const SizedBox(height: 2),
@@ -95,7 +97,8 @@ class MotoFilterCardV2 extends StatelessWidget {
                   child: Text(sub,
                       maxLines: 3,
                       style: MgType.small.copyWith(
-                          color: on ? MgColors.onTintOk : MgColors.body2, fontWeight: on ? FontWeight.w700 : FontWeight.w800)),
+                          color: on ? MgColors.onTintOk : MgColors.body2,
+                          fontWeight: on ? FontWeight.w700 : FontWeight.w800)),
                 ),
               ]),
             ),
@@ -110,21 +113,35 @@ class MotoFilterCardV2 extends StatelessWidget {
     Widget? chipRow;
     if (shown.isNotEmpty) {
       // One row: the chips scroll sideways, "Zrušit vše" stays on the right.
-      chipRow = Row(children: [
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.hardEdge,
-            child: Row(children: [
-              for (final c in shown) ...[
-                MotoFilterChipV2(item: c, removeLabel: tr.trArgs('motoFltRemove', {'f': c.label}), onOpen: onToggle),
-                const SizedBox(width: 8),
-              ],
-            ]),
-          ),
-        ),
-        if (clear != null) clear,
-      ]);
+      chipRow = LayoutBuilder(
+          builder: (context, box) => Row(children: [
+                Expanded(
+                  // The trailing edge fades out: more chips wait sideways.
+                  child: ShaderMask(
+                    blendMode: BlendMode.dstIn,
+                    shaderCallback: (r) => LinearGradient(
+                      colors: const [Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
+                      stops: [0, r.width <= 32 ? 0 : (r.width - 32) / r.width, 1],
+                    ).createShader(r),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      clipBehavior: Clip.hardEdge,
+                      child: Row(children: [
+                        for (final c in shown) ...[
+                          MotoFilterChipV2(
+                              item: c, removeLabel: tr.trArgs('motoFltRemove', {'f': c.label}), onOpen: onToggle),
+                          const SizedBox(width: 8),
+                        ],
+                        const SizedBox(width: 32), // the last ✕ clears the fade
+                      ]),
+                    ),
+                  ),
+                ),
+                // At most ~40 % of the row (long pl / fr labels wrap), so the chips
+                // keep room for their ✕.
+                if (clear != null)
+                  ConstrainedBox(constraints: BoxConstraints(maxWidth: box.maxWidth * 0.42), child: clear),
+              ]));
     } else if (clear != null) {
       chipRow = Align(alignment: AlignmentDirectional.centerEnd, child: clear);
     }
@@ -168,7 +185,9 @@ class MotoFilterCardV2 extends StatelessWidget {
                                 style: MgType.eyebrow.copyWith(color: MgColors.meta)),
                           ),
                           if (datesValue != null)
-                            Text(datesValue!, style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
+                            Text(datesValue!,
+                                style:
+                                    MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
                         ]),
                         const SizedBox(height: 8),
                         calendar!,
@@ -193,7 +212,7 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ConstrainedBox(
-        constraints: BoxConstraints(minHeight: 40, maxWidth: MediaQuery.sizeOf(context).width * 0.4),
+        constraints: BoxConstraints(minHeight: 40, maxWidth: MediaQuery.sizeOf(context).width * 0.32),
         child: Container(
           padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 14, 8),
           decoration: BoxDecoration(color: MgColors.ink, borderRadius: BorderRadius.circular(999)),
@@ -205,8 +224,7 @@ class _FilterPill extends StatelessWidget {
                 minScale: 0.7,
                 fitLines: 1,
                 child: Text(label,
-                    maxLines: 1,
-                    style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
+                    maxLines: 1, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
               ),
             ),
           ]),

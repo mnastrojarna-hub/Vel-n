@@ -34,7 +34,9 @@ import 'catalog_text.dart';
 /// tall card the contained photo rides in the upper part, clear of the
 /// caption block. Photo first, then the bike's first video, looped and
 /// muted (owner v5.0.1, [BikeVideoStage]: settled ~5 s, Wi-Fi only, else
-/// "Pustit video"); the branch chip sits in the photo's top-right corner.
+/// "Pustit video" under the chip); the branch chip sits in the photo's
+/// top-right corner, level with the availability pill (when "name · mode"
+/// does not fit there, the chip shows the name and the mode joins the tags).
 class MotoCardFullV2 extends StatefulWidget {
   final Motorcycle moto;
   final CatCardPrice price;
@@ -122,6 +124,13 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     final specs = m.shortDescItems(tr.tr).take(6).map((e) => e.card).toList();
     final lic = catLicenseLabel(tr, m);
     final branch = mgBikeBranchChipLabel(tr, m);
+    final short = mgBranchShortName(m.branchName, m.branchCity);
+    final chipMax = mgBranchChipMaxWidth(MediaQuery.sizeOf(context).width,
+        leftPill: widget.availability == null ? 0 : _pillWidth(context, widget.availability!));
+    // The mode word leaves the chip only when the chip has to shorten.
+    final modeTag = branch == null || MgBranchChip(label: branch, shortLabel: short, maxWidth: chipMax).fitted(context) == branch
+        ? null
+        : bikeCardModeTag(tr, m);
     final top = widget.topInset;
     // A full-screen card: the photo in the upper part, above the caption.
     final photoAlign = widget.height > 640 ? const Alignment(0, -0.4) : Alignment.center;
@@ -129,6 +138,8 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).
     return BikeVideoStage(
+      // One stage per bike: a recycled card never shows another bike's button.
+      key: ValueKey('bike-video-stage-${m.id}'),
       videos: m.videos,
       builder: (context, video) => Semantics(
         container: true,
@@ -166,29 +177,32 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                 Positioned.fill(child: GestureDetector(onTap: widget.onOpen, child: _fallback()))
               else
                 Positioned.fill(
-                  child: PageView.builder(
-                    controller: _pc,
-                    itemCount: imgs.length,
-                    onPageChanged: (i) => setState(() => _page = i),
-                    itemBuilder: (_, i) {
-                      // CB-14: the first photo flies into the detail hero;
-                      // CB-28: Ken Burns once on the first card of the list.
-                      Widget img = MgHeroPhoto(
-                        tag: mgHeroTagMoto(m.id),
-                        enabled: i == 0,
-                        child: MgImage(
-                          imgs[i],
-                          thumbWidth: 900,
-                          fit: BoxFit.contain,
-                          alignment: photoAlign,
-                          width: double.infinity,
-                          placeholder: const SizedBox.expand(),
-                          error: _fallback(),
-                        ),
-                      );
-                      if (i == 0 && widget.live) img = MgKenBurns(sessionKey: 'motorky-card-${m.id}', child: img);
-                      return GestureDetector(onTap: widget.onOpen, child: img);
-                    },
+                  child: BikePhotoFade(
+                    video: video,
+                    child: PageView.builder(
+                      controller: _pc,
+                      itemCount: imgs.length,
+                      onPageChanged: (i) => setState(() => _page = i),
+                      itemBuilder: (_, i) {
+                        // CB-14: the first photo flies into the detail hero;
+                        // CB-28: Ken Burns once on the first card of the list.
+                        Widget img = MgHeroPhoto(
+                          tag: mgHeroTagMoto(m.id),
+                          enabled: i == 0,
+                          child: MgImage(
+                            imgs[i],
+                            thumbWidth: 900,
+                            fit: BoxFit.contain,
+                            alignment: photoAlign,
+                            width: double.infinity,
+                            placeholder: const SizedBox.expand(),
+                            error: _fallback(),
+                          ),
+                        );
+                        if (i == 0 && widget.live) img = MgKenBurns(sessionKey: 'motorky-card-${m.id}', child: img);
+                        return GestureDetector(onTap: widget.onOpen, child: img);
+                      },
+                    ),
                   ),
                 ),
               if (m.videos.isNotEmpty) Positioned.fill(child: BikeVideoLayer(video: video, alignment: photoAlign)),
@@ -239,9 +253,22 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
               if (widget.availability != null)
                 Positioned(top: top + 20, left: 12, child: BikeCardAvailabilityPill(text: widget.availability!, live: widget.live)),
               // Where the bike is (owner v5.0.1): the neon chip, top right.
-              if (branch != null) _branchChip(context, branch),
+              if (branch != null)
+                Positioned(
+                  top: top + 21,
+                  right: 12,
+                  child: IgnorePointer(child: MgBranchChip(label: branch, shortLabel: short, maxWidth: chipMax)),
+                ),
+              // Off the bike: top right, under the chip.
               if (m.videos.isNotEmpty)
-                Positioned.fill(child: Align(alignment: photoAlign, child: BikeVideoPlayButton(video: video))),
+                Positioned(
+                  top: top + (branch == null ? 17 : 55),
+                  right: 12,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width - 24),
+                    child: BikeVideoPlayButton(video: video),
+                  ),
+                ),
               // With the bars shown the body is a nav row shorter than the
               // card: the caption rides above the nav (and the strips).
               MgChromeLift(
@@ -265,6 +292,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                             ),
                           // The old card's "{kW} KW" badge.
                           if (m.powerKw != null) BikeCardTag('${m.powerKw} KW'),
+                          if (modeTag != null) BikeCardTag(modeTag),
                         ]),
                         const SizedBox(height: 8),
                         Text(m.model,
@@ -312,28 +340,6 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
           ),
         ),
       ),
-    );
-  }
-
-  /// Where the bike is (owner v5.0.1): the neon chip in the photo's top-right
-  /// corner, beside the availability pill; when "name · mode" does not fit
-  /// there it moves one row down (full width) so the card never loses the
-  /// branch mode the old caption line showed.
-  Widget _branchChip(BuildContext context, String label) {
-    final m = widget.moto;
-    final w = MediaQuery.sizeOf(context).width;
-    final short = mgBranchShortName(m.branchName, m.branchCity);
-    final pill = widget.availability == null ? 0.0 : _pillWidth(context, widget.availability!);
-    var max = mgBranchChipMaxWidth(w, leftPill: pill);
-    var dy = 21.0;
-    if (pill > 0 && MgBranchChip(label: label, shortLabel: short, maxWidth: max).fitted(context) != label) {
-      max = mgBranchChipMaxWidth(w, leftPill: 0);
-      dy = 20 + 30 + 8;
-    }
-    return Positioned(
-      top: widget.topInset + dy,
-      right: 12,
-      child: IgnorePointer(child: MgBranchChip(label: label, shortLabel: short, maxWidth: max)),
     );
   }
 

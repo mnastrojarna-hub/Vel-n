@@ -91,8 +91,10 @@ void main() {
       // Parameters + day prices visible without a tap (section titles, no toggles).
       expect(find.text(_cs('v2DetAllParams')), findsOneWidget);
       expect(find.text(_cs('v2DetPriceByDay')), findsOneWidget);
-      // Branch "{name}, {city}" (old hero + "Pobočka:" line).
-      expect(find.textContaining('Mezná, Pelhřimov'), findsWidgets);
+      // Branch name + city (5.0.1: "Pobočka: {name}" with the city, type
+      // and street under it; the hero shows the neon chip, no repeated line).
+      expect(find.textContaining('Mezná'), findsWidgets);
+      expect(find.textContaining('Pelhřimov'), findsWidgets);
       expect(find.byKey(const ValueKey('det-branch')), findsOneWidget);
       // No weekend presets (the old detail had none).
       expect(find.text(_cs('v2CatPresetWeekend')), findsNothing);

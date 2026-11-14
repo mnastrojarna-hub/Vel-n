@@ -125,9 +125,11 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
 
   /// The date sheet; with [moto] it shows that bike's booked days, and the
   /// bike leads the list for the picked dates (when it is free then).
+  /// A bike's calendar opens with nothing ticked (v5.0.1): the dates on
+  /// the card did not work for it — they are not offered again.
   Future<void> _pickDates(FunnelRange? current, {Motorcycle? moto}) async {
     final picked = await showHomeDateSheet(context,
-        initial: current, applyLabel: t(context).tr('v2HomeDateUse'), moto: moto);
+        initial: moto == null ? current : null, applyLabel: t(context).tr('v2HomeDateUse'), moto: moto);
     if (picked == null || !mounted) return;
     ref.read(homeOfferFocusProvider.notifier).state = moto?.id;
     _select(picked);
@@ -166,6 +168,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final center = list.isEmpty ? 0 : ref.watch(funnelCenterProvider).clamp(0, list.length - 1);
     final m = list.isEmpty ? null : list[center];
     final free = offer.mode == HomeOfferMode.free;
+    final none = offer.mode == HomeOfferMode.noneFree;
 
     final emptyOrError = offer.mode == HomeOfferMode.error || offer.mode == HomeOfferMode.noBikes;
     // Nižší telefon (< 800 dp) fotka 150, velmi nízký (< 700 dp: 360×640,
@@ -197,6 +200,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
               final b = list[i];
               final again = b.id == lastBike;
               final (avail, live) = homeOfferAvail(tr, offer, b, nextFree, today);
+              final busy = homeOfferBusy(offer, b, nextFree);
               final p = homeOfferPrice(tr, offer, b, loyalty);
               return FunnelBikeCard(
                 moto: b,
@@ -208,6 +212,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                     : (groups.isEmpty ? null : tr.trArgs('v2HomeFnLicense', {'groups': groups.join(' · ')})),
                 avail: avail,
                 availLive: live,
+                availBusy: busy,
                 priceLabel: p.label,
                 price: p.price,
                 unit: p.unit,
@@ -279,7 +284,9 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                   child: FunnelTitle(text: tr.trArgs('v2HomeFnTitle', {'nick': nick}), short: short),
                 ),
               ),
-              FunnelSubLine(
+              // Nízký telefon + „nic volného": sleva i text pod nadpisem
+              // odpadnou, ať je „Vybrat jiný termín" vidět (v5.0.1).
+              if (!(short && none)) FunnelSubLine(
                 loading: loyaltyAsync.isLoading && loyalty == null,
                 loyalty: loyalty,
                 // Výbava zdarma už je v mottu hlavičky (rank 3) / nízký
@@ -295,7 +302,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
                 onPreset: (i) {
                   final p = funnelPresets(DateTime.now());
                   ref.read(homeOfferFocusProvider.notifier).state = null;
-                  _select(i == 1 ? p.$2 : p.$1);
+                  // Druhé klepnutí na zapnutý víkend = zase bez termínu.
+                  _select(sel.preset(now) == i ? null : (i == 1 ? p.$2 : p.$1));
                 },
                 onCalendar: () => _pickDates(range),
               ),
@@ -326,7 +334,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
               ],
               // Nic volného v termínu: jasný nadpis proč (zavřeno / obsazeno).
               if (offer.mode == HomeOfferMode.noneFree) ...[
-                homeOfferNoneBanner(tr, offer),
+                homeOfferNoneBanner(tr, offer, brief: short),
                 SizedBox(height: short ? 6 : 10),
               ],
               action,

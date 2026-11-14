@@ -72,6 +72,11 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
   bool _fg = true, _routeOk = true, _ticker = true, _checkQueued = false;
   int _armGen = 0, _playerGen = 0;
 
+  /// Hero: the next video loading while the finished one keeps its last
+  /// frame on screen (handed over once it plays).
+  BikeVideoPlayer? _next;
+  int _nextIdx = 0;
+
   List<String> get _videos => widget.videos;
 
   @override
@@ -282,12 +287,50 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
         p.isInitialized &&
         d > Duration.zero &&
         p.position >= d &&
-        !p.isPlaying) {
-      final next = (_h.index + 1) % _videos.length;
-      _disposePlayer();
-      _h.showing = false;
-      _ensurePlayer(next);
+        !p.isPlaying &&
+        _next == null) {
+      _startNext((_h.index + 1) % _videos.length);
     }
+  }
+
+  /// Loads and starts video [i] behind the finished one; the finished one
+  /// stays (last frame, "n / m", mute) until [i] shows its first frame — no
+  /// fade back to the photo while a slow MP4 initialises. Two players live
+  /// only for that hand-over.
+  void _startNext(int i) {
+    final p = bikeVideoFactory(_videos[i]);
+    final g = _playerGen;
+    _next = p;
+    _nextIdx = i;
+    p.addListener(_onNext);
+    () async {
+      try {
+        await p.initialize();
+        if (g != _playerGen || !identical(_next, p)) return;
+        await p.setVolume(_h.muted ? 0 : 1);
+        await p.setLooping(false);
+        if (g == _playerGen && identical(_next, p)) await p.play();
+      } catch (_) {
+        if (g == _playerGen && identical(_next, p)) _fail();
+      }
+    }();
+  }
+
+  void _onNext() {
+    final p = _next;
+    if (p == null || !mounted) return;
+    if (p.hasError) return _fail();
+    if (!(p.isInitialized && p.isPlaying && p.position > Duration.zero)) return;
+    p.removeListener(_onNext);
+    _next = null;
+    final old = _h.player;
+    old?.removeListener(_onPlayer);
+    old?.dispose().catchError((Object _) {});
+    _playerGen++;
+    _h.player = p;
+    _h.index = _nextIdx;
+    p.addListener(_onPlayer);
+    _h._changed();
   }
 
   void _fail() {
@@ -296,6 +339,12 @@ class _BikeVideoStageState extends State<BikeVideoStage> with WidgetsBindingObse
   }
 
   void _disposePlayer() {
+    final n = _next;
+    if (n != null) {
+      _next = null;
+      n.removeListener(_onNext);
+      n.dispose().catchError((Object _) {});
+    }
     final p = _h.player;
     if (p == null) return;
     _playerGen++;

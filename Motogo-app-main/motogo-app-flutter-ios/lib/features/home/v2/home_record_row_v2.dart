@@ -6,6 +6,7 @@ import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
@@ -152,10 +153,11 @@ class HomeRecordRowV2 extends ConsumerWidget {
         padding: const EdgeInsets.only(right: 10),
         constraints: const BoxConstraints(minHeight: 76),
         decoration: BoxDecoration(
-          color: live ? MgColors.surface : MgColors.well,
+          // v5.0.1: idle = the same white card as the two rows above it.
+          color: MgColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: accent, width: live ? 1.5 : 1),
-          boxShadow: riding ? [BoxShadow(color: MgColors.err.withValues(alpha: 0.1), spreadRadius: 3)] : null,
+          boxShadow: riding ? [BoxShadow(color: MgColors.err.withValues(alpha: 0.1), spreadRadius: 3)] : (live ? null : MgShadows.card),
         ),
         // Úzký telefon: „Ukončit" jen jako 44px ikona (popisek v sémantice),
         // ať má stav záznamu místo a slova se nedělí.

@@ -14,6 +14,7 @@ import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/catalog/v2/bike_screen_list_v2.dart';
+import 'package:motogo_app/features/catalog/v2/calc/calc_step_moto_v2.dart' show calcStatus;
 import 'package:motogo_app/features/catalog/v2/moto_filter_card_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_filter_chips_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
@@ -221,6 +222,10 @@ void main() {
       expect(find.text(_cs.tr('motoFltClosedTitle')), findsOneWidget);
       expect(find.text(_cs.trArgs('motoFltFreeFrom', {'date': tripShortDate(_cs, next)})), findsOneWidget);
       expect(find.text(_cs.tr('motoFltPickDates')), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey('motorky-empty-action')));
+      await t.pump(const Duration(milliseconds: 600));
+      expect(t.takeException(), isNull, reason: 'scrolls up to the calendar');
+      expect(find.byKey(const ValueKey('motorky-dates')), findsOneWidget);
     });
 
     testWidgets('dates, no filter, nothing closed: "vše obsazené"; a free day inside the dates is not offered', (t) async {
@@ -231,6 +236,11 @@ void main() {
       expect(find.text(_cs.tr('motoFltBookedTitle')), findsOneWidget);
       expect(find.textContaining(_cs.tr('motoFltFreeFrom').split('{').first), findsNothing);
     });
+  });
+
+  test('calculator: one "free today" wording with the list', () {
+    final m = Motorcycle(id: 'x', model: 'X', status: 'active', availableToday: true);
+    expect(calcStatus(_cs, m)?.$1, _cs.tr('v2CatFreeToday'));
   });
 
   group('F4 the list', () {

@@ -45,7 +45,12 @@ class TrasyRecordDockV2 extends ConsumerWidget {
   final VoidCallback? onOpenRecorder;
   final bool showRecord;
 
-  const TrasyRecordDockV2({super.key, this.selection, this.onOpenRecorder, this.showRecord = true});
+  /// Idle action as a dark secondary button (the Trasy list, 5.0.1: the
+  /// route card's "Detail trasy" is the screen's main action there).
+  final bool quiet;
+
+  const TrasyRecordDockV2(
+      {super.key, this.selection, this.onOpenRecorder, this.showRecord = true, this.quiet = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -80,6 +85,10 @@ class TrasyRecordDockV2 extends ConsumerWidget {
             onStop: () => trasyConfirmStopRide(context, ref),
           ),
         ),
+      ]);
+    } else if (quiet) {
+      row = Row(children: [
+        Expanded(child: MgFabAvoid(child: _QuietRecord(onTap: () => rideStartManualV2(context, ref)))),
       ]);
     } else {
       row = Row(children: [
@@ -215,4 +224,45 @@ class _ClearDisc extends StatelessWidget {
           ),
         ),
       );
+}
+
+/// The quiet idle record action: ink fill, neon outline and dot, the same
+/// caps label and action as the big CTA.
+class _QuietRecord extends StatelessWidget {
+  final VoidCallback onTap;
+  const _QuietRecord({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = t(context);
+    return Semantics(
+      button: true,
+      label: tr.tr('v2RtRecA11y'),
+      excludeSemantics: true,
+      child: MgPress(
+        onTap: onTap,
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: MgColors.ink,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: MgColors.neonA(0.55), width: 1.5),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const MgIcon(MgIcons.recordDot, size: 20, color: MgColors.neon),
+            const SizedBox(width: 10),
+            Flexible(
+              child: MgWordFit(
+                minScale: 0.7,
+                child: Text(tr.tr('v2RtRecShort').toUpperCase(),
+                    maxLines: 1,
+                    style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark, letterSpacing: 0.6)),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }

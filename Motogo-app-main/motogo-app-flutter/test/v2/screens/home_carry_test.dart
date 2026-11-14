@@ -162,7 +162,9 @@ void main() {
     await _frames(t);
     final line = t.widget<FunnelDateLine>(find.byType(FunnelDateLine));
     expect(line.range, FunnelRange(day(9), day(12)));
-    final q = quoteFor(_two.first, day(9), day(12), loyalty: kLoyalty3).total;
+    // v5.0.1: the found bikes follow the offer order — price the centred one.
+    final shown = t.widget<FunnelBikeCard>(find.byWidgetPredicate((w) => w is FunnelBikeCard && w.center)).moto;
+    final q = quoteFor(shown, day(9), day(12), loyalty: kLoyalty3).total;
     expect(find.byWidgetPredicate((w) => w is MgCta && w.price == Money.czk(q)), findsOneWidget);
 
     await t.tap(find.descendant(of: find.byType(FunnelDateLine), matching: _sem((p) => p.label == _cs('v2HomeDateClear'))));
