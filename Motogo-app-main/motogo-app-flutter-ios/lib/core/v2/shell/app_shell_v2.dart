@@ -210,6 +210,7 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
             navVisible: !navHidden,
             fabVisible: !fabHidden,
             foldedViewport: outer.size.height - (navHidden ? 0 : outer.padding.bottom) - (topBanner ? outer.padding.top : 0),
+            topFold: topBanner ? MgTopBanner.height + MgTopBanner.hairline : 0,
             child: Stack(children: [
               Column(children: [
                 // v2 jednořádkový banner (marquee; při omezení pohybu statický
