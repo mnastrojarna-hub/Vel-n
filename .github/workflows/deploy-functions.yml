@@ -42,6 +42,8 @@ jobs:
             fn=$(basename "$d")
             [ -f "${d}index.ts" ] || continue
             echo "↑ deploying $fn"
-            supabase functions deploy "$fn" --project-ref "$PROJECT_REF" || { echo "::warning::deploy $fn selhal"; rc=1; }
+            # --yes: nové Supabase CLI (od 11/2026) chce u produkce potvrzení a bez
+            # terminálu jinak nic nenasadí („Confirmation required … Re-run with --yes“).
+            supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --yes || { echo "::warning::deploy $fn selhal"; rc=1; }
           done
           exit $rc

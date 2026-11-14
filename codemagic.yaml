@@ -52,7 +52,11 @@ workflows:
         - $HOME/.pub-cache
     instance_type: mac_mini_m2
     environment:
-      flutter: stable
+      # Připnutá verze (ne „stable“): 14. 11. 2026 Codemagic pod „stable“ nasadil novější
+      # Flutter, který vyžaduje Gradle >= 9.3.1 / novější AGP a build padal. Appka 5.0.0 je
+      # otestovaná na 3.47.7 (Gradle 8.14, AGP 8.11.1, Kotlin 2.2.20). Vyšší verzi dát až
+      # spolu s upgradem android/ (gradle-wrapper, settings.gradle) a po ověření buildu.
+      flutter: 3.47.7
       java: 17
     scripts:
       - name: Accept Android licenses
@@ -120,7 +124,11 @@ workflows:
       # pojmenuj ho přesně "motogo24_app_store_connect" (nebo zde uprav název).
       app_store_connect: motogo24_app_store_connect
     environment:
-      flutter: stable
+      # Připnutá verze (ne „stable“): 14. 11. 2026 Codemagic pod „stable“ nasadil novější
+      # Flutter, který vyžaduje Gradle >= 9.3.1 / novější AGP a build padal. Appka 5.0.0 je
+      # otestovaná na 3.47.7 (Gradle 8.14, AGP 8.11.1, Kotlin 2.2.20). Vyšší verzi dát až
+      # spolu s upgradem android/ (gradle-wrapper, settings.gradle) a po ověření buildu.
+      flutter: 3.47.7
       xcode: latest
       cocoapods: default
       # POZOR: NErozšiřovat o automatický `ios_signing` blok (distribution_type +
@@ -254,7 +262,11 @@ workflows:
         - $HOME/.pub-cache
     instance_type: mac_mini_m2
     environment:
-      flutter: stable
+      # Připnutá verze (ne „stable“): 14. 11. 2026 Codemagic pod „stable“ nasadil novější
+      # Flutter, který vyžaduje Gradle >= 9.3.1 / novější AGP a build padal. Appka 5.0.0 je
+      # otestovaná na 3.47.7 (Gradle 8.14, AGP 8.11.1, Kotlin 2.2.20). Vyšší verzi dát až
+      # spolu s upgradem android/ (gradle-wrapper, settings.gradle) a po ověření buildu.
+      flutter: 3.47.7
       java: 17
       groups:
         # skupina v Codemagic se jmenuje "goole_play" (preklep pri zalozeni, ale funkcni)
