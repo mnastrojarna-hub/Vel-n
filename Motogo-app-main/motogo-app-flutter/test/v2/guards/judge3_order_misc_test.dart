@@ -120,7 +120,7 @@ void main() {
     await pumpV2(
         t,
         SingleChildScrollView(
-            child: MotorkyHeaderV2(mode: CatalogMode.find, onMode: (_) {}, onBack: () {}, onMenu: () {})),
+            child: MotorkyHeaderV2(mode: CatalogMode.find, onMode: (_) {}, onBack: () {})),
         overrides: [...catalogOverrides(), bannerProvider.overrideWithValue(const AsyncData(_banner))]);
     await t.pump(const Duration(milliseconds: 300));
     final strip = t.widget<Container>(find.byKey(const ValueKey('motorky-banner-strip')));

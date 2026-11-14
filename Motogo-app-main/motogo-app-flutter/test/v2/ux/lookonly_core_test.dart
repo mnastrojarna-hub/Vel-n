@@ -171,7 +171,7 @@ void main() {
       final o = homeCases()['s8-rec']!();
       await _app(t, const HomeScreenV2(), o);
       final ys = [
-        _dy(t, find.byKey(const ValueKey('home-menu'))),
+        _dy(t, find.byKey(const ValueKey('home-pilot'))),
         _dy(t, find.byKey(const ValueKey('home-rank-card'))),
         _dy(t, find.text('Aktivní rezervace')),
         _dy(t, find.byType(HomeBookingCardV2)),
@@ -198,13 +198,11 @@ void main() {
       }
     });
 
-    testWidgets('header: menu → Profil, search → Rezervovat, pilot → nickname dialog', (t) async {
+    testWidgets('header: search → Rezervovat, pilot → nickname dialog (Profil = the bottom tab)', (t) async {
       var r = await _app(t, const HomeScreenV2(), homeCases()['s6']!());
       expect(find.text('PILOT: Jan'), findsOneWidget);
-      await _tapVisible(t, find.byKey(const ValueKey('home-menu')));
-      expect(r.routerDelegate.currentConfiguration.uri.path, '/profile');
-      r.go('/');
-      await _settle(t);
+      // Owner 2026-11-14: no profile button up here (it doubled the tab).
+      expect(find.byKey(const ValueKey('home-menu')), findsNothing);
       await _tapVisible(t, find.byKey(const ValueKey('home-search')));
       expect(r.routerDelegate.currentConfiguration.uri.path, '/search');
       r.go('/');

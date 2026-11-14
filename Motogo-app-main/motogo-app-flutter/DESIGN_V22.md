@@ -36,6 +36,7 @@ Majitel po instalaci 5.0.0 výslovně požádal o tyto změny nového vzhledu (v
 - **Tlačítko „Vybrat termín“** otevře kalendář TÉ motorky (její obsazené dny a ceny, nic předvybraného); po výběru je volná motorka v nabídce první. Když je v termínu vše obsazené nebo zavřené, karta nikdy neukáže prázdné místo: dál fotky motorek, banner „V tyhle dny máme zavřeno“ (všechny pobočky mají v termínu `branch_closures`) nebo „V tyhle dny je vše obsazené“ a tlačítko „Vybrat jiný termín“. Selhaná kontrola = chybový stav se „Zkusit znovu“, ne „vše obsazené“.
 - **Pořadí se míchá při každé návštěvě** (přepnutí záložky, návrat do appky po pauze); návrat zpět z detailu ukáže stejnou motorku.
 - **Motorka z poslední výpůjčky se už nedává dopředu** — má jen štítek „Znovu“, kde ji míchání zrovna umístí.
+- **Bez tlačítka profilu nahoře** (Domů i Motorky): zdvojovalo záložku Profil spodního menu, která dál ukazuje počet nepřečtených zpráv; logo má celou šířku.
 - **Tři řádky na Domů** („Žádná aktivní rezervace“, „Spočítat přesnou cenu“, „Zaznamenat jízdu“) mají stejné tmavé neonové dlaždice 40 px; „Spočítat přesnou cenu“ bez termínu předvyplní kalkulačku jen motorkou.
 
 ### Spodní menu a ovládání
@@ -61,7 +62,7 @@ Majitel po instalaci 5.0.0 výslovně požádal o tyto změny nového vzhledu (v
 - **Samostatná sekce „Video“ v detailu nového vzhledu je odstraněná** (žádný druhý přehrávač ani dvojí stahování). Starý vzhled beze změny.
 
 ### Kalendáře
-- **Zavřené dny jsou šrafované** (nedají se vybrat): kalendář motorky na Domů i kalendář Motorek v novém vzhledu ukazují dny, kdy jsou zavřené všechny pobočky, kde zákazník může půjčit (s vybranou pobočkou jen ta), z `branch_closures`. Kalendář motorky má legendu a při volném dni až v pozdějším měsíci tlačítko „Přejít na <datum>“.
+- **Zavřené dny mají vlastní šedomodrý odstín** (nedají se vybrat; obsazené dny zůstávají šrafované a přeškrtnuté, kalendář filtru bez rezervací nemá v legendě „Obsazeno“): kalendář motorky na Domů i kalendář Motorek v novém vzhledu ukazují dny, kdy jsou zavřené všechny pobočky, kde zákazník může půjčit (s vybranou pobočkou jen ta), z `branch_closures`. Kalendář motorky má legendu a při volném dni až v pozdějším měsíci tlačítko „Přejít na <datum>“.
 
 ### Otevřené body (rozhodne majitel)
 - „Dýchání“ svatozáře menu je omezené na 3 nádechy (nekonečná smyčka by stále běžela).

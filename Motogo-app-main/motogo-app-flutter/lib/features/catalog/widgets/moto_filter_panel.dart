@@ -177,6 +177,8 @@ class _MotoFilterPanelState extends ConsumerState<MotoFilterPanel> {
             ? AvailabilityCalendar(
                 // Dny, kdy mají všechny pobočky zavřeno (jako Motorky, FS-06).
                 bookedDates: ref.watch(motorkyClosedDaysProvider),
+                // Only closed days drawn: no "Obsazeno" in the legend (FR-05).
+                legendBusy: false,
                 selectedStart: filter.startDate,
                 selectedEnd: filter.endDate,
                 onRangeSelected: (start, end) => _set(

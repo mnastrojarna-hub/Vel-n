@@ -145,11 +145,12 @@ class MotoFilterClearAllV2 extends StatelessWidget {
   final VoidCallback onTap;
   final String keyName;
 
-  /// Only the ✕ in a 40 px circle ([label] stays the semantics): a narrow
-  /// strip keeps its title big (FV-07).
-  final bool iconOnly;
+  /// Narrow strip (FV-07 / FR-07): the ✕ with [shortLabel] ("Zrušit")
+  /// under it — never a bare ✕ beside the fold chevron; [label] stays the
+  /// semantics.
+  final String? shortLabel;
   const MotoFilterClearAllV2(
-      {super.key, required this.label, required this.onTap, this.keyName = 'moto-filter-clear', this.iconOnly = false});
+      {super.key, required this.label, required this.onTap, this.keyName = 'moto-filter-clear', this.shortLabel});
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -160,12 +161,27 @@ class MotoFilterClearAllV2 extends StatelessWidget {
         child: MgPress(
           key: ValueKey(keyName),
           onTap: onTap,
-          child: iconOnly
-              ? Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: MgColors.link, width: 1.5)),
-                  child: Center(child: MgIcon(MgIcons.close, size: 18, color: MgColors.link)),
+          child: shortLabel != null
+              ? ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 40, minWidth: 40),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+                      MgIcon(MgIcons.close, size: 16, color: MgColors.link),
+                      MgWordFit(
+                        minScale: 0.7,
+                        fitLines: 1,
+                        child: Text(shortLabel!,
+                            maxLines: 1,
+                            style: MgType.small.copyWith(
+                                fontWeight: FontWeight.w800,
+                                height: 1.1,
+                                color: MgColors.link,
+                                decoration: TextDecoration.underline,
+                                decorationColor: MgColors.link)),
+                      ),
+                    ]),
+                  ),
                 )
               : ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 40),

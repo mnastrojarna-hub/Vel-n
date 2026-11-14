@@ -34,8 +34,22 @@ class MotorkyDatesCardV2 extends ConsumerStatefulWidget {
 class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
   bool _pickingStart = true;
 
-  /// "Přejít na 25. 3.": the calendar rebuilt on that month (no selection).
+  /// "Přejít na 25. 3.": the month the calendar is asked to show (FR-02 —
+  /// only the visible month moves, the selection stays) and the month it
+  /// shows now (null = not reported yet: the start's month or this one).
   DateTime? _jump;
+  DateTime? _shown;
+
+  void _onShown(DateTime m) {
+    if (!mounted) return;
+    setState(() {
+      _shown = m;
+      // Paged away from the jump: a new tap jumps again.
+      if (_jump != null && !_sameMonth(_jump!, m)) _jump = null;
+    });
+  }
+
+  static bool _sameMonth(DateTime a, DateTime b) => a.year == b.year && a.month == b.month;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +57,7 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
     final f = ref.watch(catalogFilterProvider);
     final closed = ref.watch(motorkyClosedDaysProvider);
     final next = motorkyClosedUntil(closed, DateTime.now());
+    final shown = _jump ?? _shown ?? f.startDate ?? DateTime.now();
     Widget tab(String label, DateTime? d, bool on, VoidCallback onTap) => Expanded(
           child: Semantics(
             button: true,
@@ -123,19 +138,25 @@ class _MotorkyDatesCardV2State extends ConsumerState<MotorkyDatesCardV2> {
                 child: Text(tr.trArgs('motoCalClosedFreeFrom', {'date': funnelDate(tr, next)}),
                     style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
               ),
-              if (_jump == null && (next.year != DateTime.now().year || next.month != DateTime.now().month))
+              // Until the calendar shows that month (dates picked or not).
+              if (!_sameMonth(shown, next))
                 MgBtnText(
                   label: tr.trArgs('homeSheetJumpTo', {'date': funnelDate(tr, next)}),
-                  onTap: () => setState(() => _jump = next),
+                  onTap: () => setState(() {
+                    _jump = DateTime(next.year, next.month);
+                    _shown = _jump;
+                  }),
                 ),
             ]),
             const SizedBox(height: 8),
           ],
           AvailabilityCalendar(
-            key: ValueKey(_jump),
-            initialMonth: _jump,
-            // Days every branch is closed: drawn as not free (VR-03).
+            showMonth: _jump,
+            onMonthShown: _onShown,
+            // Days every branch is closed: drawn as not free (VR-03); no
+            // bike's bookings here → no "Obsazeno" in the legend (FR-05).
             bookedDates: closed,
+            legendBusy: false,
             onRangeSelected: (s, e) {
               setState(() => _pickingStart = true);
               catSetDates(ref, s, e);

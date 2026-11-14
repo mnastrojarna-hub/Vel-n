@@ -148,7 +148,9 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
     // A full-screen card: the photo in the upper part, above the caption;
     // a short card (≤ 640) fits it in the room above the caption (FV-02).
     final photoAlign = widget.height > 640 ? const Alignment(0, -0.4) : Alignment.center;
-    final pad = widget.height > 640 || _capH == 0 ? 0.0 : (_capH - top - 52).clamp(0.0, widget.height * 0.6);
+    // + the bars-shown lift (FR-06).
+    final lift = MgChromeLift.shownLift(context, widget.liftExtra);
+    final pad = widget.height > 640 || _capH == 0 ? 0.0 : (_capH + lift - top - 52).clamp(0.0, widget.height * 0.6);
     // [height] is the MINIMUM: with large text / long words the card grows
     // so the bottom block (tags, name, chips, price, CTA) is never pushed
     // out over the top edge (it is the only non-positioned child).
@@ -218,7 +220,7 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                         return GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTap: widget.onOpen,
-                            child: Padding(padding: EdgeInsets.only(bottom: pad), child: img));
+                            child: Padding(key: ValueKey('bike-photo-pad-$i'), padding: EdgeInsets.only(bottom: pad), child: img));
                       },
                     ),
                   ),
@@ -291,13 +293,14 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                 ),
               // With the bars shown the body is a nav row shorter than the
               // card: the caption rides above the nav (and the strips).
-              BikeCaptionMeasure(
+              MgChromeLift(
+                room: widget.height,
+                extra: widget.liftExtra,
+                // No lift inside (FR-06).
+                child: BikeCaptionMeasure(
                 onHeight: (h) {
                   if (mounted && (h - _capH).abs() > 0.5) setState(() => _capH = h);
                 },
-                child: MgChromeLift(
-                room: widget.height,
-                extra: widget.liftExtra,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(16, top + 60, 16, 16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [

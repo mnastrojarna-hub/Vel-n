@@ -267,7 +267,8 @@ void main() {
       expect(find.text(_cs.tr('searchSearching')), findsOneWidget);
       pending.complete([kBmw]);
       await t.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining(_cs.tr('searchAvailableMotorcycles').replaceAll('{n}', '1')), findsOneWidget);
+      // 5.0.1 FR-04: "1 volná motorka" (Czech singular).
+      expect(find.textContaining(_cs.tr('motoFreeOne').replaceAll('{n}', '1')), findsOneWidget);
     });
   });
 }

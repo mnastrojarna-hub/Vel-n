@@ -108,8 +108,9 @@ String tripDayA11y(AppTranslations tr, TripDayState s, {String? currency}) {
   if (s.showsPrice) parts.add(currency == null ? s.price! : '${s.price} $currency');
   switch (s.kind) {
     case TripDayKind.busy:
-    case TripDayKind.closed:
       parts.add(tr.tr('v2CalLegBusy'));
+    case TripDayKind.closed:
+      parts.add(tr.tr('calLegClosed'));
     case TripDayKind.pending:
       parts.add(tr.tr('v2CalLegPending'));
     case TripDayKind.yourOther:

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/i18n/translations_ext_65_v501_final.dart' show motoShownCount;
+import '../../../core/i18n/translations_ext_65_v501_final.dart' show motoFreeCount, motoShownCount;
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
@@ -207,9 +207,8 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     final header = MotorkyHeaderV2(
       mode: mode,
       onMode: _setMode,
-      // The old search header: back → Domů (tab root), menu → Profil.
+      // The old search header: back → Domů (tab root); Profil is the tab.
       onBack: () => context.go(Routes.home),
-      onMenu: () => context.go(Routes.profile),
     );
 
     final List<Widget> slivers;
@@ -276,7 +275,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     // would not be true any more — "Hledám…" until the new list is in.
     if (motos != null && !motosAsync.isLoading) {
       text = days > 0
-          ? '${tr.tr('searchAvailableMotorcycles').replaceAll('{n}', '${motos.length}')} · ${catDays(tr, days)}'
+          ? '${motoFreeCount(tr.lang, tr.tr, motos.length)} · ${catDays(tr, days)}'
           : motoShownCount(tr.lang, tr.tr, motos.length, 'searchShownMotorcycles');
     } else if (motosAsync.isLoading) {
       text = tr.tr('searchSearching');

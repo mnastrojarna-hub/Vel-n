@@ -61,7 +61,7 @@ void main() {
     });
   });
 
-  testWidgets('Motorky calendar in winter: why + "Přejít na" + hatched "Zavřeno" (FV-01)', (t) async {
+  testWidgets('Motorky calendar in winter: why + "Přejít na" + "Zavřeno" (FV-01)', (t) async {
     final closed = [BookedDateRange(start: _d(0), end: _d(130), status: 'branch_closed')];
     await pumpV2(
       t,
@@ -72,7 +72,8 @@ void main() {
     final next = _d(131);
     expect(find.byKey(const ValueKey('motorky-closed-row')), findsOneWidget);
     expect(find.textContaining(_cs('motoCalClosedFreeFrom').split('{').first.trim()), findsOneWidget);
-    expect(find.byKey(const ValueKey('trip-legend-closed-hatch')), findsOneWidget);
+    // Own plain swatch, not the taken-day hatch (5.0.1 FR-05).
+    expect(find.byKey(const ValueKey('trip-legend-closed')), findsOneWidget);
     expect(find.text(_cs('calLegClosed')), findsOneWidget);
     final jump = find.textContaining(_cs('homeSheetJumpTo').split('{').first.trim());
     expect(jump, findsOneWidget, reason: 'the first free day is months away');

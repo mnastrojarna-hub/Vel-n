@@ -24,8 +24,8 @@ class MotorkyFilterStripV2 extends StatelessWidget {
     if (active <= 0) return const SizedBox.shrink();
     final tr = t(context);
     final title = tr.trArgs('motoFltOn', {'n': active});
-    // Narrow phone / large text: "Zrušit vše" becomes ✕, the title keeps
-    // its size (FV-07).
+    // Narrow phone / large text: "Zrušit vše" becomes ✕ over "Zrušit", the
+    // title keeps its size (FV-07 / FR-07).
     final narrow = MediaQuery.sizeOf(context).width < 360 || MediaQuery.textScalerOf(context).scale(10) > 11;
     return Padding(
       key: const ValueKey('motorky-filter-strip'),
@@ -74,7 +74,8 @@ class MotorkyFilterStripV2 extends StatelessWidget {
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.36),
             child: MotoFilterClearAllV2(
-                label: tr.tr('motoFltClear'), onTap: onReset, keyName: 'motorky-filter-strip-clear', iconOnly: narrow),
+                label: tr.tr('motoFltClear'), onTap: onReset, keyName: 'motorky-filter-strip-clear',
+                shortLabel: narrow ? tr.tr('motoFltClearShort') : null),
           ),
         ]),
       ),

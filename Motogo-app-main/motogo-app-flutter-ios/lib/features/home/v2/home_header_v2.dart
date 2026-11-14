@@ -13,20 +13,19 @@ import '../../../core/v2/rank/rank_hero.dart';
 import '../../../core/v2/rank/rank_provider.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../../auth/auth_provider.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../../loyalty/loyalty_ranks_screen.dart';
-import '../../messages/messages_provider.dart';
 import '../nickname_provider.dart';
 
 /// Home header = the old `HomeHeader` in the v2 look (owner 2026-11-07
 /// "jen upgrade vzhledu"; rank colours R1): logo in the tier ring (→ ranks,
-/// as the old LogoRow), the menu button with the unread count (→ Profil,
-/// as the old ≡ button), then the pilot badge (nickname, tap = edit it) and
-/// the search field (→ Rezervovat). The Velín banner is its last line (the
+/// as the old LogoRow) over the full width, then the pilot badge (nickname,
+/// tap = edit it) and the search field (→ Rezervovat). No profile button
+/// (owner 2026-11-14: it doubled the Profil tab of the bottom menu, which
+/// keeps the unread badge). The Velín banner is its last line (the
 /// v2 shell leaves it out on Domů). [overlap] = a hero card sits on the
 /// header's rounded bottom (−24), so the header keeps room for it.
 class HomeHeaderV2 extends ConsumerWidget {
@@ -37,7 +36,6 @@ class HomeHeaderV2 extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = t(context);
     final rank = ref.watch(rankTokensProvider);
-    final unread = ref.watch(adminUnreadCountProvider);
     final fullName = ref.watch(profileProvider).valueOrNull?['full_name'] as String?;
     final nick = ref.watch(nicknameProvider) ?? extractFirstName(fullName);
     final banner = ref.watch(bannerProvider).valueOrNull;
@@ -51,21 +49,10 @@ class HomeHeaderV2 extends ConsumerWidget {
       ambientKey: 'home',
       padding: EdgeInsets.fromLTRB(16, 8, 16, overlap ? (hasBanner ? 28 : 32) : 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        LayoutBuilder(builder: (context, c) {
-          return Row(children: [
-            Expanded(child: _LogoRow(narrow: c.maxWidth < 323)),
-            const SizedBox(width: 8),
-            MgIconButton(
-              key: const ValueKey('home-menu'),
-              icon: MgIcons.user,
-              badge: unread,
-              semanticLabel: unread > 0
-                  ? '${tr.tr('v2TabProfile')}, ${tr.trArgs('v2NavUnread', {'n': unread})}'
-                  : tr.tr('v2TabProfile'),
-              onTap: () => router?.go(Routes.profile),
-            ),
-          ]);
-        }),
+        // The logo row has the full width: no profile button up here (owner
+        // 2026-11-14 — Profil and its unread badge are in the bottom menu).
+        // Same wordmark size as before: small only under 271 dp of logo.
+        LayoutBuilder(builder: (context, c) => _LogoRow(narrow: c.maxWidth < 271)),
         const SizedBox(height: 10),
         // Pilot (přirozená šířka, max ~45 %) + vyhledávání přes zbytek řádku;
         // nápověda se zmenší na 2 řádky, nikdy se neusekne.

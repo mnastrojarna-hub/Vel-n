@@ -53,8 +53,8 @@ void main() {
           findsOneWidget);
       // The shared filter panel inline (folded as before).
       expect(find.byType(MotoFilterCardV2), findsOneWidget);
-      // The old results header.
-      expect(find.textContaining(_cs('searchAvailableMotorcycles').replaceAll('{n}', '2')), findsOneWidget);
+      // The old results header (5.0.1 FR-04: with the Czech plural form).
+      expect(find.textContaining(_cs('motoFreeFew').replaceAll('{n}', '2')), findsOneWidget);
       // No grid toggle; the card button is the old "Detail" (its tap →
       // /moto/:id is covered in catalog_card_book_test).
       final card = t.widget<MotoCardFullV2>(find.byType(MotoCardFullV2).first);
@@ -63,11 +63,12 @@ void main() {
       expect(find.text(_cs('v2CatCtaBook').toUpperCase()), findsNothing);
     });
 
-    testWidgets('the header has the always visible back', (t) async {
+    testWidgets('the header has the always visible back (no profile button: the Profil tab)', (t) async {
       await pumpV2(t, const MotorkyScreenV2(), size: const Size(360, 1600), overrides: catalogOverrides());
       await t.pump(const Duration(milliseconds: 600));
       expect(find.byKey(const ValueKey('motorky-back')), findsOneWidget);
-      expect(find.byKey(const ValueKey('motorky-menu')), findsOneWidget);
+      // Owner 2026-11-14: the duplicate profile button is gone.
+      expect(find.byKey(const ValueKey('motorky-menu')), findsNothing);
     });
 
     testWidgets('the filter card starts folded and opens on tap (old panel)', (t) async {

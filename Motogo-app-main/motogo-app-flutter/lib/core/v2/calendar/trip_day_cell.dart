@@ -192,8 +192,11 @@ class _DayPainter extends CustomPainter {
         canvas.drawRRect(box, Paint()..color = fill);
         if (!dark) _stroke(canvas, box, MgColors.line, 1);
       case TripDayKind.busy:
-      case TripDayKind.closed:
         _hatch(canvas, box);
+      case TripDayKind.closed:
+        // Branch closed (FR-05): plain slate, unlike the taken-day hatch.
+        canvas.drawRRect(box, Paint()..color = dark ? MgColors.closedCellDark : MgColors.closedCell);
+        if (!dark) _stroke(canvas, box, MgColors.closedBorder, 1);
       case TripDayKind.yourOther:
         canvas.drawRRect(box, Paint()..color = dark ? MgColors.warnDarkBg : MgColors.warnBg);
         _dashed(canvas, box, dark ? MgColors.warnDark.withValues(alpha: 0.75) : MgColors.warnBorder);

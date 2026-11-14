@@ -1,4 +1,4 @@
-# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 18:15 UTC)
+# Appka 5.0.1 — plán dokončení (předávka, stav 14. 11. 2026 18:25 UTC)
 
 Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .claude/handoff`).
 
@@ -22,13 +22,23 @@ Tento soubor je jen pracovní. **Před založením PR ho smaž** (`git rm -r .cl
 - Upřesnění pravidla od majitele (14. 11., už v CLAUDE.md bod 6): „v2 = jen vzhled“ znamená hlavně zachovat vstupy, rozsah a funkčnost uživatelského zadávání; zdvojené navigační prvky se rušit smí.
 - **BĚŽÍ (spuštěno 14. 11. 18:15 UTC): workflow `v501-last`, běh `wf_4f018613-c58`** (skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/v501-last-wf_4f018613-c58.js`, journal `…/subagents/workflows/wf_4f018613-c58/journal.jsonl`). Dělá **kroky A i B najednou**: opravuje FR-01 (hlavní tlačítko nabídky na Domů pod spodním menu při 360×640 v nl/pl/uk – padá `home_fold_test`), FR-02 („Přejít na“ v zimním kalendáři Motorek nefunguje, když už je vybraný termín), drobné FR-03..07, **ruší horní tlačítko profilu v hlavičce Domů** (L8) a přefotí dotčené snímky galerie; opravář na konci sám pouští celou Android sadu. Pak skeptik; při závažném nálezu ještě jedno kolo oprava → skeptik.
 
-## 2. Zbývající kroky (v tomto pořadí)
+## 2. Zbývající kroky (pořadí: A+B → F → C → D → E)
 
 ### A + B. Poslední oprava a zrušení horního tlačítka profilu (běží jako workflow `wf_4f018613-c58`)
 1. Počkej na doběhnutí (po restartu kontejneru obnov: `Workflow({scriptPath, resumeFromRunId: 'wf_4f018613-c58'})`). Výsledek čti z journalu (řádky `type=result`; `agentId → label` z řádků `started`): `last:repair` (pole `fixed`, `skipped`, `suite` = poslední řádek celé Android sady), `last:sceptic:1`, případně `last:repair2` a `last:sceptic:2`.
 2. Hotovo je, když poslední skeptik nehlásí žádný **major** a v `last:repair` jsou vyřešené L1 (FR-01), L2 (FR-02) a L8 (tlačítko profilu pryč, badge nepřečtených zpráv zůstává na záložce Profil, `test/v2/ux/lookonly_core_test.dart` upravený bez oslabení). Když major zůstal: pusť další kolo „jeden opravář → jeden skeptik“ podle stejného skriptu; opakuj do 0 major. Minor: jen malé a bezpečné, zbytek vypiš majiteli.
 3. Sám si prohlédni přefocené snímky v `$W/gallery` (hlavička Domů bez tlačítka profilu, fotka v nabídce na Domů, zimní kalendář Motorek, pruh filtru na 320 px).
 4. Commit + push.
+
+### F. Pojistka: kódy na samoobslužné pobočce až po nahrání dokladů (zadání majitele 14. 11. — udělej PŘED krokem C)
+Majitel: „když někdo jde na samoobslužnou pobočku, tak nesmí dostat kódy, dokud nenahraje občanku a řidičák nebo pas a řidičák. Ani v aplikaci. Jsou tam obecně trošku jiný flow.“
+- Běží (spuštěno 14. 11. 18:25 UTC) **jen čtecí prověrka**: workflow `codes-docs-audit`, běh `wf_26e8b5bd-d54` (skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/codes-docs-audit-wf_26e8b5bd-d54.js`, journal `…/subagents/workflows/wf_26e8b5bd-d54/journal.jsonl`; po restartu obnov přes `resumeFromRunId`). Čtenář backendu + čtenář appky/webu → skeptik `verdict` (pole `verdict`, `rule_today`, `per_channel`, `gaps`, `self_service_flow`, `for_owner_cs`).
+- Co se po ní dělá:
+  1. `verdict = holds_everywhere` → nic neměň; majiteli přepiš `for_owner_cs` (jak to dnes funguje, že pravidlo platí ve všech kanálech: appka, e-mail/push, web, kiosk).
+  2. `gap_found` v **appce** (kód je v odpovědi a appka ho jen skrývá, nebo ho nový/starý vzhled ukáže bez dokladů): oprav v obou stromech se stejnými pravidly jako jinde (opravář → skeptik), test, který bez opravy padá; pojistka musí platit v obou vzhledech.
+  3. `gap_found` v **backendu** (SQL / edge / e-mail / kiosk): je to zásah do živé databáze. Nejdřív majiteli česky a jednoduše napiš, co přesně chybí a co navrhuješ, a počkej na „ano“. Potom: SQL jako nová migrace `supabase/migrations/2026111x…sql` (finální, idempotentní; sloučení do `main` ji nasadí samo), nejdřív ji vyzkoušej na zkušební PG (`$S/sqlb/pg`, README tam), aktualizuj `SUPABASE_BACKEND_STATE_1–6.md` (pravidlo 4 v CLAUDE.md), edge funkce s testy v `supabase/functions/_tests`. Pravidlo má znít: kódy dveří/šatny pro rezervaci na samoobslužné pobočce se zákazníkovi nevydají žádným kanálem, dokud nemá nahraný (občanský průkaz NEBO pas) A řidičský průkaz; obsluha ve Velínu smí dál vydávat krátkodobé kódy.
+  4. `unclear` → dohledej chybějící část sám (čti aktuální definice funkcí v nejnovější migraci), nehádej.
+- Současně ověř z `self_service_flow`, že úpravy 5.0.1 nezměnily nic z odlišného postupu samoobslužné pobočky (vyzvednutí od 12:00, protokol na kiosku, šatna).
 
 ### C. Závěrečné kontroly (Bash na pozadí, ~40 min, sám, ne přes agenta)
 ```

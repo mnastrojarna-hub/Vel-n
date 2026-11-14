@@ -27,6 +27,7 @@ import 'funnel_provider.dart';
 import 'home_date_sheet_v2.dart';
 import 'home_funnel_cta.dart';
 import 'home_funnel_parts.dart';
+import 'home_funnel_photo.dart';
 import 'home_links.dart';
 import 'home_offer_provider.dart';
 import 'home_reveal.dart';
@@ -177,13 +178,10 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
     final free = offer.mode == HomeOfferMode.free;
     final none = offer.mode == HomeOfferMode.noneFree;
 
-    final emptyOrError = offer.mode == HomeOfferMode.error || offer.mode == HomeOfferMode.noBikes;
-    // Fotka je hlavní (5.0.1 FV-03): nižší telefon (< 800 dp) 190, velmi
-    // nízký (< 700 dp: 320×640, 360×640, 375×667) 150 a těsnější mezery —
-    // tlačítko pořád nad spodní lištou.
-    final screenH = MediaQuery.sizeOf(context).height;
-    final short = screenH < 700;
-    final photoH = emptyOrError || screenH >= 800 ? 200.0 : (short ? 150.0 : 190.0);
+    // Fotka je hlavní (5.0.1 FV-03 / FR-01): tak velká, jak dovolí místo na
+    // první obrazovce (FunnelPhotoFit, 124–200), a REZERVOVAT pořád nad
+    // spodní lištou; velmi nízký telefon (< 700 dp) má těsnější mezery.
+    final short = MediaQuery.sizeOf(context).height < 700;
     final today = funnelDay(DateTime.now());
     final Widget slot = switch (offer.mode) {
       HomeOfferMode.loading => const FunnelSkeleton(),
@@ -255,7 +253,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
 
     return HomeReveal(
       sessionKey: 'home-funnel',
-      child: Container(
+      child: FunnelPhotoFit(builder: (context, photoH) => Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
@@ -267,8 +265,8 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-            // Nižší telefon: menší fotka (photoH), ať je REZERVOVAT nad spodní
-            // lištou (V22 §2.4 #4). Prázdný / chybový stav má min. 200 a roste
+            // Fotka podle místa (photoH), ať je REZERVOVAT nad spodní lištou
+            // (V22 §2.4 #4). Prázdný / chybový stav má min. 200 a roste
             // podle textu (velké písmo) — vysvětlení se neusekne.
             child: slot is FunnelEmptySlot ? slot : SizedBox(height: photoH, child: slot),
           ),
@@ -348,7 +346,7 @@ class _HomeFunnelV2State extends ConsumerState<HomeFunnelV2> {
             ]),
           ),
         ]),
-      ),
+      )),
     );
   }
 }

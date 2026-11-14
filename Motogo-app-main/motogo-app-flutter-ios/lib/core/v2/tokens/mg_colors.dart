@@ -74,6 +74,10 @@ abstract final class MgColors {
   static const calContour = routeGreen;
   static const hatchA = Color(0xFFEEF2F0);
   static const hatchB = Color(0xFFFFFFFF);
+  // Day every branch is closed (5.0.1 FR-05): plain slate, not the hatch.
+  static const closedCell = Color(0xFFE3E8EF);
+  static const closedBorder = Color(0xFFC3CCD8);
+  static const closedCellDark = Color(0x2E9DB4D0);
 
   // ── Translucent helpers (white / night overlays) ──────────────────────
   static Color white(double a) => Color.fromRGBO(255, 255, 255, a);

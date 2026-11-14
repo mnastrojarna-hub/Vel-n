@@ -16,6 +16,7 @@ import 'home_bike_list_v2.dart';
 import 'home_bookings_v2.dart';
 import 'home_calc_row_v2.dart';
 import 'home_funnel_parts.dart' show homeFilterCardKey;
+import 'home_funnel_photo.dart' show homeFunnelPhotoGuess;
 import 'home_funnel_v2.dart';
 import 'home_header_v2.dart';
 import 'home_rank_card_v2.dart';
@@ -185,8 +186,7 @@ class _HeroSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenH = MediaQuery.sizeOf(context).height;
     final short = screenH < 700;
-    final bigText = MediaQuery.textScalerOf(context).scale(10) > 10.5;
-    final photoH = screenH >= 800 ? 200.0 : (short && !bigText ? 124.0 : 150.0);
+    final photoH = homeFunnelPhotoGuess(context);
     final chipH = short ? 52.0 : 56.0;
     return Container(
       key: const ValueKey('home-hero-skeleton'),

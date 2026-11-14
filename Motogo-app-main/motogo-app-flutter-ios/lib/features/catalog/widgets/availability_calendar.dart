@@ -24,14 +24,24 @@ class AvailabilityCalendar extends StatefulWidget {
   /// (jen zobrazení, výpočet ceny beze změny); starý vzhled ji ignoruje.
   final DayPrices? dayPrices;
 
-  /// Month shown first when nothing is selected (null = this month); only
-  /// the new look passes it (Motorky "Přejít na …", 5.0.1).
-  final DateTime? initialMonth;
+  /// Jump request: when this changes to a month, the grid shows it — the
+  /// selection stays (Motorky "Přejít na …", 5.0.1 FR-02). Only the new
+  /// look passes it.
+  final DateTime? showMonth;
+
+  /// The month the grid shows (first frame, arrows, [showMonth]).
+  final void Function(DateTime month)? onMonthShown;
+
+  /// v2 legend lists "Obsazeno" (off where no bookings are drawn, e.g. a
+  /// date filter that draws only closed days — 5.0.1 FR-05).
+  final bool legendBusy;
 
   const AvailabilityCalendar({
     super.key,
     this.dayPrices,
-    this.initialMonth,
+    this.showMonth,
+    this.onMonthShown,
+    this.legendBusy = true,
     this.bookedDates = const [],
     this.selectedStart,
     this.selectedEnd,
@@ -76,16 +86,27 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _year = widget.selectedStart?.year ?? widget.initialMonth?.year ?? now.year;
-    _month = widget.selectedStart?.month ?? widget.initialMonth?.month ?? now.month;
+    _year = widget.selectedStart?.year ?? widget.showMonth?.year ?? now.year;
+    _month = widget.selectedStart?.month ?? widget.showMonth?.month ?? now.month;
     _start = widget.selectedStart;
     _end = widget.selectedEnd;
     if (_start != null && _end != null) _step = 1;
+    if (widget.onMonthShown != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onMonthShown?.call(DateTime(_year, _month));
+      });
+    }
   }
 
   @override
   void didUpdateWidget(covariant AvailabilityCalendar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final jump = widget.showMonth;
+    if (jump != null && jump != oldWidget.showMonth) {
+      // Only the visible month moves — a picked start / range stays.
+      _year = jump.year;
+      _month = jump.month;
+    }
     if (oldWidget.selectedStart != widget.selectedStart ||
         oldWidget.selectedEnd != widget.selectedEnd) {
       _start = widget.selectedStart;
@@ -184,6 +205,7 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
       _month--;
       if (_month < 1) { _month = 12; _year--; }
     });
+    widget.onMonthShown?.call(DateTime(_year, _month));
   }
 
   void _nextMonth() {
@@ -191,7 +213,11 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
       _month++;
       if (_month > 12) { _month = 1; _year++; }
     });
+    widget.onMonthShown?.call(DateTime(_year, _month));
   }
+
+  bool _isClosed(DateTime date) =>
+      widget.bookedDates.any((r) => r.status == 'branch_closed' && r.containsDate(date));
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +240,9 @@ class _AvailabilityCalendarState extends State<AvailabilityCalendar> {
         onPrevMonth: _prevMonth,
         onNextMonth: _nextMonth,
         dayPrices: widget.dayPrices,
+        isClosed: _isClosed,
         closedLegend: widget.bookedDates.any((r) => r.status == 'branch_closed'),
+        legendBusy: widget.legendBusy,
         blockedDay: _step == 2 ? _blockedDay : null,
         blockedTry: _blockedTry,
       );

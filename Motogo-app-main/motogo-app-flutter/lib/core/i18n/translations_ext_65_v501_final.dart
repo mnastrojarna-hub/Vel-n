@@ -53,15 +53,23 @@ const Map<String, Map<String, String>> translationsExt65V501Final = {
   },
 };
 
-/// "Zobrazeno: n motorek" with the language's plural form (5.0.1 FV-08,
-/// new look only): 1 → [motoShownOne], few (cs 2–4; pl / uk 2–4, 22–24 …)
-/// → [motoShownFew], else the old key [manyKey] unchanged.
-String motoShownCount(String lang, String Function(String) tr, int n, String manyKey) {
-  final few = switch (lang) {
+/// The plural form of [n] in [lang] (5.0.1, new look only): 1 → [one]
+/// (uk also 21, 31 … but not 11), few (cs 2–4; pl / uk 2–4, 22–24 … but
+/// not 12–14) → [few], else [many] (the old key, unchanged).
+String motoCountKey(String lang, int n, String one, String few, String many) {
+  final isOne = lang == 'uk' ? n % 10 == 1 && n % 100 != 11 : n == 1;
+  final isFew = switch (lang) {
     'cs' => n >= 2 && n <= 4,
     'pl' || 'uk' => n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14),
     _ => false,
   };
-  final key = n == 1 ? 'motoShownOne' : (few ? 'motoShownFew' : manyKey);
-  return tr(key).replaceAll('{n}', '$n');
+  return isOne ? one : (isFew ? few : many);
 }
+
+/// "Zobrazeno: n motorek" with the language's plural form (FV-08).
+String motoShownCount(String lang, String Function(String) tr, int n, String manyKey) =>
+    tr(motoCountKey(lang, n, 'motoShownOne', 'motoShownFew', manyKey)).replaceAll('{n}', '$n');
+
+/// "n volných motorek" (dates set) with the same plural form (FR-04).
+String motoFreeCount(String lang, String Function(String) tr, int n) =>
+    tr(motoCountKey(lang, n, 'motoFreeOne', 'motoFreeFew', 'searchAvailableMotorcycles')).replaceAll('{n}', '$n');
