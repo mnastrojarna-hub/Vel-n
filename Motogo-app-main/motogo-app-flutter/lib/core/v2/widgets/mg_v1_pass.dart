@@ -8,8 +8,8 @@ import 'mg_back_v2.dart';
 /// Token pass for the screens that keep their v1 body inside the v2 look
 /// (PLAN "T": SOS flow, registration — r2 2026-10-29, owner decides on a
 /// full SOS / Přihlášení board port before 5.0.0): v2 page canvas instead
-/// of the v1 mint and the v2 back disc with the SAME onTap. Old look (and
-/// the iOS tree, which has no v2) unchanged.
+/// of the v1 mint and the v2 back disc with the SAME onTap. Old look
+/// unchanged (v2 is in both trees since 5.0.0+118; current 5.0.1+119).
 
 /// v2 page canvas `#F4F7F5`, else the v1 page colour.
 Color mgV1PageColor(BuildContext context, Color v1) => MgV2.on(context) ? MgColors.canvas : v1;

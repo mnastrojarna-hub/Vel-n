@@ -87,7 +87,7 @@ function PhotoGallery({ motoId }) {
         value={videos}
         onChange={syncVideos}
         folder={`motos/${motoId}/videos`}
-        helperText={'Volitelné. Pokud video přidáte, web ho přehraje v hlavním banneru (přepne na další motorku až po dovysílání všech videí), v detailu motorky i ve 2. kroku rezervace; aplikace přehraje videa po otevření detailu motorky. V přehledu/seznamu zůstává vždy fotka. Pořadí videí = pořadí přehrávání (přetáhněte tlačítkem „1." dopředu).'}
+        helperText={'Volitelné. Pokud video přidáte, web ho přehraje v hlavním banneru (přepne na další motorku až po dovysílání všech videí), v detailu motorky i ve 2. kroku rezervace; aplikace ve starém vzhledu přehraje videa po otevření detailu motorky; nový vzhled aplikace (od 5.0.1) ukáže v seznamu i v detailu nejdřív fotku a po cca 5 s na Wi‑Fi video (na mobilních datech tlačítko „Pustit video“). Na webu v přehledu/seznamu zůstává vždy fotka. Pořadí videí = pořadí přehrávání (přetáhněte tlačítkem „1." dopředu).'}
       />
     </div>
   )
