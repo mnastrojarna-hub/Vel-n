@@ -7,17 +7,18 @@ import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_row.dart';
 import '../../moto_model.dart';
 import '../../widgets/manual_card.dart';
-import '../../widgets/moto_video_player.dart';
 import 'detail_specs_v2.dart';
 import 'detail_trip_card_v2.dart';
 import '../catalog_text.dart';
 
 /// Light sections above "Tvoje jízda", in the OLD detail's order and all
-/// open as there (owner 2026-11-07 "jen upgrade vzhledu"): Video (the
-/// UNCHANGED `MotoVideoPlayer`), branch ("Pobočka: {name}, {city}" + type
+/// open as there (owner 2026-11-07 "jen upgrade vzhledu"): branch
+/// ("Pobočka: {name}, {city}" + type
 /// and street address), the FULL localized plain description, all
 /// parameters (old `SpecsSection` data) and the day price list (old
-/// `PricingTable` data). The manual follows the trip card
+/// `PricingTable` data). The videos play in the photo hero (owner v5.0.1,
+/// `DetailHeroV2`), so the old "Video" section is gone here — no second
+/// player, no double download. The manual follows the trip card
 /// ([DetailManualSectionV2]), as the old `ManualCard` followed the calendar.
 class DetailMoreV2 extends StatelessWidget {
   final Motorcycle moto;
@@ -31,13 +32,8 @@ class DetailMoreV2 extends StatelessWidget {
     final desc = m.descriptionPlainFor(tr.lang);
     final specs = m.specList(tr.tr);
     final branch = catBranchLineCity(tr, m) ?? branchInfo;
+    final b = detailBranchRow(tr, m, branch);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (m.videos.isNotEmpty)
-        DetailSectionV2(
-          title: tr.tr('v2DetVideo'),
-          icon: MgIcons.play,
-          child: MotoVideoPlayer(key: ValueKey('motovid-${m.id}'), urls: m.videos),
-        ),
       if (branch.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 20),
@@ -45,9 +41,8 @@ class DetailMoreV2 extends StatelessWidget {
             child: MgRow(
               key: const ValueKey('det-branch'),
               icon: MgIcons.pin,
-              title: '${tr.tr('detailBranchLabel')}$branch',
-              // Street address only (the city is already in the title).
-              sub: (m.branchAddress ?? '').trim().isEmpty ? null : catBranchAddress(m),
+              title: '${tr.tr('detailBranchLabel')}${b.title}',
+              sub: b.sub,
               divider: false,
             ),
           ),
@@ -88,4 +83,23 @@ class DetailManualSectionV2 extends StatelessWidget {
         padding: const EdgeInsets.only(top: 20),
         child: ManualCard(moto: moto),
       );
+}
+
+/// "Pobočka" row text: the branch name in the title, then its city, type
+/// and street address under it (the old "{name}, {city} · type" + address,
+/// all kept) — a long city ("Brno - Velké Němčice") is never cut by the
+/// title's two lines.
+({String title, String? sub}) detailBranchRow(AppTranslations tr, Motorcycle m, String fallback) {
+  final name = (m.branchName ?? '').trim();
+  final city = (m.branchCity ?? '').trim();
+  final addr = (m.branchAddress ?? '').trim();
+  if (name.isEmpty) return (title: fallback, sub: addr.isEmpty ? null : catBranchAddress(m));
+  final type = catBranchType(tr, m);
+  final lines = [
+    if (city.isNotEmpty && !name.contains(city)) city,
+    if (type != null) type,
+    // Street address (the city is already named).
+    if (addr.isNotEmpty) addr,
+  ];
+  return (title: name, sub: lines.isEmpty ? null : lines.join(' · '));
 }

@@ -121,21 +121,28 @@ class _SelectedMoto extends ConsumerWidget {
                 child: MgPing(size: 8, color: st.$2 ? MgColors.neonLo : MgColors.pending, active: st.$2),
               ),
               const SizedBox(width: 6),
-              Flexible(child: MgWordFit(child: Text(st.$1, style: MgType.meta.copyWith(color: st.$2 ? MgColors.link : MgColors.warn)))),
+              Flexible(
+                  child: MgWordFit(
+                      child: Text(st.$1, style: MgType.meta.copyWith(color: st.$2 ? MgColors.link : MgColors.warn)))),
             ]),
           ],
-          MgBtnText(
-            label: '${tr.tr('v2CalcDetail')} ›',
-            onTap: () {
-              ref.read(filteredMotoIdsProvider.notifier).state =
-                  siblings.contains(moto.id) ? siblings : [moto.id];
-              // The detail opens with the calculator's dates (the same write
-              // as "Zobrazit volné motorky") — never picked a second time.
-              final st = ref.read(calcStateProvider);
-              final f = ref.read(catalogFilterProvider);
-              if (st.hasRange && (f.startDate != st.start || f.endDate != st.end)) catSetDates(ref, st.start!, st.end!);
-              context.push('/moto/${moto.id}');
-            },
+          // Left-aligned with the texts above it (not centred).
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: MgBtnText(
+              label: '${tr.tr('v2CalcDetail')} ›',
+              onTap: () {
+                ref.read(filteredMotoIdsProvider.notifier).state = siblings.contains(moto.id) ? siblings : [moto.id];
+                // The detail opens with the calculator's dates (the same write
+                // as "Zobrazit volné motorky") — never picked a second time.
+                final st = ref.read(calcStateProvider);
+                final f = ref.read(catalogFilterProvider);
+                if (st.hasRange && (f.startDate != st.start || f.endDate != st.end)) {
+                  catSetDates(ref, st.start!, st.end!);
+                }
+                context.push('/moto/${moto.id}');
+              },
+            ),
           ),
         ]);
         final thumb = CalcThumb(moto: moto, width: 96, height: 64);
@@ -170,7 +177,8 @@ class _PickerList extends ConsumerWidget {
       Navigator.of(context).maybePop();
     }
 
-    Widget row({required bool on, required VoidCallback onTap, required Widget child, required String label}) => Semantics(
+    Widget row({required bool on, required VoidCallback onTap, required Widget child, required String label}) =>
+        Semantics(
           button: true,
           selected: on,
           label: label,
@@ -240,7 +248,8 @@ String calcMeta(AppTranslations tr, Motorcycle m) => [
 /// "V servisu…" (the calendar blocks the service days); free today → live.
 (String, bool)? calcStatus(AppTranslations tr, Motorcycle m) {
   if (m.status == 'maintenance') return (tr.tr('v2CalcStMaint'), false);
-  if (m.availableToday == true) return (tr.tr('v2CalcStToday'), true);
+  // One wording for "free today" with the list and Domů.
+  if (m.availableToday == true) return (tr.tr('v2CatFreeToday'), true);
   return null;
 }
 
@@ -281,11 +290,13 @@ class CalcFromPrice extends StatelessWidget {
     final from = catFromPerDay(moto, pct);
     final base = small ? MgType.meta : MgType.small;
     return Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.end, children: [
-      Text(tr.trArgs('v2CalcFromPerDay', {'amount': catMoney(from)}),
+      // "Kč/den" never splits at the slash (word joiners around it).
+      Text(tr.trArgs('v2CalcFromPerDay', {'amount': catMoney(from)}).replaceAll('/', '\u2060/\u2060'),
           style: MgType.tab(base.copyWith(fontWeight: FontWeight.w800, color: MgColors.price))),
       if (pct > 0 && from < cheapest)
         Text(catMoney(cheapest),
-            style: MgType.tab(base.copyWith(fontWeight: FontWeight.w600, color: MgColors.meta, decoration: TextDecoration.lineThrough))),
+            style: MgType.tab(base.copyWith(
+                fontWeight: FontWeight.w600, color: MgColors.meta, decoration: TextDecoration.lineThrough))),
     ]);
   }
 }

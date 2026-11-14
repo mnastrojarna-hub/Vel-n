@@ -6,26 +6,34 @@ import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_animated_size.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_buttons.dart';
-import '../../../core/v2/widgets/mg_surfaces.dart';
+import '../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import 'moto_filter_chips_v2.dart';
 
-/// v2 look of the INLINE `MotoFilterPanel` (Motorky, Domů): the old
-/// collapsible card — header "Filtry" (+ active count, "Resetovat", chevron)
-/// toggles the panel, folded it still shows the chosen branch — and, open,
-/// [body] (the panel's own v2 content `MotoFilterPanelV2View`; on Domů
-/// first "TERMÍN · [datesValue]" + [calendar], as the old panel had). Every value and closure is the panel state's;
-/// it starts folded as before ([open] comes from the state).
+/// v2 look of the INLINE `MotoFilterPanel` (Motorky, Domů). 5.0.1 (owner):
+/// folded, it is either CALM (dark neon tile, "Filtr motorek" · "Všechny
+/// motorky", an ink "Filtrovat" pill) or, with real filters on ([active]
+/// > 0 — never the dates or the branch), LOUD: a green card "Filtry
+/// zapnuté (n)", "Nevidíš všechny motorky", every filter as a chip with ✕
+/// (wrapping over the card width) and "Zrušit vše". The branch ("kam vyrážím") is a pin chip with ✕ in both states. A tap
+/// anywhere else opens the panel as before; open, [body] (on Domů first
+/// "TERMÍN · [datesValue]" + [calendar]). Every value and closure is the
+/// panel state's; it starts folded as before ([open] comes from the state).
 class MotoFilterCardV2 extends StatelessWidget {
   final bool open;
+
+  /// Real filters on (`CatalogFilter.filterCount`).
   final int active;
   final VoidCallback onToggle;
+
+  /// "Zrušit vše": clears exactly what [active] counts.
   final VoidCallback onReset;
 
-  /// Chosen branch name (the old `FilterBranchChip` under the folded header).
-  final String? branchName;
+  /// Removable chips (`motoFilterChips`), shown while folded.
+  final List<MotoFilterChipItem> chips;
 
   /// Domů only (`showDates`): the old "Termín" label value + its calendar.
   final String? datesValue;
@@ -39,7 +47,7 @@ class MotoFilterCardV2 extends StatelessWidget {
     required this.onToggle,
     required this.onReset,
     required this.body,
-    this.branchName,
+    this.chips = const [],
     this.datesValue,
     this.calendar,
   });
@@ -47,79 +55,102 @@ class MotoFilterCardV2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final title = tr.tr('homeFilterTitle');
+    final on = active > 0;
+    final hasPlace = chips.any((c) => c.place);
+    final title = on ? tr.trArgs('motoFltOn', {'n': active}) : tr.tr('homeFilterTitle');
+    // Calm: "Všechny motorky" — or, with a branch chip under it, "Motorky na
+    // pobočce" (the heading and the list agree).
+    final sub = on ? tr.tr('motoFltOnHint') : tr.tr(hasPlace ? 'motoFltAtBranch' : 'motoFltAll');
+    final dur = MgMotion.of(context, MgMotion.color);
+    final chevron = AnimatedRotation(
+      turns: open ? 0.5 : 0,
+      duration: dur,
+      child: MgIcon(MgIcons.chevronDown, size: 22, color: on ? MgColors.link : MgColors.meta),
+    );
     final header = Semantics(
       button: true,
       expanded: open,
-      label: active > 0 ? '$title · $active' : title,
+      label: '$title. $sub',
       excludeSemantics: true,
       onTap: onToggle,
       child: MgPress(
         onTap: onToggle,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
+          constraints: const BoxConstraints(minHeight: 56),
           child: Row(children: [
-            MgIcon(MgIcons.filter, size: 20, color: MgColors.link),
+            on ? _Badge(duration: dur) : const MgIconTileDark(MgIcons.filter),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                // One line; only a very long title at 320 dp (uk) may wrap.
+                MgWordFit(
+                  minScale: 0.75,
+                  fitLines: 1,
+                  child: Text(title,
+                      maxLines: 2,
+                      style: (on ? MgType.section : MgType.title).copyWith(color: on ? MgColors.link : MgColors.ink)),
+                ),
+                const SizedBox(height: 2),
+                MgWordFit(
+                  minScale: 0.8,
+                  fitLines: 1,
+                  child: Text(sub,
+                      maxLines: 3,
+                      style: MgType.small.copyWith(
+                          color: on ? MgColors.onTintOk : MgColors.body2,
+                          fontWeight: on ? FontWeight.w700 : FontWeight.w800)),
+                ),
+              ]),
+            ),
             const SizedBox(width: 8),
-            Flexible(
-              child: MgWordFit(minScale: 0.8, child: Text(title, style: MgType.title.copyWith(color: MgColors.ink))),
-            ),
-            if (active > 0) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: MgColors.ink, borderRadius: BorderRadius.circular(999)),
-                child: Text('$active', style: MgType.tab(MgType.micro.copyWith(color: MgColors.neon))),
-              ),
-            ],
-            const Spacer(),
-            AnimatedRotation(
-              turns: open ? 0.5 : 0,
-              duration: MgMotion.of(context, MgMotion.color),
-              child: MgIcon(MgIcons.chevronDown, size: 22, color: MgColors.meta),
-            ),
+            if (on || open) chevron else _FilterPill(label: tr.tr('motoFltFilter')),
           ]),
         ),
       ),
     );
+    final shown = open ? const <MotoFilterChipItem>[] : chips;
+    final clear = on ? MotoFilterClearAllV2(label: tr.tr('motoFltClear'), onTap: onReset) : null;
+    Widget? chipRow;
+    if (shown.isNotEmpty || clear != null) {
+      // The chips wrap over the full card width (never one faded sideways
+      // row that hides the 2nd chip's ✕ at 360/320 dp); "Zrušit vše" ends
+      // the wrap, on the right of the last line.
+      chipRow = LayoutBuilder(
+          builder: (context, box) =>
+              Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                for (final c in shown)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: box.maxWidth),
+                    child: MotoFilterChipV2(
+                        item: c, removeLabel: tr.trArgs('motoFltRemove', {'f': c.label}), onOpen: onToggle),
+                  ),
+                if (clear != null) ConstrainedBox(constraints: BoxConstraints(maxWidth: box.maxWidth), child: clear),
+              ]));
+    }
+    // A tap anywhere on the folded part (padding included) opens the panel;
+    // the chips' ✕ and "Zrušit vše" keep their own taps.
+    final folded = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onToggle,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        header,
+        if (chipRow != null) Padding(padding: const EdgeInsets.only(top: 6), child: chipRow),
+      ]),
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: MgCard(
+      child: AnimatedContainer(
         key: const ValueKey('moto-filter-card'),
-        padding: const EdgeInsets.fromLTRB(MgSpace.card, 6, MgSpace.card, 10),
+        duration: dur,
+        padding: const EdgeInsets.fromLTRB(MgSpace.card - 2, 8, MgSpace.card - 2, 10),
+        decoration: BoxDecoration(
+          color: on ? MgColors.tintOk : MgColors.surface,
+          borderRadius: BorderRadius.circular(MgRadius.card),
+          border: Border.all(color: on ? MgColors.link : MgColors.line, width: on ? 2 : 1),
+          boxShadow: MgShadows.card,
+        ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          header,
-          if (active > 0)
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: MgBtnText(label: tr.tr('homeFilterReset'), icon: MgIcons.close, onTap: onReset),
-            ),
-          if (!open && branchName != null)
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: MgPress(
-                onTap: onToggle,
-                child: Container(
-                  margin: const EdgeInsets.only(top: 4, bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: MgColors.tintOk,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: MgColors.tintOkBorder),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    MgIcon(MgIcons.pin, size: 15, color: MgColors.link),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text('${tr.tr('branchPrefix')}: $branchName',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.onTintOk)),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
+          folded,
           // MgAnimatedSize: no layout assert when the duration is 0 (reduced motion).
           MgAnimatedSize(
             duration: MgMotion.of(context, MgMotion.sheet),
@@ -136,7 +167,9 @@ class MotoFilterCardV2 extends StatelessWidget {
                                 style: MgType.eyebrow.copyWith(color: MgColors.meta)),
                           ),
                           if (datesValue != null)
-                            Text(datesValue!, style: MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
+                            Text(datesValue!,
+                                style:
+                                    MgType.tab(MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink))),
                         ]),
                         const SizedBox(height: 8),
                         calendar!,
@@ -151,4 +184,53 @@ class MotoFilterCardV2 extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Filtrovat": the calm card's action — an ink pill with a neon icon (the
+/// routes toolbar "Filtry" look). Part of the header tap (opens the panel).
+class _FilterPill extends StatelessWidget {
+  final String label;
+  const _FilterPill({required this.label});
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+        constraints: BoxConstraints(minHeight: 40, maxWidth: MediaQuery.sizeOf(context).width * 0.32),
+        child: Container(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 14, 8),
+          decoration: BoxDecoration(color: MgColors.ink, borderRadius: BorderRadius.circular(999)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            MgIcon(MgIcons.filter, size: 16, color: MgColors.neon),
+            const SizedBox(width: 6),
+            Flexible(
+              child: MgWordFit(
+                minScale: 0.7,
+                fitLines: 1,
+                child: Text(label,
+                    maxLines: 1, style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark)),
+              ),
+            ),
+          ]),
+        ),
+      );
+}
+
+/// 40 px icon disc of the loud state: the neon gradient with a soft glow
+/// and the dark filter icon (calm = `MgIconTileDark`, like the rows above).
+class _Badge extends StatelessWidget {
+  final Duration duration;
+  const _Badge({required this.duration});
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+        duration: duration,
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: MgGradients.neon,
+          border: Border.all(color: MgColors.link, width: 1.5),
+          boxShadow: const [BoxShadow(color: Color(0x5537CF63), blurRadius: 12, offset: Offset(0, 3))],
+        ),
+        child: Center(child: MgIcon(MgIcons.filter, size: 20, color: MgColors.onNeon)),
+      );
 }

@@ -23,6 +23,7 @@ import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/documents/document_provider.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
+import 'package:motogo_app/features/home/v2/home_offer_provider.dart' show homeOfferSeedProvider;
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 import 'package:motogo_app/features/loyalty/rank_names.dart' show loyaltyDefaultRankNamesCs;
 import 'package:motogo_app/features/messages/messages_provider.dart';
@@ -190,8 +191,14 @@ List<Override> homeOverrides({
   bool funnelError = false,
   bool banner = true,
   bool resLoading = false,
+  // true = the real funnelCandidatesProvider (tests swap homeRangeCheckProvider).
+  bool realFunnel = false,
+  List<Motorcycle>? motos,
+  // Pins the offer order (`homeOfferSeedProvider`); null = a random order.
+  int? offerSeed,
 }) =>
     [
+      if (offerSeed != null) homeOfferSeedProvider.overrideWith((ref) => offerSeed),
       reservationsProvider.overrideWith((ref) => resLoading ? StreamController<List<Reservation>>().stream : Stream.value(reservations)),
       pendingBookingFabProvider.overrideWith((ref) => Stream.value(pending)),
       pendingSosFabProvider.overrideWith((ref) => Stream.value(sos)),
@@ -218,7 +225,8 @@ List<Override> homeOverrides({
               bg: Color(0xFF0E2A1C),
               color: Color(0xFF74FB71))
           : null)),
-      motorcyclesProvider.overrideWith((ref) => Stream.value(kMotos)),
+      motorcyclesProvider.overrideWith((ref) => Stream.value(motos ?? kMotos)),
+      if (!realFunnel)
       funnelCandidatesProvider.overrideWith((ref, range) async {
         if (funnelLoading) await Completer<void>().future;
         if (funnelError) throw Exception('offline');

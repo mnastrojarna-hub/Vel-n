@@ -9,12 +9,23 @@ import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/pending_sos_fab_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
+import 'package:motogo_app/features/home/v2/funnel_provider.dart';
+import 'package:motogo_app/features/home/v2/home_offer_provider.dart';
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 import 'package:motogo_app/features/routes/ride_recorder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fakes_home.dart';
 import '../support/v2_harness.dart';
+
+/// v5.0.1 offer card fakes: a fixed order (seed), next free days from
+/// `get_motos_availability_status`, branch closures and given dates.
+List<Override> homeOfferOverrides({FunnelRange? given, List<HomeClosure> closures = const [], Map<String, DateTime>? next}) => [
+      homeOfferSeedProvider.overrideWith((ref) => 1),
+      homeNextFreeProvider.overrideWith((ref) async => next ?? {'m-shot': day(6), 'm-bmw': day(0), 'm-husq': day(0)}),
+      homeClosuresProvider.overrideWith((ref) async => closures),
+      if (given != null) funnelGivenProvider.overrideWith((ref) => given),
+    ];
 
 Map<String, List<Override> Function()> homeCases() {
   final r6 = res('b6', status: 'reserved', from: 5, to: 7);
@@ -30,10 +41,24 @@ Map<String, List<Override> Function()> homeCases() {
   final sos = PendingSosReplacement(id: 'sos1', type: 'breakdown_major', status: 'open', replacementStatus: 'selecting', bookingId: r8.id);
   final two = kMotos.take(2).toList();
   return {
-    's0': () => homeOverrides(funnel: two),
-    's0-loading': () => homeOverrides(funnelLoading: true),
-    's0-error': () => homeOverrides(funnelError: true),
-    's0-nonefree': () => homeOverrides(funnel: const []),
+    // v5.0.1: no dates preselected → every bike, "od" prices, "Vybrat termín".
+    's0': () => [...homeOverrides(funnel: two), ...homeOfferOverrides()],
+    's0-dates': () => [...homeOverrides(funnel: two), ...homeOfferOverrides(given: FunnelRange(day(9), day(11)))],
+    's0-loading': () => [...homeOverrides(funnelLoading: true), ...homeOfferOverrides(given: FunnelRange(day(9), day(11)))],
+    's0-error': () => [...homeOverrides(funnelError: true), ...homeOfferOverrides(given: FunnelRange(day(9), day(11)))],
+    // Dates given, nothing free: the bikes with "Volná od", why, "Vybrat jiný termín".
+    's0-nonefree': () => [...homeOverrides(funnel: const []), ...homeOfferOverrides(given: FunnelRange(day(9), day(11)))],
+    's0-closed': () => [
+          ...homeOverrides(funnel: const []),
+          ...homeOfferOverrides(
+            given: FunnelRange(day(9), day(11)),
+            closures: [
+              HomeClosure('11111111-1111-1111-1111-111111111111', day(5), day(130)),
+              HomeClosure('22222222-2222-2222-2222-222222222222', day(5), day(130)),
+            ],
+            next: {'m-bmw': day(131), 'm-husq': day(131), 'm-shot': day(131)},
+          ),
+        ],
     's0-noloyalty': () => homeOverrides(funnel: two, loyaltyFails: true, unread: 0, banner: false),
     's1': () => homeOverrides(reservations: [r8], sos: sos),
     's2': () => homeOverrides(reservations: [r2], pending: pending),
@@ -53,8 +78,10 @@ Map<String, List<Override> Function()> homeCases() {
     's10': () => homeOverrides(reservations: [r10], funnel: two),
     's10-rated': () => homeOverrides(
         reservations: [res('b11', status: 'completed', from: -4, to: -2, rating: 4, ratedAt: DateTime.now())], funnel: two),
-    'manual-rec': () => homeOverrides(
-        funnel: two, recorder: const RideRecorderState(recording: true, manual: true, points: 40)),
+    'manual-rec': () => [
+          ...homeOverrides(funnel: two, recorder: const RideRecorderState(recording: true, manual: true, points: 40)),
+          ...homeOfferOverrides(given: FunnelRange(day(9), day(11))),
+        ],
     'res-loading': () => homeOverrides(resLoading: true),
   };
 }

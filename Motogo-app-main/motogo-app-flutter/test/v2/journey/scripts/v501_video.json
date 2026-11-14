@@ -1,0 +1,53 @@
+[
+ {
+  "tapText": "Motorky",
+  "note": "run with MG_JOURNEY_VIDEO=wifi MG_JOURNEY_MOTION=full (state nodates)"
+ },
+ {
+  "scroll": [
+   180,
+   700,
+   500
+  ],
+  "note": "towards the first bike card"
+ },
+ {
+  "scroll": [
+   180,
+   700,
+   500
+  ],
+  "note": "the first bike card fills the screen (BMW: 3 photos, 2 videos)"
+ },
+ {
+  "wait": 1500,
+  "note": "video loads in the background after 1 s, the photo stays"
+ },
+ {
+  "wait": 5000,
+  "note": "after 5 s at rest the muted video cross-fades in"
+ },
+ {
+  "lifecycle": "pause",
+  "note": "app in background: player disposed"
+ },
+ {
+  "lifecycle": "resume",
+  "note": "back: photo again, countdown restarts"
+ },
+ {
+  "wait": 6500,
+  "note": "video again"
+ },
+ {
+  "tap": [
+   180,
+   300
+  ],
+  "note": "open the bike detail"
+ },
+ {
+  "wait": 6500,
+  "note": "detail hero: photo, then video with 'n / m' and mute disc"
+ }
+]

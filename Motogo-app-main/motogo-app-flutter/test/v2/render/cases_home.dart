@@ -28,6 +28,11 @@ List<RenderCase> homeRenderCases() => [
               initial: FunnelRange(day(9), day(12)), applyLabel: t(c).tr('v2HomeDateShow'), onClear: () {})),
           () => homeOverrides(),
           after: tapOpen),
+      // v5.0.1: "Vybrat termín" on an offer bike = THAT bike's calendar.
+      RenderCase('home', 'sheet', 'dates_bike',
+          () => launcher((c) => showHomeDateSheet(c, applyLabel: t(c).tr('v2HomeDateUse'), moto: kMotos.first)),
+          () => homeOverrides(),
+          after: tapOpen),
       RenderCase('home', 'sheet', 'club_rules', () => launcher(showClubRulesSheet), () => homeOverrides(), after: tapOpen),
       // lookonly-fix:core — the old Domů filter (collapsed by default) opened:
       // TERMÍN + calendar + the panel content, with a branch and a filter set.

@@ -3,27 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/i18n/translations_ext_65_v501_final.dart' show motoShownCount;
+import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
 import '../../../core/v2/gestures/mg_zone_snap.dart';
-import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/v2/catalog_mode_sync.dart' show catBeforeToday;
+import '../../catalog/v2/bike_free_label_v2.dart';
 import '../../catalog/v2/bike_screen_list_v2.dart';
 import '../../catalog/v2/catalog_price.dart';
 import '../../catalog/v2/moto_card_full_v2.dart';
+import '../../catalog/v2/motorky_empty_v2.dart';
 import '../../catalog/v2/motorky_loading_v2.dart';
 import '../../loyalty/loyalty_provider.dart';
+import 'home_funnel_parts.dart' show homeShowFilterCard;
+import 'home_offer_provider.dart' show homeNextFreeProvider;
 
 /// Full card height on Domů (the Motorky list geometry: one bike per
 /// screen).
 double homeBikeCardHeight(BuildContext context) => bikeScreenHeight(context);
 
-/// Domů's scroll-to-top button slot above the strips (12 + the 44 disc's
-/// 48 hit box): while the button shows, the bike caption rides above it.
-const double kHomeToTopSlot = 12 + MgSize.touch + 4;
+/// Domů's scroll-to-top arrow slot above the strips (`kMgToTopSlot`):
+/// while the arrow shows, the bike caption rides above it.
+const double kHomeToTopSlot = kMgToTopSlot;
 
 /// "Zobrazeno: n motorek" under the filter (old Domů count line, same
 /// loading / error texts).
@@ -40,7 +45,7 @@ class HomeBikeCountV2 extends ConsumerWidget {
       child: motosAsync.when(
         // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
         skipLoadingOnReload: true,
-        data: (motos) => Text(tr.tr('homeMotorcycleCount').replaceAll('{n}', '${motos.length}'),
+        data: (motos) => Text(motoShownCount(tr.lang, tr.tr, motos.length, 'homeMotorcycleCount'),
             key: const ValueKey('home-bike-count'), style: style),
         loading: () => Text(tr.tr('homeLoadingMotorcycles'), style: style),
         error: (_, __) => Text(tr.tr('homeLoadingError'), style: style.copyWith(color: MgColors.err)),
@@ -71,12 +76,28 @@ class HomeBikeListV2 extends ConsumerWidget {
     final f = ref.watch(catalogFilterProvider);
     final loyalty = ref.watch(loyaltyStatusProvider).valueOrNull;
     final h = homeBikeCardHeight(context);
+    // No dates: a bike busy today says from when it is free (as the offer).
+    final nextFree = ref.watch(homeNextFreeProvider).valueOrNull ?? const <String, DateTime>{};
     return motosAsync.when(
       skipLoadingOnReload: true,
       data: (all) {
         final motos = sortMotorcycles(all, sort);
         final s = f.startDate, e = f.endDate;
         final hasDates = s != null && e != null && !catBeforeToday(s);
+        // Nothing to show: why + what to do (the Motorky empty state), never
+        // only "Zobrazeno: 0 motorek".
+        if (motos.isEmpty) {
+          return SliverToBoxAdapter(
+            child: MotorkyEmptyV2(
+              filter: f,
+              onClearFilters: () {
+                final n = ref.read(catalogFilterProvider.notifier);
+                n.state = n.state.withoutFilters();
+              },
+              onPickDates: () => homeShowFilterCard(context, open: true),
+            ),
+          );
+        }
         void open(Motorcycle m) {
           ref.read(filteredMotoIdsProvider.notifier).state = motos.map((m) => m.id).toList();
           context.push('/moto/${m.id}');
@@ -101,7 +122,8 @@ class HomeBikeListV2 extends ConsumerWidget {
                   // G-125: no "Volná v termínu" while the list for the new dates reloads.
                   availability: hasDates
                       ? (motosAsync.isLoading ? null : tr.tr('v2CatFreeInRange'))
-                      : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null),
+                      : bikeFreeLabel(tr, m, nextFree).$1,
+                  availabilityLater: !hasDates && bikeFreeLabel(tr, m, nextFree).$2 == false,
                   ctaLabel: tr.tr('motoCardDetail'),
                   height: h,
                   topInset: top,

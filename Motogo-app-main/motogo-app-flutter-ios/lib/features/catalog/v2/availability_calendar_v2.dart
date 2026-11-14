@@ -38,8 +38,20 @@ class AvailabilityCalendarV2View extends StatelessWidget {
   final DateTime? blockedDay;
   final int blockedTry;
 
+  /// Days every branch is closed are drawn (`branch_closed`): the legend
+  /// gets "Zavřeno" (5.0.1 FV-01) — its own cell tone, not the taken-day
+  /// hatch (FR-05).
+  final bool closedLegend;
+  final bool Function(DateTime)? isClosed;
+
+  /// "Obsazeno" in the legend (off = no bookings drawn, FR-05).
+  final bool legendBusy;
+
   const AvailabilityCalendarV2View({
     this.dayPrices,
+    this.closedLegend = false,
+    this.isClosed,
+    this.legendBusy = true,
     this.blockedDay,
     this.blockedTry = 0,
     super.key,
@@ -82,7 +94,9 @@ class AvailabilityCalendarV2View extends StatelessWidget {
     final kind = past
         ? TripDayKind.past
         : occupied
-            ? (isUnconfirmed(d) ? TripDayKind.pending : TripDayKind.busy)
+            ? (isClosed?.call(d) ?? false)
+                ? TripDayKind.closed
+                : (isUnconfirmed(d) ? TripDayKind.pending : TripDayKind.busy)
             : (d.weekday >= 6 ? TripDayKind.freeWeekend : TripDayKind.free);
     // A busy start stays a busy cell — nothing selected is drawn then.
     final startOnly = crosses && !occupied && tripSameDay(d, start!);
@@ -91,7 +105,8 @@ class AvailabilityCalendarV2View extends StatelessWidget {
       kind: kind,
       price: _price(d),
       selected: crosses ? (startOnly ? TripSel.single : TripSel.none) : tripSelOf(d, start, end),
-      today: isToday(d),
+      // A booked / closed today gets no green outline (it read as a picked day).
+      today: isToday(d) && !occupied,
       pendingStart: startOnly || (step == 2 && end == null && start != null && tripSameDay(d, start!)),
       enabled: !readOnly && !past && !occupied,
     );
@@ -143,11 +158,13 @@ class AvailabilityCalendarV2View extends StatelessWidget {
               ),
             ),
       legend: showLegend
-          ? const TripLegend(items: [
+          // Hatched swatch: the taken cells are hatched too.
+          ? TripLegend(hatchBusy: true, items: [
               TripLegendKind.free,
               TripLegendKind.yours,
-              TripLegendKind.busy,
+              if (legendBusy) TripLegendKind.busy,
               TripLegendKind.pending,
+              if (closedLegend) TripLegendKind.closed,
             ])
           : null,
       note: !_hasPrices

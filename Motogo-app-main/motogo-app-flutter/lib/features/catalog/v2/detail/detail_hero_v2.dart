@@ -12,8 +12,13 @@ import '../../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_back_v2.dart';
+import '../../../../core/v2/widgets/mg_branch_chip.dart';
 import '../../../../core/widgets/net_image.dart';
 import '../../moto_model.dart';
+import '../../../home/v2/home_offer_provider.dart' show homeNextFreeProvider;
+import '../bike_free_label_v2.dart';
+import '../bike_screen_video_layer_v2.dart';
+import '../bike_screen_video_stage_v2.dart';
 import '../catalog_text.dart';
 
 /// Photo hero of the v2 detail (board `MotoDetail` `.hero`): the SAME photo
@@ -21,8 +26,13 @@ import '../catalog_text.dart';
 /// a single photo has no PageView so a horizontal swipe still moves the
 /// bike pager, as before), tap → the existing `FullscreenGallery`
 /// ([onOpenGallery]), segments, availability pill, photo counter, category
-/// + licence tags, H1 and the branch line. [onBack] null = the pager
-/// overlay draws the back control.
+/// + licence tags and H1. [onBack] null = the pager overlay draws the back
+/// control. Photo first, then the bike's videos in their order (owner
+/// v5.0.1, [BikeVideoStage]: settled ~5 s, Wi-Fi only, else "Pustit video"
+/// under the chip; mute disc + "n / m" while it plays, instead of the photo
+/// counter); the branch chip sits in the top-right corner. The full branch
+/// line ("{name}, {city} · type") is the first section under the hero
+/// (`DetailMoreV2` "Pobočka"), so the hero no longer repeats it.
 class DetailHeroV2 extends StatelessWidget {
   final Motorcycle moto;
   final List<String> images;
@@ -86,6 +96,7 @@ class DetailHeroV2 extends StatelessWidget {
     final multi = images.length > 1;
     final idx = images.isEmpty ? 0 : imageIndex.clamp(0, images.length - 1);
     final lic = catLicenseLabel(tr, moto);
+    final branchChip = mgBikeBranchChipLabel(tr, moto);
     Widget photo;
     if (multi) {
       photo = PageView.builder(
@@ -99,6 +110,37 @@ class DetailHeroV2 extends StatelessWidget {
     } else {
       photo = _fallback();
     }
+    return BikeVideoStage(
+      videos: moto.videos,
+      mode: BikeVideoMode.hero,
+      minVisible: 0.75,
+      builder: (context, video) => _build(context, photo, video, branchChip, lic, idx, multi, top),
+    );
+  }
+
+  Widget _build(BuildContext context, Widget photo, BikeVideoHandle video, String? branchChip, String lic, int idx,
+      bool multi, double top) {
+    final tr = t(context);
+    final counter = images.isEmpty
+        ? const SizedBox.shrink()
+        : Semantics(
+            button: true,
+            label: tr.trArgs('v2DetGalleryAria', {'n': idx + 1, 'total': images.length}),
+            excludeSemantics: true,
+            onTap: onOpenGallery,
+            child: MgPress(
+              onTap: onOpenGallery,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Center(
+                  widthFactor: 1,
+                  child: _pill('${idx + 1} / ${images.length}', icon: MgIcons.camera),
+                ),
+              ),
+            ),
+          );
+    // Room left of the chip: the back disc (+ the pager's "‹ n / m ›").
+    final leftControls = onBack == null ? 16 + 44 + 8 + 124 : 16 + 44;
     return MgStatusBar(
       dark: true,
       extendAbove: MgStatusBar.bounce,
@@ -136,7 +178,13 @@ class DetailHeroV2 extends StatelessWidget {
                 // CB-28: Ken Burns 8 s one-shot (once per session, off when reduced).
                 child: GestureDetector(
                   onTap: onOpenGallery,
-                  child: MgKenBurns(sessionKey: 'detail-hero-${moto.id}', child: photo),
+                  child: Stack(fit: StackFit.expand, children: [
+                    if (moto.videos.isEmpty)
+                      MgKenBurns(sessionKey: 'detail-hero-${moto.id}', child: photo)
+                    else
+                      BikePhotoFade(video: video, child: MgKenBurns(sessionKey: 'detail-hero-${moto.id}', child: photo)),
+                    if (moto.videos.isNotEmpty) BikeVideoLayer(video: video),
+                  ]),
                 ),
               ),
             ),
@@ -175,6 +223,40 @@ class DetailHeroV2 extends StatelessWidget {
               ),
             if (onBack != null)
               Positioned(top: top + 12, left: 16, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
+            // Where the bike is (owner v5.0.1): the neon chip, top right,
+            // level with the back / pager controls.
+            if (branchChip != null) ...[
+              Builder(builder: (context) {
+                final w = MediaQuery.sizeOf(context).width;
+                final short = mgBranchShortName(moto.branchName, moto.branchCity);
+                final chip = MgBranchChip(
+                    label: branchChip, shortLabel: short, maxWidth: mgBranchChipMaxWidth(w, leftPill: leftControls - 8.0));
+                // Narrow phone: even the name is cut next to the back / pager
+                // controls → the chip goes under the back button, left of
+                // "Pustit video", name + mode in two lines (FV-06).
+                if (chip.fits(context, chip.fitted(context))) {
+                  return Positioned(top: top + 21, right: 16, child: IgnorePointer(child: chip));
+                }
+                return Positioned(
+                  top: top + 64,
+                  left: 16,
+                  child: IgnorePointer(
+                    child: MgBranchChip(
+                        label: branchChip,
+                        shortLabel: short,
+                        wrap: true,
+                        maxWidth: (w - 40 - (moto.videos.isEmpty ? 0 : 140)).clamp(120.0, 280.0)),
+                  ),
+                );
+              }),
+            ],
+            // Off the bike: top right, under the chip.
+            if (moto.videos.isNotEmpty)
+              Positioned(
+                top: top + (branchChip == null ? 17 : 55),
+                right: 16,
+                child: BikeVideoPlayButton(video: video),
+              ),
             Positioned(
               left: 16,
               right: 16,
@@ -185,26 +267,18 @@ class DetailHeroV2 extends StatelessWidget {
                     _pill(tr.tr('v2CatFreeInRange'), live: true)
                   // Otherwise "Dnes volná" as the old hero always showed it
                   // (no dates, availability still loading, or not free in range).
+                  // Without dates, busy today: "Volná od 19. 11." (as the list card).
                   else if (moto.availableToday == true)
-                    _pill(tr.tr('v2CatFreeToday'), live: true),
+                    _pill(tr.tr('v2CatFreeToday'), live: true)
+                  else if (!hasDates)
+                    Consumer(builder: (context, ref, _) {
+                      final (text, now) =
+                          bikeFreeLabel(tr, moto, ref.watch(homeNextFreeProvider).valueOrNull ?? const {});
+                      if (text == null) return const SizedBox.shrink();
+                      return now ? _pill(text, live: true) : _pill(text, icon: MgIcons.calendarCheck);
+                    }),
                   const Spacer(),
-                  if (images.isNotEmpty)
-                    Semantics(
-                      button: true,
-                      label: tr.trArgs('v2DetGalleryAria', {'n': idx + 1, 'total': images.length}),
-                      excludeSemantics: true,
-                      onTap: onOpenGallery,
-                      child: MgPress(
-                        onTap: onOpenGallery,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 44),
-                          child: Center(
-                            widthFactor: 1,
-                            child: _pill('${idx + 1} / ${images.length}', icon: MgIcons.camera),
-                          ),
-                        ),
-                      ),
-                    ),
+                  BikeVideoHeroControls(video: video, otherwise: counter),
                 ]),
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 6, children: [
@@ -225,19 +299,6 @@ class DetailHeroV2 extends StatelessWidget {
                   child: Text(moto.model,
                       style: MgType.h1.copyWith(color: MgColors.onDark, shadows: [Shadow(color: MgColors.black(0.45), blurRadius: 18)])),
                 ),
-                if ((catBranchLineCity(tr, moto) ?? branchInfo).isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Row(children: [
-                    MgIcon(MgIcons.pin, size: 18, color: MgColors.neon),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      // The old hero's "{name}, {city}" + type (CB-06):
-                      // "MotoGo24 Mezná, Pelhřimov · s obsluhou".
-                      child: Text(catBranchLineCity(tr, moto) ?? branchInfo,
-                          style: MgType.body.copyWith(fontWeight: FontWeight.w700, color: MgColors.white(0.94))),
-                    ),
-                  ]),
-                ],
               ]),
             ),
           ]),
@@ -265,7 +326,8 @@ class DetailHeroV2 extends StatelessWidget {
   Widget _tag(String text, {bool neon = false, bool bad = false}) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.white(0.14)),
+          // Solid dark ink (as the list card's tag): readable on a white tank.
+          color: bad ? MgColors.err : (neon ? MgColors.neon : MgColors.nightA(0.85)),
           borderRadius: BorderRadius.circular(neon ? 6 : 999),
           border: neon ? null : Border.all(color: MgColors.white(0.24)),
         ),

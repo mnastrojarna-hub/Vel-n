@@ -109,7 +109,7 @@ class TripDayCell extends StatelessWidget {
             height: 4,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: s.isSelected ? MgColors.onNeon : (_dark ? MgColors.neon : MgColors.link),
+              color: s.isSelected ? MgColors.onNeon : (_dark ? MgColors.neon : MgColors.meta),
             ),
           ),
       ],
@@ -192,8 +192,11 @@ class _DayPainter extends CustomPainter {
         canvas.drawRRect(box, Paint()..color = fill);
         if (!dark) _stroke(canvas, box, MgColors.line, 1);
       case TripDayKind.busy:
-      case TripDayKind.closed:
         _hatch(canvas, box);
+      case TripDayKind.closed:
+        // Branch closed (FR-05): plain slate, unlike the taken-day hatch.
+        canvas.drawRRect(box, Paint()..color = dark ? MgColors.closedCellDark : MgColors.closedCell);
+        if (!dark) _stroke(canvas, box, MgColors.closedBorder, 1);
       case TripDayKind.yourOther:
         canvas.drawRRect(box, Paint()..color = dark ? MgColors.warnDarkBg : MgColors.warnBg);
         _dashed(canvas, box, dark ? MgColors.warnDark.withValues(alpha: 0.75) : MgColors.warnBorder);
@@ -205,7 +208,8 @@ class _DayPainter extends CustomPainter {
     }
     if (s.editMark == TripEditMark.removed) _dashed(canvas, box, MgColors.err);
     if (s.today) {
-      _stroke(canvas, box.deflate(0.75), dark ? MgColors.white(0.75) : MgColors.link, 1.5);
+      // Neutral (not the green of "Tvůj termín"): today is not a picked day.
+      _stroke(canvas, box.deflate(0.75), dark ? MgColors.white(0.75) : MgColors.meta, 1.5);
     }
   }
 

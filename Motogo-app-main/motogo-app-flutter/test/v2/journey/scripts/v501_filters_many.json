@@ -1,0 +1,25 @@
+[
+ {
+  "tapText": "Motorky",
+  "note": "naked, A2, 35-70 kW, today, branch Velké Němčice, days 7-9"
+ },
+ {
+  "wait": 500
+ },
+ {
+  "scroll": [
+   180,
+   600,
+   380
+  ],
+  "note": "below the calendar: the loud card with 5 chips + branch chip"
+ },
+ {
+  "tapText": "ŘP A2",
+  "note": "(a) the licence chip goes"
+ },
+ {
+  "tapKey": "motoFltClear",
+  "note": "(b) 'Zrušit vše': filters gone; dates, branch and sort stay"
+ }
+]

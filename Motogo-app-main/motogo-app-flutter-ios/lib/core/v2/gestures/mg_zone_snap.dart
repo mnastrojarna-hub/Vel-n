@@ -3,12 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'mg_one_step.dart';
+
+export 'mg_one_step.dart' show MgSwipeAnchor, MgSwipeAnchorListener;
+
 /// A run of equal items inside a vertical page scroll ("one bike per
 /// screen", owner 2026-11-08): item k's top lies at [start] + k × [extent]
 /// (item + gap). Written by [MgSnapZoneSliver] after every layout, read by
-/// [MgZoneSnapPhysics]. Inactive (no snapping) while empty, under reduced
-/// motion or when the laid-out items are not all [extent] tall (a card
-/// grown by a very large text size).
+/// [MgZoneSnapPhysics]. Inactive (no snapping) while empty or when the
+/// laid-out items are not all [extent] tall (a card grown by a very large
+/// text size). Under reduced motion ([reduced]) it still snaps one item per
+/// swipe, with a short settle instead of the spring (v5.0.1).
 class MgSnapZone {
   double start = 0;
   double extent = 0;
@@ -17,7 +22,11 @@ class MgSnapZone {
   bool uniform = true;
   Object? _owner;
 
-  bool get active => extent > 0 && count > 0 && uniform && !reduced;
+  /// Where the current swipe began (fed by the page's
+  /// [MgSwipeAnchorListener]): one swipe moves one item (v5.0.1).
+  final MgSwipeAnchor anchor = MgSwipeAnchor();
+
+  bool get active => extent > 0 && count > 0 && uniform;
 
   /// Scroll offset that puts item [i]'s top at the viewport top.
   double offsetOf(int i) => start + i * extent;
@@ -26,9 +35,14 @@ class MgSnapZone {
 /// Page physics that settle a release inside the [zone] on an item top:
 /// the natural end of the fling (the parent's own simulation) rounds to the
 /// nearest item, a deliberate flick moves at least one item in its
-/// direction. Only ballistic (after the finger lifts — never against a
-/// drag); outside the zone, out of range (bounce) and while the zone is
-/// inactive the parent physics run unchanged.
+/// direction — and, while a drag is in progress ([MgSnapZone.anchor]),
+/// never further than the NEIGHBOUR of the item the drag started on, however
+/// fast the fling or long the drag (owner v5.0.1). A swipe that starts on a
+/// bike and heads up past the first one, or starts in the header, still
+/// lands on a bike; from the first bike or the header a flick up leaves the
+/// zone into the header (free scrolling). Only ballistic (after the finger
+/// lifts — never against a drag); out of range (bounce) and while the zone
+/// is inactive the parent physics run unchanged.
 class MgZoneSnapPhysics extends ScrollPhysics {
   final MgSnapZone zone;
   const MgZoneSnapPhysics({required this.zone, super.parent});
@@ -50,7 +64,12 @@ class MgZoneSnapPhysics extends ScrollPhysics {
     final e = zone.extent;
     final first = zone.start;
     final last = zone.offsetOf(zone.count - 1);
-    if (natural < first - e * leadIn || natural > last + e / 2) return null;
+    final o = zone.anchor.origin(e);
+    final a = o == null ? null : math.min(mgSwipeOriginIndex(o, first, e), zone.count - 1);
+    if (natural < first - e * leadIn && (a == null || a <= 0)) return null;
+    // Past the last item (a footer): free, as the header above — unless the
+    // swipe started on an earlier item (it ends on its neighbour).
+    if (natural > last + e / 2 && (a == null || a >= zone.count - 1)) return null;
     var k = ((natural - first) / e).round();
     final page = (position.pixels - first) / e;
     if (velocity > flick) {
@@ -58,6 +77,7 @@ class MgZoneSnapPhysics extends ScrollPhysics {
     } else if (velocity < -flick) {
       k = math.min(k, (page - 1e-3).floor());
     }
+    if (a != null) k = k.clamp(a - 1, a + 1);
     // A flick up from the first item leaves the zone into the header.
     if (k < 0) return null;
     k = math.min(k, zone.count - 1);
@@ -75,14 +95,19 @@ class MgZoneSnapPhysics extends ScrollPhysics {
     }
     natural = natural.clamp(position.minScrollExtent, position.maxScrollExtent);
     final target = targetFor(position, natural, velocity);
+    zone.anchor.aimed(target);
     if (target == null) return base;
     final tolerance = toleranceFor(position);
-    // The fling's velocity only when it heads to the target: a release that
-    // settles back (or stays on its bike) never shoots past it and returns.
-    final v = (target - position.pixels) * velocity > 0 ? velocity : 0.0;
+    // The fling's velocity only when it heads to the target (capped: the
+    // spring never shoots past it into the next bike and returns).
+    // Reduced motion: a short critically damped settle, no fling carry.
+    final v = zone.reduced ? 0.0 : mgSnapVelocity(position.pixels, target, velocity);
     if ((target - position.pixels).abs() < tolerance.distance && v.abs() < tolerance.velocity) return null;
-    return ScrollSpringSimulation(spring, position.pixels, target, v, tolerance: tolerance);
+    return ScrollSpringSimulation(zone.reduced ? reducedSettle : spring, position.pixels, target, v, tolerance: tolerance);
   }
+
+  /// Reduced-motion settle onto the target (≈ 0.1 s, never overshoots).
+  static final SpringDescription reducedSettle = SpringDescription.withDampingRatio(mass: 0.5, stiffness: 1000);
 }
 
 /// Wraps the list sliver of a [MgSnapZone]: after each layout it writes the

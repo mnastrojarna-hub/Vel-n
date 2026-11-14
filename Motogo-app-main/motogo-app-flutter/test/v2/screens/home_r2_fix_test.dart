@@ -52,7 +52,8 @@ void main() {
     expect(c.read(funnelSelectionProvider).given, range);
     c.read(funnelTodayProvider.notifier).state = day(1);
     expect(c.read(funnelSelectionProvider).given, isNull);
-    expect(c.read(funnelSelectionProvider).range(day(1)), funnelPresets(day(1)).$1);
+    // v5.0.1: not given = no dates (no preselected weekend).
+    expect(c.read(funnelSelectionProvider).range(day(1)), isNull);
   });
 
   testWidgets('the funnel moves "today" on (stale day, app resumed)', (t) async {
@@ -95,7 +96,10 @@ void main() {
       await t.pump();
       final label = _s('cs', 'v2HomeFnEyebrow');
       expect(find.text(label.toUpperCase()), full ? findsOneWidget : findsNothing);
-      expect(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label), findsOneWidget);
+      // 5.0.1 re-check VR-09: too narrow = no eyebrow at all (an icon-only
+      // pill looked like a leftover), never a bare icon.
+      expect(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label),
+          full ? findsOneWidget : findsNothing);
       expect(find.text('1 / 4'), findsOneWidget);
       expect(t.takeException(), isNull);
     });

@@ -34,6 +34,7 @@ import 'package:motogo_app/core/widgets/state_views.dart' show MgBackArrow;
 import 'package:motogo_app/features/routes/v2/route_nav_skin_v2.dart' show NavCircleV2;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/shot_images.dart' show installShotImages, shotImagesOn, warmShotImages;
 import '../support/v2_harness.dart' show kV2Langs, loadMontserrat, v2TestTheme;
 import 'render_inspect.dart';
 
@@ -351,6 +352,8 @@ Future<void> _runCase(WidgetTester tester, RenderCase c, String lang, Size size,
   final orig = FlutterError.onError;
   FlutterError.onError = (d) => errors.add((d, d.toString()));
   final fs = <RFinding>[];
+  // Real photos with MG_SHOT_IMG_DIR (no-op without it).
+  installShotImages();
   try {
     await tester.pumpWidget(_app(c, lang, key, scale: scale));
     await tester.pump();
@@ -359,13 +362,14 @@ Future<void> _runCase(WidgetTester tester, RenderCase c, String lang, Size size,
     final settled = await _settle(tester);
     if (!settled && !c.loading) fs.add(const RFinding('no-settle', false, 'reduced motion: frame never settles'));
     await tester.pump(const Duration(milliseconds: 400));
+    await warmShotImages(tester, rounds: 6);
     fs.addAll(_inspect(tester, lang, size, first: true));
     await _shot(tester, key, '${c.id}__${lang}__${w}x$h');
     fs.addAll(await _scrollInspect(tester, lang, size, key, '${c.id}__${lang}__${w}x$h'));
     // Scroll shots run image encoding in real async; the image cache
-    // manager then leaves a 10 s cleanup timer → drain it, else the test
-    // fails on a pending timer only in scroll-shot mode.
-    await tester.pump(Duration(seconds: _env('MG_VERIFY_SCROLLSHOTS') != null ? 11 : 3));
+    // manager (and the real-photo cache of MG_SHOT_IMG_DIR) then leaves a
+    // 10 s cleanup timer → drain it, else the test fails on a pending timer.
+    await tester.pump(Duration(seconds: _env('MG_VERIFY_SCROLLSHOTS') != null || shotImagesOn ? 11 : 3));
     if (c.end != null) await c.end!(tester);
   } finally {
     FlutterError.onError = orig;

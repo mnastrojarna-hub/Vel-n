@@ -3,18 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/i18n/translations_ext_65_v501_final.dart' show motoFreeCount, motoShownCount;
 import '../../../core/router.dart';
 import '../../../core/v2/chrome/mg_page.dart';
+import '../../../core/v2/chrome/mg_to_top.dart' show kMgToTopSlot;
 import '../../../core/v2/gestures/mg_zone_snap.dart';
-import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
 import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
+import '../../home/v2/home_offer_provider.dart' show homeNextFreeProvider;
+import 'bike_free_label_v2.dart';
 import 'bike_screen_list_v2.dart';
 import 'calc/calc_body_v2.dart';
 import 'calc/calc_sticky_v2.dart';
@@ -25,7 +27,9 @@ import 'catalog_text.dart';
 import 'moto_card_full_v2.dart';
 import '../widgets/moto_filter_panel.dart';
 import 'motorky_dates_card_v2.dart';
+import 'motorky_empty_v2.dart';
 import 'motorky_error_v2.dart';
+import 'motorky_filter_strip_v2.dart';
 import 'motorky_header_v2.dart';
 import 'motorky_loading_v2.dart';
 
@@ -66,6 +70,41 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
   /// One bike per screen: the list's cards the page scroll settles on.
   final MgSnapZone _zone = MgSnapZone();
 
+  /// The page's "back to the top" arrow is shown (captions ride above it).
+  final ValueNotifier<bool> _topShown = ValueNotifier(false);
+
+  /// Scroll targets of the filter strip / the empty result (5.0.1).
+  final GlobalKey _datesKey = GlobalKey();
+  final GlobalKey _filterKey = GlobalKey();
+  final GlobalKey _stripKey = GlobalKey();
+
+  void _scrollTo(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(ctx, alignment: 0.08, duration: MgMotion.of(context, MgMotion.sheet), curve: MgMotion.out);
+  }
+
+  /// The strip above the calendar goes away with the last filter: when it
+  /// was scrolled out above, the page moves up by its height so what the
+  /// customer looks at (the filter card, the list) stays where it was.
+  void _keepPlaceWithoutStrip() {
+    final box = _stripKey.currentContext?.findRenderObject() as RenderBox?;
+    final pos = _datesKey.currentContext == null ? null : Scrollable.maybeOf(_datesKey.currentContext!)?.position;
+    if (box == null || !box.hasSize || pos == null) return;
+    final h = box.size.height;
+    if (h <= 0 || pos.pixels < h) return;
+    // Same frame as the strip's removal (no visible jump) and no scroll
+    // notification (the one-bike snap must not take it for a swipe).
+    pos.correctPixels(pos.pixels - h);
+  }
+
+  /// "Zrušit vše" / "Zrušit filtry (n)": exactly the counted filters (the
+  /// card's own `_resetV2`); dates, branch and sort stay.
+  void _clearFilters() {
+    final n = ref.read(catalogFilterProvider.notifier);
+    n.state = n.state.withoutFilters();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +128,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _modeFade.dispose();
+    _topShown.dispose();
     super.dispose();
   }
 
@@ -155,6 +195,7 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     // are already answered there too.
     ref.listen<CatalogFilter>(catalogFilterProvider, (prev, next) {
       if (_mode == CatalogMode.calc) catCalcFollowFilter(ref, prev, next);
+      if ((prev?.filterCount ?? 0) > 0 && next.filterCount == 0) _keepPlaceWithoutStrip();
     });
     final mode = _mode;
     final motosAsync = ref.watch(filteredMotorcyclesProvider);
@@ -166,20 +207,28 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     final header = MotorkyHeaderV2(
       mode: mode,
       onMode: _setMode,
-      // The old search header: back → Domů (tab root), menu → Profil.
+      // The old search header: back → Domů (tab root); Profil is the tab.
       onBack: () => context.go(Routes.home),
-      onMenu: () => context.go(Routes.profile),
     );
 
     final List<Widget> slivers;
     if (mode == CatalogMode.calc) {
-      slivers = const [SliverToBoxAdapter(child: CalcBodyV2())];
+      // + the arrow's slot: the last price rows scroll clear of the disc.
+      slivers = const [
+        SliverToBoxAdapter(child: CalcBodyV2()),
+        SliverToBoxAdapter(child: SizedBox(height: kMgToTopSlot)),
+      ];
     } else {
       // The old search screen's order: dates (inline, open) → filter panel
       // → count line → the list.
       slivers = [
-        const SliverToBoxAdapter(child: MotorkyDatesCardV2()),
-        const SliverToBoxAdapter(child: MotoFilterPanel()),
+        // 5.0.1: filters on → said at once, above the calendar.
+        SliverToBoxAdapter(
+          child: MotorkyFilterStripV2(
+              key: _stripKey, active: filter.filterCount, onShow: () => _scrollTo(_filterKey), onReset: _clearFilters),
+        ),
+        SliverToBoxAdapter(child: KeyedSubtree(key: _datesKey, child: const MotorkyDatesCardV2())),
+        SliverToBoxAdapter(child: KeyedSubtree(key: _filterKey, child: const MotoFilterPanel())),
         SliverToBoxAdapter(child: _countLine(tr, motosAsync, filter)),
         motosAsync.when(
           // Při změně filtru se výpis jen přepočítá — nesmí zmizet.
@@ -205,6 +254,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
       overlapHero: false,
       tabIndex: 1,
       snap: _zone,
+      // v5.0.1: šipka nahoru vpravo dole (seznam i kalkulačka).
+      toTop: true,
+      toTopShown: _topShown,
       dock: sticky == null ? null : CalcStickyV2(data: sticky),
       // CB-18: pull-to-refresh only where "Zkusit znovu" exists (the list).
       onRefresh: mode == CatalogMode.find ? _refresh : null,
@@ -219,10 +271,12 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     final days = s != null && e != null ? catDayCount(s, e) : 0;
     final motos = motosAsync.valueOrNull;
     final String text;
-    if (motos != null) {
+    // 5.0.1: while the list recounts for new dates / filters the old number
+    // would not be true any more — "Hledám…" until the new list is in.
+    if (motos != null && !motosAsync.isLoading) {
       text = days > 0
-          ? '${tr.tr('searchAvailableMotorcycles').replaceAll('{n}', '${motos.length}')} · ${catDays(tr, days)}'
-          : tr.tr('searchShownMotorcycles').replaceAll('{n}', '${motos.length}');
+          ? '${motoFreeCount(tr.lang, tr.tr, motos.length)} · ${catDays(tr, days)}'
+          : motoShownCount(tr.lang, tr.tr, motos.length, 'searchShownMotorcycles');
     } else if (motosAsync.isLoading) {
       text = tr.tr('searchSearching');
     } else {
@@ -235,15 +289,22 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
     );
   }
 
-  Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty, {bool reloading = false}) {
+  Widget _list(AppTranslations tr, List<Motorcycle> motos, CatalogFilter f, LoyaltyStatus? loyalty,
+      {bool reloading = false}) {
     final s = f.startDate, e = f.endDate;
     final hasDates = s != null && e != null && !catBeforeToday(s);
-    if (motos.isEmpty) return SliverToBoxAdapter(child: _empty(tr));
+    if (motos.isEmpty) {
+      return SliverToBoxAdapter(
+        child: MotorkyEmptyV2(filter: f, onClearFilters: _clearFilters, onPickDates: () => _scrollTo(_datesKey)),
+      );
+    }
     // G-125: "Volná v termínu" only once the list for THESE dates is loaded
     // (while it reloads the old cards may include bikes busy then).
+    // No dates: a bike busy today says from when it is free (as on Domů).
+    final nextFree = ref.watch(homeNextFreeProvider).valueOrNull ?? const <String, DateTime>{};
     String? avail(Motorcycle m) => hasDates
         ? (reloading ? null : tr.tr('v2CatFreeInRange'))
-        : (m.availableToday == true ? tr.tr('v2CatFreeToday') : null);
+        : bikeFreeLabel(tr, m, nextFree).$1;
     final h = _cardHeight(context);
     final top = MediaQuery.paddingOf(context).top;
     // Same card tap as before; the card's button is the old "Detail".
@@ -255,16 +316,21 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
         height: h,
         onOpen: (i) => _open(motos, motos[i]),
         card: (context, i, open) {
-          final card = MotoCardFullV2(
-            key: ValueKey('mc-${motos[i].id}'),
-            moto: motos[i],
-            price: catCardPrice(tr, motos[i], s, e, loyalty),
-            availability: avail(motos[i]),
-            live: i == 0,
-            ctaLabel: tr.tr('motoCardDetail'),
-            height: h,
-            topInset: top,
-            onOpen: open,
+          final card = ValueListenableBuilder<bool>(
+            valueListenable: _topShown,
+            builder: (_, toTop, __) => MotoCardFullV2(
+              key: ValueKey('mc-${motos[i].id}'),
+              moto: motos[i],
+              price: catCardPrice(tr, motos[i], s, e, loyalty),
+              availability: avail(motos[i]),
+              availabilityLater: !hasDates && !bikeFreeLabel(tr, motos[i], nextFree).$2,
+              live: i == 0,
+              ctaLabel: tr.tr('motoCardDetail'),
+              height: h,
+              topInset: top,
+              liftExtra: toTop ? kMgToTopSlot : 0,
+              onOpen: open,
+            ),
           );
           // CB-28: the first three cards reveal once per session.
           return i < 3 ? MgReveal(index: i, sessionKey: 'motorky-cards', child: card) : card;
@@ -272,31 +338,4 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
       ),
     ]);
   }
-
-  /// The old empty result: icon, "searchNoMotorcycles" + "zkus jiné
-  /// filtry" (the dates and the filter panel are right above it).
-  Widget _empty(AppTranslations tr) => Padding(
-        key: const ValueKey('motorky-empty'),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: MgCard(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-          child: Column(children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: MgColors.well,
-                shape: BoxShape.circle,
-                border: Border.all(color: MgColors.line),
-              ),
-              child: Center(child: MgIcon(MgIcons.moto, size: 32, color: MgColors.ink)),
-            ),
-            const SizedBox(height: 16),
-            Text(tr.tr('searchNoMotorcycles'), textAlign: TextAlign.center, style: MgType.h3.copyWith(color: MgColors.ink)),
-            const SizedBox(height: 8),
-            Text(tr.tr('searchTryDifferentFilters'),
-                textAlign: TextAlign.center, style: MgType.body.copyWith(color: MgColors.body2)),
-          ]),
-        ),
-      );
 }

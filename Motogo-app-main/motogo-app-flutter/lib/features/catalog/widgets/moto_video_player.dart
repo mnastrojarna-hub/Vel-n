@@ -9,7 +9,9 @@ import '../v2/detail/video_chrome_v2.dart';
 /// Přehrávač MP4 videí motorky — používá se POUZE na detailu motorky.
 /// Videa se spustí automaticky po otevření detailu (muted, lze odmutovat).
 /// Více videí jede za sebou; po posledním se vrací na první. Jedno video se
-/// přehrává ve smyčce. V přehledu/seznamu se video nepoužívá (vždy fotka).
+/// přehrává ve smyčce. Starý vzhled: v přehledu/seznamu se video nepoužívá
+/// (vždy fotka). Nový vzhled (5.0.1) tenhle přehrávač nepoužívá — video hraje
+/// přímo ve fotce karty / detailu (`BikeVideoStage`, nejdřív fotka).
 class MotoVideoPlayer extends StatefulWidget {
   final List<String> urls;
   const MotoVideoPlayer({super.key, required this.urls});

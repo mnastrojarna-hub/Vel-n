@@ -149,6 +149,8 @@ void main() {
     await _pump(t, '/', [
       ...homeOverrides(funnel: kMotos.take(2).toList(), reservations: [_own(r.start, r.end)]),
       bookedDatesProvider.overrideWith((ref, id) async => const <BookedDateRange>[]),
+      // v5.0.1: nothing is preselected — the customer gave these dates.
+      funnelGivenProvider.overrideWith((ref) => r),
     ], home: const SingleChildScrollView(child: HomeFunnelV2()));
     final w = find.byKey(const ValueKey('home-funnel-warning'));
     expect(w, findsOneWidget);

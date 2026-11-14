@@ -175,8 +175,29 @@ class _MgAiFabState extends State<MgAiFab> {
     MgAiCoach.seen().then((seen) {
       if (seen || !mounted) return;
       _coachTimer = Timer(MgAiCoach.delay, () {
-        if (mounted) setState(() => _coachWanted = true);
+        if (!mounted) return;
+        setState(() => _coachWanted = true);
+        // The bubble checks its place against the zones (never over a
+        // CTA / SOS / key control such as the to-top arrow) once laid out.
+        _schedule();
       });
+    });
+  }
+
+  /// The [MgAiCoach.shownFor] timeout runs from the first frame the bubble
+  /// is really on screen (not offstage, FAB not peek / off / hidden): it
+  /// does not sit over the content for good, and it is never marked seen
+  /// unseen (5.0.1 FS-03).
+  bool _coachArmed = false;
+  bool get _coachVisible =>
+      _coachWanted && !widget.hidden && _state != MgFabState.off && _state != MgFabState.peek && !_coachBlocked;
+
+  void _armCoach() {
+    if (!mounted || _coachArmed || !_coachVisible) return;
+    _coachArmed = true;
+    _coachTimer?.cancel();
+    _coachTimer = Timer(MgAiCoach.shownFor, () {
+      if (mounted) _dismissCoach();
     });
   }
 
@@ -236,10 +257,11 @@ class _MgAiFabState extends State<MgAiFab> {
     var blocked = false;
     final cb = _coachKey.currentContext?.findRenderObject();
     if (cb is RenderBox && cb.attached && cb.hasSize) {
-      // The bubble is already shifted by the lift applied now; move it to
-      // where the new lift will put it.
-      final applied = _state == MgFabState.lift ? _lift : 0.0;
-      final r = (cb.localToGlobal(Offset.zero) & cb.size).translate(0, applied - lift);
+      // Where the bubble sits with the new lift: left of the disc (gap 8),
+      // bottoms aligned — from the slot, not from its own box, which moves
+      // while it is offstage (blocked) and would flip the decision back.
+      final r = Rect.fromLTWH(
+          slot.left - 8 - cb.size.width, slot.bottom - cb.size.height - lift, cb.size.width, cb.size.height);
       // Never over a CTA, SOS or key text (keep); tap targets are fine.
       blocked = zones.any((z) => z.$2 != MgAvoidKind.tap && z.$1.overlaps(r));
     }
@@ -289,6 +311,7 @@ class _MgAiFabState extends State<MgAiFab> {
       ),
     );
     final coach = _coachWanted && !widget.hidden && !off && !peek;
+    if (coach && !_coachBlocked && !_coachArmed) WidgetsBinding.instance.addPostFrameCallback((_) => _armCoach());
     return Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
       if (coach)
         Offstage(

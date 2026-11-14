@@ -8,6 +8,7 @@ import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../catalog/catalog_provider.dart';
 import 'funnel_provider.dart';
 import 'home_links.dart';
+import 'home_offer_provider.dart';
 import 'home_offer_block_v2.dart' show HomeLinkRow;
 
 /// "Spočítat přesnou cenu" on Domů — the price calculator entry the owner
@@ -27,11 +28,13 @@ class HomeCalcRowV2 extends ConsumerWidget {
     String sub = tr.tr('v2HomeRowCalcSub');
     VoidCallback onTap;
     if (funnel) {
-      final range = ref.watch(funnelRangeProvider);
-      final list = ref.watch(funnelCandidatesProvider(range)).valueOrNull ?? const [];
+      // v5.0.1: bez termínu jen motorka (kalkulačka se na termín zeptá).
+      final offer = ref.watch(homeOfferProvider);
+      final range = offer.range;
+      final list = offer.bikes;
       final i = ref.watch(funnelCenterProvider);
       final moto = list.isEmpty ? null : list[i.clamp(0, list.length - 1)];
-      if (moto != null) sub = '${moto.model} · ${mgRange(range.start, range.end, lang)}';
+      if (moto != null) sub = range == null ? moto.model : '${moto.model} · ${mgRange(range.start, range.end, lang)}';
       onTap = () => homeOpenCalculator(context, ref, motoId: moto?.id, range: range);
     } else {
       final f = ref.watch(catalogFilterProvider);

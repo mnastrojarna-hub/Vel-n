@@ -11,8 +11,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/v2/gestures/mg_zone_snap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
+import 'package:motogo_app/core/i18n/translations_ext_65_v501_final.dart' show motoShownCount;
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
 import 'package:motogo_app/core/v2/chrome/mg_ai_fab.dart';
 import 'package:motogo_app/core/v2/chrome/mg_status_strip.dart';
@@ -169,7 +171,7 @@ void main() {
       final o = homeCases()['s8-rec']!();
       await _app(t, const HomeScreenV2(), o);
       final ys = [
-        _dy(t, find.byKey(const ValueKey('home-menu'))),
+        _dy(t, find.byKey(const ValueKey('home-pilot'))),
         _dy(t, find.byKey(const ValueKey('home-rank-card'))),
         _dy(t, find.text('Aktivní rezervace')),
         _dy(t, find.byType(HomeBookingCardV2)),
@@ -196,13 +198,11 @@ void main() {
       }
     });
 
-    testWidgets('header: menu → Profil, search → Rezervovat, pilot → nickname dialog', (t) async {
+    testWidgets('header: search → Rezervovat, pilot → nickname dialog (Profil = the bottom tab)', (t) async {
       var r = await _app(t, const HomeScreenV2(), homeCases()['s6']!());
       expect(find.text('PILOT: Jan'), findsOneWidget);
-      await _tapVisible(t, find.byKey(const ValueKey('home-menu')));
-      expect(r.routerDelegate.currentConfiguration.uri.path, '/profile');
-      r.go('/');
-      await _settle(t);
+      // Owner 2026-11-14: no profile button up here (it doubled the tab).
+      expect(find.byKey(const ValueKey('home-menu')), findsNothing);
       await _tapVisible(t, find.byKey(const ValueKey('home-search')));
       expect(r.routerDelegate.currentConfiguration.uri.path, '/search');
       r.go('/');
@@ -260,7 +260,8 @@ void main() {
         await t.pump(const Duration(milliseconds: 600));
         expect(find.byType(AvailabilityCalendar), findsOneWidget, reason: 'v2=$v2');
       }
-      // v2: the panel's own reset (collapsed card) clears dates + filters + sort.
+      // v2 (5.0.1, owner): "Zrušit vše" on the collapsed card clears exactly
+      // the real filters it counts — the dates (when I ride) and the sort stay.
       await t.pumpWidget(const SizedBox());
       await _app(t, const HomeScreenV2(), homeCases()['s6']!());
       final c = ProviderScope.containerOf(t.element(find.byType(HomeScreenV2)));
@@ -268,17 +269,22 @@ void main() {
       c.read(catalogSortProvider.notifier).state = 'price_asc';
       await _settle(t);
       expect(find.byType(AvailabilityCalendar), findsNothing);
-      await _tapVisible(t, find.text(t.element(find.byType(HomeScreenV2)).tr('homeFilterReset')));
-      expect(c.read(catalogFilterProvider).activeCount, 0);
-      expect(c.read(catalogFilterProvider).startDate, isNull);
-      expect(c.read(catalogSortProvider), 'default');
+      await _tapVisible(t, find.text(t.element(find.byType(HomeScreenV2)).tr('motoFltClear')));
+      expect(c.read(catalogFilterProvider).filterCount, 0);
+      expect(c.read(catalogFilterProvider).category, isNull);
+      expect(c.read(catalogFilterProvider).startDate, day(3));
+      expect(c.read(catalogSortProvider), 'price_asc');
     });
 
     testWidgets('count line + the FULL list (every bike), card → detail with the pager order', (t) async {
       for (final v2 in [true, false]) {
         await t.pumpWidget(const SizedBox());
         await _app(t, v2 ? const HomeScreenV2() : const HomeScreen(), homeCases()['s6']!(), v2: v2);
-        expect(find.text('Zobrazeno: ${kMotos.length} motorek'), findsOneWidget, reason: 'v2=$v2');
+        // New look: the Czech plural (5.0.1 FV-08); the old look keeps its text.
+        final count = v2
+            ? motoShownCount('cs', AppTranslations.of('cs').tr, kMotos.length, 'homeMotorcycleCount')
+            : 'Zobrazeno: ${kMotos.length} motorek';
+        expect(find.text(count), findsOneWidget, reason: 'v2=$v2');
         final last = kMotos.last;
         final card = v2 ? find.byKey(ValueKey('home-mc-${last.id}')) : find.byType(MotoCard).last;
         await t.scrollUntilVisible(card, 300, scrollable: find.byType(Scrollable).first, maxScrolls: 80);
@@ -294,12 +300,20 @@ void main() {
     });
 
     for (final reduced in [false, true]) {
-      testWidgets('scroll-to-top after 600 px, tap → top (reduced=$reduced)', (t) async {
+      testWidgets('scroll-to-top once the first bike is left (v5.0.1), tap → top (reduced=$reduced)', (t) async {
         await _app(t, const HomeScreenV2(), homeCases()['s6']!(), reduced: reduced);
-        final btn = find.byKey(const ValueKey('home-to-top'));
+        final btn = find.byKey(const ValueKey('mg-to-top'));
         double opacity() => t.widget<AnimatedOpacity>(find.ancestor(of: btn, matching: find.byType(AnimatedOpacity))).opacity;
         expect(opacity(), 0);
-        await t.drag(find.byType(Scrollable).first, const Offset(0, -900));
+        // v5.0.1 (`MgToTopLayer`): shown once the first bike is left (the
+        // old 600 px rule only on pages without a bike list); it folds with
+        // the hide-on-scroll chrome like before — a little scroll up brings
+        // the bars and it back.
+        final z = t.renderObject<RenderMgSnapZone>(find.byType(MgSnapZoneSliver, skipOffstage: false)).zone;
+        t.state<ScrollableState>(find.byType(Scrollable).first).position.jumpTo(z.offsetOf(1) + 60);
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 400));
+        await t.drag(find.byType(Scrollable).first, const Offset(0, 40));
         await t.pump();
         await t.pump(const Duration(milliseconds: 400));
         expect(opacity(), 1);

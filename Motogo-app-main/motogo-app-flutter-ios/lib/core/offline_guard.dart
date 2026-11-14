@@ -47,6 +47,18 @@ class OfflineGuard {
     return !_isNone(result);
   }
 
+  /// Telefon je na Wi-Fi (nebo kabelu) — video motorky se v novém vzhledu
+  /// pouští samo jen tehdy (na mobilních datech zůstává fotka + tlačítko).
+  /// Chyba = false. connectivity_plus 5: jeden ConnectivityResult.
+  static Future<bool> onWifi() async {
+    try {
+      final r = await _connectivity.checkConnectivity();
+      return r == ConnectivityResult.wifi || r == ConnectivityResult.ethernet;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Real async ping to Supabase REST endpoint.
   static Future<bool> pingSupabase() async {
     try {

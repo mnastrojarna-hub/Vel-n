@@ -1,0 +1,6 @@
+[
+ {"wait":500,"note":"no dates: every bike with its photo and 'Volná od' (day 131)"},
+ {"tapText":"Nejbližší víkend","note":"both branches closed: 'V tyhle dny máme zavřeno' banner, bikes stay with photos"},
+ {"tap":[304,318],"note":"next bike"},
+ {"tapText":"VYBRAT JINÝ TERMÍN","note":"the bike's calendar (closed days blocked)"}
+]

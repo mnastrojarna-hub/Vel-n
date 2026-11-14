@@ -14,13 +14,19 @@ import '../shell/shell_nav_map.dart' show v2TabReselectProvider;
 import '../tokens/mg_colors.dart';
 import '../tokens/mg_type.dart';
 import 'v2_nav_fit.dart';
+import 'v2_nav_fx.dart';
 
 /// The v2 bottom nav (`shared/nav.html`): Domů · Motorky · Rezervace ·
 /// Trasy · Profil on night glass (.96, no blur — low-end Android), top r20,
-/// neon hairline, 64 + safe area. Active tab = icon in the CTA label colour
-/// on a 52×30 rank pill (liquid move 300 ms); PROFIL = avatar in the rank
-/// ring + arc. Labels pass the no-overlap fit ([v2NavFit]) in every language
-/// — never ellipsized / wrapped / scaled. Dumb widget: [onTap] gets the tab
+/// neon hairline, 64 + safe area. Active tab (v5.0.1, owner "víc svítivě
+/// zelené, jako to původní"): icon + label in dark on a filled brand-neon
+/// pill with a green halo ([V2NavPill]: liquid move 300 ms, slow breathing
+/// halo after it lands), the original elastic pop of the icon
+/// ([V2NavBounce]) and a filled icon; PROFIL = avatar in the rank ring + arc
+/// on a night disc while active (the loyalty rank shows there, not on the
+/// pill). Labels pass the no-overlap fit ([v2NavFit]) in every language
+/// — never ellipsized / wrapped (only an active label too tight for its
+/// pill steps down, at most 12 %). Dumb widget: [onTap] gets the tab
 /// index (the shell maps it to `onShellTabTap`).
 class V2NavBar extends ConsumerWidget {
   final int activeIndex;
@@ -47,6 +53,37 @@ class V2NavBar extends ConsumerWidget {
   static const tabKeys = ['v2TabHome', 'v2TabBikes', 'v2TabBookings', 'v2TabRoutes', 'v2TabProfile'];
   static const shortKeys = [null, null, 'v2TabBookingsShort', 'v2TabRoutesShort', null];
   static const icons = [MgIcons.home, MgIcons.moto, MgIcons.calendarCheck, MgIcons.route, null];
+
+  /// Filled twins shown on the active pill (the original menu: outlined at
+  /// rest, filled when active); the motorcycle is one filled glyph already.
+  static const activeIcons = <IconData?>[
+    Icons.home_rounded,
+    null,
+    Icons.event_available_rounded,
+    null,
+    null,
+  ];
+
+  /// Active pill width for tab [i] of label widths [w] (the active one
+  /// measured w900) in columns [col]: col − 6 (52…76), at least its label +
+  /// 6 px a side, but 1 px clear of the neighbouring labels and 6 px from
+  /// the bar edges (German at 320); a label that still lacks its 6 px is
+  /// stepped down ([activePx]).
+  static double pillWidth(List<double> w, int i, double col) {
+    var half = math.max((col - 6).clamp(52.0, 76.0) / 2, w[i] / 2 + 6);
+    final left = i == 0 ? col / 2 - 6 : col - w[i - 1] / 2 - 1;
+    final right = i == w.length - 1 ? col / 2 - 6 : col - w[i + 1] / 2 - 1;
+    half = math.min(half, math.min(left, right));
+    return 2 * math.max(half, w[i] * minActiveScale / 2 + 6);
+  }
+
+  /// Smallest step-down of the active label (keeps it the strongest word).
+  static const double minActiveScale = 0.88;
+
+  /// Font size of the active label [w] wide at [px] on a [pill] wide pill:
+  /// [px], or smaller so 6 px of neon stay on each side.
+  static double activePx(double w, double pill, double px) =>
+      w + 12 <= pill || w <= 0 ? px : px * ((pill - 12) / w).clamp(minActiveScale, 1.0);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -84,6 +121,13 @@ class V2NavBar extends ConsumerWidget {
               scale: MediaQuery.textScalerOf(context).scale(11) / 11,
             );
             final index = activeIndex.clamp(0, 4);
+            final measure = v2NavMeasure(base);
+            final heavy = v2NavMeasure(base, weight: FontWeight.w900);
+            final widths = [
+              for (var i = 0; i < 5; i++) (i == index ? heavy : measure)(fit.labels[i], fit.px),
+            ];
+            final pw = pillWidth(widths, index, col);
+            final apx = activePx(widths[index], pw, fit.px);
             return Stack(clipBehavior: Clip.none, children: [
               Positioned(
                 left: 24,
@@ -100,11 +144,12 @@ class V2NavBar extends ConsumerWidget {
                 AnimatedPositioned(
                   duration: reduced ? Duration.zero : MgMotion.thumb,
                   curve: MgMotion.spring,
-                  left: index * col + (col - 52) / 2,
-                  top: 7,
-                  width: 52,
-                  height: 30,
-                  child: _Pill(rank: r, trigger: index, reduced: reduced),
+                  left: index * col + (col - pw) / 2,
+                  top: 4,
+                  width: pw,
+                  height: 56,
+                  // Own layer: the breathing halo repaints only the pill.
+                  child: RepaintBoundary(child: V2NavPill(trigger: index, reduced: reduced)),
                 ),
               Row(children: [
                 for (var i = 0; i < 5; i++)
@@ -112,10 +157,11 @@ class V2NavBar extends ConsumerWidget {
                     child: _Tab(
                       label: fit.labels[i],
                       fullLabel: full[i],
-                      px: fit.px,
+                      px: i == activeIndex ? apx : fit.px,
                       base: base,
                       active: i == activeIndex,
                       icon: icons[i],
+                      activeIcon: activeIcons[i],
                       rank: r,
                       arcPct: arc,
                       dot: i == 2 && bookingsNeedAction,
@@ -134,43 +180,8 @@ class V2NavBar extends ConsumerWidget {
   }
 }
 
-class _Pill extends StatelessWidget {
-  final RankTokens rank;
-  final int trigger;
-  final bool reduced;
-  const _Pill({required this.rank, required this.trigger, required this.reduced});
-
-  @override
-  Widget build(BuildContext context) {
-    final pill = Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        gradient: rank.edgeGradient,
-        boxShadow: rank.softGlow(),
-      ),
-      padding: const EdgeInsets.all(1),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          gradient: rank.ctaGradient,
-        ),
-      ),
-    );
-    if (reduced) return pill;
-    // Liquid stretch: scaleX 1 → 1.45 → 1 while the pill travels.
-    return TweenAnimationBuilder<double>(
-      key: ValueKey(trigger),
-      tween: Tween(begin: 0, end: 1),
-      duration: MgMotion.thumb,
-      builder: (_, t, child) => Transform(
-        alignment: Alignment.center,
-        transform: Matrix4.diagonal3Values(1 + 0.45 * math.sin(math.pi * t), 1 - 0.14 * math.sin(math.pi * t), 1),
-        child: child,
-      ),
-      child: pill,
-    );
-  }
-}
+/// Key of the night disc behind the Profil avatar on the active pill.
+const ValueKey<String> kV2NavRankBacking = ValueKey('v2-nav-rank-backing');
 
 class _Tab extends StatelessWidget {
   final String label;
@@ -179,6 +190,7 @@ class _Tab extends StatelessWidget {
   final TextStyle base;
   final bool active;
   final String? icon;
+  final IconData? activeIcon;
   final RankTokens rank;
   final double? arcPct;
   final bool dot;
@@ -196,6 +208,7 @@ class _Tab extends StatelessWidget {
     required this.base,
     required this.active,
     required this.icon,
+    this.activeIcon,
     required this.rank,
     required this.arcPct,
     required this.dot,
@@ -205,19 +218,40 @@ class _Tab extends StatelessWidget {
     this.nudge = 0,
   });
 
+  /// The rank ring + arc keep their night backing on the neon pill (the
+  /// green ranks would vanish into it): a 38 px night disc behind them.
+  /// (Overflows the 30 px icon row on purpose.)
+  Widget _onPill(Widget frame) => !active
+      ? frame
+      : OverflowBox(
+          minWidth: 38,
+          maxWidth: 38,
+          minHeight: 38,
+          maxHeight: 38,
+          child: Container(
+            key: kV2NavRankBacking,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: MgColors.night, shape: BoxShape.circle),
+            child: SizedBox.square(dimension: 30, child: frame),
+          ),
+        );
+
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    final iconColor = active ? rank.ctaLabel : MgColors.onDarkMeta;
+    final iconColor = active ? MgColors.onNeon : MgColors.onDarkSecondary;
     final visual = icon != null
-        ? MgIcon(icon!, size: 24, color: iconColor)
-        : RankFrame(
+        ? (active && activeIcon != null
+            ? Icon(activeIcon, size: 24, color: iconColor)
+            : MgIcon(icon!, size: 24, color: iconColor))
+        : _onPill(RankFrame(
             rank: rank,
             size: 30,
             circle: true,
             ringWidth: 2.5,
             arcPct: arcPct,
-            arcGap: 5,
+            // On the neon pill the arc moves in onto a night disc.
+            arcGap: active ? 2 : 5,
             showLevel: false,
             showGlyph: false,
             showMarks: false,
@@ -226,7 +260,7 @@ class _Tab extends StatelessWidget {
               color: MgColors.panel,
               child: Center(child: MgIcon(MgIcons.person, size: 15, color: MgColors.onDarkBody, stroke: 2.2)),
             ),
-          );
+          ));
     var sem = fullLabel;
     if (count > 0) sem += ', ${tr.trArgs('v2NavUnread', {'n': count})}';
     if (dot) sem += ', ${tr.tr('v2NavNeedsAction')}';
@@ -241,7 +275,7 @@ class _Tab extends StatelessWidget {
             width: 52,
             height: 30,
             child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-              _Nudge(trigger: nudge, child: _ActivePop(active: active, child: visual)),
+              V2NavNudge(trigger: nudge, child: V2NavBounce(active: active, child: visual)),
               if (dot)
                 Positioned(
                   top: 2,
@@ -259,10 +293,11 @@ class _Tab extends StatelessWidget {
                     ),
                   ),
                 ),
+              // Right of the avatar's head (never over the person glyph).
               if (count > 0)
                 Positioned(
-                  top: -2,
-                  right: 2,
+                  top: -3,
+                  left: 31,
                   child: Container(
                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -285,15 +320,22 @@ class _Tab extends StatelessWidget {
             style: base.copyWith(
               fontSize: px,
               height: 14 / 11,
-              fontWeight: active ? FontWeight.w800 : FontWeight.w700,
-              color: active ? MgColors.onDark : MgColors.onDarkSecondary,
+              fontWeight: active ? FontWeight.w900 : FontWeight.w700,
+              color: active ? MgColors.onNeon : MgColors.onDarkLead,
             ),
-            child: Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              textScaler: TextScaler.noScaling,
+            // Centred on the tab even when wider than its column (German).
+            child: SizedBox(
+              height: px * 14 / 11,
+              child: OverflowBox(
+                maxWidth: double.infinity,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  textScaler: TextScaler.noScaling,
+                ),
+              ),
             ),
           ),
         ]),
@@ -316,65 +358,4 @@ class _Tab extends StatelessWidget {
       child: tab,
     );
   }
-}
-
-/// Pops the icon of a tab that just became active (V2 §4.1).
-class _ActivePop extends StatefulWidget {
-  final bool active;
-  final Widget child;
-  const _ActivePop({required this.active, required this.child});
-
-  @override
-  State<_ActivePop> createState() => _ActivePopState();
-}
-
-class _ActivePopState extends State<_ActivePop> {
-  int _seq = 0;
-
-  @override
-  void didUpdateWidget(covariant _ActivePop oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.active && !oldWidget.active) _seq++;
-  }
-
-  @override
-  Widget build(BuildContext context) => MgPop(trigger: _seq, child: widget.child);
-}
-
-/// Re-tap of the active tab: the icon nudges 3 px up and back (`pop`).
-class _Nudge extends StatefulWidget {
-  final int trigger;
-  final Widget child;
-  const _Nudge({required this.trigger, required this.child});
-
-  @override
-  State<_Nudge> createState() => _NudgeState();
-}
-
-class _NudgeState extends State<_Nudge> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: MgMotion.pop, value: 1);
-
-  @override
-  void didUpdateWidget(covariant _Nudge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.trigger != 0 && widget.trigger != oldWidget.trigger && !MgMotion.reduced(context)) {
-      _c.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: _c,
-        child: widget.child,
-        builder: (_, child) => Transform.translate(
-          offset: Offset(0, _c.isAnimating ? -3 * math.sin(math.pi * _c.value) : 0),
-          child: child,
-        ),
-      );
 }

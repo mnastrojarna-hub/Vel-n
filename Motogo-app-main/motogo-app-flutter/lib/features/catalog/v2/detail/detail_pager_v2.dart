@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/chrome/mg_hide_on_scroll.dart';
+import '../../../../core/v2/gestures/mg_one_step.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
 import '../../../../core/v2/motion/mg_motion.dart';
@@ -51,6 +52,9 @@ class MotoDetailPagerV2View extends ConsumerStatefulWidget {
 }
 
 class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
+  /// One bike per swipe, however fast (owner v5.0.1).
+  final MgSwipeAnchor _swipe = MgSwipeAnchor();
+
   @override
   void initState() {
     super.initState();
@@ -113,15 +117,21 @@ class _MotoDetailPagerV2ViewState extends ConsumerState<MotoDetailPagerV2View> {
         if (w.hasPager)
           NotificationListener<ScrollNotification>(
             onNotification: (n) => _onScroll(n, detailHeroHeight(context) - bandH - 24),
-            child: PageView.builder(
-            controller: w.controller,
-            itemCount: w.itemCount,
-            onPageChanged: _changed,
-            itemBuilder: (_, i) {
-              final idx = i % ids.length;
-              return MotoDetailPage(key: ValueKey(ids[idx]), motoId: ids[idx]);
-            },
-          ),
+            child: MgSwipeAnchorListener(
+              anchor: _swipe,
+              axis: Axis.horizontal,
+              child: PageView.builder(
+                controller: w.controller,
+                itemCount: w.itemCount,
+                pageSnapping: false,
+                physics: MgOnePagePhysics(anchor: _swipe),
+                onPageChanged: _changed,
+                itemBuilder: (_, i) {
+                  final idx = i % ids.length;
+                  return MotoDetailPage(key: ValueKey(ids[idx]), motoId: ids[idx]);
+                },
+              ),
+            ),
           )
         else
           MotoDetailPage(motoId: w.motoId, showBackButton: true),

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/features/home/v2/funnel_dates.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
+import 'package:motogo_app/features/home/v2/home_offer_provider.dart';
 
 import '../support/fakes_home.dart' show day;
 
@@ -43,9 +44,11 @@ void main() {
     final sub = c.listen(funnelCenterProvider, (_, __) {});
     addTearDown(sub.close);
     final p = funnelPresets(c.read(funnelTodayProvider));
-    c.read(funnelCenterProvider.notifier).state = 1;
-    // Nothing given → the nearest weekend; now the same weekend is given.
+    // v5.0.1: nothing is preselected — the weekend is given, then given
+    // again (a card tap writes the same range before the detail opens).
     c.read(funnelGivenProvider.notifier).state = p.$1;
+    c.read(funnelCenterProvider.notifier).state = 1;
+    c.read(funnelGivenProvider.notifier).state = FunnelRange(p.$1.start, p.$1.end);
     expect(c.read(funnelSelectionProvider).given, p.$1);
     expect(c.read(funnelCenterProvider), 1, reason: 'same range = same carousel');
     // Other dates → their first bike.
@@ -56,5 +59,8 @@ void main() {
     c.read(funnelCenterProvider.notifier).state = 1;
     c.read(funnelTodayProvider.notifier).state = day(1);
     expect(c.read(funnelCenterProvider), 1);
+    // A new order (app back after a pause) → its first bike.
+    c.read(homeOfferSeedProvider.notifier).state = c.read(homeOfferSeedProvider) + 1;
+    expect(c.read(funnelCenterProvider), 0);
   });
 }

@@ -267,6 +267,23 @@ class CatalogFilter {
       (availableTodayOnly ? 1 : 0) +
       (startDate == null && endDate == null ? 0 : 1);
 
+  /// Nový vzhled (5.0.1, majitel): jen SKUTEČNÉ filtry z panelu. Termín
+  /// (kdy vyrážím) a pobočka (kam vyrážím) jsou cesta, ne filtr. Starý
+  /// vzhled dál čte [activeCount].
+  int get filterCount =>
+      (category == null ? 0 : 1) +
+      (licenseGroup == null ? 0 : 1) +
+      (minPowerKw == null && maxPowerKw == null ? 0 : 1) +
+      (minSeatMm == null && maxSeatMm == null ? 0 : 1) +
+      (minTorqueNm == null && maxTorqueNm == null ? 0 : 1) +
+      (minWeightKg == null && maxWeightKg == null ? 0 : 1) +
+      (availableTodayOnly ? 1 : 0);
+
+  /// Nový vzhled „Zrušit vše": smaže přesně to, co počítá [filterCount];
+  /// termín, pobočka a štítky zůstávají.
+  CatalogFilter withoutFilters() =>
+      CatalogFilter(branch: branch, usageTags: usageTags, startDate: startDate, endDate: endDate);
+
   /// Hodnota, kterou motorka nemá vyplněnou, filtrem VŽDY projde — stejně
   /// jako u výkonu. Jinak by zmizela hned, jak se posuvníkem hne.
   static bool _inRange(int? value, int? lo, int? hi) {

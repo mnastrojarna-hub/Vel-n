@@ -25,6 +25,14 @@ class MgChromeLift extends StatelessWidget {
   final Widget child;
   const MgChromeLift({super.key, required this.room, this.extra = 0, required this.child});
 
+  /// The lift with the bars SHOWN (strips + nav + [extra]; 0 outside the
+  /// shell) — steady while hide-on-scroll animates (5.0.1 FR-06).
+  static double shownLift(BuildContext context, [double extra = 0]) {
+    final s = MgChromeScope.maybeOf(context);
+    if (s == null) return 0;
+    return s.notifier!.stripsHeight + (s.navVisible ? MgChrome.nav + extra : 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = MgChromeScope.maybeOf(context);

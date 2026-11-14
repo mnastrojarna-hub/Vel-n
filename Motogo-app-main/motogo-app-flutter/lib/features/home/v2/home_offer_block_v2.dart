@@ -29,7 +29,8 @@ class HomeLinkRow extends StatelessWidget {
         child: Container(
           color: Colors.transparent,
           constraints: const BoxConstraints(minHeight: 64),
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          // Same inset as the rows above it (v5.0.1: tiles in one line).
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
           child: Row(children: [
             leading ?? MgIconTileDark(icon),
             const SizedBox(width: 12),

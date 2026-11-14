@@ -76,6 +76,49 @@ pending-payment marker) — nothing in the rig refuses on its own.
 The day taps are coordinates for 360×780 in the new look; they depend on the
 month layout, so check the PNG when the calendar month changes.
 
+## 5.0.1 states — fleet, winter, filters, routes (`journey_states_v501.dart`)
+
+All: full profile, documents verified, licence A+B, rank 3. Fleet = 12 real
+models (`journey_fleet.dart`) on the two real branches (live ids/names):
+MotoGo24 Mezná (staffed) and MotoGo24 Velké Němčice (self-service); BMW has
+3 photos + 2 videos, Husqvarna 701 SM 1 photo + 1 video, Z 900 and Africa
+Twin 1 video, Shotgun photos only. `availableToday` follows the state's data
+(false when a booking or a closed branch covers today).
+
+| id | data | script (`scripts/`) |
+|---|---|---|
+| `nodates` | nothing set (default Home); Tiger, VTX, Husqvarna booked by others days 0–4 | `v501_nodates.json` — offer without dates, pager, rows under "Aktivní rezervace", tab switch + background = new order, the bike's calendar |
+| `fleet12` | 6 bikes booked by others days 0–9; every availability answer takes 2.5 s | `v501_fleet12.json` — "1 / 12", weekend chip → skeleton → "1 / 3+" → real count, Motorky one bike per swipe |
+| `winter` | both branches closed day −14…+130 (`branch_closures`) | `v501_winter.json` — "Volná od" day 131, "V tyhle dny máme zavřeno", calendar |
+| `booked_out` | every bike booked by others days 0–20 | `v501_booked_out.json` — "V tyhle dny je vše obsazené", "Volná od" day 21 |
+| `filters_on` | filter left set: licence A2 + 30–60 kW | `v501_filters_on.json` — loud card on Home and Motorky, chip ✕, "Zrušit vše", heading opens the panel |
+| `filters_many` | naked, A2, 35–70 kW, "Jen dnes volné", branch Velké Němčice, days 7–9 | `v501_filters_many.json` — 0 results, chip ✕, "Zrušit vše" keeps dates + branch |
+| `filters_slow` | as `filters_on` + days 7–9, availability answers take 3 s; starts on `/search` | `v501_filters_slow.json` — "Hledám…" during the recount |
+| `routes_photos` | 20 routes (`journey_routes.dart`: live names, lengths, stops → places), starts on `/routes-list` | `v501_routes_photos.json` — full-screen card, preview page, place photo, swipes, detail, back to the same card |
+| `routes_filtered` | as `routes_photos` + country filter CZ | `v501_routes_filtered.json` — loud card, "Zrušit vše" |
+| (video) | `nodates` + `MG_JOURNEY_VIDEO=wifi MG_JOURNEY_MOTION=full` | `v501_video.json` — photo 5 s → video, background → photo, detail hero video |
+| (video) | `nodates` + `MG_JOURNEY_VIDEO=mobile MG_JOURNEY_MOTION=full` | `v501_video_mobile.json` — no autoplay, "Pustit video" |
+
+Fake backend for these states: `get_motos_availability_status` (POST, no
+params) answers `{moto_id, next_available_date}` = the first day from today
+without any block; `branch_closures` (GET) answers the rows with
+`closed_to >= today`; `get_moto_booked_dates` adds a `branch_closed` range for
+a closed branch and `check_moto_availability` answers false inside it. A state's
+`availDelayMs` delays both availability RPCs (fake time; waits advance it).
+The Home offer order is random per mount (the app's own seed), so which bike
+shows first differs per run; counts, banners and pills do not.
+
+## Photos, video, motion (env vars)
+
+| env | effect |
+|---|---|
+| `MG_SHOT_IMG_DIR=<dir>` | real photos: every CachedNetworkImage (MgImage, RouteImage, precache) gets a local file from `<dir>/moto/*.jpg` / `<dir>/route/*.jpg` through an in-memory cache manager (`test/v2/support/shot_images.dart`). Fixture URLs `…/media/shot/moto/07.jpg` (`shotUrl('moto', 7)`) map to that file, URLs listed in `<dir>/manifest.json` to theirs, any other URL to a stable hash pick (route/place-looking URLs from `route/`). Unset = placeholders as before. Also honoured by the render harness. The photos are NOT in the repo; the 5.0.1 set (14 bike + 14 route photos, ≤ 900 px, live public storage) is in the scratchpad folder `v501/img`. |
+| `MG_JOURNEY_VIDEO=wifi\|mobile\|fail` | fake bike video player (`journey_media.dart`): a blue 16:9 frame "TEST VIDEO <file>"; `wifi` = autoplay allowed, `mobile` = play button only, `fail` = every video fails while loading. Unset = the app's own player against mocked channels (no Wi-Fi → play button). |
+| `MG_JOURNEY_MOTION=full` | animations on (default: reduced motion). Autoplay never happens under reduced motion. Steps then take longer (looping animations keep `settle` at its 3 s cap). |
+
+The header line of `log.txt` names all three (`photos=real video=wifi
+reducedMotion=off`); each step line carries `t=<s>` (fake time since boot).
+
 ## Steps (JSON array)
 
 | step | meaning |
@@ -87,6 +130,10 @@ month layout, so check the PNG when the calendar month changes.
 | `{"back":true}` | system back (Android back button) |
 | `{"wait":ms}` | let time pass |
 | `{"go":"/path"}` | JUMP via `router.go` — not a click; logged as JUMP |
+| `{"swipe":[x,y,dy]}` | quick flick over dy px (a snapping list moves one item) |
+| `{"tapKey":"motoFltClear"}` | tapText with the Czech text of an i18n key |
+| `{"tapType":"MotoFilterCardV2","dy":28}` | tap a widget by class name at its centre x, `dy` px below its top (no `dy` = centre; `index` = n-th) — only built (on-screen) widgets |
+| `{"lifecycle":"pause"\|"resume"\|"cycle"}` | app to background (inactive → hidden → paused) / back / both |
 
 Any step may carry `"note":"…"` (copied into the log).
 
@@ -140,6 +187,16 @@ Any step may carry `"note":"…"` (copied into the log).
 * **Push notifications, level-up celebration, ride recorder watcher, update
   checks** (also `MotoGoApp`) are not mounted.
 * Emoji glyphs draw as boxes (no emoji font in tests); network images show
-  their placeholders. Material icons and Montserrat are real.
+  their placeholders unless `MG_SHOT_IMG_DIR` is set. Material icons and
+  Montserrat are real.
+* With `MG_SHOT_IMG_DIR` a place / route photo is a real route photo but
+  not necessarily of THAT place (hash or fixture mapping); bike photos of
+  the fleet are the real bike's photo. Map tiles still stay blank.
+* `settle` ends after 0.4 s without a scheduled frame: a slow fake server
+  (`availDelayMs`) is caught mid-load — add `{"wait":…}` steps.
+* A debug-only "markNeedsBuild() called during build" reported through
+  `FlutterError.onError` is logged as DEBUG-ASSERT like the zone one (seen
+  once from `MgToTopLayer` / `MgShellChrome.scrollIdle` after scrolling
+  Motorky and tapping a hidden tab).
 * Realtime streams are replaced by fixed values: nothing changes "by itself"
   (codes released, payment confirmed) during a run.

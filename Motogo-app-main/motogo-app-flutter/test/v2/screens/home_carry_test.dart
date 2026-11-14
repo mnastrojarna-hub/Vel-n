@@ -4,6 +4,9 @@
 // ("Změnit") and REZERVOVAT books them; a funnel pick fills Motorky; dates
 // picked in Motorky show in the funnel; ✕ clears them everywhere. Photo,
 // "n / m" and REZERVOVAT always show the same bike (back on Domů too).
+// v5.0.1 (owner): nothing is preselected — without given dates no chip is
+// on and the card shows the bikes without a range; a new visit of Domů
+// starts at the first bike of a new order.
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart' show SemanticsProperties;
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -27,6 +30,7 @@ import 'package:motogo_app/features/home/v2/funnel_carousel_v2.dart';
 import 'package:motogo_app/features/home/v2/funnel_provider.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_parts.dart';
 import 'package:motogo_app/features/home/v2/home_funnel_v2.dart';
+import 'package:motogo_app/features/home/v2/home_offer_provider.dart' show homeOfferShuffle;
 import 'package:motogo_app/features/home/v2/home_screen_v2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,6 +41,16 @@ import '../support/v2_harness.dart';
 String _cs(String key) => translations['cs']![key]!;
 
 final _two = kMotos.take(2).toList();
+
+/// A seed whose offer order keeps bike 1 before bike 2 (the tests price
+/// `_two[n]` as the n-th card; a random seed made them a coin flip).
+final int _seed = () {
+  const profile = {'license_group': ['A']};
+  for (var s = 0;; s++) {
+    final o = homeOfferShuffle(homeEligibleMotos(kMotos, profile, const []), s).map((m) => m.id).toList();
+    if (o.indexOf(_two[0].id) < o.indexOf(_two[1].id)) return s;
+  }
+}();
 const _funnel = SingleChildScrollView(child: HomeFunnelV2());
 
 ProviderContainer _c(WidgetTester t) => ProviderScope.containerOf(t.element(find.byType(HomeFunnelV2)));
@@ -80,8 +94,9 @@ void main() {
     expect(funnelGivenRange(null, now), isNull);
     expect(funnelGivenRange(FunnelRange(day(-2), day(1)), now), isNull);
     expect(funnelGivenRange(FunnelRange(day(9), day(12)), now), FunnelRange(day(9), day(12)));
-    expect(const FunnelSelection().range(now), p.$1);
-    expect(const FunnelSelection().preset(now), 0);
+    expect(const FunnelSelection().range(now), isNull, reason: 'v5.0.1: no preselected weekend');
+    expect(const FunnelSelection().preset(now), -1);
+    expect(FunnelSelection(p.$1).preset(now), 0);
     expect(FunnelSelection(p.$2).preset(now), 1);
     expect(FunnelSelection(FunnelRange(day(9), day(12))).preset(now), 2);
   });
@@ -98,7 +113,7 @@ void main() {
     final c = ProviderContainer(overrides: [
       rankTokensProvider.overrideWithValue(RankTokens.forLevel(3)),
       rankArcPctProvider.overrideWithValue(50),
-      ...homeOverrides(funnel: _two),
+      ...homeOverrides(funnel: _two, offerSeed: _seed),
       bookedDatesProvider.overrideWith((ref, id) async => const <BookedDateRange>[]),
     ]);
     addTearDown(c.dispose);
@@ -120,6 +135,8 @@ void main() {
     await _frames(t);
     final r = funnelPresets(DateTime.now()).$1;
     expect(_dates(c), (null, null), reason: 'nothing given yet');
+    await t.tap(find.text(_cs('v2HomeFnPreset1')));
+    await _frames(t);
     await t.tap(find.byType(FunnelBikeCard).first);
     await _frames(t);
     expect(router.routerDelegate.currentConfiguration.uri.toString(), '/moto/m-bmw');
@@ -139,11 +156,12 @@ void main() {
   });
 
   testWidgets('funnel pick fills Motorky; Motorky dates show in the funnel; ✕ clears both', (t) async {
-    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
     final p = funnelPresets(DateTime.now());
-    expect(_chipOn(t, _cs('v2HomeFnPreset1')), isTrue);
+    expect(_chipOn(t, _cs('v2HomeFnPreset1')), isFalse, reason: 'v5.0.1: nothing ticked by default');
+    expect(_chipOn(t, _cs('v2HomeFnPreset2')), isFalse);
     await t.tap(find.text(_cs('v2HomeFnPreset2')));
     await _frames(t);
     expect(_dates(c), (p.$2.start, p.$2.end));
@@ -155,19 +173,22 @@ void main() {
     await _frames(t);
     final line = t.widget<FunnelDateLine>(find.byType(FunnelDateLine));
     expect(line.range, FunnelRange(day(9), day(12)));
-    final q = quoteFor(_two.first, day(9), day(12), loyalty: kLoyalty3).total;
+    // v5.0.1: the found bikes follow the offer order — price the centred one.
+    final shown = t.widget<FunnelBikeCard>(find.byWidgetPredicate((w) => w is FunnelBikeCard && w.center)).moto;
+    final q = quoteFor(shown, day(9), day(12), loyalty: kLoyalty3).total;
     expect(find.byWidgetPredicate((w) => w is MgCta && w.price == Money.czk(q)), findsOneWidget);
 
     await t.tap(find.descendant(of: find.byType(FunnelDateLine), matching: _sem((p) => p.label == _cs('v2HomeDateClear'))));
     await _frames(t);
     expect(_dates(c), (null, null));
     expect(find.byType(FunnelDateLine), findsNothing);
-    expect(_chipOn(t, _cs('v2HomeFnPreset1')), isTrue);
+    expect(_chipOn(t, _cs('v2HomeFnPreset1')), isFalse);
+    expect(_chipOn(t, _cs('v2HomeFnPreset2')), isFalse);
     await _end(t);
   });
 
   testWidgets('Domů tab reset of the catalogue keeps the dates; a bike tap gives them again', (t) async {
-    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
     final p = funnelPresets(DateTime.now()).$2;
@@ -185,21 +206,24 @@ void main() {
 
   testWidgets('stale (past) catalogue dates are ignored, not shown', (t) async {
     await pumpV2(t, _funnel, size: const Size(412, 915), overrides: [
-      ...homeOverrides(funnel: _two),
+      ...homeOverrides(funnel: _two, offerSeed: _seed),
       catalogFilterProvider.overrideWith((ref) => CatalogFilter(startDate: day(-3), endDate: day(1))),
     ]);
     await _frames(t);
     expect(find.byType(FunnelDateLine), findsNothing);
-    expect(_chipOn(t, _cs('v2HomeFnPreset1')), isTrue);
+    expect(_chipOn(t, _cs('v2HomeFnPreset1')), isFalse, reason: 'stale dates = no dates, nothing ticked');
     await _end(t);
   });
 
-  testWidgets('photo, pager and CTA = the same bike after a remount; new dates → bike 1', (t) async {
+  testWidgets('a remount (new visit of Domů) starts at the first bike; new dates → bike 1', (t) async {
     final show = ValueNotifier(true);
     await pumpV2(t, ValueListenableBuilder<bool>(valueListenable: show, builder: (_, v, __) => v ? _funnel : const SizedBox()),
-        size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+        size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
+    final r = funnelPresets(DateTime.now()).$1;
+    await t.tap(find.text(_cs('v2HomeFnPreset1')));
+    await _frames(t);
     double page() => t.widget<PageView>(find.byType(PageView)).controller!.page!;
     await t.tap(_sem((p) => p.label == _cs('v2HomeFnNext')).first);
     await _frames(t);
@@ -209,10 +233,16 @@ void main() {
     await _frames(t);
     show.value = true;
     await _frames(t);
+    // v5.0.1 (owner): a new visit = a new order, from its first bike (the
+    // pushed detail keeps Domů mounted — see the test below).
+    expect(find.text('1 / 2'), findsOneWidget);
+    expect(page(), 0);
+    final q = quoteFor(_two[0], r.start, r.end, loyalty: kLoyalty3).total;
+    expect(find.byWidgetPredicate((w) => w is MgCta && w.price == Money.czk(q)), findsOneWidget,
+        reason: 'photo, pager and CTA = the same bike');
+    await t.tap(_sem((p) => p.label == _cs('v2HomeFnNext')).first);
+    await _frames(t);
     expect(find.text('2 / 2'), findsOneWidget);
-    expect(page(), 1, reason: 'back on Domů = the bike the customer left');
-    final q = quoteFor(_two[1], funnelPresets(DateTime.now()).$1.start, funnelPresets(DateTime.now()).$1.end, loyalty: kLoyalty3).total;
-    expect(find.byWidgetPredicate((w) => w is MgCta && w.price == Money.czk(q)), findsOneWidget);
     c.read(catalogFilterProvider.notifier).state = CatalogFilter(startDate: day(9), endDate: day(12));
     await _frames(t);
     expect(find.text('1 / 2'), findsOneWidget);
@@ -220,18 +250,20 @@ void main() {
     await _end(t);
   });
 
-  // fix:home r3 — giving the weekend ALREADY shown (a card tap with no dates
-  // given yet) is the same range: the centred bike stays (photo = "n / m" =
-  // CTA = the booked bike), only other dates start again at bike 1.
-  testWidgets('same range given (card tap, no dates yet) keeps the centred bike', (t) async {
-    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two));
+  // fix:home r3 — giving the range ALREADY shown again (a card tap writes
+  // the dates before the detail opens) is the same range: the centred bike
+  // stays (photo = "n / m" = CTA = the booked bike).
+  testWidgets('same range given again (card tap) keeps the centred bike', (t) async {
+    await pumpV2(t, _funnel, size: const Size(412, 915), overrides: homeOverrides(funnel: _two, offerSeed: _seed));
     await _frames(t);
     final c = _c(t);
+    final r = funnelPresets(DateTime.now()).$1;
+    await t.tap(find.text(_cs('v2HomeFnPreset1')));
+    await _frames(t);
     double page() => t.widget<PageView>(find.byType(PageView)).controller!.page!;
     await t.tap(_sem((p) => p.label == _cs('v2HomeFnNext')).first);
     await _frames(t);
     expect(find.text('2 / 2'), findsOneWidget);
-    final r = funnelPresets(DateTime.now()).$1;
     // What the card tap writes (homeGiveDates) before the detail opens.
     c.read(catalogFilterProvider.notifier).state =
         c.read(catalogFilterProvider).copyWith(startDate: () => r.start, endDate: () => r.end);
@@ -245,7 +277,7 @@ void main() {
     await _end(t);
   });
 
-  testWidgets('no dates yet → › → tap the centred bike → back → REZERVOVAT books bike 2', (t) async {
+  testWidgets('weekend chip → › → tap the centred bike → back → REZERVOVAT books bike 2', (t) async {
     t.view.physicalSize = const Size(412, 915) * 2;
     t.view.devicePixelRatio = 2;
     addTearDown(t.view.reset);
@@ -260,7 +292,7 @@ void main() {
     final c = ProviderContainer(overrides: [
       rankTokensProvider.overrideWithValue(RankTokens.forLevel(3)),
       rankArcPctProvider.overrideWithValue(50),
-      ...homeOverrides(funnel: _two),
+      ...homeOverrides(funnel: _two, offerSeed: _seed),
     ]);
     addTearDown(c.dispose);
     await t.pumpWidget(UncontrolledProviderScope(
@@ -281,6 +313,8 @@ void main() {
     await _frames(t);
     final r = funnelPresets(DateTime.now()).$1;
     expect(_dates(c), (null, null), reason: 'nothing given yet');
+    await t.tap(find.text(_cs('v2HomeFnPreset1')));
+    await _frames(t);
     await t.tap(_sem((p) => p.label == _cs('v2HomeFnNext')).first);
     await _frames(t);
     await t.tap(find.byWidgetPredicate((w) => w is FunnelBikeCard && w.center));
@@ -311,7 +345,7 @@ void main() {
       testWidgets('home funnel with given dates $lang ${w}x$h', (t) async {
         final key = GlobalKey();
         await pumpV2(t, const HomeScreenV2(), lang: lang, size: size, boundaryKey: key, overrides: [
-          ...homeOverrides(funnel: _two),
+          ...homeOverrides(funnel: _two, offerSeed: _seed),
           catalogFilterProvider.overrideWith((ref) => CatalogFilter(startDate: day(9), endDate: day(12))),
         ]);
         await expectCleanFrames(t);

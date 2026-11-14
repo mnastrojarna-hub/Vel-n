@@ -6,14 +6,18 @@
 import 'dart:convert';
 
 import 'package:motogo_app/core/pending_booking_fab_provider.dart';
+import 'package:motogo_app/features/catalog/catalog_provider.dart' show CatalogFilter;
+import 'package:motogo_app/features/catalog/moto_model.dart';
 import 'package:motogo_app/features/documents/docs_gate_provider.dart';
 import 'package:motogo_app/features/documents/document_provider.dart';
 import 'package:motogo_app/features/loyalty/loyalty_provider.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
+import 'package:motogo_app/features/routes/routes_model.dart' show RouteItem;
 
 import '../support/fakes_home.dart' show loyaltyAt;
 import '../support/fakes_reservations.dart' show code, rday, resv;
+import 'journey_states_v501.dart';
 
 enum JourneyState {
   firstLaunch('first_launch'),
@@ -31,7 +35,17 @@ enum JourneyState {
   activeRentalExtFree('active_rental_ext_free'),
   activeRentalExtTaken('active_rental_ext_taken'),
   paidUpcomingSwap('paid_upcoming_swap'),
-  paidUpcomingSurchargePending('paid_upcoming_surcharge_pending');
+  paidUpcomingSurchargePending('paid_upcoming_surcharge_pending'),
+  // 5.0.1 (journey_states_v501.dart): 12-bike fleet, winter, filters, routes.
+  fleet12('fleet12'),
+  noDates('nodates'),
+  winter('winter'),
+  bookedOut('booked_out'),
+  filtersOn('filters_on'),
+  filtersMany('filters_many'),
+  filtersSlow('filters_slow'),
+  routesPhotos('routes_photos'),
+  routesFiltered('routes_filtered');
 
   final String id;
   const JourneyState(this.id);
@@ -60,6 +74,8 @@ const _gateMissingDl = DocsGateChecklist(
 );
 
 /// Complete profile (every field the booking validators need).
+Map<String, dynamic> journeyFullProfile(List<String> groups) => _fullProfile(groups);
+
 Map<String, dynamic> _fullProfile(List<String> groups) => {
       'full_name': 'Jan Novák',
       'email': 'jan.novak@example.cz',
@@ -101,6 +117,19 @@ class JourneyData {
   /// Extra SharedPreferences values on the phone (e.g. a surcharge payment
   /// that was sent and is still being verified).
   final Map<String, Object> prefs;
+
+  /// 5.0.1 states (journey_states_v501.dart): the fleet (null = the 4
+  /// catalog fixtures), seasonal branch closures (branch id, first day,
+  /// last day as day offsets), the filter set at boot, the routes (null =
+  /// the 3 Trasy fixtures), the route countries filter, a delay of every
+  /// availability answer (ms) and the route the rig opens after boot.
+  final List<Motorcycle>? motos;
+  final List<(String, int, int)> closures;
+  final CatalogFilter? filter;
+  final List<RouteItem>? routes;
+  final Set<String> routeCountries;
+  final int availDelayMs;
+  final String? start;
   const JourneyData({
     required this.state,
     required this.loggedIn,
@@ -113,6 +142,13 @@ class JourneyData {
     this.loyalty,
     this.others = const [],
     this.prefs = const {},
+    this.motos,
+    this.closures = const [],
+    this.filter,
+    this.routes,
+    this.routeCountries = const {},
+    this.availDelayMs = 0,
+    this.start,
   });
 
   DocsScreenStatus get docsStatus => DocsScreenStatus(verification, gate);
@@ -147,6 +183,10 @@ const _t9 = '09:00:00';
 JourneyData journeyData(JourneyState s) {
   final ok = _verified();
   switch (s) {
+    case JourneyState.fleet12 || JourneyState.noDates || JourneyState.winter || JourneyState.bookedOut ||
+          JourneyState.filtersOn || JourneyState.filtersMany || JourneyState.filtersSlow ||
+          JourneyState.routesPhotos || JourneyState.routesFiltered:
+      return journeyDataV501(s, profile: journeyFullProfile(['A', 'B']), gate: _gateOk, verification: ok);
     case JourneyState.firstLaunch:
       return JourneyData(state: s, loggedIn: false);
     case JourneyState.newUserNoDocs:

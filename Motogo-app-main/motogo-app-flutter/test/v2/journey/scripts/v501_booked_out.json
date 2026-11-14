@@ -1,0 +1,6 @@
+[
+ {"wait":500,"note":"no dates: every bike 'Volná od' day 21"},
+ {"tapText":"Nejbližší víkend","note":"all booked: 'V tyhle dny je vše obsazené' banner + 'Volná od'"},
+ {"tapText":"Další víkend","note":"the next weekend is booked out too"},
+ {"tapText":"VYBRAT JINÝ TERMÍN","note":"the bike's calendar"}
+]

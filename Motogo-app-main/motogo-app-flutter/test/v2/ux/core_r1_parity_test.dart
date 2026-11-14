@@ -193,7 +193,8 @@ void main() {
   }
 
   testWidgets('Domů: recording running → the funnel "Volná v termínu" dot is static (one live indicator)', (tester) async {
-    final idle = await funnelPings(tester, 's0');
+    // v5.0.1: "Volná v termínu" needs given dates (nothing is preselected).
+    final idle = await funnelPings(tester, 's0-dates');
     expect(idle.where((p) => p.active), isNotEmpty);
     final rec = await funnelPings(tester, 'manual-rec');
     expect(rec, isNotEmpty);

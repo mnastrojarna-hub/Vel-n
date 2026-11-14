@@ -105,9 +105,11 @@ void main() {
     expect(reset, findsOneWidget);
     await t.tap(reset);
     await t.pump();
+    // 5.0.1 (owner): reset clears exactly the real filters it counts; the
+    // branch ("kam vyrážím") and the sort are not filters and stay.
     final f = c.read(catalogFilterProvider);
-    expect([f.category, f.branch, f.activeCount], [null, null, 0]);
-    expect(c.read(catalogSortProvider), 'default');
+    expect([f.category, f.branch, f.filterCount], [null, branches.first['id'], 0]);
+    expect(c.read(catalogSortProvider), 'price_asc');
     expect(reset, findsNothing);
   });
 
