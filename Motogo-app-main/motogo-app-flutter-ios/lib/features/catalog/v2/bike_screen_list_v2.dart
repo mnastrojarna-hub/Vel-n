@@ -15,6 +15,16 @@ import '../catalog_provider.dart' show filteredMotoIdsProvider;
 /// back lands on the bike seen last — not on the top, not on the tapped one.
 final catalogShownMotoProvider = StateProvider<String?>((_) => null);
 
+/// "Vybrat jinou motorku" (owner D1): the list under the booking form opens
+/// at its first bike, not on the bike shown last (the one that cannot be
+/// booked). The covered list follows [catalogShownMotoProvider], so its
+/// first bike is published before the list comes back; other ways into the
+/// list keep the bike shown last. The order of the list is not touched.
+void catalogShowListStart(WidgetRef ref) {
+  final ids = ref.read(filteredMotoIdsProvider);
+  if (ids.isNotEmpty) ref.read(catalogShownMotoProvider.notifier).state = ids.first;
+}
+
 /// Gap between two full-screen bike cards.
 const double kBikeScreenGap = 8;
 

@@ -26,6 +26,7 @@ import 'engagement_service.dart';
 import 'v2/flag/v2_scope.dart';
 import '../features/booking/v2/booking_form_view_v2.dart';
 import '../features/booking/v2/booking_sync_v2.dart';
+import '../features/catalog/v2/bike_screen_list_v2.dart' show catalogShowListStart;
 
 // ═══════════════════════════════════════════════════════════════════
 // INLINE BOOKING FORM — everything in ONE file, per-section try-catch
@@ -592,7 +593,10 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
         // Majitel 2026-11-14 (M3-04): seznam motorek (kořen záložky Motorky,
         // stejný cíl jako ostatní „jiná motorka“); draft zůstává jako při Zpět,
         // termín nese filtr katalogu (bookingFormShareDates).
-        onPickOtherMoto: () => GoRouter.of(context).go('/search'),
+        onPickOtherMoto: () {
+          catalogShowListStart(ref); // seznam od začátku, ne na téže motorce
+          GoRouter.of(context).go('/search');
+        },
         onOpenCalendar: _openCalendar,
         onDatesSelected: _onDatesSelected,
         onDatesReset: _onDatesReset,
