@@ -15,112 +15,127 @@
 //  • stale/currency — platba v jiné měně než CZK (verify:charges 2026-11-07): webhook ji
 //               ignoruje (nonCzkIgnored), ale complete_extension (appka i web se session_id)
 //               a „dokonči předchozí" v process-payment by ji zapsaly jako Kč (500 HUF = 500 Kč).
-import type { Sb } from './extension-apply-types.ts'
-import { duplicateRow } from './duplicate-payment.ts'
-import { paymentCurrencyOk } from './currency.ts'
-
-export type PiLike = {
-  id: string
-  created?: number | null
-  /** PaymentIntent.currency (chybí = nevíme → jako dosud, CZK) */
-  currency?: string | null
-  metadata?: Record<string, string> | null
-  latest_charge?: string | { amount_refunded?: number | null } | null
-}
-
-export type Eligibility =
-  | { ok: true }
-  | { ok: false; kind: 'applied' }
-  | { ok: false; kind: 'failed'; reason: string; refund: string }
-  | { ok: false; kind: 'refunded' }
-  /** druhá platba za změnu, kterou už zapsala jiná platba — vrácená / k vrácení (duplicate-payment) */
-  | { ok: false; kind: 'duplicate' }
-  | { ok: false; kind: 'stale'; why: 'legacy' | 'too_old' | 'currency' }
-
-type StripeLike = {
-  charges?: { retrieve: (id: string) => Promise<{ amount_refunded?: number | null }> }
-  paymentIntents?: { update: (id: string, p: Record<string, unknown>) => Promise<unknown> }
-}
-
-/** PaymentIntent vytvořený novým process-payment (od 2026-10-16) nese attempt_id nebo chg_hash. */
-export const isNewCodePi = (md: Record<string, string> | null | undefined) => !!(md && (md.attempt_id || md.chg_hash))
-
-/** Lhůty: process-payment „dokonči předchozí" 72 h, fronta v appce 7 dní (stejně jako appka). */
-export const PREVIOUS_MAX_AGE_H = 72
-export const QUEUE_MAX_AGE_H = 7 * 24
-
-export async function paidChangeEligibility(sb: Sb, pi: PiLike, o: {
-  bookingId: string; requireNewCode: boolean; maxAgeH: number | null; stripe?: StripeLike | null; nowMs?: number
-}): Promise<Eligibility> {
-  const md = (pi.metadata || {}) as Record<string, string>
-  if (md.applied_at) return { ok: false, kind: 'applied' }
-  if (await historyHasRef(sb, o.bookingId, pi.id)) return { ok: false, kind: 'applied' }
-  const fail = await failureRow(sb, pi.id)
-  if (fail) return { ok: false, kind: 'failed', reason: fail.reason, refund: fail.refund }
-  if (md.duplicate_of || await duplicateRow(sb, pi.id)) return { ok: false, kind: 'duplicate' }
-  if ((await refundedAmount(pi, o.stripe)) > 0) return { ok: false, kind: 'refunded' }
+import { duplicateRow } from './duplicate-payment.ts';
+import { paymentCurrencyOk } from './currency.ts';
+/** PaymentIntent vytvořený novým process-payment (od 2026-10-16) nese attempt_id nebo chg_hash. */ export const isNewCodePi = (md)=>!!(md && (md.attempt_id || md.chg_hash));
+/** Lhůty: process-payment „dokonči předchozí" 72 h, fronta v appce 7 dní (stejně jako appka). */ export const PREVIOUS_MAX_AGE_H = 72;
+export const QUEUE_MAX_AGE_H = 7 * 24;
+export async function paidChangeEligibility(sb, pi, o) {
+  const md = pi.metadata || {};
+  if (md.applied_at) return {
+    ok: false,
+    kind: 'applied'
+  };
+  if (await historyHasRef(sb, o.bookingId, pi.id)) return {
+    ok: false,
+    kind: 'applied'
+  };
+  const fail = await failureRow(sb, pi.id);
+  if (fail) return {
+    ok: false,
+    kind: 'failed',
+    reason: fail.reason,
+    refund: fail.refund
+  };
+  if (md.duplicate_of || await duplicateRow(sb, pi.id)) return {
+    ok: false,
+    kind: 'duplicate'
+  };
+  if (await refundedAmount(pi, o.stripe) > 0) return {
+    ok: false,
+    kind: 'refunded'
+  };
   // Jiná měna než CZK se nezapisuje nikdy (částka by se vzala jako Kč) → jen obsluha.
-  if (!paymentCurrencyOk(pi.currency)) return { ok: false, kind: 'stale', why: 'currency' }
-  if (o.requireNewCode && !isNewCodePi(md)) return { ok: false, kind: 'stale', why: 'legacy' }
+  if (!paymentCurrencyOk(pi.currency)) return {
+    ok: false,
+    kind: 'stale',
+    why: 'currency'
+  };
+  if (o.requireNewCode && !isNewCodePi(md)) return {
+    ok: false,
+    kind: 'stale',
+    why: 'legacy'
+  };
   if (o.maxAgeH != null && pi.created) {
-    const ageH = ((o.nowMs ?? Date.now()) - pi.created * 1000) / 3_600_000
-    if (ageH > o.maxAgeH) return { ok: false, kind: 'stale', why: 'too_old' }
+    const ageH = ((o.nowMs ?? Date.now()) - pi.created * 1000) / 3_600_000;
+    if (ageH > o.maxAgeH) return {
+      ok: false,
+      kind: 'stale',
+      why: 'too_old'
+    };
   }
-  return { ok: true }
+  return {
+    ok: true
+  };
 }
-
-/** Záznam úpravy s payment_ref = id platby v historii rezervace (webhook / výměna rev.12). */
-export async function historyHasRef(sb: Sb, bookingId: string, payRef: string): Promise<boolean> {
+/** Záznam úpravy s payment_ref = id platby v historii rezervace (webhook / výměna rev.12). */ export async function historyHasRef(sb, bookingId, payRef) {
   try {
-    const { data } = await sb.from('bookings').select('modification_history').eq('id', bookingId).maybeSingle()
-    const h = data?.modification_history
-    return Array.isArray(h) && h.some((e: Record<string, unknown> | null) => !!e && e.payment_ref === payRef)
-  } catch { return false }
+    const { data } = await sb.from('bookings').select('modification_history').eq('id', bookingId).maybeSingle();
+    const h = data?.modification_history;
+    return Array.isArray(h) && h.some((e)=>!!e && e.payment_ref === payRef);
+  } catch  {
+    return false;
+  }
 }
-
 /** Už vyhodnocené trvalé selhání (paid_change_failed) — {reason, refund} prvního záznamu
  *  (stejné pořadí jako zámek v paid-change-failure: created_at, id). Výsledek vratky ještě
  *  nezapsaný (první dokončovatel právě vrací, < 2 min) → očekávaný výsledek z request_data
- *  (`expect_refund`), ne „obsluha" — automatická vratka doběhne během pár sekund. */
-export async function failureRow(sb: Sb, payRef: string, nowMs = Date.now()): Promise<{ reason: string; refund: string } | null> {
+ *  (`expect_refund`), ne „obsluha" — automatická vratka doběhne během pár sekund. */ export async function failureRow(sb, payRef, nowMs = Date.now()) {
   try {
-    const { data } = await sb.from('debug_log').select('request_data, response_data, created_at')
-      .eq('action', 'paid_change_failed').eq('request_data->>payment_ref', payRef)
-      .order('created_at', { ascending: true }).order('id', { ascending: true }).limit(1)
-    if (!Array.isArray(data) || data.length === 0) return null
-    const rq = (data[0].request_data || {}) as Record<string, unknown>
-    const rs = (data[0].response_data || {}) as Record<string, unknown>
-    let refund = rs.refund ? String(rs.refund) : ''
+    const { data } = await sb.from('debug_log').select('request_data, response_data, created_at').eq('action', 'paid_change_failed').eq('request_data->>payment_ref', payRef).order('created_at', {
+      ascending: true
+    }).order('id', {
+      ascending: true
+    }).limit(1);
+    if (!Array.isArray(data) || data.length === 0) return null;
+    const rq = data[0].request_data || {};
+    const rs = data[0].response_data || {};
+    let refund = rs.refund ? String(rs.refund) : '';
     if (!refund) {
-      const ageMs = nowMs - Date.parse(String(data[0].created_at || ''))
-      const fresh = Number.isFinite(ageMs) && ageMs < 2 * 60_000
-      refund = fresh && rq.expect_refund ? String(rq.expect_refund) : 'staff'
+      const ageMs = nowMs - Date.parse(String(data[0].created_at || ''));
+      const fresh = Number.isFinite(ageMs) && ageMs < 2 * 60_000;
+      refund = fresh && rq.expect_refund ? String(rq.expect_refund) : 'staff';
     }
-    return { reason: String(rq.reason || 'change_failed'), refund }
-  } catch { return null }
-}
-
-async function refundedAmount(pi: PiLike, stripe?: StripeLike | null): Promise<number> {
-  const lc = pi.latest_charge
-  if (lc && typeof lc === 'object') return Number(lc.amount_refunded || 0)
-  if (typeof lc === 'string' && stripe?.charges) {
-    try { return Number((await stripe.charges.retrieve(lc)).amount_refunded || 0) } catch { return 0 }
+    return {
+      reason: String(rq.reason || 'change_failed'),
+      refund
+    };
+  } catch  {
+    return null;
   }
-  return 0
 }
-
-/** Trvalá značka „zapsáno" přímo na PaymentIntentu (best-effort; pojistka vedle historie). */
-export async function markApplied(stripe: StripeLike | null | undefined, piId: string | null | undefined) {
-  if (!stripe?.paymentIntents || !piId || !piId.startsWith('pi_')) return
-  try { await stripe.paymentIntents.update(piId, { metadata: { applied_at: new Date().toISOString() } }) } catch { /* ignore */ }
+async function refundedAmount(pi, stripe) {
+  const lc = pi.latest_charge;
+  if (lc && typeof lc === 'object') return Number(lc.amount_refunded || 0);
+  if (typeof lc === 'string' && stripe?.charges) {
+    try {
+      return Number((await stripe.charges.retrieve(lc)).amount_refunded || 0);
+    } catch  {
+      return 0;
+    }
+  }
+  return 0;
 }
-
+/** Trvalá značka „zapsáno" přímo na PaymentIntentu (best-effort; pojistka vedle historie). */ export async function markApplied(stripe, piId) {
+  if (!stripe?.paymentIntents || !piId || !piId.startsWith('pi_')) return;
+  try {
+    await stripe.paymentIntents.update(piId, {
+      metadata: {
+        applied_at: new Date().toISOString()
+      }
+    });
+  } catch  {}
+}
 /** Dřív confirm_payment při přijetí doplatku: živá rezervace po dřívější vratce
  *  (partial_refund) → 'paid'. Teď až PO zapsání zaplacené změny (applied / already_applied /
- *  změnu zapisuje klient) — nezapsaná změna se vrací a rezervace zůstane i se svým stavem. */
-export async function markPaidAfterChange(sb: Sb, bookingId: string): Promise<void> {
+ *  změnu zapisuje klient) — nezapsaná změna se vrací a rezervace zůstane i se svým stavem. */ export async function markPaidAfterChange(sb, bookingId) {
   try {
-    await sb.from('bookings').update({ payment_status: 'paid', payment_method: 'card' })
-      .eq('id', bookingId).eq('payment_status', 'partial_refund').in('status', ['reserved', 'active'])
-  } catch { /* best-effort */ }
+    await sb.from('bookings').update({
+      payment_status: 'paid',
+      payment_method: 'card'
+    }).eq('id', bookingId).eq('payment_status', 'partial_refund').in('status', [
+      'reserved',
+      'active'
+    ]);
+  } catch  {}
 }

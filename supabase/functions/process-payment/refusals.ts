@@ -3,38 +3,50 @@
 // překládají) a český `error` BEZ kontaktů, který přesně říká, co se stalo, zda
 // se něco strhlo a co udělat (appka ≤ 4.1.3 neznámý kód zobrazí doslova).
 // CORS 1:1 se stripe-customer.ts (bez importu Stripe klienta — modul jde testovat samostatně).
-export { declineMessageCs } from './declines.ts'
-
+export { declineMessageCs } from './declines.ts';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+export function respond(status, payload) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      ...CORS,
+      'Content-Type': 'application/json'
+    }
+  });
 }
-
-export function respond(status: number, payload: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(payload), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+/** Klíče s částkou (Kč) — formátují se česky; ostatní ({voucher_code}…) se vkládají doslova. */ const AMOUNT_KEYS = new Set([
+  'due',
+  'server_total',
+  'expected',
+  'amount',
+  'charge',
+  'min',
+  'rounding'
+]);
+/** {success:false, code, error, …extra}; `error` = text z CS (s dosazením {klíčů} z extra), nebo `text`. */ export function refuse(status, code, extra = {}, text) {
+  const tpl = text ?? CS[code] ?? CS.server_error;
+  const error = tpl.replace(/\{(\w+)\}/g, (_m, k)=>AMOUNT_KEYS.has(k) ? fmtKc(extra[k]) : String(extra[k] ?? ''));
+  return respond(status, {
+    success: false,
+    code,
+    error,
+    ...extra
+  });
 }
-
-/** Klíče s částkou (Kč) — formátují se česky; ostatní ({voucher_code}…) se vkládají doslova. */
-const AMOUNT_KEYS = new Set(['due', 'server_total', 'expected', 'amount', 'charge', 'min', 'rounding'])
-
-/** {success:false, code, error, …extra}; `error` = text z CS (s dosazením {klíčů} z extra), nebo `text`. */
-export function refuse(status: number, code: string, extra: Record<string, unknown> = {}, text?: string): Response {
-  const tpl = text ?? CS[code] ?? CS.server_error
-  const error = tpl.replace(/\{(\w+)\}/g, (_m, k) => (AMOUNT_KEYS.has(k) ? fmtKc(extra[k]) : String(extra[k] ?? '')))
-  return respond(status, { success: false, code, error, ...extra })
-}
-
-const fmtKc = (v: unknown) => {
-  const n = Number(v)
-  if (v == null || v === '' || !Number.isFinite(n)) return String(v ?? '')
-  return (Math.round(n * 100) / 100).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })
-}
-
-const NOTHING = 'Nic jsme nestrhli.'
-const NEW_BOOKING = 'Vytvoř si prosím novou rezervaci.'
-
-export const CS: Record<string, string> = {
+const fmtKc = (v)=>{
+  const n = Number(v);
+  if (v == null || v === '' || !Number.isFinite(n)) return String(v ?? '');
+  return (Math.round(n * 100) / 100).toLocaleString('cs-CZ', {
+    maximumFractionDigits: 2
+  });
+};
+const NOTHING = 'Nic jsme nestrhli.';
+const NEW_BOOKING = 'Vytvoř si prosím novou rezervaci.';
+export const CS = {
   invalid_type: 'Neznámý typ platby – aktualizuj prosím aplikaci MotoGo24. Nic jsme nestrhli.',
   missing_booking_id: 'Chybí rezervace k zaplacení – otevři ji v Rezervacích a zaplať odtud. Nic jsme nestrhli.',
   missing_order_id: 'Chybí objednávka k zaplacení – vrať se do košíku a odešli ji znovu. Nic jsme nestrhli.',
@@ -53,8 +65,7 @@ export const CS: Record<string, string> = {
   already_paid: 'Rezervace je už zaplacená – nic dalšího platit nemusíš. Najdeš ji v Rezervacích.',
   already_paid_shop: 'Objednávka je už zaplacená – nic dalšího platit nemusíš.',
   no_payment_needed: 'Objednávka nevyžaduje platbu – je potvrzená.',
-  booking_cancelled: 'Rezervace byla zrušená (nebyla zaplacená do 30 minut, nebo ji někdo zrušil), takže ji teď zaplatit nejde. ' + NOTHING +
-    ' Obnov ji v Rezervacích tlačítkem „Obnovit rezervaci" a zaplať znovu. Když obnovení nejde (motorka je mezitím obsazená, poukaz byl použitý jinde nebo už jsi ji obnovil(a) třikrát), ' + NEW_BOOKING.charAt(0).toLowerCase() + NEW_BOOKING.slice(1),
+  booking_cancelled: 'Rezervace byla zrušená (nebyla zaplacená do 30 minut, nebo ji někdo zrušil), takže ji teď zaplatit nejde. ' + NOTHING + ' Obnov ji v Rezervacích tlačítkem „Obnovit rezervaci" a zaplať znovu. Když obnovení nejde (motorka je mezitím obsazená, poukaz byl použitý jinde nebo už jsi ji obnovil(a) třikrát), ' + NEW_BOOKING.charAt(0).toLowerCase() + NEW_BOOKING.slice(1),
   // konkrétní důvod, proč nešlo obnovení (pojistka obnovení v DB, SQL 20261016p2)
   booking_cancelled_staff: 'Rezervaci zrušila naše obsluha, proto ji obnovit ani zaplatit nejde. ' + NOTHING + ' ' + NEW_BOOKING,
   booking_cancelled_date: 'Rezervace je zrušená a její začátek už nastal, proto ji obnovit ani zaplatit nejde. ' + NOTHING + ' Vytvoř si prosím novou rezervaci s jiným termínem.',
@@ -115,23 +126,35 @@ export const CS: Record<string, string> = {
   change_failed_taken_staff: 'Motorka je mezitím obsazená – během tvé platby si ji zarezervoval někdo jiný a nová rezervace má přednost, takže výměnu nešlo zapsat. Tvoje původní rezervace platí beze změny. Doplatek ti vrátí obsluha do 2 pracovních dnů – nemusíš nic dělat.',
   stale_payment: 'Tuhle starší platbu už nejde automaticky zapsat do rezervace. Obsluha ji zkontroluje a doplatek případně vrátí do 2 pracovních dnů – nemusíš nic dělat ani platit znovu.',
   stale_payment_refunded: 'Z téhle platby už jsme peníze vrátili, proto ji do rezervace nezapisujeme. Nemusíš nic dělat.',
-  payment_not_found: 'Platbu jsme nenašli – otevři prosím rezervaci znovu.',
-}
-
-/** Kódy z dry-runu, které mají vlastní text (zbytek → change_not_applicable). */
-export const SWAP_DRY_CODES = ['not_found', 'not_paid', 'invalid_new_moto', 'swap_date_out_of_range', 'already_split',
-  'license_insufficient', 'new_moto_unavailable']
-
-/** Důvod odmítnutého obnovení (debug_log customer_restore_refused) → klíč textu. */
-export function cancelledReasonKey(reason: string | null | undefined): string {
-  switch (reason) {
-    case 'cancelled_by_staff': return 'booking_cancelled_staff'
-    case 'date_passed': return 'booking_cancelled_date'
-    case 'restore_limit': return 'booking_cancelled_limit'
-    case 'voucher_unavailable': return 'booking_cancelled_voucher'
-    case 'promo_unavailable': return 'booking_cancelled_promo'
-    case 'price_changed': return 'booking_cancelled_price'
-    case 'not_restorable': case 'forbidden': return 'booking_cancelled_other'
-    default: return 'booking_cancelled'
+  payment_not_found: 'Platbu jsme nenašli – otevři prosím rezervaci znovu.'
+};
+/** Kódy z dry-runu, které mají vlastní text (zbytek → change_not_applicable). */ export const SWAP_DRY_CODES = [
+  'not_found',
+  'not_paid',
+  'invalid_new_moto',
+  'swap_date_out_of_range',
+  'already_split',
+  'license_insufficient',
+  'new_moto_unavailable'
+];
+/** Důvod odmítnutého obnovení (debug_log customer_restore_refused) → klíč textu. */ export function cancelledReasonKey(reason) {
+  switch(reason){
+    case 'cancelled_by_staff':
+      return 'booking_cancelled_staff';
+    case 'date_passed':
+      return 'booking_cancelled_date';
+    case 'restore_limit':
+      return 'booking_cancelled_limit';
+    case 'voucher_unavailable':
+      return 'booking_cancelled_voucher';
+    case 'promo_unavailable':
+      return 'booking_cancelled_promo';
+    case 'price_changed':
+      return 'booking_cancelled_price';
+    case 'not_restorable':
+    case 'forbidden':
+      return 'booking_cancelled_other';
+    default:
+      return 'booking_cancelled';
   }
 }
