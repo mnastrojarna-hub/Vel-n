@@ -1,6 +1,5 @@
 // ===== receive-invoice/vision-ocr.ts =====
 // Claude Vision OCR call + prompt definition
-
 export const VISION_PROMPT = `Jsi účetní a právní asistent české malé firmy (půjčovna motorek, neplátce DPH).
 Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
 {
@@ -119,69 +118,66 @@ Pokud pole neexistuje nebo není čitelné: null.
 Částky vždy jako číslo bez mezer a měny.
 Data vždy jako YYYY-MM-DD.
 Číslo účtu ve formátu "předčíslí-číslo/kód banky" nebo IBAN.
-Variabilní symbol = číslo faktury pokud není VS uveden zvlášť.`
-
-export async function callClaudeVision(
-  apiKey: string,
-  imageBase64: string,
-  mediaType: string,
-  isRetry = false
-): Promise<Record<string, any> | null> {
-  const prompt = isRetry
-    ? 'Vrať pouze validní JSON, nic jiného. Žádný markdown.\n\n' + VISION_PROMPT
-    : VISION_PROMPT
-
+Variabilní symbol = číslo faktury pokud není VS uveden zvlášť.`;
+export async function callClaudeVision(apiKey, imageBase64, mediaType, isRetry = false) {
+  const prompt = isRetry ? 'Vrať pouze validní JSON, nic jiného. Žádný markdown.\n\n' + VISION_PROMPT : VISION_PROMPT;
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
         max_tokens: 2048,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: imageBase64 },
-            },
-            { type: 'text', text: prompt },
-          ],
-        }],
-      }),
-    })
-
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: mediaType,
+                  data: imageBase64
+                }
+              },
+              {
+                type: 'text',
+                text: prompt
+              }
+            ]
+          }
+        ]
+      })
+    });
     if (!response.ok) {
-      console.error('Claude Vision API error:', response.status, await response.text())
-      return null
+      console.error('Claude Vision API error:', response.status, await response.text());
+      return null;
     }
-
-    const result = await response.json()
-    const text = result?.content?.[0]?.text || ''
-
+    const result = await response.json();
+    const text = result?.content?.[0]?.text || '';
     try {
-      return JSON.parse(text)
-    } catch {
+      return JSON.parse(text);
+    } catch  {
       // Try to extract JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        try { return JSON.parse(jsonMatch[0]) } catch { /* fall through */ }
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch  {}
       }
     }
-
     // Retry once with stricter prompt
     if (!isRetry) {
-      console.warn('Claude Vision returned non-JSON, retrying...')
-      return callClaudeVision(apiKey, imageBase64, mediaType, true)
+      console.warn('Claude Vision returned non-JSON, retrying...');
+      return callClaudeVision(apiKey, imageBase64, mediaType, true);
     }
-
-    return null
+    return null;
   } catch (err) {
-    console.error('Claude Vision call failed:', err)
-    return null
+    console.error('Claude Vision call failed:', err);
+    return null;
   }
 }
