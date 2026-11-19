@@ -157,7 +157,8 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
             onTap: () => context.push('/reservations/${res.id}'),
             onEdit: () => context.push('/reservations/${res.id}/edit'),
             // „Obnovit" = obnovit a zaplatit (D3), stejně jako starý seznam.
-            onRestore: () => restoreAndPay(context, ref, res),
+            // Výpůjčka výbavy se neobnovuje (customer_restore_booking ji neumí).
+            onRestore: res.isGearOnly ? null : () => restoreAndPay(context, ref, res),
           );
           // Only the first screenful reveals, once per app session — a
           // card scrolled back into view never blinks again.

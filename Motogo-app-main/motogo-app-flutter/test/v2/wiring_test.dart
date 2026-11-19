@@ -101,7 +101,8 @@ void main() {
       // Paths the old UI already had are all still there.
       for (final p in ['/moto/:id', '/booking', '/payment', '/reservations/:id', '/reservations/:id/edit',
         '/messages', '/messages/:id', '/invoices', '/contracts', '/pobocky', '/pobocky/:index', '/shop',
-        '/sos', '/ai-agent', '/permissions', '/loyalty', '/routes-list', '/places-map', '/routes-map', '/routes/:id']) {
+        '/sos', '/ai-agent', '/permissions', '/loyalty', '/routes-list', '/places-map', '/routes-map', '/routes/:id',
+        '/gear-rental']) {
         expect(paths, contains(p), reason: p);
       }
     });

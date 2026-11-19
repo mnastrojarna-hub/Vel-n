@@ -94,7 +94,10 @@ class HomeBookingCardV2 extends StatelessWidget {
       leading: SizedBox(
         width: 50,
         height: 50,
-        child: img == null
+        // Výpůjčka jen výbavy: tmavá dlaždice se svítící helmou (jako řádky Domů).
+        child: r.isGearOnly
+            ? const MgIconTileDark(MgIcons.helmet, size: 50)
+            : img == null
             ? Container(
                 decoration: BoxDecoration(color: MgColors.well, borderRadius: BorderRadius.circular(10)),
                 child: const Center(child: MgIcon(MgIcons.moto, size: 24, color: MgColors.meta)),

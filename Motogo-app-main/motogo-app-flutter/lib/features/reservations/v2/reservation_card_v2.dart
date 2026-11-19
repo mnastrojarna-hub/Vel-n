@@ -11,6 +11,7 @@ import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
+import '../gear/gear_models.dart';
 import '../reservation_models.dart';
 import 'res_card_actions_v2.dart';
 import 'res_fit_v2.dart';
@@ -78,6 +79,16 @@ class ReservationCardV2 extends ConsumerWidget {
               child: SizedBox(height: 156, child: _photo(tr, st, grayscale)),
             ),
           ),
+          // Výpůjčka výbavy: kusy s velikostmi (pobočka je pod názvem).
+          if (r.isGearOnly)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Text(gearSummary(r, tr),
+                  key: const ValueKey('res-card-gear-summary'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.ink)),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             // Termín · Délka · Celkem v jednom řádku, jen když se popisky
@@ -127,7 +138,10 @@ class ReservationCardV2 extends ConsumerWidget {
     final r = reservation;
     return Stack(fit: StackFit.expand, children: [
       // Sdílená fotka do detailu rezervace (V2 §5.11, `res-img-{id}`).
-      MgHeroPhoto(tag: mgHeroTagRes(r.id), child: ResBikePhoto(url: r.motoImage, grayscale: grayscale)),
+      MgHeroPhoto(
+        tag: mgHeroTagRes(r.id),
+        child: r.isGearOnly ? ResGearPhoto(grayscale: grayscale) : ResBikePhoto(url: r.motoImage, grayscale: grayscale),
+      ),
       IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -181,7 +195,11 @@ class ReservationCardV2 extends ConsumerWidget {
                   style: MgType.title.copyWith(fontSize: 17, color: MgColors.onDark)),
               // „#ID · pobočka" (Reservation board) — kde se vyzvedává hned na kartě.
               Text(
-                [r.shortId, if ((r.branchName ?? '').trim().isNotEmpty) r.branchName!.trim()].join(' · '),
+                [
+                  r.shortId,
+                  if ((r.branchName ?? '').trim().isNotEmpty)
+                    r.isGearOnly ? gearBranchName(r.branchName) : r.branchName!.trim(),
+                ].join(' · '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: MgType.meta.copyWith(color: MgColors.onDarkSecondary),

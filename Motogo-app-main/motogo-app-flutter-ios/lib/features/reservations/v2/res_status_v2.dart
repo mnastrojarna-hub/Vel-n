@@ -178,6 +178,21 @@ class ResUnpaidChip extends StatelessWidget {
 
 /// Moto photo: contained bike over a dark ground; never throws on a missing
 /// or broken URL (old guard: empty URL → placeholder, no build crash).
+/// Výpůjčka jen výbavy: místo fotky motorky tmavá plocha se svítící helmou
+/// (stejný rámec jako [ResBikePhoto] — karta, detail, hero přechod).
+class ResGearPhoto extends StatelessWidget {
+  final bool grayscale;
+  const ResGearPhoto({super.key, this.grayscale = false});
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+        color: MgColors.panel,
+        child: Center(
+          child: MgIcon(MgIcons.helmet, size: 56, color: grayscale ? MgColors.onDarkMeta : MgColors.neon),
+        ),
+      );
+}
+
 class ResBikePhoto extends StatelessWidget {
   final String? url;
   final bool grayscale;

@@ -666,6 +666,8 @@ final pickupOriginProvider = Provider<LatLng?>((ref) {
   final list = ref.watch(reservationsProvider).valueOrNull ?? const [];
   Reservation? best;
   for (final r in list) {
+    // Výpůjčka jen výbavy se do tras nepočítá (motorka tam není).
+    if (r.isGearOnly) continue;
     final s = r.displayStatus;
     if (r.inRentalTerm) {
       // běžící termín (i nevyzvednutá rezervace — na tu pobočku zákazník jede)

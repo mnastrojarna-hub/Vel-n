@@ -66,6 +66,8 @@ import '../features/routes/routes_provider.dart' show CustomNavArgs;
 import '../features/routes/my_experiences_provider.dart' show RouteBuilderArgs;
 import '../features/routes/my_experiences_screen.dart';
 import '../features/routes/ride_detail_screen.dart';
+import '../features/gear_rental/gear_contract.dart' show kGearRentalRoute;
+import '../features/gear_rental/gear_order_screen.dart';
 
 /// All route paths — mirrors router.js screen IDs.
 class Routes {
@@ -185,6 +187,7 @@ const _authRequired = {
   Routes.home,
   Routes.reservations,
   Routes.booking,
+  kGearRentalRoute,
   Routes.payment,
   Routes.success,
   Routes.profile,
@@ -413,6 +416,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               const BookingDebugWrapper(),
               context,
             ),
+          ),
+          // Půjčení samotné výbavy (Domů → „Půjčit samotnou výbavu“).
+          GoRoute(
+            path: kGearRentalRoute,
+            pageBuilder: (context, state) =>
+                routerSwipeBackPage(state.pageKey, const GearOrderScreen(), context),
           ),
           GoRoute(
             path: Routes.payment,

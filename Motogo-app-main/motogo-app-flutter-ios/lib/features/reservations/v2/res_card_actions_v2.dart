@@ -130,10 +130,17 @@ class ResCardActionsV2 extends ConsumerWidget {
   Widget _second(String label, VoidCallback onPressed) =>
       primary ? MgBtnGhostDark(label: label, onTap: onPressed, height: 48) : MgBtnText(label: label, onTap: onPressed);
 
+  /// Výpůjčka výbavy po skončení / po zrušení: jen Detail (bez hodnocení
+  /// jízdy a bez obnovy — GEAR_RENTAL_APP.md §5).
+  bool get _gearDetailOnly =>
+      reservation.isGearOnly &&
+      (reservation.displayStatus == ResStatus.dokoncene || reservation.displayStatus == ResStatus.cancelled);
+
   List<Widget> _row(AppTranslations tr, ResStatus st) {
     final r = reservation;
     Widget half(Widget w) => Expanded(child: w);
     const gap = SizedBox(width: 8);
+    if (_gearDetailOnly) return [half(_main(tr.detail))];
     switch (st) {
       case ResStatus.aktivni:
         // Se SOS: Detail jen na šířku popisku, SOS jako ikona (48 px) — ať se
@@ -169,6 +176,7 @@ class ResCardActionsV2 extends ConsumerWidget {
         ? resWordsFit(context, l, MgType.button, w - ghostPad, minScale: 0.8)
         : resWordsFit(context, l, _textStyle, w - textPad, minScale: 0.8);
     final half = (width - gap) / 2;
+    if (_gearDetailOnly) return mainFits(tr.detail, width);
     switch (st) {
       case ResStatus.aktivni:
         if (reservation.sosAllowed) {
@@ -192,6 +200,7 @@ class ResCardActionsV2 extends ConsumerWidget {
   /// The same actions as [_row], one per row (narrow phones).
   List<Widget> _stacked(AppTranslations tr, ResStatus st) {
     const gap = SizedBox(height: 8);
+    if (_gearDetailOnly) return [_main(tr.detail)];
     switch (st) {
       case ResStatus.aktivni:
         return [

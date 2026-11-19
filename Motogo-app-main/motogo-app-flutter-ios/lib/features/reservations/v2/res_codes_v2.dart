@@ -22,7 +22,11 @@ class ResCodeV2Item {
   final String value;
   final bool sent;
   final bool protocolNote;
-  const ResCodeV2Item({required this.label, required this.value, required this.sent, this.protocolNote = false});
+
+  /// Vlastní text poznámky „protokol nejdřív“ (výpůjčka výbavy:
+  /// `gearProtocolFirst`); null = text motorky.
+  final String? noteText;
+  const ResCodeV2Item({required this.label, required this.value, required this.sent, this.protocolNote = false, this.noteText});
 }
 
 /// Dark look of `ResAccessCodesCard` inside CO TEĎ (V22 `.cd` tiles 1 → 2
@@ -115,7 +119,7 @@ class ResCodesV2 extends StatelessWidget {
         ],
         for (final c in codes) ...[
           _tile(context, ++n, c.label, c.value, c.sent,
-              sub: c.protocolNote ? tr.tr('v2UxRpProtocolFirst') : null, subWarn: c.protocolNote),
+              sub: c.protocolNote ? (c.noteText ?? tr.tr('v2UxRpProtocolFirst')) : null, subWarn: c.protocolNote),
         ],
         if (ownGearNoLocker)
           Container(

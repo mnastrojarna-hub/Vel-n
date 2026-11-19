@@ -61,7 +61,10 @@ class HomeReservationCard extends StatelessWidget {
                 color: MotoGoColors.g100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: reservation.motoImage != null
+              // Výpůjčka jen výbavy: ikona výbavy místo fotky motorky.
+              child: reservation.isGearOnly
+                  ? const Icon(Icons.checkroom, color: MotoGoColors.g500)
+                  : reservation.motoImage != null
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: MgImage(

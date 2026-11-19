@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalog/catalog_provider.dart';
+import '../gear_rental/gear_contract.dart';
+import '../gear_rental/gear_offer_provider.dart';
 import '../reservations/reservation_provider.dart';
 import '../routes/routes_provider.dart';
 
@@ -10,6 +12,11 @@ Future<void> refreshHome(WidgetRef ref) async {
   ref.invalidate(motorcyclesProvider);
   ref.invalidate(filteredMotorcyclesProvider);
   ref.invalidate(reservationsProvider);
+  // Vstup „Půjčit samotnou výbavu“ (nastavení, ceník, pobočky, zavření).
+  ref.invalidate(gearRentalSettingsProvider);
+  ref.invalidate(gearPricesProvider);
+  ref.invalidate(gearBranchesProvider);
+  ref.invalidate(gearClosuresProvider);
   await ref.read(motorcyclesProvider.future);
 }
 

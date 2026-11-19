@@ -190,7 +190,8 @@ class _ReservationsScreenState extends ConsumerState<ReservationsScreen> {
                         onEdit: () => context.push('/reservations/${res.id}/edit'),
                         onCancel: () => _showCancelDialog(context, ref, res),
                         // „Obnovit" = obnovit a zaplatit (D3), ne nový výběr motorky.
-                        onRestore: () => restoreAndPay(context, ref, res),
+                        // Výpůjčka výbavy se neobnovuje (customer_restore_booking ji neumí).
+                        onRestore: res.isGearOnly ? null : () => restoreAndPay(context, ref, res),
                       ),
                     );
                   },

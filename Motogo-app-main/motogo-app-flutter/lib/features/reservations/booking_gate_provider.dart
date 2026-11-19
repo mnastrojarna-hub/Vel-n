@@ -31,11 +31,17 @@ class BookingGateInfo {
 /// Info o bráně pro detail rezervace (karta kódů + postup při vyzvednutí).
 /// Starý backend bez RPC / chyba / offline → „bez brány“ (nic se nerozbije).
 /// Znovu se načte, jakmile se vydá kód motorky (kód brány jde s ním) —
-/// sleduje jen tenhle příznak, ne každé obnovení kódů.
+/// sleduje jen tenhle příznak, ne každé obnovení kódů. Výpůjčka jen výbavy
+/// kód motorky nemá: bránu server vydá s kódem šatny (`accessories`), proto
+/// se sleduje i ten (u motorky jen jedno načtení navíc).
 final bookingGateInfoProvider = FutureProvider.autoDispose
     .family<BookingGateInfo, String>((ref, bookingId) async {
-  ref.watch(doorCodesProvider(bookingId).select((v) =>
-      v.valueOrNull?.any((c) => c.codeType == 'motorcycle' && c.sentToCustomer) ?? false));
+  ref.watch(doorCodesProvider(bookingId).select((v) {
+    final list = v.valueOrNull ?? const <DoorCode>[];
+    final moto = list.any((c) => c.codeType == 'motorcycle' && c.sentToCustomer);
+    final locker = list.any((c) => c.codeType == 'accessories' && c.sentToCustomer);
+    return (moto ? 1 : 0) | (locker ? 2 : 0);
+  }));
   try {
     final res = await MotoGoSupabase.client
         .rpc('get_booking_gate_info', params: {'p_booking_id': bookingId});

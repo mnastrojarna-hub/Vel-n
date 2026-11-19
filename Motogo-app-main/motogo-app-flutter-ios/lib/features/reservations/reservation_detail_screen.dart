@@ -253,7 +253,13 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                       width: double.infinity,
                       // Guard na prázdnou URL — jinak build spadne na
                       // „No host specified in URI" (ErrorWidget).
-                      child: (res.motoImage == null || res.motoImage!.isEmpty)
+                      child: res.isGearOnly
+                          // Výpůjčka jen výbavy: ikona výbavy místo fotky.
+                          ? Container(
+                              color: MotoGoColors.g200,
+                              child: const Icon(Icons.checkroom, size: 56, color: MotoGoColors.g500),
+                            )
+                          : (res.motoImage == null || res.motoImage!.isEmpty)
                           ? Container(
                               color: MotoGoColors.g200,
                               child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
@@ -312,8 +318,11 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   /// Restore cancelled booking — check moto availability first (tri-state:
   /// výpadek spojení ≠ obsazená motorka), pak obnova + platba. Logika v
   /// `booking_restore.dart`.
-  Future<void> _restoreBooking(BuildContext context, Reservation res) =>
-      restoreAndPay(context, ref, res);
+  Future<void> _restoreBooking(BuildContext context, Reservation res) async {
+    // Výpůjčka výbavy se neobnovuje (customer_restore_booking ji neumí).
+    if (res.isGearOnly) return;
+    await restoreAndPay(context, ref, res);
+  }
 
   /// Open rental contract for this specific booking — reálný dokument 1:1
   /// (podepsané HTML z generated_documents / soubor z bucketu documents).

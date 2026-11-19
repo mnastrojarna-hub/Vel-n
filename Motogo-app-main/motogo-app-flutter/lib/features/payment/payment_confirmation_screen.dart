@@ -18,6 +18,9 @@ import 'payment_provider.dart';
 import 'payment_ui_helpers.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/confirmation_view_v2.dart';
+import '../gear_rental/gear_contract.dart' show gearPaymentIdsProvider;
+import '../gear_rental/gear_done_screen.dart';
+import '../reservations/gear/gear_booking_api.dart' show fetchGearBookingJson;
 
 /// Stav dokladů na děkovací stránce — parita s webovou `/potvrzeni`:
 /// - `verified` = doklady OK (nebo dětská motorka, kde se nevyžadují) → zelený badge
@@ -93,6 +96,10 @@ class _PaymentConfirmationScreenState
   /// Údaje rezervace z DB se nepodařilo načíst (offline hned po platbě).
   bool _bkFailed = false;
 
+  /// Výpůjčka jen výbavy (`booking_kind='gear'`) → potvrzení výbavy
+  /// (`GearDoneScreen`) místo motorky.
+  String? _gearId;
+
   void _retryLoad() {
     setState(() => _bkFailed = false);
     _loadConfirmInfo();
@@ -139,12 +146,14 @@ class _PaymentConfirmationScreenState
       return;
     }
 
+    // Výpůjčka výbavy zaplacená z objednávky výbavy → vlastní potvrzení.
+    if (ref.read(gearPaymentIdsProvider).contains(bookingId)) return;
     try {
       // 1) Nacti booking + moto.license_required jedním selectem (RLS dovolí
       //    vlastníkovi přes bookings_user_select policy).
       final res = await MotoGoSupabase.client
           .from('bookings')
-          .select('id, user_id, moto_id, start_date, end_date, pickup_method, '
+          .select('id, user_id, moto_id, booking_kind, start_date, end_date, pickup_method, '
               'pickup_address, pickup_time, return_time, return_method, '
               'late_pickup_discount_amount, '
               'motorcycles!moto_id(model, license_required, '
@@ -153,6 +162,13 @@ class _PaymentConfirmationScreenState
           .maybeSingle()
           .timeout(const Duration(seconds: 15));
 
+      // Výpůjčka jen výbavy (řádek skrytý RLS do „Zobrazit v aplikaci“, nebo
+      // booking_kind='gear') → potvrzení výbavy, motorková cesta beze změny.
+      final gear = res == null ? await fetchGearBookingJson(bookingId) : null;
+      if (res?['booking_kind'] == 'gear' || gear?['booking_kind'] == 'gear') {
+        if (mounted) setState(() => _gearId = bookingId);
+        return;
+      }
       if (res == null) {
         if (!mounted) return;
         _bkFailed = true;
@@ -238,6 +254,10 @@ class _PaymentConfirmationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final lastId = ref.watch(lastConfirmedBookingProvider);
+    if (lastId != null && (_gearId == lastId || ref.watch(gearPaymentIdsProvider).contains(lastId))) {
+      return GearDoneScreen(bookingId: lastId);
+    }
     final draft = ref.watch(bookingDraftProvider);
     final moto = ref.watch(bookingMotoProvider);
     final dateFmt = DateFormat('d. M. yyyy');

@@ -1,14 +1,28 @@
 import 'dart:async';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 import '../../core/auth_guard.dart';
 import '../../core/friendly_error.dart' show FriendlyError;
 import '../../core/supabase_client.dart';
 import '../catalog/catalog_provider.dart';
 import 'reservation_models.dart';
+import 'gear/gear_booking_api.dart';
 
 /// Booking select query — matches _getBookingById from reservations-ui.js.
+/// `booking_branch` = pobočka výpůjčky výbavy (bookings.branch_id; motorka
+/// bere pobočku dál z motorky — viz Reservation.fromJson).
 const _bookingSelect =
+    '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type)), '
+    'booking_branch:branches!branch_id(name, address, city, gps_lat, gps_lng, type)';
+const _bookingSelectLegacy =
     '*, motorcycles!moto_id(*, branches(name, address, city, gps_lat, gps_lng, type))';
+
+/// Starší schéma bez vazby bookings.branch_id → branches: select bez
+/// `booking_branch` (nic jiného se nemění).
+bool _isRelationError(Object e) =>
+    e is PostgrestException &&
+    (e.code == 'PGRST200' || e.code == 'PGRST201' || e.message.contains('relationship'));
 
 /// Funkční odkaz „napsat recenzi na Googlu“ (shodný s `app_settings.google_review_url`
 /// a s výchozí hodnotou edge fn `send-booking-email`). Starý krátký tvar
@@ -61,6 +75,12 @@ final reservationsProvider =
     yield [];
     return;
   }
+  // Realtime gear řádky při vypnutém gear_rental.app_visible nedoručí (RLS)
+  // → po návratu appky do popředí seznam načíst znovu.
+  try {
+    final life = AppLifecycleListener(onResume: ref.invalidateSelf);
+    ref.onDispose(life.dispose);
+  } catch (_) {/* bez WidgetsBinding (unit test) */}
 
   // Initial fetch
   final initial = await _fetchBookings(user.id);
@@ -87,19 +107,41 @@ final reservationsProvider =
 
 Future<List<Reservation>> _fetchBookings(String userId) async {
   try {
-    final res = await MotoGoSupabase.client
-        .from('bookings')
-        .select(_bookingSelect)
-        .eq('user_id', userId)
-        .order('start_date', ascending: false);
-
-    return (res as List)
+    final gearF = fetchMyGearBookings();
+    List res;
+    try {
+      res = await MotoGoSupabase.client
+          .from('bookings')
+          .select(_bookingSelect)
+          .eq('user_id', userId)
+          .order('start_date', ascending: false);
+    } catch (e) {
+      if (!_isRelationError(e)) rethrow;
+      res = await MotoGoSupabase.client
+          .from('bookings')
+          .select(_bookingSelectLegacy)
+          .eq('user_id', userId)
+          .order('start_date', ascending: false);
+    }
+    final table = res
         .map((e) => Reservation.fromJson(e as Map<String, dynamic>))
         .toList();
+    return mergeGearBookings(table, await gearF);
   } catch (e) {
     if (await handleAuthError(e)) return [];
     rethrow;
   }
+}
+
+/// Sloučí řádky tabulky s výpůjčkami výbavy z RPC: deduplikace podle `id`
+/// (řádek tabulky vyhrává — vidí ho až po zapnutí app_visible), pořadí
+/// podle začátku sestupně jako select.
+List<Reservation> mergeGearBookings(List<Reservation> table, List<Reservation> gear) {
+  if (gear.isEmpty) return table;
+  final ids = {for (final r in table) r.id};
+  final extra = gear.where((g) => !ids.contains(g.id)).toList();
+  if (extra.isEmpty) return table;
+  return [...table, ...extra]..sort((a, b) => b.startDate.compareTo(a.startDate));
 }
 
 /// True when the user currently has a binding rental in progress — an active
@@ -109,6 +151,9 @@ Future<List<Reservation>> _fetchBookings(String userId) async {
 final hasActiveReservationProvider = Provider<bool>((ref) {
   final list = ref.watch(reservationsProvider).valueOrNull ?? const [];
   return list.any((r) {
+    // Výpůjčka výbavy nezamyká (zámek je kvůli GPS a SOS u motorky;
+    // GEAR_RENTAL_APP.md §5 — potvrdit s majitelem).
+    if (r.isGearOnly) return false;
     // Kalendářně běžící termín (i před vydáním motorky — displayStatus je
     // do podpisu protokolu „Nadcházející“, zámek má ale platit celý termín).
     if (r.inRentalTerm) return true;
@@ -124,14 +169,26 @@ final reservationByIdProvider =
   ref.listen(motorcyclesProvider, (prev, next) {
     if (prev != null && next.hasValue) ref.invalidateSelf();
   });
-  final res = await MotoGoSupabase.client
-      .from('bookings')
-      .select(_bookingSelect)
-      .eq('id', id)
-      .maybeSingle();
+  Map<String, dynamic>? res;
+  try {
+    res = await MotoGoSupabase.client
+        .from('bookings')
+        .select(_bookingSelect)
+        .eq('id', id)
+        .maybeSingle();
+  } catch (e) {
+    if (!_isRelationError(e)) rethrow;
+    res = await MotoGoSupabase.client
+        .from('bookings')
+        .select(_bookingSelectLegacy)
+        .eq('id', id)
+        .maybeSingle();
+  }
 
-  if (res == null) return null;
-  return Reservation.fromJson(res);
+  if (res != null) return Reservation.fromJson(res);
+  // Výpůjčku výbavy přímý select nevidí, dokud Velín nezapne app_visible.
+  final gear = await fetchGearBookingJson(id);
+  return gear == null ? null : Reservation.fromGearRpc(gear);
 });
 
 /// Door codes for a booking (branch_door_codes) — realtime stream.

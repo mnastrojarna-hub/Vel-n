@@ -7,6 +7,7 @@ import '../../../core/widgets/net_image.dart';
 import '../../../core/router.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../reservation_models.dart';
+import '../gear/gear_models.dart';
 import '../../../core/currency.dart';
 
 /// Reservation card — mirrors _renderResCard() from reservations-ui.js.
@@ -58,7 +59,13 @@ class ReservationCard extends StatelessWidget {
                       // Prázdná URL by spadla už v buildu („No host specified
                       // in URI") → globální ErrorWidget „Restartujte aplikaci".
                       // Guard: bez URL rovnou placeholder.
-                      child: (reservation.motoImage == null ||
+                      // Výpůjčka jen výbavy: ikona výbavy místo fotky motorky.
+                      child: reservation.isGearOnly
+                          ? Container(
+                              color: MotoGoColors.g200,
+                              child: const Center(child: Icon(Icons.checkroom, size: 40, color: MotoGoColors.g500)),
+                            )
+                          : (reservation.motoImage == null ||
                               reservation.motoImage!.isEmpty)
                           ? Container(
                               color: MotoGoColors.g200,
@@ -130,6 +137,21 @@ class ReservationCard extends StatelessWidget {
               ),
             ),
 
+            // Výpůjčka výbavy: kusy s velikostmi + pobočka.
+            if (reservation.isGearOnly)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                child: Text(
+                  [
+                    gearSummary(reservation, t(context)),
+                    if (gearBranchName(reservation.branchName).isNotEmpty) gearBranchName(reservation.branchName),
+                  ].where((s) => s.isNotEmpty).join(' · '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: MotoGoColors.g600, height: 1.35),
+                ),
+              ),
+
             // Info row
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
@@ -169,6 +191,10 @@ class ReservationCard extends StatelessWidget {
           _ActionBtn(label: '📋 ${t(context).detail}', onTap: onTap, primary: true),
           if (onEdit != null) _ActionBtn(label: '✏️ ${t(context).edit}', onTap: onEdit!, primary: true),
         ];
+      // Výpůjčka výbavy: bez hodnocení jízdy a bez obnovy (GEAR_RENTAL_APP.md §5).
+      case ResStatus.dokoncene when reservation.isGearOnly:
+      case ResStatus.cancelled when reservation.isGearOnly:
+        return [_ActionBtn(label: '📋 ${t(context).detail}', onTap: onTap, primary: true)];
       case ResStatus.dokoncene:
         return [
           _ActionBtn(label: '📋 ${t(context).tr('rideDetail')}', onTap: onTap, primary: true),

@@ -20,6 +20,7 @@ import 'home_funnel_parts.dart' show homeFilterCardKey;
 import 'home_funnel_photo.dart' show homeFunnelPhotoGuess;
 import 'home_funnel_v2.dart';
 import 'home_header_v2.dart';
+import 'home_gear_row_v2.dart';
 import 'home_record_row_v2.dart';
 import 'home_review_card_v2.dart' show homeHiddenReviewsProvider;
 import 'home_state.dart';
@@ -140,6 +141,9 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
             ),
             HomeCalcRowV2(funnel: funnel),
             const HomeRecordRowV2(),
+            // „Půjčit samotnou výbavu“ (majitel 2026-11-19) — jen při zapnuté
+            // a v appce viditelné službě a otevřené pobočce.
+            const HomeGearRowV2(),
             // Stará Domů: MotoFilterPanel(showDates: true) — jeho v2 vzhled
             // (sbalená karta, TERMÍN + kalendář, obsah filtru) je v panelu.
             KeyedSubtree(key: homeFilterCardKey, child: const MotoFilterPanel(showDates: true)),

@@ -13,6 +13,7 @@ import '../loyalty/loyalty_rank_card.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import 'home_actions.dart';
+import 'widgets/home_gear_row.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_reservations_section.dart';
 import '../../core/widgets/state_views.dart';
@@ -94,6 +95,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               SliverToBoxAdapter(
                 child: HomeReservationsSection(activeReservations: activeReservations),
               ),
+
+              // ===== PŮJČIT SAMOTNOU VÝBAVU (jen při zapnuté službě a otevřené pobočce) =====
+              const SliverToBoxAdapter(child: HomeGearRow()),
 
               // ===== FILTR MOTOREK (sdílený s Rezervovat; tady i s kalendářem) =====
               const SliverToBoxAdapter(

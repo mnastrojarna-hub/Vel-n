@@ -38,6 +38,7 @@ bool v2TabTapIgnored(int tab, String location) {
   final p = _path(location);
   if (tab != v2TabIndexFor(p)) return false;
   return p == '/booking' ||
+      p == '/gear-rental' ||
       p == '/payment' ||
       (p.startsWith('/sos/')) ||
       (p.startsWith('/reservations/') && p.endsWith('/edit'));

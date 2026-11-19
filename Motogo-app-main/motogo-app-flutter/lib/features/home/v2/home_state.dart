@@ -144,6 +144,8 @@ HomeSnapshot deriveHomeState({
   Reservation? last;
   for (final r in reservations) {
     if (r.displayStatus != ResStatus.dokoncene) continue;
+    // Výpůjčka jen výbavy nemá jízdu k hodnocení.
+    if (r.isGearOnly) continue;
     if (last == null || r.endDate.isAfter(last.endDate)) last = r;
   }
   if (last != null && !hiddenReviews.contains(last.id)) {
