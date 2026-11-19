@@ -26,5 +26,12 @@ Majitel: „Pokračuj podle PLAN_5.0.2.md, plus …“, „jinak dokonči plán�
 - **Půjčit samotnou výbavu (krok G):** na Domů mezi akčními řádky (vedle „Zaznamenat jízdu“, „Spočítat cenu“) řádek/tlačítko „Půjčit samotnou výbavu“ → pod ním flow půjčení výbavy **1:1 jako web** („zatím 1:1“ → žádné „zdarma od ranku 15“). Pozor na vzhled (oba vzhledy, oba stromy). Zadání: `GEAR_RENTAL_APP.md`, `GEAR_RENTAL_APP_EDIT.md` (§10), web `motogo-web-php/pages/pujceni-obleceni.php`, `js/gear-rental*.js`.
 - Povinná aktualizace 5.0.1: hotovo (živě ručně 17. 11.; PR #2230 = migrace `20261119a` jako záznam).
 
+## 6. Stav 19. 11. ~19:30 UTC
+- HOTOVO (commity `8aa3e8ac`, `c8e28ebf`, `7cda34a6`; testy prošly, `diff -rq` 20): Zpět nikdy nezavře appku (`lib/core/mg_back_dispatcher.dart`, `safe_router_config.dart`, `main.dart` obou stromů `onNavigationNotification: mgClaimBack`, Domů registruje `mgHomeScroll`; test `test/v2/ux/v502_back_test.dart`); Místa bez falešné chyby (`all_pois_screen.dart`, test `v502_places_test.dart`); hranatý avatar Profilu (nav + hlavička); karta ranku na Domů zrušena (v2; `home_rank_card_v2.dart` smazán, `lookonly_core_test` upraven); mapa cesty: štítek odhadu jen jednou (`ride_map.dart`, test v `road_line_test.dart`). Max. rychlost 290 km/h NENÍ ze sloučení (cesta bere max z jízd = GPS skok v jízdě) → majiteli jen informace.
+- POZOR (poučení): `ride_map.dart` a další mapové soubory mají iOS `userAgentPackageName` — nikdy `cp` do iOS, jen patch.
+- SQL `get_user_pois` připravené a vyzkoušené v `$S/v502/20261119b_get_user_pois_restore.sql` — čeká na „ano“ majitele, pak do `supabase/migrations/` + STATE_3/STATE_6.
+- BĚŽÍ: workflow `v502-gear-rental`, běh `wf_769754ca-328` (task woedxx4gu): map → build display + order → sceptic + visual → fix → verify. Skript `/root/.claude/projects/-home-user-Vel-n/a6963cc3-5559-53b7-8eeb-5fd2cdb37dae/workflows/scripts/v502-gear-rental-wf_769754ca-328.js`; po restartu `Workflow({scriptPath, resumeFromRunId: 'wf_769754ca-328'})`. Vstup na Domů se ukáže jen při `gear_rental.app_visible=true` (živě false) → majitel zapne „Zobrazit v aplikaci“ až po vydání.
+- Pak: verze (5.0.2+120?) potvrdit, DESIGN_V22.md (výjimky 5.0.2: karta ranku pryč, hranatý avatar), STATE_6 záznam appky, galerie, PR.
+
 ## 4. iOS build 5.0.1 (jen informace)
 Codemagic iOS spadl na Apple 403 „A required agreement is missing or has expired“ → majitel (Account Holder) musí přijmout novou smlouvu na developer.apple.com a zkontrolovat App Store Connect → Firma/Smlouvy; pak build znovu. V kódu nic.
