@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
+import '../../core/mg_back_dispatcher.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../catalog/widgets/moto_card.dart';
@@ -32,6 +33,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    mgHomeScroll = _scrollCtrl; // „Zpět“ na kořeni Domů → nahoru
     _scrollCtrl.addListener(() {
       final show = _scrollCtrl.offset > 600;
       if (show != _showScrollToTop) setState(() => _showScrollToTop = show);
@@ -48,6 +50,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    if (identical(mgHomeScroll, _scrollCtrl)) mgHomeScroll = null;
     _scrollCtrl.dispose();
     super.dispose();
   }

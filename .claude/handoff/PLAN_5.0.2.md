@@ -18,5 +18,13 @@ Snímek majitele (Android, 12:03): detail cesty „Balkán 2026“, 17.–19. 10
 - K ověření (majitel si nestěžoval, jen poznámka): statistiky vypadají podezřele — max. rychlost 290 km/h, Ø 83 km/h, 1 178 km za 14 h 8 min v sedle, „38× · 44 h 29 min pauzy“ při 3 dnech; zkontroluj, jestli sloučení nepočítá úseky „odhad bez GPS“ (přímé spojnice) do rychlosti/vzdálenosti. Pokud ano, navrhni majiteli opravu, neměň bez dotazu.
 - Kde hledat: `features/routes/**` (detail jízdy/cesty, `ride_map.dart`, sloučení jízd), pravidlo „trasy vždy po silnicích“ (2026-11-08) platí dál.
 
+## 5. Doplňky majitele 19. 11. (stejné kolo)
+Majitel: „Pokračuj podle PLAN_5.0.2.md, plus …“, „jinak dokonči plán“.
+- **Místa (bod 2) — PŘÍČINA NALEZENA:** živá DB nemá funkci `public.get_user_pois()` (z `20260629_community_routes_pois.sql`; tabulky `user_pois`/`poi_ratings` existují, `rate_poi`/`poi_rating_summary` ano). Appka (`userPoisProvider`) → 404 → karta chyby i když se katalog načte (Android i iOS, 5.0.1). Oprava: (a) appka: chyba jen když selže katalog bez dat (`all_pois_screen.dart` ř. ~515 a ~630); (b) SQL `20261119b_get_user_pois_restore.sql` = funkce z 20260629, práva skupiny A dle `20261011d` (authenticated + service_role, bez anon/PUBLIC) — **SQL jen po „ano“ majitele**, opraví i nainstalovanou 5.0.1.
+- **Profil hranatý:** tlačítko Profil ve spodním menu je kulaté → hranaté (squircle jako logo MotoGo / odznak ranku); totéž avatar vlevo nahoře v hlavičce stránky Profil.
+- **Věrnostní rank „Startér“:** rámeček je „hrozně veliký“, majitel by ho „úplně zrušil, je zavádějící“ — řekl „na stránce Domů“ (snímek ale ukazuje Profil → „Můj klub“). Ověř, kde karta je; když je jen v Profilu, zeptej se, než ji odstraníš.
+- **Půjčit samotnou výbavu (krok G):** na Domů mezi akčními řádky (vedle „Zaznamenat jízdu“, „Spočítat cenu“) řádek/tlačítko „Půjčit samotnou výbavu“ → pod ním flow půjčení výbavy **1:1 jako web** („zatím 1:1“ → žádné „zdarma od ranku 15“). Pozor na vzhled (oba vzhledy, oba stromy). Zadání: `GEAR_RENTAL_APP.md`, `GEAR_RENTAL_APP_EDIT.md` (§10), web `motogo-web-php/pages/pujceni-obleceni.php`, `js/gear-rental*.js`.
+- Povinná aktualizace 5.0.1: hotovo (živě ručně 17. 11.; PR #2230 = migrace `20261119a` jako záznam).
+
 ## 4. iOS build 5.0.1 (jen informace)
 Codemagic iOS spadl na Apple 403 „A required agreement is missing or has expired“ → majitel (Account Holder) musí přijmout novou smlouvu na developer.apple.com a zkontrolovat App Store Connect → Firma/Smlouvy; pak build znovu. V kódu nic.

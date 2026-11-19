@@ -513,13 +513,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
         slivers: [
           if (hub) SliverToBoxAdapter(child: TrasyLeadV2(t(context).tr('poiBrowseSub'))),
           if (!sourcesLoading &&
-              ((catalogAsync.hasError && catalogPois.isEmpty) || userAsync.hasError))
+              catalogAsync.hasError && catalogPois.isEmpty)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: MgErrorView(
                   compact: true,
-                  error: catalogAsync.hasError ? catalogAsync.error : userAsync.error,
+                  error: catalogAsync.error,
                   what: t(context).tr('eoPlacesLoadFail'),
                   onRetry: () {
                     ref.invalidate(catalogPoisProvider);
@@ -627,13 +627,13 @@ class _AllPoisScreenState extends ConsumerState<AllPoisScreen>
             // Místa se nenačetla (offline bez cache / chyba) → důvod + Zkusit
             // znovu; dřív tiše prázdný seznam i mapa.
             if (!sourcesLoading &&
-                ((catalogAsync.hasError && catalogPois.isEmpty) || userAsync.hasError))
+                catalogAsync.hasError && catalogPois.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                   child: MgErrorView(
                     compact: true,
-                    error: catalogAsync.hasError ? catalogAsync.error : userAsync.error,
+                    error: catalogAsync.error,
                     what: t(context).tr('eoPlacesLoadFail'),
                     onRetry: () {
                       ref.invalidate(catalogPoisProvider);
