@@ -430,7 +430,7 @@ class Reservation {
       // zatímco server rezervaci pořád držel a FAB nabízel doplacení.
       final age = DateTime.now().difference(createdAt);
       // Webová výpůjčka výbavy: server ji drží 4 h (auto_cancel web).
-      final window = isGearOnly && bookingSource == 'web' ? const Duration(hours: 4) : paymentTimeoutDuration;
+      final window = isGearOnly && bookingSource == 'web' ? gearWebPaymentWindow : paymentTimeoutDuration;
       if (age >= window) return ResStatus.cancelled;
     }
     if (status == 'completed' || endedBySos) return ResStatus.dokoncene;

@@ -47,6 +47,12 @@ class GearRentalSettings {
 
 final gearRentalSettingsProvider =
     FutureProvider<GearRentalSettings>((ref) async {
+  // Velín přepne „Zobrazit v aplikaci“ → po návratu do appky platí i bez
+  // obnovení Domů / restartu (vstup výbavy na Domů hlídá tento stav).
+  try {
+    final l = AppLifecycleListener(onResume: ref.invalidateSelf);
+    ref.onDispose(l.dispose);
+  } catch (_) {}
   try {
     final row = await MotoGoSupabase.client
         .from('app_settings')
@@ -142,6 +148,7 @@ void payGearBooking(
     amount: amount,
     label: t(context).tr('groPayLabel'),
     bookingCreatedAt: createdAt,
+    gear: true,
   );
   final ids = ref.read(gearPaymentIdsProvider);
   ref.read(gearPaymentIdsProvider.notifier).state = {...ids, bookingId};

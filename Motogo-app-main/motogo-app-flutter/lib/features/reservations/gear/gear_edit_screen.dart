@@ -7,6 +7,7 @@ import '../../../core/v2/flag/v2_scope.dart';
 import '../../../core/v2/widgets/mg_dialog.dart';
 import '../../booking/self_service_gear.dart';
 import '../../gear_rental/gear_contract.dart';
+import '../../gear_rental/gear_quote.dart' show gearNormSize, gearSizeFree;
 import '../reservation_models.dart';
 import '../v2/res_gear_edit_v2.dart';
 import '../widgets/res_cancel_dialog.dart';
@@ -82,7 +83,12 @@ class _GearEditState extends ConsumerState<GearEditScreen> {
               key: k,
               label: row?.label ?? tr.tr(k),
               sizes: list,
-              soldOut: {for (final s in list) if (_avail?[k]?[s] == 0 && s != _orig[k]) s},
+              // Jako objednávka a web: sledovaný druh bez velikosti v mapě
+              // = vyprodáno, XXL = 2XL; zarezervovaná velikost vždy jde.
+              soldOut: {
+                for (final s in list)
+                  if (_avail != null && gearNormSize(s) != gearNormSize(_orig[k]) && !gearSizeFree({'sizes': _avail}, k, s)) s,
+              },
               selected: _sel[k] ?? _orig[k]!,
               orig: _orig[k]!,
             );

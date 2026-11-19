@@ -4,7 +4,7 @@
 const Map<String, Map<String, String>> translationsExt66GearOrderD = {
   'pl': {
     'gearRentCta': 'Wypożycz samo wyposażenie',
-    'gearRentSub': 'Kask, kurtka, spodnie, rękawice i buty – bez motocykla',
+    'gearRentSub': 'Na dzień albo na cały urlop',
     'groPayLabel': 'Wypożyczenie wyposażenia',
     'groTitle': 'Wynajem odzieży motocyklowej bez motocykla',
     'groLead': 'Masz własny motocykl, ale brakuje ci wyposażenia — albo jedziesz z kumplem jako pasażer? Wypożycz kask, kurtkę, spodnie, rękawice i buty na dzień albo na cały urlop.',
@@ -105,7 +105,7 @@ const Map<String, Map<String, String>> translationsExt66GearOrderD = {
   },
   'uk': {
     'gearRentCta': 'Орендувати лише екіпірування',
-    'gearRentSub': 'Шолом, куртка, штани, рукавиці й черевики – без мотоцикла',
+    'gearRentSub': 'На день або на всю відпустку',
     'groPayLabel': 'Оренда екіпірування',
     'groTitle': 'Оренда мотоекіпірування без мотоцикла',
     'groLead': 'Маєш власний мотоцикл, але бракує екіпірування — або їдеш із другом як пасажир? Орендуй шолом, куртку, штани, рукавиці й мотоботи на день або на всю відпустку.',

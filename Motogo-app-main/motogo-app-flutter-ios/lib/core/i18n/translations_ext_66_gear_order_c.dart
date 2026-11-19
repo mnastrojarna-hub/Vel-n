@@ -4,7 +4,7 @@
 const Map<String, Map<String, String>> translationsExt66GearOrderC = {
   'fr': {
     'gearRentCta': 'Louer uniquement l\'équipement',
-    'gearRentSub': 'Casque, blouson, pantalon, gants et bottes – sans moto',
+    'gearRentSub': 'Pour une journée ou pour toutes tes vacances',
     'groPayLabel': 'Location d\'équipement',
     'groTitle': 'Location d\'équipement moto sans moto',
     'groLead': 'Tu as ta propre moto mais pas d\'équipement — ou tu roules en passager avec un ami ? Loue casque, veste, pantalon, gants et bottes pour une journée ou pour toutes tes vacances.',
@@ -105,7 +105,7 @@ const Map<String, Map<String, String>> translationsExt66GearOrderC = {
   },
   'nl': {
     'gearRentCta': 'Alleen uitrusting huren',
-    'gearRentSub': 'Helm, jas, broek, handschoenen en laarzen – zonder motor',
+    'gearRentSub': 'Voor een dag of je hele vakantie',
     'groPayLabel': 'Uitrustingshuur',
     'groTitle': 'Motorkleding huren zonder motor',
     'groLead': 'Heb je een eigen motor maar geen uitrusting — of rijd je als duopassagier mee met een vriend? Huur een helm, jas, broek, handschoenen en laarzen voor een dag of je hele vakantie.',

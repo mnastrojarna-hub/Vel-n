@@ -6,6 +6,7 @@ import '../../core/i18n/i18n_provider.dart';
 import '../../core/router.dart' show Routes;
 import '../../core/v2/flag/v2_scope.dart';
 import '../auth/auth_provider.dart';
+import '../reservations/gear/gear_booking_api.dart' show fetchGearBookingJson;
 import 'gear_contract.dart';
 import 'gear_offer_provider.dart';
 import 'gear_order_state.dart';
@@ -79,7 +80,15 @@ class _GearOrderScreenState extends ConsumerState<GearOrderScreen> {
     final lang = Localizations.localeOf(context).languageCode;
     final created = await c.submit(lang);
     if (created == null || !mounted) return;
-    payGearBooking(context, ref, bookingId: created.bookingId, amount: created.amount, createdAt: DateTime.now());
+    // Odpočet platby = serverové okno od VZNIKU rezervace (přepsaný koncept
+    // má původní created_at); nejde-li zjistit, od teď.
+    var createdAt = DateTime.now();
+    if (created.reused) {
+      final at = DateTime.tryParse('${(await fetchGearBookingJson(created.bookingId))?['created_at'] ?? ''}');
+      if (!mounted) return;
+      if (at != null) createdAt = at;
+    }
+    payGearBooking(context, ref, bookingId: created.bookingId, amount: created.amount, createdAt: createdAt);
   }
 
   @override

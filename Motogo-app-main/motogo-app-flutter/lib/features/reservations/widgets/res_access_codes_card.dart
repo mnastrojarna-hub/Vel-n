@@ -100,13 +100,22 @@ class ResAccessCodesCard extends ConsumerWidget {
             (res.isGearOnly ? !res.isHandedOver : !res.protocolSigned);
         final protocolText = res.isGearOnly ? t(context).tr('gearProtocolFirst') : null;
         final ownGearNoLocker = !res.isGearOnly && res.ownGearEffective && !codes.any((c) => c.codeType == 'accessories');
-        final lockerLabel = gate.lockerDoor != null
-            ? t(context).tr('lockerCodeDoor').replaceAll('{n}', '${gate.lockerDoor}')
-            : t(context).tr('lockerCode');
+        // Výbava na OBSLUŽNÉ pobočce (Mezná): bez šatny i displeje — kód je
+        // „Kód výpůjčky“, zákazník ho nahlásí obsluze (jako e-mail, FIX-R1).
+        final gearStaffed = res.isGearOnly && !res.isSelfService;
+        final lockerLabel = gearStaffed
+            ? t(context).tr('gearCodeStaffed')
+            : gate.lockerDoor != null
+                ? t(context).tr('lockerCodeDoor').replaceAll('{n}', '${gate.lockerDoor}')
+                : t(context).tr('lockerCode');
+        final codeHint = gearStaffed ? t(context).tr('gearCodeStaffedHint') : null;
+        // Výbava: tykání jako ostatní texty výpůjčky (motorka beze změny).
+        final gateHint = t(context).tr(res.isGearOnly ? 'gearGateCodeHint' : 'gateCodeHint');
         // v2 vzhled (kill-switch app_v2_ui): tytéž kódy, pořadí i uvolnění.
         if (MgV2.on(context)) {
           return ResCodesV2(
             gateCode: gate.gateCode,
+            gateHint: gateHint,
             codes: [
               for (final c in sorted)
                 ResCodeV2Item(
@@ -117,6 +126,7 @@ class ResAccessCodesCard extends ConsumerWidget {
                   sent: c.sentToCustomer,
                   protocolNote: protocolNote(c),
                   noteText: protocolText,
+                  hint: c.sentToCustomer ? codeHint : null,
                 ),
             ],
             ownGearNoLocker: ownGearNoLocker,
@@ -132,7 +142,7 @@ class ResAccessCodesCard extends ConsumerWidget {
                 ResDetailRow(label: t(context).tr('gateCodeLabel'), value: gate.gateCode, bold: true),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(t(context).tr('gateCodeHint'),
+                  child: Text(gateHint,
                       style: const TextStyle(fontSize: 11, height: 1.35, fontWeight: FontWeight.w600, color: MotoGoColors.g500)),
                 ),
               ],
@@ -150,6 +160,12 @@ class ResAccessCodesCard extends ConsumerWidget {
                           : (localizeServerReason(t(context), c.withheldReason) ?? t(context).tr('awaitingDocs')),
                       bold: c.sentToCustomer,
                     ),
+                    if (c.sentToCustomer && codeHint != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(codeHint,
+                            style: const TextStyle(fontSize: 11, height: 1.35, fontWeight: FontWeight.w600, color: MotoGoColors.g500)),
+                      ),
                     if (protocolNote(c))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),

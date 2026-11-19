@@ -40,13 +40,21 @@ class GearDocsCard extends ConsumerWidget {
       );
     }
     final dob = reason.contains('narození');
-    final why = localizeServerReason(tr, reason);
-    final text = [
-      tr.tr('gearDocsMissing'),
-      if (why != null && why.isNotEmpty) why,
+    // Důvody serveru (`; `): „chybí OP (líc a rub) nebo pas“ jen opakuje
+    // výzvu k nahrání → bez něj; jiné (strana OP, datum narození, 18+) zůstanou.
+    final parts = reason.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final idMissing = parts.any((p) => p.contains('OP') || p.contains('pas')) || (!dob && !reason.contains('18'));
+    final why = [
+      for (final p in parts)
+        if (p != 'Chybí OP (líc a rub) nebo pas') localizeServerReason(tr, p),
+    ].whereType<String>().where((s) => s.isNotEmpty);
+    final lines = [
+      if (idMissing) tr.tr('gearDocsMissing'),
+      ...why,
       if (dob) tr.tr('gearDocsDobHint'),
-      tr.tr('gearDocsIdOnly'),
-    ].join('\n');
+      if (idMissing) tr.tr('gearDocsIdOnly'),
+    ];
+    final text = (lines.isEmpty ? [tr.tr('gearDocsMissing')] : lines).join('\n');
     void upload() => openGearIdDocs(context, ref, res.id);
     return GearNoteBox(
       key: const ValueKey('gear-docs-missing'),

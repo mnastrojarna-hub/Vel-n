@@ -15,6 +15,7 @@ import 'package:motogo_app/features/reservations/gear/gear_edit_screen.dart';
 import 'package:motogo_app/features/reservations/reservation_models.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:motogo_app/features/reservations/v2/reservation_card_v2.dart';
+import 'package:motogo_app/features/reservations/v2/res_status_v2.dart';
 import 'package:motogo_app/features/reservations/widgets/res_detail_tab_content.dart';
 import 'package:motogo_app/features/reservations/widgets/res_rating_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -140,6 +141,29 @@ void main() {
     await t.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('kódy a postup výbavy: tykání, pojmenované velikosti; obslužná = „Kód výpůjčky“ pro obsluhu', (t) async {
+    final r = gearRes(status: 'reserved', from: 0, to: 1);
+    await pumpV2(t, detail(r, codes: [code('accessories', '4321')]),
+        size: const Size(412, 4000), overrides: gearOverrides([r]));
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.text(_cs('gearGateCodeHint')), findsOneWidget);
+    expect(find.text(_cs('gateCodeHint')), findsNothing);
+    expect(find.textContaining('helma M, bunda L, kalhoty L, rukavice M'), findsOneWidget);
+    await t.pump(const Duration(seconds: 2));
+
+    final m = gearRes(status: 'reserved', from: 0, to: 1, self: false);
+    await t.pumpWidget(const SizedBox());
+    await pumpV2(t, detail(m, codes: [code('accessories', '5555')]),
+        size: const Size(412, 4000), overrides: gearOverrides([m]));
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.text('5555'), findsOneWidget);
+    expect(find.text(_cs('gearCodeStaffed')), findsOneWidget);
+    expect(find.text(_cs('gearCodeStaffedHint')), findsOneWidget);
+    expect(find.textContaining(_cs('lockerCode')), findsNothing);
+    expect(find.text(_cs('gearProtocolFirst')), findsNothing);
+    await t.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('chybí doklad: výzva jen k OP / pasu s tlačítkem nahrání', (t) async {
     final r = gearRes();
     await pumpV2(t, detail(r), size: const Size(412, 4000), overrides: gearOverrides([r], docs: 'Chybí OP (líc a rub) nebo pas'));
@@ -147,6 +171,8 @@ void main() {
     expect(find.byKey(const ValueKey('gear-docs-missing')), findsOneWidget);
     expect(find.byKey(const ValueKey('gear-docs-btn')), findsOneWidget);
     expect(find.textContaining(_cs('gearDocsIdOnly')), findsOneWidget);
+    // surový důvod serveru jen opakuje výzvu → bez něj (jen jednou)
+    expect(find.textContaining('Chybí OP (líc a rub) nebo pas'), findsNothing);
     await t.pump(const Duration(seconds: 2));
   });
 
@@ -160,8 +186,29 @@ void main() {
     await pumpV2(t, detail(r), size: const Size(412, 4000), overrides: gearOverrides([r], appVisible: false));
     await t.pump(const Duration(milliseconds: 600));
     expect(find.text(_cs('gearPayWeb')), findsOneWidget);
-    // Nezaplacenou nelze upravit ani stornovat (web: až po zaplacení).
-    expect(find.text(_cs('cancelReservationBtn')), findsNothing);
+    // Nezaplacenou nelze upravit; zrušit jde jen z pruhu nezaplacené (web:
+    // „Zrušit rezervaci“ vedle „Pokračovat k platbě“), ne stornem placené.
+    expect(find.text(_cs('editReservation')), findsNothing);
+    expect(find.byKey(const ValueKey('gear-cancel-pending-btn')), findsOneWidget);
+    expect(find.text(_cs('cancelReservationBtn')), findsOneWidget);
+    // Seznam / hero: nezaplacená = jantarový tón jako u motorky (ne zelená).
+    expect(resPayFlag(r, null), ResPayFlag.unpaid);
+    expect(resPayFlag(gearRes(), null), ResPayFlag.none);
+    expect(resPayTarget(r, null), isNull);
+    await t.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('nezaplacená: „Zrušit rezervaci“ → potvrzení „Ano, zrušit“ (bez RPC při „Ne“)', (t) async {
+    final r = gearRes(status: 'pending', pay: 'unpaid');
+    await pumpV2(t, detail(r), size: const Size(412, 4000), overrides: gearOverrides([r]));
+    await t.pump(const Duration(milliseconds: 600));
+    await t.tap(find.byKey(const ValueKey('gear-cancel-pending-btn')));
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.text(_cs('gearCancelPendingAsk')), findsOneWidget);
+    expect(find.text(_cs('gearCancelPendingYes')), findsOneWidget);
+    await t.tap(find.text(_cs('gearCancelPendingNo')));
+    await t.pump(const Duration(milliseconds: 600));
+    expect(find.text(_cs('gearCancelPendingAsk')), findsNothing);
     await t.pump(const Duration(seconds: 2));
   });
 

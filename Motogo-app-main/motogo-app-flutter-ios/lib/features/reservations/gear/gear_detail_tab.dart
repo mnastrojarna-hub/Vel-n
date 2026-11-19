@@ -101,7 +101,8 @@ class GearDetailTabContent extends ConsumerWidget {
         ? [
             for (final l in res.gearLines)
               ResDetailRow(
-                label: [gearLineLabel(l, tr, labels), if (gearLineSizes(l).isNotEmpty) '(${gearLineSizes(l)})'].join(' '),
+                // Pojmenované velikosti („helma M, bunda L, …“) jako potvrzení výpůjčky.
+                label: [gearLineLabel(l, tr, labels), if (gearLineSizes(l).isNotEmpty) '(${gearLineNamedSizes(l, tr, labels)})'].join(' '),
                 value: tr.trArgs('gearPerDay', {'price': Money.czk(l.perDay)}),
               ),
           ]
@@ -138,7 +139,7 @@ class GearDetailTabContent extends ConsumerWidget {
             tone: MgTone.warn,
             title: tr.tr('gearPendingTitle'),
             text: tr.tr('gearPendingText'),
-            actions: [_payButton(context, ref, appVisible)],
+            actions: [_payButton(context, ref, appVisible), _cancelPendingButton(context, ref)],
           ),
 
         ResDetailCard(children: [
@@ -208,5 +209,15 @@ class GearDetailTabContent extends ConsumerWidget {
       return MgBtnInk(key: const ValueKey('gear-pay-btn'), label: label, onTap: onTap, height: 44);
     }
     return ResDetailButton.primary(key: const ValueKey('gear-pay-btn'), emoji: '💳', label: label, onTap: onTap);
+  }
+
+  /// Web: v pruhu nezaplacené výpůjčky i „Zrušit rezervaci“ (RPC).
+  Widget _cancelPendingButton(BuildContext context, WidgetRef ref) {
+    final label = t(context).tr('cancelReservationBtn');
+    void onTap() => cancelGearPending(context, ref, res);
+    if (MgV2.on(context)) {
+      return MgBtnGhostLight(key: const ValueKey('gear-cancel-pending-btn'), label: label, onTap: onTap, height: 44);
+    }
+    return ResDetailButton.outlined(key: const ValueKey('gear-cancel-pending-btn'), emoji: '🗑️', label: label, onTap: onTap);
   }
 }

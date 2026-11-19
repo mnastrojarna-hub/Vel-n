@@ -153,6 +153,9 @@ Future<void> _orderFlow(WidgetTester tester, {required bool v2}) async {
   expect(pc.amount, 240);
   expect(pc.flowType, PaymentFlowType.booking);
   expect(pc.label, 'Výpůjčka výbavy');
+  // Platba ví, že jde o výbavu (4h webové okno, bez rušení řádku appkou).
+  expect(pc.gear, isTrue);
+  expect(pc.bookingCreatedAt, isNotNull);
   expect(c.read(gearPaymentIdsProvider), contains('b-1'));
   expect(find.text('PAYMENT'), findsOneWidget);
   expect(tester.takeException(), isNull);

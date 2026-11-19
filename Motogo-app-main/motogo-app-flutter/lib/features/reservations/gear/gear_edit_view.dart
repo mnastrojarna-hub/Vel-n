@@ -7,6 +7,7 @@ import '../../../core/widgets/mg_nav_controls.dart';
 import '../widgets/res_detail_button.dart';
 import '../widgets/res_detail_card.dart';
 import 'gear_note.dart';
+import 'gear_old_tile.dart';
 
 /// Data a akce obrazovky úprav výpůjčky výbavy — stav drží
 /// `GearEditScreen`, vzhled kreslí [GearEditOldView] / `ResGearEditV2`.
@@ -191,24 +192,31 @@ class GearEditOldView extends StatelessWidget {
         const SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final s in r.sizes)
-            ChoiceChip(
+            GearOldTile(
               key: ValueKey('gear-size-${r.key}-$s'),
-              label: Text(s),
+              label: s,
               selected: r.selected == s,
+              enabled: !r.soldOut.contains(s),
               tooltip: r.soldOut.contains(s) ? tr.tr('gearSoldOut') : null,
-              onSelected: r.soldOut.contains(s) || data.busy ? null : (_) => actions.onPickSize(r.key, s),
-              selectedColor: MotoGoColors.green,
+              onTap: data.busy ? null : () => actions.onPickSize(r.key, s),
             ),
         ]),
         const SizedBox(height: 10),
       ],
       Text(data.sizesChanged ? tr.tr('gearSizesFree') : tr.tr('gearSizesPick'), style: _p),
       const SizedBox(height: 10),
-      ResDetailButton.primary(
-        key: const ValueKey('gear-sizes-save'),
-        emoji: '✓',
-        label: tr.tr('gearSizesSave'),
-        onTap: data.sizesChanged && !data.busy ? actions.onSaveSizes : () {},
+      // Bez změny šedé a neaktivní (dřív svítilo zeleně a nic nedělalo).
+      IgnorePointer(
+        ignoring: !data.sizesChanged || data.busy,
+        child: Opacity(
+          opacity: data.sizesChanged ? 1 : 0.45,
+          child: ResDetailButton.primary(
+            key: const ValueKey('gear-sizes-save'),
+            emoji: '✓',
+            label: tr.tr('gearSizesSave'),
+            onTap: data.sizesChanged && !data.busy ? actions.onSaveSizes : () {},
+          ),
+        ),
       ),
     ]);
   }
@@ -221,12 +229,12 @@ class GearEditOldView extends StatelessWidget {
       const SizedBox(height: 10),
       Wrap(spacing: 6, runSpacing: 6, children: [
         for (final i in items)
-          ChoiceChip(
+          GearOldTile(
             key: ValueKey('gear-remove-${i.key}'),
-            label: Text(i.size.isEmpty ? i.label : '${i.label} ${i.size}'),
+            label: i.size.isEmpty ? i.label : '${i.label} ${i.size}',
             selected: data.removePick == i.key,
-            onSelected: data.busy ? null : (_) => actions.onChooseRemove(i.key),
-            selectedColor: MotoGoColors.redBg,
+            danger: true,
+            onTap: data.busy ? null : () => actions.onChooseRemove(i.key),
           ),
       ]),
       const SizedBox(height: 10),

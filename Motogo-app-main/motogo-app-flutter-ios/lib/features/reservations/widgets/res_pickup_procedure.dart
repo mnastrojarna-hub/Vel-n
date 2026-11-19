@@ -59,7 +59,9 @@ class ResPickupProcedure extends ConsumerWidget {
     final gate = ref.watch(bookingGateInfoProvider(res.id)).valueOrNull ?? BookingGateInfo.none;
     final door = gate.lockerDoor;
     final steps = <String>[
-      if (gate.hasGate)
+      // Výpůjčka výbavy: brána jen v upozornění `gearGateNotice` (web 1:1,
+      // tykání) — krok 1 motorky (vykání, parkování) se neopakuje.
+      if (gate.hasGate && !res.isGearOnly)
         gate.gateCode != null
             ? tr.tr('procStep1Code').replaceAll('{gate}', gate.gateCode!)
             : tr.tr('procStep1NoCode'),

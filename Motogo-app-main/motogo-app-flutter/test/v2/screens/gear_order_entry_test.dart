@@ -45,7 +45,7 @@ void main() {
       expect(find.descendant(of: find.byKey(const ValueKey('home-gear-row')), matching: find.byType(MgIconTileDark)),
           findsOneWidget);
       expect(find.text('Půjčit samotnou výbavu'), findsOneWidget);
-      expect(find.text('Helma, bunda, kalhoty, rukavice i boty – bez motorky'), findsOneWidget);
+      expect(find.text('Na den nebo na celou dovolenou'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

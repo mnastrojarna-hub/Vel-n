@@ -114,6 +114,21 @@ String gearLineLabel(GearLine l, AppTranslations tr, [Map<String, String>? price
 String gearLineSizes(GearLine l) =>
     [for (final k in l.keys) if ((l.sizes[k] ?? '').isNotEmpty) l.sizes[k]!].join(', ');
 
+/// Velikosti řádku pojmenovaně jako potvrzení výpůjčky (web done):
+/// komplet „helma M, bunda L, …“ (němčina s velkým písmenem), kus jen „43“.
+String gearLineNamedSizes(GearLine l, AppTranslations tr, [Map<String, String>? priceLabels]) {
+  String name(String k) {
+    final p = priceLabels?[k];
+    final s = (p != null && p.trim().isNotEmpty) ? p : tr.tr(k);
+    return tr.lang == 'de' ? s : s.toLowerCase();
+  }
+
+  return [
+    for (final k in l.keys)
+      if ((l.sizes[k] ?? '').isNotEmpty) l.isSet ? '${name(k)} ${l.sizes[k]}' : l.sizes[k]!,
+  ].join(', ');
+}
+
 /// Souhrn kusů na kartu: „Komplet bez bot (M, L, L, M) · Boty 43“.
 String gearSummary(Reservation r, AppTranslations tr, [Map<String, String>? priceLabels]) {
   if (r.gearLines.isEmpty) {

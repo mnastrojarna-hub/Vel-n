@@ -245,6 +245,10 @@ void main() {
         'gearBookingTitle', 'gearItems', 'gearPerDay', 'gearProtocolFirst', 'gearProcStep2', 'gearProcStep3',
         'gearProcReturn', 'gearStaffedPickup', 'gearAddItemContact', 'gearDocsIdOnly', 'gearSizesTitle',
         'gearRemoveSuccess', 'gearEditDatesWeb', 'gearEditDatesWebHint', 'gearPayNow', 'gearPayWeb',
+        // doplněno po kontrole (dřív chyběly → zákazník viděl název klíče)
+        'gearSizesFree', 'gearRemoveServerCalc', 'gearPayExpiredBody', 'gearCodeStaffed', 'gearCodeStaffedHint',
+        'gearGateCodeHint', 'gearCancelPendingAsk', 'gearCancelPendingYes', 'gearCancelPendingNo',
+        'gearCancelPendingReason', 'gearCancelPendingDone', 'gearErrLastItem', 'gearRemoveLastNote', 'gearRentSub',
       ];
       final ph = RegExp(r'\{[a-zA-Z]+\}');
       for (final k in keys) {

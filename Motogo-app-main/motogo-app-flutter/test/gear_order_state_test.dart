@@ -2,6 +2,7 @@
 // price.js, gear-rental.js): pořadí kontroly, parametry create_web_gear_booking
 // (souhlasy, koncept), mapování chyb, kalendář, sklad, serverová cena, poukaz.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/payment_pending_marker.dart';
 import 'package:motogo_app/features/gear_rental/gear_contract.dart';
 import 'package:motogo_app/features/gear_rental/gear_offer_provider.dart';
 import 'package:motogo_app/features/gear_rental/gear_order_api.dart';
@@ -295,5 +296,42 @@ void main() {
     c.preselectSize('helmet', 'M');
     expect(c.state.sel['helmet'], 'M');
     expect(gearDayState(today, today: today, maxAhead: 1, closures: const [], branchId: 'v'), GearDay.free);
+  });
+
+  test('form error disappears once its field is valid; server errors stay', () async {
+    final api = FakeApi(ok);
+    final c = make(api)..configure(data());
+    fillAll(c);
+    c.setVop(false);
+    c.setGdpr(false);
+    await c.submit('cs');
+    expect(c.state.error?.key, 'groErrAgree');
+    c.setVop(true);
+    expect(c.state.error?.key, 'groErrAgree'); // GDPR ještě chybí
+    c.setGdpr(true);
+    expect(c.state.error, isNull);
+    // chyba serveru se stejným textem (consents_required) zůstane do dalšího odeslání
+    final s = make(FakeApi((fn, p) => fn == 'create_web_gear_booking' ? {'error': 'consents_required'} : ok(fn, p)))
+      ..configure(data());
+    fillAll(s);
+    await s.submit('cs');
+    expect(s.state.error?.key, 'groErrAgree');
+    s.setNote('x');
+    expect(s.state.error?.key, 'groErrAgree');
+  });
+
+  test('draft with a payment still in flight is not overwritten (new booking instead)', () async {
+    SharedPreferences.setMockInitialValues({'gear_draft_u1': 'old-draft'});
+    await PaymentPendingMarker.set('old-draft', clientSecret: 'pi_1_secret_x');
+    final api = FakeApi(ok);
+    final c = make(api);
+    await settle();
+    expect(c.state.draftId, 'old-draft');
+    c.configure(data());
+    fillAll(c);
+    final created = await c.submit('cs');
+    expect(api.of('create_web_gear_booking').single['p_existing_booking_id'], isNull);
+    expect(created?.bookingId, 'b-new');
+    expect(created?.reused, isFalse);
   });
 }

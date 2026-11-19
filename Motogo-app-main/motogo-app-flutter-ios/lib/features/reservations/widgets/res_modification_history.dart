@@ -655,7 +655,9 @@ class ResModificationHistory extends StatelessWidget {
           value: _fmtDT(res.cancelledAt!),
           valueColor: MotoGoColors.red,
         ),
-      ResDetailRow(label: t(context).tr('cancelledBy'), value: source),
+      // Výbava z RPC zdroj storna nenese (i auto-storno po 4 h) → bez řádku.
+      if (!(res.isGearOnly && res.cancelledBySource == null))
+        ResDetailRow(label: t(context).tr('cancelledBy'), value: source),
       if (res.cancellationReason != null &&
           res.cancellationReason!.isNotEmpty)
         ResDetailRow(label: t(context).tr('reasonLabel'), value: res.cancellationReason!),

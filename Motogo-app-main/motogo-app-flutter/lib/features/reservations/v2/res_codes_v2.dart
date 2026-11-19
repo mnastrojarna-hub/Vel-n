@@ -26,7 +26,11 @@ class ResCodeV2Item {
   /// Vlastní text poznámky „protokol nejdřív“ (výpůjčka výbavy:
   /// `gearProtocolFirst`); null = text motorky.
   final String? noteText;
-  const ResCodeV2Item({required this.label, required this.value, required this.sent, this.protocolNote = false, this.noteText});
+
+  /// Neutrální poznámka pod kódem (výbava na obslužné pobočce: „nahlas ho
+  /// obsluze“); ukáže se, jen když není poznámka „protokol nejdřív“.
+  final String? hint;
+  const ResCodeV2Item({required this.label, required this.value, required this.sent, this.protocolNote = false, this.noteText, this.hint});
 }
 
 /// Dark look of `ResAccessCodesCard` inside CO TEĎ (V22 `.cd` tiles 1 → 2
@@ -34,6 +38,9 @@ class ResCodeV2Item {
 /// moto), the withheld logic and the release action; this only draws them.
 class ResCodesV2 extends StatelessWidget {
   final String? gateCode;
+
+  /// Text pod kódem brány (null = `gateCodeHint`).
+  final String? gateHint;
   final List<ResCodeV2Item> codes;
   final bool ownGearNoLocker;
   final VoidCallback? onRelease;
@@ -46,6 +53,7 @@ class ResCodesV2 extends StatelessWidget {
   const ResCodesV2({
     super.key,
     required this.gateCode,
+    this.gateHint,
     required this.codes,
     required this.ownGearNoLocker,
     required this.onRelease,
@@ -57,6 +65,7 @@ class ResCodesV2 extends StatelessWidget {
 
   const ResCodesV2.loading({super.key})
       : gateCode = null,
+        gateHint = null,
         codes = const [],
         ownGearNoLocker = false,
         onRelease = null,
@@ -73,6 +82,7 @@ class ResCodesV2 extends StatelessWidget {
     required this.onMessages,
     required this.onCall,
   })  : gateCode = null,
+        gateHint = null,
         codes = const [],
         ownGearNoLocker = false,
         onRelease = null,
@@ -115,11 +125,11 @@ class ResCodesV2 extends StatelessWidget {
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         head,
         if (gateCode != null) ...[
-          _tile(context, ++n, tr.tr('gateCodeLabel'), gateCode!, true, sub: tr.tr('gateCodeHint')),
+          _tile(context, ++n, tr.tr('gateCodeLabel'), gateCode!, true, sub: gateHint ?? tr.tr('gateCodeHint')),
         ],
         for (final c in codes) ...[
           _tile(context, ++n, c.label, c.value, c.sent,
-              sub: c.protocolNote ? (c.noteText ?? tr.tr('v2UxRpProtocolFirst')) : null, subWarn: c.protocolNote),
+              sub: c.protocolNote ? (c.noteText ?? tr.tr('v2UxRpProtocolFirst')) : c.hint, subWarn: c.protocolNote),
         ],
         if (ownGearNoLocker)
           Container(

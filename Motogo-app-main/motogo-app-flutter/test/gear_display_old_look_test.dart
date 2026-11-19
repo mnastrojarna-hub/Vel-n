@@ -79,6 +79,16 @@ void main() {
     expect(find.text(_cs('cancelReservationBtn')), findsOneWidget);
   });
 
+  testWidgets('starý vzhled: obslužná pobočka — „Kód výpůjčky“ + nahlásit obsluze (ne šatna)', (t) async {
+    final r = gearRes(self: false, from: 0, to: 1);
+    await pumpV2(t, detail(r, codes: [code('accessories', '5555')]),
+        size: const Size(412, 4000), v2: false, overrides: gearOverrides([r]));
+    await t.pump(const Duration(milliseconds: 500));
+    expect(find.text(_cs('gearCodeStaffed')), findsOneWidget);
+    expect(find.text(_cs('gearCodeStaffedHint')), findsOneWidget);
+    expect(find.textContaining(_cs('lockerCode')), findsNothing);
+  });
+
   testWidgets('starý vzhled: úprava — velikosti, termín na webu, storno', (t) async {
     final r = gearRes();
     await pumpV2(t, GearEditScreen(res: r, onBack: () {}, onReload: () async {}),
@@ -89,6 +99,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey('gear-size-boots-44')));
     await t.pump(const Duration(milliseconds: 300));
     expect(find.text(_cs('gearSizesFree')), findsOneWidget);
+    expect(find.text('gearSizesFree'), findsNothing);
     expect(find.byKey(const ValueKey('gear-edit-dates-web')), findsOneWidget);
     expect(find.byKey(const ValueKey('gear-edit-cancel')), findsOneWidget);
   });

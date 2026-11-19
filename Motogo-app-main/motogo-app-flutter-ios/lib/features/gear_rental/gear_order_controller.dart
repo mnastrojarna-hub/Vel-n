@@ -4,13 +4,20 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/payment_pending_marker.dart';
 import '../../core/supabase_client.dart';
+import '../auth/auth_provider.dart' show authStateProvider;
 import 'gear_order_api.dart';
 import 'gear_order_state.dart';
 import 'gear_quote.dart';
 
-/// Přihlášený zákazník (id + e-mail účtu); testy ho podstrčí.
-final gearOrderUserProvider = Provider<(String?, String)>((ref) {
+/// Přihlášený zákazník (id + e-mail účtu); testy ho podstrčí. Sleduje
+/// přihlášení/odhlášení — jiný účet bez restartu appky = jiný e-mail
+/// i klíč konceptu (jinak `email_mismatch`).
+final gearOrderUserProvider = Provider.autoDispose<(String?, String)>((ref) {
+  try {
+    ref.watch(authStateProvider);
+  } catch (_) {}
   try {
     final u = MotoGoSupabase.currentUser;
     return (u?.id, (u?.email ?? '').trim().toLowerCase());
@@ -34,7 +41,11 @@ Future<void> gearForgetDraft(String? userId) async {
 class GearCreated {
   final String bookingId;
   final double amount;
-  const GearCreated(this.bookingId, this.amount);
+
+  /// Přepsaný nezaplacený koncept (`reused`) — server mu nechá původní
+  /// `created_at`, 4h okno na zaplacení tedy běží od vzniku konceptu.
+  final bool reused;
+  const GearCreated(this.bookingId, this.amount, {this.reused = false});
 }
 
 final gearOrderProvider = StateNotifierProvider.autoDispose<GearOrderController, GearOrderState>((ref) {
@@ -65,8 +76,20 @@ class GearOrderController extends StateNotifier<GearOrderState> {
     if (!mounted) return;
     final s = state.copy();
     f(s);
+    // Chyba kontroly formuláře zmizí, jakmile její pole platí (dřív visela
+    // v souhrnu i doku až do dalšího odeslání); chyby serveru zůstanou.
+    final e = s.error;
+    if (e == null) {
+      _formErr = false;
+    } else if (_formErr && _check(s) != e) {
+      s.error = null;
+      _formErr = false;
+    }
     state = s;
   }
+
+  /// Zobrazená chyba pochází z [validate] (ne z odpovědi serveru).
+  bool _formErr = false;
 
   Future<void> _loadDraft() async {
     try {
@@ -90,6 +113,14 @@ class GearOrderController extends StateNotifier<GearOrderState> {
 
   /// Zaplacená rezervace → koncept už nepoužívat (web `paidView`).
   Future<void> clearDraft() => _saveDraft(null);
+
+  static Future<bool> _paymentPending(String id) async {
+    try {
+      return await PaymentPendingMarker.isPending(id);
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void dispose() {
@@ -400,9 +431,10 @@ class GearOrderController extends StateNotifier<GearOrderState> {
   static final _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   /// Kontrola ve webovém pořadí; null = vše v pořádku.
-  GearMsg? validate() {
-    final s = state;
-    if (s.branch == null) return const GearMsg('groErrBranch');
+  GearMsg? validate() => _check(state);
+
+  static GearMsg? _check(GearOrderState s) {
+    if (s.data == null || s.branch == null) return const GearMsg('groErrBranch');
     if (s.start == null || s.end == null) return const GearMsg('groErrDates');
     final ks = s.keys;
     if (ks.isEmpty) return const GearMsg('groErrItems');
@@ -453,9 +485,17 @@ class GearOrderController extends StateNotifier<GearOrderState> {
     final bad = validate();
     if (bad != null) {
       _set((s) => s.error = bad);
+      _formErr = true;
       return null;
     }
     _set((s) => s.busy = true);
+    // Koncept s rozběhnutou platbou (3DS / „Platba se ověřuje“) nepřepisovat —
+    // server by změnil cenu rezervace s otevřenou platbou → nová rezervace.
+    final draft = state.draftId;
+    if (draft != null && await _paymentPending(draft)) {
+      if (!mounted) return null;
+      await _saveDraft(null);
+    }
     void done([GearMsg? m]) => _set((s) {
           s.busy = false;
           s.error = m;
@@ -472,7 +512,7 @@ class GearOrderController extends StateNotifier<GearOrderState> {
     if (o['success'] == true && id.isNotEmpty) {
       await _saveDraft(id);
       done();
-      return GearCreated(id, gearNum(o['amount'] ?? o['total']));
+      return GearCreated(id, gearNum(o['amount'] ?? o['total']), reused: o['reused'] == true);
     }
     final e = '${o['error'] ?? ''}';
     final d = state.data!;

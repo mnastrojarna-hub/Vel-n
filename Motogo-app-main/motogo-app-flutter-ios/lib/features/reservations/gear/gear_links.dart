@@ -1,10 +1,16 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/theme.dart';
+import '../../../core/v2/flag/v2_scope.dart';
+import '../../../core/v2/widgets/mg_dialog.dart';
+import '../../auth/widgets/toast_helper.dart';
 import '../../gear_rental/gear_contract.dart';
 import '../reservation_models.dart';
+import '../reservation_provider.dart' show cancelBooking;
+import 'gear_booking_api.dart' show refreshGearBookings;
 
 /// Webové odkazy výpůjčky výbavy + zaplacení rozdělané výpůjčky.
 
@@ -51,8 +57,52 @@ Future<void> payGearOrWeb(BuildContext context, WidgetRef ref, Reservation r) as
   }
   if (!context.mounted) return;
   if (settings.appVisible) {
-    payGearBooking(context, ref, bookingId: r.id, amount: r.totalPrice);
+    // Okno na zaplacení běží od vzniku rezervace (server 4 h), ne od otevření platby.
+    payGearBooking(context, ref, bookingId: r.id, amount: r.totalPrice, createdAt: r.createdAt);
   } else {
     await openGearWeb(gearWebResumeUri(r.id, lang));
   }
+}
+
+/// Zrušit rozdělanou (nezaplacenou) výpůjčku — web „Zrušit rezervaci“ v pruhu
+/// nezaplacené výpůjčky: potvrzení → RPC `cancel_booking_tracked` (žádný
+/// přímý zápis řádku), pak znovu načíst rezervace.
+Future<void> cancelGearPending(BuildContext context, WidgetRef ref, Reservation r) async {
+  final tr = t(context);
+  final bool? yes;
+  if (MgV2.on(context)) {
+    yes = await showMgConfirm(
+      context,
+      title: tr.tr('gearCancelPendingAsk'),
+      safeLabel: tr.tr('gearCancelPendingNo'),
+      actionLabel: tr.tr('gearCancelPendingYes'),
+      destructive: true,
+    );
+  } else {
+    yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(tr.tr('gearCancelPendingAsk'),
+            style: const TextStyle(fontSize: MotoGoTypo.sizeH3, fontWeight: MotoGoTypo.w900)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr.tr('gearCancelPendingNo'))),
+          TextButton(
+            key: const ValueKey('gear-cancel-pending-yes'),
+            onPressed: () => Navigator.pop(c, true),
+            style: TextButton.styleFrom(foregroundColor: MotoGoColors.red),
+            child: Text(tr.tr('gearCancelPendingYes')),
+          ),
+        ],
+      ),
+    );
+  }
+  if (yes != true || !context.mounted) return;
+  final res = await cancelBooking(r.id, tr.tr('gearCancelPendingReason'));
+  if (!context.mounted) return;
+  refreshGearBookings(ref, r.id);
+  showMotoGoToast(context,
+      icon: res.ok ? '✓' : '⚠️',
+      title: tr.tr(res.ok ? 'success' : 'error'),
+      message: tr.tr(res.ok ? 'gearCancelPendingDone' : 'cancelError'));
 }

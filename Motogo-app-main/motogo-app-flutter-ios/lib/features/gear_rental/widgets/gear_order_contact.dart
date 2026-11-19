@@ -119,6 +119,9 @@ class GearOrderContact extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.dark,
                 foregroundColor: Colors.white,
+                // Finite width: the app theme sets minimumSize Size.fromHeight(52)
+                // (infinite width), which crashes inside a Row.
+                minimumSize: const Size(64, 48),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: Text(tr.tr('groVoucherApply')),

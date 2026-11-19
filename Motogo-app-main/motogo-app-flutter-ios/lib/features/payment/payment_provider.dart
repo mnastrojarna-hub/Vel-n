@@ -4,7 +4,7 @@ import '../../core/booking_rules.dart';
 import '../../core/widgets/pickup_location_link.dart';
 import 'booking_upsell_provider.dart' show BookingUpsellItem;
 import 'net_error.dart';
-export '../../core/booking_rules.dart' show paymentTimeoutDuration;
+export '../../core/booking_rules.dart' show paymentTimeoutDuration, gearWebPaymentWindow;
 
 /// Payment methods from Supabase payment_methods table.
 /// Mirrors apiFetchPaymentMethods() from api-payment-methods.js.
@@ -224,6 +224,11 @@ class PaymentContext {
   /// „Rezervace je znovu potvrzená".
   final bool isRestore;
 
+  /// Platba výpůjčky jen výbavy (`booking_kind='gear'`, web rezervace):
+  /// server ji drží [gearWebPaymentWindow] a po vypršení sám zruší (appka
+  /// řádek nesmí měnit přímo); maily a doklady po zaplacení řeší webhook.
+  final bool gear;
+
   const PaymentContext({
     required this.flowType,
     this.bookingId,
@@ -236,6 +241,7 @@ class PaymentContext {
     this.pendingEditChanges,
     this.bookingCreatedAt,
     this.isRestore = false,
+    this.gear = false,
   });
 }
 

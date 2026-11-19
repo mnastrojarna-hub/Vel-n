@@ -4,7 +4,7 @@
 const Map<String, Map<String, String>> translationsExt66GearOrderA = {
   'cs': {
     'gearRentCta': 'Půjčit samotnou výbavu',
-    'gearRentSub': 'Helma, bunda, kalhoty, rukavice i boty – bez motorky',
+    'gearRentSub': 'Na den nebo na celou dovolenou',
     'groPayLabel': 'Výpůjčka výbavy',
     'groTitle': 'Půjčení motooblečení bez motorky',
     'groLead': 'Máš vlastní motorku, ale chybí ti výbava — nebo jedeš s kamarádem jako spolujezdec? Půjč si helmu, bundu, kalhoty, rukavice i boty na den nebo na celou dovolenou.',
@@ -105,7 +105,7 @@ const Map<String, Map<String, String>> translationsExt66GearOrderA = {
   },
   'en': {
     'gearRentCta': 'Rent gear only',
-    'gearRentSub': 'Helmet, jacket, trousers, gloves and boots – without a bike',
+    'gearRentSub': 'For a day or for your whole holiday',
     'groPayLabel': 'Gear rental',
     'groTitle': 'Motorcycle gear rental without a bike',
     'groLead': 'Got your own bike but no gear — or riding pillion with a friend? Rent a helmet, jacket, trousers, gloves and boots for a day or for your whole holiday.',

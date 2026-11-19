@@ -185,15 +185,17 @@ class GearSizeOutChipV2 extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minWidth: 48, minHeight: 44),
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: MgColors.well,
             borderRadius: BorderRadius.circular(MgRadius.action),
             border: Border.all(color: MgColors.line),
           ),
-          child: Text(label,
-              style: MgType.small.copyWith(
-                  fontWeight: FontWeight.w700, color: MgColors.disabled, decoration: TextDecoration.lineThrough)),
+          // Jako BkSizeChip: Row(min) drží šířku čipu podle textu (alignment by ve Wrapu roztáhl čip na celý řádek).
+          child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(label,
+                style: MgType.small.copyWith(
+                    fontWeight: FontWeight.w700, color: MgColors.disabled, decoration: TextDecoration.lineThrough)),
+          ]),
         ),
       ),
     );

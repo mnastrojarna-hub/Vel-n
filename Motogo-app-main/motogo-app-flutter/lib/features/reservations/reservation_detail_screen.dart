@@ -20,6 +20,7 @@ import '../documents/doc_open_runner.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
 import 'booking_restore.dart';
+import 'gear/gear_booking_api.dart' show gearDocsStatusProvider;
 import 'widgets/res_detail_tab_btn.dart';
 import 'widgets/res_detail_tab_content.dart';
 import 'widgets/res_payment_details_tab.dart';
@@ -57,6 +58,9 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
       ref.invalidate(doorCodesProvider(widget.bookingId));
       // podpis na kiosku / ve Velíně → tlačítko podepsaného protokolu bez restartu
       ref.invalidate(bookingDocsProvider(widget.bookingId));
+      // Výpůjčka výbavy: doklad nahraný skenerem (návrat přes go, ne pop) →
+      // karta dokladu bez ručního obnovení. Bez posluchače (motorka) nic nevolá.
+      ref.invalidate(gearDocsStatusProvider(widget.bookingId));
     });
   }
 
