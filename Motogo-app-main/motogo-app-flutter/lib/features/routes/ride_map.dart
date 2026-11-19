@@ -161,6 +161,12 @@ class _RideTrackMapState extends ConsumerState<RideTrackMap> {
         if (rideGapRoad(ref, g) case final road when road.length >= 2) road,
     ];
     final labels = widget.gapLabels ?? widget.interactive;
+    // Popisek jen JEDNOU — u nejdelšího odhadu. Sloučená cesta má mezer
+    // mnoho, často u stejného místa, a popisky se dřív vršily přes sebe
+    // (majitel 2026-11-15); šedá tečkovaná čára sama říká „odhad“.
+    final labelRoad = labels && gapRoads.isNotEmpty
+        ? gapRoads.reduce((a, b) => _pathM(b) > _pathM(a) ? b : a)
+        : null;
 
     return FlutterMap(
       mapController: _ctrl,
@@ -223,14 +229,13 @@ class _RideTrackMapState extends ConsumerState<RideTrackMap> {
           ),
         MarkerLayer(
           markers: [
-            if (labels)
-              for (final road in gapRoads)
-                Marker(
-                  point: road[road.length ~/ 2],
-                  width: 180,
-                  height: 24,
-                  child: _gapLabel(t(context).tr('rideGapEstLabel')),
-                ),
+            if (labelRoad != null)
+              Marker(
+                point: labelRoad[labelRoad.length ~/ 2],
+                width: 180,
+                height: 24,
+                child: _gapLabel(t(context).tr('rideGapEstLabel')),
+              ),
             // Dopočtené kraje stopy (běžící jízda ještě nemá body start/cíl).
             if (_ends.start != null)
               Marker(
@@ -276,6 +281,15 @@ class _RideTrackMapState extends ConsumerState<RideTrackMap> {
         ),
       ],
     );
+  }
+
+  static const _dist = Distance();
+  static double _pathM(List<LatLng> p) {
+    var m = 0.0;
+    for (var i = 1; i < p.length; i++) {
+      m += _dist(p[i - 1], p[i]);
+    }
+    return m;
   }
 
   Widget _gapLabel(String text) => Center(
