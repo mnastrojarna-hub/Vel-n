@@ -432,7 +432,12 @@ extension _PaymentProblems on _PaymentScreenState {
     // Koncept rezervace bez běžící platby hned zruš (motorka se uvolní;
     // cron by ho zrušil stejně) — text pak říká pravdu.
     final bid = _pendingBookingId;
-    if (!edit && bid != null && !await PaymentPendingMarker.isPending(bid)) {
+    // Výpůjčka výbavy: řádek appka měnit nesmí (strážce gear + RLS) — server
+    // nezaplacenou webovou výpůjčku zruší sám; „znovu“ vede na objednávku výbavy.
+    final gear = _ctx?.gear == true;
+    if (gear) {
+      if (mounted) ref.invalidate(reservationsProvider);
+    } else if (!edit && bid != null && !await PaymentPendingMarker.isPending(bid)) {
       try {
         await cancelPendingBooking(bid,
             reason: 'Čas na zaplacení v appce vypršel');
@@ -443,11 +448,13 @@ extension _PaymentProblems on _PaymentScreenState {
     final moto = ref.read(bookingMotoProvider);
     _showError(
       title: tr.tr('paymentExpired'),
-      message: tr.tr(edit ? 'psExpiredEditBody' : 'psExpiredBookingBody'),
+      message: tr.tr(gear ? 'gearPayExpiredBody' : (edit ? 'psExpiredEditBody' : 'psExpiredBookingBody')),
       buttonLabel: tr.tr(edit ? 'psOpenReservation' : 'psPickAgain'),
       onButton: () {
         if (!mounted) return;
-        if (edit) {
+        if (gear) {
+          context.go('/gear-rental'); // kGearRentalRoute
+        } else if (edit) {
           context.go(bid != null ? '/reservations/$bid' : Routes.reservations);
         } else {
           context.go(moto != null ? '/moto/${moto.id}' : Routes.search);

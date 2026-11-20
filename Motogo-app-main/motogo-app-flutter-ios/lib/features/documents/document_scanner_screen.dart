@@ -16,6 +16,8 @@ import 'document_provider.dart';
 import 'docs_gate_provider.dart';
 import 'doc_scan_plan.dart';
 import '../auth/auth_provider.dart';
+import '../reservations/gear/gear_booking_api.dart' show docScanReturnRouteProvider;
+import '../reservations/gear/gear_docs_scope.dart' show gearIdOnlyGate;
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/widgets/mg_back_v2.dart';
@@ -655,8 +657,11 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     await Future.delayed(const Duration(milliseconds: 500));
     try { await verifyCustomerDocs(OcrResult()); } catch (_) {}
     // Kompletnost stran podle serverové brány (počítá i dřív nahrané fotky);
-    // bez odpovědi RPC podle kroků tohoto skenu.
-    final gate = await fetchDocsGateChecklist();
+    // bez odpovědi RPC podle kroků tohoto skenu. Sken k výpůjčce výbavy
+    // (návrat na její detail): stačí OP / pas, ŘP se nehlásí jako chybějící.
+    final gearReturn = ref.read(docScanReturnRouteProvider);
+    final rawGate = await fetchDocsGateChecklist();
+    final gate = (gearReturn != null && rawGate != null) ? gearIdOnlyGate(rawGate) : rawGate;
     if (!mounted) return;
     ref.invalidate(docsVerifiedProvider);
     ref.invalidate(docsGateChecklistProvider);
@@ -680,7 +685,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
           icon: '⏳', title: t(context).tr('scanComplete'),
           message: t(context).tr('navDocsVerifyPending'),
           duration: const Duration(seconds: 7));
-      context.go(Routes.docs);
+      _goAfterScan(Routes.docs);
       return;
     } else if (!gate.ok) {
       // Strany jsou, ale brána dál drží kódy (datum narození / 18+ /
@@ -700,11 +705,20 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen>
     }
     // Navigate back to docs screen when scanning just DL or only the missing
     // sides (started from Moje doklady), otherwise go home
-    if (widget.scanMode == 'dl_only' || isDocScanMissingMode(widget.scanMode)) {
+    if (ref.read(docScanReturnRouteProvider) != null) {
+      _goAfterScan(Routes.docs);
+    } else if (widget.scanMode == 'dl_only' || isDocScanMissingMode(widget.scanMode)) {
       context.go(Routes.docs);
     } else {
       context.go(Routes.home);
     }
+  }
+
+  /// Výpůjčka výbavy (`openGearIdDocs`) → zpět na její detail, jinak [fallback].
+  void _goAfterScan(String fallback) {
+    final back = ref.read(docScanReturnRouteProvider);
+    ref.read(docScanReturnRouteProvider.notifier).state = null;
+    context.go(back ?? fallback);
   }
 
   // ── Build ──

@@ -92,7 +92,8 @@ class ResHistoryV2 extends StatelessWidget {
       const SizedBox(height: 10),
       if (res.cancelledAt != null)
         ResHistRowV2(label: tr.tr('cancelledLabel'), value: resHistAt(res.cancelledAt!, tr.lang), valueColor: MgColors.err),
-      ResHistRowV2(label: tr.tr('cancelledBy'), value: source),
+      // Výbava z RPC zdroj storna nenese (i auto-storno po 4 h) → bez řádku.
+      if (!(res.isGearOnly && res.cancelledBySource == null)) ResHistRowV2(label: tr.tr('cancelledBy'), value: source),
       if (res.cancellationReason != null && res.cancellationReason!.isNotEmpty)
         ResHistRowV2(label: tr.tr('reasonLabel'), value: res.cancellationReason!),
       if (res.stornoFee != null && res.stornoFee! > 0)

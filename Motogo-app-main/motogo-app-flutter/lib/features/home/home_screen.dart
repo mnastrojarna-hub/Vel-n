@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
+import '../../core/mg_back_dispatcher.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../catalog/catalog_provider.dart';
 import '../catalog/widgets/moto_card.dart';
@@ -12,6 +13,7 @@ import '../loyalty/loyalty_rank_card.dart';
 import '../reservations/reservation_models.dart';
 import '../reservations/reservation_provider.dart';
 import 'home_actions.dart';
+import 'widgets/home_gear_row.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_reservations_section.dart';
 import '../../core/widgets/state_views.dart';
@@ -32,6 +34,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    mgHomeScroll = _scrollCtrl; // „Zpět“ na kořeni Domů → nahoru
     _scrollCtrl.addListener(() {
       final show = _scrollCtrl.offset > 600;
       if (show != _showScrollToTop) setState(() => _showScrollToTop = show);
@@ -48,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    if (identical(mgHomeScroll, _scrollCtrl)) mgHomeScroll = null;
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -91,6 +95,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               SliverToBoxAdapter(
                 child: HomeReservationsSection(activeReservations: activeReservations),
               ),
+
+              // ===== PŮJČIT SAMOTNOU VÝBAVU (jen při zapnuté službě a otevřené pobočce) =====
+              const SliverToBoxAdapter(child: HomeGearRow()),
 
               // ===== FILTR MOTOREK (sdílený s Rezervovat; tady i s kalendářem) =====
               const SliverToBoxAdapter(

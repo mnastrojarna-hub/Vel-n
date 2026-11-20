@@ -24,6 +24,17 @@ Tabulka je převzatá beze změny (odkazy „§1“ … „§9“ míří do pů
 
 Původní `DESIGN_V22.md` (iterace 2.2, rozšíření `DESIGN_V21.md` → `DESIGN_V2.md` → `appdesign_spec.md`; ~150 kB, z repa odešel při úklidu) popisoval návrhové tabule a port do Flutteru: rampu 20 barev hodností (R1, SQL `20261016_loyalty_colors_ramp` dosud nenasazené), systém ploch „bílé sekce, tmavé hero“ a barevné tokeny (R5), jednotný zelený pás termínu v kalendářích (R4), tlačítko „Zaznamenat jízdu“ a nahrávání jízdy (R3), tabuli Stavy se ~290 stavy výsledků, poděkování a chyb s pravidlem „co · proč · jak opravit · funkční akce · nikdy se nezasekne“ (R2), standard tlačítka zpět/zavřít 44 px (R6), opravy detailů po tabulích, poznámky k portu, otevřené otázky majitele (§9) a kontrolní seznam. Oslava level-upu zůstává beze změny. Podrobnosti jsou v historii gitu (soubor existoval do úklidu repa).
 
+## 5.0.2 — rozhodnutí majitele 2026-11-15 a 2026-11-19
+
+Majitel po vydání 5.0.1 nahlásil chyby a požádal o tyto změny (verze appky 5.0.2+120, Android i iOS). Body označené **výjimka** jsou výslovné výjimky z pravidla „v2 = jen upgrade vzhledu“.
+
+- **Systémové Zpět na Androidu appku nikdy nezavře** (oba vzhledy): otevřený list/dialog se zavře, vnořená stránka jde o krok zpět, kořen jiné záložky vede na Domů, Domů posunuté dolů se vrátí nahoru, Domů nahoře = nic. Řeší centrálně `lib/core/mg_back_dispatcher.dart` (`MgBackButtonDispatcher`, `mgClaimBack` v `main.dart`); Domů registruje svůj scroll v `mgHomeScroll`.
+- **Karta věrnostního ranku na Domů je zrušená — výjimka** („rámeček je hrozně veliký … zavádějící“). Rank zůstává v Profilu („Můj klub“). Starý vzhled beze změny.
+- **Avatar Profilu je hranatý — výjimka** (zaoblený čtverec jako logo MotoGo a odznak ranku): tlačítko Profil ve spodním menu i avatar vlevo nahoře v hlavičce stránky Profil.
+- **Trasy → Místa:** chybová karta se ukáže jen, když selže katalog míst a není co zobrazit. Výpadek komunitních míst sám o sobě chybu neukazuje.
+- **Mapa sloučené cesty:** štítek „Odhad trasy · bez GPS“ je v mapě nejvýš jednou (u nejdelšího úseku bez GPS), ne u každého úseku.
+- **„Půjčit samotnou výbavu“ na Domů — výjimka** (nový řádek mezi akcemi vedle „Spočítat přesnou cenu“ a „Zaznamenat jízdu“, v obou vzhledech). Pod ním objednávka výpůjčky výbavy **1:1 jako web `/pujceni-obleceni`** (pobočka → termín → výbava a velikosti → kontakt, poukaz, souhlasy → souhrn → platba v appce → potvrzení s nahráním dokladu). Řádek se ukáže jen při `app_settings.gear_rental.enabled` **a** `app_visible` a když je aspoň jedna pobočka otevřená. Výpůjčky výbavy jsou v Rezervacích (karta, detail, kódy, postup, úprava velikostí a odebrání kusu přes RPC; změna termínu zatím odkazem na web). „Zdarma od ranku 15“ v tomto kole není (majitel: „zatím 1:1“). Detail: `GEAR_RENTAL_APP.md`, `GEAR_RENTAL_APP_EDIT.md`.
+
 ## 5.0.1 — rozhodnutí majitele 2026-11-14
 
 Majitel po instalaci 5.0.0 výslovně požádal o tyto změny nového vzhledu (verze appky 5.0.1+119, Android i iOS). Jsou to **výslovné výjimky** z pravidla „v2 = jen upgrade vzhledu“; vše ostatní ze staré appky musí fungovat dál beze změny. Backend se nemění (čte se jen existující `get_motos_availability_status`, `branch_closures`, `check_moto_availability`, `get_moto_booked_dates`).

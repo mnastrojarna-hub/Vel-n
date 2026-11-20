@@ -46,9 +46,9 @@ class ProfileHeaderV2 extends ConsumerWidget {
     final fullName = profile?['full_name'] as String?;
     final name = (fullName == null || fullName.trim().isEmpty) ? tr.tr('pilot') : fullName;
 
+    // Hranatý jako logo MotoGo a odznak ranku (majitel 2026-11-19).
     Widget avatar = RankFrame(
       size: 64,
-      circle: true,
       rank: rank,
       semanticLabel: status == null ? null : RankCopy.aria(tr, status.level, RankCopy.name(tr, status.level, status.rankName), status.percent),
       child: const ColoredBox(

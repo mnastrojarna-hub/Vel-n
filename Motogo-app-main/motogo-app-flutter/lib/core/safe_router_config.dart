@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import 'mg_back_dispatcher.dart';
+
 /// RouterConfig appky = GoRouter + ochrana před odkazy s vlastním schématem.
 ///
 /// Návrat ze Stripe ověření (3D Secure) přichází jako `motogo24://payment…`.
@@ -17,7 +19,8 @@ RouterConfig<RouteMatchList> mgSafeRouterConfig(GoRouter router) =>
       routeInformationProvider: router.routeInformationProvider,
       routeInformationParser: MgSafeRouteParser(router),
       routerDelegate: router.routerDelegate,
-      backButtonDispatcher: router.backButtonDispatcher,
+      // Systémové „Zpět“ nikdy nezavře appku (mg_back_dispatcher.dart).
+      backButtonDispatcher: MgBackButtonDispatcher(router),
     );
 
 // Jedna instance na router — nová konfigurace při každém buildu by Routeru

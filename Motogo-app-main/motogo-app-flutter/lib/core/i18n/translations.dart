@@ -95,6 +95,13 @@ import 'translations_ext_65_v501_home2.dart';
 import 'translations_ext_65_v501_l.dart';
 import 'translations_ext_65_v501_media.dart';
 import 'translations_ext_65_v501_routes.dart';
+import 'translations_ext_66_gear_res_a.dart';
+import 'translations_ext_66_gear_res_b.dart';
+import 'translations_ext_66_gear_order_a.dart';
+import 'translations_ext_66_gear_order_b.dart';
+import 'translations_ext_66_gear_order_c.dart';
+import 'translations_ext_66_gear_order_d.dart';
+import 'translations_ext_66_gear_fix.dart';
 import 'translations_ext_62_guards_after.dart';
 import 'translations_ext_62_clarity_after.dart';
 import 'translations_ext_62_clarity_order.dart';
@@ -252,6 +259,13 @@ final translations = _mergeAll([
   translationsExt65V501L,
   translationsExt65V501Media,
   translationsExt65V501Routes,
+  translationsExt66GearResA,
+  translationsExt66GearResB,
+  translationsExt66GearOrderA,
+  translationsExt66GearOrderB,
+  translationsExt66GearOrderC,
+  translationsExt66GearOrderD,
+  translationsExt66GearFix,
   translationsExt62GuardsAfter,
   translationsExt62ClarityAfter,
   translationsExt62ClarityOrder,

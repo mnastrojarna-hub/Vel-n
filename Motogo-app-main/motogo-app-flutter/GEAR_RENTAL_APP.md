@@ -1,7 +1,8 @@
 # Výpůjčka výbavy bez motorky — zadání pro appku (Android + iOS), část 1/2
 
 Stav k 2026-10-23: backend je hotový (migrace `20261023a`–`e`, edge funkce, Velín, web `/pujceni-obleceni`, kiosek 1.3.0).
-Appka výpůjčku výbavy zatím neumí. Tento soubor je zadání pro agenta appky: co a kde změnit v obou stromech.
+**Stav k 2026-11-19: appka 5.0.2+120 výpůjčku výbavy umí** (oba stromy, oba vzhledy): řádek „Půjčit samotnou výbavu“ na Domů → objednávka 1:1 web (`lib/features/gear_rental/**`), zobrazení a úpravy v Rezervacích (`lib/features/reservations/gear/**`); změna termínu zatím odkazem na web, „zdarma od ranku 15“ není. Vstup na Domů se ukáže až po zapnutí „Zobrazit v aplikaci“ ve Velínu.
+Tento soubor je původní zadání pro agenta appky: co a kde změnit v obou stromech.
 **Část 2/2** (úpravy rezervace, sjednocená vratka §1.11, objednání v appce, AI agent, testy): `GEAR_RENTAL_APP_EDIT.md`.
 Zdroj pravdy kontraktů: `SUPABASE_BACKEND_STATE_*`. Pravidla majitele: viz §1.
 

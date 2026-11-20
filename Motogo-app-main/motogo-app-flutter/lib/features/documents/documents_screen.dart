@@ -23,6 +23,8 @@ import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../profile/v2/sheets/profile_dialogs_v2.dart' show DestructiveDialogV2;
 import 'v2/docs_view_v2.dart';
+import '../reservations/reservation_provider.dart' show reservationsProvider;
+import '../reservations/gear/gear_docs_scope.dart';
 
 /// Moje doklady — matches Capacitor original s-docs screen.
 /// Shows: info banners, scan button (camera), upload button (gallery),
@@ -36,7 +38,12 @@ class DocumentsScreen extends ConsumerWidget {
     // odpovědi RPC dle profilových *_verified_at (docsScreenStatusProvider).
     // Obnova po nahrání = změna závislosti → `skipLoadingOnReload`, ať stav
     // neprobliká (jako dřív u přímo invalidovaného docsVerifiedProvider).
-    final verifiedAsync = ref.watch(docsScreenStatusProvider);
+    // Zákazník jen s výpůjčkou výbavy: stačí OP / pas — ŘP se nevyžaduje
+    // ani nehlásí (gear_docs_scope.dart, GEAR_RENTAL_APP.md §5).
+    final idOnly = gearOnlyDocsScope(ref.watch(reservationsProvider).valueOrNull);
+    final rawAsync = ref.watch(docsScreenStatusProvider);
+    final verifiedAsync =
+        idOnly ? rawAsync.whenData<DocsScreenStatus>(GearDocsScreenStatus.new) : rawAsync;
 
     // Na /docs se chodí i přes context.go (děkovací stránka, FAB) —
     // pak není v zásobníku co popnout a šipka dřív nedělala nic.
@@ -55,12 +62,13 @@ class DocumentsScreen extends ConsumerWidget {
         onBack: onBack,
         onScan: () => context.push(Routes.docScan),
         // Jen chybějící strany — nic nahraného se znovu nefotí (2026-10-22).
-        onScanMissing: () => context.push('${Routes.docScan}?mode=missing'),
+        onScanMissing: () => context.push('${Routes.docScan}?mode=${idOnly ? 'missing_id' : 'missing'}'),
         onScanId: () => context.push('${Routes.docScan}?mode=missing_id'),
         onScanDl: () => context.push('${Routes.docScan}?mode=missing_dl'),
         onUpload: () => _uploadFromGallery(context, ref),
         onReset: (docType) => _resetDoc(context, ref, docType),
         onRetry: () => ref.invalidate(docsScreenStatusProvider),
+        idOnly: idOnly,
       );
     }
 
@@ -110,7 +118,7 @@ class DocumentsScreen extends ConsumerWidget {
                     const Text('⚠️', style: TextStyle(fontSize: 20)),
                     const SizedBox(width: 10),
                     Expanded(child: Text(
-                      t(context).tr('docsRequiredInfo'),
+                      t(context).tr(idOnly ? 'gearDocsIdOnly' : 'docsRequiredInfo'),
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF92400E), height: 1.4),
                     )),
                   ]),
@@ -251,13 +259,20 @@ class DocumentsScreen extends ConsumerWidget {
                       onReset: () => _resetDoc(context, ref, 'id_card'),
                       onScan: v.hasIdOrPassport ? null : () => context.push(Routes.docScan),
                     ),
+                    if (!idOnly)
                     _DocStatus(
                       icon: '🏍️',
                       label: t(context).tr('driversLicense'),
                       verified: v.hasLicense,
                       onReset: () => _resetDoc(context, ref, 'drivers_license'),
                       onScan: v.hasLicense ? null : () => context.push('${Routes.docScan}?mode=dl_only'),
-                    ),
+                    )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 4),
+                        child: Text(t(context).tr('gearDocsIdOnly'),
+                            style: const TextStyle(fontSize: 12, color: MotoGoColors.g600, height: 1.4)),
+                      ),
                     // Co přesně chybí pro vydání kódů (strana dokladu, věk,
                     // platnost / skupina ŘP) — jeden řádek dle brány.
                     if (v.gate != null && !v.gate!.ok)

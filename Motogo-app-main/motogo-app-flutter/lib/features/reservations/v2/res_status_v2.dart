@@ -43,6 +43,13 @@ String resRangeDays(AppTranslations tr, Reservation r) => '${resRangeShort(tr, r
 enum ResPayFlag { none, unpaid, verifying }
 
 ResPayFlag resPayFlag(Reservation r, PendingBooking? p) {
+  // Výpůjčka výbavy je webová rezervace (pruh/FAB ji nevidí) → nezaplacená
+  // podle řádku (jako `gearCanPay`); zaplatit jde z detailu výpůjčky.
+  if (r.isGearOnly) {
+    return r.status == 'pending' && r.paymentStatus == 'unpaid' && r.displayStatus != ResStatus.cancelled
+        ? ResPayFlag.unpaid
+        : ResPayFlag.none;
+  }
   if (p == null || p.id != r.id || p.isExpired) return ResPayFlag.none;
   return p.verifying ? ResPayFlag.verifying : ResPayFlag.unpaid;
 }
@@ -50,7 +57,8 @@ ResPayFlag resPayFlag(Reservation r, PendingBooking? p) {
 /// D2 (owner 2026-11-14): the booking the shell pay strip offers to pay,
 /// when it is THIS one — the same provider and the same rule as the strip
 /// ([resPayFlag] unpaid); null = no own "Zaplatit" button.
-PendingBooking? resPayTarget(Reservation r, PendingBooking? p) => resPayFlag(r, p) == ResPayFlag.unpaid ? p : null;
+PendingBooking? resPayTarget(Reservation r, PendingBooking? p) =>
+    resPayFlag(r, p) == ResPayFlag.unpaid && p?.id == r.id ? p : null;
 
 /// Status pill over a photo (V22 `.stp` / `.ls-pl`): active = dark pill
 /// with a live neon dot, upcoming = neon, completed / cancelled = white.
@@ -178,6 +186,21 @@ class ResUnpaidChip extends StatelessWidget {
 
 /// Moto photo: contained bike over a dark ground; never throws on a missing
 /// or broken URL (old guard: empty URL → placeholder, no build crash).
+/// Výpůjčka jen výbavy: místo fotky motorky tmavá plocha se svítící helmou
+/// (stejný rámec jako [ResBikePhoto] — karta, detail, hero přechod).
+class ResGearPhoto extends StatelessWidget {
+  final bool grayscale;
+  const ResGearPhoto({super.key, this.grayscale = false});
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+        color: MgColors.panel,
+        child: Center(
+          child: MgIcon(MgIcons.helmet, size: 56, color: grayscale ? MgColors.onDarkMeta : MgColors.neon),
+        ),
+      );
+}
+
 class ResBikePhoto extends StatelessWidget {
   final String? url;
   final bool grayscale;

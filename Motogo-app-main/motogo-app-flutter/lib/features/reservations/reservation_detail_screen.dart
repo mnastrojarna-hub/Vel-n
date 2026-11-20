@@ -20,6 +20,7 @@ import '../documents/doc_open_runner.dart';
 import 'reservation_models.dart';
 import 'reservation_provider.dart';
 import 'booking_restore.dart';
+import 'gear/gear_booking_api.dart' show gearDocsStatusProvider;
 import 'widgets/res_detail_tab_btn.dart';
 import 'widgets/res_detail_tab_content.dart';
 import 'widgets/res_payment_details_tab.dart';
@@ -57,6 +58,9 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
       ref.invalidate(doorCodesProvider(widget.bookingId));
       // podpis na kiosku / ve Velíně → tlačítko podepsaného protokolu bez restartu
       ref.invalidate(bookingDocsProvider(widget.bookingId));
+      // Výpůjčka výbavy: doklad nahraný skenerem (návrat přes go, ne pop) →
+      // karta dokladu bez ručního obnovení. Bez posluchače (motorka) nic nevolá.
+      ref.invalidate(gearDocsStatusProvider(widget.bookingId));
     });
   }
 
@@ -253,7 +257,13 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
                       width: double.infinity,
                       // Guard na prázdnou URL — jinak build spadne na
                       // „No host specified in URI" (ErrorWidget).
-                      child: (res.motoImage == null || res.motoImage!.isEmpty)
+                      child: res.isGearOnly
+                          // Výpůjčka jen výbavy: ikona výbavy místo fotky.
+                          ? Container(
+                              color: MotoGoColors.g200,
+                              child: const Icon(Icons.checkroom, size: 56, color: MotoGoColors.g500),
+                            )
+                          : (res.motoImage == null || res.motoImage!.isEmpty)
                           ? Container(
                               color: MotoGoColors.g200,
                               child: const Icon(Icons.motorcycle, size: 48, color: MotoGoColors.g400),
@@ -312,8 +322,11 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
   /// Restore cancelled booking — check moto availability first (tri-state:
   /// výpadek spojení ≠ obsazená motorka), pak obnova + platba. Logika v
   /// `booking_restore.dart`.
-  Future<void> _restoreBooking(BuildContext context, Reservation res) =>
-      restoreAndPay(context, ref, res);
+  Future<void> _restoreBooking(BuildContext context, Reservation res) async {
+    // Výpůjčka výbavy se neobnovuje (customer_restore_booking ji neumí).
+    if (res.isGearOnly) return;
+    await restoreAndPay(context, ref, res);
+  }
 
   /// Open rental contract for this specific booking — reálný dokument 1:1
   /// (podepsané HTML z generated_documents / soubor z bucketu documents).

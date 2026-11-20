@@ -23,7 +23,7 @@ import 'v2_nav_fx.dart';
 /// pill with a green halo ([V2NavPill]: liquid move 300 ms, slow breathing
 /// halo after it lands), the original elastic pop of the icon
 /// ([V2NavBounce]) and a filled icon; PROFIL = avatar in the rank ring + arc
-/// on a night disc while active (the loyalty rank shows there, not on the
+/// on a night squircle while active (the loyalty rank shows there, not on the
 /// pill). Labels pass the no-overlap fit ([v2NavFit]) in every language
 /// — never ellipsized / wrapped (only an active label too tight for its
 /// pill steps down, at most 12 %). Dumb widget: [onTap] gets the tab
@@ -180,7 +180,7 @@ class V2NavBar extends ConsumerWidget {
   }
 }
 
-/// Key of the night disc behind the Profil avatar on the active pill.
+/// Key of the night squircle behind the Profil avatar on the active pill.
 const ValueKey<String> kV2NavRankBacking = ValueKey('v2-nav-rank-backing');
 
 class _Tab extends StatelessWidget {
@@ -219,7 +219,7 @@ class _Tab extends StatelessWidget {
   });
 
   /// The rank ring + arc keep their night backing on the neon pill (the
-  /// green ranks would vanish into it): a 38 px night disc behind them.
+  /// green ranks would vanish into it): a 38 px night squircle behind them.
   /// (Overflows the 30 px icon row on purpose.)
   Widget _onPill(Widget frame) => !active
       ? frame
@@ -231,7 +231,7 @@ class _Tab extends StatelessWidget {
           child: Container(
             key: kV2NavRankBacking,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(color: MgColors.night, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: MgColors.night, borderRadius: BorderRadius.circular(11)),
             child: SizedBox.square(dimension: 30, child: frame),
           ),
         );
@@ -247,7 +247,7 @@ class _Tab extends StatelessWidget {
         : _onPill(RankFrame(
             rank: rank,
             size: 30,
-            circle: true,
+            // Hranatý jako logo MotoGo a odznak ranku (majitel 2026-11-19).
             ringWidth: 2.5,
             arcPct: arcPct,
             // On the neon pill the arc moves in onto a night disc.

@@ -14,6 +14,7 @@ import 'v2/chrome/mg_status_strip.dart';
 import 'widgets/moto_fx.dart';
 import '../features/documents/docs_gate_provider.dart';
 import '../features/shell/v2/strip_stack_v2.dart';
+import '../features/reservations/gear/gear_docs_scope.dart';
 import '../features/reservations/reservation_models.dart';
 import '../features/reservations/reservation_provider.dart';
 import '../features/routes/active_ride_provider.dart';
@@ -105,8 +106,9 @@ class ShellFabLayer extends ConsumerWidget {
         }) ?? false;
     // Kompletnost OP/pasu + ŘP podle brány dokladů (obě strany, stejně jako
     // Moje doklady); bez odpovědi RPC zpět na profilové `*_verified_at`.
+    // Zákazník jen s výpůjčkou výbavy: stačí OP / pas (ŘP se nevyžaduje).
     final docsComplete =
-        ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
+        docsCompleteScoped(ref.watch(docsFabStatusProvider).valueOrNull, reservations.valueOrNull);
     final docsFabDismissed = ref.watch(_docsFabDismissedProvider);
     final showDocsFab = hasActiveBooking && !docsComplete &&
         !docsScreens.contains(location) && !docsFabDismissed &&
@@ -280,7 +282,7 @@ List<ShellStripEntry> _v2Strips(BuildContext context, WidgetRef ref, String loca
         final s = r.displayStatus;
         return (s == ResStatus.aktivni || s == ResStatus.nadchazejici) && r.paymentStatus == 'paid';
       }) ?? false;
-  final docsComplete = ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
+  final docsComplete = docsCompleteScoped(ref.watch(docsFabStatusProvider).valueOrNull, reservations.valueOrNull);
   final showDocsFab = hasActiveBooking && !docsComplete &&
       ![Routes.docs, Routes.docScan].contains(location) &&
       !ref.watch(_docsFabDismissedProvider) && !onPaymentScreen;

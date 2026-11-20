@@ -11,6 +11,7 @@ import '../../shell_tab_action.dart';
 import '../../widgets/mg_back.dart';
 import '../../../features/documents/docs_gate_provider.dart';
 import '../../../features/messages/messages_provider.dart';
+import '../../../features/reservations/gear/gear_docs_scope.dart';
 import '../../../features/reservations/reservation_models.dart';
 import '../../../features/reservations/reservation_provider.dart';
 import '../chrome/mg_ai_fab.dart';
@@ -174,12 +175,14 @@ class _AppShellV2State extends ConsumerState<AppShellV2> {
     final unread = ref.watch(adminUnreadCountProvider);
     final pb = ref.watch(pendingBookingFabProvider).valueOrNull;
     final unpaid = pb != null && !pb.isExpired && !pb.verifying;
-    final hasActiveBooking = ref.watch(reservationsProvider).valueOrNull?.any((r) {
+    final resList = ref.watch(reservationsProvider).valueOrNull;
+    final hasActiveBooking = resList?.any((r) {
           final s = r.displayStatus;
           return (s == ResStatus.aktivni || s == ResStatus.nadchazejici) && r.paymentStatus == 'paid';
         }) ??
         false;
-    final docsComplete = ref.watch(docsFabStatusProvider).valueOrNull?.isComplete ?? true;
+    // Jen výpůjčka výbavy → stačí OP / pas (gear_docs_scope.dart).
+    final docsComplete = docsCompleteScoped(ref.watch(docsFabStatusProvider).valueOrNull, resList);
     final needsAction = unpaid || (hasActiveBooking && !docsComplete);
     // Same dot on the v2 nav drawn outside the shell (Moje zážitky).
     if (ref.read(v2BookingsNeedActionProvider) != needsAction) {

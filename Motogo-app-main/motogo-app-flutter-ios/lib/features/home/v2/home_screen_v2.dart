@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/mg_back_dispatcher.dart';
 import '../../../core/v2/chrome/mg_page.dart';
 import '../../../core/v2/gestures/mg_zone_snap.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
@@ -19,7 +20,7 @@ import 'home_funnel_parts.dart' show homeFilterCardKey;
 import 'home_funnel_photo.dart' show homeFunnelPhotoGuess;
 import 'home_funnel_v2.dart';
 import 'home_header_v2.dart';
-import 'home_rank_card_v2.dart';
+import 'home_gear_row_v2.dart';
 import 'home_record_row_v2.dart';
 import 'home_review_card_v2.dart' show homeHiddenReviewsProvider;
 import 'home_state.dart';
@@ -54,6 +55,7 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
   @override
   void initState() {
     super.initState();
+    mgHomeScroll = _scroll; // „Zpět“ na kořeni Domů → nahoru
     // Warm-up tabu „Trasy" — stejné zpoždění i kontrola jako stará Domů.
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
@@ -63,6 +65,7 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
 
   @override
   void dispose() {
+    if (identical(mgHomeScroll, _scroll)) mgHomeScroll = null;
     _scroll.dispose();
     _topShown.dispose();
     super.dispose();
@@ -120,7 +123,8 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
           header: HomeHeaderV2(overlap: overlap),
           children: [
             ...hero,
-            const HomeRankCardV2(),
+            // Karta věrnostního ranku na Domů zrušena (majitel 2026-11-19:
+            // „rámeček je hrozně veliký … zavádějící“); rank je v Profilu.
             HomeBookingsV2(
               active: active,
               error: failed
@@ -137,6 +141,9 @@ class _HomeScreenV2State extends ConsumerState<HomeScreenV2> {
             ),
             HomeCalcRowV2(funnel: funnel),
             const HomeRecordRowV2(),
+            // „Půjčit samotnou výbavu“ (majitel 2026-11-19) — jen při zapnuté
+            // a v appce viditelné službě a otevřené pobočce.
+            const HomeGearRowV2(),
             // Stará Domů: MotoFilterPanel(showDates: true) — jeho v2 vzhled
             // (sbalená karta, TERMÍN + kalendář, obsah filtru) je v panelu.
             KeyedSubtree(key: homeFilterCardKey, child: const MotoFilterPanel(showDates: true)),

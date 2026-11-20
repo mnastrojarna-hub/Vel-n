@@ -269,12 +269,13 @@ Future<String> createSosIncident({
 /// nikdy nadcházející rezervace.
 Future<String?> _findActiveBookingId(String userId) async {
   final res = await MotoGoSupabase.client.from('bookings')
-      .select('id, status, payment_status, start_date, end_date, ended_by_sos')
+      .select('id, status, payment_status, start_date, end_date, ended_by_sos, booking_kind')
       .eq('user_id', userId)
       .inFilter('status', ['active', 'reserved'])
       .order('created_at', ascending: false);
+  // Výpůjčka jen výbavy SOS nemá (GEAR_RENTAL_APP.md §5).
   final rows = (res as List).cast<Map<String, dynamic>>()
-      .where((b) => b['ended_by_sos'] != true).toList();
+      .where((b) => b['ended_by_sos'] != true && b['booking_kind'] != 'gear').toList();
   final picked = rows.where((b) => b['status'] == 'active');
   if (picked.isNotEmpty) return picked.first['id'] as String?;
   final now = DateTime.now();

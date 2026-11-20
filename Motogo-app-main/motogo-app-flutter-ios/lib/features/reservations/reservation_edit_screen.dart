@@ -41,6 +41,7 @@ import '../../core/widgets/pickup_location_link.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/res_edit_view_v2.dart';
+import 'gear/gear_edit_screen.dart';
 import 'v2/res_edit_address_v2.dart';
 
 /// Edit upcoming reservation — compact single-page layout.
@@ -166,6 +167,17 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       return;
     }
     final res = loaded;
+    // Výpůjčka jen výbavy: vlastní obrazovka úprav (jen RPC) — žádné
+    // načítání motorky / doplňků / cen ani přímý zápis do bookings.
+    if (res.isGearOnly) {
+      if (mounted) {
+        setState(() {
+          _loadError = null;
+          _booking = res;
+        });
+      }
+      return;
+    }
     if (mounted) {
       setState(() {
         _loadError = null;
@@ -1278,6 +1290,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gear = _booking;
+    if (gear != null && gear.isGearOnly) {
+      return GearEditScreen(
+        res: gear,
+        onBack: () => context.backOr(Routes.reservations),
+        onReload: _loadBooking,
+      );
+    }
     if (_confirmed) {
       // E3-02 (v2 only): a refund without a date change (e.g. a later pickup
       // time with the late-pickup discount) is not a shortening — neutral

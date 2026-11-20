@@ -28,6 +28,7 @@ import '../v2/res_detail_hints_v2.dart';
 import '../v2/res_pay_now_v2.dart';
 import '../v2/res_status_v2.dart' show resPayTarget;
 import '../../../core/pending_booking_fab_provider.dart';
+import '../gear/gear_detail_tab.dart';
 
 /// Sliver list content for the "Podrobnosti" tab in reservation detail.
 class ResDetailTabContent extends ConsumerWidget {
@@ -79,6 +80,20 @@ class ResDetailTabContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Výpůjčka jen výbavy: vlastní obsah (kusy, pobočka, doklad, kód šatny)
+    // — bez motorky, jízd, hodnocení, SOS a obnovy.
+    if (res.isGearOnly) {
+      return GearDetailTabContent(
+        res: res,
+        doorCodesAsync: doorCodesAsync,
+        statusColor: statusColor,
+        statusTitle: statusTitle,
+        branchFullAddress: branchFullAddress,
+        onShowCancelDialog: onShowCancelDialog,
+        onOpenFinalInvoice: onOpenFinalInvoice,
+        onOpenContract: onOpenContract,
+      );
+    }
     final st = res.displayStatus;
     final sosAsync = ref.watch(sosIncidentsProvider(res.id));
     final sosIncidents = sosAsync.valueOrNull ?? <SosIncident>[];

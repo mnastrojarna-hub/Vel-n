@@ -167,12 +167,11 @@ void main() {
   });
 
   group('Domů v2 = old Domů', () {
-    testWidgets('block order: header → rank → bookings → SOS → filter → count → full list (both looks)', (t) async {
+    testWidgets('block order: header → bookings → SOS → filter → count → full list (both looks)', (t) async {
       final o = homeCases()['s8-rec']!();
       await _app(t, const HomeScreenV2(), o);
       final ys = [
         _dy(t, find.byKey(const ValueKey('home-pilot'))),
-        _dy(t, find.byKey(const ValueKey('home-rank-card'))),
         _dy(t, find.text('Aktivní rezervace')),
         _dy(t, find.byType(HomeBookingCardV2)),
         _dy(t, find.byKey(const ValueKey('home-sos-card'))),
@@ -337,14 +336,10 @@ void main() {
       }
     });
 
-    testWidgets('rank card = old card facts: MŮJ RANK, %, level line, next rank, rules sheet', (t) async {
+    testWidgets('no rank card on Domů (owner 2026-11-19: too big, misleading; rank stays in Profil)', (t) async {
       await _app(t, const HomeScreenV2(), homeCases()['s6']!());
-      expect(find.text(t.element(find.byType(HomeScreenV2)).tr('loyaltyMyRank').toUpperCase()), findsOneWidget);
-      expect(find.byKey(const ValueKey('home-rank-pct')), findsOneWidget);
-      expect(find.byKey(const ValueKey('home-rank-level')), findsOneWidget);
-      await _tapVisible(t, find.byKey(const ValueKey('home-rank-info')));
-      await t.pump(const Duration(milliseconds: 600));
-      expect(find.text(t.element(find.byType(HomeScreenV2)).tr('loyaltyRuleCombo')), findsOneWidget);
+      expect(find.byKey(const ValueKey('home-rank-card')), findsNothing);
+      expect(find.text(t.element(find.byType(HomeScreenV2)).tr('loyaltyMyRank').toUpperCase()), findsNothing);
     });
   });
 }

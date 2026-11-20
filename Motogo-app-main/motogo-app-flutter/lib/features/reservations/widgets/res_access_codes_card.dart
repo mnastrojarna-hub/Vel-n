@@ -12,6 +12,7 @@ import '../../auth/widgets/toast_helper.dart';
 import '../booking_gate_provider.dart';
 import '../reservation_models.dart';
 import '../reservation_provider.dart';
+import '../gear/gear_booking_api.dart' show openGearIdDocs, refreshGearBookings;
 import 'res_detail_card.dart';
 import 'res_detail_row.dart';
 import '../../../core/v2/flag/v2_scope.dart';
@@ -42,7 +43,14 @@ class ResAccessCodesCard extends ConsumerWidget {
     }
     // Nemá doklady → nech zákazníka nahrát fotky, pak zkus uvolnit znovu.
     if (!context.mounted) return;
-    await context.push(Routes.docs);
+    if (res.isGearOnly) {
+      // Výpůjčka výbavy: jen doklad totožnosti (OP / pas), návrat na detail.
+      await openGearIdDocs(context, ref, res.id);
+      if (!context.mounted) return;
+      refreshGearBookings(ref, res.id);
+    } else {
+      await context.push(Routes.docs);
+    }
     if (!context.mounted) return;
     err = await releaseDoorCodes(res.id);
     if (!context.mounted) return;
@@ -79,14 +87,35 @@ class ResAccessCodesCard extends ConsumerWidget {
         final locker = codes.where((c) => c.codeType == 'accessories');
         final moto = codes.where((c) => c.codeType == 'motorcycle');
         final other = codes.where((c) => c.codeType != 'accessories' && c.codeType != 'motorcycle');
-        final sorted = gate.hasGate ? [...locker, ...moto, ...other] : codes;
-        final lockerLabel = gate.lockerDoor != null
-            ? t(context).tr('lockerCodeDoor').replaceAll('{n}', '${gate.lockerDoor}')
-            : t(context).tr('lockerCode');
+        // Výpůjčka jen výbavy: jediný kód šatny (motorka ani kóje neexistují).
+        final sorted = res.isGearOnly ? locker.toList() : (gate.hasGate ? [...locker, ...moto, ...other] : codes);
+        if (sorted.isEmpty) return const SizedBox.shrink();
+        // Protokol nejdřív: u motorky pod kódem motorky, u výbavy pod kódem šatny.
+        // Výpůjčka z RPC (app_visible vypnuto) čas podpisu nenese → u výbavy
+        // i DB stav 'active' (vydáno) poznámku schová.
+        bool protocolNote(DoorCode c) =>
+            c.codeType == (res.isGearOnly ? 'accessories' : 'motorcycle') &&
+            c.sentToCustomer &&
+            res.isSelfService &&
+            (res.isGearOnly ? !res.isHandedOver : !res.protocolSigned);
+        final protocolText = res.isGearOnly ? t(context).tr('gearProtocolFirst') : null;
+        final ownGearNoLocker = !res.isGearOnly && res.ownGearEffective && !codes.any((c) => c.codeType == 'accessories');
+        // Výbava na OBSLUŽNÉ pobočce (Mezná): bez šatny i displeje — kód je
+        // „Kód výpůjčky“, zákazník ho nahlásí obsluze (jako e-mail, FIX-R1).
+        final gearStaffed = res.isGearOnly && !res.isSelfService;
+        final lockerLabel = gearStaffed
+            ? t(context).tr('gearCodeStaffed')
+            : gate.lockerDoor != null
+                ? t(context).tr('lockerCodeDoor').replaceAll('{n}', '${gate.lockerDoor}')
+                : t(context).tr('lockerCode');
+        final codeHint = gearStaffed ? t(context).tr('gearCodeStaffedHint') : null;
+        // Výbava: tykání jako ostatní texty výpůjčky (motorka beze změny).
+        final gateHint = t(context).tr(res.isGearOnly ? 'gearGateCodeHint' : 'gateCodeHint');
         // v2 vzhled (kill-switch app_v2_ui): tytéž kódy, pořadí i uvolnění.
         if (MgV2.on(context)) {
           return ResCodesV2(
             gateCode: gate.gateCode,
+            gateHint: gateHint,
             codes: [
               for (final c in sorted)
                 ResCodeV2Item(
@@ -95,10 +124,12 @@ class ResAccessCodesCard extends ConsumerWidget {
                       ? c.doorCode
                       : (localizeServerReason(t(context), c.withheldReason) ?? t(context).tr('awaitingDocs')),
                   sent: c.sentToCustomer,
-                  protocolNote: c.codeType == 'motorcycle' && c.sentToCustomer && res.isSelfService && !res.protocolSigned,
+                  protocolNote: protocolNote(c),
+                  noteText: protocolText,
+                  hint: c.sentToCustomer ? codeHint : null,
                 ),
             ],
-            ownGearNoLocker: res.ownGearEffective && !codes.any((c) => c.codeType == 'accessories'),
+            ownGearNoLocker: ownGearNoLocker,
             onRelease: hasWithheld ? () => _handleReleaseCodes(context, ref) : null,
           );
         }
@@ -111,7 +142,7 @@ class ResAccessCodesCard extends ConsumerWidget {
                 ResDetailRow(label: t(context).tr('gateCodeLabel'), value: gate.gateCode, bold: true),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(t(context).tr('gateCodeHint'),
+                  child: Text(gateHint,
                       style: const TextStyle(fontSize: 11, height: 1.35, fontWeight: FontWeight.w600, color: MotoGoColors.g500)),
                 ),
               ],
@@ -129,16 +160,22 @@ class ResAccessCodesCard extends ConsumerWidget {
                           : (localizeServerReason(t(context), c.withheldReason) ?? t(context).tr('awaitingDocs')),
                       bold: c.sentToCustomer,
                     ),
-                    if (c.codeType == 'motorcycle' && c.sentToCustomer && res.isSelfService && !res.protocolSigned)
+                    if (c.sentToCustomer && codeHint != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),
-                        child: Text('📝 ${t(context).tr('protocolFirst')}',
+                        child: Text(codeHint,
+                            style: const TextStyle(fontSize: 11, height: 1.35, fontWeight: FontWeight.w600, color: MotoGoColors.g500)),
+                      ),
+                    if (protocolNote(c))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text('📝 ${protocolText ?? t(context).tr('protocolFirst')}',
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.amber)),
                       ),
                   ])),
               // Vlastní výbava bez nároku na šatnu — žádný kód šatny nechybí
               // (i odvozeně u starších rezervací bez own_gear, viz model).
-              if (res.ownGearEffective && !codes.any((c) => c.codeType == 'accessories'))
+              if (ownGearNoLocker)
                 ResDetailRow(label: t(context).tr('lockerCode'), value: t(context).tr('ownGearNoLocker')),
               // Kódy zadržené (chybí doklady) → CTA: zkus uvolnit (pokud už
               // jsou doklady nahrané), jinak naviguj na nahrání dokladů.

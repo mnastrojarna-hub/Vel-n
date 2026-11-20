@@ -59,11 +59,18 @@ class ResPickupProcedure extends ConsumerWidget {
     final gate = ref.watch(bookingGateInfoProvider(res.id)).valueOrNull ?? BookingGateInfo.none;
     final door = gate.lockerDoor;
     final steps = <String>[
-      if (gate.hasGate)
+      // Výpůjčka výbavy: brána jen v upozornění `gearGateNotice` (web 1:1,
+      // tykání) — krok 1 motorky (vykání, parkování) se neopakuje.
+      if (gate.hasGate && !res.isGearOnly)
         gate.gateCode != null
             ? tr.tr('procStep1Code').replaceAll('{gate}', gate.gateCode!)
             : tr.tr('procStep1NoCode'),
-      if (needsLocker(res, codes)) ...[
+      // Výpůjčka jen výbavy: šatna → protokol na displeji → vrácení (bez motorky).
+      if (res.isGearOnly) ...[
+        tr.tr('gearProcStep2'),
+        tr.tr('gearProcStep3'),
+        tr.tr('gearProcReturn'),
+      ] else if (needsLocker(res, codes)) ...[
         door != null
             ? tr.tr('procStep2GearDoor').replaceAll('{n}', '$door')
             : tr.tr('procStep2Gear'),
@@ -72,11 +79,13 @@ class ResPickupProcedure extends ConsumerWidget {
         tr.tr('procStep2NoGear'),
     ];
     // v2 vzhled (kill-switch app_v2_ui): tytéž kroky, otevírané z CO TEĎ.
+    // Výpůjčka výbavy: upozornění k bráně bez textu o vracení motorky (web).
+    final important = !gate.hasGate ? null : tr.tr(res.isGearOnly ? 'gearGateNotice' : 'procStepImportant');
     if (MgV2.on(context)) {
       return ResProcedureV2(
         gateTitle: gate.hasGate ? tr.tr('gateProcTitle') : null,
         steps: steps,
-        important: gate.hasGate ? tr.tr('procStepImportant') : null,
+        important: important,
         cta: cta,
       );
     }
@@ -107,7 +116,7 @@ class ResPickupProcedure extends ConsumerWidget {
                 border: Border.all(color: MotoGoColors.amberBorder),
                 borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
               ),
-              child: Text('⚠️ ${tr.tr('procStepImportant')}',
+              child: Text('⚠️ ${important ?? ''}',
                   style: const TextStyle(fontSize: 12, height: 1.4, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
             ),
         ],

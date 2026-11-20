@@ -39,6 +39,10 @@ class DocsViewV2 extends StatelessWidget {
   final ValueChanged<String> onReset;
   final VoidCallback onRetry;
 
+  /// Zákazník jen s výpůjčkou výbavy: jen karta OP / pas + poznámka, že
+  /// řidičák není potřeba (`gearDocsIdOnly`).
+  final bool idOnly;
+
   const DocsViewV2({
     super.key,
     required this.verifiedAsync,
@@ -50,6 +54,7 @@ class DocsViewV2 extends StatelessWidget {
     required this.onUpload,
     required this.onReset,
     required this.onRetry,
+    this.idOnly = false,
   });
 
   @override
@@ -81,14 +86,14 @@ class DocsViewV2 extends StatelessWidget {
                 tone: MgTone.warn,
                 dark: true,
                 icon: MgIcons.idCard,
-                title: tr.tr('efoDocsNeedBoth'),
+                title: tr.tr(idOnly ? 'gearDocsIdOnly' : 'efoDocsNeedBoth'),
               ),
               const SizedBox(height: 12),
             ],
             if (loading)
               const DocCardsSkeletonV2()
             else if (v != null)
-              _DocCards(v: v, onReset: onReset, onScanId: onScanId, onScanDl: onScanDl),
+              _DocCards(v: v, onReset: onReset, onScanId: onScanId, onScanDl: onScanDl, idOnly: idOnly),
             const SizedBox(height: 12),
             const DocTipsV2(),
             const SizedBox(height: 4),
@@ -189,7 +194,8 @@ class _DocCards extends StatelessWidget {
   final ValueChanged<String> onReset;
   final VoidCallback onScanId;
   final VoidCallback onScanDl;
-  const _DocCards({required this.v, required this.onReset, required this.onScanId, required this.onScanDl});
+  final bool idOnly;
+  const _DocCards({required this.v, required this.onReset, required this.onScanId, required this.onScanDl, this.idOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -212,6 +218,19 @@ class _DocCards extends StatelessWidget {
             layout: layout,
           ),
         ];
+    if (idOnly) {
+      // Výpůjčka jen výbavy: jediná karta (OP / pas) přes celou šířku.
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        LayoutBuilder(builder: (context, box) {
+          final row = cards(DocCardLayout.row).first;
+          return row.fits(context, box.maxWidth) ? row : cards().first;
+        }),
+        const SizedBox(height: 8),
+        Text(tr.tr('gearDocsIdOnly'),
+            key: const ValueKey('docs-gear-id-only'),
+            style: MgType.small.copyWith(color: MgColors.onDarkLead)),
+      ]);
+    }
     return LayoutBuilder(builder: (context, box) {
       final pair = cards();
       if (pair.every((c) => c.fits(context, (box.maxWidth - 10) / 2))) {

@@ -100,6 +100,23 @@ void main() {
       await rtEnd(t);
     });
 
+    testWidgets('merged trip with many gaps: every gap dotted, label only ONCE (owner 2026-11-15)', (t) async {
+      const d = LatLng(49.33, 16.70), e = LatLng(49.35, 16.74), f = LatLng(49.37, 16.78);
+      final many = [
+        const RideSegment([_a, _b]),
+        const RideSegment([_c, d], gapBefore: RideGap(from: _b, to: _c, sec: 900, km: 6)),
+        const RideSegment([e, f], gapBefore: RideGap(from: d, to: e, sec: 900, km: 4)),
+        const RideSegment([LatLng(49.40, 16.80), LatLng(49.41, 16.81)], gapBefore: RideGap(from: f, to: LatLng(49.40, 16.80), sec: 900, km: 5)),
+      ];
+      await pumpV2(t, SizedBox(width: 360, height: 400, child: RideTrackMap(track: const [_a, _b, _c, d, e, f], segments: many, interactive: true)),
+          overrides: [roadLineProvider.overrideWith((ref, key) async => key.stops.length == 2 ? fakeRoadLine(key.stops) : const <LatLng>[])]);
+      await t.pump(const Duration(milliseconds: 50));
+      final dotted = [for (final l in t.widgetList<PolylineLayer>(find.byType(PolylineLayer))) ...l.polylines.where((p) => p.isDotted)];
+      expect(dotted.length, 3);
+      expect(find.text('Odhad trasy · bez GPS'), findsOneWidget);
+      await rtEnd(t);
+    });
+
     testWidgets('routing failed → no gap line at all', (t) async {
       await pumpV2(t, SizedBox(width: 360, height: 400, child: RideTrackMap(track: const [_a, _b, _c], segments: segs, interactive: true)),
           overrides: [roadLineProvider.overrideWith((ref, key) async => const <LatLng>[])]);

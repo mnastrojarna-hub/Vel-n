@@ -2,6 +2,9 @@ import 'dart:ui' show Color;
 import '../../core/date_days.dart';
 import '../../core/i18n/i18n_provider.dart' show AppTranslations, lastKnownAppLang;
 import '../../core/booking_rules.dart';
+import 'gear/gear_models.dart';
+
+export 'gear/gear_models.dart' show GearLine;
 
 /// Zaplacená rezervace i po vratce z úpravy (`partial_refund`/`refund_pending`).
 const sosPaidStates = {'paid', 'partial_refund', 'refund_pending'};
@@ -115,6 +118,11 @@ class Reservation {
   /// `bookings.booking_kind`: 'moto' | 'gear' (výpůjčka JEN výbavy). Gear se
   /// pozná VÝHRADNĚ podle tohohle, nikdy z `moto_id == null`.
   final String bookingKind;
+  /// Jen gear: naceněné řádky (`gear_lines`) a cena za den (`gear_per_day`).
+  final List<GearLine> gearLines;
+  final double? gearPerDay;
+  /// `bookings.branch_id` — u gear pobočka výpůjčky (sklad, uzavírky, GPS).
+  final String? branchId;
 
   const Reservation({
     required this.id,
@@ -190,16 +198,26 @@ class Reservation {
     this.replacementForBookingId,
     this.actualReturnDate,
     this.bookingKind = 'moto',
+    this.gearLines = const [],
+    this.gearPerDay,
+    this.branchId,
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) {
     final moto = json['motorcycles'] as Map<String, dynamic>?;
-    final branch = moto?['branches'] as Map<String, dynamic>?;
+    // Výpůjčka výbavy nemá motorku — pobočka z `booking_branch` (join přes
+    // bookings.branch_id), ať fungují isSelfService, předání i navigace.
+    final gear = json['booking_kind'] == 'gear';
+    final branch = gear
+        ? json['booking_branch'] as Map<String, dynamic>?
+        : moto?['branches'] as Map<String, dynamic>?;
 
     return Reservation(
       id: json['id'] as String,
       motoId: json['moto_id'] as String?,
-      motoName: moto?['model'] as String? ?? AppTranslations.of(lastKnownAppLang).motorcycle,
+      motoName: gear
+          ? AppTranslations.of(lastKnownAppLang).tr('gearBookingTitle')
+          : moto?['model'] as String? ?? AppTranslations.of(lastKnownAppLang).motorcycle,
       motoImage: moto?['image_url'] as String?,
       category: moto?['category'] as String?,
       branchName: branch?['name'] as String?,
@@ -278,8 +296,15 @@ class Reservation {
           ? DateTime.tryParse(json['actual_return_date'] as String)
           : null,
       bookingKind: json['booking_kind'] as String? ?? 'moto',
+      gearLines: gear ? parseGearLines(json['gear_lines']) : const [],
+      gearPerDay: (json['gear_per_day'] as num?)?.toDouble(),
+      branchId: json['branch_id'] as String?,
     );
   }
+
+  /// Tvar RPC `get_my_gear_bookings` / `get_web_gear_booking` (výpůjčka
+  /// výbavy, viditelná i při vypnutém `gear_rental.app_visible`).
+  factory Reservation.fromGearRpc(Map<String, dynamic> json) => gearReservationFromRpc(json);
 
   /// Výpůjčka jen výbavy (bez motorky) — žádný záznam jízdy, SOS ani motorka.
   bool get isGearOnly => bookingKind == 'gear';
@@ -404,7 +429,9 @@ class Reservation {
       // okna, takže appka mezi 10. a 30. minutou tvrdila „zrušeno“,
       // zatímco server rezervaci pořád držel a FAB nabízel doplacení.
       final age = DateTime.now().difference(createdAt);
-      if (age >= paymentTimeoutDuration) return ResStatus.cancelled;
+      // Webová výpůjčka výbavy: server ji drží 4 h (auto_cancel web).
+      final window = isGearOnly && bookingSource == 'web' ? gearWebPaymentWindow : paymentTimeoutDuration;
+      if (age >= window) return ResStatus.cancelled;
     }
     if (status == 'completed' || endedBySos) return ResStatus.dokoncene;
     final now = DateTime.now();
@@ -421,6 +448,7 @@ class Reservation {
   /// SOS jen při aktivní rezervaci: vyzvednutá (`active`), nebo zaplacená
   /// a dnes probíhající. Vratka po úpravě zaplacenost neruší.
   bool get sosAllowed =>
+      !isGearOnly &&
       !endedBySos &&
       (status == 'active' ||
           (inRentalTerm && sosPaidStates.contains(paymentStatus)));
@@ -641,7 +669,8 @@ class ModificationEntry {
       toPickupTime != null && _hm(fromPickupTime) != _hm(toPickupTime);
   bool get hasReturnTimeChange =>
       toReturnTime != null && _hm(fromReturnTime) != _hm(toReturnTime);
-  bool get hasGearChange => gearChanges.isNotEmpty;
+  // + záznamy výpůjčky výbavy (`type: gear_sizes / gear_remove / gear_admin_update…`).
+  bool get hasGearChange => gearChanges.isNotEmpty || '${raw['type'] ?? ''}'.startsWith('gear');
   // Metody sémanticky (pobočka↔adresa) — DB drží synonyma pobočky
   // ('store'/'pickup'/'branch'/'rental'), přejmenování synonyma není změna.
   bool get hasPickupMethodChange =>

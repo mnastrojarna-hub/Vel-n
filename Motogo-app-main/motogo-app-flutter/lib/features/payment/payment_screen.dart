@@ -155,9 +155,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     // ne spustit nových 30 minut — jinak appka slibuje čas, který server
     // už nedrží, a rezervaci mezitím zruší cron.
     final createdAt = _ctx?.bookingCreatedAt;
+    // Výpůjčka výbavy = webová rezervace → server ji drží 4 h, ne 30 min.
+    final window = _ctx?.gear == true ? gearWebPaymentWindow : paymentTimeoutDuration;
     _deadline = createdAt != null
-        ? createdAt.add(paymentTimeoutDuration)
-        : DateTime.now().add(paymentTimeoutDuration);
+        ? createdAt.add(window)
+        : DateTime.now().add(window);
     _timeRemaining = _fmtRemaining(_deadline.difference(DateTime.now()));
     _startCountdown();
     if (_ctx != null) {
@@ -414,10 +416,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
     return t(context).tr('bookingReservation');
   }
 
-  /// „M:SS“ ze zbývajícího času (záporný = 0:00).
+  /// „M:SS“ ze zbývajícího času (záporný = 0:00); od hodiny „H:MM:SS“
+  /// (jen výpůjčka výbavy — okno 4 h; motorka má 30 min).
   static String _fmtRemaining(Duration d) {
     if (d.isNegative) return '0:00';
-    return '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+    String two(int n) => n.toString().padLeft(2, '0');
+    if (d.inHours >= 1) return '${d.inHours}:${two(d.inMinutes % 60)}:${two(d.inSeconds % 60)}';
+    return '${d.inMinutes}:${two(d.inSeconds % 60)}';
   }
 
   void _startCountdown() {
@@ -1421,9 +1426,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> with WidgetsBindi
           // — stejné dokončení jako u draft flow: mail, záloha, dokumenty,
           // /success (ta si údaje načte z DB podle ID, ne z draftu v paměti).
           if (_pendingBookingId != null) {
-            EmailService.sendBookingReserved(_pendingBookingId!);
-            _advanceInvoiceBackup(_pendingBookingId!);
-            InvoiceService.generateBookingDocs(_pendingBookingId!);
+            // Výpůjčka výbavy: mail, doklady a smlouvu řeší webhook podle
+            // stavu dokladů (web gear — smlouva až s doklady) → appka nic.
+            if (!_ctx!.gear) {
+              EmailService.sendBookingReserved(_pendingBookingId!);
+              _advanceInvoiceBackup(_pendingBookingId!);
+              InvoiceService.generateBookingDocs(_pendingBookingId!);
+            }
             showMotoGoToast(context,
                 icon: '✓',
                 title: tr.tr('paid'),

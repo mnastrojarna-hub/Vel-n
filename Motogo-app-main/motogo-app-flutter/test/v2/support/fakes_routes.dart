@@ -178,6 +178,7 @@ List<Override> routesOverrides({
   bool routesHang = false,
   bool catalogFail = false,
   bool catalogHang = false,
+  bool userFail = false,
   LatLng? me = kMe,
   RideRecorderState recorder = const RideRecorderState(),
   Set<String> selected = const {},
@@ -185,7 +186,8 @@ List<Override> routesOverrides({
     [
       routesDataProvider.overrideWith(() => FakeRtRoutes(routes ?? kRtRoutes, fail: routesFail, hang: routesHang)),
       catalogPoisProvider.overrideWith(() => FakeRtCatalog(catalog ?? kCatalog, fail: catalogFail, hang: catalogHang)),
-      userPoisProvider.overrideWith((ref) async => kUserPois),
+      userPoisProvider.overrideWith(
+          (ref) async => userFail ? throw Exception('PGRST202 get_user_pois') : kUserPois),
       currentLocationProvider.overrideWith((ref) async => me),
       rideRecorderProvider.overrideWith((ref) => FakeRtRecorder(ref, recorder)),
       placesSelectionProvider.overrideWith(() => FakeSelection(selected)),

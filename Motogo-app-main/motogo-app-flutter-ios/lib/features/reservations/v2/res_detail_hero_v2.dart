@@ -36,7 +36,9 @@ class ResDetailHeroV2 extends ConsumerWidget {
         // Sdílená fotka z karty seznamu / lístku Domů (V2 §5.11).
         child: MgHeroPhoto(
           tag: mgHeroTagRes(res.id),
-          child: ResBikePhoto(url: res.motoImage, grayscale: st == ResStatus.cancelled, thumbWidth: 1000),
+          child: res.isGearOnly
+              ? ResGearPhoto(grayscale: st == ResStatus.cancelled)
+              : ResBikePhoto(url: res.motoImage, grayscale: st == ResStatus.cancelled, thumbWidth: 1000),
         ),
       ),
       statusPill: ResStatusPill(status: st, live: false, suffix: resStatusSuffix(tr, res)?.toUpperCase(), warn: unpaid),

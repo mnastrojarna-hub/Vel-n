@@ -12,6 +12,11 @@ library;
 /// (app = 30 min, web = 4 h). Odpočítává se od VZNIKU rezervace.
 const paymentTimeoutDuration = Duration(minutes: 30);
 
+/// Okno na zaplacení webové výpůjčky jen výbavy (`create_web_gear_booking`
+/// zakládá vždy `booking_source='web'`) — server ji zruší po 4 h od vzniku
+/// (`auto_cancel_expired_pending()`, web větev). Appka ji sama neruší.
+const gearWebPaymentWindow = Duration(hours: 4);
+
 /// Typ samoobslužné pobočky v `branches.type` (obslužná = 'obslužná';
 /// NULL/neznámý typ = chovat se jako obslužná).
 const selfServiceBranchType = 'samoobslužná';

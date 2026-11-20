@@ -65,6 +65,8 @@ class BookingValidator {
     final newEnd = DateTime(endDate.year, endDate.month, endDate.day);
 
     for (final res in userReservations) {
+      // Výpůjčka jen výbavy se s motorkou krýt smí (GEAR_RENTAL_APP.md §1).
+      if (res.isGearOnly) continue;
       // Only check active/upcoming reservations (not cancelled/completed)
       final status = res.displayStatus;
       if (status == ResStatus.cancelled || status == ResStatus.dokoncene) {

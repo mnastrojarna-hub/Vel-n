@@ -29,6 +29,7 @@ import 'core/push/notification_handler.dart';
 import 'core/native/permission_service.dart';
 import 'core/supabase_client.dart';
 import 'core/router.dart';
+import 'core/mg_back_dispatcher.dart';
 import 'core/safe_router_config.dart';
 import 'core/theme.dart';
 import 'core/v2/flag/v2_gate.dart';
@@ -437,6 +438,8 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
       // GoRouter + ochrana před odkazy s vlastním schématem (návrat ze
       // Stripe 3DS `motogo24://payment`) — viz safe_router_config.dart.
       routerConfig: mgSafeRouterConfig(router),
+      // Android „Zpět“ obsluhuje vždy appka — nikdy nezavře appku.
+      onNavigationNotification: mgClaimBack,
       locale: locale,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

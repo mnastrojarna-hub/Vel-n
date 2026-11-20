@@ -137,6 +137,7 @@ final homeLastBikeIdProvider = Provider<String?>((ref) {
   final list = ref.watch(reservationsProvider).valueOrNull ?? const <Reservation>[];
   Reservation? last;
   for (final r in list) {
+    if (r.isGearOnly) continue; // výpůjčka výbavy nemá motorku
     if (r.displayStatus != ResStatus.dokoncene) continue;
     if (last == null || r.endDate.isAfter(last.endDate)) last = r;
   }
