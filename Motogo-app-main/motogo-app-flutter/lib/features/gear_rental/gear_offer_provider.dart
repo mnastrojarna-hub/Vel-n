@@ -79,25 +79,20 @@ final gearClosuresProvider = FutureProvider<List<GearClosure>>((ref) async {
 });
 
 /// Vstup „Půjčit samotnou výbavu“ na Domů: služba zapnutá a viditelná
-/// v appce (`enabled && app_visible`), ceník není prázdný a aspoň jedna
-/// nabízená pobočka je dnes otevřená (není v `branch_closures`).
+/// v appce (`enabled && app_visible`), ceník není prázdný a je aspoň jedna
+/// nabízená pobočka. Celý rok jako web (majitel 2026-11-20): zavřené dny
+/// pobočky (`branch_closures`) jen nejdou vybrat v kalendáři objednávky.
 bool gearEntryVisible(
   GearRentalSettings cfg,
   List<GearPrice> prices,
   List<GearBranch> branches,
-  List<GearClosure> closures,
-  DateTime today,
 ) =>
-    cfg.enabled &&
-    cfg.appVisible &&
-    prices.isNotEmpty &&
-    branches.any((b) => !gearClosed(closures, b.id, today));
+    cfg.enabled && cfg.appVisible && prices.isNotEmpty && branches.isNotEmpty;
 
 final gearRentEntryProvider = FutureProvider<bool>((ref) async {
   final cfg = await ref.watch(gearRentalSettingsProvider.future);
   if (!cfg.enabled || !cfg.appVisible) return false;
   final prices = await ref.watch(gearPricesProvider.future);
   final branches = await ref.watch(gearBranchesProvider.future);
-  final closures = await ref.watch(gearClosuresProvider.future);
-  return gearEntryVisible(cfg, prices, branches, closures, gearPragueToday());
+  return gearEntryVisible(cfg, prices, branches);
 });

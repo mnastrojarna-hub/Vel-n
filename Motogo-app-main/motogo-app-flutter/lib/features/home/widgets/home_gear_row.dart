@@ -9,8 +9,8 @@ import '../../gear_rental/gear_offer_provider.dart';
 
 /// „Půjčit samotnou výbavu“ na staré Domů — řádek ve stylu karty „Žádná
 /// aktivní rezervace“ → `/gear-rental`. Zobrazí se za stejných podmínek
-/// jako v novém vzhledu (služba zapnutá a viditelná v appce, pobočka dnes
-/// otevřená); při načítání a chybě se nevykreslí.
+/// jako v novém vzhledu (služba zapnutá a viditelná v appce, aspoň jedna
+/// pobočka; celý rok jako web); při načítání a chybě se nevykreslí.
 class HomeGearRow extends ConsumerWidget {
   const HomeGearRow({super.key});
 

@@ -146,16 +146,21 @@ void main() {
       expect(const GearRentalSettings().appVisible, isFalse);
     });
 
-    test('entry: enabled && app_visible && prices && a branch open today', () {
-      final today = DateTime(2026, 11, 19);
+    test('entry: enabled && app_visible && prices && a branch — all year like the web', () {
       final br = gearBranchesFrom(rows, cfg);
-      expect(gearEntryVisible(cfg, prices, br, const [], today), isTrue);
-      expect(gearEntryVisible(const GearRentalSettings(enabled: true, appVisible: false), prices, br, const [], today), isFalse);
-      expect(gearEntryVisible(const GearRentalSettings(enabled: false, appVisible: true), prices, br, const [], today), isFalse);
-      expect(gearEntryVisible(cfg, const [], br, const [], today), isFalse);
-      expect(gearEntryVisible(cfg, prices, const [], const [], today), isFalse);
-      final closedToday = [GearClosure('m', DateTime(2026, 11, 1), DateTime(2026, 11, 30))];
-      expect(gearEntryVisible(cfg, prices, br, closedToday, today), isFalse);
+      expect(gearEntryVisible(cfg, prices, br), isTrue);
+      expect(gearEntryVisible(const GearRentalSettings(enabled: true, appVisible: false), prices, br), isFalse);
+      expect(gearEntryVisible(const GearRentalSettings(enabled: false, appVisible: true), prices, br), isFalse);
+      expect(gearEntryVisible(cfg, const [], br), isFalse);
+      expect(gearEntryVisible(cfg, prices, const []), isFalse);
+    });
+
+    test('a branch in a winter closure still offers its open days (web 1:1)', () {
+      final today = DateTime(2026, 11, 20);
+      final winter = [GearClosure('m', DateTime(2026, 10, 29), DateTime(2027, 3, 25))];
+      expect(gearEntryVisible(cfg, prices, gearBranchesFrom(rows, cfg)), isTrue);
+      expect(gearDayState(today, today: today, maxAhead: 400, closures: winter, branchId: 'm'), GearDay.busy);
+      expect(gearDayState(DateTime(2027, 3, 26), today: today, maxAhead: 400, closures: winter, branchId: 'm'), GearDay.free);
     });
   });
 }

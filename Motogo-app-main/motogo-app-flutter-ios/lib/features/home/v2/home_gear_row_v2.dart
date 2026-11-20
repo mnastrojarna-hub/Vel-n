@@ -13,7 +13,8 @@ import 'home_offer_block_v2.dart' show HomeLinkRow;
 /// style of "Spočítat přesnou cenu" / "Zaznamenat jízdu" (dark 40 px tile,
 /// neon icon) → `/gear-rental`. Shown only while the service is on and
 /// visible in the app (`gear_rental.enabled && app_visible`) and a branch
-/// is open today; hidden while loading or on error.
+/// is offered — all year like the web (closed days are only unselectable
+/// in the order calendar); hidden while loading or on error.
 class HomeGearRowV2 extends ConsumerWidget {
   const HomeGearRowV2({super.key});
 
