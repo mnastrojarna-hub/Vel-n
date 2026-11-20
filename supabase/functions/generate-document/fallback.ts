@@ -3,8 +3,7 @@
 // Právní dokumenty (VOP, nájemní smlouva, GDPR) ZÁLOHU NEMAJÍ — dřívější záloha VOP obsahovala
 // neplatné podmínky (vratná kauce, plná odpovědnost, storno 48 h, věk 21 let); bez DB šablony
 // generate-document vrací 503 + debug_log, nikdy nevymyšlené smluvní podmínky.
-
-export function getFallbackTemplate(slug: string): string | null {
+export function getFallbackTemplate(slug) {
   if (slug === 'handover_protocol') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Předávací protokol</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a">
@@ -29,9 +28,8 @@ export function getFallbackTemplate(slug: string): string | null {
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Předávající</div></div>
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Přebírající — {{customer_name}}</div></div>
   </div>
-</div></body></html>`
+</div></body></html>`;
   }
-
   if (slug === 'damage_protocol') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Protokol o zjištěném poškození</title></head>
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a;font-size:12px">
@@ -71,8 +69,7 @@ export function getFallbackTemplate(slug: string): string | null {
     <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Podpis nájemce<br>{{customer_name}}</div></div>
   </div>
   <div style="margin-top:32px;text-align:center;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:12px">{{company_name}} · IČO: {{company_ico}} · {{company_address}} · info@motogo24.cz · +420 774 256 271</div>
-</div></body></html>`
+</div></body></html>`;
   }
-
-  return null
+  return null;
 }
