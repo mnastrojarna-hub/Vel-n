@@ -48,7 +48,8 @@ $links = [
     ['href' => '/blog', 'label' => t('sitemap.links.blog')],
     ['href' => '/kontakt', 'label' => t('sitemap.links.contact')],
     ['href' => '/pobocky', 'label' => t('menu.branches')],
-    ['href' => '/oblasti', 'label' => t('menu.areas')],
+    ['href' => '/pobocky/mezna', 'label' => t('menu.branchMezna')],
+    ['href' => '/pobocky/velke-nemcice', 'label' => t('menu.branchNemcice')],
     ['href' => '/rezervace', 'label' => t('sitemap.links.reservation')],
     // SEO: linkujeme primo na cilove /dokumenty/<slug> URL aby crawler nemusel
     // sledovat 301 redirect (Seobility hlasil 'Internal redirects' z mapa-stranek).
@@ -58,6 +59,11 @@ $links = [
 ];
 if (function_exists('webShopVisible') && webShopVisible()) $links[] = ['href' => '/eshop', 'label' => t('menu.shop')];
 $links[] = ['href' => '/partneri', 'label' => t('footer.partners')];
+// SEO stránky poboček (Motopůjčovna Brno / Vysočina) — existují jen česky
+if (i18nDetectLanguage() === 'cs') {
+    require_once __DIR__ . '/../data/seo-pobocky.php';
+    foreach (seoPobockyPages() as $p) $links[] = ['href' => $p['path'], 'label' => $p['menu']];
+}
 
 $html = '<ul>';
 foreach ($links as $l) {

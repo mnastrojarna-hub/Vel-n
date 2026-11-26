@@ -39,8 +39,8 @@ const I18N_SLUG_ROUTES = [
     '/katalog/scootery' => ['en' => '/catalog/scooters', 'de' => '/katalog/roller', 'es' => '/catalogo/scooters', 'fr' => '/catalogue/scooters', 'nl' => '/catalogus/scooters', 'pl' => '/katalog/skutery', 'uk' => '/catalog/scooters'],
     '/katalog/ostatni' => ['en' => '/catalog/other', 'de' => '/katalog/sonstiges', 'es' => '/catalogo/otros', 'fr' => '/catalogue/autres', 'nl' => '/catalogus/overig', 'pl' => '/katalog/inne', 'uk' => '/catalog/other'],
     '/pujcovna-motorek' => ['en' => '/motorcycle-rental', 'de' => '/motorradverleih', 'es' => '/alquiler-de-motos', 'fr' => '/location-de-motos', 'nl' => '/motorverhuur', 'pl' => '/wypozyczalnia-motocykli', 'uk' => '/motorcycle-rental'],
-    // Oblasti (rozcestník krajů). Slugy krajů (/oblasti/vysocina…) jsou vlastní
-    // jména — překládá se jen prefix (viz I18N_SLUG_PREFIXES níže).
+    // Oblasti — stránky zrušeny 2026-11-26, slugy zůstávají jen kvůli 301 starých
+    // (i lokalizovaných) adres na pobočky (index.php, data/seo-pobocky.php).
     '/oblasti' => ['en' => '/areas', 'de' => '/regionen', 'es' => '/regiones', 'fr' => '/regions', 'nl' => '/regios', 'pl' => '/regiony', 'uk' => '/areas'],
     // /jak-pujcit (rozcestník) jen 301-redirectuje na /postup — lokalizujeme i jeho.
     '/jak-pujcit' => ['en' => '/how-to-rent', 'de' => '/mietanleitung', 'es' => '/como-alquilar', 'fr' => '/comment-louer', 'nl' => '/hoe-huren', 'pl' => '/jak-wypozyczyc', 'uk' => '/how-to-rent'],

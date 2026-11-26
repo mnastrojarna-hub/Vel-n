@@ -486,15 +486,23 @@ switch (true) {
         require __DIR__ . '/pages/pujcovna.php';
         break;
 
-    // Oblasti — SEO rozcestník krajů + krajské landing stránky
-    // ("motopůjčovna {město}"). Přehled /oblasti, detail /oblasti/<slug-kraje>.
+    // Oblasti (krajské stránky) zrušeny 2026-11-26 (majitel) — nahradily je SEO stránky
+    // poboček. Staré adresy (i lokalizované /areas, /regionen…) vedou 301 na nejbližší
+    // pobočku, jinak na přehled poboček (data/seo-pobocky.php).
     case $path === '/oblasti':
-        require __DIR__ . '/pages/oblasti.php';
-        break;
-
     case preg_match('#^/oblasti/([a-z0-9\-]+)$#', $path, $matches) === 1:
-        $_GET['region'] = $matches[1];
-        require __DIR__ . '/pages/oblasti-detail.php';
+        require_once __DIR__ . '/data/seo-pobocky.php';
+        $seoTo = $path === '/oblasti' ? '/pobocky' : seoPobockyRegionTarget($matches[1]);
+        // SEO stránky jsou jen česky → v cizím jazyce přehled poboček
+        if (i18nDetectLanguage() !== 'cs') $seoTo = '/pobocky';
+        header('Location: ' . BASE_URL . i18nLocalizePath($seoTo), true, 301);
+        exit;
+
+    // SEO stránky poboček: „Motopůjčovna Brno a jižní Morava“, „Motopůjčovna Vysočina“
+    case $path === '/motopujcovna-brno':
+    case $path === '/motopujcovna-vysocina':
+        $_GET['seo'] = substr($path, strlen('/motopujcovna-'));
+        require __DIR__ . '/pages/seo-pobocka.php';
         break;
 
     // Jak si půjčit — rozcestníková stránka /jak-pujcit byla odstraněna

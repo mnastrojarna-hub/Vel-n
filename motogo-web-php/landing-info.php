@@ -33,6 +33,15 @@ const LPI_BG = [
     'pristaveni' => 'gfx/provozovna-3.jpg',
     'dokumenty' => 'gfx/hero-banner-768.webp',
     'faq' => 'gfx/hero-banner-768.webp',
+    // SEO stránky poboček (pages/seo-pobocka.php)
+    'seo_brno' => 'gfx/pobocky/velke-nemcice/vydejni-box.webp',
+    'seo_vysocina' => 'gfx/provozovna-1.jpg',
+];
+
+/** SEO stránky poboček: pruh motorek a „od X Kč“ jen z motorek dané pobočky (branches.id). */
+const LPI_BRANCH = [
+    'seo_brno' => '22222222-2222-2222-2222-222222222222',
+    'seo_vysocina' => '11111111-1111-1111-1111-111111111111',
 ];
 
 /**
@@ -51,6 +60,8 @@ const LPI_BLOCKS = [
     'dokumenty' => [],
     'faq' => ['reviews', 'ai'],
     'kontakt' => ['reviews', 'ai'],
+    'seo_brno' => ['fleet', 'reviews'],
+    'seo_vysocina' => ['fleet', 'reviews'],
 ];
 
 /** CS defaulty textů nových prvků (cizí jazyky: lang/v2/<lang>/info.php). */
@@ -73,6 +84,8 @@ function lpiDefaults() {
             'dokumenty' => ['Bez kauce', 'Srozumitelná smlouva', 'Bezpečná platba online'],
             'faq' => ['Bez kauce', 'Výbava řidiče v ceně', 'AI asistent 24/7'],
             'kontakt' => ['2 pobočky: Vysočina a Brno', 'Samoobsluha 24/7 u Brna', 'Rezervace online'],
+            'seo_brno' => ['Převzetí kódem z aplikace', 'Rezervace online za pár minut', 'Bez obsluhy, bez čekání'],
+            'seo_vysocina' => ['Zhruba 90 minut z Prahy', 'Nepromoky k zapůjčení', 'Rezervace online za pár minut'],
         ],
         'ai' => [
             'title' => 'AI asistent 24/7',
@@ -144,6 +157,11 @@ function lpInfoWrap($html, $page, $sb) {
     if ($page === 'pristaveni' && is_array($motos)) {
         $motos = array_values(array_filter($motos, function ($m) {
             return is_array($m) && (($m['branches']['type'] ?? '') === 'obslužná');
+        }));
+    }
+    if (isset(LPI_BRANCH[$page]) && is_array($motos)) {
+        $motos = array_values(array_filter($motos, function ($m) use ($page) {
+            return is_array($m) && (string)($m['branch_id'] ?? '') === LPI_BRANCH[$page];
         }));
     }
     $on = array_flip(LPI_BLOCKS[$page] ?? ['fleet', 'reviews']);

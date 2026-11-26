@@ -63,8 +63,10 @@ return [
     'menu.blog' => 'Блог',
     'menu.shop' => 'Інтернет-магазин',
     'menu.branches' => 'Філії',
+    'menu.branchesAll' => 'Усі філії',
+    'menu.branchMezna' => 'Мезна біля Пельгржимова',
+    'menu.branchNemcice' => 'Велке Нємчице біля Брно',
     'menu.contact' => 'Контакти',
-    'menu.areas' => 'Регіони',
     'menu.areas.vysocina' => 'Край Височина',
     'menu.areas.jihomoravsky' => 'Південноморавський край',
     'menu.areas.jihocesky' => 'Південночеський край',
@@ -205,7 +207,6 @@ return [
     'breadcrumb.blog' => 'Блог',
     'breadcrumb.shop' => 'Інтернет-магазин',
     'breadcrumb.contact' => 'Контакти',
-    'breadcrumb.areas' => 'Регіони',
 
     // E-shop
     'shop.title' => 'Інтернет-магазин MotoGo24 — мотоаксесуари та мерч',

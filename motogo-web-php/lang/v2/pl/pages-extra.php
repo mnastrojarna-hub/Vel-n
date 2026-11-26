@@ -1,12 +1,7 @@
 <?php
 // PL — klíče pages.* chybějící v pages_pl.php oproti aktuálním CS defaultům (2026-10-11):
-// SEO /oblasti, závěr /kontakt a /jak-pujcit/co-v-cene. Slučuje se do 'pages' (i18n.php).
+// Závěr /kontakt a /jak-pujcit/co-v-cene. Slučuje se do 'pages' (i18n.php).
 return ['pages' => [
-    'oblasti' => ['seo' => [
-        'title' => 'Regiony – wypożyczalnia motocykli w regionach i miastach Czech | MotoGo24',
-        'description' => 'MotoGo24 dostarcza motocykle do miast w całych Czechach. Wybierz region i miasto – wypożyczalnia motocykli bez kaucji, z rezerwacją online i wyposażeniem w cenie.',
-        'keywords' => 'wypożyczalnia motocykli, wynajem motocykla, wypożyczalnia motocykli w mieście, wypożyczalnia motocykli Czechy, wynajem motocykla bez kaucji, MotoGo24',
-    ]],
     'kontakt' => ['outro' => [
         'title' => 'Dlaczego motocykliści wybierają MotoGo24',
         'body1' => 'Nasza wypożyczalnia motocykli działa w regionie Vysočina od 2024 roku i od tego czasu obsłużyliśmy setki zadowolonych klientów – miejscowych i przyjezdnych, początkujących i doświadczonych. Wypożyczamy bez kaucji, wyposażenie kierowcy (kask, kurtka, spodnie i rękawice) jest zawsze w cenie, a dzięki pracy 24/7 odbierasz motocykl o godzinie, którą wybierzesz w rezerwacji.',

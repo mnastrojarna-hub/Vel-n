@@ -7,55 +7,6 @@
 
 return [
     'pages' => [
-        'oblasti' => [
-            'seo' => [
-                'title' => 'Regionen – Motorradverleih in Regionen und Städten Tschechiens | MotoGo24',
-                'description' => 'MotoGo24 liefert Motorräder in Städte in ganz Tschechien. Wähle deine Region und Stadt – Motorradverleih ohne Kaution, mit Online-Buchung und Ausrüstung inklusive.',
-                'keywords' => 'Motorradverleih, Motorrad mieten, Motorradverleih Tschechien, Motorradverleih nach Stadt, Motorrad mieten ohne Kaution, MotoGo24',
-            ],
-            'hero' => [
-                'h1' => 'Motorradverleih in deiner Region und Stadt',
-                'intro' => 'Du suchst einen <strong>Motorradverleih</strong> in deiner Nähe? MotoGo24 liefert Motorräder in Städte in ganz Tschechien. Wähle deine Region und sieh nach, wohin wir dir das Motorrad bringen – <strong>ohne Kaution</strong>, mit <strong>Online-Buchung</strong> und kompletter Ausrüstung inklusive.',
-            ],
-            'regionsTitle' => 'Wähle deine Region',
-            'citiesLabel' => 'Motorradverleih in diesen Städten:',
-            'regionCta' => 'Region ansehen',
-            'cta' => [
-                'title' => 'Deine Stadt ist nicht dabei?',
-                'text' => 'Wir liefern das Motorrad fast überallhin in Tschechien. Schreib uns oder buche gleich online.',
-                'buttons' => [
-                    ['label' => 'MOTORRAD BUCHEN', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
-                    ['label' => 'Kontaktiere uns', 'href' => '/kontakt', 'cls' => 'btndark'],
-                ],
-            ],
-            'detail' => [
-                'seoTitle' => 'Motorradverleih {region} – Motorrad mieten ohne Kaution | MotoGo24',
-                'seoDescription' => 'Motorradverleih in der Region {regionLoc}. MotoGo24 liefert dir ein Motorrad in Städte der Region {regionLoc} – ohne Kaution, mit Online-Buchung und Ausrüstung inklusive. Wir liefern auch nach: {cities}.',
-                'heroTagline' => 'Miete ein Motorrad in der Region {regionLoc} – ohne Kaution, Ausrüstung inklusive, Abholung rund um die Uhr.',
-                'heroCta' => 'MOTORRAD BUCHEN',
-                'h1' => 'Motorradverleih {region}',
-                'intro' => 'Du suchst einen zuverlässigen <strong>Motorradverleih in der Region {regionLoc}</strong>? MotoGo24 bringt dir das Motorrad direkt in deine Stadt. Wir bieten <strong>Motorradverleih ohne Kaution</strong>, Online-Buchung und komplette Motorradausrüstung inklusive. Egal ob du in einer Großstadt oder in einem kleinen Ort wohnst – wir liefern das Motorrad gern an einen vereinbarten Ort und holen es nach Mietende dort wieder ab.',
-                'citiesTitle' => 'Wohin wir liefern',
-                'citiesIntro' => 'Wir liefern und holen Motorräder in der Region {regionLoc} – zum Beispiel in diesen Städten und ihrer Umgebung:',
-                'cityTitle' => 'Motorradverleih {city}',
-                'cityText' => 'Miete ein Motorrad in {city} und Umgebung. Wir liefern es an einen vereinbarten Ort und holen es nach der Miete wieder ab – ohne Kaution und mit allem, was du brauchst.',
-                'cta' => [
-                    'title' => 'Buche dein Motorrad in der Region {regionLoc}',
-                    'text' => 'Wähle ein Motorrad und deinen Termin – wir bringen es dir. Abholung und Rückgabe laufen bei MotoGo24 rund um die Uhr.',
-                    'buttons' => [
-                        ['label' => 'MOTORRAD BUCHEN', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
-                        ['label' => 'Motorräder ansehen', 'href' => '/katalog', 'cls' => 'btndark'],
-                    ],
-                ],
-                'faq' => [
-                    'title' => 'Häufige Fragen',
-                    'items' => [
-                        ['q' => 'Bringt ihr das Motorrad bis in meine Stadt?', 'a' => 'Ja. Wir liefern das Motorrad an einen vereinbarten Ort in der Region {regionLoc} und auch überallhin sonst in Tschechien. Gib den Ort einfach bei der Buchung an.'],
-                        ['q' => 'Muss ich eine Kaution hinterlegen?', 'a' => 'Nein. Unser <strong>Motorradverleih</strong> verlangt keine Kaution und blockiert keinen Betrag auf deiner Karte.'],
-                    ],
-                ],
-            ],
-        ],
         'kontakt' => [
             'seo' => [
                 'title' => 'Kontakt | MotoGo24 – Motorradverleih Vysočina',

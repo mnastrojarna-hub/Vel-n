@@ -64,8 +64,10 @@ return [
     'menu.blog' => 'Blog',
     'menu.shop' => 'E-shop',
     'menu.branches' => 'Pobočky',
+    'menu.branchesAll' => 'Všechny pobočky',
+    'menu.branchMezna' => 'Mezná u Pelhřimova',
+    'menu.branchNemcice' => 'Velké Němčice u Brna',
     'menu.contact' => 'Kontakt',
-    'menu.areas' => 'Oblasti',
     'menu.areas.vysocina' => 'Kraj Vysočina',
     'menu.areas.jihomoravsky' => 'Jihomoravský kraj',
     'menu.areas.jihocesky' => 'Jihočeský kraj',
@@ -206,7 +208,6 @@ return [
     'breadcrumb.blog' => 'Blog',
     'breadcrumb.shop' => 'E-shop',
     'breadcrumb.contact' => 'Kontakt',
-    'breadcrumb.areas' => 'Oblasti',
 
     // E-shop
     'shop.title' => 'E-shop MotoGo24 — motorkářské doplňky a merch',

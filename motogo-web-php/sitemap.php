@@ -77,9 +77,6 @@ $static = [
     ['loc' => '/katalog',                'priority' => '0.9',  'changefreq' => 'weekly'],
     // /katalog/<kategorie> — dynamicky níže: jen kategorie, které ve flotile (Velín) reálně mají motorky
     ['loc' => '/pujcovna-motorek',       'priority' => '0.8',  'changefreq' => 'monthly'],
-    // Oblasti — rozcestník krajů (SEO "motopůjčovna {město}"). Detaily krajů se
-    // doplní níže dynamicky z data/oblasti.php (jeden zdroj pravdy).
-    ['loc' => '/oblasti',                'priority' => '0.7',  'changefreq' => 'monthly'],
     // /jak-pujcit byla smazána (301 redirect na /jak-pujcit/postup), ze sitemapy
     // vyřazena aby crawler neindexoval redirect.
     ['loc' => '/jak-pujcit/postup',      'priority' => '0.7',  'changefreq' => 'monthly'],
@@ -119,10 +116,11 @@ foreach ($static as $s) {
     echo sitemapEntry($base, $s['loc'], $s['changefreq'], $s['priority'], $today);
 }
 
-// Oblasti — krajské landing stránky z data/oblasti.php
-require_once __DIR__ . '/data/oblasti.php';
-foreach (oblastiRegions() as $r) {
-    echo sitemapEntry($base, '/oblasti/' . $r['slug'], 'monthly', '0.7', $today);
+// SEO stránky poboček (Motopůjčovna Brno / Vysočina) — jen česky, tedy jen v sitemapě
+// české domény a bez hreflang alternativ (/oblasti zrušeny 2026-11-26, vedou 301 sem).
+require_once __DIR__ . '/data/seo-pobocky.php';
+if (i18nSiteDefaultLang() === 'cs') {
+    foreach (seoPobockyPages() as $p) echo sitemapEntry($base, $p['path'], 'monthly', '0.8', $today, false);
 }
 
 // Dynamické: motorky z DB — image extension obsahuje image_url + images[]
