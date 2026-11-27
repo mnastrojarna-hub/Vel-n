@@ -20,6 +20,21 @@ function webShopVisible() {
     return $v;
 }
 
+/** Podmenu Pobočky: přehled, obě pobočky, SEO stránky (ty jen v češtině — jinde neexistují). */
+function menuBranchChildren() {
+    $items = [
+        ['label' => tc('menu.branchesAll'), 'route' => '/pobocky'],
+        ['label' => tc('menu.branchMezna'), 'route' => '/pobocky/mezna'],
+        ['label' => tc('menu.branchNemcice'), 'route' => '/pobocky/velke-nemcice'],
+    ];
+    if ((function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') === 'cs') {
+        require_once __DIR__ . '/data/seo-pobocky.php';
+        // 'footer' => i v patičce (odkaz z každé stránky = silnější signál pro vyhledávače)
+        foreach (seoPobockyPages() as $p) $items[] = ['label' => $p['menu'], 'route' => $p['path'], 'footer' => true];
+    }
+    return $items;
+}
+
 function getMenuItems() {
     return array_merge([
         // "Vyber si stroj" = katalog. Menu-popisek `menu.catalogShort` je oddělený
@@ -40,16 +55,14 @@ function getMenuItems() {
             ['label' => tc('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
             ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
         ]],
-        // Oblasti — rozcestník krajů (SEO "motopůjčovna {město}"). Obyčejný
-        // odkaz (žádné rozbalovací submenu); kraje se zobrazí až na /oblasti.
-        ['label' => tc('menu.areas'), 'route' => '/oblasti'],
+        // Pobočky (majitel 2026-11-26: místo zrušených Oblastí) — podmenu s oběma
+        // pobočkami a SEO stránkami „Motopůjčovna Brno / Vysočina“ (jen česky).
+        ['label' => tc('menu.branches'), 'route' => '/pobocky', 'children' => menuBranchChildren()],
         ['label' => tc('menu.vouchers'), 'route' => '/poukazy', 'highlight' => true],
         // Půjčení samotné výbavy bez motorky (2026-10-22) — hned vedle poukazů
         ['label' => tc('menu.gearRental'), 'route' => '/pujceni-obleceni'],
         // E-shop je v menu dočasně skrytý (zadání majitele 2026-10-01) — vrátí se
         // zapnutím flagu `eshop_visible` ve Velíně (Web CMS → Feature flags).
-        // Na jeho místě je přehled poboček (Mezná + Velké Němčice).
-        ['label' => tc('menu.branches'), 'route' => '/pobocky'],
     ], webShopVisible() ? [
         ['label' => tc('menu.shop'), 'route' => '/eshop'],
     ] : [], [
@@ -171,6 +184,9 @@ function renderFooter() {
             continue;
         }
         $menuHtml .= '<li><a data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . '</a></li>';
+        foreach ((array)($item['children'] ?? []) as $ch) {
+            if (!empty($ch['footer'])) $menuHtml .= '<li><a data-route="' . $ch['route'] . '" href="' . BASE_URL . $ch['route'] . '">' . $ch['label'] . '</a></li>';
+        }
     }
     $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>';
     $menuHtml .= '<li><a data-route="/upravit-rezervaci" href="' . BASE_URL . '/upravit-rezervaci">' . tc('menu.editReservation') . '</a></li>';
@@ -404,11 +420,14 @@ function renderWebmasterVerification() {
  * @param string $path aktuální cesta (např. /blog/xy nebo /eshop)
  * @return string HTML <link> tagy
  */
-function renderHreflangAlternates($path) {
+function renderHreflangAlternates($path, $langs = null) {
     if (!defined('I18N_SUPPORTED')) return '';
     $live = defined('I18N_HREFLANG_LIVE') ? I18N_HREFLANG_LIVE : [];
     $out = '';
-    foreach (I18N_SUPPORTED as $code) {
+    // $langs = jazyky, ve kterých stránka existuje (renderPage meta 'hreflang', např. ['cs'] u
+    // SEO stránek poboček) — ostatní jazyky by vedly na 301, proto se nevypisují.
+    $codes = is_array($langs) ? array_values(array_intersect(I18N_SUPPORTED, $langs)) : I18N_SUPPORTED;
+    foreach ($codes as $code) {
         // SEO: hreflang odkazy jen na domeny ktere jsou ZIVE. Mrtve domeny
         // (motogo24.es, .nl) by Seobility hlasilo jako 'External link problem
         // - Page is down' (tisice errors). I18N_HREFLANG_LIVE = ['es'=>false,
@@ -417,8 +436,9 @@ function renderHreflangAlternates($path) {
         $href = i18nUrlForLang($code, $path);
         $out .= "\n  " . '<link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '">';
     }
-    // x-default → mezinárodní (EN) verze na .com
-    $out .= "\n  " . '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars(i18nUrlForLang('en', $path)) . '">';
+    // x-default → mezinárodní (EN) verze na .com (stránka bez EN → její první jazyk)
+    $xd = in_array('en', $codes, true) || !$codes ? 'en' : $codes[0];
+    $out .= "\n  " . '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars(i18nUrlForLang($xd, $path)) . '">';
     return $out;
 }
 
@@ -589,7 +609,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="geo.position" content="49.3464;15.2119">
   <meta name="ICBM" content="49.3464, 15.2119">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-' . renderWebmasterVerification() . renderHreflangAlternates($currentPath) . '
+' . renderWebmasterVerification() . renderHreflangAlternates($currentPath, $meta['hreflang'] ?? null) . '
   <title>' . htmlspecialchars($title) . '</title>
 
   <script type="application/ld+json">

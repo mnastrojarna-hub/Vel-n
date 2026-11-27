@@ -9,7 +9,7 @@ import 'mg_back_v2.dart';
 /// (PLAN "T": SOS flow, registration — r2 2026-10-29, owner decides on a
 /// full SOS / Přihlášení board port before 5.0.0): v2 page canvas instead
 /// of the v1 mint and the v2 back disc with the SAME onTap. Old look
-/// unchanged (v2 is in both trees since 5.0.0+118; current 5.0.2+120).
+/// unchanged (v2 is in both trees since 5.0.0+118; current 5.0.3+121).
 
 /// v2 page canvas `#F4F7F5`, else the v1 page colour.
 Color mgV1PageColor(BuildContext context, Color v1) => MgV2.on(context) ? MgColors.canvas : v1;

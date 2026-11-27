@@ -4,7 +4,8 @@ import { PAGE_KATALOG } from './webTextsKatalog'
 // PAGE_JAK_OVERVIEW (rozcestník /jak-pujcit) odstraněn — stránka byla smazána
 // a v menu zůstává jen jako neklickatelný rozcestník nad podmenu.
 import { PAGE_PUJCOVNA } from './webTextsPujcovna'
-import { PAGE_OBLASTI, PAGE_OBLASTI_VYSOCINA, PAGE_OBLASTI_JIHOMORAVSKY, PAGE_OBLASTI_JIHOCESKY } from './webTextsOblasti'
+// PAGE_OBLASTI* odstraněny 2026-11-26 — krajské stránky /oblasti zrušeny (nahradily je
+// SEO stránky poboček /motopujcovna-brno a /motopujcovna-vysocina, texty inline na webu).
 import { PAGE_POSTUP, PAGE_PRISTAVENI } from './webTextsPostup'
 import { PAGE_VYZVEDNUTI, PAGE_CO_V_CENE, PAGE_DOKUMENTY } from './webTextsVyzvednuti'
 import { PAGE_VRACENI_PUJCOVNA, PAGE_VRACENI_JINDE } from './webTextsVraceni'
@@ -21,10 +22,6 @@ export const WEB_PAGES = [
   PAGE_HOME,
   PAGE_KATALOG,
   PAGE_PUJCOVNA,
-  PAGE_OBLASTI,
-  PAGE_OBLASTI_VYSOCINA,
-  PAGE_OBLASTI_JIHOMORAVSKY,
-  PAGE_OBLASTI_JIHOCESKY,
   PAGE_POSTUP,
   PAGE_PRISTAVENI,
   PAGE_VYZVEDNUTI,

@@ -8,55 +8,6 @@
 
 return [
     'pages' => [
-        'oblasti' => [
-            'seo' => [
-                'title' => 'Zonas – alquiler de motos por regiones y ciudades de la República Checa | MotoGo24',
-                'description' => 'MotoGo24 te lleva la moto a ciudades de toda la República Checa. Elige tu región y tu ciudad: alquiler de motos sin fianza, con reserva online y equipamiento incluido.',
-                'keywords' => 'alquiler de motos, alquilar moto, alquiler de motos por ciudad, alquiler de motos República Checa, alquiler de motos sin fianza, MotoGo24',
-            ],
-            'hero' => [
-                'h1' => 'Alquiler de motos en tu región y tu ciudad',
-                'intro' => '¿Buscas un <strong>alquiler de motos</strong> cerca de ti? MotoGo24 te lleva la moto a ciudades de toda la República Checa. Elige tu región y mira hasta dónde te la llevamos: <strong>sin fianza</strong>, con <strong>reserva online</strong> y con el equipamiento completo incluido.',
-            ],
-            'regionsTitle' => 'Elige tu región',
-            'citiesLabel' => 'Alquiler de motos en estas ciudades:',
-            'regionCta' => 'Ver región',
-            'cta' => [
-                'title' => '¿No encuentras tu ciudad?',
-                'text' => 'Te llevamos la moto prácticamente a cualquier lugar de la República Checa. Escríbenos o reserva online directamente.',
-                'buttons' => [
-                    ['label' => 'RESERVAR MOTO', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
-                    ['label' => 'Contáctanos', 'href' => '/kontakt', 'cls' => 'btndark'],
-                ],
-            ],
-            'detail' => [
-                'seoTitle' => 'Alquiler de motos {region} – alquila una moto sin fianza | MotoGo24',
-                'seoDescription' => 'Alquiler de motos en {regionLoc}. MotoGo24 te lleva la moto a ciudades de {regionLoc}: sin fianza, con reserva online y equipamiento incluido. También alquilamos en: {cities}.',
-                'heroTagline' => 'Alquila una moto en {regionLoc}: sin fianza, con el equipamiento incluido y recogida 24/7.',
-                'heroCta' => 'RESERVAR MOTO',
-                'h1' => 'Alquiler de motos {region}',
-                'intro' => '¿Buscas un <strong>alquiler de motos fiable en {regionLoc}</strong>? MotoGo24 te lleva la moto directamente a tu ciudad. Ofrecemos <strong>alquiler de motos sin fianza</strong>, reserva online y el equipamiento de moto completo incluido. Vivas en una gran ciudad o en un pueblo, te llevamos la moto encantados al lugar acordado y, al terminar el alquiler, volvemos a recogerla.',
-                'citiesTitle' => 'Adónde te llevamos la moto',
-                'citiesIntro' => 'Te llevamos y recogemos la moto en {regionLoc}, por ejemplo en estas ciudades y sus alrededores:',
-                'cityTitle' => 'Alquiler de motos {city}',
-                'cityText' => 'Alquila una moto en {city} y alrededores. Te la llevamos al lugar acordado y la recogemos al terminar el alquiler, sin fianza y con todo lo necesario.',
-                'cta' => [
-                    'title' => 'Reserva una moto en {regionLoc}',
-                    'text' => 'Elige la moto y las fechas, y te la llevamos. En MotoGo24 la recogida y la devolución funcionan 24/7, según tu reserva.',
-                    'buttons' => [
-                        ['label' => 'RESERVAR MOTO', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
-                        ['label' => 'Ver motos', 'href' => '/katalog', 'cls' => 'btndark'],
-                    ],
-                ],
-                'faq' => [
-                    'title' => 'Preguntas frecuentes',
-                    'items' => [
-                        ['q' => '¿Me lleváis la moto hasta mi ciudad?', 'a' => 'Sí. Te llevamos la moto al lugar acordado en {regionLoc} y también a cualquier otro punto de la República Checa. Solo tienes que indicar el lugar en la reserva.'],
-                        ['q' => '¿Tengo que dejar fianza?', 'a' => 'No. En nuestro <strong>alquiler de motos</strong> no pedimos fianza ni bloqueamos ningún importe en tu tarjeta.'],
-                    ],
-                ],
-            ],
-        ],
         'kontakt' => [
             'seo' => [
                 'title' => 'Contacto | MotoGo24 – alquiler de motos en Vysočina',

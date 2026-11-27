@@ -6,55 +6,6 @@
 
 return [
     'pages' => [
-        'oblasti' => [
-            'seo' => [
-                'title' => 'Areas – motorcycle rental across Czech regions and towns | MotoGo24',
-                'description' => 'MotoGo24 delivers motorcycles to towns all over the Czech Republic. Pick your region and town – motorcycle rental with no deposit, online booking and gear included.',
-                'keywords' => 'motorcycle rental, motorbike hire, motorcycle rental by town, motorcycle rental Czech Republic, motorcycle rental no deposit, MotoGo24',
-            ],
-            'hero' => [
-                'h1' => 'Motorcycle rental in your region and town',
-                'intro' => 'Looking for a <strong>motorcycle rental</strong> near you? MotoGo24 delivers bikes to towns all over the Czech Republic. Pick your region and see where we can bring you a bike – with <strong>no deposit</strong>, <strong>online booking</strong> and full riding gear included.',
-            ],
-            'regionsTitle' => 'Choose your region',
-            'citiesLabel' => 'Motorcycle rental in these towns:',
-            'regionCta' => 'View region',
-            'cta' => [
-                'title' => 'Can\'t find your town?',
-                'text' => 'We can deliver a bike almost anywhere in the Czech Republic. Drop us a message or book online right away.',
-                'buttons' => [
-                    ['label' => 'BOOK A MOTORCYCLE', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
-                    ['label' => 'Contact us', 'href' => '/kontakt', 'cls' => 'btndark'],
-                ],
-            ],
-            'detail' => [
-                'seoTitle' => 'Motorcycle rental {region} – no-deposit motorbike hire | MotoGo24',
-                'seoDescription' => 'Motorcycle rental in {regionLoc}. MotoGo24 delivers a bike to towns in {regionLoc} – no deposit, online booking, gear included. We also deliver to: {cities}.',
-                'heroTagline' => 'Rent a motorcycle in {regionLoc} – no deposit, gear included, pick-up 24/7.',
-                'heroCta' => 'BOOK A MOTORCYCLE',
-                'h1' => 'Motorcycle rental {region}',
-                'intro' => 'Looking for a reliable <strong>motorcycle rental in {regionLoc}</strong>? MotoGo24 brings the bike straight to your town. We offer <strong>motorcycle rental with no deposit</strong>, online booking and full riding gear included. Whether you live in a big city or a small village, we\'re happy to deliver the bike to an agreed spot and collect it again when your rental ends.',
-                'citiesTitle' => 'Where we deliver',
-                'citiesIntro' => 'We deliver and collect bikes in {regionLoc} – for example in these towns and the surrounding area:',
-                'cityTitle' => 'Motorcycle rental {city}',
-                'cityText' => 'Rent a motorcycle in {city} and the surrounding area. We deliver the bike to an agreed spot and collect it after your rental – with no deposit and everything you need.',
-                'cta' => [
-                    'title' => 'Book a motorcycle in {regionLoc}',
-                    'text' => 'Pick a bike, choose your dates and we\'ll bring it to you. MotoGo24 runs pick-up and return 24/7.',
-                    'buttons' => [
-                        ['label' => 'BOOK A MOTORCYCLE', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
-                        ['label' => 'View motorcycles', 'href' => '/katalog', 'cls' => 'btndark'],
-                    ],
-                ],
-                'faq' => [
-                    'title' => 'Frequently asked questions',
-                    'items' => [
-                        ['q' => 'Can you bring the motorcycle to my town?', 'a' => 'Yes. We deliver the bike to an agreed spot in {regionLoc} and anywhere else in the Czech Republic. Just enter the place in your booking.'],
-                        ['q' => 'Do I have to pay a deposit?', 'a' => 'No. Our <strong>motorcycle rental</strong> requires no deposit and no card hold.'],
-                    ],
-                ],
-            ],
-        ],
         'kontakt' => [
             'seo' => [
                 'title' => 'Contact | MotoGo24 – motorcycle rental Vysočina',

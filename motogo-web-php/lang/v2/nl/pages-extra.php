@@ -1,12 +1,7 @@
 <?php
 // NL — klíče pages.* chybějící v pages_nl.php oproti aktuálním CS defaultům (2026-10-11):
-// SEO /oblasti, závěr /kontakt a /jak-pujcit/co-v-cene. Slučuje se do 'pages' (i18n.php).
+// Závěr /kontakt a /jak-pujcit/co-v-cene. Slučuje se do 'pages' (i18n.php).
 return ['pages' => [
-    'oblasti' => ['seo' => [
-        'title' => 'Regio’s – motorverhuur in Tsjechische regio’s en steden | MotoGo24',
-        'description' => 'MotoGo24 brengt motoren naar steden in heel Tsjechië. Kies je regio en stad – motorverhuur zonder borg, met online reserveren en uitrusting inbegrepen.',
-        'keywords' => 'motorverhuur, motor huren, motorverhuur per stad, motorverhuur Tsjechië, motorverhuur zonder borg, MotoGo24',
-    ]],
     'kontakt' => ['outro' => [
         'title' => 'Waarom motorrijders voor MotoGo24 kiezen',
         'body1' => 'Onze motorverhuur draait sinds 2024 in de regio Vysočina en sindsdien hebben we honderden tevreden klanten verwelkomd – uit de buurt en van ver, beginners en ervaren rijders. We verhuren zonder borg, rijdersuitrusting (helm, jas, broek en handschoenen) zit altijd bij de prijs en dankzij onze 24/7-werking haal je de motor op op het tijdstip dat je in je reservering kiest.',
