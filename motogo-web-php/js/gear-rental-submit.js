@@ -9,7 +9,7 @@
   var C = G.C, T = G.T, tpl = G.tpl, q = G.q, DK = 'mg_gear_draft', busy = false;
   var ERR = { bad_size: 'err_size', branch_closed: 'err_closed', too_long: 'err_long', disabled: 'err_disabled', bad_customer: 'err_contact',
     bad_branch: 'err_branch', branch_unavailable: 'err_branch', bad_dates: 'err_dates', no_items: 'err_items', consents_required: 'err_agree', too_many: 'err_too_many',
-    below_minimum: 'err_min', bad_voucher: 'voucher_bad' };
+    below_minimum: 'err_min', bad_voucher: 'voucher_bad', bad_code: 'voucher_bad' };
 
   function val(id) { var e = q('#' + id); return e ? String(e.value || '').trim() : ''; }
   function fail(msg) {
@@ -42,13 +42,14 @@
     busy = true; E.go.disabled = true;
     E.go.innerHTML = '<span>' + G.esc(T.processing) + '</span>';
     function done(msg) { busy = false; E.go.disabled = false; E.go.innerHTML = label; if (msg) fail(msg); }
-    G.rpc('create_web_gear_booking', {
+    G.rpcCodes('create_web_gear_booking', {
       p_branch_id: S.branch, p_start: S.start, p_end: S.end, p_items: G.itemsArg(), p_customer: cust,
       p_pickup_time: br && !br.self ? val('gr-time') || null : null, p_return_time: null, p_lang: C.lang,
-      p_note: val('gr-note') || null, p_voucher_code: S.vcode || null, p_existing_booking_id: G.draft(),
+      p_note: val('gr-note') || null, p_existing_booking_id: G.draft(),
       p_consents: { vop: true, gdpr: true }
-    }).then(function (o) {
+    }, S.codes || []).then(function (o) {
       o = o || {};
+      if (o.error === 'bad_voucher') { o.error = 'bad_code'; o.code = (S.codes || [])[0] || ''; }
       if (o.success && o.booking_id) {
         G.draft(o.booking_id);
         return G.pay(o.booking_id, o.amount != null ? o.amount : o.total).then(function (r) {
@@ -61,7 +62,13 @@
       if (e === 'email_exists' && G.showLogin) { done(''); return G.showLogin(cust.email, G.submit); }
       if (e === 'email_mismatch') return done(tpl(T.err_mismatch, { email: o.email || (G.user && G.user.email) || '' }));
       if (e === 'out_of_stock') { G.reloadAvail(); return done(G.errText(o)); }
-      if (e === 'bad_voucher') { S.vcode = ''; S.vstate = 'bad'; G.live(true); }
+      if (e === 'bad_code') {
+        // kód mezitím neplatí (vypršel, použitý jinde…) → vyřadit, nacenit znovu, ukázat proč
+        var c = String(o.code || '').toUpperCase();
+        S.codes = (S.codes || []).filter(function (x) { return x !== c; });
+        S.cmsg = { kind: 'bad', text: G.codeErr(o) }; G.live(true);
+        return done(G.codeErr(o));
+      }
       // neznámá chyba s uloženým konceptem (např. koncept mezitím zaplacený / cizí) → jednou bez něj
       if (e && !ERR[e] && e !== 'rpc_error' && G.draft()) { G.draft(''); done(''); return G.submit(); }
       done(e && ERR[e] ? tpl(T[ERR[e]], { n: o.max_days || C.maxDays, item: o.key && by[o.key] ? by[o.key].label : '' }) : T.err_generic);

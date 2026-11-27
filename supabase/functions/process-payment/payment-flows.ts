@@ -686,7 +686,33 @@ export async function handleWebShopCheckout(
   // Oprava i1 (2026-11-05): celkem = hodnota poukazu + tisk (to, co Stripe skutečně účtuje v položkách) — dřív
   // `shop_orders.total = body.amount` z klienta (jiná částka kazila Velín / strop vratky a poukaz < 15 Kč končil
   // surovou chybou Stripe místo below_minimum). Klientská `amount` se jen zaloguje, když nesedí.
-  const amountCzk = Math.round((Number(voucherAmount) + printFee) * 100) / 100
+  // Slevové kódy u nákupu poukazu (web 2026-11-27): platnost kódů, slevu i cenu počítá server
+  // (RPC quote_web_voucher_order — stejné pravidlo jako náhled na stránce). Jen slevové kódy,
+  // dárkovým poukazem se jiný poukaz platit nedá; po slevě musí zbýt aspoň 15 Kč.
+  const codes = Array.isArray(webBody.codes)
+    ? (webBody.codes as unknown[]).filter((c): c is string => typeof c === 'string' && c.trim() !== '').slice(0, 10)
+    : []
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+  let quote: Record<string, unknown> | null = null
+  if (codes.length) {
+    const { data, error } = await supabaseAdmin.rpc('quote_web_voucher_order', { p_amount: Number(voucherAmount), p_print: isPrint, p_codes: codes })
+    if (error || !data || typeof data !== 'object') {
+      console.error('[WebShopCheckout] quote_web_voucher_order failed:', error?.message)
+      return new Response(JSON.stringify({ error: 'validation_unavailable' }), { status: 503, headers: { ...CORS, 'Content-Type': 'application/json' } })
+    }
+    const q = data as Record<string, unknown>
+    if (q.success !== true) {
+      return new Response(JSON.stringify({ error: q.message || q.error || 'code_invalid', code: q.error, discount_code: q.code ?? null }), {
+        status: 409, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+    quote = q
+  }
+  const discount = quote ? Math.round(Number(quote.discount) * 100) / 100 : 0
+  const amountCzk = quote ? Math.round(Number(quote.total) * 100) / 100 : Math.round((Number(voucherAmount) + printFee) * 100) / 100
   const currency = CZK
   if (Number.isFinite(Number(body.amount)) && Math.round(Number(body.amount)) !== Math.round(amountCzk)) {
     console.warn('[WebShopCheckout] client amount differs from server total:', body.amount, 'vs', amountCzk)
@@ -703,11 +729,6 @@ export async function handleWebShopCheckout(
     })
     custId = newCust.id
   }
-
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
 
   const orderId = body.order_id || crypto.randomUUID()
   if (!body.order_id) {
@@ -733,7 +754,8 @@ export async function handleWebShopCheckout(
       // ho zobrazí 2× (jako "Doprava" + jako shop_order_item "Tisk a poštovné").
       // Položka "Tisk a poštovné" je v shop_order_items níže (isPrint branch).
       shipping_cost: 0,
-      discount: 0,
+      discount,
+      ...(quote ? { promo_code_id: quote.promo_code_id ?? null, discount_codes: quote.discount_codes ?? null } : {}),
       notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
       // i18n: jazyk zákazníka z webu (cs/en/de/nl/es/fr/pl) → voucher_purchased mail
       // i SMS dorazí přeložené (detect_customer_language čte shop_orders.language).
@@ -779,8 +801,16 @@ export async function handleWebShopCheckout(
     await supabaseAdmin.from('shop_order_items').insert(orderItems)
   }
 
-  // Stripe line items (separate for clarity on Stripe receipt)
-  const lineItems: Record<string, unknown>[] = [{
+  // Stripe line items (separate for clarity on Stripe receipt). Se slevou jedna položka s konečnou
+  // cenou a kódy v názvu (doklady se tvoří z shop_orders — sleva jako vlastní řádek).
+  const lineItems: Record<string, unknown>[] = discount > 0 ? [{
+    price_data: {
+      currency,
+      unit_amount: Math.round(amountCzk * 100),
+      product_data: { name: `MotoGo24 — Dárkový poukaz ${Number(voucherAmount)} Kč${isPrint ? ' + tisk a poštovné' : ''} (sleva ${codes.map((c) => c.trim().toUpperCase()).join(', ')})` }
+    },
+    quantity: 1
+  }] : [{
     price_data: {
       currency,
       unit_amount: Math.round(voucherAmount * 100),
@@ -788,7 +818,7 @@ export async function handleWebShopCheckout(
     },
     quantity: 1
   }]
-  if (isPrint) {
+  if (isPrint && discount <= 0) {
     lineItems.push({
       price_data: {
         currency,
