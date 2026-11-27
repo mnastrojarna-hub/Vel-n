@@ -20,8 +20,7 @@
 #rez-calendar .cal-day .dp{display:block;margin-top:1px;color:#0b4d14;font-size:.58rem;font-weight:700;line-height:1;white-space:nowrap}
 #rez-calendar .cal-day.in-range .dp,#rez-calendar .cal-day.sel-start .dp,#rez-calendar .cal-day.sel-end .dp{color:#d9ffd6}
 .rez-v2 #rez-calendar .cal-day.free .dp{color:#8ff58c}
-.rez-v2 #rez-calendar .cal-day.in-range .dp{color:#c8ffc4}
-.rez-v2 #rez-calendar .cal-day.sel-start .dp,.rez-v2 #rez-calendar .cal-day.sel-end .dp{color:#0b3b1a}
+.rez-v2 #rez-calendar .cal-day.in-range .dp,.rez-v2 #rez-calendar .cal-day.sel-start .dp,.rez-v2 #rez-calendar .cal-day.sel-end .dp{color:#0b3b1a}
 @media(max-width:480px){#rez-calendar.ux-has-prices .cal-day{aspect-ratio:auto;min-height:46px}}
 @media(max-width:360px){#rez-calendar .cal-day .dp{font-size:.54rem;letter-spacing:-.02em}}
 #rez-calendar .ux-dp-lg{display:inline-flex;align-items:center;gap:.35rem}

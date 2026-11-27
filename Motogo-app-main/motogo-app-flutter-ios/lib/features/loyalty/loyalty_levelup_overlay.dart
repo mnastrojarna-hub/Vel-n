@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/offline_guard.dart';
 import '../../core/pending_booking_fab_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../main.dart' show rootNavigatorKey;
 import '../reservations/reservation_provider.dart';
+import 'loyalty_levelup_baseline.dart';
 import 'loyalty_provider.dart';
 
 /// Globální hlídač postupu na vyšší věrnostní rank.
@@ -26,8 +28,10 @@ import 'loyalty_provider.dart';
 /// začátku (logo MotoGo24 ve středu se přeblikne ze staré barvy na novou +
 /// odznak „+N"), vše skončí s koncem hudby. Dole tlačítko „Pokračovat".
 ///
-/// Spolehlivost: nový level se do SharedPreferences zapíše až PO zobrazení
-/// oslavy — když se watcher mezitím odmountuje, oslava se neztratí.
+/// Spolehlivost: „oslaveno" (lokální značka + server) se zapíše až ve chvíli,
+/// kdy zákazník oslavu SÁM ukončil tlačítkem nebo doběhla do konce. Zavře-li
+/// ji cokoli jiného (cizí `pop`, přesměrování, zabití appky), nic se nezapíše
+/// a oslava se přehraje znovu. Pravidla baseline: [decideLevelUp].
 class LoyaltyLevelUpWatcher extends ConsumerStatefulWidget {
   const LoyaltyLevelUpWatcher({super.key});
 
@@ -43,6 +47,14 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
   /// Pojistka: i když se uživatel displeje ani nedotkne, povýšení zaznamenáme
   /// nejpozději do ~3 minut. Tiká JEN v popředí (viz kontrola uvnitř).
   Timer? _poll;
+
+  /// Jednorázové brzké zopakování kontroly (viz [_recheckSoon]).
+  Timer? _recheck;
+
+  /// Kolikrát po sobě se kontrola opakovala „hned" — nejvýš [_maxQuick]×,
+  /// pak už jen běžným rytmem (dotyk / 3 min / návrat do popředí).
+  int _quick = 0;
+  static const _maxQuick = 3;
 
   @override
   void initState() {
@@ -61,6 +73,7 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
   @override
   void dispose() {
     _poll?.cancel();
+    _recheck?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -77,89 +90,90 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
     }
   }
 
-  String get _lvlKey =>
-      'mg_loyalty_last_level_${MotoGoSupabase.currentUser?.id ?? 'anon'}';
-  String get _colorKey =>
-      'mg_loyalty_last_color_${MotoGoSupabase.currentUser?.id ?? 'anon'}';
-
-  /// „Už oslaveno na level N" — SERVER je zdroj pravdy (`profiles`), takže
-  /// povýšení uvidí uživatel VŽDY a právě JEDNOU: přežije reinstal, nové
-  /// zařízení i smazaná data. Vrací null, když RPC ještě není nasazené →
-  /// fallback na lokální SharedPreferences baseline (appka funguje jako dřív).
-  /// Strop pro oba „celebrated" dotazy. Supabase/postgrest sám žádný timeout
-  /// nemá, takže na mrtvém-ale-otevřeném socketu by await visel minuty — a
-  /// protože se drží latch `_showing`, zablokovalo by to oslavu do restartu
-  /// appky. Fail-open: timeout = jako by RPC nebylo nasazené.
-  static const _rpcTimeout = Duration(seconds: 5);
-
-  Future<int?> _serverCelebrated() async {
-    if (MotoGoSupabase.currentUser == null) return null;
-    try {
-      final Future<dynamic> call =
-          MotoGoSupabase.client.rpc('loyalty_get_celebrated');
-      final res = await call.timeout(_rpcTimeout);
-      if (res is num) return res.toInt();
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _advanceServer(int level) async {
-    if (MotoGoSupabase.currentUser == null) return;
-    try {
-      final Future<dynamic> call = MotoGoSupabase.client
-          .rpc('loyalty_advance_celebrated', params: {'p_level': level});
-      await call.timeout(_rpcTimeout);
-    } catch (_) {/* fail-open */}
-  }
-
-  Future<void> _persistLocal(
-      SharedPreferences prefs, LoyaltyStatus status) async {
-    await prefs.setInt(_lvlKey, status.level);
-    await prefs.setString(_colorKey, status.colorHex);
-  }
-
   /// Odloží oslavu, dokud je na obrazovce app-level overlay (jazyk/oprávnění/
   /// intro) nebo platba. Tyto vrstvy se kreslí NAD dialogem oslavy, takže by
-  /// video běželo neviditelně. NEZAPISUJEME nic → dožene se při dalším dotyku.
+  /// video běželo neviditelně. NEZAPISUJEME nic → dožene se hned, jak blokace
+  /// skončí (posluchače v [build]).
   bool get _blockedByOverlay =>
       ref.read(onboardingOverlayActiveProvider) ||
       ref.read(paymentScreenActiveProvider);
 
+  /// Kontrola ranku HNED (bez throttlu).
+  void _recheckNow() {
+    if (!mounted || _showing) return;
+    resetLoyaltyPollClock();
+    maybeRefreshLoyalty(ref, force: true);
+  }
+
+  /// Zopakuje kontrolu za [delay], aniž by zákazník musel na něco sáhnout.
+  /// [bounded] = nejvýš [_maxQuick]× po sobě (server neodpovídá / oslavu
+  /// opakovaně zavírá něco cizího) — pak se čeká na běžný rytmus kontrol.
+  void _recheckSoon(Duration delay, {bool bounded = true}) {
+    if (!mounted) return;
+    if (bounded) {
+      if (_quick >= _maxQuick) return;
+      _quick++;
+    }
+    _recheck?.cancel();
+    _recheck = Timer(delay, _recheckNow);
+  }
+
   Future<void> _maybeCelebrate(LoyaltyStatus status) async {
     if (!mounted || _showing) return;
     if (_blockedByOverlay) return;
+    // Účet zachytíme HNED: klíče i zápis na server patří jemu. Přihlásí-li
+    // se během awaitů jiný účet, nic se neukáže ani nezapíše (jinak by level
+    // účtu A skončil jako „oslaveno" u účtu B a ten by o oslavy přišel).
+    final uid = MotoGoSupabase.currentUser?.id;
+    if (uid == null) return;
 
     // Latch zvedáme HNED (před prvním await) — mezi kontrolou a zobrazením je
     // několik awaitů a dvě emise providera by jinak otevřely dva dialogy.
     _showing = true;
     loyaltyPollPaused = true;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final lastColorHex = prefs.getString(_colorKey);
+      final store = LevelUpBaseline(await SharedPreferences.getInstance(), uid);
+      final lastColorHex = store.lastColorHex;
 
-      // Baseline = server (autoritativní, přežije reinstal), jinak lokální
-      // mirror.
-      final serverBaseline = await _serverCelebrated();
-      final bool serverMode = serverBaseline != null;
-      final int? baseline = serverBaseline ?? prefs.getInt(_lvlKey);
+      // Baseline = max(server, lokální značka) — viz [decideLevelUp].
+      final server = await store.readServer();
+      if (!mounted || !store.sameUser) return;
 
-      // Neseednuto (server 0 nebo lokálně nic) → jen zaznamenej aktuální level,
-      // NEoslavuj (na úplně prvním pozorování není co „povyšovat").
-      if (baseline == null || (serverMode && baseline == 0)) {
-        await _persistLocal(prefs, status);
-        if (serverMode) await _advanceServer(status.level);
-        return;
+      // Tento telefon už oslavil víc, než ví server (zápis posledně selhal)
+      // → dopsat teď. Rozhodnutí níže na výsledku nestojí (bere maximum).
+      final marker = store.marker;
+      if (server.known && marker != null && marker > server.level!) {
+        await store.advanceServer(marker);
+        if (!mounted || !store.sameUser) return;
       }
 
-      if (status.level <= baseline) {
-        await _persistLocal(prefs, status);
-        return;
+      final decision = decideLevelUp(
+        level: status.level,
+        server: server,
+        marker: marker,
+        legacy: store.legacyLevel,
+      );
+      switch (decision.action) {
+        case LevelUpAction.unknown:
+          // Server neodpověděl → NIC nezapisujeme a zkusíme to za chvíli.
+          _recheckSoon(const Duration(seconds: 4));
+          return;
+        case LevelUpAction.seed:
+          // Úplně první pozorování → jen zaznamenej aktuální level,
+          // NEoslavuj (není co „povyšovat"). Značka drží baseline, i kdyby
+          // zápis na server selhal — příští povýšení se pak nespolkne.
+          _quick = 0;
+          if (!server.missing) await store.raiseMarker(status.level);
+          await store.mirror(status);
+          if (!server.missing) await store.advanceServer(status.level);
+          return;
+        case LevelUpAction.none:
+          _quick = 0;
+          await store.mirror(status);
+          return;
+        case LevelUpAction.celebrate:
+          break;
       }
-
-      if (!mounted) return;
-      final gained = status.level - baseline;
 
       // Médium je BONUS, ne podmínka — oslava umí běžet i bez hero videa
       // (`if (_moto != null)`). Bez timeoutu by jedno zaseknuté RPC na špatné
@@ -168,6 +182,7 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
         const Duration(seconds: 6),
         onTimeout: () => const <CelebrationMoto>[],
       );
+      if (!store.sameUser) return;
 
       // Watcher sedí v MaterialApp.builder VEDLE navigátoru (ne pod ním),
       // takže jeho vlastní context žádný Navigator nemá a Navigator.of() by
@@ -176,18 +191,13 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
       final navCtx = rootNavigatorKey.currentContext;
       if (!mounted || navCtx == null || !navCtx.mounted) {
         // Navigátor ještě neexistuje (první frame / redirect na /login).
-        // NEukládÁME — naplánuj jeden opakovaný pokus, ať se oslava neztratí,
+        // NEukládÁME — naplánuj opakovaný pokus, ať se oslava neztratí,
         // než uživatel na něco klikne.
-        Future.delayed(const Duration(milliseconds: 800), () {
-          if (mounted && !_showing) {
-            resetLoyaltyPollClock();
-            maybeRefreshLoyalty(ref, force: true);
-          }
-        });
+        _recheckSoon(const Duration(milliseconds: 800), bounded: false);
         return;
       }
 
-      await showGeneralDialog(
+      final seen = await showGeneralDialog<bool>(
         context: navCtx,
         barrierDismissible: false,
         barrierColor: Colors.transparent,
@@ -196,15 +206,26 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
         pageBuilder: (_, __, ___) => LevelUpCelebration(
           status: status,
           fromColor: colorFromHex(lastColorHex ?? '#9CA3AF'),
-          gained: gained,
+          gained: decision.gained,
           motos: motos,
         ),
       );
 
-      // Zapiš „oslaveno" AŽ po přehrání → přežije zabití appky uprostřed videa
-      // (příště se dožene). Server GREATEST → i napříč zařízeními jen jednou.
-      await _persistLocal(prefs, status);
-      if (serverMode) await _advanceServer(status.level);
+      if (seen != true) {
+        // Oslavu zavřelo něco cizího (pop / přesměrování / odhlášení) dřív,
+        // než ji zákazník sám ukončil → NEzapisujeme a přehrajeme ji znovu.
+        _recheckSoon(const Duration(milliseconds: 800));
+        return;
+      }
+
+      // „Oslaveno" AŽ po oslavě, kterou zákazník viděl → přežije zabití appky
+      // uprostřed videa (příště se dožene). Značka nejdřív: i když zápis na
+      // server selže, podruhé se neslaví a zápis se zopakuje při další
+      // kontrole. Server GREATEST → i napříč zařízeními jen jednou.
+      _quick = 0;
+      await store.raiseMarker(status.level);
+      await store.mirror(status);
+      if (!server.missing) await store.advanceServer(status.level);
     } finally {
       // I při výjimce (prefs, RPC, dialog) se latch MUSÍ uvolnit — jinak by
       // jedna chyba zablokovala oslavu do restartu appky.
@@ -233,6 +254,16 @@ class _LoyaltyLevelUpWatcherState extends ConsumerState<LoyaltyLevelUpWatcher>
         resetLoyaltyPollClock();
         maybeRefreshLoyalty(ref, force: true);
       }
+    });
+    // Blokace skončila (intro / jazyk / oprávnění při startu, platba) →
+    // zkontroluj rank HNED. Kontrola během blokace se zahodila bez zápisu;
+    // bez tohoto by oslava čekala na dotyk po 45 s nebo na tříminutovou
+    // pojistku (po studeném startu pokaždé — intro kryje první kontrolu).
+    ref.listen<bool>(onboardingOverlayActiveProvider, (prev, next) {
+      if (prev == true && !next) _recheckNow();
+    });
+    ref.listen<bool>(paymentScreenActiveProvider, (prev, next) {
+      if (prev == true && !next) _recheckNow();
     });
     return const SizedBox.shrink();
   }
@@ -267,6 +298,10 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
   late final AnimationController _ctrl;
   late final AnimationController _pulse;
 
+  /// Vlastní route oslavy (dialog) — zavíráme VÝHRADNĚ ji.
+  ModalRoute<Object?>? _route;
+  bool _closed = false;
+
   bool get _turbo => widget.gained >= 2;
   CelebrationMoto? get _moto =>
       widget.motos.isNotEmpty ? widget.motos.first : null;
@@ -277,12 +312,21 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
 
   double get _t => _ctrl.value * _T;
 
+  /// Náběh tlačítka „Pokračovat" (0–1). Dokud není aspoň z poloviny vidět,
+  /// nereaguje na klepnutí ani na systémové zpět.
+  double get _btnIn => _seg(_rs + 1.6, _rs + 3.2);
+  bool get _btnLive => _btnIn >= 0.5;
+
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 67000), // = _T (67 s)
+      // Telefon s omezenými animacemi (iOS „Omezit pohyb", Android „Odebrat
+      // animace") by 67 s zkrátil na 5 % (~3,4 s): oslava by se sama zavřela
+      // dřív, než ji zákazník uvidí, a zapsala by se jako oslavená.
+      animationBehavior: AnimationBehavior.preserve,
     )
       ..addStatusListener((s) {
         if (s == AnimationStatus.completed) _close();
@@ -291,13 +335,47 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
+      animationBehavior: AnimationBehavior.preserve,
     )..repeat(reverse: true);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+  }
+
+  /// Konec oslavy VLASTNÍ cestou (tlačítko / doběhnutí hudby): zavře jen SVOU
+  /// route — ne tu, která zrovna leží navrchu (dřív `pop()` zavřel třeba
+  /// dialog povinné aktualizace) — a vrátí `true` = „zákazník oslavu viděl".
+  /// Cokoli jiného (cizí pop, přesměrování) vrací null a hlídač ji přehraje.
   void _close() {
-    if (mounted && Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+    final route = _route;
+    final nav = route?.navigator;
+    if (_closed || !mounted || route == null || nav == null) return;
+    if (!route.isActive) return;
+    _closed = true;
+    if (route.isCurrent) {
+      nav.pop(true);
+    } else {
+      nav.removeRoute(route, true);
     }
+  }
+
+  /// „Pokračovat" — klepnutím i systémovým zpět, ale až je tlačítko vidět
+  /// (dřív šla oslava zavřít omylem hned po objevení: neviditelné tlačítko
+  /// leží nad spodní lištou a zavření se počítalo jako „oslaveno").
+  void _userClose() {
+    if (_btnLive) _close();
+  }
+
+  /// Systémové zpět: před tlačítkem nic, potom = tlačítko. Leží-li něco nad
+  /// oslavou (jiný dialog, překryv „Nejsi připojený"), patří zpět tomu.
+  Future<bool> _onBack() async {
+    if (OfflineGuard.overlayVisible) return false;
+    if (!(_route?.isCurrent ?? true)) return false;
+    _userClose();
+    return true;
   }
 
   @override
@@ -320,7 +398,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
     final glow = _gold ? const Color(0xFFFF8C00) : accent;
     String tr(String key) => t(context).tr(key);
 
-    return AnimatedBuilder(
+    final scene = AnimatedBuilder(
       animation: Listenable.merge([_ctrl, _pulse]),
       builder: (context, _) {
         final size = MediaQuery.of(context).size;
@@ -333,7 +411,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         final burst = _seg(_rs, _rs + 3.4, Curves.easeOutCubic);
         final shock = _turbo ? _seg(_rs, _rs + 3.0, Curves.easeOutCubic) : 0.0;
         final textIn = _seg(_rs + 0.3, _rs + 2.4);
-        final btnIn = _seg(_rs + 1.6, _rs + 3.2);
+        final btnIn = _btnIn;
 
         final pulseGlow = (_turbo ? 36.0 : 30.0) +
             (_turbo ? 30.0 : 24.0) * _pulse.value * emblemIn;
@@ -468,6 +546,11 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         );
       },
     );
+    // Cizí `maybePop` oslavu nezavře; systémové zpět obsluhuje [_onBack]
+    // (má přednost i před stránkou pod oslavou).
+    final guarded = PopScope(canPop: false, child: scene);
+    if (Router.maybeOf(context)?.backButtonDispatcher == null) return guarded;
+    return BackButtonListener(onBackButtonPressed: _onBack, child: guarded);
   }
 
   Widget _emblem(double ringMix, double emblemIn, double badgeIn,
@@ -595,7 +678,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         Opacity(
           opacity: btnIn,
           child: GestureDetector(
-            onTap: _close, // „Pokračovat" = zavřít oslavu
+            onTap: _userClose, // „Pokračovat" = zavřít oslavu
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 34, vertical: 13),
