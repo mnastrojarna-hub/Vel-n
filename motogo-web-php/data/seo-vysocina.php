@@ -71,7 +71,8 @@ return [
         'paragraphs' => [
             'MotoGo24 je <strong>motopůjčovna na Vysočině</strong> s obslužnou pobočkou v Mezné u Pelhřimova. Motorku ti předáme osobně, bez kauce a s výbavou pro řidiče v ceně — <strong>pronájem motorky</strong> si rezervuješ online za pár minut.',
             'Za příplatek ti motorku přivezeme i na adresu, třeba do Jihlavy nebo Tábora. Čas převzetí i vrácení si zvolíš v rezervaci – motorky předáváme denně, včetně víkendů a svátků.',
-            'Jsi z Brna nebo jižní Moravy? Vyzkoušej naši samoobslužnou pobočku — <a href="/motopujcovna-brno">motopůjčovna Brno ve Velkých Němčicích</a>, kde si motorku vyzvedneš nonstop 24/7.',
+            // + odkaz na úvodní stránku s hlavní frází v textu (SEO 2026-11-28: krajské stránky odkazují „nahoru“ na celostátní)
+            'Jsi z Brna nebo jižní Moravy? Vyzkoušej naši samoobslužnou pobočku — <a href="/motopujcovna-brno">motopůjčovna Brno ve Velkých Němčicích</a>, kde si motorku vyzvedneš nonstop 24/7. Obě pobočky, všechny motorky i podmínky má pohromadě úvodní stránka <a href="/">motopůjčovny MotoGo24</a>.',
         ],
     ],
 ];

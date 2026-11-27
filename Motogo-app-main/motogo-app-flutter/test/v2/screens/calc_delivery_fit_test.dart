@@ -24,6 +24,8 @@ import 'package:motogo_app/features/catalog/v2/calc/calc_receipt_v2.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_state.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_step_handover_v2.dart';
 import 'package:motogo_app/features/catalog/v2/calc/calc_total_v2.dart';
+import 'package:motogo_app/features/catalog/v2/catalog_mode.dart';
+import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
 
 import '../render/render_harness.dart' show loadRenderFonts;
 import '../render/render_inspect.dart';
@@ -153,6 +155,37 @@ void main() {
     ]);
   });
 
+  // The real Motorky screen (calculator mode) at the two phone sizes: the
+  // step, the receipt and the total scroll by without any overflow.
+  testWidgets('smoke: Motorky → Spočítat cenu with delivery, 320×640 / 360×780 × 8 languages', (t) async {
+    final own = CalcHandover(choice: longAddr, branchId: kBmw.branchId);
+    for (final lang in kV2Langs) {
+      for (final size in _sizes) {
+        for (final st in [
+          CalcState(motoId: 'm-bmw', start: ws, end: we, handover: own),
+          CalcState(motoId: 'm-husq', start: ws, end: we),
+        ]) {
+          await t.pumpWidget(const SizedBox());
+          MgMotion.resetSession();
+          await pumpV2(t, const MotorkyScreenV2(), lang: lang, size: size, reducedMotion: true, overrides: [
+            ...catalogOverrides(calc: st, profile: kProfileJihlava),
+            catalogCalcRequestProvider.overrideWith((ref) => true),
+          ]);
+          await t.pump(const Duration(milliseconds: 600));
+          final id = '$lang ${size.width.toInt()}×${size.height.toInt()} ${st.motoId}';
+          expect(t.takeException(), isNull, reason: id);
+          for (final type in [CalcStepHandoverV2, CalcReceiptV2, CalcTotalV2]) {
+            await t.scrollUntilVisible(find.byType(type), 300, scrollable: find.byType(Scrollable).first);
+            await t.pump(const Duration(milliseconds: 300));
+            expect(t.takeException(), isNull, reason: '$id $type');
+          }
+        }
+      }
+    }
+    await t.pumpWidget(const SizedBox());
+    await t.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('receipt and total with both fee rows and the missing-address hint', (t) async {
     if (!_realFonts) return;
     final q = quoteFor(kBmw, ws, we, loyalty: kLoyalty3, pickupDeliveryFee: 3212, returnDeliveryFee: 13960);
@@ -170,7 +203,10 @@ void main() {
                       rankName: q.loyaltyRankName,
                       onBook: () {},
                       onRetryLoyalty: () {},
-                      note: t(c).tr('efoNoAddrCtx')),
+                      note: _hint(c)),
                 ]))));
   });
 }
+
+/// The form's missing-address hint in the pumped language.
+String _hint(BuildContext c) => t(c).tr('efoNoAddrCtx');

@@ -188,8 +188,7 @@ export async function runSync(sb: Sb, o: RunOpts): Promise<{ status: number; bod
       }
       if (!caps.state) {
         if (res.error === 'bad_response') {
-          // dřív: neplatná odpověď = „prázdný výpis“ (beze stopy) — chování zůstává, přibyl jen záznam
-          await debugLog(sb, 'fio_bad_response', 'warning', { http_status: res.http }, res.body || null)
+          // bez nového SQL přesně jako dřív: neplatná odpověď = „prázdný výpis“ (beze stopy)
         } else if (res.http > 0) {
           await debugLog(sb, 'fio_fetch_failed', 'error', { http_status: res.http }, (res.body || '').slice(0, 500))
           return { status: 200, body: { success: false, error: res.error } }

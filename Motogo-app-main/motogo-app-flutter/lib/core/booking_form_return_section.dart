@@ -64,9 +64,10 @@ class BookingFormReturnSection extends ConsumerWidget {
         onDistCalc: (km, fee) => (fees ?? HandoverFees.form(ref)).setReturn(fee, km),
         onMapTap: (ctx) => launchMapPicker(ctx),
       );
+    // Vzdálenost a cena u adresy (čte se jen při zobrazené adrese, jako dřív).
     final f = fees;
-    final distKm = f != null ? f.returnKm() : ref.watch(returnDistKmProvider);
-    final delivFee = f != null ? f.returnFee() : ref.watch(returnDelivFeeProvider);
+    double distKm() => f != null ? f.returnKm() : ref.watch(returnDistKmProvider);
+    double delivFee() => f != null ? f.returnFee() : ref.watch(returnDelivFeeProvider);
     // v2 vzhled (kill-switch app_v2_ui): stejné volby, zámek i adresa.
     if (MgV2.on(context)) {
       return BookingHandoverV2(
@@ -91,8 +92,8 @@ class BookingFormReturnSection extends ConsumerWidget {
                 city: draft.returnCity,
                 address: draft.returnAddress,
                 onTap: openAddress,
-                distKm: distKm,
-                delivFee: delivFee,
+                distKm: distKm(),
+                delivFee: delivFee(),
                 note: handoverSameAddress(draft) ? t(context).tr('bkAddrSamePickup') : null,
               )
             : null,
@@ -132,8 +133,8 @@ class BookingFormReturnSection extends ConsumerWidget {
               draft.returnCity,
               draft.returnAddress,
               openAddress,
-              distKm: distKm,
-              delivFee: delivFee,
+              distKm: distKm(),
+              delivFee: delivFee(),
               context: context,
             ),
           ],

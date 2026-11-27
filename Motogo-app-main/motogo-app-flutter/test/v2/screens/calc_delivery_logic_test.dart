@@ -109,9 +109,14 @@ void main() {
   });
 
   group('CalcStateNotifier handover', () {
+    late ProviderContainer box;
     late CalcStateNotifier n;
-    CalcState st() => n.debugState;
-    setUp(() => n = CalcStateNotifier());
+    CalcState st() => box.read(calcStateProvider);
+    setUp(() {
+      box = ProviderContainer();
+      addTearDown(box.dispose);
+      n = box.read(calcStateProvider.notifier);
+    });
 
     test('writes start from the CURRENT choice (price, then address; the other side takes both)', () {
       final seed = HandoverChoice();

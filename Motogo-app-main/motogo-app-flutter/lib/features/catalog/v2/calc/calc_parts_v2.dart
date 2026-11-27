@@ -43,12 +43,10 @@ class CalcHeadCardV2 extends ConsumerWidget {
 }
 
 /// One numbered step of the calculator: 34 px dark disc with a neon number
-/// (✓ when [done]), title 17/800 and the step body in a white card. [info]
-/// = a step with nothing to choose: a light "i" tile instead of the number.
+/// (✓ when [done]), title 17/800 and the step body in a white card.
 class CalcStepCardV2 extends StatelessWidget {
   final int n;
   final bool done;
-  final bool info;
   final String title;
   final Widget? trailing;
   final Widget child;
@@ -59,7 +57,6 @@ class CalcStepCardV2 extends StatelessWidget {
     required this.title,
     required this.child,
     this.done = false,
-    this.info = false,
     this.trailing,
   });
 
@@ -67,7 +64,7 @@ class CalcStepCardV2 extends StatelessWidget {
   Widget build(BuildContext context) => MgCard(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            info ? const CalcInfoBadge() : CalcStepBadge(n: n, done: done),
+            CalcStepBadge(n: n, done: done),
             const SizedBox(width: 10),
             Expanded(
               child: Semantics(header: true, child: Text(title, style: MgType.section.copyWith(color: MgColors.ink))),
@@ -100,15 +97,6 @@ class CalcStepBadge extends StatelessWidget {
               : Text('$n', style: MgType.tab(MgType.title.copyWith(fontWeight: FontWeight.w900, color: MgColors.neon))),
         ),
       );
-}
-
-/// Badge of an information-only step (calculator ④, detail ②): the light
-/// "i" icon tile in the 34 px slot of the step numbers.
-class CalcInfoBadge extends StatelessWidget {
-  const CalcInfoBadge({super.key});
-
-  @override
-  Widget build(BuildContext context) => const ExcludeSemantics(child: MgIconTileLight(MgIcons.info, size: 34));
 }
 
 /// "Vyzvednutí od 12:00 = 1. den za polovinu" + the concrete saving (owner

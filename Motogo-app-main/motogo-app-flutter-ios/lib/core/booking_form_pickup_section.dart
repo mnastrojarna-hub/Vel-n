@@ -64,9 +64,10 @@ class BookingFormPickupSection extends ConsumerWidget {
         onDistCalc: (km, fee) => (fees ?? HandoverFees.form(ref)).setPickup(fee, km),
         onMapTap: (ctx) => launchMapPicker(ctx),
       );
+    // Vzdálenost a cena u adresy (čte se jen při zobrazené adrese, jako dřív).
     final f = fees;
-    final distKm = f != null ? f.pickupKm() : ref.watch(pickupDistKmProvider);
-    final delivFee = f != null ? f.pickupFee() : ref.watch(pickupDelivFeeProvider);
+    double distKm() => f != null ? f.pickupKm() : ref.watch(pickupDistKmProvider);
+    double delivFee() => f != null ? f.pickupFee() : ref.watch(pickupDelivFeeProvider);
     // v2 vzhled (kill-switch app_v2_ui): stejné volby, zámek i adresa.
     if (MgV2.on(context)) {
       return BookingHandoverV2(
@@ -91,8 +92,8 @@ class BookingFormPickupSection extends ConsumerWidget {
                 city: draft.pickupCity,
                 address: draft.pickupAddress,
                 onTap: openAddress,
-                distKm: distKm,
-                delivFee: delivFee,
+                distKm: distKm(),
+                delivFee: delivFee(),
               )
             : null,
       );
@@ -131,8 +132,8 @@ class BookingFormPickupSection extends ConsumerWidget {
               draft.pickupCity,
               draft.pickupAddress,
               openAddress,
-              distKm: distKm,
-              delivFee: delivFee,
+              distKm: distKm(),
+              delivFee: delivFee(),
               context: context,
             ),
           ],
