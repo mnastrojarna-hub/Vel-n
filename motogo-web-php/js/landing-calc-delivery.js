@@ -94,7 +94,7 @@
     function row(label, s, fee) {
       var known = !!s && s.st === 'ok';
       return '<li class="kc-r-dv"><span class="kc-r-d">' + K.esc(label) + '</span><span class="kc-r-x">' + (known ? K.esc(K.dvKm(s.km)) + ' km' : '') + '</span>' +
-        '<span class="kc-r-v">' + K.esc(known || (s && s.st === 'err') ? X.money(fee) : K.tpl(T.dv_from, { price: X.money(fee) })) + '</span></li>';
+        '<span class="kc-r-v">' + K.esc(known ? X.money(fee) : K.tpl(T.dv_from, { price: X.money(fee) })) + '</span></li>';
     }
     if (D.on && f.p > 0) h += row(T.dv_row_d, D.d, f.p);
     if (f.r > 0) h += row(T.dv_row_r, D.ro ? D.r : D.d, f.r);

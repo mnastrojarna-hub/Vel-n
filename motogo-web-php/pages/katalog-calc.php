@@ -9,6 +9,9 @@
 // (js/pages-rezervace-pricing.js), obsazenost z RPC get_moto_booked_dates.
 // JS: js/landing-calc-core.js + js/landing-calc.js, CSS: css/landing-calc.css.
 // Texty: CS defaulty kcDefaults() ← lang/v2/<lang>/katalog.php ← Velín web.landing_katalog.*.
+// Krok „Přistavení“ (přistavení na adresu / vrácení jinde, 2026-11-27): pages/katalog-calc-delivery.php.
+
+require_once __DIR__ . '/katalog-calc-delivery.php';
 
 function kcDefaults() {
     return [
@@ -69,7 +72,7 @@ function kcDefaults() {
         'sticky' => 'Pokračovat',
         // Detail motorky: jediné CTA v hlavičce → kalendář (katalog-detail.php)
         'detail_cta' => 'Vyber termín',
-    ];
+    ] + kcDvDefaults();
 }
 
 /** Texty kalkulačky (CS default ← jazykový overlay ← DB ← Velín CMS). */
@@ -81,7 +84,7 @@ function kcTexts($sb) {
 
 /** Assety pro renderPage() meta. */
 function kcPageMeta() {
-    return ['styles' => ['/css/landing.css', '/css/landing-calc.css', '/css/landing-calc-sum.css'],'scripts' => ['/js/landing-calc-core.js', '/js/landing-calc-view.js', '/js/landing-calc.js'], 'body_class' => 'lp-v2'];
+    return ['styles' => ['/css/landing.css', '/css/landing-calc.css', '/css/landing-calc-sum.css', '/css/landing-calc-delivery.css'],'scripts' => array_merge(['/js/landing-calc-core.js', '/js/landing-calc-view.js'], kcDvScripts(), ['/js/landing-calc.js']), 'body_class' => 'lp-v2'];
 }
 
 /** Podtitulek pod H1 katalogu + rychlý skok na mřížku motorek. */
@@ -112,7 +115,7 @@ function kcData($motos, $T, $pre) {
         $bid = safeStr($m['branch_id'] ?? '');
         if ($bid !== '' && !isset($branches[$bid])) {
             $branches[$bid] = ['id' => $bid, 'n' => trim(preg_replace('/^MotoGo24\s*/i', '', safeStr($br['name'] ?? '') ?: safeStr($br['city'] ?? ''))) ?: $bid,
-                'k' => safeStr($br['type'] ?? '') === 'samoobslužná' ? 'self' : 'staffed', 'c' => 0];
+                'k' => safeStr($br['type'] ?? '') === 'samoobslužná' ? 'self' : 'staffed', 'ty' => safeStr($br['type'] ?? ''), 'c' => 0];
         }
         if ($bid !== '') $branches[$bid]['c']++;
         $cat = safeStr($m['category'] ?? '');
@@ -141,6 +144,7 @@ function kcData($motos, $T, $pre) {
     }
     $txt = [];
     foreach (kcDefaults() as $k => $v) $txt[$k] = is_array($T[$k] ?? null) ? array_map('lpPlain', $T[$k]) : lpPlain($T[$k] ?? $v);
+    $txt += kcDvFormTexts(); // přistavení: texty sdílené s rezervačním formulářem
     $loc = function ($p) { return BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath($p) : $p); };
     return [
         'motos' => $out, 'branches' => array_values($branches), 'cats' => array_values($cats), 'cur' => $cur, 't' => $txt,
@@ -161,6 +165,8 @@ function renderKatalogCalc($sb, $motos, $opts = []) {
     $data = kcData($motos, $T, ['branch' => (string)($opts['branch'] ?? ''), 'moto' => (string)($opts['moto'] ?? '')]);
     if (!$data['motos']) return '';
     $data['ctx'] = $det ? 'detail' : 'catalog';
+    // Přistavení u samoobslužné pobočky: stejný flag jako formulář (chybí / chyba = false = nenabízí se)
+    $data['ssd'] = (bool)$sb->fetchFeatureFlag('self_service_delivery');
     $k = 'web.landing_katalog.';
     $s = function ($key) use ($T, $k) { return '<span data-cms-key="' . $k . $key . '">' . he(lpPlain($T[$key] ?? '')) . '</span>'; };
     $n = function ($i) { return '<span class="kc-n">' . $i . '</span>'; };
@@ -182,7 +188,8 @@ function renderKatalogCalc($sb, $motos, $opts = []) {
         '<h2 id="kc-h" data-cms-key="' . $k . $tk . '">' . he(lpPlain($T[$tk])) . '</h2>' .
         '<p class="kc-lead" data-cms-key="' . $k . $lead . '">' . he(lpPlain($T[$lead])) . '</p>' .
         '<ol class="kc-steps" aria-hidden="true">' . ($det ? '' : '<li data-kc-step="1">' . $n(1) . $s('step_branch') . '</li>') .
-            '<li data-kc-step="2">' . $n(1 + $o) . $s('step_moto') . '</li><li data-kc-step="3">' . $n(2 + $o) . $s('step_dates') . '</li></ol></header>' .
+            '<li data-kc-step="2">' . $n(1 + $o) . $s('step_moto') . '</li><li data-kc-step="3">' . $n(2 + $o) . $s('step_dates') . '</li>' .
+            '<li data-kc-dvstep>' . $n(3 + $o) . $s('step_delivery') . '</li></ol></header>' .
         '<div class="kc-grid"><div class="kc-pick">' .
             ($det ? '' : '<fieldset class="kc-branch"><legend class="kc-label">' . $n(1) . $s('step_branch') . '</legend><div class="kc-seg">' . $seg . '</div></fieldset>') .
             '<div class="kc-field"><label class="kc-label" for="kc-moto">' . $n(1 + $o) . $s('step_moto') . '</label>' .
@@ -191,7 +198,9 @@ function renderKatalogCalc($sb, $motos, $opts = []) {
         // Detail motorky: kotva #termin pro jediné CTA „Vyber termín“ v hlavičce (katalog-detail.php)
         '<div class="kc-cal"' . ($det ? ' id="termin"' : '') . '><p class="kc-label">' . $n(2 + $o) . $s('step_dates') . '<span class="kc-hint" data-kc-hint aria-live="polite"></span></p>' .
             '<div class="kc-cal-box" data-kc-cal></div>' .
-            '<ul class="kc-legend">' . $legend . '</ul><p class="kc-note" data-kc-note></p></div>' .
+            '<ul class="kc-legend">' . $legend . '</ul><p class="kc-note" data-kc-note></p>' .
+            // krok „Přistavení“ (pod kalendářem; obsah kreslí js/landing-calc-delivery-ui.js)
+            '<div class="kc-dv" data-kc-dv data-n="' . (3 + $o) . '" hidden></div></div>' .
         '<div class="kc-sum" data-kc-sum aria-live="polite"><div class="kc-sum-in"><p class="kc-sum-k">' . he(lpPlain($T['sum_title'])) . '</p><p class="kc-sum-p">' . he(lpPlain($T['sum_empty'])) . '</p></div></div>' .
         '</div></div>' .
         '<script type="application/json" id="kc-data">' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) . '</script></section>';
