@@ -23,8 +23,8 @@ return [
         'title' => 'Co si vzít s sebou',
         'items' => [
             'platný občanský průkaz nebo pas',
-            'platný řidičský průkaz s oprávněním odpovídající skupiny (A/A2 podle vybrané motorky)',
-            'vlastní výbavu – helma, bunda, kalhoty, rukavice (pokud nemáš zarezervované u nás)',
+            'platný řidičský průkaz skupiny, kterou motorka vyžaduje (A, A2, u skútrů A1 nebo B – najdeš ji u motorky v katalogu)',
+            'vlastní výbavu – helmu, bundu, kalhoty, rukavice (pokud je nemáš zarezervované u nás)',
             'pevnou obuv (pokud u nás nemáš rezervaci na motocyklové boty)',
             'vlastní navigaci nebo telefon s navigační aplikací – navigace není součástí výpůjčky',
         ],
@@ -37,8 +37,8 @@ return [
                 'a' => 'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.',
             ],
             [
-                'q' => 'Je možný kontakt bez osobního setkání?',
-                'a' => 'Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě. Instrukce a dokumenty dostaneš předem.',
+                'q' => 'Můžu si motorku převzít bez obsluhy?',
+                'a' => 'Ano, na <strong>samoobslužné pobočce ve Velkých Němčicích u Brna</strong>. Motorku i výbavu si tam vyzvedneš pomocí kódů z aplikace a předávací protokol podepíšeš na displeji – doklady musíš mít předem nahrané a ověřené online. V Mezné u Pelhřimova ti motorku předáme vždy osobně.',
             ],
             [
                 'q' => 'Co když nestíhám domluvený čas?',
@@ -56,9 +56,9 @@ return [
         'aria' => 'Rezervovat vyzvednutí motorky v půjčovně Motogo24',
     ],
     'cta' => [
-        'title' => 'Převzetí v půjčovně – půjčovna motorek Vysočina (Pelhřimov)',
-        'text' => 'MotoGo24 je <strong>půjčovna motorek na Vysočině</strong> s možností <strong>převzetí motorky kdykoliv</strong> během dne, včetně svátků i víkendů, <strong>bez kauce</strong> a <strong>s výbavou pro řidiče v ceně</strong> výpůjčky.',
-        'text2' => 'Vyber si <strong>cestovní, supermoto, naked nebo dětskou motorku</strong> a pohodlně ji rezervuj online.',
+        'title' => 'Rezervuj si motorku i čas převzetí',
+        'text' => 'Čas převzetí si zvolíš v rezervaci – i večer, o víkendu nebo ve svátek.',
+        'text2' => 'Vyber motorku a rezervuj online.',
         'buttons' => [
             [
                 'label' => 'REZERVOVAT ONLINE',
@@ -69,8 +69,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Převzetí motorky v půjčovně – jak to probíhá | MotoGo24',
-        'description' => 'Převzetí motorky v půjčovně motorek MotoGo24 je rychlé a bez starostí. Připrav si doklady a během pár minut můžeš vyrazit na Vysočinu.',
+        'title' => 'Převzetí motorky v půjčovně – co si vzít | MotoGo24',
+        'description' => 'Jak probíhá převzetí motorky: osobně v Mezné u Pelhřimova, nebo samoobslužně u Brna kódem z aplikace. Jaké doklady si vzít a co tě čeká na místě.',
         'keywords' => 'motopůjčovna',
     ],
 ];

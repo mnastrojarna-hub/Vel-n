@@ -6,11 +6,11 @@ return [
     'usage' => [
         'title' => 'Užívání motorky a odpovědnost',
         'items' => [
-            'Jezděte v&nbsp;<strong>souladu s předpisy</strong>&nbsp;a s ohledem na technický stav a typ motorky.',
+            'Škody na motorce, které zaviníš, kryje <strong>100% smluvní krytí škod</strong> se spoluúčastí 0 Kč. Nevztahuje se na zapůjčenou výbavu, na hrubé porušení podmínek (např. jízda pod vlivem nebo bez řidičského oprávnění) ani na odcizení – u řádně zabezpečené motorky odpovídáš nejvýš do 30 000 Kč, u nezabezpečené až do její obvyklé tržní hodnoty.',
             'Za&nbsp;<strong>pokuty a přestupky</strong>&nbsp;odpovídá nájemce (informace předáváme dle zákona).',
             '<strong>Zahraničí</strong>: možné; řiďte se územní platností pojištění (zelená karta). Některé země mohou být vyloučeny.',
-            'V případě&nbsp;<strong>nehody nebo poruchy</strong>&nbsp;postupujte podle pokynů v palubní sadě (formulář nehody, kontakt na Motogo24).',
-            '<strong>Servis a údržbu</strong>&nbsp;zajišťujeme my; závady hlaste okamžitě.',
+            'Při&nbsp;<strong>nehodě nebo poruše</strong>&nbsp;nám hned zavolej a řiď se našimi pokyny; při dopravní nehodě nebo krádeži vždy přivolej i policii – je to podmínka smluvního krytí škod.',
+            '<strong>Servis</strong>&nbsp;zajišťujeme my, ty během výpůjčky jen pravidelně mažeš řetěz. Závady nám hlas hned.',
             '<strong>Úpravy motorky</strong>&nbsp;bez souhlasu nejsou dovoleny.',
         ],
     ],
@@ -24,7 +24,7 @@ return [
     ],
     'privacy' => [
         'title' => 'Osobní údaje a bezpečnost',
-        'text' => 'Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdete v <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zásadách zpracování osobních údajů</a>.',
+        'text' => 'Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdeš v <a href="/dokumenty/zasady-ochrany-osobnich-udaju">zásadách zpracování osobních údajů</a>.',
     ],
     'documents' => [
         'title' => 'Dokumenty ke stažení',
@@ -53,11 +53,11 @@ return [
     ],
     'midcta' => [
         'title' => 'Souhlasíte s podmínkami? Rezervujte a jeďte.',
-        'text' => 'Vyberte si z&nbsp;<strong>cestovních, sportovních, enduro i dětských motorek</strong>&nbsp;a potvrďte rezervaci online.',
+        'text' => 'Vyber motorku a rezervuj online.',
     ],
     'cta' => [
-        'title' => 'Nájemní smlouva bez kauce – půjčovna motorek Vysočina',
-        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s férovými podmínkami: <strong>bez kauce</strong>, <strong>pojištění v ceně</strong>, <strong>výbava pro řidiče</strong> a <strong>nonstop provoz</strong>. Vše přehledně ve vzorové nájemní smlouvě a na této stránce.',
+        'title' => 'Rezervuj motorku online',
+        'text' => 'Vyber motorku a termín – cenu spočítáme hned.',
         'buttons' => [
             [
                 'label' => 'REZERVOVAT ONLINE',
@@ -68,8 +68,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Dokumenty a návody k půjčení motorky | MotoGo24',
-        'description' => 'Všechny dokumenty k půjčení motorky na jednom místě. Přehledné návody a podmínky od MotoGo24 pro bezpečné používání motocyklu na Vysočině.',
+        'title' => 'Podmínky půjčení motorky a dokumenty | MotoGo24',
+        'description' => 'Obchodní podmínky, smlouva o pronájmu a protokoly ke stažení v PDF. Přehledně: doklady, platba, storno, pozdní vrácení a odpovědnost za škody.',
         'keywords' => 'motopůjčovna',
     ],
 ];

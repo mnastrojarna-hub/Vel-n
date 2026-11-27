@@ -83,8 +83,8 @@ $finalCtaSection = '<section>' .
 
 // CMS-editable outro (Velín → Texty webu → Co je v ceně nájmu)
 $cvcOutroT = $C['outro']['title'] ?? 'Férové podmínky bez skrytých překvapení';
-$cvcOutroB1 = $C['outro']['body1'] ?? 'V MotoGo24 jsme od začátku stavěli ceník tak, aby byl <strong>maximálně transparentní</strong>. Co je v ceně nájmu, to v ceně skutečně najdete — žádné dodatečné poplatky za výbavu řidiče, za otevírání mimo otevírací dobu, za doklady ani za základní pojištění. Pokud něco potřebujete navíc (přistavení motorky, doplňková výbava, prodloužení rezervace), ceny vám vždy řekneme předem.';
-$cvcOutroB2 = $C['outro']['body2'] ?? 'Od tradiční kauce splatné před vyzvednutím jsme rovnou upustili — <strong>žádnou kauci u nás neplatíte</strong>. Místo toho stavíme na důvěře, kvalitních smlouvách a tom, že naše motorky jsou plně pojištěné. Když se přesto něco přihodí, máme nonstop SOS linku a do 24 hodin zařídíme náhradní motorku, aby vám nevyhasla dovolená nebo plánovaný výlet.';
+$cvcOutroB1 = $C['outro']['body1'] ?? 'Co je v ceně nájmu, to <strong>opravdu dostaneš</strong>: za výbavu řidiče, převzetí večer či o víkendu ani za smluvní krytí škod nic nedoplácíš. Cenu doplňků (výbava pro spolujezdce, boty, přistavení) vidíš v rezervaci <strong>předem</strong>, takže tě při vrácení nic nepřekvapí.';
+$cvcOutroB2 = $C['outro']['body2'] ?? '<strong>Žádná kauce – místo ní férová smlouva.</strong> Jinde u velké motorky obvykle skládáš vratnou kauci 20 000–30 000 Kč. U nás ti nic neblokujeme na kartě ani nechceme hotovost: spoléháme na srozumitelnou smlouvu o pronájmu a osobní přístup rodinné půjčovny. Když se během jízdy něco stane, zavolej nám a hned to začneme řešit.';
 $cvcOutroHtml = '<section class="cvc-outro">'
     . '<h2 data-cms-key="' . $kp . '.outro.title">' . sanitizeHtml($cvcOutroT) . '</h2>'
     . '<p data-cms-key="' . $kp . '.outro.body1">' . sanitizeHtml($cvcOutroB1) . '</p>'

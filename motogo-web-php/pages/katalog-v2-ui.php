@@ -47,6 +47,7 @@ function renderKatalogV2Card($m, $T, $hidden, $eager) {
     $next = $m['next_available_date'] ?? null;
     if (($st === 'active' || $st === 'maintenance') && $next && $next > date('Y-m-d')) {
         $fmt = (function_exists('i18nDetectLanguage') && in_array(i18nDetectLanguage(), ['cs', 'de', 'pl', 'uk'], true)) ? 'd.m.' : 'd/m';
+        if (mgIsCs()) $fmt = "j.\u{00A0}n."; // česky „26. 3.“ (pevná mezera)
         $badge = '<span class="kf-badge-av is-later">' . te('card.availableFrom', ['date' => date($fmt, strtotime($next))]) . '</span>';
     } elseif ($st === 'active' && empty($m['available_unknown'])) {
         $badge = '<span class="kf-badge-av"><i aria-hidden="true"></i>' . te('card.availableToday') . '</span>';

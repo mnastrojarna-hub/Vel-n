@@ -33,6 +33,52 @@ function katalogCategoryMatch($m, $category) {
     return $cat === $fc;
 }
 
+/**
+ * Pobočka motorky jako slug z data/pobocky.php ('mezna' | 'velke-nemcice', '' = neznámá / bez pobočky).
+ * Podle branch_id, jinak podle názvu a města pobočky (branches.city je „Pelhřimov“ / „Brno - Velké Němčice“
+ * — do textů se proto nedává surové, ale přes katalogPlaceCs()).
+ */
+function katalogBranchSlug($m) {
+    static $ids = null;
+    if ($ids === null) {
+        require_once __DIR__ . '/../data/pobocky.php';
+        $ids = [];
+        foreach (pobockyDefaults()['branches'] as $b) $ids[(string)$b['branch_id']] = (string)$b['slug'];
+    }
+    if (!is_array($m)) return '';
+    $id = (string)($m['branch_id'] ?? '');
+    if (isset($ids[$id])) return $ids[$id];
+    $br = is_array($m['branches'] ?? null) ? $m['branches'] : [];
+    $hay = mb_strtolower(safeStr($br['name'] ?? '') . ' ' . safeStr($br['city'] ?? ''), 'UTF-8');
+    if (strpos($hay, 'němčic') !== false) return 'velke-nemcice';
+    if (strpos($hay, 'mezn') !== false || strpos($hay, 'pelhřimov') !== false) return 'mezna';
+    return '';
+}
+
+/** Slugy poboček, na kterých stojí aspoň jedna z motorek (v pořadí Mezná, Velké Němčice). */
+function katalogBranchSlugs($motos) {
+    $has = [];
+    foreach ((array)$motos as $m) { $s = katalogBranchSlug($m); if ($s !== '') $has[$s] = true; }
+    return array_values(array_filter(['mezna', 'velke-nemcice'], function ($s) use ($has) { return isset($has[$s]); }));
+}
+
+/**
+ * Český název místa pro titulky, H1 a meta popisky (jen CS; flotila se mezi pobočkami přesouvá, proto se místo
+ * odvozuje z poboček motorek). $slugs = slug nebo pole slugů poboček; $form: 'v' = „v Mezné u Pelhřimova“,
+ * 'u' = „u Pelhřimova“, 'titul' = přípona <title> („na Vysočině“ / „– Vysočina a Brno“), 'pobocka' = samostatná věta.
+ * Neznámá pobočka → ''.
+ */
+function katalogPlaceCs($slugs, $form) {
+    $one = [
+        'mezna' => ['v' => 'v Mezné u Pelhřimova', 'u' => 'u Pelhřimova', 'titul' => 'na Vysočině', 'pobocka' => 'Pobočka Mezná u Pelhřimova'],
+        'velke-nemcice' => ['v' => 've Velkých Němčicích u Brna', 'u' => 'u Brna', 'titul' => 'u Brna', 'pobocka' => 'Pobočka Velké Němčice u Brna'],
+    ];
+    $both = ['v' => 'v Mezné nebo ve Velkých Němčicích u Brna', 'u' => 'u Pelhřimova a Brna', 'titul' => '– Vysočina a Brno', 'pobocka' => 'Mezná i Velké Němčice'];
+    $slugs = array_values(array_intersect(array_keys($one), (array)$slugs));
+    if (count($slugs) > 1) return $both[$form] ?? '';
+    return $slugs ? ($one[$slugs[0]][$form] ?? '') : '';
+}
+
 /** Text, ve kterém hledá fulltext ?q= (model, značka, kategorie, popis, výbava). */
 function katalogQueryHay($m) {
     // `features` z DB může být ARRAY (jsonb) — string konkatenace s polem v PHP 8 hází TypeError.

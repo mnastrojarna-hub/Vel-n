@@ -6,7 +6,7 @@
 return [
     // POZOR: V originalu je preklep "pronamu" - zachovavame 1:1
     'h1' => 'Co je v ceně pronámu motorky',
-    'intro' => 'V <strong>MotoGo24 – půjčovně motorek na Vysočině</strong> –&nbsp; dostaneš férové podmínky. <strong>Bez kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Vše, co potřebuješ k bezpečné a pohodové jízdě, je součástí půjčovného.',
+    'intro' => 'V ceně pronájmu máš <strong>výbavu pro řidiče, kotoučový zámek, povinné ručení se zelenou kartou a 100% smluvní krytí škod se spoluúčastí 0 Kč</strong>. Kilometry neomezujeme a kauci neskládáš. Za příplatek si přiobjednáš jen to, co opravdu potřebuješ.',
     'gear' => [
         'basic' => [
             'title' => 'Základní výbava v ceně',

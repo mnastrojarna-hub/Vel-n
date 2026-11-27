@@ -43,7 +43,7 @@ return [
     ],
     'seo' => [
         'title' => 'Jak si půjčit motorku – postup krok za krokem | MotoGo24',
-        'description' => 'Zjisti, jak probíhá půjčení motorky u MotoGo24. Přehledný postup rezervace motorky, podmínky i tipy pro bezstarostnou jízdu na Vysočině.',
+        'description' => 'Jak si půjčit motorku u MotoGo24: vyber motorku a termín, zaplať online a vyzvedni ji u Pelhřimova, nebo samoobslužně u Brna. Bez kauce, výbava v ceně.',
         'keywords' => 'motopůjčovna',
     ],
 ];
