@@ -86,6 +86,56 @@ class HandoverFees {
       );
 }
 
+/// Místo předání zvolené MIMO rezervační formulář (kalkulačka): způsob a
+/// adresa obou stran — z [draft] platí jen pole `pickup*` / `return*`, tvar,
+/// se kterým pracují sekce předání — a vzdálenost s cenou tak, jak je
+/// formulář drží ve svých providerech. Do formuláře ho předává
+/// `startBookingFromSelection(handover:)`.
+class HandoverChoice {
+  final BookingDraft draft;
+  final double pickupFee;
+  final double pickupKm;
+  final double returnFee;
+  final double returnKm;
+
+  HandoverChoice({BookingDraft? draft, this.pickupFee = 0, this.pickupKm = 0, this.returnFee = 0, this.returnKm = 0})
+      : draft = draft ?? BookingDraft();
+
+  /// Cena počítaná do celku — jako `priceBreakdownProvider`: jen u strany
+  /// „na adresu“.
+  double get pickupDue => draft.pickupMethod == 'delivery' ? pickupFee : 0;
+  double get returnDue => draft.returnMethod == 'delivery' ? returnFee : 0;
+
+  /// „Na adresu“ bez zadané adresy (cena se přičte až s adresou).
+  bool get pickupNoAddress => draft.pickupMethod == 'delivery' && !hasPickupAddress(draft);
+  bool get returnNoAddress => draft.returnMethod == 'delivery' && !hasReturnAddress(draft);
+
+  HandoverChoice copyWith({BookingDraft? draft, double? pickupFee, double? pickupKm, double? returnFee, double? returnKm}) =>
+      HandoverChoice(
+        draft: draft ?? this.draft,
+        pickupFee: pickupFee ?? this.pickupFee,
+        pickupKm: pickupKm ?? this.pickupKm,
+        returnFee: returnFee ?? this.returnFee,
+        returnKm: returnKm ?? this.returnKm,
+      );
+
+  /// [d] s tímto místem předání; ostatní pole beze změny.
+  BookingDraft applyTo(BookingDraft d) => d.copyWith(
+        pickupMethod: draft.pickupMethod,
+        returnMethod: draft.returnMethod,
+        pickupAddress: () => draft.pickupAddress,
+        pickupCity: () => draft.pickupCity,
+        pickupZip: () => draft.pickupZip,
+        pickupLat: () => draft.pickupLat,
+        pickupLng: () => draft.pickupLng,
+        returnAddress: () => draft.returnAddress,
+        returnCity: () => draft.returnCity,
+        returnZip: () => draft.returnZip,
+        returnLat: () => draft.returnLat,
+        returnLng: () => draft.returnLng,
+      );
+}
+
 /// Přistavení na adresu ani odvoz z adresy se u [moto] nenabízí
 /// (samoobslužná pobočka, flag `self_service_delivery` vypnutý) — JEDNO
 /// pravidlo pro rezervační formulář i kalkulačku. Volat z `build` (sleduje flag).
