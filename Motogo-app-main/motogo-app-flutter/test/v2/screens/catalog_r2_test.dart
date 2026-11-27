@@ -290,7 +290,10 @@ void main() {
         calcMode,
       ]);
       expect(find.byType(CalcStickyV2), findsOneWidget);
-      expect(find.byType(CalcInfoBadge), findsOneWidget); // ④ info only
+      // ④ is a real step since 2026-11-27 (place of the handover): a
+      // numbered / done badge, no "i" tile.
+      expect(find.byType(CalcInfoBadge), findsNothing);
+      expect(find.byType(CalcStepBadge), findsNWidgets(4));
       await t.ensureVisible(_ctaIn(CalcTotalV2));
       await _settle(t);
       expect(find.byType(CalcStickyV2), findsNothing);

@@ -58,7 +58,6 @@ void main() {
     oldIco,
     oldName.split(' ').last.substring(0, 5), // příjmení (kmen)
     oldAccount.split('-').last.split('/').first, // číslo účtu
-    oldAccount.substring(oldAccount.indexOf('/')), // kód banky
     oldBank,
     oldDataBox,
     oldTradeStem,

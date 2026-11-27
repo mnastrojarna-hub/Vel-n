@@ -51,7 +51,7 @@ HandoverChoice? calcOwnHandover(CalcState st, Motorcycle moto) {
 /// the booking entry).
 CalcHandoverView calcHandoverView(WidgetRef ref, CalcState st, Motorcycle moto, String lang) {
   final blocked = handoverDeliveryBlocked(ref, moto);
-  var shown = calcOwnHandover(st, moto) ?? ref.watch(bookingEntryHandoverProvider(moto));
+  HandoverChoice shown = calcOwnHandover(st, moto) ?? ref.watch(bookingEntryHandoverProvider(moto));
   final d = shown.draft;
   if (blocked && (d.pickupMethod == 'delivery' || d.returnMethod == 'delivery')) {
     shown = shown.copyWith(draft: d.copyWith(pickupMethod: 'store', returnMethod: 'store'));

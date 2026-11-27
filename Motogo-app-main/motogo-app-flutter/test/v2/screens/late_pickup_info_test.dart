@@ -57,7 +57,10 @@ void main() {
       final q12 = quoteFor(kBmw, ws, we, pickupTime: '12:00', loyalty: kLoyalty3);
       expect(q.total, greaterThan(q12.total));
       expect(_timeChip(), findsNothing);
-      expect(find.text(_cs('v2LpCalcHandover')), findsOneWidget);
+      // 2026-11-27: step ④ chooses the PLACE (branch / delivery); the time,
+      // gear and sizes stay in the booking form.
+      expect(find.text(_cs('cdHandoverInfo')), findsOneWidget);
+      expect(find.text(_cs('v2LpCalcHandover')), findsNothing);
       expect(find.text(_cs('v2LpCalcTitle')), findsOneWidget);
       expect(
           find.text(_cs('v2LpCalcSave', {'amount': Money.czk(q.total - q12.total), 'total': Money.czk(q12.total)})),
