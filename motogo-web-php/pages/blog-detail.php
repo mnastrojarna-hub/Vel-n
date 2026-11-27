@@ -2,6 +2,16 @@
 // ===== MotoGo24 Web PHP — Blog detail =====
 // Odpovídá pages-blog.js (detail route)
 
+// Články vyřazené z indexu vyhledávačů (meta robots noindex,follow) — na blogu zůstávají pro čtenáře.
+// SEO revize 2026-11-27: ukončená soutěž (vyhlášení 27. 11. 2026) a krátké oznámení bez vyhledávacího záměru.
+// Při změně seznamu vyřadit / vrátit stejné slugy i v sitemap.php (výpis článků do sitemap.xml).
+if (!defined('BLOG_NOINDEX_SLUGS')) {
+    define('BLOG_NOINDEX_SLUGS', [
+        'vyhraj-motorku-rozjizdime-soutez-s-next1k',
+        'zalozili-jsme-motogo24-crew-nas-kanal-na-instagramu',
+    ]);
+}
+
 $sb = new SupabaseClient();
 $slug = $_GET['slug'] ?? '';
 $post = $sb->fetchCmsPage($slug);
@@ -145,7 +155,7 @@ $articleSchema = '
 // Suffix u dlouhych titulku zkracujeme z " | Blog MotoGo24" (15 znaku) na
 // " | MotoGo24" (11 znaku) — usetri ~30 px a vejde se pod 580 px limit.
 $titleSuffix = mb_strlen($titleRaw) > 45 ? ' | MotoGo24' : ' | Blog MotoGo24';
-renderPage($titleRaw . $titleSuffix, $content, '/blog/' . $slug, [
+renderPage($titleRaw . $titleSuffix, $content, '/blog/' . $slug, (in_array($slug, BLOG_NOINDEX_SLUGS, true) ? ['robots' => 'noindex,follow'] : []) + [
     'description' => $excerpt ?: t('blog.detail.descFallback', ['title' => $titleRaw]),
     'og_type' => 'article',
     // SEO: og:image MAX 1200px / quality 85 — predejde 'Large file size' issue.

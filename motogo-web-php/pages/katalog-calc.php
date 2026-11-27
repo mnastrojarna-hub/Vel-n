@@ -13,7 +13,8 @@
 function kcDefaults() {
     return [
         'subtitle' => 'Vyber si stroj a spočítej si cenu',
-        'jump' => 'Zobrazit všech {n} motorek',
+        // tvar bez skloňování (dřív „Zobrazit všech 2 motorek“ u malých kategorií)
+        'jump' => 'Zobrazit nabídku ({n})',
         'eyebrow' => 'Kalkulačka ceny',
         'title' => 'Spočítej si cenu',
         // Detail motorky (2026-10-22, zadání majitele): kalendář je hlavní krok → „Vyber si termín“

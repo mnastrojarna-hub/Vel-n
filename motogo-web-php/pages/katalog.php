@@ -100,9 +100,9 @@ $kfLic = function ($glue) use ($kfCat) {
 };
 // Věta o převzetí podle typu pobočky: v Mezné předáváme osobně, Velké Němčice jsou samoobslužné (nikdo nic nevysvětluje)
 $kfPickup = '';
-if (count($kfSlugs) > 1) $kfPickup = ' Na pobočce v Mezné u Pelhřimova ti motorku předáme osobně a všechno ti k ní vysvětlíme, na samoobslužné pobočce ve Velkých Němčicích u Brna si ji vyzvedneš bez obsluhy kódem z aplikace.';
-elseif ($kfSlugs === ['mezna']) $kfPickup = ' Na pobočce v Mezné u Pelhřimova ti motorku předáme osobně a všechno ti k ní vysvětlíme.';
-elseif ($kfSlugs === ['velke-nemcice']) $kfPickup = ' Na samoobslužné pobočce ve Velkých Němčicích u Brna si motorku vyzvedneš bez obsluhy kódem z aplikace.';
+if (count($kfSlugs) > 1) $kfPickup = ' V Mezné u Pelhřimova tě čeká osobní předání a všechno ti vysvětlíme, ve Velkých Němčicích u Brna je převzetí samoobslužné – bez obsluhy, kódem z aplikace.';
+elseif ($kfSlugs === ['mezna']) $kfPickup = ' V Mezné u Pelhřimova tě čeká osobní předání a všechno ti vysvětlíme.';
+elseif ($kfSlugs === ['velke-nemcice']) $kfPickup = ' Ve Velkých Němčicích u Brna je převzetí samoobslužné – bez obsluhy, kódem z aplikace.';
 // Všechny skútry kategorie jdou řídit i se skupinou B (dnes A1/B) — jinak se „i na ŘP B“ netvrdí
 $kfScootB = $category === 'scootery' && $kfCat && !array_filter($kfCat, function ($m) { return !in_array('B', motoLicenseGroups($m), true); });
 
@@ -576,7 +576,7 @@ if (!empty($listItems)) {
 // místo a skupiny ŘP se berou z aktuální flotily kategorie, popis se vejde do 155 znaků.
 $kfV = katalogPlaceCs($kfSlugs, 'v');                                   // „v Mezné u Pelhřimova“ / „… nebo ve Velkých Němčicích u Brna“
 $kfVs = count($kfSlugs) > 1 ? 'v Mezné nebo u Brna' : $kfV;             // kratší tvar pro obě pobočky
-$kfPob = katalogPlaceCs($kfSlugs, 'pobocka');                           // „Mezná i Velké Němčice“ / „Pobočka Mezná u Pelhřimova“
+$kfPob = katalogPlaceCs($kfSlugs, 'pobocka');                           // „Pobočky Mezná i Velké Němčice“ / „Pobočka Mezná u Pelhřimova“
 $kfLicI = $kfLic(' i ');
 // Skútry: „125“ jen když jsou všechny do 125 ccm
 $kfSc125 = $kfPathCat === 'scootery' && $kfCat && !array_filter($kfCat, function ($m) { $cc = (float)($m['engine_cc'] ?? 0); return $cc <= 0 || $cc > 125; });
@@ -601,14 +601,14 @@ if ($category && !empty($C['description']) && is_string($C['description'])) $cat
 $seoTitle = $title . ' | MotoGo24';
 if ($kfLang === 'cs') {
     $kfTitles = [
-        'cestovni' => 'Cestovní motorky k pronájmu', 'naked' => 'Naked motorky k pronájmu', 'supermoto' => 'Supermoto k pronájmu',
+        'cestovni' => 'Cestovní motorky k pronájmu', 'naked' => 'Naked motorky k pronájmu', 'supermoto' => 'Supermoto k pronájmu', 'sportovni' => 'Sportovní motorky k pronájmu',
         'chopper' => 'Půjčovna chopperů a cruiserů', 'detske' => 'Půjčovna dětských motorek', 'ostatni' => 'Přívěs na motorku k pronájmu',
         'scootery' => 'Půjčovna skútrů' . ($kfSc125 ? ' 125' : '') . ($kfScootB ? ' – i na ŘP B' : ''),
     ];
     if ($kfPathCat === '') {
         $seoTitle = t('katalog.seo.title');
     } elseif (isset($kfTitles[$kfPathCat]) && !$kfEmptyCat) {
-        $kfLoc = in_array($kfPathCat, ['cestovni', 'naked', 'supermoto'], true) ? katalogPlaceCs($kfSlugs, 'titul') : '';
+        $kfLoc = in_array($kfPathCat, ['cestovni', 'naked', 'supermoto', 'sportovni'], true) ? katalogPlaceCs($kfSlugs, 'titul') : '';
         $seoTitle = $kfTitles[$kfPathCat] . ($kfLoc !== '' ? ' ' . $kfLoc : '') . ' | MotoGo24';
         if (mb_strlen($seoTitle, 'UTF-8') > 60) $seoTitle = $kfTitles[$kfPathCat] . ' | MotoGo24';
     }

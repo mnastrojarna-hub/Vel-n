@@ -13,7 +13,7 @@ import 'package:motogo_app/features/shop/shop_checkout_screen.dart';
 import 'package:motogo_app/features/shop/shop_provider.dart';
 import 'package:motogo_app/features/shop/shop_screen.dart';
 import 'package:motogo_app/features/shop/v2/cart_view_v2.dart';
-import 'package:motogo_app/features/shop/v2/product_card_v2.dart';
+import 'package:motogo_app/features/shop/v2/product_card_full_v2.dart';
 import 'package:motogo_app/features/shop/v2/shop_view_v2.dart';
 import 'package:motogo_app/features/shop/voucher_screen.dart';
 
@@ -29,8 +29,8 @@ void main() {
   testWidgets('shop: card → /shop/:id, bag → /cart, voucher CTA → /voucher', (tester) async {
     await pumpPs(tester, const ShopScreen(), overrides: psShopOverrides());
     expect(find.byType(ShopViewV2), findsOneWidget);
-    await tester.ensureVisible(find.byType(ProductCardV2).first);
-    await tester.tap(find.byType(ProductCardV2).first);
+    await tester.ensureVisible(find.byType(ProductCardFullV2).first);
+    await tester.tap(find.byType(ProductCardFullV2).first);
     await tester.pumpAndSettle();
     expect(find.text('route:/shop/p1'), findsOneWidget);
     await pumpPs(tester, const ShopScreen(), overrides: psShopOverrides());

@@ -6,11 +6,12 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('bre
 
 $sb = new SupabaseClient();
 $smDefaults = [
-    'intro' => 'Tato mapa stránek slouží jako přehled <strong>celého webu MotoGo24</strong> — najdete tu odkazy na katalog motorek k pronájmu, postup půjčení krok za krokem, ceník, dárkové poukazy, blog s tipy pro motorkáře, e-shop s motorkářskými doplňky i právní dokumenty.',
+    'intro' => 'Tato mapa stránek slouží jako přehled <strong>celého webu MotoGo24</strong> — najdeš tu odkazy na katalog motorek k pronájmu, postup půjčení krok za krokem, ceník, dárkové poukazy, blog s tipy pro motorkáře, e-shop s motorkářskými doplňky i právní dokumenty.',
     'outro' => [
-        'title' => 'Hledáte něco konkrétního?',
-        'body1' => 'Pokud nemůžete najít to, co hledáte, zkuste začít na <strong>domovské stránce</strong> nebo si projděte sekci <a href="/jak-pujcit">Jak si půjčit motorku</a>, kde jsou všechny informace ke způsobu rezervace, převzetí, vrácení i co je v ceně nájmu. Pro rychlou orientaci nabízíme také <a href="/jak-pujcit/faq">časté dotazy</a> a podrobný popis u každé motorky v <a href="/katalog">katalogu</a>.',
-        'body2' => 'Stále se neorientujete? Ozvěte se nám telefonicky, e-mailem nebo přes naše sociální sítě — najdete je v sekci <a href="/kontakt">Kontakt</a>. Jsme dostupní nonstop a rádi poradíme s výběrem motorky, termínem nebo s objednávkou dárkového poukazu.',
+        'title' => 'Hledáš něco konkrétního?',
+        'body1' => 'Pokud nemůžeš najít to, co hledáš, zkus začít na <strong>domovské stránce</strong> nebo si projdi sekci <a href="/jak-pujcit">Jak si půjčit motorku</a>, kde jsou všechny informace ke způsobu rezervace, převzetí, vrácení i co je v ceně nájmu. Pro rychlou orientaci nabízíme také <a href="/jak-pujcit/faq">časté dotazy</a> a podrobný popis u každé motorky v <a href="/katalog">katalogu</a>.',
+        // telefon a e-mail Po–Pá 8–17 (kontakt, patička); nonstop je jen výdej motorek a AI asistent
+        'body2' => 'Stále se neorientuješ? Ozvi se nám telefonicky, e-mailem nebo přes naše sociální sítě — najdeš je v sekci <a href="/kontakt">Kontakt</a>. Telefon a e-mail vyřizujeme Po–Pá 8–17, AI asistent na webu ti poradí kdykoli — s výběrem motorky, termínem i s objednávkou dárkového poukazu.',
     ],
 ];
 $SMC = $sb->siteContent('mapa_stranek', $smDefaults);
@@ -21,6 +22,18 @@ $smOutroB2 = $SMC['outro']['body2'] ?? $smDefaults['outro']['body2'];
 // /jak-pujcit je jen 301 na /jak-pujcit/postup — odkaz rovnou na cíl (i v textech z CMS / překladů)
 $smOutroB1 = str_replace('href="/jak-pujcit"', 'href="/jak-pujcit/postup"', (string)$smOutroB1);
 $smOutroB2 = str_replace('href="/jak-pujcit"', 'href="/jak-pujcit/postup"', (string)$smOutroB2);
+
+// Kategorie katalogu jen ty, které ve flotile reálně mají motorky — prázdná kategorie (dnes /katalog/sportovni)
+// je noindex (pages/katalog.php) a není ani v sitemap.xml (sitemap.php), tak na ni neodkazujeme ani odsud.
+// Při výpadku dat (žádné motorky) zůstanou odkazy všechny.
+require_once __DIR__ . '/katalog-v2-lib.php';
+$smMotos = $sb->fetchMotos();
+$smMotos = is_array($smMotos) ? $smMotos : [];
+$smHasMotos = function ($href) use ($smMotos) {
+    if (!$smMotos || !preg_match('#^/katalog/([a-z]+)$#', $href, $mm)) return true;
+    foreach ($smMotos as $m) { if (katalogCategoryMatch($m, $mm[1])) return true; }
+    return false;
+};
 
 $links = [
     ['href' => '/', 'label' => t('sitemap.links.home')],
@@ -57,6 +70,7 @@ $links = [
     ['href' => '/dokumenty/zasady-ochrany-osobnich-udaju', 'label' => t('sitemap.links.gdpr')],
     ['href' => '/dokumenty/smlouva-o-pronajmu', 'label' => t('sitemap.links.contract')],
 ];
+$links = array_values(array_filter($links, function ($l) use ($smHasMotos) { return $smHasMotos($l['href']); }));
 if (function_exists('webShopVisible') && webShopVisible()) $links[] = ['href' => '/eshop', 'label' => t('menu.shop')];
 $links[] = ['href' => '/partneri', 'label' => t('footer.partners')];
 // SEO stránky poboček (Motopůjčovna Brno / Vysočina) — existují jen česky

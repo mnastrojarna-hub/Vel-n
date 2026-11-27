@@ -4,31 +4,31 @@ import '../../../core/currency.dart';
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_dock.dart';
 import '../../../core/v2/chrome/mg_page.dart';
-import '../../../core/v2/chrome/mg_status_bar.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
-import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/states/mg_state_banner.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_shadows.dart';
 import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
-import '../../../core/v2/widgets/mg_back_v2.dart';
 import '../../../core/v2/widgets/mg_chips.dart';
 import '../../../core/v2/widgets/mg_cta.dart';
-import '../../../core/v2/widgets/mg_photo.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/v2/widgets/mg_word_fit.dart';
 import '../shop_models.dart';
 import 'product_desc_v2.dart';
+import 'product_hero_v2.dart';
 import 'qty_stepper_v2.dart';
 
-/// v2 look of the product page (Profil board S11 product sheet, kept as
-/// the existing route — OD-PS-09): a scrolling page with the 4:3 photo
-/// pager (swipe = next photo, dots, photo-style ‹ = the screen's back),
+/// v2 look of the product page (kept as the existing route — OD-PS-09),
+/// built like the bike detail (owner 2026-11-27): the night photo hero on
+/// top (`ProductHeroV2`: the whole photo, swipe = next photo, segments,
+/// photo-style ‹ = the screen's back) and a white sheet over its foot with
 /// name + price, colour / material tiles, description (3 lines + "Více"),
-/// size chips ≥ 44, the inline "Nejdřív vyber velikost" where the old
-/// toast fired ([sizeHint] — the screen's flag), the 44 px stepper and the
-/// dock "PŘIDAT DO KOŠÍKU · {total}" running the screen's own add action.
+/// size chips ≥ 44, the inline "Nejdřív vyber velikost" where the old toast
+/// fired ([sizeHint] — the screen's flag), the 44 px stepper and the dock
+/// "PŘIDAT DO KOŠÍKU · {total}" running the screen's own add action. Once
+/// the hero scrolls away the back stays pinned with the product name.
 class ProductViewV2 extends StatelessWidget {
   final Product product;
   final int imageIndex;
@@ -62,47 +62,6 @@ class ProductViewV2 extends StatelessWidget {
     final tr = t(context);
     final lang = tr.lang;
     final images = product.images.isNotEmpty ? product.images : [product.displayImage];
-    final top = MediaQuery.paddingOf(context).top;
-    final photo = MgStatusBar(
-      dark: true,
-      child: AspectRatio(
-        aspectRatio: 4 / 3,
-        child: Stack(fit: StackFit.expand, children: [
-          ColoredBox(
-            color: MgColors.well,
-            child: PageView.builder(
-              itemCount: images.length,
-              onPageChanged: onPage,
-              itemBuilder: (_, i) => MgPhoto(url: images[i], thumbWidth: 1000, glyph: MgIcons.bag),
-            ),
-          ),
-          Positioned(top: top + 8, left: 16, child: MgV2Back(onTap: onBack, style: MgBackStyle.photo)),
-          if (images.length > 1)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 12,
-              child: Semantics(
-                label: tr.trArgs('v2UxCorePhotoOf', {'n': imageIndex + 1, 'm': images.length}),
-                excludeSemantics: true,
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  for (var i = 0; i < images.length; i++)
-                    AnimatedContainer(
-                      duration: MgMotion.of(context, MgMotion.color),
-                      width: i == imageIndex ? 18 : 6,
-                      height: 6,
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      decoration: BoxDecoration(
-                        color: i == imageIndex ? MgColors.neon : MgColors.white(0.6),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                ]),
-              ),
-            ),
-        ]),
-      ),
-    );
     final color = product.colorFor(lang);
     final material = product.materialFor(lang);
     final desc = product.descriptionFor(lang);
@@ -116,15 +75,29 @@ class ProductViewV2 extends StatelessWidget {
             ]),
           ),
         );
-    final body = Padding(
-      padding: const EdgeInsets.fromLTRB(MgSpace.gutter, MgSpace.s16, MgSpace.gutter, 0),
+    // The bike detail's sheet: white, r22 top, grabber, over the hero's foot.
+    final body = Container(
+      padding: const EdgeInsets.fromLTRB(MgSpace.gutter, 8, MgSpace.gutter, 0),
+      decoration: const BoxDecoration(
+        color: MgColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(MgRadius.sheet)),
+        boxShadow: MgShadows.sheet,
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Center(
+          child: Container(
+            width: 42,
+            height: 5,
+            margin: const EdgeInsets.only(bottom: MgSpace.s16),
+            decoration: BoxDecoration(color: MgColors.grabberLight, borderRadius: BorderRadius.circular(3)),
+          ),
+        ),
         Semantics(
           header: true,
-          child: MgWordFit(minScale: 0.8, child: Text(product.nameFor(lang), style: MgType.h3.copyWith(color: MgColors.ink))),
+          child: MgWordFit(minScale: 0.8, child: Text(product.nameFor(lang), style: MgType.h2.copyWith(color: MgColors.ink))),
         ),
         const SizedBox(height: 4),
-        Text(Money.czk(product.price), style: MgType.tab(MgType.h3.copyWith(color: MgColors.price))),
+        Text(Money.czk(product.price), style: MgType.tab(MgType.h2.copyWith(color: MgColors.price))),
         if (color != null || material != null) ...[
           const SizedBox(height: MgSpace.s16),
           IntrinsicHeight(
@@ -184,8 +157,16 @@ class ProductViewV2 extends StatelessWidget {
       ]),
     );
     return MgPage(
-      sections: [photo, body],
-      overlapHero: false,
+      background: MgColors.surface,
+      header: ProductHeroV2(
+        product: product,
+        images: images,
+        imageIndex: imageIndex,
+        onPage: onPage,
+        onBack: onBack,
+        height: productHeroHeight(context),
+      ),
+      sections: [body],
       pinnedBack: onBack,
       pinnedTitle: product.nameFor(lang),
       dock: product.inStock

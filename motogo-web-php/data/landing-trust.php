@@ -29,11 +29,11 @@ function lpTrustDefaults() {
         'reasons_more' => 'Zobrazit všech {n} výhod',
         'reasons_less' => 'Zobrazit méně',
         // 2026-10-22: flexibilita rezervace do popředí (majitel: „nic není závazné, zvlášť při nepřízni počasí“)
+        // 2026-11-27 (SEO revize): sliby, které stránka opakuje už v chipech, pruhu „Garance MotoGo24“ a v proužku nabídky
+        // (posun termínu, úpravy rezervace, bez kauce, 1. den za polovinu, storno zdarma), tu nejsou podruhé.
+        // Položky se číslují průběžně při vykreslení (renderLpReasons), překlady mají vlastní seznam (lang/v2/<jazyk>/landing.php).
         'reasons' => [
-            ['icon' => 'swap', 'title' => 'Termín posuneš kdykoliv zdarma', 'text' => 'Pokazí se počasí nebo plány? Přesuň rezervaci na jiné dny — bez poplatku, kdykoliv do začátku pronájmu.**'],
             ['icon' => 'resize', 'title' => 'Prodloužíš i zkrátíš', 'text' => 'Prodloužení kdykoliv bez poplatku za změnu (doplatíš jen dny navíc). Zkrácení víc než 7 dní před dnem převzetí zdarma, víc než 2 dny před ním ti vrátíme 50 % ceny odebraných dní.**'],
-            ['icon' => 'edit', 'title' => 'Rezervaci upravíš kdykoliv', 'text' => 'Až do začátku pronájmu přidáš výbavu nebo boty, změníš čas či místo převzetí — online i v aplikaci.'],
-            ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'Nic ti neblokujeme na kartě.'],
             ['icon' => 'shield', 'title' => '100% smluvní krytí škod', 'text' => 'Při nehodě je tvoje spoluúčast 0 Kč.*'],
             ['icon' => 'helmet', 'title' => 'Výbava v ceně', 'text' => 'Motooblečení, vesta, lékárnička a kotoučový zámek. V Mezné i nepromoky.'],
             ['icon' => 'infinity', 'title' => 'Neomezené km a cesty do zahraničí', 'text' => 'Jeď, kam a jak daleko chceš (v rámci zelené karty).'],
@@ -41,18 +41,16 @@ function lpTrustDefaults() {
             ['icon' => 'calendar', 'title' => 'Rezervace i platba online', 'text' => 'Vyřídíš za pár minut, klidně v neděli večer.'],
             ['icon' => 'app', 'title' => 'Vlastní aplikace', 'text' => 'Úprava tvojí rezervace, SOS, věrnostní program i tipy na trasy na jednom místě.'],
             ['icon' => 'coffee', 'title' => 'Zázemí zdarma', 'text' => 'V Mezné káva, voda, WC, wifi, převlékací kabinka a skříňky. Parkování pro tvoje auto na obou pobočkách.'],
-            ['icon' => 'kiosk', 'title' => 'Obě pobočky nonstop', 'text' => 'Vyzvedneš i vrátíš kdykoli podle rezervace. Velké Němčice jsou 100% samoobslužné — kódem z aplikace.'],
+            ['icon' => 'kiosk', 'title' => 'Obě pobočky nonstop', 'text' => 'Vyzvedneš i vrátíš kdykoli podle rezervace. Velké Němčice jsou plně samoobslužné — kódem z aplikace.'],
             ['icon' => 'route', 'title' => 'Trasy a záznam jízdy', 'text' => 'Přes 1 000 tras s navigací a záznam každé jízdy: kudy jsi jel, kolik km a jak dlouho.'],
             ['icon' => 'moto', 'title' => 'Motorka pro každého', 'text' => 'Od skútrů přes A2 až po silné stroje na áčko. A dětské motorky pro nejmenší.'],
             ['icon' => 'bot', 'title' => 'AI asistent 24/7', 'text' => 'Poradí kdykoli na webu i v aplikaci. Telefonicky jsme tu Po–Pá 8–17.'],
             ['icon' => 'percent', 'title' => 'Věrnostní program', 'text' => 'Sleva od první rezervace v aplikaci, až 20 %. Od ranku 3 výbava spolujezdce i boty zdarma.'],
             ['icon' => 'phone', 'title' => 'SOS v aplikaci', 'text' => 'Pomoc na cestách na pár klepnutí.'],
-            ['icon' => 'clock', 'title' => '1. den za polovinu', 'text' => 'Při vyzvednutí od 12:00 a výpůjčce na 2 a více dní.'],
             ['icon' => 'star', 'title' => 'I pro začátečníky', 'text' => 'Stačí 18 let a řidičák odpovídající skupiny. Praxi nevyžadujeme, zahraniční ŘP bereme.'],
             ['icon' => 'truck', 'title' => 'Přistavení na adresu', 'text' => 'Z Mezné ti motorku přivezeme kamkoli v ČR (za příplatek).'],
             ['icon' => 'pin', 'title' => 'Snadno k nám', 'text' => 'Mezná 90 min z Prahy, Velké Němčice 30 min z Brna a 35 min z brněnského letiště.'],
             ['icon' => 'helmet', 'title' => 'Velikosti až 6XL', 'text' => 'Bundy a kalhoty do 6XL v Mezné, do 4XL na samoobslužné pobočce.'],
-            ['icon' => 'check', 'title' => 'Storno zdarma', 'text' => 'Zrušení víc než 7 dní předem bez poplatku.**'],
         ],
         'reasons_note' => '* Při dodržení podmínek nájmu (VOP čl. 7); nevztahuje se na odcizení. ** Storno a zkrácení: víc než 7 dní před dnem převzetí vracíme 100 % (u zkrácení z ceny odebraných dní), víc než 2 dny před dnem převzetí 50 %, později vratku negarantujeme. Zkrácením na 1 den zaniká sleva „1. den za polovinu“. Po vrácení části platby (zkrácení) změnu termínu vyřídí obsluha. Po předchozím posunu začátku vracíme při stornu i zkrácení nejvýš 50 %, a pokud byl posun méně než 7 dní předem, nic.',
         // Pruh garancí hned pod hero (landing-guarantee.php). 'big' = velká dlaždice nahoře, 'pos' = pořadí
@@ -69,7 +67,7 @@ function lpTrustDefaults() {
             ['icon' => 'shield', 'title' => '{zero} spoluúčast', 'text' => 'při dodržení smlouvy*', 'pos' => 1],
             ['icon' => 'swap', 'title' => 'Termín posuneš zdarma', 'text' => 'kdykoliv do začátku pronájmu**', 'big' => true, 'pos' => 2],
             ['icon' => 'resize', 'title' => 'Prodloužení kdykoliv', 'text' => 'bez poplatku za změnu', 'pos' => 3],
-            ['icon' => 'calendar', 'title' => 'Zkrácení s vrácením peněz', 'text' => 'víc než 7 dní 100 %, víc než 2 dny 50 %**', 'pos' => 4],
+            ['icon' => 'calendar', 'title' => 'Zkrácení s vrácením peněz', 'text' => 'víc než 7 dní předem 100 %, víc než 2 dny předem 50 %**', 'pos' => 4],
             ['icon' => 'edit', 'title' => 'Rezervaci upravíš zdarma', 'text' => 'do začátku pronájmu, bez poplatku za změnu', 'big' => true, 'pos' => 1],
             ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'nic ti neblokujeme', 'pos' => 2],
             ['icon' => 'storno', 'title' => 'Storno zdarma', 'text' => 'víc než 7 dní předem**', 'big' => true, 'pos' => 3],
@@ -124,8 +122,8 @@ function lpTrustDefaults() {
         'branch_book' => 'Vybrat',
         'branch_more' => 'Detail pobočky',
         'branches' => [
-            ['badge' => 'S obsluhou · nonstop', 'title' => 'Mezná u Pelhřimova', 'text' => 'Osobní předání v čase, který si zvolíš, kompletní výbava v ceně, káva na uvítanou a přistavení motorky na adresu.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 min z Prahy']],
-            ['badge' => 'Samoobsluha · 24/7', 'title' => 'Velké Němčice u Brna', 'text' => 'Vyzvednutí i vrácení kdykoli, 100% nonstop, kódem z aplikace. Šatna s výbavou a parkování zdarma.', 'img' => '/gfx/pobocky/velke-nemcice/vydejni-box-640.webp', 'href' => '/pobocky/velke-nemcice', 'book_href' => '/rezervace?pobocka=22222222-2222-2222-2222-222222222222', 'times' => ['30 min z Brna', '35 min z letiště Brno']],
+            ['badge' => 'S obsluhou · nonstop', 'title' => 'Mezná u Pelhřimova', 'text' => 'Osobní předání v čase, který si zvolíš, kompletní výbava v ceně, káva na uvítanou a přistavení motorky na adresu za příplatek.', 'img' => '/gfx/provozovna-1.jpg', 'href' => '/pobocky/mezna', 'book_href' => '/rezervace?pobocka=11111111-1111-1111-1111-111111111111', 'times' => ['90 min z Prahy']],
+            ['badge' => 'Samoobsluha · 24/7', 'title' => 'Velké Němčice u Brna', 'text' => 'Vyzvednutí i vrácení bez obsluhy, kódem z aplikace – vrátíš kdykoli poslední den výpůjčky do 24:00. Šatna s výbavou a parkování zdarma.', 'img' => '/gfx/pobocky/velke-nemcice/vydejni-box-640.webp', 'href' => '/pobocky/velke-nemcice', 'book_href' => '/rezervace?pobocka=22222222-2222-2222-2222-222222222222', 'times' => ['30 min z Brna', '35 min z letiště Brno']],
         ],
     ];
 }

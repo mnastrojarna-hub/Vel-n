@@ -73,7 +73,7 @@ function katalogPlaceCs($slugs, $form) {
         'mezna' => ['v' => 'v Mezné u Pelhřimova', 'u' => 'u Pelhřimova', 'titul' => 'na Vysočině', 'pobocka' => 'Pobočka Mezná u Pelhřimova'],
         'velke-nemcice' => ['v' => 've Velkých Němčicích u Brna', 'u' => 'u Brna', 'titul' => 'u Brna', 'pobocka' => 'Pobočka Velké Němčice u Brna'],
     ];
-    $both = ['v' => 'v Mezné nebo ve Velkých Němčicích u Brna', 'u' => 'u Pelhřimova a Brna', 'titul' => '– Vysočina a Brno', 'pobocka' => 'Mezná i Velké Němčice'];
+    $both = ['v' => 'v Mezné nebo ve Velkých Němčicích u Brna', 'u' => 'u Pelhřimova a Brna', 'titul' => '– Vysočina a Brno', 'pobocka' => 'Pobočky Mezná i Velké Němčice'];
     $slugs = array_values(array_intersect(array_keys($one), (array)$slugs));
     if (count($slugs) > 1) return $both[$form] ?? '';
     return $slugs ? ($one[$slugs[0]][$form] ?? '') : '';
@@ -88,7 +88,9 @@ function katalogPlaceCs($slugs, $form) {
  * Do 155 znaků se krátí vypouštěním částí (závěr → typ → parametry), nikdy useknutím; popis z DB se nepřipojuje.
  */
 function katalogMotoSeoCs($moto) {
-    $model = trim(safeStr($moto['model'] ?? '')) ?: t('card.unnamedMotorcycle');
+    $name = trim(safeStr($moto['model'] ?? ''));
+    $model = $name !== '' ? $name : 'Motorka'; // bez názvu: „Motorka k pronájmu …“
+    $nm = $name !== '' ? ' ' . $name : '';
     $slug = katalogBranchSlug($moto);
     $near = katalogPlaceCs($slug, 'u');
     $title = $model . ' k pronájmu' . ($near !== '' ? ' ' . $near : '') . ' | MotoGo24';
@@ -102,14 +104,14 @@ function katalogMotoSeoCs($moto) {
     $where = $where !== '' ? ' ' . $where : '';
     $lg = motoLicenseGroups($moto);
     if (!empty($moto['is_trailer']) || katalogCategoryMatch($moto, 'ostatni')) {
-        $leads = [(preg_match('/^přívěs/iu', $model) ? '' : 'Přívěs na motorky ') . $model . ' k pronájmu'];
+        $leads = [(preg_match('/^přívěs/iu', $name) ? $name : 'Přívěs na motorky' . $nm) . ' k pronájmu'];
         $tails = [(in_array('B', $lg, true) ? 'Stačí ŘP B, bez kauce' : 'Bez kauce') . ', rezervace online.'];
     } elseif (katalogCategoryMatch($moto, 'detske')) {
-        $leads = ['Dětská motorka ' . $model . ' k půjčení'];
+        $leads = ['Dětská motorka' . $nm . ' k půjčení'];
         $tails = [((!$lg || $lg === ['N']) ? 'Bez řidičáku, jen' : 'Jen') . ' mimo silnice a pod dohledem dospělého.'];
     } else {
         $scooter = katalogCategoryMatch($moto, 'scootery');
-        $base = 'Pronájem ' . ($scooter ? 'skútru' : 'motorky') . ' ' . $model;
+        $base = 'Pronájem ' . ($scooter ? 'skútru' : 'motorky') . $nm;
         $specs = [];
         if (!empty($moto['engine_cc'])) $specs[] = $num($moto['engine_cc'], true) . ' ccm';
         if (!empty($moto['power_kw'])) $specs[] = $num($moto['power_kw']) . ' kW';
@@ -123,14 +125,15 @@ function katalogMotoSeoCs($moto) {
         $leads[] = $base;
         $tails = ['Bez kauce, výbava pro řidiče v ceně, online rezervace.', 'Bez kauce, výbava v ceně, online rezervace.'];
     }
+    // první varianta (od nejúplnější), která se vejde do 155 znaků; krajní možnost = jen první věta
     $desc = '';
     foreach ($leads as $l) {
         foreach ($tails as $tl) {
             $desc = $l . $where . '. ' . $tl;
-            if (mb_strlen($desc, 'UTF-8') <= 155) break 2;
+            if (mb_strlen($desc, 'UTF-8') <= 155) return [$title, $desc];
         }
     }
-    return [$title, $desc];
+    return [$title, end($leads) . $where . '.'];
 }
 
 /** Text, ve kterém hledá fulltext ?q= (model, značka, kategorie, popis, výbava). */
