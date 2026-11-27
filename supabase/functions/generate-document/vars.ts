@@ -3,6 +3,7 @@
 // zákazníka (doména odkazů {{company_web}}). Popisky: labels.ts (audit EDGE-DOC-09).
 
 import { fmtDateL, fmtPriceL, labelsFor, priceWords, rentalPeriod } from './labels.ts'
+import { type Company, companyDocVars } from '../_shared/company.ts'
 
 // deno-lint-ignore no-explicit-any
 type Any = any
@@ -38,7 +39,8 @@ export interface VarsCtx {
   extras: Array<{ name: string; quantity: number; unit_price: number }>
   branchName: string; branchAddress: string
   pickupTime: string; startTime: string; endTime: string
-  company: { name: string; address: string; ico: string; dic: string }
+  /** provozovatel z app_settings.company_info (_shared/company.ts) */
+  company: Company
   webLabel: string
   docLang: string
 }
@@ -104,15 +106,10 @@ export function buildVars(c: VarsCtx): Record<string, string> {
     booking_id: c.bookingId.slice(-8),
     booking_number: c.bookingId.slice(-8).toUpperCase(),
     today: d(new Date().toISOString()),
-    company_name: c.company.name,
-    company_address: c.company.address,
-    company_ico: c.company.ico,
-    company_dic: c.company.dic,
-    company_phone: '+420 774 256 271',
-    company_email: 'info@motogo24.cz',
+    // company_name / _address / _ico / _dic / _register / _register_short / _phone / _email /
+    // _bank / _account / _iban / _bic — vše z nastavení provozovatele, nic natvrdo
+    ...companyDocVars(c.company),
     company_web: c.webLabel,
-    company_bank: 'mBank',
-    company_account: '670100-2225851630/6210',
     // start_time = čas vyzvednutí, end_time = vrácení (samoobsluha 00:01 / 12:00 → 24:00, viz index.ts)
     start_time: c.startTime,
     end_time: c.endTime,

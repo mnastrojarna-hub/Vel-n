@@ -17,21 +17,24 @@ $sb   = new SupabaseClient();
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 
 // Firemní údaje provozovatele pro proměnné {{company_*}} — JEDINÝ zdroj je config.php
-// (COMPANY_*). Stejné názvy plní edge `generate-document` (vars.ts) u dokumentů k rezervaci,
-// takže veřejný náhled šablony ukáže totéž co vystavený dokument.
+// (COMPANY_*). Stejné názvy plní edge `generate-document` (_shared/company.ts → companyDocVars)
+// u dokumentů k rezervaci, takže veřejný náhled šablony ukáže totéž co vystavený dokument.
 function mgDocCompanyVars() {
     $c = function ($name) { return defined($name) ? (string)constant($name) : ''; };
     return [
-        'company_name'     => $c('COMPANY_NAME'),
-        'company_ico'      => $c('COMPANY_ICO'),
-        'company_address'  => $c('COMPANY_ADDRESS'),
-        'company_register' => $c('COMPANY_REGISTER'),
-        'company_phone'    => $c('PHONE'),
-        'company_email'    => $c('EMAIL_FULL'),
-        'company_web'      => 'www.motogo24.cz',
-        'company_account'  => $c('COMPANY_BANK_ACCOUNT'),
-        'company_bank'     => $c('COMPANY_BANK_NAME'),
-        'company_iban'     => trim(chunk_split($c('COMPANY_IBAN'), 4, ' ')),
+        'company_name'           => $c('COMPANY_NAME'),
+        'company_ico'            => $c('COMPANY_ICO'),
+        'company_dic'            => '',   // není plátce DPH — stejně jako edge prázdné, ne „……………“
+        'company_address'        => $c('COMPANY_ADDRESS'),
+        'company_register'       => $c('COMPANY_REGISTER'),
+        'company_register_short' => $c('COMPANY_REGISTER_SHORT'),
+        'company_phone'          => $c('PHONE'),
+        'company_email'          => $c('EMAIL_FULL'),
+        'company_web'            => 'www.motogo24.cz',
+        'company_account'        => $c('COMPANY_BANK_ACCOUNT'),
+        'company_bank'           => $c('COMPANY_BANK_NAME'),
+        'company_iban'           => trim(chunk_split($c('COMPANY_IBAN'), 4, ' ')),
+        'company_bic'            => $c('COMPANY_BIC'),
     ];
 }
 
@@ -81,7 +84,7 @@ function mgDocPublicBlanks($html) {
     $company = mgDocCompanyVars();
     return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/i', function ($m) use ($company) {
         $k = strtolower($m[1]);
-        return ($company[$k] ?? '') !== '' ? htmlspecialchars($company[$k]) : '……………';
+        return array_key_exists($k, $company) ? htmlspecialchars($company[$k]) : '……………';
     }, $html);
 }
 

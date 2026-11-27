@@ -3,6 +3,7 @@ import { uploadHtmlAsPdf } from './htmlToPdf'
 import { generateInvoiceHtml } from './invoiceTemplate'
 import { openPrintWindow } from './sanitize'
 import { isGearBooking, gearInvoiceItems, gearSizeSummary } from './bookingKind'
+import { loadCompanyInfo, resolveIssuer } from './company'
 
 const PREFIX_MAP = {
   issued: 'FV',
@@ -160,7 +161,7 @@ export function calculateTotals(items) {
  * concurrent number generators — typically caused by React StrictMode double-mount,
  * concurrent autoGenerateKF + DB trigger, or two open tabs).
  */
-export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, issue_date, source, status, payment, manual }) {
+export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, issue_date, source, status, payment, manual, original_invoice_id }) {
   const { subtotal, taxAmount, total } = calculateTotals(items)
   // Datum vystavení: ručně zadané (Velín → Nová faktura) má přednost VŽDY a ukládá
   // se beze změny — i zpětné datum (rozhodnutí provozovatele; řada pak může mít
@@ -200,6 +201,9 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
         // Propojení DP ↔ zálohová faktura (ZF), aby šla platba + doklady spárovat.
         if (payment.advance_invoice_id) p.original_invoice_id = payment.advance_invoice_id
       }
+      // Dobropis: vazba na opravovaný doklad už PŘI vložení — DB trigger podle ní převezme
+      // vystavitele původního dokladu (invoices.issuer_snapshot), ne dnešního provozovatele.
+      if (original_invoice_id) p.original_invoice_id = original_invoice_id
     }
     return p
   }
@@ -414,6 +418,8 @@ export async function renderAndStoreInvoicePdf(invoiceId) {
     paid_date: data.paid_date,
     booking_id: data.booking_id,
     bookings: data.bookings,
+    // vystavitel dokladu (issuer_snapshot řádku) — uložené PDF starého dokladu se nesmí přepsat dnešním provozovatelem
+    supplier: data.supplier,
   })
   return storeInvoicePdf(invoiceId, html)
 }
@@ -563,6 +569,7 @@ export async function generateCreditNote(bookingId, { refundAmount, refundPercen
     notes: `Dobropis k rezervaci #${bookingId.slice(-8).toUpperCase()}. ${percent < 100 ? `Částečný refund ${percent}%.` : 'Plný refund.'} ${reasonText}`,
     source: 'refund',
     status: 'issued',
+    original_invoice_id: origInvId,
   }
 
   const invoice = await createInvoice(payload)
@@ -634,7 +641,16 @@ export async function loadInvoiceData(invoiceId) {
 
   if (error) throw error
 
-  // E-shop/voucher faktury platí kartou přes Stripe → na dokladu místo bank. účtu (mBank)
+  // DODAVATEL = vystavitel uložený na řádku (`issuer_snapshot`, plní DB trigger při vystavení).
+  // Doklad vystavený dřívějším provozovatelem se tak při náhledu, tisku, uložení PDF i odeslání
+  // renderuje s PŮVODNÍMI údaji. Řádek bez snapshotu (sloupec ještě neexistuje / starší řádek)
+  // → aktuální `company_info`. `select('*')` výše sloupec vrátí, jakmile v DB je.
+  if (data) {
+    await loadCompanyInfo()
+    data.supplier = resolveIssuer({ issuer_snapshot: data.issuer_snapshot })
+  }
+
+  // E-shop/voucher faktury platí kartou přes Stripe → na dokladu místo bankovního účtu
   // zobraz „Platba kartou (Stripe)" + identifikátor. Doplníme do dat pro client render.
   if (data) {
     const sp = data.shop_orders?.stripe_payment_intent_id || data.shop_orders?.stripe_session_id || data.stripe_payment_intent_id || null

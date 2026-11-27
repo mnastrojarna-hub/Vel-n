@@ -18,12 +18,16 @@ function kcDvDefaults() {
         'dv_today' => 'Na dnešek už přistavení nestihneme — vyber pozdější den, nebo vyzvednutí na pobočce.',
         // řádek souhrnu, dokud není spočítaná trasa (formulář do té doby počítá základní cenu)
         'dv_from' => 'od {price}',
+        // řádky souhrnu = kanonické názvy položek rezervace (lang/<lang>.php rez.gear.item.delivery / .return).
+        // Vlastní klíče: živý překlad těch dvou klíčů z Velínu je v části jazyků chybný (DE/PL přistavení = „vrácení“).
+        'dv_row_d' => 'Přistavení motorky',
+        'dv_row_r' => 'Vrácení motorky',
     ];
 }
 
 /**
  * Texty, které už má rezervační formulář (lang/<lang>.php, rez.*) — kalkulačka je bere přímo z něj,
- * aby volby, vysvětlení zámku samoobsluhy, řádek trasy i názvy položek zněly v obou místech stejně.
+ * aby volby, vysvětlení zámku samoobsluhy, řádek trasy i upozornění na předstih zněly v obou místech stejně.
  * Zástupné {…} doplní JS (ceny z MG._calcDeliveryFee, km a minuty z trasy).
  */
 function kcDvFormTexts() {
@@ -34,7 +38,6 @@ function kcDvFormTexts() {
         'dv_kind_d' => 'rez.route.delivery', 'dv_kind_r' => 'rez.route.return',
         'dv_wait' => 'rez.route.loading', 'dv_err' => 'rez.route.error',
         'dv_fast' => 'rez.route.fastestFrom', 'dv_drive' => 'rez.route.driveTime', 'dv_calc' => 'rez.route.calc',
-        'dv_row_d' => 'rez.gear.item.delivery', 'dv_row_r' => 'rez.gear.item.return',
         'dv_soon' => 'rez.alert.minTimeDelivery',
     ];
     $out = [];

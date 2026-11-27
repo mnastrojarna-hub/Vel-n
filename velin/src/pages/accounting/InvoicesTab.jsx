@@ -116,6 +116,7 @@ export default function InvoicesTab() {
         cardInfo: fullInv.cardInfo, stripe_payment_intent_id: fullInv.stripe_payment_intent_id, paymentMethodLabel: fullInv.paymentMethodLabel,
         voucher_codes: fullInv.voucher_codes, voucherValidUntil: fullInv.voucherValidUntil, door_codes: fullInv.door_codes,
         paid_date: fullInv.paid_date, booking_id: fullInv.booking_id, bookings: fullInv.bookings,
+        supplier: fullInv.supplier, // vystavitel dokladu (issuer_snapshot) — viz loadInvoiceData
       })
       const { printInvoiceHtml } = await import('../../lib/invoiceUtils')
       printInvoiceHtml(html)

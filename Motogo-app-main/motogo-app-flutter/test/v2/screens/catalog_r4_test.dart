@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/v2/states/mg_state_banner.dart';
 import 'package:motogo_app/core/v2/calendar/trip_calendar.dart';
+import 'package:motogo_app/core/v2/icons/mg_icon.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/catalog/moto_detail_page.dart';
 import 'package:motogo_app/features/catalog/moto_model.dart';
@@ -87,6 +89,13 @@ void main() {
 
     testWidgets('start chosen by tap, end pending: ring as before; a tapped range over a busy day is refused', (t) async {
       await pump(t, booked: [BookedDateRange(start: sat, end: sat, status: 'confirmed')]);
+      // Nothing is chosen yet, so the calendar opens on the current month; in
+      // the last days of a month the test weekend is in the next one.
+      final now = DateTime.now();
+      for (var m = DateTime(now.year, now.month); m.isBefore(DateTime(ws.year, ws.month)); m = DateTime(m.year, m.month + 1)) {
+        await t.tap(find.byWidgetPredicate((w) => w is MgIconButton && w.icon == MgIcons.chevronRight));
+        await t.pump(const Duration(milliseconds: 400));
+      }
       await t.tap(find.byWidgetPredicate((w) => w is TripDayCell && tripSameDay(w.state.date, ws), skipOffstage: false));
       await t.pump(const Duration(milliseconds: 300));
       expect([_cell(t, ws).selected, _cell(t, ws).pendingStart], [TripSel.single, true]);

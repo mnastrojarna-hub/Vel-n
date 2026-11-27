@@ -3,6 +3,7 @@
 // Agenti NEDĚLAJÍ co dělá Velín. Kontrolují, hledají nekonzistence, řeší výjimky, spolupracují.
 
 import { AGENT_PROMPTS_PART2 } from './aiAgentPromptsData2'
+import { OPERATOR } from './company'
 
 export const AGENT_PROMPTS_DATA = {
   bookings: {
@@ -87,7 +88,7 @@ TŘÍDÍŠ DOKLADY: Přijaté doklady automaticky zařaď dle typu:
 - Smlouva = nájemní smlouva (podepsaná před předáním)
 - VOP = všeobecné obchodní podmínky (přijaty zákazníkem)
 Ke každé rezervaci OVĚŘ kompletnost: ZF → Smlouva+VOP → DL → KF/DP
-Firma NENÍ plátce DPH (IČO: 21874263). Částky Kč, zaokrouhleno.`,
+Firma NENÍ plátce DPH (${OPERATOR.name}, IČO: ${OPERATOR.ico}). Částky Kč, zaokrouhleno.`,
     situations: [
       'Faktura nesedí s ceníkem: nahlásit řediteli',
       'Platba přišla ale booking stále unpaid: eskaluj — webhook selhal',

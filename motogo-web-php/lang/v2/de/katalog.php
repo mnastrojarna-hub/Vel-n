@@ -84,6 +84,8 @@ return ['pages' => ['landing_katalog' => [
     'dv_lead' => 'Die Lieferzeit wählst du bei der Reservierung.',
     'dv_today' => 'Heute schaffen wir die Lieferung nicht mehr: Wähle einen späteren Tag oder die Abholung in der Filiale.',
     'dv_from' => 'ab {price}',
+    'dv_row_d' => 'Motorradlieferung',
+    'dv_row_r' => 'Motorradabholung',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Termin',
     'f_dates_title' => 'Wann willst du losfahren?',

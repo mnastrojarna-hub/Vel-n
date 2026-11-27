@@ -14,7 +14,7 @@
   function side() { return { a: '', lat: null, lng: null, km: null, min: null, st: '', q: 0 }; }
   // on = přistavení, same = vrátit na stejné adrese, ro = vrácení jinde; d / r = adresa přistavení / vrácení
   // (st: '' | 'wait' | 'ok' | 'err'). Adresy zůstávají v paměti i po vypnutí volby — jako pole formuláře.
-  var D = K.dv = { on: false, same: true, ro: false, d: side(), r: side() };
+  var D = K.dv = { on: false, same: true, ro: false, cut: false, d: side(), r: side() };
 
   K.dvReady = function () { var M = mg(); return typeof M._calcDeliveryFee === 'function' && !!M.DELIVERY && typeof M.DELIVERY.blocked === 'function'; };
   // Rozhoduje pobočka VYBRANÉ motorky (bez motorky kalkulačka cenu nepočítá, takže ani přistavení)
@@ -23,8 +23,9 @@
     return !!b && !!mg().DELIVERY.blocked(b.ty, !!X.C.ssd);
   };
   K.dvActive = function (X) { return K.dvReady() && !!X.S.moto && !K.dvBlocked(X); };
-  // Po změně motorky / pobočky: motorka, u které formulář přistavení zamyká → obě volby vypnout (jako formulář)
-  K.dvCheck = function (X) { if (K.dvReady() && X.S.moto && K.dvBlocked(X)) D.on = D.ro = false; };
+  // Po změně motorky / pobočky: motorka, u které formulář přistavení zamyká → obě volby vypnout (jako formulář);
+  // cut = právě jsme zákazníkovi zvolené přistavení zrušili → krok ukáže vysvětlení rovnou rozbalené
+  K.dvCheck = function (X) { if (K.dvReady() && X.S.moto && K.dvBlocked(X)) { D.cut = D.on || D.ro; D.on = D.ro = false; } };
   K.dvFees = function (X) {
     if (!K.dvActive(X)) return { p: 0, r: 0, total: 0 };
     var f = mg()._calcDeliveryFee, p = D.on ? f(D.d.km) : 0, r = D.ro ? f(D.r.km) : (D.on && D.same ? p : 0);
@@ -89,11 +90,16 @@
 
   // Řádky do souhrnu (K.sumHtml): názvy = položky rezervace „Přistavení motorky“ / „Vrácení motorky“
   K.dvKm = function (km) { return km.toFixed(1).replace('.', ','); }; // jako formulář (MG._renderRouteInfo)
+  var unit = '';
+  function kmUnit(X) { // „km“ v jazyce stránky (uk „км“); jen popisek jednotky, číslo formátuje K.dvKm
+    if (!unit) try { unit = new Intl.NumberFormat(X.C.lang, { style: 'unit', unit: 'kilometer' }).formatToParts(1).filter(function (p) { return p.type === 'unit'; })[0].value; } catch (e) {}
+    return unit || (unit = 'km');
+  }
   K.dvRows = function (X) {
     var f = K.dvFees(X), T = X.T, h = '';
     function row(label, s, fee) {
       var known = !!s && s.st === 'ok';
-      return '<li class="kc-r-dv"><span class="kc-r-d">' + K.esc(label) + '</span><span class="kc-r-x">' + (known ? K.esc(K.dvKm(s.km)) + ' km' : '') + '</span>' +
+      return '<li class="kc-r-dv"><span class="kc-r-d">' + K.esc(label) + '</span><span class="kc-r-x">' + (known ? K.esc(K.dvKm(s.km) + ' ' + kmUnit(X)) : '') + '</span>' +
         '<span class="kc-r-v">' + K.esc(known ? X.money(fee) : K.tpl(T.dv_from, { price: X.money(fee) })) + '</span></li>';
     }
     if (D.on && f.p > 0) h += row(T.dv_row_d, D.d, f.p);

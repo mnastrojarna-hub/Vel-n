@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
+// Patička e-mailu: provozovatel z app_settings.company_info (_shared/company.ts), nic natvrdo.
+import { emailFooterCompanyHtml, loadCompany } from '../_shared/company.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -103,6 +105,7 @@ serve(async (req) => {
   if (!auth.ok) return forbidden(CORS, auth.reason)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  await loadCompany(supabase) // patička mailu = aktuální provozovatel (nikdy nevyhodí)
 
   try {
     const { campaign_id } = await req.json()
@@ -401,9 +404,7 @@ function buildMarketingHtml(body: string, subject: string): string {
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
-          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>
-          <div style="color:#9ca3af">Mezná 9, 393 01 Pelhřimov</div>
-          <div style="color:#9ca3af">IČO: 21874263</div>
+          ${emailFooterCompanyHtml()}
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>

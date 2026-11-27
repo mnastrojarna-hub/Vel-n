@@ -9,6 +9,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { forbidden, requireAdminOrService } from '../_shared/auth.ts'
+// Odesílatel = aktuální provozovatel (app_settings.company_info: název, IČO, ID datové schránky).
+// Přihlašovací údaje DS_LOGIN / DS_PASSWORD musí patřit TÉTO datové schránce.
+import { type Company, companyIdLine, loadCompany } from '../_shared/company.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -87,7 +90,8 @@ Deno.serve(async (req: Request) => {
     const reportLabel = REPORT_LABELS[report.report_type] || report.report_type
 
     // ── 3. Generate XML envelope ──
-    const xmlContent = generateIsdsXml(report, recipientDsId, reportLabel)
+    const sender = await loadCompany(supabase)
+    const xmlContent = generateIsdsXml(report, recipientDsId, reportLabel, sender)
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const fileName = `${report.report_type}_${report.year}${report.quarter ? '_Q' + report.quarter : ''}_${timestamp}.xml`
     const storagePath = `${report.year}/${fileName}`
@@ -146,6 +150,8 @@ Deno.serve(async (req: Request) => {
       message_id: messageId,
       recipient: recipientConfig.label,
       recipient_ds_id: recipientDsId || null,
+      sender: companyIdLine(sender),
+      sender_ds_id: sender.dataBox || null,
       file_path: storagePath,
       instructions: method === 'manual'
         ? 'Soubor je připraven v úložišti. Nahrajte ho ručně do datové schránky na mojedatovaschranka.cz'
@@ -162,7 +168,8 @@ Deno.serve(async (req: Request) => {
 function generateIsdsXml(
   report: Record<string, any>,
   recipientDsId: string,
-  reportLabel: string
+  reportLabel: string,
+  sender: Company,
 ): string {
   const periodStr = report.quarter
     ? `${report.year} Q${report.quarter}`
@@ -175,7 +182,7 @@ function generateIsdsXml(
   <isds:dmEnvelope>
     <isds:dbIDRecipient>${escapeXml(recipientDsId)}</isds:dbIDRecipient>
     <isds:dmAnnotation>${escapeXml(reportLabel)} za ${escapeXml(periodStr)} — MotoGo24</isds:dmAnnotation>
-    <isds:dmSenderOrgUnit>MotoGo24 / Bc. Petra Semorádová, IČO: 21874263</isds:dmSenderOrgUnit>
+    <isds:dmSenderOrgUnit>${escapeXml(companyIdLine(sender))}</isds:dmSenderOrgUnit>
   </isds:dmEnvelope>
   <isds:dmFiles>
     <isds:dmFile dmFileDescr="${escapeXml(reportLabel)}_${report.year}.xml" dmMimeType="application/xml">

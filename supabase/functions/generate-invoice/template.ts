@@ -1,6 +1,8 @@
 // ===== INVOICE HTML TEMPLATE GENERATOR =====
 // Unified design — used for ZF / DP / KF / Shop / Credit note
 
+import { fmtIban, registerInvoiceLine, registerLine } from '../_shared/company.ts'
+
 const SITE_URL = 'https://www.motogo24.cz'
 const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`
 
@@ -69,6 +71,17 @@ function statusLabelFull(p: TemplateParams): string {
 }
 
 export function generateInvoiceHtml(p: TemplateParams): string {
+  // Dodavatel = Company (_shared/company.ts): aktuální provozovatel NEBO issuer_snapshot dokladu.
+  // Zápis v rejstříku, „Nejsme plátci DPH.“ a IBAN se tisknou jen u dodavatele se zápisem v obchodním
+  // rejstříku — doklad vystavený dřívějším provozovatelem (snapshot bez zápisu) vypadá jako při vystavení.
+  const co = p.company || {}
+  const regInv = co.registerFile || co.register ? registerInvoiceLine(co) : ''
+  const regFoot = co.registerFile || co.registerShort ? registerLine(co) : ''
+  const supRow = (label: string, val: string) => `<tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">${label}</td><td style="color:#0f1a14;font-weight:700">${val}</td></tr>`
+  const payRow = (label: string, val: string) => `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">${label}</span>
+      <span style="color:#0f1a14;font-weight:700">${val}</span>
+    </div>`
   const badge = statusBadge(p)
   const tcode = typeLabel(p)
   const status = statusLabelFull(p)
@@ -128,10 +141,8 @@ export function generateInvoiceHtml(p: TemplateParams): string {
       <span style="color:#16a34a;font-weight:600">Bankovní účet</span>
       <span style="color:#0f1a14;font-weight:700">${p.company.account || ''}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
-      <span style="color:#16a34a;font-weight:600">Banka</span>
-      <span style="color:#0f1a14;font-weight:700">${p.company.bank || 'mBank'}</span>
-    </div>
+    ${co.bank ? payRow('Banka', co.bank) : ''}
+    ${regInv && co.iban ? payRow('IBAN', fmtIban(co.iban)) : ''}
     ${p.variableSymbol ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Variabilní symbol</span>
       <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${p.variableSymbol}</span>
@@ -211,9 +222,12 @@ export function generateInvoiceHtml(p: TemplateParams): string {
         <td style="vertical-align:top;width:50%">
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:6px">DODAVATEL</div>
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:11.5px;line-height:1.5">
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Název</td><td style="color:#0f1a14;font-weight:700">${p.company.name}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Adresa</td><td style="color:#0f1a14;font-weight:700">${p.company.address}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">IČO</td><td style="color:#0f1a14;font-weight:700">${p.company.ico}</td></tr>
+            ${supRow('Název', p.company.name)}
+            ${supRow(regInv ? 'Sídlo' : 'Adresa', p.company.address)}
+            ${supRow('IČO', p.company.ico)}
+            ${regInv ? supRow('Zápis', regInv) : ''}
+            ${co.vatPayer && co.dic ? supRow('DIČ', co.dic) : ''}
+            ${regInv && !co.vatPayer ? '<tr><td colspan="2" style="color:#0f1a14;font-weight:700">Nejsme plátci DPH.</td></tr>' : ''}
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">E-mail</td><td style="color:#0f1a14;font-weight:700">${p.company.email}</td></tr>
             <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Telefon</td><td style="color:#0f1a14;font-weight:700">${p.company.phone}</td></tr>
           </table>
@@ -317,6 +331,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
           <div style="font-size:13px;font-weight:800;color:#ffffff;margin-bottom:4px">${p.company.name}</div>
           <div style="color:#9ca3af">${p.company.address}</div>
           <div style="color:#9ca3af">IČO: ${p.company.ico}</div>
+          ${regFoot ? `<div style="color:#9ca3af">${regFoot}</div>` : ''}
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">${p.company.phone}</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">${p.company.email}</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>

@@ -2,7 +2,10 @@
  * Czech invoice HTML template generator (Velín client-side)
  * Unified design — used for ZF (advance/proforma/shop_proforma),
  * DP (payment_receipt), KF (final/shop_final), credit_note.
- * Dodavatel: Bc. Petra Semorádová, IČO 21874263, neplátce DPH.
+ * Dodavatel (vystavitel) se NIKDY nepíše natvrdo: bere se z `data.supplier`, jinak
+ * z `issuer_snapshot` řádku dokladu (doklad vystavený dřív si nese původního
+ * provozovatele), jinak z aktuálního `app_settings.company_info`, jinak z OPERATOR
+ * (lib/company.js → resolveIssuer). Neplátce DPH.
  *
  * 1:1 design se supabase/functions/generate-invoice/template.ts — stejný vzhled
  * jako e-shop/maily. PDF se ve Velínu generuje serverově přes edge `render-pdf`
@@ -10,23 +13,12 @@
  * zajišťuje barvy pozadí i při tisku z prohlížeče (printInvoiceHtml).
  */
 
+import { resolveIssuer, hasRegister, registerInvoiceLine, registerFooterLine, formatIban, VAT_NOTE } from './company.js'
+
 const SITE_URL = 'https://www.motogo24.cz'
 const SITE_LABEL = 'motogo24.cz'
 const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`
 const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(SITE_URL)}`
-
-const COMPANY = {
-  name: 'Bc. Petra Semorádová',
-  address: 'Mezná 9, 393 01 Pelhřimov',
-  ico: '21874263',
-  dic: null,
-  vatPayer: false,
-  bank: 'mBank',
-  account: '670100-2225851630/6210',
-  phone: '+420 774 256 271',
-  email: 'info@motogo24.cz',
-  web: SITE_LABEL,
-}
 
 const fmtDate = (d) => {
   if (!d) return '—'
@@ -95,7 +87,14 @@ export function generateInvoiceHtml(data) {
 
   const status = (isProforma && !zfPaid) ? 'K úhradě' : isCreditNote ? 'Vráceno' : 'Uhrazena'
 
-  const supplier = data.supplier || COMPANY
+  const supplier = resolveIssuer(data)
+  // Společnost zapsaná v OR → „Sídlo", řádek „Zápis", poznámka o DPH a IBAN (1:1 s edge
+  // generate-invoice/template.ts). Doklad dřívějšího provozovatele (snapshot bez zápisu v OR)
+  // se tiskne v původní podobě — jako při vystavení.
+  const inRegister = hasRegister(supplier)
+  const regFoot = supplier.registerFile || supplier.registerShort ? registerFooterLine(supplier) : ''
+  const supLabel = 'color:#16a34a;padding-right:14px;vertical-align:top'
+  const supValue = 'color:#0f1a14;font-weight:700'
   const customer = data.customer || {}
   const items = data.items || []
   const subtotal = data.subtotal != null
@@ -134,10 +133,14 @@ export function generateInvoiceHtml(data) {
       <span style="color:#16a34a;font-weight:600">Bankovní účet</span>
       <span style="color:#0f1a14;font-weight:700">${supplier.account || ''}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+    ${supplier.bank ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
       <span style="color:#16a34a;font-weight:600">Banka</span>
-      <span style="color:#0f1a14;font-weight:700">${supplier.bank || 'mBank'}</span>
-    </div>`
+      <span style="color:#0f1a14;font-weight:700">${supplier.bank}</span>
+    </div>` : ''}
+    ${inRegister && supplier.iban ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
+      <span style="color:#16a34a;font-weight:600">IBAN</span>
+      <span style="color:#0f1a14;font-weight:700">${formatIban(supplier.iban)}</span>
+    </div>` : ''}`
 
   const paymentBlock = cardInfo ? `
     ${rowState}
@@ -232,11 +235,14 @@ export function generateInvoiceHtml(data) {
         <td style="vertical-align:top;width:50%">
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:6px">DODAVATEL</div>
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:11.5px;line-height:1.5">
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Název</td><td style="color:#0f1a14;font-weight:700">${supplier.name}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Adresa</td><td style="color:#0f1a14;font-weight:700">${supplier.address}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">IČO</td><td style="color:#0f1a14;font-weight:700">${supplier.ico}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">E-mail</td><td style="color:#0f1a14;font-weight:700">${supplier.email}</td></tr>
-            <tr><td style="color:#16a34a;padding-right:14px;vertical-align:top">Telefon</td><td style="color:#0f1a14;font-weight:700">${supplier.phone}</td></tr>
+            <tr><td style="${supLabel}">Název</td><td style="${supValue}">${supplier.name}</td></tr>
+            <tr><td style="${supLabel}">${inRegister ? 'Sídlo' : 'Adresa'}</td><td style="${supValue}">${supplier.address}</td></tr>
+            <tr><td style="${supLabel}">IČO</td><td style="${supValue}">${supplier.ico}</td></tr>
+            ${inRegister ? `<tr><td style="${supLabel}">Zápis</td><td style="${supValue}">${registerInvoiceLine(supplier)}</td></tr>` : ''}
+            ${supplier.vatPayer && supplier.dic ? `<tr><td style="${supLabel}">DIČ</td><td style="${supValue}">${supplier.dic}</td></tr>` : ''}
+            ${inRegister && !supplier.vatPayer ? `<tr><td colspan="2" style="${supValue}">${VAT_NOTE}</td></tr>` : ''}
+            <tr><td style="${supLabel}">E-mail</td><td style="${supValue}">${supplier.email}</td></tr>
+            <tr><td style="${supLabel}">Telefon</td><td style="${supValue}">${supplier.phone}</td></tr>
           </table>
         </td>
         <td style="vertical-align:top;width:50%">
@@ -341,6 +347,7 @@ export function generateInvoiceHtml(data) {
           <div style="font-size:13px;font-weight:800;color:#ffffff;margin-bottom:4px">${supplier.name}</div>
           <div style="color:#9ca3af">${supplier.address}</div>
           <div style="color:#9ca3af">IČO: ${supplier.ico}</div>
+          ${regFoot ? `<div style="color:#9ca3af">${regFoot}</div>` : ''}
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">${supplier.phone}</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">${supplier.email}</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${SITE_LABEL}</span></div>
@@ -368,4 +375,4 @@ export function generateInvoiceHtml(data) {
 </html>`
 }
 
-export { COMPANY, fmtDate, fmtPrice }
+export { fmtDate, fmtPrice }

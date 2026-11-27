@@ -20,8 +20,8 @@
       '<span class="kc-dv-s">' + esc(sub) + '</span></span></span></label>';
   }
   function addr(key, ph) {
-    return '<input type="text" class="kc-dv-addr" data-dv-addr="' + key + '" placeholder="' + esc(ph) + '" aria-label="' + esc(ph) + '" autocomplete="off" spellcheck="false" enterkeyhint="search" maxlength="200">' +
-      '<ul class="kc-dv-list" data-dv-list="' + key + '" role="listbox" hidden></ul><p class="kc-dv-route" data-dv-route="' + key + '" aria-live="polite" hidden></p>';
+    return '<input type="text" class="kc-dv-addr" data-dv-addr="' + key + '" placeholder="' + esc(ph) + '" aria-label="' + esc(ph) + '" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="kc-dv-list-' + key + '" autocomplete="off" spellcheck="false" enterkeyhint="search" maxlength="200">' +
+      '<ul class="kc-dv-list" id="kc-dv-list-' + key + '" data-dv-list="' + key + '" role="listbox" hidden></ul><p class="kc-dv-route" data-dv-route="' + key + '" aria-live="polite" hidden></p>';
   }
   function build(m) {
     mode = m; sug.list = []; sug.key = '';
@@ -32,8 +32,8 @@
     if (m === 'need') h += '<p class="kc-dv-hint">' + esc(T.dv_need_moto) + '</p>';
     else if (m === 'lock') {
       h += opt('', T.dv_on, sub, true) + opt('', T.dv_ro, sub, true) +
-        '<div class="kc-dv-lock"><button type="button" class="kc-dv-lock-h" data-dv-lock aria-expanded="false"><span class="kc-dv-lock-i" aria-hidden="true">&#9432;</span>' +
-        '<span class="kc-dv-lock-t">' + esc(T.dv_lock) + '</span>' + K.ico('chev') + '</button><p class="kc-dv-lock-b" hidden>' + esc(T.dv_lock_text) + '</p></div>';
+        '<div class="kc-dv-lock"><button type="button" class="kc-dv-lock-h" data-dv-lock aria-expanded="' + (D.cut ? 'true' : 'false') + '"><span class="kc-dv-lock-i" aria-hidden="true">&#9432;</span>' +
+        '<span class="kc-dv-lock-t">' + esc(T.dv_lock) + '</span>' + K.ico('chev') + '</button><p class="kc-dv-lock-b"' + (D.cut ? '' : ' hidden') + '>' + esc(T.dv_lock_text) + '</p></div>';
     } else {
       h += opt('on', T.dv_on, sub) + '<div class="kc-dv-panel" data-dv-panel="d" hidden>' + addr('d', T.dv_addr) +
         '<label class="kc-dv-chk"><input type="checkbox" data-dv="same"><span>' + esc(T.dv_same) + '</span></label>' +
@@ -83,6 +83,8 @@
       return '<li role="option" data-i="' + i + '"' + (i === sug.i ? ' class="is-on" aria-selected="true"' : '') + '><b>' + esc(x.label) + '</b>' + (x.description ? '<small>' + esc(x.description) + '</small>' : '') + '</li>';
     }).join('');
     l.hidden = !sug.list.length;
+    var inp = q('[data-dv-addr="' + sug.key + '"]');
+    if (inp) inp.setAttribute('aria-expanded', sug.list.length ? 'true' : 'false');
   }
   function closeList() { clearTimeout(sug.t); sug.list = []; sug.i = -1; drawList(); }
   function pick(inp, hit) {

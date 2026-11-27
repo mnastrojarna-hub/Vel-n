@@ -178,15 +178,15 @@ INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.h1', 'Kont
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.intro', 'Máte dotaz k půjčení motorky, chcete si objednat dárkový poukaz, poradit s výběrem nebo si rovnou domluvit rezervaci? Jsme tu pro vás každý den, nonstop.', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.phone', '+420 774 256 271', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.email', 'info@motogo24.cz', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.ds', 'iuw3vnb', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.ds', '2xfihrd', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.address', 'Mezná 9, 393 01 Pelhřimov', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.hours', 'PO – NE: 00:00 – 24:00 (nonstop)
 Včetně víkendů a svátků', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.company', 'Bc. Petra Semorádová', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.billing.addr', 'Mezná 9, 393 01 Pelhřimov', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.ico', '21874263', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.vat', 'Nejsem plátce DPH', 'web') ON CONFLICT (key) DO NOTHING;
-INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.reg', 'Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.company', 'MotoGo24 s.r.o.', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.billing.addr', 'Mezná 9, 393 01 Mezná', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.ico', '29909864', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.vat', 'Nejsme plátci DPH.', 'web') ON CONFLICT (key) DO NOTHING;
+INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.reg', 'Společnost je zapsána v obchodním rejstříku vedeném Krajským soudem v Českých Budějovicích, oddíl C, vložka 36876.', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.fb', 'https://www.facebook.com/profile.php?id=61581614672839', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.ig', 'https://www.instagram.com/moto.go24/', 'web') ON CONFLICT (key) DO NOTHING;
 INSERT INTO cms_variables (key, value, category) VALUES ('web.kontakt.seo', 'Motogo24 je moderní půjčovna motorek na Vysočině. Sídlíme v Pelhřimově, jsme otevřeni nonstop a půjčujeme bez kauce, s kompletní výbavou v ceně.', 'web') ON CONFLICT (key) DO NOTHING;

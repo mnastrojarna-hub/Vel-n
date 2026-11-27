@@ -10,6 +10,7 @@ import { buildElectronicProtocolHtml, HANDOVER_CHECKS, EXTRA_GEAR_CHECKS, DAMAGE
 import { protocolLang } from './protocolI18n'
 import { sendProtocolEmail } from './protocolEmail'
 import { loadAccessoryTypes } from '../BranchHelpers'
+import { loadCompanyInfo } from '../../lib/company'
 import { useSaveErrorReveal } from './useSaveErrorReveal'
 import ProtocolGearEditor from './ProtocolGearEditor'
 import { loadGearProtocol, GEAR_NEEDS_ITEM_MSG, gearHasTakenItem, withGearLines, buildGearProtocolDoc, gearProtocolMailVars } from './protocolGearModal'
@@ -70,6 +71,7 @@ export default function ElectronicProtocolModal({ open, type, bookingId, onClose
       if (bErr || !booking) throw new Error('Rezervace nenalezena: ' + (bErr?.message || 'no data'))
       let customer = {}
       if (booking.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
+      await loadCompanyInfo() // „Pronajímatel" v protokolu = aktuální provozovatel (company_info)
       const v = buildDocVars(booking, customer, bookingId)
       v._customer_id = customer.id || booking.user_id || null
       setVars(v)

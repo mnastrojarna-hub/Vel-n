@@ -1,5 +1,5 @@
 // qr-payment — WEB (motogo24.cz): zvolení platby QR / bankovním převodem na kroku 2.
-// Přidělí ČÍSELNÝ VS (RPC set_booking_qr_payment), vystaví ZF s číslem účtu (mBank) +
+// Přidělí ČÍSELNÝ VS (RPC set_booking_qr_payment), vystaví ZF s číslem účtu provozovatele +
 // VS + splatností 4 h, pošle zákazníkovi platební údaje (QR + účet + VS) i ZF v příloze
 // a upozorní info@motogo24.cz ("zkontroluj účet, potvrď ve Velíně"). Rezervace zůstává
 // pending/unpaid → admin ji ručně potvrdí (PaymentConfirmModal → confirm_payment),
@@ -18,15 +18,15 @@ import { isTrustedCaller, forbidden } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { QR_TEXTS, invoiceSuffix, loadBookingLanguage, normalizeQrLang, pickQrLang, spdMessage } from './texts.ts'
 import { customerEmailHtml, fmtAmount, row, surchargeEmailHtml } from './fallback-html.ts'
+import { loadCompany } from '../_shared/company.ts'
+import { buildSpd, qrBankDetails } from './spd.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const OPS_EMAIL = 'info@motogo24.cz'
 
-// Fallback pro účet 670100-2225851630/6210 (mBank). Přebije company_info.{bank_iban,bank_account,bank_name}.
-const IBAN_FALLBACK = 'CZ3962106701002225851630'
-const ACCOUNT_FALLBACK = '670100-2225851630/6210'
-const BANK_FALLBACK = 'mBank'
+// Účet / IBAN / banka: app_settings.company_info.{bank_account,bank_iban,bank_name}; bez nastavení
+// výchozí provozovatel (_shared/company.ts). Skládání QR řetězce (SPD) je ve spd.ts.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -36,15 +36,6 @@ const CORS = {
 
 const json = (o: unknown, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
-
-// SPD (Short Payment Descriptor) — česká QR Platba. ACC = IBAN, X-VS = jen číslice (max 10).
-function buildSpd(iban: string, amount: number, vs: string, msg: string): string {
-  const parts = ['SPD*1.0', 'ACC:' + iban.replace(/\s+/g, ''), 'AM:' + fmtAmount(amount), 'CC:CZK']
-  const num = String(vs || '').replace(/\D/g, '').slice(0, 10)
-  if (num) parts.push('X-VS:' + num)
-  if (msg) parts.push('MSG:' + msg.slice(0, 60))
-  return parts.join('*')
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -90,15 +81,9 @@ serve(async (req) => {
     const vs = String(rpc.vs)
     const amount = Number(rpc.amount ?? (surcharge ? 0 : bk.total_price) ?? 0)
 
-    // 3) Číslo účtu / IBAN z company_info (fallback konstanty)
-    let iban = IBAN_FALLBACK, account = ACCOUNT_FALLBACK, bank = BANK_FALLBACK
-    try {
-      const { data: ci } = await sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
-      const v: any = ci?.value || {}
-      if (v.bank_iban) iban = String(v.bank_iban).replace(/\s+/g, '')
-      if (v.bank_account) account = String(v.bank_account)
-      if (v.bank_name) bank = String(v.bank_name)
-    } catch { /* fallback */ }
+    // 3) Číslo účtu / IBAN / banka z company_info (bez nastavení výchozí provozovatel).
+    //    Všechny tři údaje vždy z TÉHOŽ účtu — QR nikdy neplatí jinam, než co ukazuje text.
+    const { iban, account, bank } = qrBankDetails(await loadCompany(sb))
 
     // Jazyk zákazníka (texts.ts): platný `locale` z požadavku > bookings.language > 'cs'.
     const lang = pickQrLang(locale, normalizeQrLang(locale) ? null : await loadBookingLanguage(sb, booking_id))

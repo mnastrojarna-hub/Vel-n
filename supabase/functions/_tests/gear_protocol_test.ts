@@ -124,7 +124,7 @@ Deno.test('gear protokol: kontroly výpůjčky předvyplněné na kiosku, poslan
 })
 
 const SIG = 'data:image/png;base64,iVBORw0KGgo='
-const VARS = { booking_number: '66667777', today: '10. 11. 2026', company_name: 'Bc. Petra Semorádová, MotoGo24', customer_name: 'Jana <Nováková>',
+const VARS = { booking_number: '66667777', today: '10. 11. 2026', company_name: 'MotoGo24 s.r.o.', customer_name: 'Jana <Nováková>',
   moto_model: '—', moto_spz: '', moto_vin: '', rental_period: '10. 11. 2026 — 12. 11. 2026', pickup_time: '10. 11. 2026 12:00' }
 const FORM = () => ({ checks: gearKioskChecks(undefined), damage: { checked: false, desc: '' }, notes: '',
   accessories: normalizeAccessories([{ field: 'helmet_size', size: 'M', checked: true }, { field: 'jacket_size', size: 'L', checked: true }], true) })

@@ -11,6 +11,8 @@ import { GEAR_DEFAULT_ATTACHMENTS } from '../_shared/email-gear.ts'
 import { logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
 // Oprava i3 (2026-11-07): mail úpravy s vratkou bez dobropisu neslibuje přílohu ani kartu + mail obsluze (modified-refund.ts).
 import { DEFERRED_MARK, modifiedRefundCovered, modifiedRefundDeferredNote, modifiedRefundMissingMail, newestModificationMs } from './modified-refund.ts'
+// Patička e-mailu + patička záložního HTML poukazu: provozovatel z app_settings.company_info (_shared/company.ts).
+import { companyFooterLine, companyNow, emailFooterCompanyHtml, loadCompany } from '../_shared/company.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
@@ -129,9 +131,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
-          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semor\u00e1dov\u00e1</div>
-          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Pelh\u0159imov</div>
-          <div style="color:#9ca3af">I\u010cO: 21874263</div>
+          ${emailFooterCompanyHtml()}
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>
@@ -231,7 +231,7 @@ function renderVoucherHtmlFallback(code: string, amount: number, validUntil: str
       <div style="margin-top:14px">Uplatněte jednorázově při rezervaci na <a href="https://www.motogo24.cz" style="color:#74FB71;text-decoration:none">motogo24.cz</a> — kód zadejte do políčka „Slevový kód".</div>
     </div>
     <div style="padding:18px 32px;background:#0a0a0a;color:#9ca3af;font-size:11px;line-height:1.6;text-align:center">
-      Bc. Petra Semorádová · IČO: 21874263 · <span style="color:#74FB71">+420 774 256 271</span> · <span style="color:#74FB71">info@motogo24.cz</span>
+      ${companyFooterLine()} · <span style="color:#74FB71">${companyNow().email}</span> · <span style="color:#74FB71">${companyNow().phone}</span>
     </div>
   </div>
 </body></html>`
@@ -765,6 +765,7 @@ serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  await loadCompany(supabase) // patička mailu = aktuální provozovatel (nikdy nevyhodí)
 
   try {
     const body = await req.json()

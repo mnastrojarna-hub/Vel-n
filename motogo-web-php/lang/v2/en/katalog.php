@@ -84,6 +84,8 @@ return ['pages' => ['landing_katalog' => [
     'dv_lead' => 'You choose the delivery time in the booking.',
     'dv_today' => 'We can no longer deliver today: choose a later day, or pick up at the branch.',
     'dv_from' => 'from {price}',
+    'dv_row_d' => 'Motorcycle delivery',
+    'dv_row_r' => 'Motorcycle return',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Dates',
     'f_dates_title' => 'When do you want to ride?',

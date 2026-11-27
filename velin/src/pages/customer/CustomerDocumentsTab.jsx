@@ -13,6 +13,7 @@ import Modal from '../../components/ui/Modal'
 import CustomerVerificationSection from './CustomerVerificationSection'
 import { computeDocVerification, isChildMotoRow, isMarkerPath } from '../../lib/docVerification'
 import { customerDocsVerdicts, worstVerdict } from '../../lib/docsGate'
+import { storedIfIssuedBeforeSwitch, downloadStored, STORED_MISSING_NOTE } from '../../lib/storedDocument'
 
 const DOC_ICONS = {
   contract: '📋', rental_contract: '📋', protocol: '📝', handover_protocol: '📝',
@@ -72,6 +73,7 @@ export default function CustomerDocumentsTab({ userId }) {
   const [error, setError] = useState(null)
   const [viewDoc, setViewDoc] = useState(null)
   const [viewHtml, setViewHtml] = useState(null)
+  const [viewPdfUrl, setViewPdfUrl] = useState(null) // uložené PDF dokumentu vystaveného před změnou provozovatele
   const [viewImage, setViewImage] = useState(null) // { url, doc } — náhled fotky ověřovacího dokladu
 
   // Filters
@@ -81,6 +83,8 @@ export default function CustomerDocumentsTab({ userId }) {
   const [page, setPage] = useState(1)
 
   useEffect(() => { loadAll(true) }, [userId])
+
+  function closeView() { if (viewPdfUrl) URL.revokeObjectURL(viewPdfUrl); setViewDoc(null); setViewHtml(null); setViewPdfUrl(null) }
 
   // `initial` — celoplošný spinner jen při prvním načtení. Refresh po změně
   // (onChanged z CustomerVerificationSection → AdminDocUploadModal.onUploaded)
@@ -215,6 +219,12 @@ export default function CustomerDocumentsTab({ userId }) {
   }
 
   async function handleViewGeneratedDoc(doc) {
+    // Dokument vystavený před změnou provozovatele (company_info.valid_from) se NESKLÁDÁ z dnešní
+    // šablony (nese už nového provozovatele) — otevře se uložený soubor / podepsané HTML.
+    const stored = await storedIfIssuedBeforeSwitch(doc)
+    if (stored?.kind === 'html') { setViewPdfUrl(null); setViewHtml(stored.html); setViewDoc(doc); return }
+    if (stored?.kind === 'pdf') { setViewHtml(null); setViewPdfUrl(stored.url); setViewDoc(doc); return }
+    if (stored?.kind === 'missing') setError(STORED_MISSING_NOTE)
     if (doc.document_templates?.content_html && doc.filled_data) {
       let html = doc.document_templates.content_html
       for (const [k, v] of Object.entries(doc.filled_data)) html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || '')
@@ -257,6 +267,8 @@ export default function CustomerDocumentsTab({ userId }) {
         downloadBlob(html, `faktura_${item.raw.number || item.raw.id}.html`); return
       }
       const doc = item.raw || item
+      // Dokument vystavený před změnou provozovatele: stáhni ULOŽENÝ soubor, neskládej ho znovu.
+      if (doc.filled_data && downloadStored(await storedIfIssuedBeforeSwitch(doc), doc.document_templates?.name || doc.filled_data._doc_name || 'dokument')) return
       if (doc.filled_data) {
         const v = doc.filled_data
         downloadBlob(`<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Dokument</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h2>${v.company_name || 'MotoGo24'}</h2><p>Zákazník: ${v.customer_name || '—'}</p><p>Motocykl: ${v.moto_model || '—'} (${v.moto_spz || ''})</p></div></body></html>`, doc.document_templates?.name || 'dokument.html')
@@ -378,8 +390,12 @@ export default function CustomerDocumentsTab({ userId }) {
 
       {/* Náhled dokumentu */}
       {viewDoc && (
-        <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || viewDoc.name || 'Dokument')} onClose={() => { setViewDoc(null); setViewHtml(null) }} wide>
-          {viewHtml ? (
+        <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || viewDoc.name || 'Dokument')} onClose={closeView} wide>
+          {viewPdfUrl ? (
+            <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}>
+              <iframe src={viewPdfUrl} className="h-[550px] max-lg:h-[min(550px,calc(92dvh_-_180px))] max-sm:h-[min(550px,calc(92dvh_-_210px))]" style={{ width: '100%', border: 'none' }} title="Náhled dokumentu" />
+            </div>
+          ) : viewHtml ? (
             // < 1024 px: výška náhledu = výška modalu (92dvh) minus hlavička a patička (~176 px, pod 640 px
             // se tlačítka zalomí → ~206 px), ať se celý modal vejde a patička je vidět i na telefonu na šířku
             <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}>
@@ -389,9 +405,10 @@ export default function CustomerDocumentsTab({ userId }) {
             <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nemá náhled.</div>
           )}
           <div className="flex justify-end gap-3 mt-4 max-sm:flex-wrap">
+            {viewPdfUrl && <Button onClick={() => window.open(viewPdfUrl, '_blank')}>Tisk / PDF</Button>}
             {viewHtml && <Button onClick={() => openPrintWindow(viewHtml)}>Tisk / PDF</Button>}
             <Button onClick={() => handleDownload({ kind: viewDoc.number ? 'invoice' : 'document', raw: viewDoc })}>Stáhnout</Button>
-            <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavřít</Button>
+            <Button onClick={closeView}>Zavřít</Button>
           </div>
         </Modal>
       )}

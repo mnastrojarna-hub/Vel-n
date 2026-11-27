@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import RichTextEditor from '../../components/ui/RichTextEditor'
 import { sanitizeHtml } from '../../lib/sanitize'
+import { OPERATOR, loadCompanyInfo, companyDocVars } from '../../lib/company'
 
 const SAMPLE_VARS = {
   customer_name: 'Jan Novák',
@@ -21,8 +22,8 @@ const SAMPLE_VARS = {
   pickup_location: 'Mezná 9, 393 01 Pelhřimov',
   booking_number: '#RES-2026-0099',
   contract_date: '14. 6. 2026',
-  company_name: 'MotoGo24 s.r.o.',
-  company_ico: '12345678',
+  company_name: OPERATOR.name,
+  company_ico: OPERATOR.ico,
 }
 
 export default function TemplatesTab() {
@@ -269,6 +270,7 @@ function RegenerateModal({ template, onClose }) {
       if (bErr) throw bErr
 
       // Fill template variables
+      await loadCompanyInfo()
       const vars = {
         customer_name: booking.profiles?.full_name || '',
         customer_email: booking.profiles?.email || '',
@@ -281,8 +283,7 @@ function RegenerateModal({ template, onClose }) {
         total_price: (booking.total_price || 0).toLocaleString('cs-CZ') + ' Kč',
         booking_number: booking.id?.slice(-8).toUpperCase() || '',
         contract_date: new Date().toLocaleDateString('cs-CZ'),
-        company_name: 'MotoGo24 s.r.o.',
-        company_ico: '12345678',
+        ...companyDocVars(), // provozovatel = aktuální app_settings.company_info, jinak OPERATOR
       }
 
       let filledHtml = template.content_html || ''
@@ -292,7 +293,8 @@ function RegenerateModal({ template, onClose }) {
 
       // Store generated document
       const blob = new Blob([filledHtml], { type: 'text/html' })
-      const path = `generated/${template.id}_${selectedBooking}.html`
+      // nová verze = nový soubor (stejná cesta + upsert by přepsala dříve vystavený dokument)
+      const path = `generated/${template.id}_${selectedBooking}_${Date.now()}.html`
       const { error: upErr } = await supabase.storage.from('documents').upload(path, blob, { upsert: true })
       if (upErr) throw upErr
 

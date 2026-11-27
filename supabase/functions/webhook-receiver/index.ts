@@ -25,6 +25,8 @@ import { onRefundUpdated } from './refund-updated.ts'
 import { freeVerifyCheck } from '../_shared/free-verify.ts'
 // Měna (oprava 2026-11-05): potvrzuje se jen platba v CZK (_shared/currency.ts).
 import { checkoutCzk, paymentCurrencyOk, type CheckoutLike } from '../_shared/currency.ts'
+// Dodavatel v účetních událostech = aktuální provozovatel (app_settings.company_info), nic natvrdo.
+import { companyNow, loadCompany } from '../_shared/company.ts'
 // Oprava i3 (2026-11-07): pojistný storno mail jen k vratce TOHOTO storna, rezervace i podle metadat / historie platby,
 // externí vratka rozhoduje podle zůstatku V CENĚ rezervace (refund-scope.ts).
 import { bookingRefundedInPriceHaleru, externalBookingBalanceHaleru, resolveRefundBooking, stornoMailEligible } from './refund-scope.ts'
@@ -591,10 +593,12 @@ Deno.serve(async (req: Request) => {
         received_date: new Date(paymentIntent.created * 1000).toISOString().slice(0, 10),
       }
 
-      // Auto-fill supplier (= our company) and document details
-      feMetadata.supplier_name = 'Bc. Petra Semorádová'
-      feMetadata.supplier_ico = '21874263'
-      feMetadata.supplier_bank_account = '670100-2225851630/6210'
+      // Auto-fill supplier (= our company) and document details — provozovatel v okamžiku platby
+      // (app_settings.company_info; hodnota se ukládá k události a zpětně se nemění).
+      const supplier = await loadCompany(supabase)
+      feMetadata.supplier_name = supplier.name
+      feMetadata.supplier_ico = supplier.ico
+      feMetadata.supplier_bank_account = supplier.account
 
       if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
         try {
@@ -661,8 +665,8 @@ Deno.serve(async (req: Request) => {
         stripe_charge_id: charge.id,
         stripe_refund_id: latestRefund?.id || null,
         payment_method: 'card',
-        supplier_name: 'Bc. Petra Semorádová',
-        supplier_ico: '21874263',
+        supplier_name: (await loadCompany(supabase)).name,
+        supplier_ico: companyNow().ico,
         received_date: new Date().toISOString().slice(0, 10),
       }
       let linkedId: string | null = null

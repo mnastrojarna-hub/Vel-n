@@ -85,6 +85,8 @@ return ['pages' => ['landing_katalog' => [
     'dv_lead' => 'Godzinę dostawy wybierzesz w rezerwacji.',
     'dv_today' => 'Na dziś dostawy już nie zdążymy zrobić: wybierz późniejszy dzień albo odbiór w oddziale.',
     'dv_from' => 'od {price}',
+    'dv_row_d' => 'Dostawa motocykla',
+    'dv_row_r' => 'Zwrot motocykla',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults()); plurál dle CS
     // pravidla 1 / 2–4 / 5+ (kód nezná PL 22–24) → u 5+ neutrální „motocykle: {n}“ (vždy gramaticky)
     'f_dates' => 'Termin',

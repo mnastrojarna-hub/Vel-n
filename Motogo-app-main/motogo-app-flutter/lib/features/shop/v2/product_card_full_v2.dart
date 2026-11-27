@@ -146,15 +146,17 @@ class _ProductCardFullV2State extends State<ProductCardFullV2> {
               semanticLabel: '$cta · $name',
             ),
           );
+      // Read with the name above (one label: name, price, stock, sizes).
+      final block = ExcludeSemantics(child: BikeCardPriceBlock(price: price));
       if (narrow) {
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          BikeCardPriceBlock(price: price),
+          block,
           const SizedBox(height: 12),
           button(true),
         ]);
       }
       return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Expanded(child: BikeCardPriceBlock(price: price)),
+        Expanded(child: block),
         const SizedBox(width: 12),
         button(false),
       ]);

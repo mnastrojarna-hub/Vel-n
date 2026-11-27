@@ -84,6 +84,8 @@ return ['pages' => ['landing_katalog' => [
     'dv_lead' => 'La hora de entrega la eliges en la reserva.',
     'dv_today' => 'Hoy ya no llegamos a entregarla: elige un día posterior o la recogida en la sucursal.',
     'dv_from' => 'desde {price}',
+    'dv_row_d' => 'Entrega de la moto',
+    'dv_row_r' => 'Devolución de la moto',
     // Barra de filtros del catálogo v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Fechas',
     'f_dates_title' => '¿Cuándo quieres rodar?',

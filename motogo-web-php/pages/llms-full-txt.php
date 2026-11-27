@@ -197,7 +197,7 @@ echo "**Web:** https://www.motogo24.cz · https://motogo24.com  \n";
 echo "**Provoz:** 24/7 nonstop, 365 dní v roce  \n";
 echo "**Datová schránka:** " . COMPANY_DATA_BOX . "  \n";
 echo "**Společnost zapsána:** " . date('j. n. Y', strtotime(COMPANY_REGISTERED_SINCE)) . ", " . COMPANY_REGISTER_SHORT . " (půjčovna funguje od roku 2024)  \n";
-echo "**Plátce DPH:** ne  \n\n";
+echo "**Plátce DPH:** " . (COMPANY_VAT_PAYER ? 'ano' : 'ne') . "  \n\n";
 echo "## Klíčové vlastnosti půjčovny\n\n";
 echo "- **Bez kauce** — žádná blokace peněz na kartě.\n";
 echo "- **Výbava v ceně** — helma, bunda, kalhoty, rukavice pro řidiče.\n";
