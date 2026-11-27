@@ -1,5 +1,5 @@
 # MotoGo24 — AI usage & content policy
-# Updated: 2026-10-15
+# Updated: 2026-11-27
 # Format: spirit2.com/ai.txt + extensions
 
 User-Agent: *
@@ -12,7 +12,7 @@ Disallow: /potvrzeni
 #
 # Preferred attribution: "MotoGo24 — půjčovna motorek, motogo24.cz / motogo24.com"
 # Brand: MotoGo24
-# Legal: Bc. Petra Semorádová, IČO 21874263
+# Legal: MotoGo24 s.r.o., IČO 29909864, C 36876 (Krajský soud v Českých Budějovicích)
 # Address: Mezná 9, 393 01 Pelhřimov, Vysočina, Česko
 # Phone: +420 774 256 271
 # Email: info@motogo24.cz

@@ -109,12 +109,14 @@
       var r = g[dw];
       return '<li><span class="kc-r-d">' + esc(wd(X, dw)) + '</span><span class="kc-r-x">' + (r.n > 1 ? r.n + ' × ' + esc(X.money(r.p)) : '') + '</span><span class="kc-r-v">' + esc(X.money(r.n * r.p)) + '</span></li>';
     }).join('');
-    var h = head(X) + (n <= 31 ? bars(X, bd.days, n <= 10) : '') + '<ul class="kc-rows">' + rows + '</ul>' +
-      '<div class="kc-total"><span class="kc-total-k">' + esc(T.total) + '</span><span class="kc-total-v" data-kc-total="' + bd.total + '">' + esc(X.money(bd.total)) + '</span>' +
-      (X.C.cur.code !== 'CZK' ? '<span class="kc-total-s">' + esc(tpl(T.pay_czk, { price: X.czk(bd.total) })) + '</span>' : '') +
-      (n > 1 ? '<span class="kc-total-s">' + esc(tpl(T.avg, { price: X.money(bd.total / n) })) + '</span>' : '') + '</div>';
+    // Přistavení / vrácení jinde (landing-calc-delivery.js): řádky navíc + součet s dopravou; bez nich je souhrn stejný jako dřív
+    var ft = K.dvFees ? K.dvFees(X).total : 0, tot = bd.total + ft;
+    var h = head(X) + (n <= 31 ? bars(X, bd.days, n <= 10) : '') + '<ul class="kc-rows">' + rows + (ft > 0 ? K.dvRows(X) : '') + '</ul>' +
+      '<div class="kc-total"><span class="kc-total-k">' + esc(ft > 0 && T.total_all ? T.total_all : T.total) + '</span><span class="kc-total-v" data-kc-total="' + tot + '">' + esc(X.money(tot)) + '</span>' +
+      (X.C.cur.code !== 'CZK' ? '<span class="kc-total-s">' + esc(tpl(T.pay_czk, { price: X.czk(tot) })) + '</span>' : '') +
+      (n > 1 && !ft ? '<span class="kc-total-s">' + esc(tpl(T.avg, { price: X.money(bd.total / n) })) + '</span>' : '') + '</div>';
     h += '<div class="kc-late"><span class="kc-late-pct" aria-hidden="true">½</span><p>' + (lp > 0
-      ? '<span class="kc-late-t">' + esc(T.late_title) + '</span> ' + esc(tpl(T.late_text, { amount: X.money(lp), total: X.money(bd.total - lp) }))
+      ? '<span class="kc-late-t">' + esc(T.late_title) + '</span> ' + esc(tpl(T.late_text, { amount: X.money(lp), total: X.money(tot - lp) }))
       : esc(T.late_one)) + '</p></div>';
     if (!m.tr) h += '<ul class="kc-inc">' + (T.includes || []).map(function (s) { return '<li>' + K.ico('check') + esc(s) + '</li>'; }).join('') + '</ul>';
     if (n < (m.min || 1)) return h + '<p class="kc-warn">' + esc(tpl(T.min_days, { n: m.min })) + '</p>' + foot(X);

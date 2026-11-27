@@ -76,6 +76,14 @@ return ['pages' => ['landing_katalog' => [
     'sticky' => 'Verder',
     // Detail motorky: jediné CTA v hlavičce → kalendář (CS detail_cta)
     'detail_cta' => 'Kies je data',
+    // Krok „Přistavení“ v kalkulačce (CS kcDvDefaults(), pages/katalog-calc-delivery.php); ostatní texty kroku = rez.* formuláře
+    'step_delivery' => 'Bezorging',
+    'dv_need_moto' => 'Kies een motor: we berekenen ook de bezorging op jouw adres.',
+    'dv_addr' => 'Bezorgadres (straat, plaats)',
+    'dv_raddr' => 'Retouradres (straat, plaats)',
+    'dv_lead' => 'Het bezorgtijdstip kies je in de reservering.',
+    'dv_today' => 'Vandaag lukt bezorgen niet meer: kies een latere dag of haal de motor op bij de vestiging.',
+    'dv_from' => 'vanaf {price}',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Periode',
     'f_dates_title' => 'Wanneer wil je rijden?',

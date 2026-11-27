@@ -16,21 +16,42 @@
 $sb   = new SupabaseClient();
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 
+// Firemní údaje provozovatele pro proměnné {{company_*}} — JEDINÝ zdroj je config.php
+// (COMPANY_*). Stejné názvy plní edge `generate-document` (vars.ts) u dokumentů k rezervaci,
+// takže veřejný náhled šablony ukáže totéž co vystavený dokument.
+function mgDocCompanyVars() {
+    $c = function ($name) { return defined($name) ? (string)constant($name) : ''; };
+    return [
+        'company_name'     => $c('COMPANY_NAME'),
+        'company_ico'      => $c('COMPANY_ICO'),
+        'company_address'  => $c('COMPANY_ADDRESS'),
+        'company_register' => $c('COMPANY_REGISTER'),
+        'company_phone'    => $c('PHONE'),
+        'company_email'    => $c('EMAIL_FULL'),
+        'company_web'      => 'www.motogo24.cz',
+        'company_account'  => $c('COMPANY_BANK_ACCOUNT'),
+        'company_bank'     => $c('COMPANY_BANK_NAME'),
+        'company_iban'     => trim(chunk_split($c('COMPANY_IBAN'), 4, ' ')),
+    ];
+}
+
 // Firemní proměnné pro typ "Text" (custom_documents.kind='html').
 // Statické hodnoty z config.php — žádné per-rezervační údaje (dokument není
 // navázaný na booking). Podporované: {{firma}} {{ico}} {{adresa}} {{telefon}}
-// {{email}} {{web}} {{datum}} (+ varianty s mezerami: {{ firma }}).
+// {{email}} {{web}} {{datum}} (+ varianty s mezerami: {{ firma }}) a stejné
+// {{company_*}} jako ve smluvních šablonách (mgDocCompanyVars — vč. zápisu v OR a účtu).
 function fillDocVars($html) {
     if ($html === '' || strpos($html, '{{') === false) return $html;
+    $company = mgDocCompanyVars();
     $map = [
-        'firma'   => defined('COMPANY_NAME') ? COMPANY_NAME : '',
-        'ico'     => defined('COMPANY_ICO') ? COMPANY_ICO : '',
-        'adresa'  => defined('COMPANY_ADDRESS') ? COMPANY_ADDRESS : '',
-        'telefon' => defined('PHONE') ? PHONE : '',
-        'email'   => defined('EMAIL_FULL') ? EMAIL_FULL : '',
-        'web'     => 'www.motogo24.cz',
+        'firma'   => $company['company_name'],
+        'ico'     => $company['company_ico'],
+        'adresa'  => $company['company_address'],
+        'telefon' => $company['company_phone'],
+        'email'   => $company['company_email'],
+        'web'     => $company['company_web'],
         'datum'   => date('d. m. Y'),
-    ];
+    ] + $company;
     return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/i', function ($m) use ($map) {
         $k = strtolower($m[1]);
         return array_key_exists($k, $map) ? htmlspecialchars($map[$k]) : $m[0];
@@ -53,14 +74,11 @@ function mgDocBodyHtml($html) {
 
 // Veřejný náhled smluvní šablony (smlouva, předávací/škodní protokol) nemá rezervaci — místo
 // surových proměnných {{booking_number}}, {{customer_name}}… vykreslí prázdné místo k vyplnění
-// („……………“); firemní údaje ({{company_name}} / _ico / _address) doplní z config.php.
+// („……………“); firemní údaje ({{company_name}} / _ico / _address / _register / _account…) doplní
+// z config.php (mgDocCompanyVars).
 function mgDocPublicBlanks($html) {
     if (!is_string($html) || $html === '' || strpos($html, '{{') === false) return (string)$html;
-    $company = [
-        'company_name'    => defined('COMPANY_NAME') ? COMPANY_NAME : '',
-        'company_ico'     => defined('COMPANY_ICO') ? COMPANY_ICO : '',
-        'company_address' => defined('COMPANY_ADDRESS') ? COMPANY_ADDRESS : '',
-    ];
+    $company = mgDocCompanyVars();
     return preg_replace_callback('/\{\{\s*([a-z_]+)\s*\}\}/i', function ($m) use ($company) {
         $k = strtolower($m[1]);
         return ($company[$k] ?? '') !== '' ? htmlspecialchars($company[$k]) : '……………';

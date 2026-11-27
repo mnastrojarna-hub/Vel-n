@@ -9,8 +9,9 @@
 function ldBusinessFacts() {
     static $f = null;
     if ($f !== null) return $f;
-    $f = ['legalName' => 'Bc. Petra Semorádová', 'email' => 'info@motogo24.cz', 'phone' => '+420 774 256 271',
-        'taxID' => '21874263', 'vatID' => '', 'low' => 0, 'high' => 0, 'count' => 0, 'whatsapp' => false, 'branches' => []];
+    // Výchozí identita = konstanty z config.php (COMPANY_*); živá hodnota jde z app_settings.company_info.
+    $f = ['legalName' => COMPANY_NAME, 'email' => 'info@motogo24.cz', 'phone' => '+420 774 256 271',
+        'taxID' => COMPANY_ICO, 'vatID' => '', 'low' => 0, 'high' => 0, 'count' => 0, 'whatsapp' => false, 'branches' => []];
     try {
         $sb = new SupabaseClient();
         $ci = $sb->fetchSetting('company_info');

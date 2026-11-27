@@ -7,12 +7,12 @@
 export const MASTER_CS_BUNDLED = {
     "ok": true,
     "lang": "cs",
-    "count": 12,
+    "count": 11,
     "pages": {
         "jak_pujcit_postup": {
-            "h1": "Postup půjčení motorky",
-            "intro_p1": "V <strong>Motogo24 – půjčově motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.&nbsp;<strong>Bez kauce, s výbavou pro řidiče v ceně a nonstop provozem pro půjčení a vrácení motorky</strong>. Přesvědč se, jak snadno to funguje.",
-            "intro_h2": "Jak si půjčit motorku – půjčovna Motogo24 – Vysočina",
+            "h1": "Jak si půjčit motorku – postup krok za krokem",
+            "intro_p1": "Motorku si u <strong>MotoGo24</strong> rezervuješ a zaplatíš online za pár minut – <strong>bez kauce a s výbavou pro řidiče v ceně</strong>. Tady je celý postup od výběru motorky po vrácení.",
+            "intro_h2": "Kde si motorku vyzvedneš",
             "intro_p2": "V naší <strong>motopůjčovně </strong>zvládneš vše online: vyber motorku, zvol termín a vyplň rezervační formulář – včetně výbavy a způsobu předání. Motorku si vyzvedni v Mezné u Pelhřimova (odtud ti ji můžeme i přistavit kamkoliv v ČR), nebo samoobslužně ve Velkých Němčicích u Brna. Platbu provedeš online při dokončení rezervace.",
             "process": {
                 "title": "Jak probíhá pronájem krok za krokem",
@@ -45,8 +45,8 @@ export const MASTER_CS_BUNDLED = {
                     },
                     {
                         "icon": "gfx/prevezmi-motorku.svg",
-                        "title": "6. Zvol si vrácení",
-                        "text": "Vyber, jestli budeš motorku vracet na adrese motopůjčovny, nebo jinde."
+                        "title": "6. Místo a čas vrácení",
+                        "text": "Vyber, kde a kdy motorku vrátíš – na pobočce, nebo u motorek z Mezné i na jiné adrese v ČR. Ve Velkých Němčicích čas vrácení nevolíš: motorku vrátíš kdykoli poslední den do 24:00."
                     },
                     {
                         "icon": "gfx/vyber-vybavu.svg",
@@ -61,17 +61,17 @@ export const MASTER_CS_BUNDLED = {
                     {
                         "icon": "gfx/potvrzeni-rezervace.svg",
                         "title": "9. Potvrzení e-mailem",
-                        "text": "Po dokončení rezervace ti přijde e-mail s potvrzením rezervace a platby, dokladem o platbě, předvyplněnou nájemní smlouvou a základními instrukcemi pro vyzvednutí motorky."
+                        "text": "Po zaplacení ti přijde e-mail s potvrzením rezervace, dokladem o platbě, nájemní smlouvou a instrukcemi k vyzvednutí. U samoobslužné pobočky ve Velkých Němčicích dostaneš po ověření dokladů i přístupové kódy – v aplikaci, e-mailem a SMS."
                     },
                     {
                         "icon": "gfx/predani-motorky.svg",
                         "title": "10. Převzetí motorky",
-                        "text": "Při předání zkontrolujeme doklady, doplníme smlouvu a podepíšeme předávací protokol. Vyzkouší se velikost výbavy – a pak už jen nastartovat!"
+                        "text": "V Mezné ti motorku předáme osobně: zkontrolujeme doklady (pokud je nemáš ověřené online), převezmeš výbavu a podepíšeme předávací protokol. Ve Velkých Němčicích si motorku i výbavu vyzvedneš bez obsluhy pomocí kódů z aplikace – doklady musíš mít předem ověřené a protokol podepíšeš na displeji."
                     },
                     {
                         "icon": "gfx/uzij-si-jizdu.svg",
                         "title": "11. Užij si jízdu",
-                        "text": "Vyraz na cestu – <strong>bez kauce, bez stresu</strong>. Zbytek je jen asfalt a svoboda."
+                        "text": "Vyraz na cestu. Během výpůjčky jsme ti nonstop k dispozici, kdyby se cokoli stalo."
                     },
                     {
                         "icon": "gfx/vrat-motorku-vcas.svg",
@@ -79,87 +79,6 @@ export const MASTER_CS_BUNDLED = {
                         "text": "Motorku vrať včas – osobně na pobočku, kde sis ji půjčil (Mezná u Pelhřimova, nebo samoobslužné Velké Němčice u Brna), u motorek z Mezné i na předem sjednané místo. Tankovat nemusíš – jen ať nesvítí rezerva. Umytou ji vracej jen na samoobslužné pobočce ve Velkých Němčicích."
                     }
                 ]
-            },
-            "gallery": {
-                "image": "/gfx/vybava_diagram_motogo24_1200px.svg",
-                "alt": "Výbava diagram&nbsp;Motogo24",
-                "group": "gal_1"
-            },
-            "sizes": {
-                "adult": {
-                    "title": "Dospělá výbava",
-                    "headers": [
-                        "Výbava",
-                        "Dostupné velikosti"
-                    ],
-                    "rows": [
-                        [
-                            "Helma",
-                            "XS, S, M, L, XL"
-                        ],
-                        [
-                            "Bunda",
-                            "M, L, XL, 2XL"
-                        ],
-                        [
-                            "Kalhoty",
-                            "M, L, XL, 2XL"
-                        ],
-                        [
-                            "Rukavice",
-                            "M, L, XL"
-                        ],
-                        [
-                            "Motoboty",
-                            "39–46"
-                        ],
-                        [
-                            "Kukla",
-                            "univerzální"
-                        ],
-                        [
-                            "Reflexní vesta&nbsp;",
-                            "univerzální"
-                        ]
-                    ]
-                },
-                "kid": {
-                    "title": "Dětská výbava",
-                    "headers": [
-                        "Výbava",
-                        "Dostupné velikosti"
-                    ],
-                    "rows": [
-                        [
-                            "Helma",
-                            "S (47–48 cm), M (49–50 cm), L (51–52 cm)"
-                        ],
-                        [
-                            "Bunda",
-                            "110–116, 122–128, 134–140, 146–152 cm"
-                        ],
-                        [
-                            "Kalhoty",
-                            "110–116, 122–128, 134–140, 146–152 cm"
-                        ],
-                        [
-                            "Rukavice",
-                            "XS/S (4–7 let), M/L (8–12 let)"
-                        ],
-                        [
-                            "Motoboty",
-                            "29–35"
-                        ],
-                        [
-                            "Kukla",
-                            "S (4–7 let), M (8–12 let)"
-                        ],
-                        [
-                            "Reflexní vesta&nbsp;",
-                            "XS, S, M"
-                        ]
-                    ]
-                }
             },
             "faq": {
                 "title": "Často kladené otázky",
@@ -200,14 +119,14 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "seo": {
-                "title": "Půjčovna motorek Vysočina – Jak si půjčit motorku – Postup půjčení motorky",
-                "description": "Zjisti, jak probíhá půjčení motorky u MotoGo24. Přehledný postup rezervace motorky, podmínky i tipy pro bezstarostnou jízdu. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov"
+                "title": "Jak si půjčit motorku – postup krok za krokem | MotoGo24",
+                "description": "Jak si půjčit motorku u MotoGo24: vyber motorku a termín, zaplať online a vyzvedni ji u Pelhřimova, nebo samoobslužně u Brna. Bez kauce, výbava v ceně.",
+                "keywords": "motopůjčovna"
             }
         },
         "jak_pujcit_vyzvednuti": {
-            "h1": "Převzetí v půjčovně – rychle, jednoduše a nonstop",
-            "intro": "V <strong>Motogo24 – půjčovně motorek na Vysočině</strong>&nbsp;je převzetí motorky otázkou pár minut. Půjčujeme bez <strong>kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Přijď osobně do Mezné u Pelhřimova a vyraz na cestu! Na samoobslužné pobočce ve Velkých Němčicích u Brna si motorku vyzvedneš sám přístupovým kódem z aplikace nebo e-mailu.",
+            "h1": "Převzetí motorky v půjčovně: jak předání probíhá",
+            "intro": "Převzetí motorky trvá pár minut. V <strong>Mezné u Pelhřimova</strong> ti ji předáme osobně v čase, který sis zvolil/a v rezervaci – spolu projdeme motorku, výbavu i předávací protokol. Na <strong>samoobslužné pobočce ve Velkých Němčicích u Brna</strong> si motorku i výbavu vyzvedneš bez obsluhy pomocí kódů z aplikace.",
             "top_cta": {
                 "label": "REZERVOVAT ONLINE",
                 "href": "/rezervace",
@@ -218,7 +137,7 @@ export const MASTER_CS_BUNDLED = {
                 "address_label": "Provozovna:",
                 "address": "Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)",
                 "hours_label": "Provozní doba:",
-                "hours": "<em>nonstop</em> (vyzvednutí i vrácení kdykoli v den výpůjčky)",
+                "hours": "PO–NE <em>nonstop</em>, včetně víkendů a svátků – čas převzetí si zvolíš v rezervaci, vrátit můžeš kdykoli poslední den výpůjčky do 24:00",
                 "map_src": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz",
                 "map_title": "Jak se k nám dostanete"
             },
@@ -264,7 +183,7 @@ export const MASTER_CS_BUNDLED = {
                     {
                         "icon": "gfx/uzij-si-jizdu.svg",
                         "title": "Můžeš vyrazit",
-                        "text": "Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda."
+                        "text": "Vyraz na cestu. Kdyby se během výpůjčky cokoli stalo, jsme ti nonstop k dispozici."
                     }
                 ]
             },
@@ -288,8 +207,8 @@ export const MASTER_CS_BUNDLED = {
                 "title": "Co si vzít s sebou",
                 "items": [
                     "platný občanský průkaz nebo pas",
-                    "platný řidičský průkaz s oprávněním odpovídající skupiny (A/A2 podle vybrané motorky)",
-                    "vlastní výbavu – helma, bunda, kalhoty, rukavice (pokud nemáš zarezervované u nás)",
+                    "platný řidičský průkaz skupiny, kterou motorka vyžaduje (A, A2, u skútrů A1 nebo B – najdeš ji u motorky v katalogu)",
+                    "vlastní výbavu – helmu, bundu, kalhoty, rukavice (pokud je nemáš zarezervované u nás)",
                     "pevnou obuv (pokud u nás nemáš rezervaci na motocyklové boty)",
                     "vlastní navigaci nebo telefon s navigační aplikací – navigace není součástí výpůjčky"
                 ]
@@ -302,8 +221,8 @@ export const MASTER_CS_BUNDLED = {
                         "a": "Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové."
                     },
                     {
-                        "q": "Je možný kontakt bez osobního setkání?",
-                        "a": "Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě. Instrukce a dokumenty dostaneš předem."
+                        "q": "Můžu si motorku převzít bez obsluhy?",
+                        "a": "Ano, na <strong>samoobslužné pobočce ve Velkých Němčicích u Brna</strong>. Motorku i výbavu si tam vyzvedneš pomocí kódů z aplikace a předávací protokol podepíšeš na displeji – doklady musíš mít předem nahrané a ověřené online. V Mezné u Pelhřimova ti motorku předáme vždy osobně."
                     },
                     {
                         "q": "Co když nestíhám domluvený čas?",
@@ -321,9 +240,9 @@ export const MASTER_CS_BUNDLED = {
                 "aria": "Rezervovat vyzvednutí motorky v půjčovně Motogo24"
             },
             "cta": {
-                "title": "Převzetí v půjčovně – půjčovna motorek Vysočina (Pelhřimov)",
-                "text": "MotoGo24 je <strong>půjčovna motorek na Vysočině</strong> s možností <strong>převzetí motorky kdykoliv</strong> během dne, včetně svátků i víkendů, <strong>bez kauce</strong> a <strong>s výbavou pro řidiče v ceně</strong> výpůjčky.",
-                "text2": "Vyber si <strong>cestovní, supermoto, naked nebo dětskou motorku</strong> a pohodlně ji rezervuj online.",
+                "title": "Rezervuj si motorku i čas převzetí",
+                "text": "Čas převzetí si zvolíš v rezervaci – i večer, o víkendu nebo ve svátek.",
+                "text2": "Vyber motorku a rezervuj online.",
                 "buttons": [
                     {
                         "label": "REZERVOVAT ONLINE",
@@ -334,20 +253,20 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "seo": {
-                "title": "Půjčovna motorek Vysočina – Jak si půjčit motorku – Převzetí v půjčovně",
-                "description": "Převzetí motorky v půjčovně motorek MotoGo24 je rychlé a bez starostí. Připrav si doklady a během pár minut můžeš vyrazit. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov"
+                "title": "Převzetí motorky v půjčovně – co si vzít | MotoGo24",
+                "description": "Jak probíhá převzetí motorky: osobně v Mezné u Pelhřimova, nebo samoobslužně u Brna kódem z aplikace. Jaké doklady si vzít a co tě čeká na místě.",
+                "keywords": "motopůjčovna"
             }
         },
         "jak_pujcit_vraceni_pujcovna": {
             "h1": "Vrácení motocyklu v půjčovně – rychle a bez komplikací",
-            "intro": "Výpůjčka končí stejně jednoduše jako začala. Přijeď v domluvený čas vrácení na naši adresu v Mezné u Pelhřimova. Vrať motorku a zapůjčenou výbavu a je hotovo. Před vrácením nemusíš mýt ani tankovat – jen ať nesvítí rezerva.&nbsp;",
+            "intro": "Motorku vrátíš na pobočku, kde sis ji půjčil/a, kdykoli poslední den výpůjčky do 24:00. Tankovat nemusíš – jen ať nesvítí rezerva. V Mezné u Pelhřimova ji nemusíš ani mýt; ve Velkých Němčicích u Brna ji vrať umytou do kóje a výbavu do šatny – pomocí kódů z aplikace.",
             "process": {
                 "grid": "gr4",
                 "steps": [
                     {
                         "icon": "gfx/cas-prevzeti-motorky.svg",
-                        "title": "Přijeď v domluvený čas",
+                        "title": "Přijeď poslední den výpůjčky do 24:00",
                         "text": ""
                     },
                     {
@@ -362,14 +281,14 @@ export const MASTER_CS_BUNDLED = {
                     },
                     {
                         "icon": "gfx/sleva-na-pristi-jizdu.svg",
-                        "title": "Na e-mail ti přijde potvrzení o ukončení nájmu, konečná faktura a slevový kód na další rezervaci.",
+                        "title": "Potvrzení, fakturu a slevový kód dostaneš e-mailem",
                         "text": ""
                     }
                 ]
             },
             "time": {
                 "title": "Čas vrácení",
-                "text": "Prosíme o dodržení času vrácení – pomůžeš nám tím zajistit, aby další zákazník převzal motorku včas. Pokud se přeci jen zpozdíš, dej nám prosím vědět telefonicky. Do půlnoci posledního dne výpůjčky neplatíš žádný poplatek. Pokud motorku vrátíš výrazně po tomto termínu, bude ti účtováno nájemné za další den."
+                "text": "Motorku vrať kdykoli poslední den výpůjčky do 24:00 – čas vrácení uvedený v rezervaci je jen orientační. Když víš, že to do půlnoci nestihneš, zavolej nám, nebo si výpůjčku prodluž v sekci Upravit rezervaci či v aplikaci MotoGo24 (pokud je motorka volná). Za každý další započatý den, kdy máš motorku u sebe, platíš nájemné za den navíc."
             },
             "issues": {
                 "title": "Nesrovnalosti při vrácení",
@@ -411,8 +330,8 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "cta": {
-                "title": "Vrácení motorky v půjčovně – MotoGo24, Pelhřimov (Vysočina)",
-                "text": "MotoGo24 je půjčovna motorek na Vysočině s nonstop provozem a jednoduchým vrácením motorky kdykoliv v den výpůjčky. Bez kauce, bez tankování (jen ať nesvítí rezerva), v Mezné i bez mytí. Vyber si z naší široké nabídky motorek (a skútrů) a rezervuj online z pohodlí domova.",
+                "title": "Máš dotaz k vrácení?",
+                "text": "Zavolej nám nebo napiš – rádi ti poradíme.",
                 "buttons": [
                     {
                         "label": "KONTAKT",
@@ -423,9 +342,9 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "seo": {
-                "title": "Půjčovna motorek Vysočina – Jak si půjčit motorku – Vrácení motocyklu v půjčovně",
-                "description": "Vrácení motocyklu v půjčovně motorek MotoGo24 je jednoduché. Rychlá kontrola motorky a předání bez zbytečného čekání. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov"
+                "title": "Vrácení motorky v půjčovně – do 24:00 | MotoGo24",
+                "description": "Motorku vrátíš kdykoli poslední den výpůjčky do 24:00. Tankovat nemusíš, jen ať nesvítí rezerva; u Brna ji vrať umytou. Jak probíhá kontrola při vrácení.",
+                "keywords": "motopůjčovna"
             }
         },
         "jak_pujcit_vraceni_jinde": {
@@ -549,7 +468,7 @@ export const MASTER_CS_BUNDLED = {
                     },
                     {
                         "q": "Co když se na místo vrácení zpozdím?&nbsp;",
-                        "a": "Zavolej nám, jakmile víš, že to nestihneš na čas. Domluvíme se – většinou na tebe počkáme. Jen potřebujeme vědět, s jakým zpožděním počítat, abychom si mohli přizpůsobit plán dne."
+                        "a": "Zavolej nám, jakmile víš, že to nestihneš. Když dáš vědět předem, většinou na tebe počkáme. Pokud se v domluvený čas bez ohlášení nedostavíš, můžeme podle obchodních podmínek (čl. 2 e) odjet a účtovat ti marnou cestu ve výši poplatku za vyzvednutí."
                     },
                     {
                         "q": "Jak se počítá cena za vrácení na jiném místě?&nbsp;",
@@ -570,8 +489,8 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "cta": {
-                "title": "Vrácení motorky jinde – půjčovna motorek MotoGo24",
-                "text": "Půjčovna motorek MotoGo24 na Vysočině nabízí vrácení motorky kdekoliv v České republice. Předej nám motorku na místě podle svého výběru – my přijedeme v domluvený čas. Cena se odvíjí od vzdálenosti z místa vrácení do naší provozovny v Pelhřimově. Vyber si cestovní, supermoto, naked nebo dětskou motorku, rezervuj online a vyraž. O zbytek se postaráme my.",
+                "title": "Máš dotaz k vrácení jinde?",
+                "text": "Místo a čas vrácení zadáš přímo v rezervaci a cenu ti formulář spočítá hned. Když si nevíš rady, zavolej nám nebo napiš.",
                 "buttons": [
                     {
                         "label": "KONTAKT",
@@ -582,14 +501,14 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "seo": {
-                "title": "Půjčovna motorek Vysočina – Jak si půjčit motorku – Vrácení motorky jinde",
-                "description": "Vrať motorku tam, kde ti to vyhovuje. MotoGo24 nabízí flexibilní vrácení motocyklu na Vysočině bez nutnosti návratu do půjčovny. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov"
+                "title": "Vrácení motorky jinde – odvoz kdekoli v ČR | MotoGo24",
+                "description": "Motorku z Mezné si vyzvedneme u hotelu, na nádraží i u tebe doma – kdekoli v ČR. Cena: 500 + 500 Kč a 20 Kč/km tam i zpět. Čas vrácení je závazný.",
+                "keywords": "motopůjčovna"
             }
         },
         "jak_pujcit_cena": {
             "h1": "Co je v ceně pronámu motorky",
-            "intro": "V <strong>MotoGo24 – půjčovně motorek na Vysočině</strong> –&nbsp; dostaneš férové podmínky. <strong>Bez kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Vše, co potřebuješ k bezpečné a pohodové jízdě, je součástí půjčovného.",
+            "intro": "V ceně pronájmu máš <strong>výbavu pro řidiče, kotoučový zámek, povinné ručení se zelenou kartou a 100% smluvní krytí škod se spoluúčastí 0 Kč</strong>. Kilometry neomezujeme a kauci neskládáš. Za příplatek si přiobjednáš jen to, co opravdu potřebuješ.",
             "gear": {
                 "basic": {
                     "title": "Základní výbava v ceně",
@@ -636,7 +555,7 @@ export const MASTER_CS_BUNDLED = {
                     {
                         "icon": "gfx/ico-bez-kauce.svg",
                         "title": "Bez kauce",
-                        "text": "žádná záloha při půjčení."
+                        "text": "žádná kauce ani blokace peněz na kartě – platíš jen nájem."
                     },
                     {
                         "icon": "gfx/jasne-podminky.svg",
@@ -651,8 +570,8 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "cta": {
-                "title": "Výbava v ceně – půjčovna motorek MotoGo24 – Vysočina",
-                "text": "<strong>MotoGo24 je moderní půjčovna motorek na Vysočině</strong> s výbavou pro řidiče v ceně, půjčením bez kauce a nonstop provozem. Vyber si <strong>cestovní, supermoto, naked nebo dětskou motorku</strong> a rezervuj online. U nás je vše jasné a bez skrytých poplatků.",
+                "title": "Rezervuj motorku online",
+                "text": "Cenu všech doplňků uvidíš v rezervaci ještě před platbou. Vyber si motorku a rezervuj online.",
                 "buttons": [
                     {
                         "label": "REZERVOVAT ONLINE",
@@ -663,9 +582,9 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "seo": {
-                "title": "Půjčovna motorek Vysočina – Jak si půjčit motorku – Co je v ceně nájmu",
-                "description": "Zjisti, co obsahuje cena půjčení motorky u MotoGo24. Půjčovna motorek nabízí jasné podmínky, výbavu i služby bez skrytých poplatků. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov"
+                "title": "Co je v ceně pronájmu motorky | MotoGo24",
+                "description": "V ceně máš výbavu řidiče, neomezené kilometry, kotoučový zámek a 100% smluvní krytí škod. Bez kauce. Za příplatek výbava spolujezdce, boty a přistavení.",
+                "keywords": "motopůjčovna"
             }
         },
         "jak_pujcit_pristaveni": {
@@ -758,7 +677,7 @@ export const MASTER_CS_BUNDLED = {
                     {
                         "icon": "gfx/uzij-si-jizdu.svg",
                         "title": "Užij si jízdu",
-                        "text": "Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda."
+                        "text": "Vyraz na cestu. Kdyby se cokoli stalo, jsme ti během výpůjčky nonstop k dispozici."
                     },
                     {
                         "icon": "gfx/predani-motorky.svg",
@@ -775,7 +694,7 @@ export const MASTER_CS_BUNDLED = {
                     "<strong>500 Kč</strong>&nbsp;za vyložení motorky,",
                     "<strong>20 Kč</strong>&nbsp;za každý kilometr (počítá se vzdálenost z půjčovny na místo určení tam i zpět)"
                 ],
-                "example": "<strong>Příklad:</strong>&nbsp;Chcete motorku přistavit 30 km od půjčovny? Zaplatíte 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2 200 Kč.</strong>"
+                "example": "<strong>Příklad:</strong>&nbsp;Chceš motorku přistavit 30 km od Mezné? Zaplatíš 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2 200 Kč.</strong>"
             },
             "faq": {
                 "title": "Často kladené dotazy k přistavení",
@@ -793,8 +712,8 @@ export const MASTER_CS_BUNDLED = {
                         "a": "Řídíme se tabulkou vzdáleností. Nad 100 km cenu kalkulujeme <strong>individuálně</strong>."
                     },
                     {
-                        "q": "Platí se kauce?",
-                        "a": "Ne. <strong>Půjčujeme bez kauce</strong>, podmínky jsou jasné a férové."
+                        "q": "Přistavíte i motorku z Velkých Němčic?",
+                        "a": "Ne. Přistavení nabízíme jen u motorek z <strong>obslužné pobočky v Mezné u Pelhřimova</strong>; motorky ze samoobslužné pobočky ve Velkých Němčicích se přebírají i vracejí jen na pobočce."
                     },
                     {
                         "q": "Je v ceně i výbava řidiče?",
@@ -803,8 +722,8 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "cta": {
-                "title": "Přistavení motorky – půjčovna motorek",
-                "text": "Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s možností <strong>přistavení motocyklu</strong> kamkoliv v České republice. Cena přistavení se odvíjí od vzdálenosti z naší provozovny v Pelhřimově.&nbsp;Nabízíme <strong>nonstop provoz, bez kauce, výbavu pro řidiče v ceně</strong> a jednoduchou<strong> online rezervaci</strong>.",
+                "title": "Objednej si přistavení",
+                "text": "Přistavení si objednáš přímo v rezervaci – adresu a čas zadáš ve formuláři a cenu uvidíš hned.",
                 "buttons": [
                     {
                         "label": "REZERVOVAT DORUČENÍ",
@@ -815,14 +734,14 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "seo": {
-                "title": "Půjčovna motorek Vysočina – Jak si půjčit motorku – Přistavení motocyklu",
-                "description": "MotoGo24 zajistí přistavení motorky na místo podle tvého výběru. Pohodlné půjčení motorky na Vysočině bez zbytečného cestování. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov"
+                "title": "Přistavení motorky kamkoli v ČR – ceník | MotoGo24",
+                "description": "Motorku z Mezné u Pelhřimova ti přivezeme domů, k hotelu nebo na nádraží kdekoli v ČR. Cena: 500 + 500 Kč a 20 Kč/km tam i zpět. Objednáš v rezervaci.",
+                "keywords": "motopůjčovna"
             }
         },
         "jak_pujcit_dokumenty": {
-            "h1": "Nájemní smlouva a kauce – férové podmínky bez zálohy",
-            "intro": "V <strong>Motogo24 – půjčovna motorek Vysočina (Pelhřimov)</strong> klademe důraz na jednoduchost a férovost. Půjčujeme <strong>bez kauce</strong>, s <strong>jasnou nájemní smlouvou</strong>, <strong>pojištěním v ceně</strong> a <strong>výbavou pro řidiče</strong> zahrnutou v půjčovném.",
+            "h1": "Podmínky půjčení motorky a dokumenty ke stažení",
+            "intro": "Na této stránce najdeš přehled nejdůležitějších pravidel: co potřebuješ k uzavření smlouvy, jak se platí, kolik stojí storno a za co odpovídáš. Níže si stáhneš <strong>obchodní podmínky, vzor smlouvy o pronájmu a protokoly v PDF</strong>.",
             "top_cta": {
                 "label": "REZERVOVAT ONLINE",
                 "href": "/rezervace",
@@ -833,8 +752,8 @@ export const MASTER_CS_BUNDLED = {
                 "items": [
                     {
                         "icon": "gfx/ico-bez-kauce.svg",
-                        "title": "Bez kauce / zálohy",
-                        "text": "motorku půjčujeme bez blokace peněz"
+                        "title": "Žádná kauce",
+                        "text": "nic ti neblokujeme na kartě ani nechceme hotovost"
                     },
                     {
                         "icon": "gfx/rezervace-online.svg",
@@ -849,7 +768,7 @@ export const MASTER_CS_BUNDLED = {
                     {
                         "icon": "gfx/ico-nonstop.svg",
                         "title": "Nonstop provoz",
-                        "text": "převzetí a vrácení kdykoli v den výpůjčky"
+                        "text": "čas převzetí si zvolíš v rezervaci, vrátit můžeš kdykoli poslední den do 24:00"
                     },
                     {
                         "icon": "gfx/jasne-podminky.svg",
@@ -867,14 +786,14 @@ export const MASTER_CS_BUNDLED = {
                 "title": "Co potřebujete k uzavření smlouvy",
                 "items": [
                     "<strong>Občanský průkaz / pas</strong>",
-                    "<strong>Řidičský průkaz</strong>&nbsp;odpovídající skupiny (A / A2 dle stroje)",
-                    "<strong>Věk</strong>&nbsp;min. 18 let (u dětských motorek ručí zákonný zástupce)",
+                    "<strong>Řidičský průkaz</strong>&nbsp;odpovídající skupiny (A, A2 nebo A1/B podle motorky)",
+                    "<strong>Věk</strong>&nbsp;alespoň 18 let (u dětských motorek je nájemcem zákonný zástupce dítěte, např. rodič)",
                     "<strong>Kontakty</strong>&nbsp;(telefon, e-mail) pro komunikaci a potvrzení rezervace"
                 ]
             },
             "payments": {
                 "title": "Platby, storno a poplatky",
-                "lead": "<strong>Kauce:</strong>&nbsp;<em>nevyžadujeme</em>. Platba za nájem probíhá online nebo při převzetí.",
+                "lead": "<strong>Kauce:</strong>&nbsp;<em>nevyžadujeme</em>. Nájem zaplatíš předem online kartou (i přes Apple Pay nebo Google Pay), při rezervaci na webu také QR platbou nebo bankovním převodem. Platba musí dorazit do 4 hodin od odeslání rezervace, jinak můžeme rezervaci zrušit.",
                 "aria": "Přehled plateb a poplatků",
                 "headers": [
                     "Položka",
@@ -887,7 +806,7 @@ export const MASTER_CS_BUNDLED = {
                     ],
                     [
                         "<strong>Storno rezervace</strong>",
-                        "Lze bezplatně do předem domluveného času (uvedeno v potvrzení rezervace). Později dle individuální dohody."
+                        "Zdarma nejpozději 7 dní před převzetím. Při zrušení 2–7 dní předem můžeme účtovat až 50 % nájemného, při zrušení méně než 2 dny předem nebo při nevyzvednutí motorky celé nájemné (VOP čl. 3)."
                     ],
                     [
                         "<strong>Palivo &amp; čištění</strong>",
@@ -899,7 +818,7 @@ export const MASTER_CS_BUNDLED = {
                     ],
                     [
                         "<strong>Pozdní vrácení</strong>",
-                        "Prosíme o včasné vrácení v poslední den výpůjčky; při zpoždění účtujeme dle domluvy (ohled na další rezervace)."
+                        "Motorku vrať poslední den výpůjčky do 24:00. Za každý další započatý den platíš nájemné za den navíc (VOP čl. 2 d). Nestihneš to? Prodluž si výpůjčku v sekci Upravit rezervaci."
                     ]
                 ],
                 "mid_cta": {
@@ -911,11 +830,11 @@ export const MASTER_CS_BUNDLED = {
             "usage": {
                 "title": "Užívání motorky a odpovědnost",
                 "items": [
-                    "Jezděte v&nbsp;<strong>souladu s předpisy</strong>&nbsp;a s ohledem na technický stav a typ motorky.",
+                    "Škody na motorce, které zaviníš, kryje <strong>100% smluvní krytí škod</strong> se spoluúčastí 0 Kč. Nevztahuje se na zapůjčenou výbavu, na hrubé porušení podmínek (např. jízda pod vlivem nebo bez řidičského oprávnění) ani na odcizení – u řádně zabezpečené motorky odpovídáš nejvýš do 30 000 Kč, u nezabezpečené až do její obvyklé tržní hodnoty.",
                     "Za&nbsp;<strong>pokuty a přestupky</strong>&nbsp;odpovídá nájemce (informace předáváme dle zákona).",
                     "<strong>Zahraničí</strong>: možné; řiďte se územní platností pojištění (zelená karta). Některé země mohou být vyloučeny.",
-                    "V případě&nbsp;<strong>nehody nebo poruchy</strong>&nbsp;postupujte podle pokynů v palubní sadě (formulář nehody, kontakt na Motogo24).",
-                    "<strong>Servis a údržbu</strong>&nbsp;zajišťujeme my; závady hlaste okamžitě.",
+                    "Při&nbsp;<strong>nehodě nebo poruše</strong>&nbsp;nám hned zavolej a řiď se našimi pokyny; při dopravní nehodě nebo krádeži vždy přivolej i policii – je to podmínka smluvního krytí škod.",
+                    "<strong>Servis</strong>&nbsp;zajišťujeme my, ty během výpůjčky jen pravidelně mažeš řetěz. Závady nám hlas hned.",
                     "<strong>Úpravy motorky</strong>&nbsp;bez souhlasu nejsou dovoleny."
                 ]
             },
@@ -929,40 +848,40 @@ export const MASTER_CS_BUNDLED = {
             },
             "privacy": {
                 "title": "Osobní údaje a bezpečnost",
-                "text": "Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdete v <a href=\"/cms/zasady-ochrany-osobnich-udaju\">zásadách zpracování osobních údajů</a>."
+                "text": "Osobní údaje zpracováváme pouze pro účely uzavření a plnění nájemní smlouvy (identifikace, komunikace, fakturace). Podrobnosti najdeš v <a href=\"/dokumenty/zasady-ochrany-osobnich-udaju\">zásadách zpracování osobních údajů</a>."
             },
             "documents": {
                 "title": "Dokumenty ke stažení",
                 "items": [
                     {
                         "name": "Smlouva o pronájmu",
-                        "href": "/cms/smlouva-o-pronajmu",
-                        "size": "87.4kB"
+                        "href": "/dokumenty/smlouva-o-pronajmu"
                     },
                     {
                         "name": "Předávací protokol",
-                        "href": "/cms/predavaci-protokol",
-                        "size": "47.6kB"
+                        "href": "/dokumenty/predavaci-protokol"
                     },
                     {
                         "name": "Obchodní podmínky",
-                        "href": "/cms/obchodni-podminky",
-                        "size": "87.7kB"
+                        "href": "/dokumenty/obchodni-podminky"
                     },
                     {
                         "name": "Zásady ochrany osobních údajů",
-                        "href": "/cms/zasady-ochrany-osobnich-udaju",
-                        "size": "76.3kB"
+                        "href": "/dokumenty/zasady-ochrany-osobnich-udaju"
+                    },
+                    {
+                        "name": "Protokol o poškození",
+                        "href": "/dokumenty/protokol-o-poskozeni"
                     }
                 ]
             },
             "midcta": {
                 "title": "Souhlasíte s podmínkami? Rezervujte a jeďte.",
-                "text": "Vyberte si z&nbsp;<strong>cestovních, sportovních, enduro i dětských motorek</strong>&nbsp;a potvrďte rezervaci online."
+                "text": "Vyber motorku a rezervuj online."
             },
             "cta": {
-                "title": "Nájemní smlouva bez kauce – půjčovna motorek Vysočina",
-                "text": "Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s férovými podmínkami: <strong>bez kauce</strong>, <strong>pojištění v ceně</strong>, <strong>výbava pro řidiče</strong> a <strong>nonstop provoz</strong>. Vše přehledně ve vzorové nájemní smlouvě a na této stránce.",
+                "title": "Rezervuj motorku online",
+                "text": "Vyber motorku a termín – cenu spočítáme hned.",
                 "buttons": [
                     {
                         "label": "REZERVOVAT ONLINE",
@@ -973,22 +892,22 @@ export const MASTER_CS_BUNDLED = {
                 ]
             },
             "seo": {
-                "title": "Půjčovna motorek Vysočina – Jak si půjčit motorku – Dokumenty a návody",
-                "description": "Všechny dokumenty k půjčení motorky na jednom místě. Přehledné návody a podmínky od MotoGo24 pro bezpečné používání motocyklu. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov"
+                "title": "Podmínky půjčení motorky a dokumenty | MotoGo24",
+                "description": "Obchodní podmínky, smlouva o pronájmu a protokoly ke stažení v PDF. Přehledně: doklady, platba, storno, pozdní vrácení a odpovědnost za škody.",
+                "keywords": "motopůjčovna"
             }
         },
         "home": {
             "seo": {
-                "title": "Půjčovna motorek na Vysočině | MotoGo24",
-                "description": "Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.",
-                "keywords": "půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna, motorky k pronájmu, online rezervace motorky",
+                "title": "Motopůjčovna a půjčovna motorek na Vysočině | MotoGo24",
+                "description": "Motopůjčovna na Vysočině – půjčte si motorku bez kauce, s výbavou v ceně a nonstop provozem. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.",
+                "keywords": "motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, online rezervace motorky, cestovní motorky, enduro motorky, dětské motorky, MotoGo24",
                 "og_image": null
             },
             "hero": {
                 "image": "gfx/hero-banner.jpg",
-                "alt": "Půjčovna motorek Vysočina",
-                "eyebrow": "<strong>Půjčovna motorek</strong> na Vysočině",
+                "alt": "Motopůjčovna a půjčovna motorek Vysočina",
+                "eyebrow": "<strong>Motopůjčovna</strong> a <strong>půjčovna motorek</strong> na Vysočině",
                 "body": "Půjč si motorku na Vysočině snadno online.<br>Vyber si z cestovních, sportovních i enduro modelů.<br>Rezervace s platbou kartou a rychlým převzetím.",
                 "cta_primary": {
                     "label": "VYBER SI MOTORKU",
@@ -996,13 +915,13 @@ export const MASTER_CS_BUNDLED = {
                     "cls": "btngreen"
                 },
                 "cta_secondary": {
-                    "label": "JAK TO FUNGUJE",
-                    "href": "/jak-pujcit",
+                    "label": "REZERVACE",
+                    "href": "/rezervace",
                     "cls": "btndark"
                 }
             },
-            "h1": "Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop",
-            "intro": "Vítejte v <strong>Motogo24</strong> – vaší půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.",
+            "h1": "Motopůjčovna Vysočina Motogo24 – půjčovna motorek bez kauce a nonstop",
+            "intro": "Vítejte v <strong>Motogo24</strong> – vaší <strong>motopůjčovně</strong> a půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.",
             "signposts_title": "Rychlý rozcestník po Motogo24",
             "signposts": [
                 {
@@ -1121,9 +1040,9 @@ export const MASTER_CS_BUNDLED = {
         },
         "pujcovna": {
             "seo": {
-                "title": "O půjčovně motorek | MotoGo24",
-                "description": "Půjčovna motorek Motogo24 na Vysočině. Bez kauce, s online rezervací a výbavou v ceně. Cestovní, sportovní, enduro i dětské motorky. Nonstop provoz.",
-                "keywords": "půjčovna motorek, pronájem motorek Vysočina, motorky bez kauce, nonstop půjčovna, výbava v ceně"
+                "title": "Motopůjčovna na Vysočině – o naší půjčovně motorek | MotoGo24",
+                "description": "Motopůjčovna a půjčovna motorek Motogo24 na Vysočině. Bez kauce, s online rezervací a výbavou v ceně. Cestovní, sportovní, enduro i dětské motorky. Nonstop provoz.",
+                "keywords": "motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, MotoGo24"
             },
             "breadcrumb": [
                 {
@@ -1133,8 +1052,8 @@ export const MASTER_CS_BUNDLED = {
                 "Půjčovna motorek"
             ],
             "intro": {
-                "h1": "Půjčovna motorek Vysočina Motogo24",
-                "body": "Naše <strong>půjčovna motorek Vysočina</strong> v Pelhřimově nabízí <strong>pronájem motorek</strong> bez zbytečných překážek – <strong>bez kauce</strong>, s <strong>online rezervací</strong> a <strong>výbavou v ceně</strong>. Vyberete si z <strong>cestovních</strong>, <strong>sportovních</strong>, <strong>enduro</strong> i <strong>dětských motorek</strong>, a vyrazíte kdykoli: máme otevřeno <strong>nonstop</strong>."
+                "h1": "Motopůjčovna a půjčovna motorek Vysočina Motogo24",
+                "body": "Naše <strong>motopůjčovna</strong> a <strong>půjčovna motorek Vysočina</strong> v Pelhřimově nabízí <strong>pronájem motorek</strong> bez zbytečných překážek – <strong>bez kauce</strong>, s <strong>online rezervací</strong> a <strong>výbavou v ceně</strong>. Vyberete si z <strong>cestovních</strong>, <strong>sportovních</strong>, <strong>enduro</strong> i <strong>dětských motorek</strong>, a vyrazíte kdykoli: máme otevřeno <strong>nonstop</strong>."
             },
             "benefits": {
                 "title": "Proč si půjčit motorku u nás",
@@ -1275,9 +1194,9 @@ export const MASTER_CS_BUNDLED = {
         },
         "kontakt": {
             "seo": {
-                "title": "Kontakt | MotoGo24 – půjčovna motorek Vysočina",
-                "description": "Kontakty na půjčovnu motorek Motogo24 v Pelhřimově. Telefon +420 774 256 271, e-mail info@motogo24.cz. Nonstop provoz, adresa Mezná 9, 393 01 Pelhřimov.",
-                "keywords": "kontakt Motogo24, půjčovna motorek Pelhřimov, telefon, adresa, provozní doba, nonstop"
+                "title": "Kontakt | MotoGo24 – motopůjčovna a půjčovna motorek Vysočina",
+                "description": "Motopůjčovna a půjčovna motorek MotoGo24 Pelhřimov — telefon +420 774 256 271, e-mail info@motogo24.cz. Nonstop, bez kauce.",
+                "keywords": "motopůjčovna, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, kontakt MotoGo24, pronájem motorky Pelhřimov"
             },
             "h1": "Kontakty půjčovna motorek Motogo24",
             "intro": "Máte dotaz k <strong>půjčení motorky</strong>, chcete si objednat <strong>dárkový poukaz</strong>, poradit s výběrem nebo si rovnou <strong>domluvit rezervaci</strong>? Jsme tu pro vás každý den, <strong>nonstop</strong>.",
@@ -1298,7 +1217,7 @@ export const MASTER_CS_BUNDLED = {
                 },
                 {
                     "label": "DATOVÁ SCHRÁNKA",
-                    "value": "iuw3vnb",
+                    "value": "2xfihrd",
                     "href": null,
                     "icon": null,
                     "alt": null
@@ -1309,13 +1228,13 @@ export const MASTER_CS_BUNDLED = {
                 "address_label": "Adresa:",
                 "address": "Mezná 9, 393 01 Pelhřimov",
                 "hours_label": "Provozní doba:",
-                "hours": "PO – NE: 00:00 – 24:00 (nonstop)<br>Včetně víkendů a svátků",
+                "hours": "PO – NE: 00:00 – 24:00 (výdej a příjem motorek dle rezervace), včetně víkendů a svátků<br>Telefon: PO – PÁ 8:00 – 17:00",
                 "billing_title": "Fakturační údaje",
-                "billing_name": "Bc. Petra Semorádová",
-                "billing_address": "Mezná 9, 393 01 Pelhřimov",
-                "billing_ico": "21874263",
-                "billing_vat": "Nejsem plátce DPH",
-                "billing_note": "Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově."
+                "billing_name": "MotoGo24 s.r.o.",
+                "billing_address": "Mezná 9, 393 01 Mezná",
+                "billing_ico": "29909864",
+                "billing_vat": "Nejsme plátci DPH.",
+                "billing_note": "Společnost je zapsána v obchodním rejstříku vedeném Krajským soudem v Českých Budějovicích, oddíl C, vložka 36876."
             },
             "social_title": "Sledujte nás",
             "social": [
@@ -1360,56 +1279,18 @@ export const MASTER_CS_BUNDLED = {
             "seo_text": {
                 "title": "Kontakty – půjčovna motorek Vysočina (Pelhřimov)",
                 "body": "Motogo24 je <strong>moderní půjčovna motorek na Vysočině</strong>. Sídlíme v <strong>Pelhřimově</strong>, jsme otevřeni <strong>nonstop</strong> a půjčujeme <strong>bez kauce</strong>, s kompletní <strong>výbavou v ceně</strong>."
-            }
-        },
-        "jak_pujcit": {
-            "seo": {
-                "title": "Jak si půjčit motorku | MotoGo24",
-                "description": "Jak si půjčit motorku v Motogo24. Jednoduchý postup: výběr, rezervace, převzetí. Bez kauce, výbava v ceně, nonstop provoz.",
-                "keywords": "jak si půjčit motorku, postup půjčení, rezervace motorky, pronájem motorek Vysočina"
             },
-            "h1": "Jak si půjčit motorku",
-            "intro": "V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.",
-            "links": [
-                {
-                    "href": "/jak-pujcit/postup",
-                    "label": "Postup půjčení motorky"
-                },
-                {
-                    "href": "/jak-pujcit/prevzeti",
-                    "label": "Převzetí v půjčovně"
-                },
-                {
-                    "href": "/jak-pujcit/vraceni-pujcovna",
-                    "label": "Vrácení motocyklu v půjčovně"
-                },
-                {
-                    "href": "/jak-pujcit/vraceni-jinde",
-                    "label": "Vrácení motorky jinde"
-                },
-                {
-                    "href": "/jak-pujcit/co-v-cene",
-                    "label": "Co je v ceně nájmu"
-                },
-                {
-                    "href": "/jak-pujcit/pristaveni",
-                    "label": "Přistavení motocyklu"
-                },
-                {
-                    "href": "/jak-pujcit/dokumenty",
-                    "label": "Dokumenty a návody"
-                },
-                {
-                    "href": "/jak-pujcit/faq",
-                    "label": "Často kladené dotazy"
-                }
-            ]
+            "outro": {
+                "title": "Proč si zákazníci vybírají MotoGo24",
+                "body1": "Naše půjčovna motorek funguje na Vysočině od roku 2024 a za tu dobu jsme přivítali stovky spokojených zákazníků — místní i turisty, začátečníky i zkušené jezdce. Půjčujeme bez kauce, výbavu pro řidiče (helma, bunda, kalhoty a rukavice) máte vždy v ceně a vyzvednutí motorky si můžete domluvit i mimo standardní otevírací dobu díky našemu nonstop provozu.",
+                "body2": "Pokud cestujete s motorkou do zahraničí, dostanete od nás zelenou kartu a všechny potřebné dokumenty. Při neočekávaných situacích na cestě máme k dispozici SOS linku a do 24 hodin zařídíme náhradní motorku. Ozvěte se nám telefonicky, e-mailem nebo přes sociální sítě — odpovíme zpravidla do hodiny a rádi pomůžeme s výběrem motorky, plánováním trasy i s dárkovým poukazem."
+            }
         },
         "poukazy": {
             "seo": {
-                "title": "Půjčovna motorek Vysočina - Poukazy",
-                "description": "Kupte dárkový poukaz na pronájem motorky. Platnost 3 roky, bez kauce, výbava v ceně. Elektronický i tištěný poukaz. Online objednávka.",
-                "keywords": "dárkový poukaz motorka, voucher pronájem motorky, dárek pro motorkáře, poukaz Motogo24, půjčovna motorek Vysočina",
+                "title": "Dárkové poukazy | Motopůjčovna a půjčovna motorek Vysočina",
+                "description": "Kupte dárkový poukaz na pronájem motorky v motopůjčovně MotoGo24. Platnost 3 roky, bez kauce, výbava v ceně. Elektronický i tištěný poukaz. Online objednávka.",
+                "keywords": "motopůjčovna, půjčovna motorek, dárkový poukaz na motorku, dárek pro motorkáře, poukaz na pronájem motorky, voucher motorka, MotoGo24",
                 "og_image": "https://www.motogo24.cz/gfx/darkovy-poukaz.jpg"
             },
             "h1": "Kup dárkový poukaz – daruj zážitek na dvou kolech!",
@@ -1455,10 +1336,10 @@ export const MASTER_CS_BUNDLED = {
             "how": {
                 "title": "Jak poukaz využít",
                 "items": [
-                    "<strong>Cestovní motorky</strong> – víkendový roadtrip po Vysočině i celé ČR.",
-                    "<strong>Sportovní motorky</strong> – adrenalinová jízda v zatáčkách.",
-                    "<strong>Enduro</strong> – lehký terén a dobrodružství mimo hlavní cesty.",
-                    "<strong>Dětské motorky</strong> – první jízdy pro malé jezdce pod dohledem."
+                    "<strong>Cestovní motorky</strong> – víkendový roadtrip po Vysočině, celé ČR i v zahraničí.",
+                    "<strong>Naked motorky</strong> – dynamická jízda plná zábavy a adrenalinu.",
+                    "<strong>Supermoto</strong> – adrenalinová jízda v zatáčkách. <strong>Choppery a cruisery</strong> – pohodová vyjížďka ve stylu, kde je cesta cílem.",
+                    "<strong>Dětské motorky</strong> – první jízdy pro malé jezdce pod dohledem. <strong>Skútry</strong> – jednoduché svezení bez řazení, ideální na výlet po okolí."
                 ]
             },
             "catalog_cta": {
@@ -1486,13 +1367,13 @@ export const MASTER_CS_BUNDLED = {
                     },
                     {
                         "q": "Na jaké motorky lze voucher uplatnit?",
-                        "a": "Na <strong>cestovní, sportovní, enduro i dětské motorky</strong> v nabídce Motogo24 – podle zvolené hodnoty poukazu."
+                        "a": "Poukaz můžeš uplatnit na všechny motorky v nabídce Motogo24 – podle zvolené hodnoty poukazu."
                     }
                 ]
             },
             "cta": {
                 "title": "Dárkový poukaz na pronájem motorky – Vysočina",
-                "text": "Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop provozem</strong>, <strong>bez kauce</strong> a <strong>výbavou v ceně</strong>. Dárkový voucher je ideální volba, jak darovat <em>motorbike rental</em> zážitek – od <strong>cestovních</strong> přes <strong>sportovní</strong> až po <strong>enduro</strong> a <strong>dětské motorky</strong>.",
+                "text": "Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop provozem</strong>, <strong>bez kauce</strong> a <strong>výbavou v ceně</strong>. Dárkový voucher je ideální volba, jak darovat <em>motorbike rental</em> zážitek – od <strong>cestovních</strong> přes <strong>naked</strong> a <strong>supermoto</strong> až po <strong>dětské motorky, choppery</strong> nebo <strong>skútry</strong>.",
                 "buttons": [
                     {
                         "label": "OBJEDNAT VOUCHER",
@@ -1503,5 +1384,5 @@ export const MASTER_CS_BUNDLED = {
             }
         }
     },
-    "generated_at": "2026-05-03T20:20:51+00:00"
+    "generated_at": "2026-11-27T20:42:38+00:00"
 } as const

@@ -76,6 +76,14 @@ return ['pages' => ['landing_katalog' => [
     'sticky' => 'Продовжити',
     // Detail motorky: jediné CTA v hlavičce → kalendář (CS detail_cta)
     'detail_cta' => 'Обери дати',
+    // Krok „Přistavení“ v kalkulačce (CS kcDvDefaults(), pages/katalog-calc-delivery.php); ostatní texty kroku = rez.* formuláře
+    'step_delivery' => 'Доставка',
+    'dv_need_moto' => 'Обери мотоцикл — порахуємо й доставку на твою адресу.',
+    'dv_addr' => 'Адреса доставки (вулиця, місто)',
+    'dv_raddr' => 'Адреса повернення (вулиця, місто)',
+    'dv_lead' => 'Час доставки обираєш у бронюванні.',
+    'dv_today' => 'На сьогодні доставити вже не встигнемо — обери пізніший день або отримання у філії.',
+    'dv_from' => 'від {price}',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Дати',
     'f_dates_title' => 'Коли хочеш вирушити?',

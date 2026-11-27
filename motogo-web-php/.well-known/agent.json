@@ -6,15 +6,15 @@
   "description": "Česká půjčovna motorek se sídlem v Mezné u Pelhřimova. Půjčujeme silniční, naked, supermoto, enduro a dětské motorky bez kauce, s motorkářskou výbavou v ceně, v nonstop provozu. Tento manifest popisuje, co nabízíme AI agentům pro čtení obsahu i programové rezervace. Doménová identita: motogo24.cz (česky) + motogo24.com (mezinárodně) — obě domény servírují identický obsah s i18n přepínačem (cs, en, de, es, fr, nl, pl, uk).",
   "version": "0.2.0",
   "publisher": {
-    "name": "Bc. Petra Semorádová",
-    "legalName": "Bc. Petra Semorádová",
+    "name": "MotoGo24 s.r.o.",
+    "legalName": "MotoGo24 s.r.o.",
     "url": "https://www.motogo24.cz",
     "email": "info@motogo24.cz",
     "phone": "+420 774 256 271",
-    "taxID": "21874263",
+    "taxID": "29909864",
     "address": {
       "streetAddress": "Mezná 9",
-      "addressLocality": "Pelhřimov",
+      "addressLocality": "Mezná",
       "postalCode": "393 01",
       "addressRegion": "Vysočina",
       "addressCountry": "CZ"
@@ -117,7 +117,9 @@
   },
   "trust": {
     "vatRegistered": false,
-    "registeredSince": "2024-07-31",
+    "registeredSince": "2026-08-18",
+    "commercialRegister": "C 36876, Krajský soud v Českých Budějovicích",
+    "operatingSince": "2024",
     "paymentProcessor": "Stripe (PCI DSS compliant)",
     "dataPrivacy": "GDPR compliant, RLS v databázi, šifrované přístupové kódy",
     "ocrIdVerification": "Mindee OCR pro ověření dokladů"

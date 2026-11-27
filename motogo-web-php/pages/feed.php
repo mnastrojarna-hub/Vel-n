@@ -37,7 +37,7 @@ echo '    <link>' . $siteOrigin . '/blog</link>' . "\n";
 echo '    <atom:link href="' . $siteOrigin . '/feed.xml" rel="self" type="application/rss+xml" />' . "\n";
 echo '    <description>Tipy na motorkářské trasy v Česku, návody, recenze motorek a novinky z půjčovny MotoGo24.</description>' . "\n";
 echo '    <language>cs-CZ</language>' . "\n";
-echo '    <copyright>Bc. Petra Semorádová, IČO 21874263</copyright>' . "\n";
+echo '    <copyright>' . htmlspecialchars(companyLegalLine(), ENT_XML1) . '</copyright>' . "\n";
 echo '    <managingEditor>info@motogo24.cz (MotoGo24)</managingEditor>' . "\n";
 echo '    <webMaster>info@motogo24.cz (MotoGo24)</webMaster>' . "\n";
 echo '    <generator>MotoGo24 Web PHP</generator>' . "\n";

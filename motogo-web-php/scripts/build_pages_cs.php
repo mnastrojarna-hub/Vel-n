@@ -14,9 +14,11 @@ if (!defined('EMAIL_USER')) define('EMAIL_USER', 'info');
 if (!defined('EMAIL_DOMAIN')) define('EMAIL_DOMAIN', 'motogo24.cz');
 if (!defined('EMAIL_FULL')) define('EMAIL_FULL', 'info@motogo24.cz');
 if (!defined('ADDRESS')) define('ADDRESS', 'Mezná 9, 393 01 Pelhřimov');
-if (!defined('COMPANY_NAME')) define('COMPANY_NAME', 'Bc. Petra Semorádová');
-if (!defined('COMPANY_ADDRESS')) define('COMPANY_ADDRESS', 'Mezná 9, 393 01 Pelhřimov');
-if (!defined('COMPANY_ICO')) define('COMPANY_ICO', '21874263');
+// Provozovatel — musí odpovídat config.php (COMPANY_*); jen konstanty, které čtou $defaults stránek.
+if (!defined('COMPANY_NAME')) define('COMPANY_NAME', 'MotoGo24 s.r.o.');
+if (!defined('COMPANY_ADDRESS')) define('COMPANY_ADDRESS', 'Mezná 9, 393 01 Mezná');
+if (!defined('COMPANY_ICO')) define('COMPANY_ICO', '29909864');
+if (!defined('COMPANY_DATA_BOX')) define('COMPANY_DATA_BOX', '2xfihrd');
 if (!defined('FB_URL')) define('FB_URL', '#');
 if (!defined('IG_URL')) define('IG_URL', '#');
 if (!defined('TIKTOK_URL')) define('TIKTOK_URL', '#');
