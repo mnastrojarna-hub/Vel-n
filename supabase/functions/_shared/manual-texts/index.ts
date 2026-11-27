@@ -9,18 +9,17 @@
 // návodem: OCR → soubor `<slug>.ts` s `export default JSON.parse('…')` → řádek
 // v REGISTRY. Reálný případ 26. 7. 2026: Suzuki DL 650 V-strom má návod jako
 // čistý sken (135 stran JPEG, 0 fontů) — agent bez OCR textu nemohl číst nikdy.
-const REGISTRY: Record<string, () => Promise<{ default: string }>> = {
+const REGISTRY = {
   // Suzuki DL 650 V-strom — OCR (tesseract ces, 150 dpi) z blog.bobhy.cz PDF
-  '8f554a38-c3b3-4337-9d6a-899ea8e54b37': () => import('./suzuki-dl650-vstrom.ts'),
-}
-
-export async function getBundledManualText(motoId: string): Promise<string | null> {
-  const loader = REGISTRY[String(motoId || '').trim()]
-  if (!loader) return null
+  '8f554a38-c3b3-4337-9d6a-899ea8e54b37': ()=>import('./suzuki-dl650-vstrom.ts')
+};
+export async function getBundledManualText(motoId) {
+  const loader = REGISTRY[String(motoId || '').trim()];
+  if (!loader) return null;
   try {
-    return (await loader()).default
+    return (await loader()).default;
   } catch (e) {
-    console.error('manual-texts: import failed for', motoId, (e as Error).message)
-    return null
+    console.error('manual-texts: import failed for', motoId, e.message);
+    return null;
   }
 }
