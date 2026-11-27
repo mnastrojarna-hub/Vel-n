@@ -1518,7 +1518,7 @@ return [
     // katalog.seo.title: <title> stránky /katalog jen česky (pages/katalog.php); ostatní jazyky mají „{menu.catalog} | MotoGo24“
     'katalog.seo.title' => 'Motorky k pronájmu – katalog a ceny | MotoGo24',
     'katalog.seo.description' => 'Cestovní, naked, supermoto, choppery, skútry i dětské motorky k pronájmu u Pelhřimova a Brna. Filtruj podle ŘP, pobočky a ceny a uvidíš volné dny i cenu.',
-    // detail.meta*: česky se nepoužívají — titulek i popis detailu skládá katalogMotoSeoCs() (pages/katalog-v2-lib.php)
+    // detail.meta*: česky se nepoužívají — titulek i popis detailu skládá katalogMotoSeoCs() (pages/katalog-detail-v2.php)
     'detail.metaRent' => 'Pronájem motorky {model}',
     'detail.metaNoDeposit' => 'bez kauce u MotoGo24 {place}',
     'detail.metaDefault' => 'výbava v ceně, online rezervace, výdej i vrácení nonstop dle rezervace',

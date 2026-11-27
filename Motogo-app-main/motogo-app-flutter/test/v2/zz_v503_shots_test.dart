@@ -278,11 +278,11 @@ void main() {
         z = r.zone()!;
         stdout.writeln('zone start=${z.$2.start} extent=${z.$2.extent} px=${z.$1.pixels} active=${z.$2.active}');
         await r.shot('b2_shop_product1');
-        await r.swipeUp(size.height * 0.45);
+        await r.swipeUp(size.height * 0.62);
         z = r.zone()!;
         stdout.writeln('after swipe px=${z.$1.pixels} → item ${(z.$1.pixels - z.$2.start) / z.$2.extent}');
         await r.shot('b3_shop_product2');
-        await r.swipeUp(size.height * 0.45);
+        await r.swipeUp(size.height * 0.62);
         await r.shot('b4_shop_product3_soldout');
         // scroll back up a little: bars + arrow shown
         final g = await t.startGesture(Offset(size.width / 2, size.height * 0.4));

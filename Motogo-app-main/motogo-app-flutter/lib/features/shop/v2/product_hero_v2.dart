@@ -78,7 +78,13 @@ class _ProductHeroV2State extends State<ProductHeroV2> {
                   duration: MgMotion.of(context, MgMotion.color),
                   child: KeyedSubtree(
                     key: ValueKey(idx),
-                    child: MgPhoto(url: imgs[idx], thumbWidth: 400, dark: true, glyph: MgIcons.bag),
+                    child: MgPhoto(
+                        url: imgs[idx],
+                        thumbWidth: 400,
+                        width: double.infinity,
+                        height: double.infinity,
+                        dark: true,
+                        glyph: MgIcons.bag),
                   ),
                 ),
                 ColoredBox(color: MgColors.nightA(0.62)),

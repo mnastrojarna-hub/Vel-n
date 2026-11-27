@@ -79,63 +79,6 @@ function katalogPlaceCs($slugs, $form) {
     return $slugs ? ($one[$slugs[0]][$form] ?? '') : '';
 }
 
-/**
- * Český <title> a meta description detailu motorky (jen CS; šablona ze SEO revize 2026-11-27). Vrací [title, description].
- * Titulek „{model} k pronájmu u Pelhřimova | MotoGo24“ (u Brna podle pobočky; nad 60 znaků bez místa).
- * Popis „Pronájem motorky {model} ({ccm} ccm, {kW} kW, {typ}) v Mezné u Pelhřimova od {cena} Kč/den. Bez kauce, výbava pro
- * řidiče v ceně, online rezervace.“ — skútr „Pronájem skútru …“, dětská „Dětská motorka … k půjčení …“, vozík „… k pronájmu …“.
- * Typ v jednotném čísle, místo z pobočky motorky (ne surové branches.city), cena = nejnižší denní cena (getMinPrice).
- * Do 155 znaků se krátí vypouštěním částí (závěr → typ → parametry), nikdy useknutím; popis z DB se nepřipojuje.
- */
-function katalogMotoSeoCs($moto) {
-    $name = trim(safeStr($moto['model'] ?? ''));
-    $model = $name !== '' ? $name : 'Motorka'; // bez názvu: „Motorka k pronájmu …“
-    $nm = $name !== '' ? ' ' . $name : '';
-    $slug = katalogBranchSlug($moto);
-    $near = katalogPlaceCs($slug, 'u');
-    $title = $model . ' k pronájmu' . ($near !== '' ? ' ' . $near : '') . ' | MotoGo24';
-    if (mb_strlen($title, 'UTF-8') > 60) $title = $model . ' k pronájmu | MotoGo24';
-    if (mb_strlen($title, 'UTF-8') > 60) $title = $model . ' | MotoGo24';
-
-    // čísla jako na stránce (desetinná čárka, mezera v tisících u ccm), do meta bez entit a s obyčejnou mezerou
-    $num = function ($v, $th = false) { return str_replace("\u{00A0}", ' ', html_entity_decode(numLoc($v, $th), ENT_QUOTES | ENT_HTML5, 'UTF-8')); };
-    $price = getMinPrice($moto);
-    $where = trim(katalogPlaceCs($slug, 'v') . ($price > 0 ? ' od ' . number_format(ceil((float)$price), 0, ',', ' ') . ' Kč/den' : ''));
-    $where = $where !== '' ? ' ' . $where : '';
-    $lg = motoLicenseGroups($moto);
-    if (!empty($moto['is_trailer']) || katalogCategoryMatch($moto, 'ostatni')) {
-        $leads = [(preg_match('/^přívěs/iu', $name) ? $name : 'Přívěs na motorky' . $nm) . ' k pronájmu'];
-        $tails = [(in_array('B', $lg, true) ? 'Stačí ŘP B, bez kauce' : 'Bez kauce') . ', rezervace online.'];
-    } elseif (katalogCategoryMatch($moto, 'detske')) {
-        $leads = ['Dětská motorka' . $nm . ' k půjčení'];
-        $tails = [((!$lg || $lg === ['N']) ? 'Bez řidičáku, jen' : 'Jen') . ' mimo silnice a pod dohledem dospělého.'];
-    } else {
-        $scooter = katalogCategoryMatch($moto, 'scootery');
-        $base = 'Pronájem ' . ($scooter ? 'skútru' : 'motorky') . $nm;
-        $specs = [];
-        if (!empty($moto['engine_cc'])) $specs[] = $num($moto['engine_cc'], true) . ' ccm';
-        if (!empty($moto['power_kw'])) $specs[] = $num($moto['power_kw']) . ' kW';
-        $type = '';
-        foreach (['cestovni' => 'cestovní', 'sportovni' => 'sportovní', 'naked' => 'naked', 'supermoto' => 'supermoto', 'chopper' => 'chopper'] as $k => $one) {
-            if (!$scooter && katalogCategoryMatch($moto, $k)) { $type = $one; break; }
-        }
-        $leads = [];
-        if ($specs && $type !== '') $leads[] = $base . ' (' . implode(', ', array_merge($specs, [$type])) . ')';
-        if ($specs) $leads[] = $base . ' (' . implode(', ', $specs) . ')';
-        $leads[] = $base;
-        $tails = ['Bez kauce, výbava pro řidiče v ceně, online rezervace.', 'Bez kauce, výbava v ceně, online rezervace.'];
-    }
-    // první varianta (od nejúplnější), která se vejde do 155 znaků; krajní možnost = jen první věta
-    $desc = '';
-    foreach ($leads as $l) {
-        foreach ($tails as $tl) {
-            $desc = $l . $where . '. ' . $tl;
-            if (mb_strlen($desc, 'UTF-8') <= 155) return [$title, $desc];
-        }
-    }
-    return [$title, end($leads) . $where . '.'];
-}
-
 /** Text, ve kterém hledá fulltext ?q= (model, značka, kategorie, popis, výbava). */
 function katalogQueryHay($m) {
     // `features` z DB může být ARRAY (jsonb) — string konkatenace s polem v PHP 8 hází TypeError.

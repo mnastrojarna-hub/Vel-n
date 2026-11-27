@@ -8,9 +8,11 @@ $motos = $sb->fetchMotos();
 // Landing v2 (viz landing.php): místo kalendáře dostupnosti kalkulačka ceny s předvybranou motorkou (pages/katalog-calc.php).
 require_once __DIR__ . '/../landing.php';
 $kcV2 = landingV2Enabled();
-if ($kcV2) { require_once __DIR__ . '/katalog-calc.php'; require_once __DIR__ . '/katalog-detail-v2.php'; }
-// Pobočka motorky → český název místa, český <title> a meta description (katalogMotoSeoCs)
+if ($kcV2) require_once __DIR__ . '/katalog-calc.php';
+// Pomocné funkce detailu: bloky v2 + český <title> a meta description (katalogMotoSeoCs, katalog-detail-v2.php);
+// pobočka motorky → český název místa a shoda kategorie: katalog-v2-lib.php
 require_once __DIR__ . '/katalog-v2-lib.php';
+require_once __DIR__ . '/katalog-detail-v2.php';
 
 // Najdi motorku
 $moto = null;
@@ -92,9 +94,9 @@ $badgeHtml = $isAvailableToday
     : ($motoBookable ? '<span class="moto-badge-busy">' . te('detail.busyToday') . '</span>' : '');
 
 // H1 extension: samotný model (např. "Yamaha PW 50" = 12 px) je pod Seobility
-// limit 120 px. Přidáváme suffix "— půjčovna motorek MotoGo24" aby H1 mělo
-// reálnou informační hodnotu a SEO klíčovku. Krátký label modelu zůstává
-// vizuálně dominantní díky <span class="moto-h1-suffix">.
+// limit 120 px. Přidáváme suffix (česky „k pronájmu“, dřív na všech motorkách stejné
+// „— půjčovna motorek MotoGo24“) aby H1 mělo reálnou informační hodnotu. Krátký label
+// modelu zůstává vizuálně dominantní díky <span class="moto-h1-suffix">.
 $h1Suffix = ' <span class="moto-h1-suffix">' . te('detail.h1Suffix') . '</span>';
 $headerHtml = '<div class="moto-detail-header"><div>'
     . ($badgeHtml ? '<div>' . $badgeHtml . '</div>' : '')
@@ -765,7 +767,7 @@ if (!empty($allImages)) {
 // Bohata meta description: model + spec + standardni kontext. Bez teto skladacky
 // byl Seobility 'meta description too short' u motorek bez DB description (jen
 // fallback ~70 znaku). Ridime se 150-180 znaky (Google snippet cap).
-// Česky (SEO revize 2026-11-27): titulek i popis skládá katalogMotoSeoCs() (pages/katalog-v2-lib.php) —
+// Česky (SEO revize 2026-11-27): titulek i popis skládá katalogMotoSeoCs() (pages/katalog-detail-v2.php) —
 // „Pronájem motorky {model} (…) v Mezné u Pelhřimova od X Kč/den. Bez kauce, …“ z celých vět, bez přilepeného
 // popisu z DB a bez useknutí; ostatní jazyky zůstávají na původní skládačce níže.
 if (mgIsCs()) {
