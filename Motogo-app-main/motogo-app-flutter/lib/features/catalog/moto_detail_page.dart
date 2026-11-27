@@ -8,7 +8,6 @@ import '../../core/theme.dart';
 import '../../core/widgets/moto_fx.dart';
 import '../../core/widgets/net_image.dart';
 import '../../core/router.dart';
-import '../booking/booking_entry.dart';
 import '../booking/booking_models.dart' show BookingDraft;
 import '../booking/booking_provider.dart' show bookingDraftProvider;
 import 'catalog_provider.dart';
@@ -29,6 +28,7 @@ import '../../core/v2/flag/v2_scope.dart';
 import '../../core/v2/states/mg_state_screen.dart';
 import '../../core/v2/icons/mg_icon.dart';
 import '../../core/v2/widgets/mg_buttons.dart';
+import 'v2/bike_card_reserve_v2.dart' show detailPickDatesRequestProvider;
 import 'v2/detail/detail_dates_carry_v2.dart';
 import 'v2/detail/detail_states_v2.dart';
 import 'v2/detail/moto_detail_view_v2.dart';
@@ -60,12 +60,19 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
   late PageController _pageCtrl;
   bool _calendarExpanded = true;
 
+  /// v2: detail otevřený tlačítkem „Rezervovat“ na kartě motorky bez
+  /// použitelného termínu → hned krok výběru termínu (5.0.3).
+  bool _pickDatesOnOpen = false;
+
   @override
   void initState() {
     super.initState();
     _pageCtrl = PageController();
+    _pickDatesOnOpen = ref.read(detailPickDatesRequestProvider) == widget.motoId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Žádost platí jednou (další otevření detailu už je běžné).
+      if (_pickDatesOnOpen) ref.read(detailPickDatesRequestProvider.notifier).state = null;
       // v2: termín rozpracované rezervace TÉTO motorky má přednost (2026-10-22).
       final (s, e) = detailStartDates(context, ref, widget.motoId);
       if (s != null && e != null) {
@@ -137,9 +144,9 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
     detailShareReset(ref);
   }
 
-  /// REZERVOVAT — jen začátek = jednodenní rezervace (PM-3).
-  void _reserve(BuildContext ctx, Motorcycle moto) =>
-      startBookingFromSelection(ctx, ref, moto, _selStart!, _selEnd ?? _selStart!);
+  /// REZERVOVAT — jen začátek = jednodenní rezervace (PM-3). Tělo sdílí
+  /// s kartou motorky v seznamu (`detailReserve`, 5.0.3).
+  void _reserve(BuildContext ctx, Motorcycle moto) => detailReserve(ctx, ref, moto, _selStart!, _selEnd);
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +283,8 @@ class _MotoDetailPageState extends ConsumerState<MotoDetailPage> {
         bookedAsync: bookedAsync,
         busy: busy,
         onPickDates: _expandCalendar,
-        onReserve: _selStart != null && !busy ? () => _reserve(ctx, moto) : null,
+        onReserve: detailCanReserve(_selStart, busy) ? () => _reserve(ctx, moto) : null,
+        pickDatesOnOpen: _pickDatesOnOpen,
       );
     }
 

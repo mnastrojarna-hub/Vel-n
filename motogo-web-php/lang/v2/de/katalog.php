@@ -76,6 +76,14 @@ return ['pages' => ['landing_katalog' => [
     'sticky' => 'Weiter',
     // Detail motorky: jediné CTA v hlavičce → kalendář (CS detail_cta)
     'detail_cta' => 'Wähle deinen Termin',
+    // Krok „Přistavení“ v kalkulačce (CS kcDvDefaults(), pages/katalog-calc-delivery.php); ostatní texty kroku = rez.* formuláře
+    'step_delivery' => 'Lieferung',
+    'dv_need_moto' => 'Wähle ein Motorrad: Wir berechnen dir auch die Lieferung an deine Adresse.',
+    'dv_addr' => 'Lieferadresse (Straße, Ort)',
+    'dv_raddr' => 'Rückgabeadresse (Straße, Ort)',
+    'dv_lead' => 'Die Lieferzeit wählst du bei der Reservierung.',
+    'dv_today' => 'Heute schaffen wir die Lieferung nicht mehr: Wähle einen späteren Tag oder die Abholung in der Filiale.',
+    'dv_from' => 'ab {price}',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Termin',
     'f_dates_title' => 'Wann willst du losfahren?',

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
 import '../../../core/v2/chrome/mg_chrome_lift.dart';
-import '../../../core/v2/chrome/mg_fab_avoid.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_hero_photo.dart';
 import '../../../core/v2/motion/mg_ken_burns.dart';
@@ -11,7 +10,6 @@ import '../../../core/v2/motion/mg_motion.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_branch_chip.dart';
-import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/widgets/net_image.dart';
 import '../moto_model.dart';
 import 'bike_screen_card_parts_v2.dart';
@@ -26,7 +24,8 @@ import 'catalog_text.dart';
 /// category · licence · branch, name, "Základní údaje" chips, the card price
 /// and the rank CTA. EVERY tap target opens the detail through [onOpen] —
 /// the caller's existing logic (sibling ids + `context.push('/moto/:id')`) —
-/// except the CTA when the caller gives [onCta] (dates set → REZERVOVAT).
+/// except the CTA when the caller gives [onCta], and "Rezervovat" beside
+/// "Detail" ([onReserve], owner 2026-11-27 — `BikeCardFoot`).
 /// One bike per screen (owner 2026-11-08 "vždycky motorka je na celou
 /// stránku"): the lists give it the whole folded viewport as [height] and
 /// the status-bar inset as [topInset] — the top controls (photo segments,
@@ -54,6 +53,11 @@ class MotoCardFullV2 extends StatefulWidget {
 
   /// CTA action; null = [onOpen].
   final VoidCallback? onCta;
+
+  /// 5.0.3: "Rezervovat" (the rank CTA) beside [ctaLabel] ("Detail", then
+  /// the secondary button) — the caller's reserve entry; null = one button.
+  final String? reserveLabel;
+  final VoidCallback? onReserve;
   final double height;
 
   /// Status-bar inset over the card's top edge (0 = none).
@@ -72,6 +76,8 @@ class MotoCardFullV2 extends StatefulWidget {
     required this.ctaLabel,
     required this.onOpen,
     this.onCta,
+    this.reserveLabel,
+    this.onReserve,
     this.live = false,
     this.height = 560,
     this.topInset = 0,
@@ -330,35 +336,15 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
                         const SizedBox(height: 10),
                       ]),
                     ),
-                    LayoutBuilder(builder: (context, c) {
-                      // Price + CTA side by side only when the price ("2 727 Kč
-                      // /Tag") fits next to the button; otherwise the button goes
-                      // full width under the price (no number split in half).
-                      final narrow = _priceWidth(context, widget.price) + 12 + _ctaWidth(context, widget.ctaLabel) > c.maxWidth;
-                      Widget cta(bool expand) => MgFabAvoid(
-                            child: MgCta(
-                              label: widget.ctaLabel,
-                              onTap: widget.onCta ?? widget.onOpen,
-                              size: MgCtaSize.sm48,
-                              expand: expand,
-                              arrow: true,
-                              loop: widget.live,
-                              semanticLabel: '${widget.ctaLabel} · ${m.model}',
-                            ),
-                          );
-                      if (narrow) {
-                        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                          IgnorePointer(child: BikeCardPriceBlock(price: widget.price)),
-                          const SizedBox(height: 12),
-                          cta(true),
-                        ]);
-                      }
-                      return Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Expanded(child: IgnorePointer(child: BikeCardPriceBlock(price: widget.price))),
-                        const SizedBox(width: 12),
-                        cta(false),
-                      ]);
-                    }),
+                    BikeCardFoot(
+                      price: widget.price,
+                      model: m.model,
+                      ctaLabel: widget.ctaLabel,
+                      onCta: widget.onCta ?? widget.onOpen,
+                      reserveLabel: widget.reserveLabel,
+                      onReserve: widget.onReserve,
+                      live: widget.live,
+                    ),
                   ]),
                 ),
               ),
@@ -373,17 +359,6 @@ class _MotoCardFullV2State extends State<MotoCardFullV2> {
   /// [BikeCardAvailabilityPill]: 12 + ping 8 + 8 + text + 12.
   static double _pillWidth(BuildContext context, String text) =>
       catLineWidth(context, text, DefaultTextStyle.of(context).style.merge(MgType.small.copyWith(fontWeight: FontWeight.w700))) + 40;
-
-  static double _priceWidth(BuildContext context, CatCardPrice p) {
-    final base = DefaultTextStyle.of(context).style;
-    return catLineWidth(context, p.value, base.merge(MgType.tab(MgType.h1))) +
-        (p.unit == null ? 0 : catLineWidth(context, ' ${p.unit}', base.merge(MgType.body.copyWith(fontWeight: FontWeight.w700))));
-  }
-
-  /// MgCta sm48: label caps + 2 × 12 padding + border + arrow (+ a rank
-  /// glyph allowance).
-  static double _ctaWidth(BuildContext context, String label) =>
-      catLineWidth(context, label.toUpperCase(), DefaultTextStyle.of(context).style.merge(MgType.ctaCompact)) + 24 + 3 + 26 + 26;
 
   Widget _zone({required bool left, required String label}) => Positioned(
         left: left ? 0 : null,

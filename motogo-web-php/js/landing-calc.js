@@ -42,6 +42,7 @@
       var p = [];
       if (S.moto) p.push('moto=' + encodeURIComponent(S.moto)); else if (S.branch) p.push('pobocka=' + encodeURIComponent(S.branch));
       if (S.start && S.end) p.push('start=' + S.start, 'end=' + S.end);
+      if (K.dvQuery) p = p.concat(K.dvQuery(X)); // přistavení / vrácení jinde (landing-calc-delivery.js)
       return C.rez + (p.length ? '?' + p.join('&') : '');
     }
   };
@@ -86,7 +87,7 @@
     E.sel.innerHTML = h;
     E.sel.value = S.moto;
   }
-  function changed() { S.note = ''; S.live = true; check(); if (!S.start && ready()) jump(); load(); render(); }
+  function changed() { S.note = ''; S.live = true; if (K.dvCheck) K.dvCheck(X); check(); if (!S.start && ready()) jump(); load(); render(); }
   function setBranch(v) {
     S.branch = v || '';
     each(radios, function (r) { r.checked = r.value === S.branch; });
@@ -138,6 +139,7 @@
       var n = +li.getAttribute('data-kc-step'), done = n === 1 ? !!(S.branch || S.moto) : (n === 2 ? !!S.moto : !!S.end);
       li.classList.toggle('is-done', done);
     });
+    if (K.dvRender) K.dvRender(X, render); // krok „Přistavení“ (landing-calc-delivery-ui.js)
     var prevTotal = S.shown, sh = '<div class="kc-sum-in">' + K.sumHtml(X) + '</div>';
     if (sh === S.sumHtml) { sticky(); return; }
     E.sum.innerHTML = S.sumHtml = sh;
@@ -167,8 +169,9 @@
     var m = S.moto ? by[S.moto] : null, bd = m && S.end ? K.breakdown(m, S.start, S.end) : null;
     var on = !!bd && bd.days.length >= (m.min || 1) && !(m.max > 0 && bd.days.length > m.max) && !sumVis && window.innerWidth < 900;
     if (bd) {
-      bar.innerHTML = '<span class="kc-sticky-t"><span class="kc-sticky-m">' + K.esc(m.m + ' · ' + X.days(bd.days.length)) + '</span><span class="kc-sticky-v">' + K.esc(X.money(bd.total)) + '</span></span>' +
+      var sb = '<span class="kc-sticky-t"><span class="kc-sticky-m">' + K.esc(m.m + ' · ' + X.days(bd.days.length)) + '</span><span class="kc-sticky-v">' + K.esc(X.money(bd.total + (K.dvFees ? K.dvFees(X).total : 0))) + '</span></span>' +
         '<a class="lp-btn lp-btn-primary" href="' + K.esc(X.href()) + '"' + (on ? '' : ' tabindex="-1"') + '>' + K.ico('cal') + '<span>' + K.esc(T.sticky) + '</span></a>';
+      if (sb !== S.barHtml) bar.innerHTML = S.barHtml = sb; // beze změny nepřekreslovat (klepnutí na odkaz nesmí zmizet pod prstem)
     }
     bar.classList.toggle('is-on', on);
     bar.setAttribute('aria-hidden', on ? 'false' : 'true');

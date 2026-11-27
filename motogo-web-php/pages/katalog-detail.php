@@ -8,7 +8,11 @@ $motos = $sb->fetchMotos();
 // Landing v2 (viz landing.php): místo kalendáře dostupnosti kalkulačka ceny s předvybranou motorkou (pages/katalog-calc.php).
 require_once __DIR__ . '/../landing.php';
 $kcV2 = landingV2Enabled();
-if ($kcV2) { require_once __DIR__ . '/katalog-calc.php'; require_once __DIR__ . '/katalog-detail-v2.php'; }
+if ($kcV2) require_once __DIR__ . '/katalog-calc.php';
+// Pomocné funkce detailu: bloky v2 + český <title> a meta description (katalogMotoSeoCs, katalog-detail-v2.php);
+// pobočka motorky → český název místa a shoda kategorie: katalog-v2-lib.php
+require_once __DIR__ . '/katalog-v2-lib.php';
+require_once __DIR__ . '/katalog-detail-v2.php';
 
 // Najdi motorku
 $moto = null;
@@ -90,9 +94,9 @@ $badgeHtml = $isAvailableToday
     : ($motoBookable ? '<span class="moto-badge-busy">' . te('detail.busyToday') . '</span>' : '');
 
 // H1 extension: samotný model (např. "Yamaha PW 50" = 12 px) je pod Seobility
-// limit 120 px. Přidáváme suffix "— půjčovna motorek MotoGo24" aby H1 mělo
-// reálnou informační hodnotu a SEO klíčovku. Krátký label modelu zůstává
-// vizuálně dominantní díky <span class="moto-h1-suffix">.
+// limit 120 px. Přidáváme suffix (česky „k pronájmu“, dřív na všech motorkách stejné
+// „— půjčovna motorek MotoGo24“) aby H1 mělo reálnou informační hodnotu. Krátký label
+// modelu zůstává vizuálně dominantní díky <span class="moto-h1-suffix">.
 $h1Suffix = ' <span class="moto-h1-suffix">' . te('detail.h1Suffix') . '</span>';
 $headerHtml = '<div class="moto-detail-header"><div>'
     . ($badgeHtml ? '<div>' . $badgeHtml . '</div>' : '')
@@ -180,7 +184,7 @@ $mainImg   = imgUrl($mainUrl);
 // (původní chování). Admin ve Velíně Fleet detail → fotky vyplňuje jen krátký
 // popisek (např. „zepředu") aby alt na každé fotce byl unikátní pro Seobility.
 $motoColor = trim((string)($moto['color'] ?? ''));
-$altFallback = 'motorka ' . trim($model) . ' – půjčovna motogo24';
+$altFallback = 'motorka ' . trim($model) . ' – půjčovna MotoGo24';
 $composeAlt = function (string $desc) use ($model, $motoColor, $altFallback) {
     $desc = trim($desc);
     if ($desc === '') return $altFallback;
@@ -286,13 +290,13 @@ $specsRows = [];
 // Identifikace
 if (!empty($moto['year']))    $specsRows[] = [t('detail.specYear'), $moto['year']];
 if (!empty($moto['color']))   $specsRows[] = [t('detail.specColor'), htmlspecialchars($moto['color'])];
-if (!empty($moto['engine_cc'])) $specsRows[] = [t('detail.specEngineCc'), $moto['engine_cc'] . ' ccm'];
+if (!empty($moto['engine_cc'])) $specsRows[] = [t('detail.specEngineCc'), numLoc($moto['engine_cc'], true) . ' ccm'];
 if (!empty($moto['power_kw'])) {
-    $kwVal = $moto['power_kw'] . ' kW';
-    if (!empty($moto['power_hp'])) $kwVal .= ' (cca ' . $moto['power_hp'] . ' ' . t('detail.hpUnit') . ')';
+    $kwVal = numLoc($moto['power_kw']) . ' kW';
+    if (!empty($moto['power_hp'])) $kwVal .= ' (cca ' . numLoc($moto['power_hp']) . ' ' . t('detail.hpUnit') . ')';
     $specsRows[] = [t('detail.specEngineKw'), $kwVal];
 }
-if (!empty($moto['torque_nm'])) $specsRows[] = [t('detail.specTorque'), $moto['torque_nm'] . ' Nm'];
+if (!empty($moto['torque_nm'])) $specsRows[] = [t('detail.specTorque'), numLoc($moto['torque_nm']) . ' Nm'];
 if (!empty($moto['engine_type'])) $specsRows[] = [t('detail.specEngineTypeRow'), $moto['engine_type']];
 if (!empty($moto['transmission'])) $specsRows[] = [t('detail.specTransmission'), $moto['transmission']];
 if (!empty($moto['drivetrain'])) {
@@ -300,13 +304,13 @@ if (!empty($moto['drivetrain'])) {
     $specsRows[] = [t('detail.specDrivetrain'), $dtMap[$moto['drivetrain']] ?? $moto['drivetrain']];
 }
 if (!empty($moto['top_speed_kmh'])) $specsRows[] = [t('detail.specTopSpeed'), $moto['top_speed_kmh'] . ' km/h'];
-if (!empty($moto['fuel_consumption_l100km'])) $specsRows[] = [t('detail.specFuelConsumption'), 'cca ' . $moto['fuel_consumption_l100km'] . ' l/100 km'];
+if (!empty($moto['fuel_consumption_l100km'])) $specsRows[] = [t('detail.specFuelConsumption'), 'cca ' . numLoc($moto['fuel_consumption_l100km']) . ' l/100 km'];
 if (!empty($moto['fuel_type'])) $specsRows[] = [t('detail.specFuelType'), $moto['fuel_type']];
-if (!empty($moto['fuel_tank_l'])) $specsRows[] = [t('detail.specFuelTank'), $moto['fuel_tank_l'] . ' l'];
+if (!empty($moto['fuel_tank_l'])) $specsRows[] = [t('detail.specFuelTank'), numLoc($moto['fuel_tank_l']) . ' l'];
 if (!empty($moto['brake_type'])) $specsRows[] = [t('detail.specBrakeType'), $moto['brake_type']];
 if (!empty($moto['has_abs'])) $specsRows[] = [t('detail.specAbs'), t('detail.specYes')];
 if (!empty($moto['has_asc'])) $specsRows[] = [t('detail.specAsc'), t('detail.specYes')];
-if (!empty($moto['weight_kg'])) $specsRows[] = [t('detail.specWeight'), $moto['weight_kg'] . ' kg'];
+if (!empty($moto['weight_kg'])) $specsRows[] = [t('detail.specWeight'), numLoc($moto['weight_kg']) . ' kg'];
 if (!empty($moto['seat_height_mm'])) $specsRows[] = [t('detail.specSeatHeight'), $moto['seat_height_mm'] . ' mm'];
 if (!empty($moto['seats_count'])) $specsRows[] = [t('detail.specSeatsCount'), $moto['seats_count']];
 $detailLicGroups = motoLicenseGroups($moto);
@@ -319,9 +323,9 @@ if ($detailLicGroups) {
         $specsRows[] = [t('detail.specLicense'), t('detail.specLicenseGroup', ['group' => implode(' / ', $nonChild)])];
     }
 }
-if (!empty($moto['min_rental_days'])) $specsRows[] = [t('detail.specMinRental'), t('detail.daysUnit', ['count' => (int)$moto['min_rental_days']])];
+if (!empty($moto['min_rental_days'])) $specsRows[] = [t('detail.specMinRental'), daysUnitLabel($moto['min_rental_days'])];
 if (!empty($moto['max_rental_days'])) {
-    $specsRows[] = [t('detail.specMaxRental'), t('detail.daysUnit', ['count' => (int)$moto['max_rental_days']])];
+    $specsRows[] = [t('detail.specMaxRental'), daysUnitLabel($moto['max_rental_days'])];
 }
 
 // Návod / dokumenty — na celý řádek (popis motorky je už pod fotkou v sekci moto-shortdesc)
@@ -547,7 +551,7 @@ var CAL_I18N = {
       if(isPast||booked==="occupied"){bg="#444";color="#fff";cursor="not-allowed";}
       else if(booked==="unconfirmed"){bg="#fff";color="#333";cursor="not-allowed";border="2px solid #ccc";}
       else if(isStart||isEnd){bg="#0d6e0d";color="#fff";cursor="pointer";border="2px solid #fff";}
-      else if(inRange){bg="#0d6e0d";color="#fff";cursor="pointer";}
+      else if(inRange){bg="#0d6e0d";color="#fff";cursor="pointer";border="2px solid #fff";}
       else{bg="#74FB71";color="#0b0b0b";cursor="pointer";}
       var canClick=!isPast&&!booked;
       var style="background:"+bg+";color:"+color+";cursor:"+cursor+";border:"+border+";border-radius:12px;";
@@ -763,28 +767,36 @@ if (!empty($allImages)) {
 // Bohata meta description: model + spec + standardni kontext. Bez teto skladacky
 // byl Seobility 'meta description too short' u motorek bez DB description (jen
 // fallback ~70 znaku). Ridime se 150-180 znaky (Google snippet cap).
-$metaDescParts = [];
-$metaDescParts[] = str_replace('{model}', (string)($moto['model'] ?? 'MotoGo24'), t('detail.metaRent'));
-$metaDescSpec = [];
-if (!empty($moto['engine_cc'])) $metaDescSpec[] = $moto['engine_cc'] . ' ccm';
-if (!empty($moto['power_kw']))  $metaDescSpec[] = $moto['power_kw'] . ' kW';
-if (!empty($moto['category']))  $metaDescSpec[] = mb_strtolower(categoryLabel($moto['category']), 'UTF-8');
-if ($metaDescSpec) $metaDescParts[0] .= ' (' . implode(', ', $metaDescSpec) . ')';
-// Místo = město pobočky motorky (motorky z Velkých Němčic dřív hlásily „Pelhřimov“)
-$metaDescParts[] = str_replace('{place}', trim((string)(is_array($branch) && !empty($branch['city']) ? $branch['city'] : 'Pelhřimov')), t('detail.metaNoDeposit'));
-if ($motoDesc !== '') {
-    $metaDescParts[] = trim(html_entity_decode(strip_tags($motoDesc), ENT_QUOTES | ENT_HTML5, 'UTF-8'));   // bez &amp;#039; (escapuje se jen jednou níže)
+// Česky (SEO revize 2026-11-27): titulek i popis skládá katalogMotoSeoCs() (pages/katalog-detail-v2.php) —
+// „Pronájem motorky {model} (…) v Mezné u Pelhřimova od X Kč/den. Bez kauce, …“ z celých vět, bez přilepeného
+// popisu z DB a bez useknutí; ostatní jazyky zůstávají na původní skládačce níže.
+if (mgIsCs()) {
+    [$pageTitle, $metaDescBuilt] = katalogMotoSeoCs($moto);
 } else {
-    $metaDescParts[] = t('detail.metaDefault');
+    $pageTitle = $model . ' ' . t('detail.titleSuffix');
+    $metaDescParts = [];
+    $metaDescParts[] = str_replace('{model}', (string)($moto['model'] ?? 'MotoGo24'), t('detail.metaRent'));
+    $metaDescSpec = [];
+    if (!empty($moto['engine_cc'])) $metaDescSpec[] = $moto['engine_cc'] . ' ccm';
+    if (!empty($moto['power_kw']))  $metaDescSpec[] = $moto['power_kw'] . ' kW';
+    if (!empty($moto['category']))  $metaDescSpec[] = mb_strtolower(categoryLabel($moto['category']), 'UTF-8');
+    if ($metaDescSpec) $metaDescParts[0] .= ' (' . implode(', ', $metaDescSpec) . ')';
+    // Místo = město pobočky motorky (motorky z Velkých Němčic dřív hlásily „Pelhřimov“)
+    $metaDescParts[] = str_replace('{place}', trim((string)(is_array($branch) && !empty($branch['city']) ? $branch['city'] : 'Pelhřimov')), t('detail.metaNoDeposit'));
+    if ($motoDesc !== '') {
+        $metaDescParts[] = trim(html_entity_decode(strip_tags($motoDesc), ENT_QUOTES | ENT_HTML5, 'UTF-8'));   // bez &amp;#039; (escapuje se jen jednou níže)
+    } else {
+        $metaDescParts[] = t('detail.metaDefault');
+    }
+    // Věty za tečkou s velkým písmenem („…). Bez kauce u…“)
+    $metaDescParts = array_map(function ($x) { $x = (string)$x; return mb_strtoupper(mb_substr($x, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($x, 1, null, 'UTF-8'); }, array_values(array_filter($metaDescParts)));
+    $metaDescBuilt = implode('. ', $metaDescParts) . '.';
+    // Seobility limit ~1000 px = ~140 znaku (Czech s diakritikou ~7 px/znak).
+    // 155 znaku produkovalo 1004-1019 px (tesne nad limit) — sniženo na 140.
+    $metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 140);
+    // Trim na hranici slova, aby nebyla seknuta uprostred.
+    $metaDescBuilt = preg_replace('/\s+\S*$/u', '', $metaDescBuilt);
 }
-// Věty za tečkou s velkým písmenem („…). Bez kauce u…“)
-$metaDescParts = array_map(function ($x) { $x = (string)$x; return mb_strtoupper(mb_substr($x, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($x, 1, null, 'UTF-8'); }, array_values(array_filter($metaDescParts)));
-$metaDescBuilt = implode('. ', $metaDescParts) . '.';
-// Seobility limit ~1000 px = ~140 znaku (Czech s diakritikou ~7 px/znak).
-// 155 znaku produkovalo 1004-1019 px (tesne nad limit) — sniženo na 140.
-$metaDescBuilt = mb_substr(preg_replace('/\s+/', ' ', $metaDescBuilt), 0, 140);
-// Trim na hranici slova, aby nebyla seknuta uprostred.
-$metaDescBuilt = preg_replace('/\s+\S*$/u', '', $metaDescBuilt);
 
 $mdMeta = [];
 if ($kcV2) {
@@ -793,7 +805,7 @@ if ($kcV2) {
     array_push($mdMeta['scripts'], '/js/landing.js', '/js/moto-detail-v2.js', '/js/live-viewers.js');
     $mdMeta['body_class'] = trim(($mdMeta['body_class'] ?? '') . ' md-v2');
 }
-renderPage($model . ' ' . t('detail.titleSuffix'), $content, '/katalog/' . $motoId, $mdMeta + [
+renderPage($pageTitle, $content, '/katalog/' . $motoId, $mdMeta + [
     'description' => $metaDescBuilt,   // escapuje renderPage (dřív dvakrát → &amp;#039;)
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     // SEO: og:image MAX 1200px / quality 85 (Facebook/Twitter optimal). Predtim

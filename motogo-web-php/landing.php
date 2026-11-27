@@ -90,7 +90,7 @@ function lpDefaults() {
         'home' => $cta + [
             // Krátký H1 do panelu (prázdné = H1 z web.home.h1; vyplněné → dlouhé H1 jde do H2 sekce „O nás“)
             'h1' => '',
-            'lead' => 'Vyzvedni si ji nonstop v Mezné, 90 min od Prahy, nebo samoobslužně 24/7 ve Velkých Němčicích, 30 min od Brna.',
+            'lead' => 'Motorku si vyzvedneš nonstop v Mezné, 90 min od Prahy, nebo samoobslužně 24/7 ve Velkých Němčicích, 30 min od Brna.',
             // Volitelná náhrada eyebrow textu v hero (prázdné = web.home.hero.eyebrow)
             'hero_eyebrow' => '',
             'chips' => $chips,

@@ -19,6 +19,9 @@ $startDate = $rezIso($startDate);
 $endDate = $rezIso($endDate);
 if ($endDate !== '' && ($startDate === '' || $endDate < $startDate)) { $startDate = ''; $endDate = ''; }
 $delivery = $_GET['delivery'] ?? '';
+// Kalkulačka ceny (js/landing-calc-delivery.js) předává i „vrácení jinde“ (?return_delivery=1) — adresy
+// samotné jdou přes sessionStorage a do formuláře je doplní js/rezervace-delivery-carry.js.
+$returnDelivery = (($_GET['return_delivery'] ?? '') === '1') ? '1' : '';
 $resume = $_GET['resume'] ?? '';
 // Předvybraná pobočka (CTA z /pobocky/<slug> → ?pobocka=<branches.id>, stejný parametr jako /katalog).
 // Jen formát UUID; neznámou pobočku JS tiše ignoruje a ?moto= má přednost (js/pages-rezervace.js).
@@ -174,6 +177,7 @@ window.REZERVACE_PARAMS = {
   start: ' . json_encode($startDate) . ',
   end: ' . json_encode($endDate) . ',
   delivery: ' . json_encode($delivery) . ',
+  returnDelivery: ' . json_encode($returnDelivery) . ',
   resume: ' . json_encode($resume) . ',
   branch: ' . json_encode($rezBranch) . '
 };
@@ -195,11 +199,13 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script src="' . assetUrl('/js/card-rounding.js') . '"></script>
+<script src="' . assetUrl('/js/delivery-rules.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script src="' . assetUrl('/js/gear-ss-cap.js') . '"></script>
 <script src="' . assetUrl('/js/rezervace-ux.js') . '"></script>
 <script src="' . assetUrl('/js/gear-rental-redirect.js') . '" data-gear-url="' . htmlspecialchars(BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath('/pujceni-obleceni') : '/pujceni-obleceni'), ENT_QUOTES) . '"></script>
 <script src="' . assetUrl('/js/rezervace-dates.js') . '"></script>
+<script src="' . assetUrl('/js/rezervace-delivery-carry.js') . '"></script>
 <script src="' . assetUrl('/js/rezervace-dayprice.js') . '"></script>
 <script>
 // Vynucení min_rental_days / max_rental_days z DB (per-motorka, nastavuje admin ve Velíně).

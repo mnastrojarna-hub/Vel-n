@@ -1,0 +1,58 @@
+/* ===== MotoGo24 — kalkulačka ceny: krok „Přistavení“ (přistavení na adresu / vrácení jinde, 2026-11-27) =====
+   Kontejner [data-kc-dv] pod kalendářem (pages/katalog-calc.php), obsah js/landing-calc-delivery-ui.js.
+   Tmavá karta kalkulačky (paleta css/landing-calc.css); řádky v souhrnu = světlá „účtenka“ (landing-calc-sum.css). */
+.kc-dv{margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(116,251,113,.16)}
+.kc-dv[hidden],.kc-dv [hidden]{display:none}
+.kc-dv-hint{margin:0;color:#b8d4c6;font-size:.82rem;line-height:1.45}
+
+/* Volby (zaškrtávací karty jako ve formuláři: přistavení jinam / vrácení jinde) */
+.kc-dv-opt{position:relative;display:block;margin:0 0 .45rem;cursor:pointer}
+.kc-dv-opt input{position:absolute;opacity:0;width:1px;height:1px}
+.kc-dv-in{display:flex;align-items:center;gap:.65rem;min-height:56px;padding:.55rem .75rem;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(116,251,113,.22);transition:background .2s,border-color .2s,box-shadow .2s}
+.kc-dv-box{display:grid;place-items:center;flex:0 0 auto;width:24px;height:24px;border-radius:7px;border:2px solid rgba(116,251,113,.6);color:transparent;transition:background .2s,color .2s}
+.kc-dv-box .lp-ico{width:16px;height:16px}
+.kc-dv-tx{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.kc-dv-t{color:#fff;font-size:.88rem;font-weight:800;line-height:1.25}
+.kc-dv-s{color:#9fc4b1;font-size:.72rem;font-weight:600;line-height:1.3}
+.kc-dv-opt:hover .kc-dv-in{border-color:rgba(116,251,113,.6)}
+.kc-dv-opt input:checked+.kc-dv-in{background:rgba(116,251,113,.16);border-color:#74fb71;box-shadow:0 0 0 1px #74fb71,0 6px 18px -8px rgba(116,251,113,.7)}
+.kc-dv-opt input:checked+.kc-dv-in .kc-dv-box{background:#74fb71;border-color:#74fb71;color:#08230f}
+.kc-dv-opt input:focus-visible+.kc-dv-in{outline:3px solid #74fb71;outline-offset:2px}
+.kc-dv-opt.is-locked{cursor:not-allowed}
+.kc-dv-opt.is-locked .kc-dv-in{opacity:.5;border-color:rgba(116,251,113,.22)}
+
+/* Panel s adresou */
+.kc-dv-panel{margin:0 0 .7rem;padding:.65rem .7rem .7rem;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(116,251,113,.16);animation:kcIn .3s ease}
+.kc-dv-addr{display:block;box-sizing:border-box;width:100%;min-height:50px;margin:0;padding:.55rem .8rem;border-radius:12px;border:2px solid rgba(116,251,113,.55);background:rgba(255,255,255,.07);color:#fff;font:inherit;font-size:1rem;font-weight:600}
+.kc-dv-addr::placeholder{color:#9fc4b1;opacity:1;font-weight:500}
+.kc-dv-addr:hover,.kc-dv-addr:focus{border-color:#74fb71}
+/* Našeptávač: v toku stránky (karta kalkulačky má overflow:hidden — plovoucí seznam by se dole uřízl) */
+.kc-dv-list{margin:.35rem 0 0;padding:0;list-style:none;max-height:264px;overflow-y:auto;border-radius:12px;background:#fff;color:#1a2e22;box-shadow:0 10px 24px -10px rgba(0,0,0,.6)}
+.kc-dv-list li{display:flex;flex-direction:column;justify-content:center;gap:.1rem;min-height:44px;padding:.45rem .75rem;border-top:1px solid #e1efe9;font-size:.86rem;line-height:1.25;cursor:pointer}
+.kc-dv-list li:first-child{border-top:0}
+.kc-dv-list li:hover,.kc-dv-list li.is-on{background:#e6fae2}
+.kc-dv-list b{font-weight:800}
+.kc-dv-list small{color:#4a6b5a;font-size:.74rem}
+.kc-dv-route{display:flex;flex-direction:column;gap:.15rem;margin:.5rem 0 0;padding:.5rem .65rem;border-radius:10px;background:rgba(116,251,113,.1);color:#cfe7da;font-size:.76rem;line-height:1.4}
+.kc-dv-route b{color:#fff;font-weight:700}
+.kc-dv-route.is-wait{flex-direction:row;align-items:center;gap:.5rem;background:rgba(255,255,255,.05)}
+.kc-dv-route.is-wait .kc-spin{flex:0 0 auto}
+.kc-dv-route.is-err{background:rgba(255,200,87,.14);color:#ffd36b;font-weight:700}
+.kc-dv-chk{display:flex;align-items:center;gap:.55rem;min-height:36px;margin:.55rem 0 0;color:#e8f5ee;font-size:.84rem;font-weight:700;line-height:1.3;cursor:pointer}
+.kc-dv-chk input{flex:0 0 auto;width:20px;height:20px;margin:0;accent-color:#74fb71;cursor:pointer}
+.kc-dv-info{margin:.45rem 0 0;color:#9fc4b1;font-size:.74rem;line-height:1.4}
+.kc-dv-warn{margin:.5rem 0 0;padding:.5rem .7rem;border-radius:10px;background:rgba(255,200,87,.14);color:#ffd36b;font-size:.78rem;font-weight:700;line-height:1.4}
+
+/* Motorka ze samoobsluhy: volby zamčené + rozbalovací vysvětlení (jako .mg-ss-note ve formuláři) */
+.kc-dv-lock{margin:.1rem 0 0;border:1px dashed rgba(116,251,113,.4);border-radius:12px;background:rgba(255,255,255,.04)}
+.kc-dv-lock-h{display:flex;align-items:center;gap:.5rem;width:100%;min-height:44px;margin:0;padding:.5rem .7rem;border:0;background:none;color:#e8f5ee;font:inherit;font-size:.82rem;font-weight:700;line-height:1.3;text-align:left;cursor:pointer}
+.kc-dv-lock-i{flex:0 0 auto;color:#74fb71;font-size:1rem}
+.kc-dv-lock-t{flex:1;min-width:0}
+.kc-dv-lock-h .lp-ico{flex:0 0 auto;width:16px;height:16px;color:#9fc4b1;transform:rotate(-90deg);transition:transform .2s}
+.kc-dv-lock-h[aria-expanded="true"] .lp-ico{transform:rotate(90deg)}
+.kc-dv-lock-b{margin:0;padding:0 .7rem .65rem 2.2rem;color:#b8d4c6;font-size:.78rem;line-height:1.45}
+
+/* Souhrn: řádky „Přistavení motorky“ / „Vrácení motorky“ pod cenami po dnech (název | km | cena) */
+.kc-rows li.kc-r-dv{grid-template-columns:1fr auto auto}
+.kc-rows li.kc-r-dv .kc-r-d{text-transform:none}
+@media(prefers-reduced-motion:reduce){.kc-dv-panel{animation:none}.kc-dv-in,.kc-dv-box,.kc-dv-lock-h .lp-ico{transition:none}}

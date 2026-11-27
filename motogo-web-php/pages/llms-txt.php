@@ -119,7 +119,7 @@ foreach ($T['rentingFeatures'] as $f) echo "- $f\n";
 echo "\n";
 
 echo "## {$T['contact']}\n\n";
-echo "- **{$T['company']}:** Bc. Petra Semorádová, IČO 21874263\n";
+echo "- **{$T['company']}:** " . companyLegalLine(false, true) . "\n";
 echo "- **{$T['address']}:** Mezná 9, 393 01 Pelhřimov, Vysočina, CZ\n";
 echo "- **{$T['phone']}:** +420 774 256 271\n";
 echo "- **{$T['email']}:** info@motogo24.cz\n";

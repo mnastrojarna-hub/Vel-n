@@ -3,8 +3,8 @@
 // 1:1 prepis z https://www.motogo24.cz/cz/jak-si-pujcit-motorku/prevzeti-v-pujcovne
 
 return [
-    'h1' => 'Převzetí v půjčovně – rychle, jednoduše a nonstop',
-    'intro' => 'V <strong>Motogo24 – půjčovně motorek na Vysočině</strong>&nbsp;je převzetí motorky otázkou pár minut. Půjčujeme bez <strong>kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Přijď osobně do Mezné u Pelhřimova a vyraz na cestu! Na samoobslužné pobočce ve Velkých Němčicích u Brna si motorku vyzvedneš sám přístupovým kódem z aplikace nebo e-mailu.',
+    'h1' => 'Převzetí motorky v půjčovně: jak předání probíhá',
+    'intro' => 'Převzetí motorky trvá pár minut. V <strong>Mezné u Pelhřimova</strong> ti ji předáme osobně v čase, který sis zvolil/a v rezervaci – spolu projdeme motorku, výbavu i předávací protokol. Na <strong>samoobslužné pobočce ve Velkých Němčicích u Brna</strong> si motorku i výbavu vyzvedneš bez obsluhy pomocí kódů z aplikace.',
     'top_cta' => [
         'label' => 'REZERVOVAT ONLINE',
         'href' => '/rezervace',
@@ -15,7 +15,7 @@ return [
         'address_label' => 'Provozovna:',
         'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
         'hours_label' => 'Provozní doba:',
-        'hours' => '<em>nonstop</em> (vyzvednutí i vrácení kdykoli v den výpůjčky)',
+        'hours' => 'PO–NE <em>nonstop</em>, včetně víkendů a svátků – čas převzetí si zvolíš v rezervaci, vrátit můžeš kdykoli poslední den výpůjčky do 24:00',
         // Originalni Google Maps embed iframe URL z motogo24.cz
         'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
         'map_title' => 'Jak se k nám dostanete',
@@ -62,7 +62,7 @@ return [
             [
                 'icon' => 'gfx/uzij-si-jizdu.svg',
                 'title' => 'Můžeš vyrazit',
-                'text' => 'Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda.',
+                'text' => 'Vyraz na cestu. Kdyby se během výpůjčky cokoli stalo, jsme ti nonstop k dispozici.',
             ],
         ],
     ],

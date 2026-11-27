@@ -81,7 +81,7 @@ return [
             ],
             [
                 'q' => 'Co když se na místo vrácení zpozdím?&nbsp;',
-                'a' => 'Zavolej nám, jakmile víš, že to nestihneš na čas. Domluvíme se – většinou na tebe počkáme. Jen potřebujeme vědět, s jakým zpožděním počítat, abychom si mohli přizpůsobit plán dne.',
+                'a' => 'Zavolej nám, jakmile víš, že to nestihneš. Když dáš vědět předem, většinou na tebe počkáme. Pokud se v domluvený čas bez ohlášení nedostavíš, můžeme podle obchodních podmínek (čl. 2 e) odjet a účtovat ti marnou cestu ve výši poplatku za vyzvednutí.',
             ],
             [
                 'q' => 'Jak se počítá cena za vrácení na jiném místě?&nbsp;',
@@ -102,8 +102,8 @@ return [
         ],
     ],
     'cta' => [
-        'title' => 'Vrácení motorky jinde – půjčovna motorek MotoGo24',
-        'text' => 'Půjčovna motorek MotoGo24 na Vysočině nabízí vrácení motorky kdekoliv v České republice. Předej nám motorku na místě podle svého výběru – my přijedeme v domluvený čas. Cena se odvíjí od vzdálenosti z místa vrácení do naší provozovny v Pelhřimově. Vyber si cestovní, supermoto, naked nebo dětskou motorku, rezervuj online a vyraž. O zbytek se postaráme my.',
+        'title' => 'Máš dotaz k vrácení jinde?',
+        'text' => 'Místo a čas vrácení zadáš přímo v rezervaci a cenu ti formulář spočítá hned. Když si nevíš rady, zavolej nám nebo napiš.',
         'buttons' => [
             [
                 'label' => 'KONTAKT',
@@ -114,8 +114,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Vrácení motorky jinde než v půjčovně | MotoGo24',
-        'description' => 'Vrať motorku tam, kde ti to vyhovuje. MotoGo24 nabízí flexibilní vrácení motocyklu na Vysočině bez nutnosti návratu do půjčovny.',
+        'title' => 'Vrácení motorky jinde – odvoz kdekoli v ČR | MotoGo24',
+        'description' => 'Motorku z Mezné si vyzvedneme u hotelu, na nádraží i u tebe doma – kdekoli v ČR. Cena: 500 + 500 Kč a 20 Kč/km tam i zpět. Čas vrácení je závazný.',
         'keywords' => 'motopůjčovna',
     ],
 ];

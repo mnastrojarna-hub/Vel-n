@@ -65,7 +65,7 @@ return [
         ],
         [
             'short' => 'Velké Němčice',
-            'highlight' => '100 % nonstop, bez obsluhy',
+            'highlight' => 'Nonstop, bez obsluhy – kódem z aplikace',
             'dist' => ['20 min z jižního okraje Brna, cca 30 min z centra', 'cca 35 min z letiště Brno-Tuřany', 'cca 1 h 40 min z Vídně'],
             'stats' => [['v' => '24/7', 'l' => 'nonstop, bez obsluhy'], ['v' => '30 min', 'l' => 'z centra Brna (cca)'], ['v' => '35 min', 'l' => 'z letiště Brno-Tuřany (cca)']],
             'facts' => [

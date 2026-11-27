@@ -57,6 +57,10 @@ class MotoDetailV2View extends StatefulWidget {
   /// [busy].
   final VoidCallback? onReserve;
 
+  /// Opened by the bike card's "Rezervovat" without usable dates (5.0.3):
+  /// run the dock's "VYBRAT TERMÍN" once, right after the first frame.
+  final bool pickDatesOnOpen;
+
   const MotoDetailV2View({
     super.key,
     required this.moto,
@@ -81,6 +85,7 @@ class MotoDetailV2View extends StatefulWidget {
     required this.onReserve,
     required this.onPickDates,
     this.busy = false,
+    this.pickDatesOnOpen = false,
   });
 
   @override
@@ -89,6 +94,16 @@ class MotoDetailV2View extends StatefulWidget {
 
 class _MotoDetailV2ViewState extends State<MotoDetailV2View> {
   final GlobalKey _tripKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.pickDatesOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pickDates();
+      });
+    }
+  }
 
   /// The pill claims "free" only when the loaded calendar has no booked day
   /// in the range at all (the busy rule waits for the own reservations).

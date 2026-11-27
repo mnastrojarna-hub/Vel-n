@@ -170,7 +170,7 @@ curl https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/mot
 <h2>' . $h($T['contact_title']) . '</h2>
 <p><strong>E-mail:</strong> ' . $mailLink() . '<br>
 <strong>' . $h($T['c_phone']) . ':</strong> <a href="tel:+420774256271">+420 774 256 271</a><br>
-<strong>' . $h($T['c_operator']) . ':</strong> Bc. Petra Semorádová, IČO 21874263, Mezná 9, 393 01 Pelhřimov<br>
+<strong>' . $h($T['c_operator']) . ':</strong> ' . $h(companyLegalLine(true, true)) . '<br>
 <strong>' . $h($T['c_security']) . ':</strong> <a href="/.well-known/security.txt">/.well-known/security.txt</a></p>
 
 <h2>7. Compliance</h2>

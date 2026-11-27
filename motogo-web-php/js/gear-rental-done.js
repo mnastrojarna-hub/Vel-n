@@ -29,9 +29,9 @@
   function full(o) {
     if (o.subtotal != null && G.num(o.subtotal) > 0) return G.num(o.subtotal);
     var per = G.num(o.per_day), n = days(o);
-    return per > 0 && n > 0 ? per * n : G.num(o.total) + G.num(o.voucher_amount);
+    return per > 0 && n > 0 ? per * n : G.num(o.total) + G.num(o.discount_amount || o.voucher_amount);
   }
-  function toPay(o) { return Math.max(0, o.total != null && o.total !== '' ? G.num(o.total) : full(o) - G.num(o.voucher_amount)); }
+  function toPay(o) { return Math.max(0, o.total != null && o.total !== '' ? G.num(o.total) : full(o) - G.num(o.discount_amount || o.voucher_amount)); }
   function lines(o) {
     return (Array.isArray(o.lines) ? o.lines : []).map(function (l) {
       // pořadí kusů dle includes (jsonb sizes klíče přeřadí), jako souhrn ve formuláři
@@ -42,7 +42,7 @@
     }).join('');
   }
   function summary(o) {
-    var b = o.branch, va = G.num(o.voucher_amount), li = lines(o), n = days(o);
+    var b = o.branch, ds = G.discounts ? G.discounts(o) : [], va = ds.reduce(function (s, d) { return s + G.num(d.amount); }, 0) || G.num(o.voucher_amount), li = lines(o), n = days(o);
     var addr = b ? [String(b.name || '').replace(/^MotoGo24\s*/i, ''), b.address, b.city].filter(Boolean).join(', ') : '';
     return '<div class="gr-ok-sum">' +
       (o.booking_number ? '<p><span>' + esc(T.ok_order) + '</span><b>' + esc(o.booking_number) + '</b></p>' : '') +
@@ -50,7 +50,8 @@
       (o.start_date ? '<p>' + K.ico('cal') + esc(G.period(o.start_date, o.end_date)) + (n ? ' (' + esc(G.days(n)) + ')' : '') +
         (o.pickup_time ? ' · ' + esc(String(o.pickup_time).slice(0, 5)) : '') + '</p>' : '') +
       (li ? '<ul>' + li + '</ul>' : '') +
-      (va > 0 ? '<p class="gr-vline"><span>' + esc(tpl(T.voucher_line, { code: '' }).trim()) + '</span><span>−' + esc(G.czk(va)) + '</span></p>' : '') +
+      (ds.length ? ds.map(function (d) { return '<p class="gr-vline"><span>' + esc(G.discountLabel(d)) + '</span><span>−' + esc(G.czk(G.num(d.amount))) + '</span></p>'; }).join('')
+        : (va > 0 ? '<p class="gr-vline"><span>' + esc(tpl(T.voucher_line, { code: '' }).trim()) + '</span><span>−' + esc(G.czk(va)) + '</span></p>' : '')) +
       (full(o) > 0 || va > 0 ? '<p class="gr-total"><span>' + esc(va > 0 && !isPaid(o) ? T.to_pay : T.total) + '</span><b>' + esc(G.czk(toPay(o))) + '</b></p>' : '') + '</div>';
   }
   function btns(o) {

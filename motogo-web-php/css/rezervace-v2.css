@@ -59,13 +59,13 @@
 @media(max-width:420px){.rez-v2 #rez-calendar{padding:.75rem .4rem .7rem}.rez-v2 #rez-calendar .cal-grid{gap:3px}.rez-v2 #rez-calendar .cal-day{aspect-ratio:auto;min-height:42px}}
 .rez-v2 #rez-calendar .cal-day{border:1px solid transparent;border-radius:12px;color:#fff;transition:transform .12s,background .15s,border-color .15s,box-shadow .15s}
 .rez-v2 #rez-calendar .cal-day.free{background:rgba(116,251,113,.14);border-color:rgba(116,251,113,.32);color:#fff}
-.rez-v2 #rez-calendar .cal-day.free:not(.sel-start):not(.sel-end):hover{background:rgba(116,251,113,.3);border-color:#74fb71;transform:translateY(-2px);box-shadow:0 8px 16px -8px rgba(116,251,113,.7)}
+.rez-v2 #rez-calendar .cal-day.free:not(.sel-start):not(.sel-end):not(.in-range):hover{background:rgba(116,251,113,.3);border-color:#74fb71;transform:translateY(-2px);box-shadow:0 8px 16px -8px rgba(116,251,113,.7)}
 .rez-v2 #rez-calendar .cal-day.occupied{background:repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 4px,transparent 4px 8px);color:rgba(255,255,255,.38)}
 .rez-v2 #rez-calendar .cal-day.occupied span:last-child{text-decoration:line-through}
 .rez-v2 #rez-calendar .cal-day.unconfirmed{background:none;border:1px dashed rgba(255,211,107,.75);color:rgba(255,255,255,.6)}
 .rez-v2 #rez-calendar .cal-day.past{background:none;color:rgba(255,255,255,.36);opacity:1}
 .rez-v2 #rez-calendar .cal-day .dn{opacity:.85}
-.rez-v2 #rez-calendar .cal-day.in-range{background:rgba(116,251,113,.28);border-color:rgba(116,251,113,.6);border-radius:8px;color:#fff}
+.rez-v2 #rez-calendar .cal-day.in-range{background:linear-gradient(135deg,#8dff86,#37cf63);border-color:transparent;border-radius:8px;color:#08230f;box-shadow:0 0 0 2px rgba(116,251,113,.35),0 8px 18px -6px rgba(116,251,113,.9)}
 .rez-v2 #rez-calendar .cal-day.sel-start,.rez-v2 #rez-calendar .cal-day.sel-end{background:linear-gradient(135deg,#8dff86,#37cf63);border-color:transparent;color:#08230f;box-shadow:0 0 0 2px rgba(116,251,113,.35),0 8px 18px -6px rgba(116,251,113,.9);animation:rzPop .3s ease}
 .rez-v2 #rez-calendar .cal-day.today{outline:2px solid rgba(255,255,255,.75);outline-offset:-2px}
 .rez-v2 #rez-calendar .calendar-icons,.rez-v2 #rez-calendar .calendar-icons>div{color:#cfe7da}

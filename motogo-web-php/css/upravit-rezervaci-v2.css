@@ -31,7 +31,7 @@
 .erez-v2 .erez-cal-wrap .erez-cal-day.occ span{text-decoration:line-through}
 .erez-v2 .erez-cal-wrap .erez-cal-day.past{background:none;color:rgba(255,255,255,.36);opacity:1}
 .erez-v2 .erez-cal-wrap .erez-cal-day.orig,.erez-v2 .erez-cal-wrap .erez-cal-day.erez-move-cur{background:rgba(255,255,255,.1);border:1.5px dashed #74fb71;color:#fff}
-.erez-v2 .erez-cal-wrap .erez-cal-day:is(.extension,.keep){background:rgba(116,251,113,.28);border:1px solid rgba(116,251,113,.6);color:#fff}
+.erez-v2 .erez-cal-wrap .erez-cal-day:is(.extension,.keep){background:linear-gradient(135deg,#8dff86,#37cf63);border:1px solid transparent;color:#08230f;box-shadow:0 0 0 2px rgba(116,251,113,.35)}
 .erez-v2 .erez-cal-wrap .erez-cal-day:is(.extension-start,.extension-end,.keep-start,.keep-end):not(.removed){background:linear-gradient(135deg,#8dff86,#37cf63);border-color:transparent;color:#08230f;box-shadow:0 0 0 2px rgba(116,251,113,.35)}
 .erez-v2 .erez-cal-wrap .erez-cal-day.removed{background:rgba(229,72,77,.32);border:1px solid rgba(229,72,77,.75);color:#ffd9da;border-radius:12px}
 .erez-v2 .erez-cal-wrap .erez-cal-day.today{outline:2px solid rgba(255,255,255,.75);outline-offset:-2px}

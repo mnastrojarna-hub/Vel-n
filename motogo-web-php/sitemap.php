@@ -171,8 +171,9 @@ if (!$posts || empty($posts)) {
     require_once __DIR__ . '/pages/blog_fallback.php';
     $posts = getBlogFallbackPosts();
 }
+$blogNoindex = require __DIR__ . '/data/blog-noindex.php'; // články s noindex do sitemap nepatří
 foreach ($posts as $p) {
-    if (empty($p['slug'])) continue;
+    if (empty($p['slug']) || in_array($p['slug'], $blogNoindex, true)) continue;
     $lastmod = !empty($p['updated_at']) ? substr($p['updated_at'], 0, 10)
         : (!empty($p['created_at']) ? substr($p['created_at'], 0, 10) : $today);
     $imgs = [];

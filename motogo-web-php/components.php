@@ -407,6 +407,31 @@ function he($v) {
     return htmlspecialchars(safeStr($v), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
+/** Česká stránka? (české tvary čísel, dnů a dat — ostatní jazyky se neformátují). */
+function mgIsCs() {
+    return (function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') === 'cs';
+}
+
+/**
+ * Číslo z DB pro zobrazení (už escapované): na české stránce desetinná čárka (5.5 → 5,5),
+ * s $thousands i pevná mezera v tisících (1254 → 1 254, jen objem v ccm). Jiné jazyky beze změny.
+ * JSON-LD ani data pro JS tudy nejdou — tam zůstávají čísla s tečkou.
+ */
+function numLoc($v, $thousands = false) {
+    $s = trim(safeStr($v));
+    if (!mgIsCs() || !preg_match('/^(-?\d+)(?:\.(\d+))?$/', $s, $m)) return he($s);
+    $int = $thousands ? preg_replace('/\B(?=(\d{3})+$)/', "\u{00A0}", $m[1]) : $m[1];
+    return he($int . (isset($m[2]) ? ',' . $m[2] : ''));
+}
+
+/** Počet dní: česky 1 den / 2–4 dny / 5+ dní, jiné jazyky jednotný tvar detail.daysUnit. */
+function daysUnitLabel($n) {
+    $n = (int)$n;
+    $key = 'detail.daysUnit';
+    if (mgIsCs()) $key = $n === 1 ? 'detail.daysUnitOne' : ($n >= 2 && $n <= 4 ? 'detail.daysUnitFew' : $key);
+    return t($key, ['count' => $n]);
+}
+
 /**
  * Lokalizovaný název kategorie (cestovni → "Cestovní"). Fallback = ucfirst.
  */
@@ -456,9 +481,9 @@ function buildShortDescItems($m) {
         switch ($k) {
             case 'power_kw':
                 if (!empty($m['power_kw'])) {
-                    $v = he($m['power_kw']) . ' kW';
+                    $v = numLoc($m['power_kw']) . ' kW';
                     $card = $v;
-                    if (!empty($m['power_hp'])) $v .= ' (cca ' . he($m['power_hp']) . ' ' . te('detail.hpUnit') . ')';
+                    if (!empty($m['power_hp'])) $v .= ' (cca ' . numLoc($m['power_hp']) . ' ' . te('detail.hpUnit') . ')';
                     $item = [te('detail.specPower'), $v, $card];
                 }
                 break;
@@ -467,13 +492,13 @@ function buildShortDescItems($m) {
                 break;
             case 'engine':
                 $p = [];
-                if (!empty($m['engine_cc'])) $p[] = he($m['engine_cc']) . ' ccm';
+                if (!empty($m['engine_cc'])) $p[] = numLoc($m['engine_cc'], true) . ' ccm';
                 if (!empty($m['engine_type'])) $p[] = he($m['engine_type']);
                 if (!empty($m['transmission'])) $p[] = he($m['transmission']);
                 if ($p) $item = [te('detail.specEngine'), implode(', ', $p), $p[0]];
                 break;
             case 'engine_cc':
-                if (!empty($m['engine_cc'])) { $v = he($m['engine_cc']) . ' ccm'; $item = [te('detail.specEngineCc'), $v, $v]; }
+                if (!empty($m['engine_cc'])) { $v = numLoc($m['engine_cc'], true) . ' ccm'; $item = [te('detail.specEngineCc'), $v, $v]; }
                 break;
             case 'engine_type':
                 if (!empty($m['engine_type'])) { $v = he($m['engine_type']); $item = [te('detail.specEngineTypeRow'), $v, $v]; }
@@ -489,22 +514,22 @@ function buildShortDescItems($m) {
                 }
                 break;
             case 'fuel_consumption_l100km':
-                if (!empty($m['fuel_consumption_l100km'])) { $v = he($m['fuel_consumption_l100km']) . ' l/100 km'; $item = [te('detail.specFuelConsumption'), 'cca ' . $v, $v]; }
+                if (!empty($m['fuel_consumption_l100km'])) { $v = numLoc($m['fuel_consumption_l100km']) . ' l/100 km'; $item = [te('detail.specFuelConsumption'), 'cca ' . $v, $v]; }
                 break;
             case 'fuel_type':
                 if (!empty($m['fuel_type'])) { $v = he($m['fuel_type']); $item = [te('detail.specFuelType'), $v, $v]; }
                 break;
             case 'fuel_tank_l':
-                if (!empty($m['fuel_tank_l'])) { $v = he($m['fuel_tank_l']) . ' l'; $item = [te('detail.specFuelTank'), $v, $v]; }
+                if (!empty($m['fuel_tank_l'])) { $v = numLoc($m['fuel_tank_l']) . ' l'; $item = [te('detail.specFuelTank'), $v, $v]; }
                 break;
             case 'torque_nm':
-                if (!empty($m['torque_nm'])) { $v = he($m['torque_nm']) . ' Nm'; $item = [te('detail.specTorque'), $v, $v]; }
+                if (!empty($m['torque_nm'])) { $v = numLoc($m['torque_nm']) . ' Nm'; $item = [te('detail.specTorque'), $v, $v]; }
                 break;
             case 'top_speed_kmh':
                 if (!empty($m['top_speed_kmh'])) { $v = he($m['top_speed_kmh']) . ' km/h'; $item = [te('detail.specTopSpeed'), $v, $v]; }
                 break;
             case 'weight_kg':
-                if (!empty($m['weight_kg'])) { $v = he($m['weight_kg']) . ' kg'; $item = [te('detail.specWeight'), $v, $v]; }
+                if (!empty($m['weight_kg'])) { $v = numLoc($m['weight_kg']) . ' kg'; $item = [te('detail.specWeight'), $v, $v]; }
                 break;
             case 'seat_height_mm':
                 if (!empty($m['seat_height_mm'])) { $v = he($m['seat_height_mm']) . ' mm'; $item = [te('detail.specSeatHeight'), $v, $v]; }
@@ -648,7 +673,8 @@ function renderMotoCard($m) {
         $today = date('Y-m-d');
         $nextAvail = $m['next_available_date'] ?? null;
         if ($nextAvail && $nextAvail > $today) {
-            $dateFmt = date('d.m.Y', strtotime($nextAvail));
+            // česky „26. 3. 2027“ (pevné mezery), ostatní jazyky beze změny
+            $dateFmt = mgIsCs() ? date("j.\u{00A0}n.\u{00A0}Y", strtotime($nextAvail)) : date('d.m.Y', strtotime($nextAvail));
             $badge = '<span class="moto-card-badge">' . te('card.availableFrom', ['date' => $dateFmt]) . '</span>';
         } elseif ($mStatus === 'active' && empty($m['available_unknown'])) {
             // "Dostupné dnes" jen pro plně aktivní motorky. Motorka v servisu

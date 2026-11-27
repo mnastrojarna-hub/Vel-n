@@ -84,10 +84,11 @@
 .kc-day.is-past{background:none;color:rgba(255,255,255,.22)}
 .kc-day.is-wait{background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.12),rgba(255,255,255,.05));background-size:200% 100%;animation:kcShim 1.2s linear infinite;color:rgba(255,255,255,.4);cursor:progress}
 .kc-day.is-today .kc-dn::after{content:"";display:block;width:4px;height:4px;margin:2px auto 0;border-radius:50%;background:currentColor}
-.kc-days .kc-day.is-in,.kc-days .kc-day.is-hover{background:rgba(116,251,113,.24);border-color:transparent;border-radius:6px}
+.kc-days .kc-day.is-hover{background:rgba(116,251,113,.24);border-color:transparent;border-radius:6px}
+.kc-days .kc-day.is-in{background:linear-gradient(135deg,#8dff86,#37cf63);border-color:transparent;border-radius:6px;color:#08230f;box-shadow:0 0 0 2px rgba(116,251,113,.35),0 6px 16px -6px rgba(116,251,113,.9)}
 .kc-days .kc-day.is-start,.kc-days .kc-day.is-end{background:linear-gradient(135deg,#8dff86,#37cf63);color:#08230f;box-shadow:0 0 0 2px rgba(116,251,113,.35),0 6px 16px -6px rgba(116,251,113,.9);animation:kcPop .3s ease}
-.kc-day.is-start .kc-dp,.kc-day.is-end .kc-dp{color:#0b3b1a}
-.kc-day.is-in .kc-dp,.kc-day.is-hover .kc-dp{color:#c8ffc4}
+.kc-day.is-start .kc-dp,.kc-day.is-end .kc-dp,.kc-day.is-in .kc-dp{color:#0b3b1a}
+.kc-day.is-hover .kc-dp{color:#c8ffc4}
 .kc-cal-wait{position:absolute;left:50%;top:55%;z-index:2;display:flex;align-items:center;gap:.5rem;max-width:90%;padding:.55rem .9rem;border-radius:999px;background:rgba(10,31,20,.92);box-shadow:0 8px 24px rgba(0,0,0,.35);color:#e8f5ee;font-size:.8rem;font-weight:700;transform:translate(-50%,-50%)}
 .kc-spin{width:16px;height:16px;border:2px solid rgba(116,251,113,.3);border-top-color:#74fb71;border-radius:50%;animation:kcSpin .8s linear infinite}
 .kc-retry{min-height:34px;padding:.2rem .7rem;border:1px solid #74fb71;border-radius:999px;background:none;color:#74fb71;font:inherit;font-weight:800;cursor:pointer}

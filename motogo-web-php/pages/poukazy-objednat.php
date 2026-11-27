@@ -68,6 +68,14 @@ $form = '<div class="gift-voucher-order gv-order">' .
     '</div></div>' .
 
     '<div class="gv-sec gv-sec--sum">' . $gvSecT(4, te('checkout.summary.title')) .
+    // Slevové kódy (2026-11-27): víc kódů jako rezervace, cenu a platnost určuje server (quote_web_voucher_order)
+    '<div class="gv-codes">' .
+        '<label class="gv-code-on"><input type="checkbox" id="gv-code-on"> ' . te('voucher.codeToggle') . '</label>' .
+        '<div class="gv-code-box" id="gv-code-box" hidden><div class="gv-code-row">' .
+            $gvField('type="text" id="gv-code" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="' . te('voucher.codeField') . '"', 'voucher.codeField', 'gv-f--code') .
+            '<button type="button" id="gv-code-apply" class="btn btndark">' . te('voucher.codeApply') . '</button>' .
+        '</div><p class="gv-code-msg" id="gv-code-msg" aria-live="polite" hidden></p></div>' .
+    '</div>' .
     '<div class="gv-price-preview" id="gvPricePreview">' .
         '<span class="gv-sum-l">' . te('voucher.totalPrice') . '</span> <strong id="gvTotalPrice">' . moneyHtml(1000) . '</strong>' .
         ' <span class="gv-czk-note" id="gvCzkNote"></span>' .
@@ -111,7 +119,9 @@ $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL', 'uk' => 'uk-UA'];
 $jsLocale = $localeMap[$lang] ?? 'cs-CZ';
 
-$js = '<script>
+// voucher-codes.js se načítá PŘED inline skriptem (bez defer) — ten z něj hned volá MGVoucherCodes
+$js = '<script src="' . assetUrl('/js/voucher-codes.js') . '"></script>
+<script>
 var SUPABASE_URL=' . json_encode(SUPABASE_URL) . ';
 var SUPABASE_ANON_KEY=' . json_encode(SUPABASE_ANON_KEY) . ';
 var GV_I18N = {
@@ -124,7 +134,12 @@ var GV_I18N = {
   errGen: ' . json_encode(t('voucher.errGeneric'), JSON_UNESCAPED_UNICODE) . ',
   processing: ' . json_encode(t('voucher.processing'), JSON_UNESCAPED_UNICODE) . ',
   continue: ' . json_encode(t('voucher.continueToPay'), JSON_UNESCAPED_UNICODE) . ',
-  czkChargeNote: ' . json_encode(t('currency.note.czkCharge'), JSON_UNESCAPED_UNICODE) . '
+  czkChargeNote: ' . json_encode(t('currency.note.czkCharge'), JSON_UNESCAPED_UNICODE) . ',
+  code: ' . json_encode(array_combine(
+      ['remove', 'line', 'bad', 'dup', 'wait', 'min', 'pct', 'moto', 'voucher', 'rate', 'belowMin', 'toPay', 'total'],
+      array_map('t', ['voucher.codeRemove', 'voucher.codeLine', 'voucher.codeBad', 'voucher.codeDup', 'voucher.codeWait', 'voucher.codeMin',
+          'voucher.codePct', 'voucher.codeMoto', 'voucher.codeVoucher', 'voucher.codeRate', 'voucher.codeBelowMin', 'voucher.toPay', 'voucher.totalPrice'])
+  ), JSON_UNESCAPED_UNICODE) . '
 };
 var GV_CURRENCY = ' . json_encode(function_exists('currencyJsConfig') ? currencyJsConfig() : ['current'=>'CZK','rates'=>[],'meta'=>[]], JSON_UNESCAPED_UNICODE) . ';
 (function(){
@@ -133,7 +148,7 @@ var custom=document.getElementById("gv-custom");
 var printCb=document.getElementById("gv-print");
 var totalEl=document.getElementById("gvTotalPrice");
 var czkNoteEl=document.getElementById("gvCzkNote");
-
+var sumLabel=document.querySelector("#gvPricePreview .gv-sum-l");
 // Konvertuje CZK částku na zobrazenou měnu (varianta A: backend vždy CZK)
 function convert(czk){
   var cur=(GV_CURRENCY && GV_CURRENCY.current) || "CZK";
@@ -154,10 +169,17 @@ function getAmount(){
   var r=document.querySelector("input[name=value]:checked");
   return r?Number(r.value):0;
 }
+// Slevové kódy (js/voucher-codes.js): víc kódů, cenu a platnost určuje server
+var GC=window.MGVoucherCodes?MGVoucherCodes({url:SUPABASE_URL,key:SUPABASE_ANON_KEY,T:GV_I18N.code,errGen:GV_I18N.errGen,fmt:fmt,
+  amount:getAmount,print:function(){return printCb&&printCb.checked;},onChange:function(){update();}}):null;
 function update(){
   var a=getAmount();
   var eq=printCb&&printCb.checked?180:0;
   var totalCzk=a+eq;
+  // se slevovým kódem platí cena ze serveru (jen když odpovídá aktuální hodnotě a tisku)
+  var q=GC?GC.quote(a,eq):null;
+  if(q)totalCzk=Number(q.total);
+  if(sumLabel)sumLabel.textContent=q&&Number(q.discount)>0?GV_I18N.code.toPay:GV_I18N.code.total;
   totalEl.textContent=fmt(totalCzk);
   // Když je vybrána jiná měna než CZK, zobraz info o reálné účtované CZK částce
   if(czkNoteEl){
@@ -169,12 +191,12 @@ function update(){
 }
 
 radios.forEach(function(r){r.addEventListener("change",function(){
-  if(custom)custom.value="";update();
+  if(custom)custom.value="";update();if(GC)GC.requote();
 });});
 if(custom)custom.addEventListener("input",function(){
-  radios.forEach(function(r){r.checked=false;});update();
+  radios.forEach(function(r){r.checked=false;});update();if(GC)GC.requote();
 });
-if(printCb)printCb.addEventListener("change",update);
+if(printCb)printCb.addEventListener("change",function(){update();if(GC)GC.requote();});
 
 var form=document.getElementById("giftVoucherForm");
 form.addEventListener("submit",function(e){
@@ -190,6 +212,8 @@ form.addEventListener("submit",function(e){
   var isPrint=printCb&&printCb.checked;
   var printFee=isPrint?180:0;
   var total=amount+printFee;
+  var gq=GC?GC.quote(amount,printFee):null;
+  if(gq)total=Number(gq.total);
   var phone=(document.getElementById("gv-phone").value||"").trim();
   var street=(document.getElementById("gv-street").value||"").trim();
   var zip=(document.getElementById("gv-zip").value||"").trim();
@@ -213,13 +237,18 @@ form.addEventListener("submit",function(e){
       customer_company:company||null,
       customer_ico:ico||null,
       customer_dic:dic||null,
+      codes:GC?GC.list():[],
       origin: window.location.origin,
       locale: (document.documentElement.lang||"cs").slice(0,2)
     })
   }).then(function(r){return r.json();})
   .then(function(data){
     if(data.checkout_url){window.location.href=data.checkout_url;}
-    else{alert(data.error||GV_I18N.errPay);btn.disabled=false;btn.textContent=GV_I18N.continue;}
+    else{
+      // neplatný kód (mezitím vypršel / vyčerpán) → vyřadit, přepočítat a říct proč
+      if(data.discount_code&&GC)GC.drop(data.discount_code,GV_I18N.code.bad);
+      alert(data.code==="below_minimum"?GV_I18N.code.belowMin:(data.discount_code?GV_I18N.code.bad:(data.error||GV_I18N.errPay)));
+      btn.disabled=false;btn.textContent=GV_I18N.continue;}
   }).catch(function(err){
     console.error("[POUKAZ]",err);
     alert(GV_I18N.errGen);

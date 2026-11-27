@@ -215,7 +215,7 @@ return [
     'shop.intro' => 'Motorkářské doplňky, merch a dárky pro fanoušky MotoGo24. Doručíme po celé ČR.',
     'shop.description' => 'E-shop MotoGo24 — motorkářské doplňky, oblečení a merch. Online objednávka, doprava po celé ČR.',
     'shop.keywords' => 'motopůjčovna, půjčovna motorek, motorkářské doplňky, motorkářská výbava, helmy, bundy, rukavice, dárkový poukaz na motorku, MotoGo24 e-shop',
-    'shop.empty' => 'Momentálně nemáme žádné produkty na skladě. Sledujte nás na sociálních sítích.',
+    'shop.empty' => 'Momentálně nemáme žádné produkty na skladě. Novinky sleduj na našich sociálních sítích.',
     'shop.unnamedProduct' => 'Produkt',
     'shop.productAlt' => '{name} — e-shop MotoGo24',
     'shop.detailButton' => 'Detail produktu',
@@ -1511,12 +1511,15 @@ return [
     'filters.empty' => 'Podle zvolených filtrů momentálně nemáme žádné motorky.',
     'filters.clearFilters' => 'Zrušit filtry',
     'filters.countLine' => 'Nalezeno <strong>{count}</strong> z {total} motorek',
-    'filters.catalogLead' => 'Vyberte si z naší nabídky <strong>cestovních, naked, supermoto i dětských motorek, chopperů a skútrů</strong>. Můžete filtrovat podle kategorie, řidičského průkazu, výkonu, ceny a dalších parametrů.',
+    'filters.catalogLead' => 'Vyber si z naší nabídky <strong>cestovních, naked, supermoto i dětských motorek, chopperů a skútrů</strong>. Filtrovat můžeš podle kategorie, řidičského průkazu, výkonu, ceny a dalších parametrů.',
     'filters.aria.catalog' => 'katalog motorek',
 
     // ===== Katalog SEO =====
-    'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, naked, supermoto, choppery, skútry i dětské motorky. Online rezervace.',
-    'detail.metaRent' => 'Půjč si {model}',
+    // katalog.seo.title: <title> stránky /katalog jen česky (pages/katalog.php); ostatní jazyky mají „{menu.catalog} | MotoGo24“
+    'katalog.seo.title' => 'Motorky k pronájmu – katalog a ceny | MotoGo24',
+    'katalog.seo.description' => 'Cestovní, naked, supermoto, choppery, skútry i dětské motorky k pronájmu u Pelhřimova a Brna. Filtruj podle ŘP, pobočky a ceny a uvidíš volné dny i cenu.',
+    // detail.meta*: česky se nepoužívají — titulek i popis detailu skládá katalogMotoSeoCs() (pages/katalog-detail-v2.php)
+    'detail.metaRent' => 'Pronájem motorky {model}',
     'detail.metaNoDeposit' => 'bez kauce u MotoGo24 {place}',
     'detail.metaDefault' => 'výbava v ceně, online rezervace, výdej i vrácení nonstop dle rezervace',
     'katalog.seo.keywords' => 'katalog motorek k pronájmu, půjčovna motorek Vysočina, půjčit motorku, pronájem motocyklu, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka bez kauce, online rezervace motorky, MotoGo24 Pelhřimov',
@@ -1560,6 +1563,9 @@ return [
     'detail.specMinRental' => 'Minimální délka pronájmu',
     'detail.specMaxRental' => 'Maximální délka pronájmu',
     'detail.daysUnit' => '{count} dní',
+    // 1 den / 2–4 dny (jen čeština, daysUnitLabel() v components.php)
+    'detail.daysUnitOne' => '{count} den',
+    'detail.daysUnitFew' => '{count} dny',
     'detail.maxRentalUnlimited' => 'bez omezení',
     'detail.specLicense' => 'Řidičák',
     'detail.specLicenseGroup' => 'Skupina {group}',
@@ -1640,7 +1646,7 @@ return [
 
     // ===== Blog =====
     'blog.title' => 'Blog a tipy pro motorkáře | MotoGo24',
-    'blog.description' => 'Blog Motogo24 – tipy na motorkářské trasy na Vysočině i v ČR, novinky z půjčovny, rady pro bezpečnou jízdu a praktické postupy.',
+    'blog.description' => 'Blog MotoGo24: jak vybrat první motorku, jestli ji půjčit, nebo koupit, tipy na dárky pro motorkáře, dětské motorky a vše o půjčení bez kauce a krytí škod.',
     'blog.keywords' => 'motopůjčovna, půjčovna motorek, motocyklové trasy Vysočina, tipy pro motorkáře, motorkářský blog, MotoGo24',
     'blog.h1' => 'Blog a tipy z motopůjčovny MotoGo24',
     'blog.empty' => 'Žádné články v této kategorii.',
@@ -1677,6 +1683,21 @@ return [
     'voucher.totalPrice' => 'Celková cena:',
     'voucher.agreement' => '* Souhlasím s <a href="{href}" target="_blank">obchodními podmínkami</a>',
     'voucher.continueToPay' => 'Pokračovat k platbě',
+    'voucher.codeToggle' => 'Mám slevový kód',
+    'voucher.codeField' => 'Slevový kód',
+    'voucher.codeApply' => 'Použít',
+    'voucher.codeRemove' => 'Odebrat',
+    'voucher.codeLine' => 'Slevový kód {code}',
+    'voucher.codeBad' => 'Tenhle kód použít nejde — zkontroluj, jestli je opsaný správně.',
+    'voucher.codeDup' => 'Tenhle kód už je uplatněný.',
+    'voucher.codeWait' => 'Ověřuji kód…',
+    'voucher.codeMin' => 'Tenhle kód platí od objednávky za {min}.',
+    'voucher.codePct' => 'Uplatnit jde jen jeden procentní kód.',
+    'voucher.codeMoto' => 'Tenhle kód platí jen na půjčení vybraných motorek.',
+    'voucher.codeVoucher' => 'Dárkovým poukazem se jiný poukaz zaplatit nedá — použij ho při rezervaci motorky nebo výbavy.',
+    'voucher.codeRate' => 'Příliš mnoho neplatných pokusů — zkus to prosím za chvíli.',
+    'voucher.codeBelowMin' => 'Po slevě musí zbýt k zaplacení aspoň 15 Kč.',
+    'voucher.toPay' => 'K úhradě',
     'voucher.processing' => 'Zpracovávám...',
     'voucher.errMinAmount' => 'Zadejte hodnotu poukazu (min. 100 Kč).',
     'voucher.errFillNameEmail' => 'Vyplňte jméno a e-mail.',
@@ -1802,7 +1823,7 @@ return [
 
     // ===== QA 2026-10-16: lokalizované nadpisy, SEO alt, JSON-LD =====
     'common.fallbackH1' => 'MotoGo24 — půjčovna motorek',
-    'detail.h1Suffix' => '— půjčovna motorek MotoGo24',
+    'detail.h1Suffix' => 'k pronájmu',
     'detail.titleSuffix' => '| Půjčovna MotoGo24',
     'seo.altIcon' => 'ikona MotoGo24',
     'ld.orgName' => 'MotoGo24 — půjčovna motorek Vysočina',

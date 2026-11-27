@@ -57,8 +57,9 @@ if (empty($posts)) {
 $blogDefaults = [
     'outro' => [
         'title' => 'O našem blogu',
-        'body1' => 'Na blogu MotoGo24 najdete tipy pro motorkáře, recenze našich strojů, rady jak si vybrat <strong>správnou motorku k pronájmu</strong> a inspiraci na trasy po Vysočině i celé České republice. Pravidelně přidáváme články o dárkových poukazech, údržbě motorek i o tom, jak <strong>půjčit motorku bez kauce</strong> a co všechno je v ceně nájmu zahrnuto.',
-        'body2' => 'Pokud hledáte praktické informace o mototuristice, výbavě nebo o tom, jak to funguje v naší půjčovně, jste na správném místě. Máte téma, které by vás zajímalo? <a href="/kontakt">Napište nám</a> a rádi se mu věnujeme v dalším článku.',
+        // jen témata, která na blogu opravdu jsou (trasy, recenze strojů ani údržbu zatím nemáme)
+        'body1' => 'Na blogu MotoGo24 najdeš rady, jak si vybrat <strong>správnou motorku k pronájmu</strong>, tipy na dárky pro motorkáře a články o tom, jak <strong>půjčit motorku bez kauce</strong>, jak funguje krytí škod a co všechno je v ceně nájmu.',
+        'body2' => 'Pokud hledáš praktické informace o dětských motorkách, aplikaci MotoGo24 nebo o tom, jak to chodí v naší půjčovně, jsi na správném místě. Máš téma, které by tě zajímalo? <a href="/kontakt">Napiš nám</a> a rádi se mu budeme věnovat v dalším článku.',
     ],
 ];
 $BC = $sb->siteContent('blog', $blogDefaults);

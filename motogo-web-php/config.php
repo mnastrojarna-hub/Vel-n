@@ -98,10 +98,33 @@ define('SKLIK_RETARGETING_ID', getenv('MOTOGO_SKLIK_RETARGETING_ID') ?: '');
 // + label dodá inzerent v GTM, ne v kódu).
 define('GTM_CONTAINER_ID', getenv('MOTOGO_GTM_CONTAINER_ID') ?: 'GTM-WP9CHL59');
 
-// Firemní údaje
-define('COMPANY_NAME', 'Bc. Petra Semorádová');
-define('COMPANY_ICO', '21874263');
-define('COMPANY_ADDRESS', 'Mezná 9, 393 01 Pelhřimov');
+// Firemní údaje — provozovatel (JEDINÝ zdroj pro celý web; stejné hodnoty drží
+// app_settings.company_info, kterou čte JSON-LD v layout-ld.php, faktury a smlouvy).
+// COMPANY_ADDRESS = SÍDLO dle obchodního rejstříku. Adresa provozovny / kontaktní
+// adresa je ADDRESS výše (poštovní obec Pelhřimov) a se sídlem se NEsjednocuje.
+define('COMPANY_NAME', 'MotoGo24 s.r.o.');
+define('COMPANY_ICO', '29909864');
+define('COMPANY_ADDRESS', 'Mezná 9, 393 01 Mezná');
+// Zápis v obchodním rejstříku: dlouhá forma navazuje na název („MotoGo24 s.r.o., se sídlem …, IČO …, zapsaná …“),
+// krátká se hodí do jednořádkových údajů (strojově čitelné soubory, patičky dokumentů).
+define('COMPANY_REGISTER', 'zapsaná v obchodním rejstříku vedeném Krajským soudem v Českých Budějovicích, oddíl C, vložka 36876');
+define('COMPANY_REGISTER_SHORT', 'C 36876 vedená u Krajského soudu v Českých Budějovicích');
+define('COMPANY_REGISTERED_SINCE', '2026-08-18');   // den zápisu společnosti do obchodního rejstříku
+define('COMPANY_VAT_PAYER', false);                 // není plátce DPH — DIČ se nikde neuvádí
+define('COMPANY_DATA_BOX', '2xfihrd');
+define('COMPANY_BANK_ACCOUNT', '2303580494/2010');
+define('COMPANY_BANK_NAME', 'Fio banka');
+define('COMPANY_IBAN', 'CZ8320100000002303580494');
+
+/**
+ * Jednořádková identifikace provozovatele pro strojově čitelné výstupy (llms.txt, RSS, /partneri):
+ * „MotoGo24 s.r.o., IČO 29909864[, sídlo][, zápis v OR]“.
+ */
+function companyLegalLine($withSeat = false, $withRegister = false) {
+    return COMPANY_NAME . ', IČO ' . COMPANY_ICO
+        . ($withSeat ? ', ' . COMPANY_ADDRESS : '')
+        . ($withRegister ? ', ' . COMPANY_REGISTER_SHORT : '');
+}
 
 // ===== Cache busting pro statické assety =====
 // assetUrl('/css/main.css') → '/css/main.css?v=1714338472'

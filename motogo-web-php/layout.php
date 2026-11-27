@@ -10,11 +10,13 @@ require_once __DIR__ . '/layout-banner.php';
 // Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky.
 // `tc()` obalí text spanem `data-cms-key="web.layout.<key>"` jen pro adminy
 // (cookie mg_cms_admin) → inline edit přes overlay; běžní uživatelé dostanou plain text.
-// E-shop v menu jen při zapnutém flagu `eshop_visible` (chybějící řádek = skrytý).
+// E-shop na webu řídí flag `eshop_visible_web` (majitel 2026-11-27: zvlášť web a zvlášť appka —
+// appka čte dál `eshop_visible`). Dokud řádek `eshop_visible_web` neexistuje, platí `eshop_visible`
+// jako dřív; chybí-li oba = skrytý.
 function webShopVisible() {
     static $v = null;
     if ($v === null) {
-        try { $v = (new SupabaseClient())->fetchFeatureFlag('eshop_visible'); }
+        try { $v = (new SupabaseClient())->fetchFeatureFlagOr('eshop_visible_web', 'eshop_visible'); }
         catch (\Throwable $e) { $v = false; }
     }
     return $v;
@@ -630,8 +632,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "email": ' . $ld['email'] . ',
         "telephone": ' . $ld['phone'] . ',
         "taxID": ' . $ld['taxID'] . $ld['vat'] . ',
-        "foundingDate": "2024-07-31",
-        "founder": {"@type":"Person","name":' . $ld['legalName'] . '}' . $ld['priceRange'] . ',
+        "foundingDate": "2024"' . $ld['priceRange'] . ',
         "currenciesAccepted": "CZK",
         "paymentAccepted": "Credit Card, Debit Card, Apple Pay, Google Pay, Bank Transfer",
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl","uk"],

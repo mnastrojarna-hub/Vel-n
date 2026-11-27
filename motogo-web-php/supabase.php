@@ -352,6 +352,23 @@ class SupabaseClient {
         return $v;
     }
 
+    /**
+     * Flag s náhradním klíčem: řádek `$key` rozhoduje, když existuje; jinak platí `$fallbackKey`
+     * (chybí-li oba = vypnuto). Použití: e-shop na webu `eshop_visible_web` ← původní `eshop_visible`
+     * (do nasazení SQL s novým řádkem se web chová jako dřív).
+     */
+    public function fetchFeatureFlagOr($key, $fallbackKey) {
+        $cacheKey = 'flag2_' . $key . '_' . $fallbackKey;
+        $cached = $this->cacheGet($cacheKey);
+        if ($cached !== null) return !empty($cached['v']);
+        $rows = $this->query('feature_flags', 'key,enabled', ['key=in.(' . $key . ',' . $fallbackKey . ')']);
+        $by = [];
+        foreach ((array)$rows as $r) if (is_array($r) && isset($r['key'])) $by[$r['key']] = !empty($r['enabled']);
+        $v = array_key_exists($key, $by) ? $by[$key] : ($by[$fallbackKey] ?? false);
+        $this->cacheSet($cacheKey, ['v' => $v]);
+        return $v;
+    }
+
     public function fetchSetting($key) {
         $cacheKey = 'setting_' . $key;
         $cached = $this->cacheGet($cacheKey);
@@ -460,10 +477,14 @@ class SupabaseClient {
 
         $prefix = 'web.' . $page . '.';
         // PostgREST: like.web.<page>.* — `*` je wildcard
+        // Řazení dle klíče je nutné: starý „plochý“ klíč (web.kontakt.seo) pak přijde PŘED vnořenými
+        // (web.kontakt.seo.title) a setNested ho přepíše polem. Bez řazení záleželo na pořadí řádků
+        // v DB — plochý klíč mohl vnořené hodnoty z Velínu zahodit a stránka spadla na výchozí texty.
         $rows = $this->query(
             'cms_variables',
             'key,value,translations',
-            ['key=like.' . $prefix . '*']
+            ['key=like.' . $prefix . '*'],
+            'key.asc'
         );
 
         $out = [];

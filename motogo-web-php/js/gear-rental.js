@@ -12,7 +12,7 @@
   var C = G.C, T = G.T, K = G.K, esc = G.esc, tpl = G.tpl, q = G.q, money = G.money;
   var today = K.today();
   var S = G.S = { branch: '', start: null, end: null, open: false, y: +today.slice(0, 4), mo: +today.slice(5, 7) - 1, moto: '', sel: {}, note: '',
-    avail: null, availKey: '', sq: null, vcode: '', vstate: '', drop: '' };
+    avail: null, availKey: '', sq: null, codes: [], ctry: '', cmsg: null, drop: '' };
   var by = G.by = {};
   C.prices.forEach(function (p) { by[p.key] = p; });
   var items = C.prices.filter(function (p) { return p.kind === 'item'; });
@@ -157,14 +157,15 @@
     }).join('');
     var r = S.sq && S.sq.res && !S.sq.wait ? S.sq.res : null, full = qq.per * n;
     if (r && !r.error && G.num(r.per_day) > 0) full = G.num(r.per_day) * n;
-    var va = r && !r.error ? G.voucherAmt(r) : 0, pay = va > 0 ? (r.amount != null ? G.num(r.amount) : Math.max(0, full - va)) : full;
-    var warn = r && r.error && r.error !== 'bad_voucher' ? G.errText(r) : '';
+    var ds = r && !r.error ? G.discounts(r) : [], va = r && !r.error ? G.voucherAmt(r) : 0;
+    var pay = va > 0 ? (r.amount != null ? G.num(r.amount) : Math.max(0, full - va)) : full;
+    var warn = r && r.error && r.error !== 'bad_voucher' && r.error !== 'bad_code' ? G.errText(r) : '';
     E.sum.innerHTML = '<p class="gr-sum-k">' + esc(T.sum_title) + '</p>' +
       '<p class="gr-sum-m">' + K.ico('pin') + esc(br.n) + ' · ' + esc(G.period(S.start, S.end)) + ' (' + esc(G.days(n)) + ')</p>' +
       '<ul class="gr-lines">' + rows + '</ul>' +
       (qq.save > 0 ? '<p class="gr-save">' + K.ico('check') + esc(tpl(T.save || '', { amount: money(qq.save * n) })) + '</p>' : '') +
       (va > 0 ? '<p class="gr-total gr-total-sub"><span>' + esc(T.total) + '</span><span>' + esc(money(full)) + '</span></p>' +
-        '<p class="gr-vline"><span>' + esc(tpl(T.voucher_line, { code: (r.voucher && r.voucher.code) || S.vcode })) + '</span><span>−' + esc(money(va)) + '</span></p>' : '') +
+        ds.map(function (d) { return '<p class="gr-vline"><span>' + esc(G.discountLabel(d)) + '</span><span>−' + esc(money(G.num(d.amount))) + '</span></p>'; }).join('') : '') +
       '<p class="gr-total"><span>' + esc(va > 0 ? T.to_pay : T.total) + '</span><b>' + esc(money(pay)) + '</b></p>' +
       (warn ? '<p class="gr-sum-warn" role="status">' + esc(warn) + '</p>' : '');
   }

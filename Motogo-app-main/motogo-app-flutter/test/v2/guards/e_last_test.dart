@@ -175,7 +175,7 @@ void main() {
     });
   });
 
-  testWidgets('K4-03 empty filter with other bookings: true line, "show all" button above REZERVOVAT', (t) async {
+  testWidgets('K4-03 empty filter with other bookings: true line, a real "show all" button; booking above the filter', (t) async {
     final list = [resv('a1', status: 'reserved', from: 3, to: 5)];
     await pumpV2(t, const ReservationsScreenV2(),
         size: const Size(360, 1400), overrides: resOverrides(list: list, filter: 'dokoncene'));
@@ -185,8 +185,9 @@ void main() {
     expect(find.text(_cs('noReservationsDesc')), findsNothing);
     final all = find.byKey(const ValueKey('ea-show-all'));
     expect(t.widget(all), isA<MgBtnGhostDark>());
-    final cta = find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('noResBookCta'));
-    expect(t.getTopLeft(all).dy, lessThan(t.getTopLeft(cta).dy));
+    // 5.0.3: REZERVOVAT left the block — "Nová rezervace" sits above it.
+    final book = find.byKey(const ValueKey('res-new-booking'));
+    expect(t.getTopLeft(book).dy, lessThan(t.getTopLeft(all).dy));
     await t.pump(const Duration(seconds: 2));
   });
 

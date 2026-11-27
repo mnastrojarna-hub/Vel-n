@@ -917,7 +917,7 @@ return [
                 ],
                 [
                     'label' => 'SKRZYNKA DANYCH',
-                    'value' => 'iuw3vnb',
+                    'value' => '2xfihrd',
                     'href' => NULL,
                     'icon' => NULL,
                     'alt' => NULL,
@@ -930,11 +930,11 @@ return [
                 'hours_label' => 'Godziny otwarcia:',
                 'hours' => 'PN – ND: 00:00 – 24:00 (odbiór i zwrot zgodnie z rezerwacją), także w weekendy i święta<br>Telefon: PN – PT 8:00 – 17:00',
                 'billing_title' => 'Dane do faktury',
-                'billing_name' => 'Bc. Petra Semorádová',
-                'billing_address' => 'Mezná 9, 393 01 Pelhřimov',
-                'billing_ico' => '21874263',
-                'billing_vat' => 'Nie jestem płatnikiem VAT',
-                'billing_note' => 'Firma została zarejestrowana 31.7.2024 w Urzędzie Miejskim w Pelhřimovie.',
+                'billing_name' => 'MotoGo24 s.r.o.',
+                'billing_address' => 'Mezná 9, 393 01 Mezná',
+                'billing_ico' => '29909864',
+                'billing_vat' => 'Spółka nie jest płatnikiem VAT.',
+                'billing_note' => 'Spółka jest wpisana do rejestru handlowego prowadzonego przez Sąd Okręgowy w Czeskich Budziejowicach, dział C, pozycja 36876.',
             ],
             'social' => [
                 [

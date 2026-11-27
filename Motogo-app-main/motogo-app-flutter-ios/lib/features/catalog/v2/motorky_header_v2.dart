@@ -16,7 +16,8 @@ import 'catalog_mode_switch_v2.dart';
 /// profile button: it doubled the Profil tab, owner 2026-11-14), then the
 /// calculator mode switch (V21 #2). The Velín banner is the shell's band
 /// above it (5.0.1, as on every page). The dates, the filter panel and the
-/// count are in the page (inline, as on the old screen), not here.
+/// count are in the page (inline, as on the old screen), not here. A jump
+/// with a hint (Rezervace → "Nová rezervace") says it under the title.
 class MotorkyHeaderV2 extends StatelessWidget {
   final CatalogMode mode;
   final ValueChanged<CatalogMode> onMode;
@@ -42,13 +43,17 @@ class MotorkyHeaderV2 extends StatelessWidget {
           MgV2Back(key: const ValueKey('motorky-back'), onTap: onBack, style: MgBackStyle.dark),
           const SizedBox(width: 12),
           Expanded(
-            child: Semantics(
-              header: true,
-              child: MgWordFit(
-                minScale: 0.8,
-                child: Text(tr.tr('v2TabBikes'), style: MgType.h2.copyWith(color: MgColors.onDark, height: 1)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Semantics(
+                header: true,
+                child: MgWordFit(
+                  minScale: 0.8,
+                  child: Text(tr.tr('v2TabBikes'), style: MgType.h2.copyWith(color: MgColors.onDark, height: 1)),
+                ),
               ),
-            ),
+              // "Vyber si motorku" after Rezervace → "Nová rezervace" (5.0.3).
+              const MgOriginHint(tab: 1),
+            ]),
           ),
         ]),
         const SizedBox(height: 12),

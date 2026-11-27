@@ -14,7 +14,7 @@ $defaults = [
     'quick' => [
         ['label' => 'ZAVOLEJTE NÁM', 'value' => PHONE, 'href' => PHONE_LINK, 'icon' => 'gfx/telefon.svg', 'alt' => 'Telefon'],
         ['label' => 'NAPIŠTE NÁM', 'value' => EMAIL_FULL, 'href' => 'mailto:' . EMAIL_FULL, 'icon' => 'gfx/email.svg', 'alt' => 'E-mail'],
-        ['label' => 'DATOVÁ SCHRÁNKA', 'value' => 'iuw3vnb', 'href' => null, 'icon' => null, 'alt' => null],
+        ['label' => 'DATOVÁ SCHRÁNKA', 'value' => COMPANY_DATA_BOX, 'href' => null, 'icon' => null, 'alt' => null],
     ],
     'place' => [
         'title' => 'Provozovna',
@@ -26,8 +26,9 @@ $defaults = [
         'billing_name' => COMPANY_NAME,
         'billing_address' => COMPANY_ADDRESS,
         'billing_ico' => COMPANY_ICO,
-        'billing_vat' => 'Nejsem plátce DPH',
-        'billing_note' => 'Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.',
+        'billing_vat' => 'Nejsme plátci DPH.',
+        // Věta = zápis v OR z config.php (COMPANY_REGISTER); překlady v lang/pages_<jazyk>.php.
+        'billing_note' => 'Společnost je zapsána v obchodním rejstříku vedeném Krajským soudem v Českých Budějovicích, oddíl C, vložka 36876.',
     ],
     'social_title' => 'Sledujte nás',
     'social' => [

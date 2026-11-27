@@ -302,6 +302,7 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-fixes.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-gate.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci-status.js') . '"></script>
+<script src="' . assetUrl('/js/delivery-rules.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-selfservice.js') . '"></script>
 <script>
 (function(){

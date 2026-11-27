@@ -69,3 +69,34 @@ class MgOriginChip extends ConsumerWidget {
     );
   }
 }
+
+/// The jump's hint under the title of tab [tab]'s dark header ("Vyber si
+/// motorku" after Rezervace → "Nová rezervace", owner 2026-11-27): one neon
+/// line, not a control, gone with the chip (any tab switch). Nothing when
+/// the jump carries no hint.
+class MgOriginHint extends ConsumerWidget {
+  final int tab;
+  const MgOriginHint({super.key, required this.tab});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final origin = ref.watch(v2TabOriginProvider);
+    final key = origin?.hintKey;
+    if (origin == null || origin.tab != tab || key == null) return const SizedBox.shrink();
+    return Padding(
+      key: const ValueKey('mg-origin-hint'),
+      padding: const EdgeInsets.only(top: 6),
+      child: Semantics(
+        liveRegion: true,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const MgIcon(MgIcons.chevronDown, size: 16, color: MgColors.neonText),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(t(context).tr(key),
+                style: MgType.body.copyWith(fontWeight: FontWeight.w800, color: MgColors.neonText, height: 1.2)),
+          ),
+        ]),
+      ),
+    );
+  }
+}

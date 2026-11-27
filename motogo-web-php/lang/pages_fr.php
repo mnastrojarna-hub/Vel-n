@@ -19,7 +19,7 @@ return [
             'quick' => [
                 ['label' => 'APPELLE-NOUS', 'value' => '+420 774 256 271', 'href' => 'tel:+420774256271', 'icon' => 'gfx/telefon.svg', 'alt' => 'Téléphone'],
                 ['label' => 'ÉCRIS-NOUS', 'value' => 'info@motogo24.cz', 'href' => 'mailto:info@motogo24.cz', 'icon' => 'gfx/email.svg', 'alt' => 'E-mail'],
-                ['label' => 'BOÎTE DE DONNÉES (DATOVÁ SCHRÁNKA)', 'value' => 'iuw3vnb', 'href' => NULL, 'icon' => NULL, 'alt' => NULL],
+                ['label' => 'BOÎTE DE DONNÉES (DATOVÁ SCHRÁNKA)', 'value' => '2xfihrd', 'href' => NULL, 'icon' => NULL, 'alt' => NULL],
             ],
             'place' => [
                 'title' => 'Agence',
@@ -28,11 +28,11 @@ return [
                 'hours_label' => 'Horaires :',
                 'hours' => 'LUN – DIM : 00:00 – 24:00 (retrait et retour selon ta réservation), week-ends et jours fériés compris<br>Téléphone : LUN – VEN 8:00 – 17:00',
                 'billing_title' => 'Coordonnées de facturation',
-                'billing_name' => 'Bc. Petra Semorádová',
-                'billing_address' => 'Mezná 9, 393 01 Pelhřimov',
-                'billing_ico' => '21874263',
-                'billing_vat' => 'Non assujettie à la TVA',
-                'billing_note' => 'Entreprise enregistrée le 31 juillet 2024 auprès de la mairie de Pelhřimov.',
+                'billing_name' => 'MotoGo24 s.r.o.',
+                'billing_address' => 'Mezná 9, 393 01 Mezná',
+                'billing_ico' => '29909864',
+                'billing_vat' => 'La société n\'est pas assujettie à la TVA.',
+                'billing_note' => 'La société est immatriculée au registre du commerce tenu par le tribunal régional de České Budějovice, section C, dossier 36876.',
             ],
             'social_title' => 'Suis-nous',
             'social' => [

@@ -72,7 +72,12 @@ class V2TabOrigin {
   /// i18n key of the chip label ("Domů", "Pobočka", "Pobočky").
   final String labelKey;
 
-  const V2TabOrigin({required this.tab, required this.route, required this.labelKey});
+  /// i18n key of a short line the target tab's header shows while the jump
+  /// lasts (Rezervace → "Nová rezervace" → Motorky: "Vyber si motorku",
+  /// 5.0.3); null = none.
+  final String? hintKey;
+
+  const V2TabOrigin({required this.tab, required this.route, required this.labelKey, this.hintKey});
 }
 
 final v2TabOriginProvider = StateProvider<V2TabOrigin?>((_) => null);

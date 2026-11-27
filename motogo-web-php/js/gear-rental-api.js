@@ -93,6 +93,23 @@
       });
     });
   };
+  // Kódy (2026-11-27): server s p_codes (víc slevových kódů a poukazů). Dokud na něm nová verze
+  // funkce není (PGRST202 = neznámý podpis), volá se původní tvar s jedním dárkovým poukazem —
+  // objednávka výbavy tak funguje bez ohledu na pořadí nasazení webu a SQL.
+  G.rpcCodes = function (fn, args, codes) {
+    var list = codes || [], legacy = function () {
+      var a = {}; for (var k in args) a[k] = args[k];
+      a.p_voucher_code = list[0] || null;
+      return G.rpc(fn, a);
+    };
+    if (G.legacyCodes) return legacy();
+    var a2 = {}; for (var k2 in args) a2[k2] = args[k2];
+    a2.p_voucher_code = null; a2.p_codes = list;
+    return G.rpc(fn, a2).then(function (o) {
+      if (o && o.error === 'rpc_error' && (o.code === 'PGRST202' || o.http === 404)) { G.legacyCodes = true; return legacy(); }
+      return o;
+    });
+  };
   // Edge funkce jako motorkový web: host jen apikey, přihlášený navíc svůj JWT (auth=true)
   G.edge = function (fn, body, auth) {
     return (auth ? G.session() : Promise.resolve(null)).then(function (s) {

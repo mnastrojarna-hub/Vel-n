@@ -1,15 +1,15 @@
 <?php
 // ===== MotoGo24 — Postup pujceni motorky 1/2 (intro + proces 12x) =====
 // 1:1 prepis z https://www.motogo24.cz/cz/jak-si-pujcit-motorku/postup-pujceni-motorky
-// POZN: V originale je drobny preklep ("pujcove" misto "pujcovne"). Zachovavame 1:1.
 // 2026-10-15: intro_p2, krok 5, krok 12 a FAQ (data 2/2) — mista prevzeti dle majitele
 //       (Mezna u Pelhrimova + samoobsluzna pobocka Velke Nemcice); ".." opraveno.
+// 2026-11-27: copy/SEO revize — h1, intro_p1 (uz bez preklepu "pujcove"), intro_h2,
+//       kroky 6, 9, 10 a 11 (samoobsluzna pobocka, kody, vraceni do 24:00).
 
 return [
-    'h1' => 'Postup půjčení motorky',
-    // POZOR: V originalu je preklep "pujcove" - zachovavame 1:1
-    'intro_p1' => 'V <strong>Motogo24 – půjčově motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.&nbsp;<strong>Bez kauce, s výbavou pro řidiče v ceně a nonstop provozem pro půjčení a vrácení motorky</strong>. Přesvědč se, jak snadno to funguje.',
-    'intro_h2' => 'Jak si půjčit motorku – půjčovna Motogo24 – Vysočina',
+    'h1' => 'Jak si půjčit motorku – postup krok za krokem',
+    'intro_p1' => 'Motorku si u <strong>MotoGo24</strong> rezervuješ a zaplatíš online za pár minut – <strong>bez kauce a s výbavou pro řidiče v ceně</strong>. Tady je celý postup od výběru motorky po vrácení.',
+    'intro_h2' => 'Kde si motorku vyzvedneš',
     'intro_p2' => 'V naší <strong>motopůjčovně </strong>zvládneš vše online: vyber motorku, zvol termín a vyplň rezervační formulář – včetně výbavy a způsobu předání. Motorku si vyzvedni v Mezné u Pelhřimova (odtud ti ji můžeme i přistavit kamkoliv v ČR), nebo samoobslužně ve Velkých Němčicích u Brna. Platbu provedeš online při dokončení rezervace.',
     'process' => [
         'title' => 'Jak probíhá pronájem krok za krokem',
@@ -42,8 +42,8 @@ return [
             ],
             [
                 'icon' => 'gfx/prevezmi-motorku.svg',
-                'title' => '6. Zvol si vrácení',
-                'text' => 'Vyber, jestli budeš motorku vracet na adrese motopůjčovny, nebo jinde.',
+                'title' => '6. Místo a čas vrácení',
+                'text' => 'Vyber, kde a kdy motorku vrátíš – na pobočce, nebo u motorek z Mezné i na jiné adrese v ČR. Ve Velkých Němčicích čas vrácení nevolíš: motorku vrátíš kdykoli poslední den do 24:00.',
             ],
             [
                 'icon' => 'gfx/vyber-vybavu.svg',
@@ -58,17 +58,17 @@ return [
             [
                 'icon' => 'gfx/potvrzeni-rezervace.svg',
                 'title' => '9. Potvrzení e-mailem',
-                'text' => 'Po dokončení rezervace ti přijde e-mail s potvrzením rezervace a platby, dokladem o platbě, předvyplněnou nájemní smlouvou a základními instrukcemi pro vyzvednutí motorky.',
+                'text' => 'Po zaplacení ti přijde e-mail s potvrzením rezervace, dokladem o platbě, nájemní smlouvou a instrukcemi k vyzvednutí. U samoobslužné pobočky ve Velkých Němčicích dostaneš po ověření dokladů i přístupové kódy – v aplikaci, e-mailem a SMS.',
             ],
             [
                 'icon' => 'gfx/predani-motorky.svg',
                 'title' => '10. Převzetí motorky',
-                'text' => 'Při předání zkontrolujeme doklady, doplníme smlouvu a podepíšeme předávací protokol. Vyzkouší se velikost výbavy – a pak už jen nastartovat!',
+                'text' => 'V Mezné ti motorku předáme osobně: zkontrolujeme doklady (pokud je nemáš ověřené online), převezmeš výbavu a podepíšeme předávací protokol. Ve Velkých Němčicích si motorku i výbavu vyzvedneš bez obsluhy pomocí kódů z aplikace – doklady musíš mít předem ověřené a protokol podepíšeš na displeji.',
             ],
             [
                 'icon' => 'gfx/uzij-si-jizdu.svg',
                 'title' => '11. Užij si jízdu',
-                'text' => 'Vyraz na cestu – <strong>bez kauce, bez stresu</strong>. Zbytek je jen asfalt a svoboda.',
+                'text' => 'Vyraz na cestu. Během výpůjčky jsme ti nonstop k dispozici, kdyby se cokoli stalo.',
             ],
             [
                 'icon' => 'gfx/vrat-motorku-vcas.svg',

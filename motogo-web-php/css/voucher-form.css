@@ -99,3 +99,15 @@
 .gv-page .voucher-outro ul{display:grid;gap:.35rem;margin:.3rem 0 .8rem}
 @media(min-width:769px){.gv-page .voucher-outro{padding:1.6rem 1.7rem}}
 @media(min-width:1100px){.gv-page .voucher-outro{margin-right:calc(330px + 1.25rem)}}
+/* Slevové kódy (2026-11-27) — stejné pole jako u půjčení výbavy (gear-rental.css .gr-voucher*) */
+.gv-page .gv-codes{display:grid;gap:.55rem;margin:0 0 1rem}
+.gv-page .gv-code-on{display:flex;align-items:center;gap:.55rem;font-weight:700;cursor:pointer}
+.gv-page .gv-code-box{display:grid;gap:.45rem}
+.gv-page .gv-code-row{display:flex;gap:.55rem;align-items:stretch}
+.gv-page .gv-code-row .gv-f{flex:1 1 auto;min-width:0}
+.gv-page .gv-form .gv-code-row .gv-f>input{text-transform:uppercase}
+.gv-page .gv-code-row .btn{flex:0 0 auto;margin:0;min-height:56px;border-radius:14px}
+.gv-page .gv-code-msg{margin:0;font-size:.9rem;font-weight:700;line-height:1.55;color:#d6e6dc}
+.gv-page .gv-code-ok{color:#74fb71}
+.gv-page .gv-code-note.is-bad{color:#fcd34d}
+.gv-page .gv-linkbtn{background:none;border:0;padding:0;font:inherit;font-size:.86rem;font-weight:700;color:#fff;text-decoration:underline;cursor:pointer}

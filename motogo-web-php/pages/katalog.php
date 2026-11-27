@@ -66,8 +66,8 @@ $katalogDefaults = [
     'intro' => t('filters.catalogLead'),
     'outro' => [
         'title' => 'Jak si vybrat motorku v našem katalogu',
-        'body1' => 'V katalogu motorek MotoGo24 najdete pečlivě udržované stroje pro každý typ jízdy — od pohodlných <strong>cestovních motorek</strong> na dlouhé túry přes hbité <strong>naked stroje</strong> do města, ostré <strong>supermoto</strong> pro zábavu na zatáčkách až po bezpečné <strong>dětské elektromotorky</strong>. Filtrovat můžete podle kategorie, řidičského oprávnění, výkonu v kW, maximální ceny za den i podle toho, jestli má motorka <strong>ABS</strong> nebo místo pro spolujezdce.',
-        'body2' => 'Každá motorka v naší flotile má v detailu uvedené kompletní technické parametry, fotky i ceník po dnech. Půjčení probíhá <strong>bez kauce</strong>, výbava pro řidiče (helma, bunda, kalhoty, rukavice) je <strong>v ceně nájmu</strong> a vyzvednutí si můžete domluvit i mimo otevírací dobu díky <strong>nonstop provozu</strong>. Pokud si nejste jistí výběrem, ozvěte se nám telefonicky nebo e-mailem — rádi vám poradíme, která motorka je pro vás ta pravá.',
+        'body1' => 'V katalogu motorek MotoGo24 najdeš pečlivě udržované stroje pro každý typ jízdy – od pohodlných <strong>cestovních motorek</strong> na dlouhé túry přes hbité <strong>naked stroje</strong> do města a ostré <strong>supermoto</strong> pro zábavu v zatáčkách až po <strong>dětské motorky</strong>. Filtrovat můžeš podle kategorie, řidičského oprávnění, pobočky, výkonu v kW, ceny za den i podle toho, jestli má motorka <strong>ABS</strong> nebo místo pro spolujezdce.',
+        'body2' => 'Každá motorka v naší flotile má v detailu uvedené kompletní technické parametry, fotky i ceník po dnech. Půjčujeme <strong>bez kauce</strong>, výbava pro řidiče je <strong>v ceně nájmu</strong> a motorku si vyzvedneš i vrátíš <strong>nonstop</strong> podle rezervace. Když váháš s výběrem, ozvi se nám telefonicky nebo e-mailem – rádi ti poradíme, která motorka je pro tebe ta pravá.',
     ],
 ];
 
@@ -83,49 +83,73 @@ $kfModels = function ($cat) use ($motos) {
     return $names ? implode(', ', array_map(function ($n) { return '<strong>' . htmlspecialchars($n, ENT_QUOTES) . '</strong>'; }, $names)) : '';
 };
 
+// Česky (2026-11-27, SEO revize): pobočky, na kterých motorky kategorie reálně stojí, a skupiny ŘP kategorie —
+// do H1, titulku, meta popisku i textů (flotila se mezi pobočkami přesouvá, proto nic z toho není napevno).
+$kfCat = $category ? array_values(array_filter($motos, function ($m) use ($category) { return katalogCategoryMatch($m, $category); })) : [];
+$kfSlugs = katalogBranchSlugs($category ? $kfCat : $motos);
+// Kategorie z cesty bez jediné motorky (dnes /katalog/sportovni) → noindex,follow, dokud v ní nic není
+$kfEmptyCat = $category && !$kfCat;
+$kfPathCat = (string)$category;
+// Skupiny ŘP kategorie: „A2 i A“ / „A1 nebo B“ ('' = žádná motorka nebo jen bez ŘP)
+$kfLic = function ($glue) use ($kfCat) {
+    $have = [];
+    foreach ($kfCat as $m) foreach (motoLicenseGroups($m) as $g) $have[$g] = true;
+    $g = array_values(array_filter(['AM', 'A1', 'A2', 'A', 'B'], function ($x) use ($have) { return isset($have[$x]); }));
+    $last = array_pop($g);
+    return $last === null ? '' : ($g ? implode(', ', $g) . $glue . $last : $last);
+};
+// Věta o převzetí podle typu pobočky: v Mezné předáváme osobně, Velké Němčice jsou samoobslužné (nikdo nic nevysvětluje)
+$kfPickup = '';
+if (count($kfSlugs) > 1) $kfPickup = ' V Mezné u Pelhřimova tě čeká osobní předání a všechno ti vysvětlíme, ve Velkých Němčicích u Brna je převzetí samoobslužné – bez obsluhy, kódem z aplikace.';
+elseif ($kfSlugs === ['mezna']) $kfPickup = ' V Mezné u Pelhřimova tě čeká osobní předání a všechno ti vysvětlíme.';
+elseif ($kfSlugs === ['velke-nemcice']) $kfPickup = ' Ve Velkých Němčicích u Brna je převzetí samoobslužné – bez obsluhy, kódem z aplikace.';
+// Všechny skútry kategorie jdou řídit i se skupinou B (dnes A1/B) — jinak se „i na ŘP B“ netvrdí
+$kfScootB = $category === 'scootery' && $kfCat && !array_filter($kfCat, function ($m) { return !in_array('B', motoLicenseGroups($m), true); });
+
 // Per-kategorie outro — Seobility hlásil 'Duplicate content' na /katalog/{cestovni,
 // naked,detske} + /katalog protože všechny sdílely stejný outro text. Každá kategorie
 // dostává vlastní unikátní outro (řeší duplicate i SEO klíčovku per cíl).
+// Texty tykají (jako zbytek webu) a neslibují nic, co neplatí pro obě pobočky.
 $categoryOutros = [
     'cestovni' => [
-        'title' => 'Cestovní motorky k pronájmu — pro dlouhé túry a dovolené',
-        'body1' => 'Cestovní (touring) a adventure motorky v naší flotile jsou stavěné na dlouhé vzdálenosti — vyšší posed, pohodlné sedadlo pro řidiče i spolujezdce, velká nádrž s dojezdem 300–400 km a kufry pro zavazadla. ' . (($mm = $kfModels('cestovni')) ? 'Aktuálně u nás najdete například ' . $mm . ' — všechny pravidelně servisované a připravené na trasu po ČR i do zahraničí.' : 'Všechny jsou pravidelně servisované a připravené na trasu po ČR i do zahraničí.'),
-        'body2' => 'Půjčujeme bez kauce, zelenou kartu i mezinárodní doklady dáváme automaticky a v ceně máte kompletní výbavu pro řidiče. Pro spolujezdce si můžete doobjednat výbavu (helma, bunda, kukla) za příplatek.',
+        'title' => 'Cestovní motorky k pronájmu – pro dlouhé túry a dovolené',
+        'body1' => 'Cestovní (touring) a adventure motorky v naší flotile jsou stavěné na dlouhé vzdálenosti – vyšší posed, pohodlné sedlo pro řidiče i spolujezdce, velká nádrž a u vybraných modelů i kufry na zavazadla. ' . (($mm = $kfModels('cestovni')) ? 'Aktuálně u nás najdeš například ' . $mm . ' – všechny pravidelně servisované a připravené na cestu po Česku i do zahraničí.' : 'Všechny jsou pravidelně servisované a připravené na cestu po Česku i do zahraničí.'),
+        'body2' => 'Půjčujeme bez kauce, zelenou kartu i mezinárodní doklady dáváme automaticky a v ceně máš kompletní výbavu pro řidiče. Pro spolujezdce si můžeš doobjednat výbavu (helma, bunda, kukla) za příplatek.',
     ],
     'naked' => [
-        'title' => 'Naked motorky — sportovně laděné stroje pro každodenní jízdu',
-        'body1' => 'Naked motorky bez kapotáže nabízejí <strong>nezaměnitelný pocit svobody</strong> a přímé spojení s motorem. Hodí se na rychlou jízdu městem, víkendové výlety i na zábavu v zatáčkách. ' . (($mm = $kfModels('naked')) ? 'V naší flotile najdete například ' . $mm . ' — všechny ve výborném technickém stavu a s pravidelným servisem.' : 'Všechny jsou ve výborném technickém stavu a s pravidelným servisem.'),
-        'body2' => 'Půjčujeme bez kauce a výbava pro řidiče (helma, bunda, kalhoty, rukavice) je vždy v ceně. Před vyzvednutím motorku společně prohlédneme a vysvětlíme vám její specifika. Pokud nemáte zkušenost s konkrétní třídou výkonu, rádi poradíme s výběrem.',
+        'title' => 'Naked motorky – sportovně laděné stroje pro každodenní jízdu',
+        'body1' => 'Naked motorky bez kapotáže nabízejí <strong>nezaměnitelný pocit svobody</strong> a přímé spojení s motorem. Hodí se na svižnou jízdu městem, víkendové výlety i na zábavu v zatáčkách. ' . (($mm = $kfModels('naked')) ? 'V naší flotile najdeš například ' . $mm . ' – všechny ve výborném technickém stavu a s pravidelným servisem.' : 'Všechny jsou ve výborném technickém stavu a s pravidelným servisem.'),
+        'body2' => 'Půjčujeme bez kauce a výbava pro řidiče je vždy v ceně.' . $kfPickup . ' Když váháš, jaký výkon zvolit, rádi ti s výběrem poradíme.',
     ],
     'supermoto' => [
-        'title' => 'Supermoto motorky — lehké a hbité stroje pro městský zlob',
-        'body1' => 'Supermoto kombinuje výhody enduro motorky (lehkost, dlouhé pružení, vysoký posed) se silničními pneumatikami a kotoučovými brzdami. Výsledek je <strong>velmi hbitý stroj</strong>, který si rozumí s městským provozem, polními cestami i krátkými túrami po Vysočině. ' . (($mm = $kfModels('supermoto')) ? 'V katalogu najdete například ' . $mm . '.' : ''),
-        'body2' => 'Tyto motorky vyžadují řidičské oprávnění A nebo A2 a hodí se spíš zkušenějším jezdcům, kteří si chtějí užít hravost a lehkost stroje. Půjčujeme bez kauce, výbavu řidiče máte v ceně. Při vyzvednutí vám vysvětlíme specifika jízdy s vyšším posedem a důraz na vyvážení.',
+        'title' => 'Supermoto – lehké a hbité motorky do města i do zatáček',
+        'body1' => 'Supermoto kombinuje výhody endura (lehkost, dlouhé pružení, vysoký posed) se silničními pneumatikami a kotoučovými brzdami. Výsledkem je <strong>velmi hbitý stroj</strong>, který si rozumí s městským provozem, polními cestami i kratšími výlety. ' . (($mm = $kfModels('supermoto')) ? 'V katalogu najdeš například ' . $mm . '.' : ''),
+        'body2' => (($lg = $kfLic(' nebo ')) !== '' ? 'Tyto motorky řídíš s řidičským oprávněním skupiny ' . $lg . ' (podle modelu) a hodí se' : 'Tyto motorky se hodí') . ' spíš zkušenějším jezdcům, kteří si chtějí užít hravost a lehkost stroje. Půjčujeme bez kauce a výbavu pro řidiče máš v ceně.' . $kfPickup,
     ],
     'chopper' => [
-        'title' => 'Chopper a cruiser motorky pro pohodovou jízdu',
-        'body1' => 'Chopper a cruiser motorky jsou stavěné pro <strong>pohodlnou jízdu na dlouhé vzdálenosti</strong> — nízký posed, tažné držení těla, charakteristický zvuk dvouválcového motoru a estetika klasiky. Hodí se na nedělní výlet i na delší cestu po ČR.',
-        'body2' => 'V naší flotile rozšiřujeme nabídku průběžně — pokud máte konkrétní model na mysli, ozvěte se nám. Půjčujeme bez kauce a výbavu řidiče máte v ceně. Při vyzvednutí vám předáme klíče, dokumenty a kompletní výbavu.',
+        'title' => 'Choppery a cruisery pro pohodovou jízdu',
+        'body1' => 'Choppery a cruisery jsou stavěné na <strong>pohodlnou jízdu na dlouhé vzdálenosti</strong> – nízký posed, uvolněné držení těla, charakteristický zvuk dvouválce a klasický vzhled. Hodí se na nedělní výlet i na delší cestu po Česku.',
+        'body2' => 'Nabídku průběžně rozšiřujeme – pokud máš na mysli konkrétní model, ozvi se nám. Půjčujeme bez kauce a výbavu pro řidiče máš v ceně.' . $kfPickup,
     ],
     'detske' => [
-        'title' => 'Dětské motorky — bezpečná zábava pro malé jezdce',
-        'body1' => 'Dětské motorky si můžete půjčit <strong>bez řidičského oprávnění</strong> a využít je na zahradě, tábořišti nebo v rámci jezdeckého kurzu pro děti.' . (($mm = $kfModels('detske')) ? ' V katalogu najdete například ' . $mm . '.' : ''),
-        'body2' => 'Před každou jízdou doporučujeme dítěti přečíst základní bezpečnostní pravidla a vždy ho vybavit helmou a chrániči. Termín, pobočku i případné přistavení si domluvíte přímo při rezervaci.',
+        'title' => 'Dětské motorky – bezpečná zábava pro malé jezdce',
+        'body1' => 'Dětské motorky si půjčíš <strong>bez řidičského oprávnění</strong>. Dítě s nimi smí jezdit jen v uzavřeném, bezpečném prostoru mimo silnice, stezky a chodníky a vždy pod dohledem dospělého.' . (($mm = $kfModels('detske')) ? ' V katalogu najdeš například ' . $mm . '.' : ''),
+        'body2' => 'Před každou jízdou projdi s dítětem základní bezpečnostní pravidla a vždy ho vybav helmou, rukavicemi, moto kalhotami a pevnou obuví. Nájemcem je vždy rodič nebo zákonný zástupce starší 18 let. Termín i případné přistavení zvolíš přímo v rezervaci.',
     ],
     'sportovni' => [
-        'title' => 'Sportovní motorky — adrenalin a výkon pro zkušené jezdce',
-        'body1' => 'Sportovní (supersport) motorky jsou určené pro <strong>zkušené jezdce</strong>, kteří hledají vysoký výkon, ostrou geometrii a sportovní posed. Hodí se na okruh, klikaté silnice a víkendové výlety po hezkých moravských a vysočinských trasách.',
-        'body2' => 'Vyžadujeme řidičské oprávnění A a minimálně 2 roky praxe na motorce nad 35 kW. Půjčujeme bez kauce, kompletní výbavu řidiče máte v ceně. Před vyzvednutím vám vysvětlíme specifika jízdy se sportovní motorkou a doporučíme bezpečnostní postupy.',
+        'title' => 'Sportovní motorky – adrenalin a výkon pro zkušené jezdce',
+        'body1' => 'Sportovní (supersport) motorky jsou určené pro <strong>zkušené jezdce</strong>, kteří hledají vysoký výkon, ostrou geometrii a sportovní posed. Hodí se na klikaté silnice a víkendové výlety.',
+        'body2' => 'Půjčujeme bez kauce a výbavu pro řidiče máš v ceně. Stačí ti 18 let a řidičák odpovídající skupiny.',
     ],
     'scootery' => [
-        'title' => 'Skútry k pronájmu — pohodlná jízda městem na ŘP A1 i B',
-        'body1' => 'Skútry jsou ideální volbou pro <strong>pohodlnou a nenáročnou jízdu městem</strong> — automatická převodovka, nízký posed a úložný prostor pod sedlem. Část naší nabídky skútrů zvládnete i s řidičským oprávněním <strong>skupiny B</strong> (řidičák na auto), zbytek na <strong>A1</strong>. Konkrétní skupinu ŘP vždy najdete v detailu každého stroje.',
-        'body2' => 'Půjčujeme bez kauce a výbavu pro řidiče (helma, rukavice) máte v ceně. Skútr je skvělý na dojíždění, výlety po okolí i jako první seznámení s jednostopým vozidlem. Při vyzvednutí vám vysvětlíme ovládání a specifika jízdy.',
+        'title' => 'Skútry k pronájmu – pohodlná jízda městem' . ($kfScootB ? ' na ŘP A1 i B' : ''),
+        'body1' => 'Skútry jsou ideální volbou pro <strong>pohodlnou a nenáročnou jízdu městem</strong> – automatická převodovka, nízký posed a úložný prostor pod sedlem. ' . ($kfScootB ? 'Naše skútry řídíš s ŘP <strong>A1</strong> i s ŘP <strong>B</strong> (řidičák na auto). ' : '') . 'Skupinu ŘP najdeš vždy v detailu každého stroje.',
+        'body2' => 'Půjčujeme bez kauce a výbavu pro řidiče (helma, rukavice) máš v ceně. Skútr je skvělý na dojíždění, výlety po okolí i jako první seznámení s jednostopým vozidlem.' . $kfPickup,
     ],
     'ostatni' => [
         'title' => 'Přívěsy na motorky a další vybavení k pronájmu',
-        'body1' => 'V kategorii Ostatní najdete <strong>přívěsy na přepravu motorek</strong> a další doplňkové vybavení k zapůjčení. Přívěs na motorku oceníte při převozu stroje na okruh, dovolenou nebo do servisu. K tažení přívěsu stačí běžné řidičské oprávnění <strong>skupiny B</strong> (dle hmotnosti soupravy).',
-        'body2' => 'Půjčujeme bez kauce a rádi poradíme s výběrem i správným naložením a zajištěním motorky. Konkrétní parametry (nosnost, rozměry, požadovaná skupina ŘP) najdete v detailu každé položky. Termín a místo vyzvednutí si domluvíte přímo při rezervaci.',
+        'body1' => 'V kategorii Ostatní najdeš <strong>přívěsy na přepravu motorek</strong> a další doplňkové vybavení k zapůjčení. Přívěs na motorku oceníš při převozu stroje na okruh, na dovolenou nebo do servisu. K tažení přívěsu stačí běžné řidičské oprávnění <strong>skupiny B</strong> (podle hmotnosti soupravy).',
+        'body2' => 'Půjčujeme bez kauce a rádi poradíme s výběrem i se správným naložením a zajištěním motorky. Konkrétní parametry (nosnost, rozměry, požadovaná skupina ŘP) najdeš v detailu každé položky. Termín a místo vyzvednutí si domluvíš přímo při rezervaci.',
     ],
 ];
 // Aplikuj per-kategorie outro pokud existuje, jinak default
@@ -147,7 +171,14 @@ foreach ($motos as $m) {
     if ($city !== '' && !in_array($city, $kfCities, true)) $kfCities[] = $city;
 }
 $h1Suffix = ' ' . $kfRent . ($kfCities ? ' — ' . implode(', ', $kfCities) : '');
-$displayH1 = $category ? ($title . $h1Suffix) : ($C['h1'] ?? $title);
+$h1Base = $title;
+if ($kfLang === 'cs') {
+    // Česky přirozeně „… k pronájmu u Pelhřimova“ / „u Brna“ / „u Pelhřimova a Brna“ místo surového branches.city
+    // („Pelhřimov, Brno - Velké Němčice“); vlastní základ H1 tam, kde popisek z menu není hledaný dotaz.
+    $h1Suffix = rtrim(' ' . $kfRent . ' ' . katalogPlaceCs($kfSlugs, 'u'));
+    $h1Base = ['chopper' => 'Choppery a cruisery', 'ostatni' => 'Přívěs na motorku'][(string)$category] ?? $title;
+}
+$displayH1 = $category ? ($h1Base . $h1Suffix) : ($C['h1'] ?? $title);
 $displayIntro = $C['intro'] ?? t('filters.catalogLead');
 $outroTitle = $C['outro']['title'] ?? $katalogDefaults['outro']['title'];
 $outroBody1 = $C['outro']['body1'] ?? $katalogDefaults['outro']['body1'];
@@ -541,21 +572,49 @@ if (!empty($listItems)) {
 // SEO: per-kategorie unikatni meta description (Seobility hlasil 5 'Duplicate
 // meta description' na /katalog/{cestovni,naked,supermoto,detske} + /katalog).
 // Misto jedne sablonove vety pro vsech 5 stranek dame kazde kategorii vlastni
-// strucny popis se specifickymi klicovkami.
+// strucny popis se specifickymi klicovkami. Česky (cizí jazyky: lang/v2/<jazyk>/katalog-kategorie.php);
+// místo a skupiny ŘP se berou z aktuální flotily kategorie, popis se vejde do 155 znaků.
+$kfV = katalogPlaceCs($kfSlugs, 'v');                                   // „v Mezné u Pelhřimova“ / „… nebo ve Velkých Němčicích u Brna“
+$kfVs = count($kfSlugs) > 1 ? 'v Mezné nebo u Brna' : $kfV;             // kratší tvar pro obě pobočky
+$kfPob = katalogPlaceCs($kfSlugs, 'pobocka');                           // „Pobočky Mezná i Velké Němčice“ / „Pobočka Mezná u Pelhřimova“
+$kfLicI = $kfLic(' i ');
+// Skútry: „125“ jen když jsou všechny do 125 ccm
+$kfSc125 = $kfPathCat === 'scootery' && $kfCat && !array_filter($kfCat, function ($m) { $cc = (float)($m['engine_cc'] ?? 0); return $cc <= 0 || $cc > 125; });
+// První varianta, která se vejde do 155 znaků (jinak poslední = nejkratší)
+$kfFit = function (array $variants) { foreach ($variants as $v) { if (mb_strlen($v, 'UTF-8') <= 155) return $v; } return end($variants); };
 $catDescriptions = [
-    'cestovni'  => 'Půjčovna cestovních motorek (touring, GT) na Vysočině. Adventure motorky pro dlouhé trasy a dálnice. Bez kauce, online rezervace.',
-    'sportovni' => 'Půjčovna sportovních motorek na Vysočině. Supersport i sportovně-cestovní stroje. Bez kauce, výbava v ceně, online rezervace.',
-    'naked'     => 'Půjčovna naked motorek na Vysočině. Sportovně-cestovní stroje pro každodenní jízdu. Bez kauce, výbava v ceně, online rezervace.',
-    'supermoto' => 'Půjčovna supermoto motorek na Vysočině. Lehké městské stroje s vysokým posedem. Bez kauce, výbava v ceně, online rezervace.',
-    'chopper'   => 'Půjčovna chopper a cruiser motorek na Vysočině. Pohodlné stroje na klidnou jízdu. Bez kauce, výbava v ceně, online rezervace.',
-    'scootery'  => 'Půjčovna skútrů na Vysočině. Skútry na ŘP A1 i B pro pohodlnou jízdu městem. Bez kauce, výbava v ceně, online rezervace.',
-    'detske'    => 'Půjčovna dětských elektromotorek bez ŘP. Bezpečná zábava na zahradě i tábořištích. Doručení po ČR, online rezervace.',
-    'ostatni'   => 'Půjčovna přívěsů na motorky a dalšího vybavení na Vysočině. Přívěs na ŘP B. Bez kauce, online rezervace.',
+    'cestovni'  => $kfFit(['Cestovní a adventure motorky na víkend i dovolenou: neomezené km, cesty do zahraničí, výbava pro řidiče v ceně, bez kauce.' . ($kfPob !== '' ? ' ' . $kfPob . '.' : '')]),
+    'sportovni' => 'Sportovní motorky k pronájmu u MotoGo24. Bez kauce, výbava pro řidiče v ceně, rezervace online.',
+    'naked'     => $kfFit(array_map(function ($pl) { return 'Naked motorky k pronájmu pro svižnou jízdu v zatáčkách. Bez kauce, výbava pro řidiče v ceně' . ($pl !== '' ? ', vyzvednutí ' . $pl : '') . '.'; }, [$kfV, $kfVs])),
+    'supermoto' => $kfFit(array_map(function ($pl) use ($kfLicI) { return 'Supermoto k pronájmu' . ($kfLicI !== '' ? ' na ŘP ' . $kfLicI : '') . ': lehké a hbité stroje do zatáček. Bez kauce, výbava pro řidiče v ceně' . ($pl !== '' ? ', vyzvednutí ' . $pl : '') . '.'; }, [$kfV, $kfVs])),
+    'chopper'   => $kfFit(array_map(function ($pl) use ($kfLicI) { return 'Chopper nebo cruiser k pronájmu' . ($pl !== '' ? ' ' . $pl : '') . ($kfLicI !== '' ? ', na ŘP ' . $kfLicI : '') . '. Bez kauce, výbava pro řidiče v ceně, rezervace online.'; }, [$kfV, $kfVs])),
+    'scootery'  => $kfFit(['Skútry' . ($kfSc125 ? ' 125' : '') . ' k pronájmu' . ($kfLicI !== '' ? ', řídíš je s ŘP ' . $kfLicI : '') . '. Automat, úložný prostor pod sedlem, bez kauce a s výbavou pro řidiče v ceně.' . ($kfPob !== '' ? ' ' . $kfPob . '.' : '')]),
+    'detske'    => $kfFit(array_map(function ($pl) { return 'Dětské motorky k pronájmu' . ($pl !== '' ? ' ' . $pl : '') . ', řidičák nepotřebuješ. Jezdí se jen mimo silnice a pod dohledem dospělého. Rezervace online.'; }, [$kfV, $kfVs])),
+    'ostatni'   => $kfFit(array_map(function ($pl) { return 'Přívěsný vozík na motorky k pronájmu' . ($pl !== '' ? ' ' . $pl : '') . ' – na převoz do servisu, na okruh i na dovolenou. Bez kauce, rezervace online.'; }, [$kfV, $kfVs])),
 ];
-$catDesc = $category && isset($catDescriptions[$category]) ? $catDescriptions[$category] : t('katalog.seo.description');
+// Popis kategorie jen na její stránce (/katalog/<kat>); filtr ?kategorie= má canonical /katalog → obecný popis katalogu
+$catDesc = isset($catDescriptions[$kfPathCat]) ? $catDescriptions[$kfPathCat] : t('katalog.seo.description');
 if ($category && !empty($C['description']) && is_string($C['description'])) $catDesc = $C['description']; // překlad (cizí jazyky)
 
-renderPage($title . ' | MotoGo24', $content, $path, ($kcV2 ? kfPageMeta() : []) + [
+// <title>: česky podle hledaného dotazu (kategorie + „k pronájmu“ / „půjčovna …“, u kategorií na obou pobočkách
+// i místo, pokud se vejde do 60 znaků); ostatní jazyky beze změny (popisek kategorie | MotoGo24).
+$seoTitle = $title . ' | MotoGo24';
+if ($kfLang === 'cs') {
+    $kfTitles = [
+        'cestovni' => 'Cestovní motorky k pronájmu', 'naked' => 'Naked motorky k pronájmu', 'supermoto' => 'Supermoto k pronájmu', 'sportovni' => 'Sportovní motorky k pronájmu',
+        'chopper' => 'Půjčovna chopperů a cruiserů', 'detske' => 'Půjčovna dětských motorek', 'ostatni' => 'Přívěs na motorku k pronájmu',
+        'scootery' => 'Půjčovna skútrů' . ($kfSc125 ? ' 125' : '') . ($kfScootB ? ' – i na ŘP B' : ''),
+    ];
+    if ($kfPathCat === '') {
+        $seoTitle = t('katalog.seo.title');
+    } elseif (isset($kfTitles[$kfPathCat]) && !$kfEmptyCat) {
+        $kfLoc = in_array($kfPathCat, ['cestovni', 'naked', 'supermoto', 'sportovni'], true) ? katalogPlaceCs($kfSlugs, 'titul') : '';
+        $seoTitle = $kfTitles[$kfPathCat] . ($kfLoc !== '' ? ' ' . $kfLoc : '') . ' | MotoGo24';
+        if (mb_strlen($seoTitle, 'UTF-8') > 60) $seoTitle = $kfTitles[$kfPathCat] . ' | MotoGo24';
+    }
+}
+
+renderPage($seoTitle, $content, $path, ($kcV2 ? kfPageMeta() : []) + ($kfEmptyCat ? ['robots' => 'noindex,follow'] : []) + [
     'description' => $catDesc,
     'keywords' => t('katalog.seo.keywords'),
     'schema' => $itemListSchema,

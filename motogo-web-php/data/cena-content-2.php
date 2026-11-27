@@ -20,7 +20,7 @@ return [
             [
                 'icon' => 'gfx/ico-bez-kauce.svg',
                 'title' => 'Bez kauce',
-                'text' => 'žádná záloha při půjčení.',
+                'text' => 'žádná kauce ani blokace peněz na kartě – platíš jen nájem.',
             ],
             [
                 'icon' => 'gfx/jasne-podminky.svg',
@@ -35,8 +35,8 @@ return [
         ],
     ],
     'cta' => [
-        'title' => 'Výbava v ceně – půjčovna motorek MotoGo24 – Vysočina',
-        'text' => '<strong>MotoGo24 je moderní půjčovna motorek na Vysočině</strong> s výbavou pro řidiče v ceně, půjčením bez kauce a nonstop provozem. Vyber si <strong>cestovní, supermoto, naked nebo dětskou motorku</strong> a rezervuj online. U nás je vše jasné a bez skrytých poplatků.',
+        'title' => 'Rezervuj motorku online',
+        'text' => 'Cenu všech doplňků uvidíš v rezervaci ještě před platbou. Vyber si motorku a rezervuj online.',
         'buttons' => [
             [
                 'label' => 'REZERVOVAT ONLINE',
@@ -47,8 +47,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Co je v ceně půjčení motorky u MotoGo24 | Vysočina',
-        'description' => 'Zjisti, co obsahuje cena půjčení motorky u MotoGo24. Půjčovna motorek nabízí jasné podmínky, výbavu i služby bez skrytých poplatků.',
+        'title' => 'Co je v ceně pronájmu motorky | MotoGo24',
+        'description' => 'V ceně máš výbavu řidiče, neomezené kilometry, kotoučový zámek a 100% smluvní krytí škod. Bez kauce. Za příplatek výbava spolujezdce, boty a přistavení.',
         'keywords' => 'motopůjčovna',
     ],
 ];

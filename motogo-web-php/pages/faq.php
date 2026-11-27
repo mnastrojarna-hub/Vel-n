@@ -10,12 +10,12 @@ $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 // Chrome stránky (přes siteContent — overlay z cms_variables web.faq.*)
 $defaults = [
     'seo' => [
-        'title' => 'Časté dotazy k půjčení motorky | Motopůjčovna MotoGo24 Vysočina',
-        'description' => 'Nejčastější dotazy k půjčení motorky v motopůjčovně MotoGo24. Odpovědi na rezervaci motorky, podmínky i průběh zapůjčení motocyklu.',
+        'title' => 'Půjčení motorky – časté dotazy | MotoGo24',
+        'description' => 'Odpovědi na nejčastější dotazy k půjčení motorky: kauce, výbava, doklady, storno, škody a pojištění, cesty do zahraničí, přistavení i dárkové poukazy.',
         'keywords' => 'motopůjčovna, půjčovna motorek, časté dotazy půjčovna motorek, podmínky pronájmu motorky, jak si půjčit motorku, MotoGo24',
     ],
-    'h1' => 'Často kladené dotazy',
-    'closing' => 'Naše <strong>půjčovna motorek Vysočina</strong> je tu pro všechny, kdo chtějí zažít <strong>nezapomenutelnou jízdu</strong> bez zbytečných komplikací. Pronájem je <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop</strong>.',
+    'h1' => 'Časté dotazy k půjčení motorky',
+    'closing' => 'Nenašel/a jsi odpověď? Zavolej nám na <strong>+420 774 256 271</strong> nebo napiš na <strong>info@motogo24.cz</strong>.',
     'cta' => ['label' => 'Rezervovat motorku online', 'href' => '/rezervace'],
 ];
 $C = $sb->siteContent('faq', $defaults);

@@ -61,6 +61,12 @@
     if (el) el.dispatchEvent(new Event('change', { bubbles: !!bubbles }));
   }
   function ruleOff() { return flag.enabled; } // flag zapnutý = pravidlo se neuplatní
+  // Pravidlo samo žije v js/delivery-rules.js (MG.DELIVERY.blocked) — stejnou funkci volá kalkulačka ceny
+  // (js/landing-calc-delivery.js). Bez ní (stará stránka v cache prohlížeče) platí původní výraz.
+  function blocked(m) {
+    var ty = m && m.branches && m.branches.type, D = MG.DELIVERY;
+    return D && typeof D.blocked === 'function' ? !!D.blocked(ty, flag.enabled) : (ty === SS_TYPE && !ruleOff());
+  }
 
   // ---------- feature flag ----------
   MG._selfServiceDeliveryEnabled = false;
@@ -164,10 +170,6 @@
     for (i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
     return null;
   }
-  function rezIsSelfService() {
-    var m = rezSelectedMoto();
-    return !!(m && m.branches && m.branches.type === SS_TYPE);
-  }
   function lockCheckbox(cb, card, lock) {
     if (!cb) return;
     if (lock) {
@@ -184,7 +186,7 @@
     var del = document.getElementById('rez-delivery');
     if (!del) return; // formulář není vykreslený (krok 2 / resume)
     var app = document.getElementById('rezervace-app') || document;
-    var lock = rezIsSelfService() && !ruleOff();
+    var lock = blocked(rezSelectedMoto());
     var ret = document.getElementById('rez-return-other');
     var same = document.getElementById('rez-return-same-as-delivery');
     var delCard = del.closest('.rez-loc-card') || app.querySelector('.rez-loc-card[data-loc="delivery"]');
@@ -245,10 +247,6 @@
   function editBooking() {
     return (MG._editRez && MG._editRez.selectedBooking) || null;
   }
-  function editIsSelfService() {
-    var b = editBooking(), m = b && b.motorcycles;
-    return !!(m && m.branches && m.branches.type === SS_TYPE);
-  }
   // Rezervace už přistavení / odvoz MÁ (vznikla dřív) → ponechat: nové pravidlo
   // (a DB trigger) brání jen NOVÉ volbě, ne zachování stávající.
   function hasAddr(method, addr) {
@@ -258,7 +256,7 @@
     var form = document.getElementById('edit-rez-loc-form');
     if (!form) return;
     var b = editBooking() || {};
-    var lockAll = editIsSelfService() && !ruleOff();
+    var lockAll = blocked((editBooking() || {}).motorcycles);
     [['pickup', 'editRez.loc.deliveryTitle', 'Přistavení na adresu', hasAddr(b.pickup_method, b.pickup_address)],
      ['returnM', 'editRez.loc.deliveryReturnTitle', 'Vyzvedneme od vás', hasAddr(b.return_method, b.return_address)]].forEach(function (c) {
       var name = c[0];

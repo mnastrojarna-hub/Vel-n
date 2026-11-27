@@ -7,7 +7,7 @@
 
 $email = defined('EMAIL_FULL') ? EMAIL_FULL : 'info@motogo24.cz';
 $phone = defined('PHONE') ? PHONE : '+420 774 256 271';
-$company = defined('COMPANY_NAME') ? COMPANY_NAME : 'Bc. Petra Semorádová';
+$company = defined('COMPANY_NAME') ? COMPANY_NAME : 'MotoGo24 s.r.o.';
 
 $T = [
     'title' => 'Smazání účtu | MotoGo24',

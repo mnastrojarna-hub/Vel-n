@@ -50,7 +50,7 @@ return [
             [
                 'icon' => 'gfx/uzij-si-jizdu.svg',
                 'title' => 'Užij si jízdu',
-                'text' => 'Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda.',
+                'text' => 'Vyraz na cestu. Kdyby se cokoli stalo, jsme ti během výpůjčky nonstop k dispozici.',
             ],
             [
                 'icon' => 'gfx/predani-motorky.svg',
@@ -67,7 +67,7 @@ return [
             '<strong>500 Kč</strong>&nbsp;za vyložení motorky,',
             '<strong>20 Kč</strong>&nbsp;za každý kilometr (počítá se vzdálenost z půjčovny na místo určení tam i zpět)',
         ],
-        'example' => '<strong>Příklad:</strong>&nbsp;Chcete motorku přistavit 30 km od půjčovny? Zaplatíte 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2 200 Kč.</strong>',
+        'example' => '<strong>Příklad:</strong>&nbsp;Chceš motorku přistavit 30 km od Mezné? Zaplatíš 500 + 500 + (30 × 2 × 20) =&nbsp;<strong>2 200 Kč.</strong>',
     ],
     'faq' => [
         'title' => 'Často kladené dotazy k přistavení',
@@ -85,8 +85,8 @@ return [
                 'a' => 'Řídíme se tabulkou vzdáleností. Nad 100 km cenu kalkulujeme <strong>individuálně</strong>.',
             ],
             [
-                'q' => 'Platí se kauce?',
-                'a' => 'Ne. <strong>Půjčujeme bez kauce</strong>, podmínky jsou jasné a férové.',
+                'q' => 'Přistavíte i motorku z Velkých Němčic?',
+                'a' => 'Ne. Přistavení nabízíme jen u motorek z <strong>obslužné pobočky v Mezné u Pelhřimova</strong>; motorky ze samoobslužné pobočky ve Velkých Němčicích se přebírají i vracejí jen na pobočce.',
             ],
             [
                 'q' => 'Je v ceně i výbava řidiče?',
@@ -95,8 +95,8 @@ return [
         ],
     ],
     'cta' => [
-        'title' => 'Přistavení motorky – půjčovna motorek',
-        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s možností <strong>přistavení motocyklu</strong> kamkoliv v České republice. Cena přistavení se odvíjí od vzdálenosti z naší provozovny v Pelhřimově.&nbsp;Nabízíme <strong>nonstop provoz, bez kauce, výbavu pro řidiče v ceně</strong> a jednoduchou<strong> online rezervaci</strong>.',
+        'title' => 'Objednej si přistavení',
+        'text' => 'Přistavení si objednáš přímo v rezervaci – adresu a čas zadáš ve formuláři a cenu uvidíš hned.',
         'buttons' => [
             [
                 'label' => 'REZERVOVAT DORUČENÍ',
@@ -107,8 +107,8 @@ return [
         ],
     ],
     'seo' => [
-        'title' => 'Přistavení motorky na zvolené místo | MotoGo24',
-        'description' => 'MotoGo24 zajistí přistavení motorky na místo podle tvého výběru. Pohodlné půjčení motorky na Vysočině bez zbytečného cestování.',
+        'title' => 'Přistavení motorky kamkoli v ČR – ceník | MotoGo24',
+        'description' => 'Motorku z Mezné u Pelhřimova ti přivezeme domů, k hotelu nebo na nádraží kdekoli v ČR. Cena: 500 + 500 Kč a 20 Kč/km tam i zpět. Objednáš v rezervaci.',
         'keywords' => 'motopůjčovna',
     ],
 ];

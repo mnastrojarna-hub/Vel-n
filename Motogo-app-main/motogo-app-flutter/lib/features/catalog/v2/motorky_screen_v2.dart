@@ -16,6 +16,7 @@ import '../../loyalty/loyalty_provider.dart';
 import '../catalog_provider.dart';
 import '../moto_model.dart';
 import '../../home/v2/home_offer_provider.dart' show homeNextFreeProvider;
+import 'bike_card_reserve_v2.dart';
 import 'bike_free_label_v2.dart';
 import 'bike_screen_list_v2.dart';
 import 'calc/calc_body_v2.dart';
@@ -307,7 +308,8 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
         : bikeFreeLabel(tr, m, nextFree).$1;
     final h = _cardHeight(context);
     final top = MediaQuery.paddingOf(context).top;
-    // Same card tap as before; the card's button is the old "Detail".
+    // Same card tap as before; the card's "Detail" is the old button,
+    // "Rezervovat" beside it (owner 2026-11-27) the detail's reserve entry.
     return SliverMainAxisGroup(slivers: [
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
       BikeScreenList(
@@ -326,6 +328,9 @@ class _MotorkyScreenV2State extends ConsumerState<MotorkyScreenV2>
               availabilityLater: !hasDates && !bikeFreeLabel(tr, motos[i], nextFree).$2,
               live: i == 0,
               ctaLabel: tr.tr('motoCardDetail'),
+              // 5.0.3: "Rezervovat" beside "Detail" = the detail's own entry.
+              reserveLabel: tr.tr('v2CatCtaBook'),
+              onReserve: () => bikeCardReserve(context, ref, motos[i], open),
               height: h,
               topInset: top,
               liftExtra: toTop ? kMgToTopSlot : 0,
