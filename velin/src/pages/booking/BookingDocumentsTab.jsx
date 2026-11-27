@@ -17,6 +17,8 @@ import { isGearBooking } from '../../lib/bookingKind'
 import { gearMailVarsFor } from './protocolGearModal'
 import { sendProtocolEmail } from './protocolEmail'
 import { fetchBookingDocLang, generateBookingDoc } from '../../lib/docLanguage'
+import { loadCompanyInfo } from '../../lib/company'
+import { storedIfIssuedBeforeSwitch, downloadStored, STORED_MISSING_NOTE } from '../../lib/storedDocument'
 
 export default function BookingDocumentsTab({ bookingId, userId }) {
   const [docs, setDocs] = useState([])
@@ -27,6 +29,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   const [error, setError] = useState(null)
   const [viewDoc, setViewDoc] = useState(null)
   const [viewHtml, setViewHtml] = useState(null)
+  const [viewPdfUrl, setViewPdfUrl] = useState(null) // uložené PDF dokumentu vystaveného před změnou provozovatele
   const [debug, setDebug] = useState(null)
   const [dbTemplates, setDbTemplates] = useState({})
   const [protocolChoice, setProtocolChoice] = useState(null) // 'handover_protocol' | 'damage_protocol' — dialog tištěný/elektronický
@@ -37,7 +40,9 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   const [sendingDocId, setSendingDocId] = useState(null) // id protokolu odesílaného ze seznamu
   const [protoSendMsg, setProtoSendMsg] = useState(null)
 
-  useEffect(() => { loadAll(); loadDbTemplates() }, [bookingId])
+  useEffect(() => { loadAll(); loadDbTemplates(); loadCompanyInfo() }, [bookingId])
+
+  function closeView() { if (viewPdfUrl) URL.revokeObjectURL(viewPdfUrl); setViewDoc(null); setViewHtml(null); setViewPdfUrl(null) }
 
   async function loadAll() {
     setLoading(true)
@@ -96,6 +101,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
     if (bErr || !booking) throw new Error('Rezervace nenalezena: ' + (bErr?.message || 'no data'))
     let customer = {}
     if (booking.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
+    await loadCompanyInfo()
     const vars = buildDocVars(booking, customer, bookingId)
     let html = getClientTemplate(templateSlug, dbTemplates)
     if (!html) throw new Error(`Sablona '${templateSlug}' nebyla nalezena`)
@@ -109,6 +115,8 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   async function handleDownload(doc) {
     try {
       if (doc.number && doc.type) { const html = await generateInvoiceHtmlForDoc(doc); if (html) { downloadBlob(html, `faktura_${doc.number}.html`); return } }
+      // Dokument vystavený před změnou provozovatele: stáhni ULOŽENÝ soubor, neskládej ho znovu.
+      if (doc.filled_data && downloadStored(await storedIfIssuedBeforeSwitch(doc), doc.document_templates?.name || doc.filled_data?._doc_name || 'dokument')) return
       if (doc.filled_data) { const html = rebuildFromFilledData(doc); if (html) { downloadBlob(html, doc.document_templates?.name || 'dokument.html'); return } }
       const path = doc.pdf_path || doc.file_path
       if (path) { const { data, error: err } = await supabase.storage.from('documents').download(path); if (!err && data) { const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href = url; a.download = doc.file_name || 'dokument.html'; a.click(); URL.revokeObjectURL(url); return } }
@@ -121,6 +129,12 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
   async function generateInvoiceHtmlForDoc(inv) { try { const f = await loadInvoiceData(inv.id); return generateInvoiceHtml({ ...f, customer: invoiceCustomer(f), items: f.items || [] }) } catch { return null } }
 
   async function handleViewGeneratedDoc(doc) {
+    // Dokument vystavený před změnou provozovatele (company_info.valid_from) se NESKLÁDÁ z dnešní
+    // šablony (nese už nového provozovatele) — otevře se uložený soubor / podepsané HTML.
+    const stored = await storedIfIssuedBeforeSwitch(doc)
+    if (stored?.kind === 'html') { setViewPdfUrl(null); setViewHtml(stored.html); setViewDoc(doc); return }
+    if (stored?.kind === 'pdf') { setViewHtml(null); setViewPdfUrl(stored.url); setViewDoc(doc); return }
+    if (stored?.kind === 'missing') setError(STORED_MISSING_NOTE)
     if ((doc.document_templates?.content_html || doc.document_templates?.html_content) && doc.filled_data) {
       let html = doc.document_templates.content_html || doc.document_templates.html_content
       html = fillTemplate(html, doc.filled_data); setViewHtml(html); setViewDoc(doc); return
@@ -249,6 +263,8 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       if (booking?.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
       const vars = (d.filled_data && d.filled_data.customer_name) ? d.filled_data : buildDocVars(booking || {}, customer, bookingId)
       let html = d.filled_data?._signed_html || null
+      // tištěný protokol vystavený před změnou provozovatele: uložené HTML, ne dnešní šablona (příloha = uložený soubor)
+      if (!html) { const stored = await storedIfIssuedBeforeSwitch(d); if (stored?.kind === 'html') html = stored.html; else if (stored?.kind === 'pdf') URL.revokeObjectURL(stored.url) }
       if (!html) {
         const tpl = d.document_templates?.content_html || getClientTemplate(type, dbTemplates)
         if (tpl) html = fillTemplate(tpl, vars)
@@ -333,12 +349,13 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
         ))}
       </Card>
       {viewDoc && (
-        <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || 'Dokument')} onClose={() => { setViewDoc(null); setViewHtml(null) }} wide>
-          {viewHtml ? <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}><iframe srcDoc={viewHtml} style={{ width: '100%', height: 550, border: 'none' }} title="Nahled dokumentu" /></div> : <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nema nahled.</div>}
+        <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || 'Dokument')} onClose={closeView} wide>
+          {viewPdfUrl ? <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}><iframe src={viewPdfUrl} style={{ width: '100%', height: 550, border: 'none' }} title="Nahled dokumentu" /></div> : viewHtml ? <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}><iframe srcDoc={viewHtml} style={{ width: '100%', height: 550, border: 'none' }} title="Nahled dokumentu" /></div> : <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Dokument nema nahled.</div>}
           <div className="flex justify-end gap-3 mt-4 max-lg:flex-wrap">
+            {viewPdfUrl && <Button onClick={() => window.open(viewPdfUrl, '_blank')}>Tisk / PDF</Button>}
             {viewHtml && <Button onClick={() => openPrintWindow(viewHtml)}>Tisk / PDF</Button>}
             {(viewDoc.pdf_path || viewDoc.file_path) && <Button onClick={() => handleDownload(viewDoc)}>Stahnout</Button>}
-            <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavrit</Button>
+            <Button onClick={closeView}>Zavrit</Button>
           </div>
         </Modal>
       )}

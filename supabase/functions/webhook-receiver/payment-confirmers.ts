@@ -5,6 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { resolveBookingLanguage, resolveOrderLanguage } from './customer-lang.ts'
 // Výpůjčka výbavy (2026-10-23): stav dokladů gear rezervace per rezervace (gear-docs.ts).
 import { bookingDocsOk, bookingKindOf } from './gear-docs.ts'
+// Patička HTML poukazu: provozovatel z app_settings.company_info (_shared/company.ts), nic natvrdo.
+import { emailFooterCompanyHtml } from '../_shared/company.ts'
 
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://www.motogo24.cz'
 
@@ -59,9 +61,7 @@ function generateVoucherHtml(code: string, amount: number, validUntil: string, b
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
-          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>
-          <div style="color:#9ca3af">Mezná 9, 393 01 Pelhřimov</div>
-          <div style="color:#9ca3af">IČO: 21874263</div>
+          ${emailFooterCompanyHtml()}
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>

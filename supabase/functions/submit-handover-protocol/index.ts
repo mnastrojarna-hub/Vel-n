@@ -29,6 +29,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { authClassify } from '../_shared/auth.ts'
+import { loadCompany } from '../_shared/company.ts'
 import { buildHtml, normalizeMotoEquipment, type Signer, type Vars } from './html.ts'
 import { makeTr, resolveProtocolLang } from './i18n.ts'
 import { bookingGearItems, normalizeAccessories, resolveGearUpdates } from './gear.ts'
@@ -233,7 +234,7 @@ serve(async (req) => {
     const vars: Vars = {
       booking_number: bn,
       today: now.toLocaleDateString('cs-CZ', { timeZone: 'Europe/Prague' }),
-      company_name: 'Bc. Petra Semorádová, MotoGo24',
+      company_name: (await loadCompany(admin)).name, // pronajímatel = aktuální provozovatel (app_settings.company_info)
       customer_name: (customer.full_name as string) || (customer.email as string) || '—',
       moto_model: (moto.model as string) || '—',
       moto_spz: (moto.spz as string) || '',

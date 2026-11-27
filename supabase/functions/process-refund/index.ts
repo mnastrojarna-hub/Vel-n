@@ -12,6 +12,9 @@ import { reconcileCreditNote, remainderForMainHaleru } from './credit-note-sync.
 import { isRecoveryOnlyReason, WEBHOOK_REFUND_RECOVERY_REASON } from '../_shared/refund-recovery.ts'
 // Výpůjčka výbavy (2026-10-23): text dobropisu „výpůjčka výbavy“ + spodní mez ceny výbavy (gear.ts).
 import { gearPriceFloorCzk, loadGearRefundRow, noMotoRefundSubject } from './gear.ts'
+// Dobropis nese vystavitele OPRAVOVANÉHO dokladu (issuer_snapshot), ne dnešního provozovatele.
+import { creditNoteIssuer, creditNoteIssuerHtml } from './credit-note-issuer.ts'
+import type { Company } from '../_shared/company.ts'
 // HOTFIX storno 2026-10-29: storno vratka nejvýš jednou za storno (cancel-once.ts).
 import { acquireCancelLock, cancelBusy, hasLiveManualCreditNote, cancelToken, cancelTargetHaleru, cancellationRefundedHaleru, duplicateAdminRefunds, logicalRefundHaleru, openCancelMains, priorCancellationRefunds, releaseCancelLock, respondExistingCancelRefund, type CancelLock, type StripeRefundLike } from './cancel-once.ts'
 // Sloučení hotfixu s vratkou z více plateb (dev f1–f3, 2026-11-05): kontrola nad vratkami VŠECH plateb
@@ -94,6 +97,8 @@ function renderCreditNoteHtml(opts: {
   customer: { full_name?: string; email?: string; phone?: string; street?: string; city?: string; zip?: string; ico?: string; dic?: string; company?: string | null; company_address?: string | null };
   originalInvoiceNumber?: string | null; stripeRefundId: string | null;
   cardBrand?: string | null; cardLast4?: string | null; manual?: boolean;
+  /** vystavitel = vystavitel opravovaného dokladu (credit-note-issuer.ts); bez něj aktuální provozovatel */
+  issuer?: Company | null;
 }): string {
   const c = opts.customer || {}
   const cardLine = opts.manual
@@ -125,12 +130,7 @@ tr.total td{background:#fef2f2;font-weight:800;font-size:15px;color:#dc2626;bord
     <div class="num">Datum vystavení: ${opts.issueDate}</div>
     ${opts.originalInvoiceNumber ? `<div class="num">K dokladu: ${opts.originalInvoiceNumber}</div>` : ''}
   </div>
-  <div style="text-align:right">
-    <div style="font-size:18px;font-weight:800">MotoGo24</div>
-    <div style="color:#4a5a52">Bc. Petra Semorádová</div>
-    <div style="color:#4a5a52">Mezná 9, 393 01 Pelhřimov</div>
-    <div style="color:#4a5a52">IČO: 21874263</div>
-  </div>
+  ${creditNoteIssuerHtml(opts.issuer)}
 </div>
 <div class="grid">
   <div class="box"><h3>Odběratel</h3>
@@ -246,6 +246,7 @@ async function ensureCreditNotePdf(
       stripeRefundId: refundId || '',
       cardBrand: bk.card_brand,
       cardLast4: bk.card_last4,
+      issuer: await creditNoteIssuer(supabase, { creditNoteId: cn.id, originalInvoiceId: cn.original_invoice_id }),
     })
 
     const pdfBytes = await htmlToPdf(html)
@@ -400,6 +401,7 @@ async function createCreditNoteForExistingRefund(
       bookingDates: `${fmtDate(bkRow.start_date)} – ${fmtDate(bkRow.end_date)}`,
       customer: cust2, originalInvoiceNumber,
       stripeRefundId: bk.stripe_refund_id, cardBrand, cardLast4,
+      issuer: await creditNoteIssuer(supabase, { creditNoteId: cnInv.id, originalInvoiceId }),
     })
     const pdfBytes = await htmlToPdf(html)
     const path = pdfBytes ? `invoices/${cnInv.id}.pdf` : `invoices/${cnInv.id}.html`
@@ -522,8 +524,8 @@ async function tryFioRefund(
   const bookingNumber = String(booking_id).slice(-8).toUpperCase()
   try {
     // 1) Zdrojový účet = účet tokenu. Bereme z company_info.bank_account a
-    //    vyžadujeme kód banky 2010 (Fio) — dokud company_info míří na starý
-    //    účet (mBank), automatická vratka se nepokouší (peníze tam nepřišly).
+    //    vyžadujeme kód banky 2010 (Fio) — dokud company_info míří na účet
+    //    u jiné banky, automatická vratka se nepokouší (peníze tam nepřišly).
     const { data: ci } = await supabase.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
     const bankAccount = String((ci?.value as any)?.bank_account || '').replace(/\s+/g, '')
     const accMatch = bankAccount.match(/^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/)
@@ -1071,6 +1073,7 @@ async function manualBookingRefund(
           customer: cust3,
           originalInvoiceNumber: origInvs?.[0]?.number || null,
           stripeRefundId: null, manual: true,
+          issuer: await creditNoteIssuer(supabase, { creditNoteId: cnId, originalInvoiceId: origInvs?.[0]?.id || null }),
         })
         const pdfBytes = await htmlToPdf(html)
         cnPdfPath = pdfBytes ? `invoices/${cnId}.pdf` : `invoices/${cnId}.html`
@@ -2336,6 +2339,7 @@ Deno.serve(async (req: Request) => {
                 stripeRefundId: refund.id,
                 cardBrand,
                 cardLast4,
+                issuer: await creditNoteIssuer(supabase, { creditNoteId: cnId, originalInvoiceId }),
               })
               const pdfBytes = await htmlToPdf(html)
               await dlog('pdfshift_render_done', 'info', { credit_note_id: cnId, has_pdf: !!pdfBytes, pdf_bytes: pdfBytes?.length || 0 })

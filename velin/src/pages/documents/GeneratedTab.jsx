@@ -15,6 +15,8 @@ import { sanitizeHtml } from '../../lib/sanitize'
 import { DocCheckAll, DocCheckRow } from './DocStackChecks'
 import { withBookingKind, kindCol } from './bookingKindQuery'
 import { GEAR_PILL, isGearBooking } from '../../lib/bookingKind'
+import { loadCompanyInfo, companyDocVars } from '../../lib/company'
+import { storedIfIssuedBeforeSwitch, STORED_MISSING_NOTE } from '../../lib/storedDocument'
 
 const PER_PAGE = 25
 
@@ -68,6 +70,7 @@ export default function GeneratedTab() {
   const [filters, setFilters] = useState(loadFilters)
   const [preview, setPreview] = useState(null)
   const [previewHtml, setPreviewHtml] = useState('')
+  const [previewPdfUrl, setPreviewPdfUrl] = useState(null) // uložené PDF dokumentu vystaveného před změnou provozovatele
   const [showGenerate, setShowGenerate] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
 
@@ -157,11 +160,19 @@ export default function GeneratedTab() {
     } catch (e) { setError('Stažení selhalo: ' + e.message) }
   }
 
-  function showPreviewModal(doc) {
-    const html = generateFilledHtml(doc)
-    setPreviewHtml(html || '<p style="color:#1a2e22;text-align:center;padding:40px;">Obsah dokumentu není dostupný.</p>')
+  async function showPreviewModal(doc) {
+    // Dokument vystavený před změnou provozovatele (company_info.valid_from) se NESKLÁDÁ z dnešní
+    // šablony (nese už nového provozovatele) — ukáže se uložený soubor / podepsané HTML.
+    const stored = await storedIfIssuedBeforeSwitch(doc)
+    if (stored?.kind === 'pdf') { setPreviewHtml(''); setPreviewPdfUrl(stored.url); setPreview(doc); return }
+    const html = stored?.kind === 'html' ? stored.html : generateFilledHtml(doc)
+    const note = stored?.kind === 'missing' && html ? `<p style="color:#b45309;font-size:12px;margin:0 0 12px">${STORED_MISSING_NOTE}</p>` : ''
+    setPreviewPdfUrl(null)
+    setPreviewHtml(html ? note + html : '<p style="color:#1a2e22;text-align:center;padding:40px;">Obsah dokumentu není dostupný.</p>')
     setPreview(doc)
   }
+
+  function closePreview() { if (previewPdfUrl) URL.revokeObjectURL(previewPdfUrl); setPreviewPdfUrl(null); setPreview(null) }
 
   const totalPages = Math.ceil(total / PER_PAGE)
   const hasActiveFilters = filters.search || filters.types.length > 0 || filters.sort !== 'date_desc'
@@ -296,7 +307,7 @@ export default function GeneratedTab() {
       )}
 
       {preview && (
-        <Modal open title={`Náhled: ${resolveDocLabel(preview) === '—' ? 'Dokument' : resolveDocLabel(preview)}`} onClose={() => setPreview(null)} wide>
+        <Modal open title={`Náhled: ${resolveDocLabel(preview) === '—' ? 'Dokument' : resolveDocLabel(preview)}`} onClose={closePreview} wide>
           {preview.filled_data && (
             <div className="mb-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
               <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Vyplněná data</div>
@@ -310,11 +321,17 @@ export default function GeneratedTab() {
               </div>
             </div>
           )}
-          <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }} />
+          {previewPdfUrl ? (
+            <div className="rounded-card" style={{ background: '#fff', border: '1px solid #d4e8e0', overflow: 'hidden' }}>
+              <iframe src={previewPdfUrl} style={{ width: '100%', height: 500, border: 'none' }} title="Náhled dokumentu" />
+            </div>
+          ) : (
+            <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewHtml) }} />
+          )}
           <div className="flex justify-end gap-3 mt-4">
             <Button onClick={() => download(preview)}>Stáhnout</Button>
-            <Button onClick={() => setPreview(null)}>Zavřít</Button>
+            <Button onClick={closePreview}>Zavřít</Button>
           </div>
         </Modal>
       )}
@@ -375,8 +392,8 @@ function GenerateDocModal({ onClose, onGenerated }) {
         total_price: (booking.total_price || 0).toLocaleString('cs-CZ') + ' Kč',
         booking_number: booking.id?.slice(-8).toUpperCase() || '',
         contract_date: new Date().toLocaleDateString('cs-CZ'),
-        company_name: 'Bc. Petra Semorádová',
-        company_ico: '21874263',
+        // provozovatel = aktuální app_settings.company_info, jinak OPERATOR (lib/company.js)
+        ...companyDocVars(await loadCompanyInfo()),
       }
 
       let filledHtml = template.content_html || ''
@@ -386,7 +403,9 @@ function GenerateDocModal({ onClose, onGenerated }) {
 
       // Render HTML → PDF v prohlížeči a upload do Storage. Při selhání PDF
       // konverze fallbackuje na .html (uploadHtmlAsPdf vrátí path s odpovídající příponou).
-      const targetPath = `generated/${template.id}_${selectedBooking}.pdf`
+      // Každé vygenerování = NOVÝ soubor (dřív stejná cesta + upsert → nová verze tiše přepsala
+      // soubor dříve vystaveného dokumentu téže rezervace; starší řádek pak ukazoval na nový obsah).
+      const targetPath = `generated/${template.id}_${selectedBooking}_${Date.now()}.pdf`
       const finalPath = await uploadHtmlAsPdf(supabase, targetPath, filledHtml, {
         filename: `${TYPE_LABELS[template.type] || 'dokument'}.pdf`,
       })

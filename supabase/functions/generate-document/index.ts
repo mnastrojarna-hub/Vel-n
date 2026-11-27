@@ -1,6 +1,7 @@
 // generate-document — dokument k rezervaci ze šablony document_templates (rental_contract, vop,
 // handover_protocol, damage_protocol, gdpr) → PDF (PDFShift, fallback HTML) → bucket `documents`
-// → generated_documents (+ přemazání starších verzí téhož typu).
+// → generated_documents (+ přemazání starších verzí téhož typu — NIKDY verze jiného / dřívějšího
+// provozovatele, viz versions.ts).
 //
 // Audit 2026-10-10:
 //  - EDGE-DOC-18: volat smí jen service_role, účet Velína, nebo vlastník rezervace (jen v jazyce
@@ -21,6 +22,8 @@ import { htmlToPdf, wrapDocument } from './render.ts'
 import { applyNotice, enqueueRetranslation, type Mode, pickContent, setHtmlLang } from './translation.ts'
 import { buildVars } from './vars.ts'
 import { buildGearVars, GEAR_CONTRACT_SLUG, isGearDoc, loadGearPriceRows, resolveDocSlug } from './gear-vars.ts'
+import { loadCompany } from '../_shared/company.ts'
+import { type OldDoc, splitOldVersions } from './versions.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -64,13 +67,8 @@ serve(async (req) => {
       } catch { /* jen log */ }
     }
 
-    // Firemní údaje z app_settings
-    let companyInfo = { name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov', ico: '21874263', dic: '' }
-    try {
-      const { data: settings } = await supabase.from('app_settings').select('value').eq('key', 'company_info').limit(1)
-      const info = settings?.[0]?.value
-      if (info && info.name) companyInfo = { name: info.name, address: info.address || companyInfo.address, ico: info.ico || companyInfo.ico, dic: info.dic || '' }
-    } catch (e) { console.warn('Failed to load company_info:', e) }
+    // Provozovatel z app_settings.company_info (název, sídlo, IČO, zápis v rejstříku, účet) — _shared/company.ts
+    const companyInfo = await loadCompany(supabase)
 
     // Šablona z DB (bez .single() — chyba při 0 / 2+ řádcích); select('*') nese i translation_src, pokud existuje.
     const { data: templates, error: tErr } = await supabase.from('document_templates').select('*')
@@ -185,11 +183,16 @@ serve(async (req) => {
     if (upErr) console.error('Storage upload error:', upErr) // záznam vznikne i tak (filled_data pro render v klientovi)
 
     // Přemazání starších verzí téhož typu (booking_id + template_id; fallback bez template_id se nepřemazává).
-    let oldDocs: Array<{ id: string; pdf_path: string | null }> = []
+    // Verze jiného provozovatele / z doby před jeho změnou se NEMAŽOU (versions.ts) — zůstane řádek i soubor.
+    let oldDocs: OldDoc[] = []
+    let keptOld = 0
     if (template?.id) {
       try {
-        const { data: prev } = await supabase.from('generated_documents').select('id, pdf_path').eq('booking_id', booking_id).eq('template_id', template.id)
-        if (Array.isArray(prev)) oldDocs = prev
+        const { data: prev } = await supabase.from('generated_documents').select('id, pdf_path, created_at, filled_data').eq('booking_id', booking_id).eq('template_id', template.id)
+        if (Array.isArray(prev)) {
+          const parts = splitOldVersions(prev as OldDoc[], companyInfo)
+          oldDocs = parts.removable; keptOld = parts.frozen.length
+        }
       } catch { /* ignore */ }
     }
 
@@ -203,20 +206,21 @@ serve(async (req) => {
       return json({ error: 'Failed to insert generated document: ' + gErr.message }, 500)
     }
 
-    // Synchronizovaný `documents` řádek → nový soubor; staré verze (řádky + soubory) pryč.
-    if (oldDocs.length) {
+    // Synchronizovaný `documents` řádek → nový soubor; staré verze (řádky + soubory) pryč —
+    // kromě zamražených (keptOld), ty zůstávají v generated_documents i ve storage.
+    if (oldDocs.length || keptOld) {
       const s = String(template_slug || '').toLowerCase()
       const vDocType = s.includes('contract') ? 'contract' : s.includes('protocol') ? 'protocol' : s === 'vop' ? 'vop' : 'contract'
       try { await supabase.from('documents').update({ file_path: path }).eq('booking_id', booking_id).eq('type', vDocType) } catch { /* ignore */ }
       const oldFiles = oldDocs.map((d) => d.pdf_path).filter((p): p is string => !!p && p !== path)
-      try { await supabase.from('generated_documents').delete().in('id', oldDocs.map((d) => d.id)) } catch { /* ignore */ }
+      if (oldDocs.length) { try { await supabase.from('generated_documents').delete().in('id', oldDocs.map((d) => d.id)) } catch { /* ignore */ } }
       if (oldFiles.length) { try { await supabase.storage.from('documents').remove(oldFiles) } catch { /* ignore */ } }
     }
 
     try {
       await supabase.from('admin_audit_log').insert({
         action: 'document_generated',
-        new_data: { document_id: docId, template_slug, booking_id, language: lang, translation: mode, retranslating },
+        new_data: { document_id: docId, template_slug, booking_id, language: lang, translation: mode, retranslating, kept_old_versions: keptOld || undefined },
       })
     } catch { /* ignore */ }
 

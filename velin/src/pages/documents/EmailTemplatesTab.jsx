@@ -10,6 +10,7 @@ import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { GOOGLE_REVIEW_URL_DEFAULT, googleOnlyReviewLinks } from '../../lib/reviewLinks'
 // Výpůjčka výbavy (rezervace bez motorky): metadata + ukázkové proměnné gear šablon
 import { GEAR_CATEGORY, gearTemplateMeta, sampleVarsFor } from './gearEmailTemplates'
+import { loadCompanyInfo, currentCompany, companyDocVars, formatIban, registerFooterLine } from '../../lib/company'
 
 const SAMPLE_VARS = {
   // Booking email vars
@@ -43,10 +44,7 @@ const SAMPLE_VARS = {
   return_method: 'Na pobočce', return_address: 'Mezná 9, 393 01 Pelhřimov',
   branch_name: 'Pobočka Mezná', branch_address: 'Mezná 9, 393 01 Pelhřimov',
   today: '30. 3. 2026',
-  company_name: 'Bc. Petra Semorádová', company_address: 'Mezná 9, 393 01 Pelhřimov',
-  company_ico: '21874263', company_dic: '',
-  company_phone: '+420 774 256 271', company_email: 'info@motogo24.cz',
-  company_web: 'www.motogo24.cz', company_bank: 'mBank', company_account: '670100-2225851630/6210',
+  // company_* a platební údaje (účet, IBAN, banka, QR) doplňuje companySampleVars() níže
   // Time & period
   start_time: '10:00', end_time: '10:00', rental_period: '3 dny',
   total_price_words: 'sedm tisíc osm set korun českých',
@@ -56,14 +54,24 @@ const SAMPLE_VARS = {
   // Odkazy na tlačítka v mailech (nahrazuje je send-booking-email živě; tady mock pro náhled)
   docs_url: 'https://www.motogo24.cz/rezervace?resume=abc123',
   pay_url: 'https://www.motogo24.cz/rezervace?resume=abc123',
-  // QR / bankovní převod (booking_qr_payment)
-  qr_url: 'https://api.qrgenerator.cz/spd?size=180&data=SPD*1.0*ACC:CZ6555000000001234567890*AM:7800.00*CC:CZK*X-VS:20260001',
-  amount: '7 800 Kč', account: '670100-2225851630/6210', iban: 'CZ65 5500 0000 0012 3456 7890',
-  bank: 'mBank', vs: '20260001', lead: 'Děkujeme za rezervaci! Níže najdete platební údaje pro QR platbu nebo bankovní převod.',
+  // QR / bankovní převod (booking_qr_payment) — účet, IBAN, banka a QR viz companySampleVars()
+  amount: '7 800 Kč',
+  vs: '20260001', lead: 'Děkujeme za rezervaci! Níže najdete platební údaje pro QR platbu nebo bankovní převod.',
   invoice_suffix: '2026-0001',
   // Door codes blok (renderuje send-booking-email dynamicky; mock pro náhled). Pořadí jako u pobočky s bránou:
   // brána → šatna → motorka (řádek brány jen u pobočky s bránou; ukázkové číslice, NE skutečný kód)
   door_codes_block: '<div style="background:#eaf7ea;border:1px solid #74FB71;border-radius:12px;padding:16px;margin:16px 0"><strong>Přístupové kódy</strong><br>Brána (horní schránka, jen pobočka s bránou): <strong>135</strong> · Šatna: <strong>5678</strong> · Motorka: <strong>1234</strong></div>',
+}
+
+// Firemní a platební údaje v náhledech = aktuální provozovatel (app_settings.company_info,
+// jinak OPERATOR) — jediný zdroj lib/company.js, žádné natvrdo psané údaje.
+function companySampleVars() {
+  const c = currentCompany()
+  return {
+    ...companyDocVars(c), company_web: 'www.motogo24.cz',
+    qr_url: `https://api.qrgenerator.cz/spd?size=180&data=SPD*1.0*ACC:${c.bank_iban || ''}*AM:7800.00*CC:CZK*X-VS:20260001`,
+    account: c.bank_account || '', iban: formatIban(c.bank_iban), bank: c.bank_name || '',
+  }
 }
 
 const EMAIL_STATUS = {
@@ -228,6 +236,8 @@ function getTemplateMeta(slug) {
 function wrapPreview(bodyHtml) {
   // 1:1 layout s edge fn wrapInBrandedLayout (vertikální logo nahoře,
   // text pod ním, vše centrované). Reálné logo z motogo24.cz/gfx/logo-icon.png.
+  const co = currentCompany()
+  const regLine = registerFooterLine(co)
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
@@ -247,11 +257,12 @@ function wrapPreview(bodyHtml) {
         <td style="vertical-align:top;padding-right:16px">
           <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
             <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
-            <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>
-            <div style="color:#9ca3af">Mezná 9, 393 01 Pelhřimov</div>
-            <div style="color:#9ca3af">IČO: 21874263</div>
-            <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
-            <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
+            <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">${co.name}</div>
+            <div style="color:#9ca3af">${co.address}</div>
+            <div style="color:#9ca3af">IČO: ${co.ico}</div>
+            ${regLine ? `<div style="color:#9ca3af">${regLine}</div>` : ''}
+            <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">${co.phone}</span></div>
+            <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">${co.email}</span></div>
             <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.cz</span></div>
           </div>
         </td>
@@ -282,7 +293,7 @@ export default function EmailTemplatesTab() {
   })
   useEffect(() => { try { localStorage.setItem('velin_emailtemplates_filters', JSON.stringify(filters)) } catch { /* plné/blokované úložiště nesmí shodit stránku */ } }, [filters])
 
-  useEffect(() => { load(); loadSent() }, [])
+  useEffect(() => { load(); loadSent(); loadCompanyInfo() }, [])
 
   async function load() {
     setLoading(true)
@@ -544,7 +555,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   }, [])
 
   // Gear šablony (výpůjčka výbavy) dostanou v náhledu gear ukázkové hodnoty (odkazy /pujceni-obleceni, kódy jen brána + šatna…)
-  const sampleVars = sampleVarsFor(template.slug || slug, SAMPLE_VARS)
+  const sampleVars = sampleVarsFor(template.slug || slug, { ...SAMPLE_VARS, ...companySampleVars() })
 
   function getPreviewHtml() {
     let html = bodyHtml
@@ -855,6 +866,7 @@ function renderAttachmentSample(att) {
     eshop_KF: 'KONEČNÁ FAKTURA — E-SHOP',
   }
   const title = labels[att] || att
+  const co = currentCompany()
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,'Segoe UI',Arial,sans-serif">
   <div style="max-width:780px;margin:0 auto;background:#fff;min-height:100vh">
@@ -871,7 +883,7 @@ function renderAttachmentSample(att) {
       </tr></table>
     </div>
     <div style="padding:24px 32px;color:#0f1a14;font-size:13px;line-height:1.7">
-      <p><strong>Dodavatel:</strong> Bc. Petra Semorádová · Mezná 9, 393 01 Pelhřimov · IČO: 21874263</p>
+      <p><strong>Dodavatel:</strong> ${co.name} · ${co.address} · IČO: ${co.ico}</p>
       <p><strong>Odběratel:</strong> Jan Novák · Hlavní 123, 110 00 Praha 1</p>
       <hr style="border:0;border-top:1px solid #e5e7eb;margin:16px 0">
       <p style="color:#6b7280;font-size:12px">Toto je ukázkový obsah. Reálný dokument generuje edge funkce <code>generate-invoice</code> nebo <code>generate-document</code> v okamžiku vytvoření rezervace / objednávky a obsahuje konkrétní data zákazníka.</p>
@@ -882,7 +894,7 @@ function renderAttachmentSample(att) {
       </table>
     </div>
     <div style="background:#000;padding:14px 32px;color:#fff;font-size:11px">
-      Bc. Petra Semorádová · Mezná 9, 393 01 Pelhřimov · IČO: 21874263 · <span style="color:#74FB71">+420 774 256 271</span> · <span style="color:#74FB71">info@motogo24.cz</span> · <span style="color:#74FB71">motogo24.cz</span>
+      ${co.name} · IČO: ${co.ico} · ${co.address}${co.register_short ? ` · ${co.register_short}` : ''} · <span style="color:#74FB71">${co.phone}</span> · <span style="color:#74FB71">${co.email}</span> · <span style="color:#74FB71">motogo24.cz</span>
     </div>
   </div>
 </body></html>`

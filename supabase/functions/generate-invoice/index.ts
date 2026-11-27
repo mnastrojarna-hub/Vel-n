@@ -2,6 +2,9 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { generateInvoiceHtml } from './template.ts'
 import { authClassify, forbidden } from '../_shared/auth.ts'
+// Provozovatel = app_settings.company_info; UŽ VYSTAVENÝ doklad se renderuje ze svého
+// invoices.issuer_snapshot (issuerOf) — přegenerování / dorenderování nikdy nezmění dodavatele.
+import { issuerOf, loadCompany } from '../_shared/company.ts'
 // Výpůjčka výbavy (2026-10-23): položky dokladu gear rezervace z bookings.gear_lines (gear-lines.ts).
 import { isGearBooking, gearInvoiceItems, gearDaySource, GEAR_DAY_LABEL, GEAR_SUBJECT } from './gear-lines.ts'
 
@@ -84,30 +87,6 @@ async function nextDocNumber(supabase: any, prefix: string): Promise<string> {
   let seq = 1
   if (last?.length) { const m = last[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
   return `${prefix}-${year}-${String(seq).padStart(4, '0')}`
-}
-
-const COMPANY_FALLBACK = {
-  name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Pelhřimov',
-  ico: '21874263', dic: null, vat_payer: false,
-  bank_account: '670100-2225851630/6210', phone: '+420 774 256 271',
-  email: 'info@motogo24.cz', web: 'www.motogo24.cz',
-}
-
-async function loadCompanyInfo(supabase: any) {
-  try {
-    const { data } = await supabase.from('app_settings').select('value').eq('key', 'company_info').limit(1)
-    const info = data?.[0]?.value
-    if (info && info.name) {
-      return {
-        name: info.name || COMPANY_FALLBACK.name, address: info.address || COMPANY_FALLBACK.address,
-        ico: info.ico || COMPANY_FALLBACK.ico, dic: info.dic || null, vatPayer: info.vat_payer || false,
-        bank: 'mBank', account: info.bank_account || COMPANY_FALLBACK.bank_account,
-        phone: info.phone || COMPANY_FALLBACK.phone, email: info.email || COMPANY_FALLBACK.email,
-        web: info.web || COMPANY_FALLBACK.web,
-      }
-    }
-  } catch (e) { console.warn('Failed to load company_info:', e) }
-  return { ...COMPANY_FALLBACK, vatPayer: false, bank: 'mBank', account: COMPANY_FALLBACK.bank_account }
 }
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
@@ -275,7 +254,7 @@ serve(async (req) => {
         if (!['paid', 'partial_refund'].includes(String(paidRow?.payment_status || ''))) return forbidden(CORS, 'not_paid')
       }
     }
-    const COMPANY = await loadCompanyInfo(supabase)
+    const COMPANY = await loadCompany(supabase)
 
     // ── Render-only pro EXISTUJÍCÍ doklad bez PDF ──────────────────────────────
     // KF (konečnou fakturu) k rezervaci vytváří DB trigger
@@ -286,7 +265,7 @@ serve(async (req) => {
     if (render_existing && booking_id) {
       const wantType = type || 'final'
       const { data: existRows } = await supabase.from('invoices')
-        .select('id, number, type, items, total, customer_id, issue_date, due_date, pdf_path, variable_symbol, paid_date')
+        .select('*') // vč. issuer_snapshot (pokud sloupec existuje) — jmenovitý výběr by bez něj spadl
         .eq('booking_id', booking_id).eq('type', wantType).neq('status', 'cancelled')
         .order('created_at', { ascending: false }).limit(1)
       const inv = existRows?.[0]
@@ -318,7 +297,7 @@ serve(async (req) => {
         title: isFinalKf ? 'KONEČNÁ FAKTURA' : 'FAKTURA',
         number: inv.number, accent: '#1a8a18',
         issueDate: inv.issue_date || today, dueDate: inv.due_date || inv.issue_date || today,
-        total: Number(inv.total || 0), company: COMPANY, customer: cust,
+        total: Number(inv.total || 0), company: issuerOf(inv, COMPANY), customer: cust,
         items: Array.isArray(inv.items) ? inv.items : [],
         isProforma: false, isPaymentReceipt: false, isShopFinal: isFinalKf,
         paidDate: inv.paid_date ? String(inv.paid_date).slice(0, 10) : undefined,
@@ -391,7 +370,7 @@ serve(async (req) => {
       }
 
       // E-shop/voucher objednávka je placená kartou přes Stripe — na dokladu má být
-      // místo bankovního účtu (mBank) uvedena platba kartou + identifikátor platby.
+      // místo bankovního účtu uvedena platba kartou + identifikátor platby.
       stripePaymentId = order.stripe_payment_intent_id || order.stripe_session_id || ''
       if (stripePaymentId) {
         cardInfo = { brand: 'card', last4: '' }
@@ -736,7 +715,7 @@ serve(async (req) => {
     // Při přegenerování (regenerate=true z Velína) přepíšeme existující doklad —
     // zachováme číslo, položky, částky i data (viz POJISTKA 1/2 níže), aktualizuje
     // se jen odběratel a PDF se znovu vyrenderuje (upsert do stejné storage cesty).
-    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null; created_at: string | null; items: any; total: number | null; variable_symbol: string | null; customer_snapshot: any } | null = null
+    let reuseInvoice: { id: string; number: string; pdf_path: string | null; issue_date: string | null; due_date: string | null; paid_date: string | null; status: string | null; created_at: string | null; items: any; total: number | null; variable_symbol: string | null; customer_snapshot: any; issuer_snapshot?: any } | null = null
     if (!isEdit) {
       const dedupTypes = isPaymentReceipt
         ? ['payment_receipt']
@@ -745,7 +724,8 @@ serve(async (req) => {
           : isShopFinalLocal
             ? ['shop_final']
             : ['final', 'issued']
-      let q = supabase.from('invoices').select('id, number, pdf_path, issue_date, due_date, paid_date, status, created_at, items, total, variable_symbol, customer_snapshot')
+      // select('*') = i issuer_snapshot (vystavitel dokladu); sloupec nemusí ještě existovat.
+      let q = supabase.from('invoices').select('*')
         .in('type', dedupTypes).neq('status', 'cancelled').limit(1)
       if (booking_id) q = q.eq('booking_id', booking_id).eq('source', 'booking')
       else if (order_id) q = q.eq('order_id', order_id)
@@ -1025,7 +1005,10 @@ serve(async (req) => {
     } catch { /* ignore → 'cs' */ }
 
     const html = generateInvoiceHtml({
-      title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
+      // Dodavatel = vystavitel uložený u dokladu (nový řádek ho dostal od DB triggeru, přegenerovaný
+      // si drží původního); bez snapshotu aktuální provozovatel.
+      title, number, accent, issueDate, dueDate, total, customer, items,
+      company: issuerOf(invoice?.issuer_snapshot ? invoice : (reuseInvoice || invoice), COMPANY),
       paidDate: invoice.paid_date ? String(invoice.paid_date).slice(0, 10) : (isPaymentReceipt ? issueDate : undefined),
       // Uhrazená ZF nesmí na dokladu svítit „K ÚHRADĚ" — badge se řídí reálným stavem řádku.
       isPaid: invoice.status === 'paid' || !!invoice.paid_date,

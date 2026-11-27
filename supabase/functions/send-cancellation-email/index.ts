@@ -10,6 +10,8 @@ import { refundTierPercent } from './refund-tier.ts'
 import { isTriggerDispatch, resolveTriggerDispatch } from './trigger-dispatch.ts'
 // Oprava i3 (2026-11-07): vratka storna rozdělená na kartu a převod — odstavec z živých dobropisů storna (refund-split.ts).
 import { loadRefundSplit, refundSplitNote, stornoCnSinceIso, type RefundSplit } from './refund-split.ts'
+// Patička e-mailu: provozovatel z app_settings.company_info (_shared/company.ts), nic natvrdo.
+import { emailFooterCompanyHtml, loadCompany } from '../_shared/company.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -102,9 +104,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
-          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semor\u00e1dov\u00e1</div>
-          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Pelh\u0159imov</div>
-          <div style="color:#9ca3af">I\u010cO: 21874263</div>
+          ${emailFooterCompanyHtml()}
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">${webLabel}</span></div>
@@ -159,6 +159,7 @@ serve(async (req) => {
   if (!callerKind) return forbidden(CORS, 'trusted_caller_only')
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  await loadCompany(supabase) // patička mailu = aktuální provozovatel (nikdy nevyhodí)
 
   try {
     const reqBody = await req.json()

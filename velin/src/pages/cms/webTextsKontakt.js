@@ -1,4 +1,7 @@
 // Texty webu: Kontakt + Poukazy + Rezervace
+// Fakturační údaje a datová schránka = provozovatel z lib/company.js (shodné s motogo-web-php/config.php COMPANY_*).
+import { OPERATOR, VAT_NOTE } from '../../lib/company'
+
 export const PAGE_KONTAKT = {
   id: 'kontakt', label: 'Kontakt', icon: '📞', url: '/kontakt',
   description: 'Kontaktní stránka s telefonem, emailem, adresou, mapou a fakturačními údaji.',
@@ -24,7 +27,7 @@ export const PAGE_KONTAKT = {
         { key: 'web.kontakt.quick.1.label', label: 'Box 2 — popisek', default: 'NAPIŠTE NÁM' },
         { key: 'web.kontakt.quick.1.value', label: 'Box 2 — email', default: 'info@motogo24.cz' },
         { key: 'web.kontakt.quick.2.label', label: 'Box 3 — popisek', default: 'DATOVÁ SCHRÁNKA' },
-        { key: 'web.kontakt.quick.2.value', label: 'Box 3 — ID datovky', default: 'iuw3vnb' },
+        { key: 'web.kontakt.quick.2.value', label: 'Box 3 — ID datovky', default: OPERATOR.data_box },
       ]
     },
     {
@@ -36,11 +39,11 @@ export const PAGE_KONTAKT = {
         { key: 'web.kontakt.place.hours_label', label: 'Popisek „Provozní doba"', default: 'Provozní doba:' },
         { key: 'web.kontakt.place.hours', label: 'Provozní doba (HTML, <br>)', type: 'textarea', default: 'PO – NE: 00:00 – 24:00 (nonstop)<br>Včetně víkendů a svátků' },
         { key: 'web.kontakt.place.billing_title', label: 'Nadpis fakturace', default: 'Fakturační údaje' },
-        { key: 'web.kontakt.place.billing_name', label: 'Název firmy', default: 'Bc. Petra Semorádová' },
-        { key: 'web.kontakt.place.billing_address', label: 'Fakturační adresa', default: 'Mezná 9, 393 01 Pelhřimov' },
-        { key: 'web.kontakt.place.billing_ico', label: 'IČO', default: '21874263' },
-        { key: 'web.kontakt.place.billing_vat', label: 'DPH', default: 'Nejsem plátce DPH' },
-        { key: 'web.kontakt.place.billing_note', label: 'Poznámka k registraci', type: 'textarea', default: 'Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.' },
+        { key: 'web.kontakt.place.billing_name', label: 'Název firmy', default: OPERATOR.name },
+        { key: 'web.kontakt.place.billing_address', label: 'Fakturační adresa', default: OPERATOR.address },
+        { key: 'web.kontakt.place.billing_ico', label: 'IČO', default: OPERATOR.ico },
+        { key: 'web.kontakt.place.billing_vat', label: 'DPH', default: VAT_NOTE },
+        { key: 'web.kontakt.place.billing_note', label: 'Poznámka k registraci', type: 'textarea', default: 'Společnost je zapsána v obchodním rejstříku vedeném Krajským soudem v Českých Budějovicích, oddíl C, vložka 36876.' },
       ]
     },
     {

@@ -32,8 +32,8 @@
     if (m === 'need') h += '<p class="kc-dv-hint">' + esc(T.dv_need_moto) + '</p>';
     else if (m === 'lock') {
       h += opt('', T.dv_on, sub, true) + opt('', T.dv_ro, sub, true) +
-        '<div class="kc-dv-lock"><button type="button" class="kc-dv-lock-h" data-dv-lock aria-expanded="false"><span class="kc-dv-lock-i" aria-hidden="true">&#9432;</span>' +
-        '<span class="kc-dv-lock-t">' + esc(T.dv_lock) + '</span>' + K.ico('chev') + '</button><p class="kc-dv-lock-b" hidden>' + esc(T.dv_lock_text) + '</p></div>';
+        '<div class="kc-dv-lock"><button type="button" class="kc-dv-lock-h" data-dv-lock aria-expanded="' + (D.cut ? 'true' : 'false') + '"><span class="kc-dv-lock-i" aria-hidden="true">&#9432;</span>' +
+        '<span class="kc-dv-lock-t">' + esc(T.dv_lock) + '</span>' + K.ico('chev') + '</button><p class="kc-dv-lock-b"' + (D.cut ? '' : ' hidden') + '>' + esc(T.dv_lock_text) + '</p></div>';
     } else {
       h += opt('on', T.dv_on, sub) + '<div class="kc-dv-panel" data-dv-panel="d" hidden>' + addr('d', T.dv_addr) +
         '<label class="kc-dv-chk"><input type="checkbox" data-dv="same"><span>' + esc(T.dv_same) + '</span></label>' +

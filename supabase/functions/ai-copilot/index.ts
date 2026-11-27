@@ -4,6 +4,7 @@ import { filterToolsByEnabled } from './tools-def.ts'
 import { executeTool, isWriteTool } from './tools-exec.ts'
 import { TOOL_RISK } from './tools-def-write.ts'
 import { classifyAnthropicError } from '../_shared/anthropic-errors.ts'
+import { companyIdLine, companyNow, loadCompany } from '../_shared/company.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -22,8 +23,11 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 
 // Build system prompt with agent corrections
 function buildSystemPrompt(corrections?: Record<string, string[]>) {
+  // Provozovatel z app_settings.company_info (_shared/company.ts; načte ho handler před sestavením promptu).
+  const co = companyNow()
+  const COMPANY_LINE = `${companyIdLine(co, true)}${co.registerShort ? ` (${co.registerShort})` : ''}${co.vatPayer ? '' : ', neplátce DPH'}`
   let prompt = `Jsi AI Copilot pro Velín — superadmin dashboard půjčovny motorek MotoGo24. Máš 100% přehled o CELÉM ekosystému: Velín, web motogo24.cz, mobilní aplikace (Android+iOS), backend Supabase.
-Firma: Bc. Petra Semorádová, IČO: 21874263, Mezná 9, 393 01. Kontakt: +420 774 256 271, info@motogo24.cz
+Firma (provozovatel): ${COMPANY_LINE}. Kontakt: ${co.phone}, ${co.email}
 
 Máš k dispozici nástroje pro ČTENÍ i ZÁPIS dat. VŽDY si nejdřív sáhni pro data než odpovíš.
 
@@ -135,6 +139,7 @@ serve(async (req) => {
 
     // Filter tools by enabled agents
     const tools = filterToolsByEnabled(enabled_tools)
+    await loadCompany(supabaseAdmin)
     let systemPrompt = buildSystemPrompt(agent_corrections)
     // Inject agent-specific prompts and memory from frontend
     if (agent_prompts && typeof agent_prompts === 'string') systemPrompt += agent_prompts

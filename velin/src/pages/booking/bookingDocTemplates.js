@@ -1,7 +1,9 @@
+import { companyDocVars } from '../../lib/company'
+
 export function getClientTemplate(slug, dbTemplates) {
   if (dbTemplates && dbTemplates[slug]) return dbTemplates[slug]
   if (slug === 'rental_contract') {
-    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Smlouva o pronajmu</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">SMLOUVA O PRONAJMU MOTOCYKLU</h1><p style="text-align:center;font-size:12px;color:#666">c. {{booking_number}} ze dne {{today}}</p><p>Pronajimatel: Bc. Petra Semoradova, ICO: 21874263</p><p>Najemce: {{customer_name}}, {{customer_address}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p>Obdobi: {{start_date}} — {{end_date}} ({{days}} dni)</p><p>Celkem: {{total_price}} Kč</p><p style="color:#b45309;font-size:11px;margin-top:24px">Toto je zalozni sablona. Plne texty smluv najdete v Dokumenty - Smluvni texty.</p></div></body></html>`
+    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Smlouva o pronajmu</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">SMLOUVA O PRONAJMU MOTOCYKLU</h1><p style="text-align:center;font-size:12px;color:#666">c. {{booking_number}} ze dne {{today}}</p><p>Pronajimatel: {{company_name}}, ICO: {{company_ico}}, se sidlem {{company_address}}</p><p>Najemce: {{customer_name}}, {{customer_address}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p>Obdobi: {{start_date}} — {{end_date}} ({{days}} dni)</p><p>Celkem: {{total_price}} Kč</p><p style="color:#b45309;font-size:11px;margin-top:24px">Toto je zalozni sablona. Plne texty smluv najdete v Dokumenty - Smluvni texty.</p></div></body></html>`
   }
   if (slug === 'handover_protocol') {
     return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Predavaci protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #2563eb;padding-bottom:12px">PREDAVACI PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci c. {{booking_number}} ze dne {{today}}</p><p>Najemce: {{customer_name}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p>Stav km: {{mileage}}</p><h3 style="font-size:13px;margin-top:16px">Prislusenstvi a vybava</h3>{{accessories_block}}<p style="color:#b45309;font-size:11px;margin-top:24px">Toto je zalozni sablona. Plne texty najdete v Dokumenty - Smluvni texty.</p></div></body></html>`
@@ -116,8 +118,8 @@ export function buildDocVars(booking, customer, bookingId) {
     accessories_block: accessories.html,
     accessories: accessories.text,
     today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
-    company_name: 'Bc. Petra Semor\u00e1dov\u00e1', company_address: 'Mezn\u00e1 9, 393 01 Pelh\u0159imov',
-    company_ico: '21874263', company_dic: '',
+    // provozovatel = aktuální app_settings.company_info (cache), jinak OPERATOR — lib/company.js
+    ...companyDocVars(),
   }
 }
 

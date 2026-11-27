@@ -4,6 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireAdminOrService, forbidden } from '../_shared/auth.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
 import { EMAIL_SLUG_FALLBACKS, logGearTemplateFallback } from '../_shared/email-gear-fallback.ts'
+// Patička e-mailu: provozovatel z app_settings.company_info (_shared/company.ts), nic natvrdo.
+import { emailFooterCompanyHtml, loadCompany } from '../_shared/company.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -101,9 +103,7 @@ function wrapInBrandedLayout(bodyHtml: string, lang = 'cs'): string {
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
-          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semor\u00e1dov\u00e1</div>
-          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Pelh\u0159imov</div>
-          <div style="color:#9ca3af">I\u010cO: 21874263</div>
+          ${emailFooterCompanyHtml()}
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>
@@ -173,6 +173,7 @@ serve(async (req) => {
   if (!auth.ok) return forbidden(CORS, auth.reason)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  await loadCompany(supabase) // patička mailu = aktuální provozovatel (nikdy nevyhodí)
 
   try {
     const body = await req.json()
