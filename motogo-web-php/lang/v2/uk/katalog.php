@@ -84,6 +84,8 @@ return ['pages' => ['landing_katalog' => [
     'dv_lead' => 'Час доставки обираєш у бронюванні.',
     'dv_today' => 'На сьогодні доставити вже не встигнемо — обери пізніший день або отримання у філії.',
     'dv_from' => 'від {price}',
+    'dv_row_d' => 'Доставка мотоцикла',
+    'dv_row_r' => 'Повернення мотоцикла',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Дати',
     'f_dates_title' => 'Коли хочеш вирушити?',

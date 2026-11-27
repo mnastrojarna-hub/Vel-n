@@ -90,11 +90,16 @@
 
   // Řádky do souhrnu (K.sumHtml): názvy = položky rezervace „Přistavení motorky“ / „Vrácení motorky“
   K.dvKm = function (km) { return km.toFixed(1).replace('.', ','); }; // jako formulář (MG._renderRouteInfo)
+  var unit = '';
+  function kmUnit(X) { // „km“ v jazyce stránky (uk „км“); jen popisek jednotky, číslo formátuje K.dvKm
+    if (!unit) try { unit = new Intl.NumberFormat(X.C.lang, { style: 'unit', unit: 'kilometer' }).formatToParts(1).filter(function (p) { return p.type === 'unit'; })[0].value; } catch (e) {}
+    return unit || (unit = 'km');
+  }
   K.dvRows = function (X) {
     var f = K.dvFees(X), T = X.T, h = '';
     function row(label, s, fee) {
       var known = !!s && s.st === 'ok';
-      return '<li class="kc-r-dv"><span class="kc-r-d">' + K.esc(label) + '</span><span class="kc-r-x">' + (known ? K.esc(K.dvKm(s.km)) + ' km' : '') + '</span>' +
+      return '<li class="kc-r-dv"><span class="kc-r-d">' + K.esc(label) + '</span><span class="kc-r-x">' + (known ? K.esc(K.dvKm(s.km) + ' ' + kmUnit(X)) : '') + '</span>' +
         '<span class="kc-r-v">' + K.esc(known ? X.money(fee) : K.tpl(T.dv_from, { price: X.money(fee) })) + '</span></li>';
     }
     if (D.on && f.p > 0) h += row(T.dv_row_d, D.d, f.p);

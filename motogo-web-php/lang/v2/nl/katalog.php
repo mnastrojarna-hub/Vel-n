@@ -84,6 +84,8 @@ return ['pages' => ['landing_katalog' => [
     'dv_lead' => 'Het bezorgtijdstip kies je in de reservering.',
     'dv_today' => 'Vandaag lukt bezorgen niet meer: kies een latere dag of haal de motor op bij de vestiging.',
     'dv_from' => 'vanaf {price}',
+    'dv_row_d' => 'Bezorging motor',
+    'dv_row_r' => 'Ophalen motor',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Periode',
     'f_dates_title' => 'Wanneer wil je rijden?',

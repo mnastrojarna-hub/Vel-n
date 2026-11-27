@@ -84,6 +84,8 @@ return ['pages' => ['landing_katalog' => [
     'dv_lead' => 'L\'heure de livraison se choisit dans la réservation.',
     'dv_today' => 'Pour aujourd\'hui, la livraison n\'est plus possible : choisis un jour plus tard ou le retrait à l\'agence.',
     'dv_from' => 'dès {price}',
+    'dv_row_d' => 'Livraison de la moto',
+    'dv_row_r' => 'Récupération de la moto',
     // Lišta filtrů katalogu v2 (pages/katalog-v2-*.php, CS defaulty kfDefaults())
     'f_dates' => 'Dates',
     'f_dates_title' => 'Quand veux-tu rouler ?',

@@ -18,7 +18,7 @@ const GROUPS = [
     { key: 'dic', label: 'DIČ' },
     { key: 'vat_payer', label: 'Plátce DPH', type: 'checkbox' },
     { key: 'address', label: 'Sídlo' },
-    { key: 'register', label: 'Zápis v obchodním rejstříku' },
+    { key: 'register', label: 'Zápis v obchodním rejstříku', type: 'textarea' },
     { key: 'register_short', label: 'Zápis v rejstříku — krátký tvar (patičky dokumentů)' },
     { key: 'data_box', label: 'Datová schránka' },
   ] },
@@ -57,7 +57,7 @@ function toValue(form) {
   const compact = (k) => t(k).replace(/\s+/g, '')
   return {
     name: t('name'), ico: compact('ico'), dic: compact('dic').toUpperCase() || null, vat_payer: form.vat_payer === true,
-    address: t('address'), register: t('register'), register_short: t('register_short'), data_box: t('data_box'),
+    address: t('address'), register: t('register').replace(/\s+/g, ' '), register_short: t('register_short'), data_box: t('data_box'),
     bank_account: compact('bank_account'), bank_iban: compact('bank_iban').toUpperCase(), bank_name: t('bank_name'),
     bank_bic: compact('bank_bic').toUpperCase(),
     phone: t('phone'), email: t('email'), web: t('web'),
@@ -97,9 +97,6 @@ export default function CompanyTab() {
 
   async function save() {
     setMsg(null)
-    const next = toValue(values)
-    const errs = validateCompanyInfo(next)
-    if (errs.length) { setMsg({ type: 'error', text: errs.join(' ') }); return }
     setSaving(true)
     try {
       const current = await readCompanyInfo()
@@ -107,12 +104,17 @@ export default function CompanyTab() {
       if (FIELDS.some(f => String(base.current?.[f.key] ?? '') !== String(current?.[f.key] ?? ''))) {
         base.current = current
         setValues(toForm(current || OPERATOR))
-        throw new Error('firemní údaje se mezitím změnily. Načetly se aktuální hodnoty — zkontrolujte je a uložte znovu.')
+        setMsg({ type: 'error', text: 'Firemní údaje se mezitím změnily (jiný uživatel nebo nasazení). Načetly se aktuální hodnoty — zkontrolujte je a uložte znovu.' })
+        return
       }
+      const next = toValue(values)
+      const errs = validateCompanyInfo(next)
+      if (errs.length) { setMsg({ type: 'error', text: errs.join(' ') }); return }
       const same = (k) => String(current?.[k] ?? '') === String(next[k] ?? '') || (k === 'vat_payer' && (current?.[k] === true) === next[k])
       const identityChanged = !current || IDENTITY_KEYS.some(k => !same(k))
       if (identityChanged && !(await issuedDocsAreFrozen())) {
-        throw new Error('některé už vystavené doklady nemají uloženého vystavitele (invoices.issuer_snapshot) a změna provozovatele nebo účtu by je přepsala. Počkejte na dokončení nasazení databáze, případně kontaktujte správce.')
+        setMsg({ type: 'error', text: 'Změnu provozovatele nebo účtu teď nelze uložit: některé už vystavené doklady nemají uloženého vystavitele (invoices.issuer_snapshot) a změna by je přepsala. Počkejte na dokončení nasazení databáze, případně kontaktujte správce.' })
+        return
       }
       const value = { ...(current || {}), ...next }
       // Nový provozovatel / účet platí od teď: smlouvy a VOP vystavené dřív se dál otevírají z uložených souborů.
@@ -131,8 +133,9 @@ export default function CompanyTab() {
       setMsg({ type: 'ok', text: 'Firemní údaje uloženy.' })
     } catch (e) {
       setMsg({ type: 'error', text: `Uložení selhalo: ${e.message}` })
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   if (!loaded) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -155,9 +158,15 @@ export default function CompanyTab() {
               ) : (
                 <div key={f.key}>
                   <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{f.label}</label>
-                  <input value={values[f.key] || ''} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
-                    className="w-full rounded-btn text-sm outline-none"
-                    style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+                  {f.type === 'textarea' ? (
+                    <textarea rows={2} value={values[f.key] || ''} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                      className="w-full rounded-btn text-sm outline-none"
+                      style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }} />
+                  ) : (
+                    <input value={values[f.key] || ''} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                      className="w-full rounded-btn text-sm outline-none"
+                      style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+                  )}
                 </div>
               ))}
             </div>

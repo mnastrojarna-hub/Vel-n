@@ -35,8 +35,12 @@ export const OPERATOR = Object.freeze({
 
 export const VAT_NOTE = 'Nejsme plátci DPH.'
 
-// ── Načtení + cache (platí po dobu session; po uložení v CompanyTab se přepíše) ──
+// ── Načtení + cache ──
+// Cache v paměti po dobu session, z DB se obnovuje nejvýš jednou za minutu: změna provozovatele
+// (migrace / uložení v CompanyTab jiným uživatelem) se do otevřeného Velína propíše bez reloadu.
+const CACHE_TTL_MS = 60_000
 let _cache = null
+let _cacheAt = 0
 let _pending = null
 
 function asObject(v) {
@@ -45,16 +49,19 @@ function asObject(v) {
   return v && typeof v === 'object' && !Array.isArray(v) ? v : null
 }
 
-/** Aktuální `company_info` z DB. Při chybě vrací kopii OPERATOR (necachuje se — příště se zkusí znovu). */
+/**
+ * Aktuální `company_info` z DB (surová hodnota, snake_case). Nikdy nevyhodí: při chybě vrací
+ * naposledy načtenou hodnotu, jinak kopii OPERATOR (ta se necachuje — příště se zkusí znovu).
+ */
 export async function loadCompanyInfo({ force = false } = {}) {
-  if (_cache && !force) return _cache
+  if (_cache && !force && Date.now() - _cacheAt < CACHE_TTL_MS) return _cache
   if (!_pending) {
     _pending = (async () => {
       try {
         const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
         if (error) throw error
         const v = asObject(data?.value)
-        if (v && (v.name || v.ico)) { _cache = v; return v }
+        if (v && v.name) { _cache = v; _cacheAt = Date.now(); return v }
       } catch (e) {
         console.warn('[company] company_info se nepodařilo načíst — použity záložní údaje:', e?.message)
       }
@@ -64,7 +71,7 @@ export async function loadCompanyInfo({ force = false } = {}) {
   return _pending
 }
 
-export function setCompanyInfoCache(value) { _cache = asObject(value) }
+export function setCompanyInfoCache(value) { _cache = asObject(value); _cacheAt = _cache ? Date.now() : 0 }
 
 // ── Vystavitel dokladu ──
 const str = (v) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')

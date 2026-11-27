@@ -261,6 +261,7 @@ export default function BookingDocumentsTab({ bookingId, userId }) {
       const { data: booking } = await supabase.from('bookings').select(`*, ${BOOKING_BRANCH_EMBED}, motorcycles!moto_id(model, spz, vin, year, license_required, branches(type, address, zip, city))`).eq('id', bookingId).single()
       let customer = {}
       if (booking?.user_id) { const { data: prof } = await supabase.from('profiles').select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry').eq('id', booking.user_id).single(); if (prof) customer = prof }
+      await loadCompanyInfo()
       const vars = (d.filled_data && d.filled_data.customer_name) ? d.filled_data : buildDocVars(booking || {}, customer, bookingId)
       let html = d.filled_data?._signed_html || null
       // tištěný protokol vystavený před změnou provozovatele: uložené HTML, ne dnešní šablona (příloha = uložený soubor)
