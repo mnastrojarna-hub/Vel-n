@@ -7,7 +7,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../booking/booking_models.dart';
-import '../../../booking/v2/booking_v2_parts.dart' show bkNbAmounts;
+import '../../../booking/v2/booking_v2_parts.dart' show bkNb, bkNbAmounts;
 import '../../../booking/v2/sections/price_v2.dart' show BookingPriceV2;
 import '../../moto_model.dart';
 import '../catalog_text.dart';
@@ -66,9 +66,10 @@ class CalcReceiptV2 extends StatelessWidget {
         const SizedBox(height: 8),
         Text.rich(TextSpan(children: [
           TextSpan(text: '${tr.tr('v2CalPickup')} ', style: MgType.small.copyWith(color: MgColors.lead)),
-          TextSpan(text: tripShortDate(tr, start), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+          // A date never splits ("ne 6. | 12." on a 320 dp phone).
+          TextSpan(text: bkNb(tripShortDate(tr, start)), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
           TextSpan(text: '  →  ${tr.tr('v2CalReturn')} ', style: MgType.small.copyWith(color: MgColors.lead)),
-          TextSpan(text: tripShortDate(tr, end), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+          TextSpan(text: bkNb(tripShortDate(tr, end)), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
         ])),
         if (days.length <= 31) ...[
           const SizedBox(height: 14),
@@ -96,7 +97,8 @@ class CalcReceiptV2 extends StatelessWidget {
         if (q.latePickupDiscount > 0) _row(tr.tr('v2CalcLateRow'), '−${catMoney(q.latePickupDiscount)}', minus: true),
         if (q.loyaltyDiscount > 0)
           _row(
-            tr.trArgs('v2DetBreakLoyalty', {'rank': q.loyaltyRankName ?? '', 'pct': q.loyaltyPercent}),
+            // "3 %" stays together.
+            tr.trArgs('v2DetBreakLoyalty', {'rank': q.loyaltyRankName ?? '', 'pct': q.loyaltyPercent}).replaceAll(' %', '\u00A0%'),
             '−${catMoney(q.loyaltyDiscount)}',
             minus: true,
           ),

@@ -142,6 +142,7 @@ void main() {
         expect(find.text('Masarykovo náměstí 1, Jihlava'), findsOneWidget);
         expect(_in(CalcStepHandoverV2, find.text('~32 km · ${Money.czk(kRouteFee)}')), findsOneWidget);
         expect(pickupLabel, 'Přistavení (32 km × 40 + 1 000)');
+        expect(bkNbAmounts(pickupLabel), contains('1\u00A0000'), reason: 'the amount never splits across lines');
         expect(_in(CalcReceiptV2, find.text(bkNbAmounts(pickupLabel))), findsOneWidget);
         expect(_in(CalcReceiptV2, find.text('+${Money.czk(kRouteFee)}')), findsOneWidget);
         final q = quoteFor(kBmw, ws, we, loyalty: kLoyalty3, pickupDeliveryFee: kRouteFee);
