@@ -32,7 +32,7 @@ void main() {
   });
 
   group('list', () {
-    testWidgets('an empty filter shows the old empty block with REZERVOVAT; labels without counts', (t) async {
+    testWidgets('an empty filter shows the old empty block; booking = "Nová rezervace" above; labels without counts', (t) async {
       final list = [resv('a1', status: 'reserved', from: 3, to: 5)];
       await pumpV2(t, const ReservationsScreenV2(),
           size: const Size(412, 1600), overrides: resOverrides(list: list, filter: 'cancelled'));
@@ -42,7 +42,11 @@ void main() {
       // they are (the old "no booking yet" only when there is none at all).
       expect(find.text(_cs('elNoResInFilter')), findsOneWidget);
       expect(find.text(_cs('noReservationsDesc')), findsNothing);
-      expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('noResBookCta')), findsOneWidget);
+      // 5.0.3 (owner 2026-11-27): the block's REZERVOVAT is the page's
+      // "Nová rezervace" under the header — one booking button, every state.
+      expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('noResBookCta')), findsNothing);
+      expect(find.byKey(const ValueKey('res-new-booking')), findsOneWidget);
+      expect(find.text(_cs('resNewBooking')), findsOneWidget);
       expect(find.text(_cs('v2ResShowAll')), findsNothing);
       // The old header: always visible back, no live pill.
       expect(find.byKey(const ValueKey('res-list-back')), findsOneWidget);

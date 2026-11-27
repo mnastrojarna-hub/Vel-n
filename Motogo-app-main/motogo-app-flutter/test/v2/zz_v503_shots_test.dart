@@ -19,6 +19,8 @@ import 'package:motogo_app/core/supabase_client.dart';
 import 'package:motogo_app/core/v2/flag/v2_gate.dart';
 import 'package:motogo_app/core/v2/gestures/mg_zone_snap.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
+import 'package:motogo_app/core/v2/calendar/trip_calendar.dart';
+import 'package:motogo_app/features/catalog/catalog_provider.dart';
 import 'package:motogo_app/features/shop/shop_models.dart';
 import 'package:motogo_app/features/shop/shop_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -330,6 +332,82 @@ void main() {
         await r.swipeUp(40);
         await r.settle(1500);
         await r.shot('d1_motorky_card');
+      }
+      await end(r);
+    });
+
+    testWidgets('v503 shots $tag: reservations empty → new booking → motorky hint', (t) async {
+      final r = await boot(t, size: size, state: JourneyState.ready, cart: 0);
+      await r.go('/reservations');
+      await r.settle(2500);
+      await r.shot('f1_res_empty');
+      final btn = find.byKey(const ValueKey('res-new-booking'));
+      if (btn.evaluate().isNotEmpty) {
+        await t.tap(btn.first, warnIfMissed: false);
+        await r.settle(2500);
+        await r.shot('f3_motorky_hint');
+      }
+      await end(r);
+    });
+
+    testWidgets('v503 shots $tag: reservations upcoming', (t) async {
+      final r = await boot(t, size: size, state: JourneyState.paidUpcoming, cart: 0);
+      await r.go('/reservations');
+      await r.settle(2500);
+      await r.shot('f2_res_upcoming');
+      await end(r);
+    });
+
+    testWidgets('v503 shots $tag: bike card two buttons + calendar range', (t) async {
+      final r = await boot(t, size: size, state: JourneyState.fleet12, cart: 0);
+      await r.go('/search');
+      await r.settle(2500);
+      // A 4-day range in the Motorky calendar (the shared v2 calendar).
+      // Next month, Thursday → Tuesday: the band wraps a week row.
+      final n = DateTime.now();
+      var s0 = DateTime(n.year, n.month + 1, 1);
+      while (s0.weekday != DateTime.thursday) {
+        s0 = DateTime(s0.year, s0.month, s0.day + 1);
+      }
+      final e0 = DateTime(s0.year, s0.month, s0.day + 5);
+      final f = r.c.read(catalogFilterProvider);
+      r.c.read(catalogFilterProvider.notifier).state = f.copyWith(startDate: () => s0, endDate: () => e0);
+      await r.settle(2500);
+      var cal = find.byType(TripCalendar);
+      if (cal.evaluate().isNotEmpty) {
+        final month = t.widget<TripCalendar>(cal.first).month;
+        if (month.month != s0.month) {
+          t.widget<TripCalendar>(cal.first).onNextMonth?.call();
+          await r.settle(1500);
+        }
+        cal = find.byType(TripCalendar);
+        await r.guard(() => Scrollable.ensureVisible(t.element(cal.first), alignment: 0.3));
+        await r.settle(1500);
+        await r.shot('h1_calendar_range');
+      }
+      final mz = r.zone();
+      if (mz != null) {
+        mz.$1.jumpTo(mz.$2.offsetOf(0) - 40);
+        await r.settle(600);
+        await r.swipeUp(40);
+        await r.settle(1500);
+        await r.shot('g1_bike_card_two_buttons_dates');
+      }
+      r.c.read(catalogFilterProvider.notifier).state = r.c.read(catalogFilterProvider).copyWith(startDate: () => null, endDate: () => null);
+      await r.settle(2500);
+      final mz2 = r.zone();
+      if (mz2 != null) {
+        mz2.$1.jumpTo(mz2.$2.offsetOf(0) - 40);
+        await r.settle(600);
+        await r.swipeUp(40);
+        await r.settle(1500);
+        await r.shot('g2_bike_card_two_buttons');
+        final res = find.byKey(const ValueKey('bike-card-reserve'));
+        if (res.evaluate().isNotEmpty) {
+          await t.tap(res.first, warnIfMissed: false);
+          await r.settle(3000);
+          await r.shot('g3_reserve_no_dates_detail_calendar');
+        }
       }
       await end(r);
     });

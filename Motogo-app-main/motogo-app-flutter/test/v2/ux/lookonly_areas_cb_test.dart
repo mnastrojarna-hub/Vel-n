@@ -55,12 +55,14 @@ void main() {
       expect(find.byType(MotoFilterCardV2), findsOneWidget);
       // The old results header (5.0.1 FR-04: with the Czech plural form).
       expect(find.textContaining(_cs('motoFreeFew').replaceAll('{n}', '2')), findsOneWidget);
-      // No grid toggle; the card button is the old "Detail" (its tap →
-      // /moto/:id is covered in catalog_card_book_test).
+      // No grid toggle; the card keeps the old "Detail" (its tap → /moto/:id)
+      // and, since 5.0.3 (owner 2026-11-27), has "Rezervovat" beside it —
+      // both covered in catalog_card_book_test.
       final card = t.widget<MotoCardFullV2>(find.byType(MotoCardFullV2).first);
       expect(card.ctaLabel, _cs('motoCardDetail'));
       expect(card.onCta, isNull);
-      expect(find.text(_cs('v2CatCtaBook').toUpperCase()), findsNothing);
+      expect(card.reserveLabel, _cs('v2CatCtaBook'));
+      expect(card.onReserve, isNotNull);
     });
 
     testWidgets('the header has the always visible back (no profile button: the Profil tab)', (t) async {

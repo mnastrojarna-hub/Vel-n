@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/v2/flag/v2_scope.dart';
+import '../../../booking/booking_entry.dart' show startBookingFromSelection;
 import '../../../booking/booking_models.dart' show BookingDraft;
 import '../../../booking/v2/booking_carry_v2.dart' show draftDatesFor, followDraftDates;
 import '../../../booking/v2/booking_sync_v2.dart' show bookingRangeBusy;
@@ -65,17 +66,32 @@ void detailShareReset(WidgetRef ref) {
 /// (`bookingRangeBusy`): the customer's own unpaid draft of this bike (a
 /// declined card / cancelled 3DS) does not count — the payment replaces it,
 /// as in the old look. Unknown bookings / reservations = not busy.
+/// [watch] false = a one-off check from a tap handler (the bike card's
+/// "Rezervovat"): the reservations are read, not listened to.
 bool detailRangeBusy(
   WidgetRef ref,
   AsyncValue<List<BookedDateRange>> booked,
   String motoId,
   DateTime? s,
-  DateTime? e,
-) =>
+  DateTime? e, {
+  bool watch = true,
+}) =>
     bookingRangeBusy(
       booked: booked.valueOrNull,
-      own: ref.watch(reservationsProvider).valueOrNull,
+      own: (watch ? ref.watch(reservationsProvider) : ref.read(reservationsProvider)).valueOrNull,
       motoId: motoId,
       start: s,
       end: e ?? s,
     );
+
+/// The rule of the detail's primary button (moved out of the page, 5.0.3 —
+/// the bike card's "Rezervovat" asks the same): REZERVOVAT only with a start
+/// day that is not [busy]; otherwise the date step ("VYBRAT TERMÍN" /
+/// "ZMĚNIT TERMÍN").
+bool detailCanReserve(DateTime? start, bool busy) => start != null && !busy;
+
+/// REZERVOVAT of the bike detail (PM-3; the body of the page's `_reserve`,
+/// shared with the bike card since 5.0.3): the chosen days — a start alone =
+/// that single day — go to `startBookingFromSelection`.
+void detailReserve(BuildContext ctx, WidgetRef ref, Motorcycle moto, DateTime start, DateTime? end) =>
+    startBookingFromSelection(ctx, ref, moto, start, end ?? start);

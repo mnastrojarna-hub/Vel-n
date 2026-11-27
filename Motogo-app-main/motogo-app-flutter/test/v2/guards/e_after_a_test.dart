@@ -49,7 +49,8 @@ void main() {
           size: const Size(412, 1600), overrides: resOverrides(list: list, filter: 'cancelled'));
       await t.pump(const Duration(milliseconds: 600));
       expect(find.text(_cs('noReservations')), findsOneWidget);
-      expect(find.byWidgetPredicate((w) => w is MgCta && w.label == _cs('noResBookCta')), findsOneWidget);
+      // 5.0.3: the booking button is the page's "Nová rezervace" (above).
+      expect(find.byKey(const ValueKey('res-new-booking')), findsOneWidget);
       final link = find.byKey(const ValueKey('ea-show-all'));
       expect(link, findsOneWidget);
       expect(find.text('Ukázat všechny rezervace'), findsOneWidget);

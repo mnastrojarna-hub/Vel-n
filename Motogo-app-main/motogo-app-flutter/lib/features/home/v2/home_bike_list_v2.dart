@@ -12,6 +12,7 @@ import '../../../core/widgets/state_views.dart';
 import '../../catalog/catalog_provider.dart';
 import '../../catalog/moto_model.dart';
 import '../../catalog/v2/catalog_mode_sync.dart' show catBeforeToday;
+import '../../catalog/v2/bike_card_reserve_v2.dart';
 import '../../catalog/v2/bike_free_label_v2.dart';
 import '../../catalog/v2/bike_screen_list_v2.dart';
 import '../../catalog/v2/catalog_price.dart';
@@ -56,8 +57,9 @@ class HomeBikeCountV2 extends ConsumerWidget {
 
 /// The FULL sorted bike list of the old Domů (filter + dates + sort of the
 /// panel above), each card → the bike detail with the shown order for its
-/// pager — the old `MotoCard` tap. The card is the Motorky v2 card; its CTA
-/// opens the same detail (the old card had only "Detail"). [heroes] off
+/// pager — the old `MotoCard` tap. The card is the Motorky v2 card: "Detail"
+/// opens the same detail (the old card's only button), "Rezervovat" beside
+/// it is the detail's reserve entry (owner 2026-11-27, `bikeCardReserve`). [heroes] off
 /// while the funnel shows: its centred bike already carries the photo's
 /// Hero tag (one tagged source per route, design M1). One bike per screen
 /// ([BikeScreenList]): [zone] = the Domů page's snap zone; [toTop] = the
@@ -125,6 +127,9 @@ class HomeBikeListV2 extends ConsumerWidget {
                       : bikeFreeLabel(tr, m, nextFree).$1,
                   availabilityLater: !hasDates && bikeFreeLabel(tr, m, nextFree).$2 == false,
                   ctaLabel: tr.tr('motoCardDetail'),
+                  // 5.0.3: "Rezervovat" beside "Detail", as on Motorky.
+                  reserveLabel: tr.tr('v2CatCtaBook'),
+                  onReserve: () => bikeCardReserve(context, ref, m, onOpen),
                   height: h,
                   topInset: top,
                   liftExtra: toTop ? kHomeToTopSlot : 0,

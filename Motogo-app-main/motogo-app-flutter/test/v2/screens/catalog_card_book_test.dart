@@ -1,6 +1,9 @@
-// Motorky card taps after lookonly-fix (owner 2026-11-07 "jen upgrade
-// vzhledu"): the card button is the old "Detail" (with or without dates)
-// and, like the photo, opens the detail with the shown sibling ids.
+// Motorky card taps (owner 2026-11-07 "jen upgrade vzhledu" + 2026-11-27
+// "Rezervovat vedle Detail"): "Detail" and the photo open the detail with
+// the shown sibling ids, as before; "Rezervovat" is the detail's own
+// reserve entry pressed from the list — with usable dates the booking form
+// (`startBookingFromSelection`), without them that bike's detail at its
+// date step.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,13 +15,18 @@ import 'package:motogo_app/core/v2/flag/v2_scope.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
 import 'package:motogo_app/core/v2/rank/rank_provider.dart';
 import 'package:motogo_app/core/v2/rank/rank_tokens.dart';
+import 'package:motogo_app/core/v2/widgets/mg_buttons.dart';
 import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/core/feature_flags.dart';
 import 'package:motogo_app/features/booking/booking_provider.dart';
 import 'package:motogo_app/features/booking/my_vouchers.dart';
 import 'package:motogo_app/features/catalog/catalog_provider.dart';
+import 'package:motogo_app/features/catalog/moto_model.dart';
+import 'package:motogo_app/features/catalog/v2/bike_card_reserve_v2.dart';
+import 'package:motogo_app/features/catalog/v2/detail/detail_dates_carry_v2.dart';
 import 'package:motogo_app/features/catalog/v2/moto_card_full_v2.dart';
 import 'package:motogo_app/features/catalog/v2/motorky_screen_v2.dart';
+import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fakes_booking.dart';
@@ -107,21 +115,90 @@ void main() {
   final dated = CatalogFilter(startDate: ws, endDate: we);
   final cs = AppTranslations.of('cs');
 
-  // lookonly-fix (owner 2026-11-07 "jen upgrade vzhledu"): the card button
-  // is the old "Detail" with or without dates — no booking shortcut.
-  testWidgets('dates set: card "Detail" → the detail (no direct booking)', (t) async {
+  Finder detailBtn() =>
+      find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byKey(const ValueKey('bike-card-detail')));
+  Finder reserveBtn() =>
+      find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byKey(const ValueKey('bike-card-reserve')));
+
+  Future<void> tapBtn(WidgetTester t, Finder f) async {
+    await t.ensureVisible(f);
+    await t.pump();
+    await t.tap(f);
+    await _settle(t);
+  }
+
+  test('the detail\'s rule: REZERVOVAT only with a start day that is not busy', () {
+    final d = DateTime(2030, 6, 1);
+    expect(detailCanReserve(null, false), isFalse);
+    expect(detailCanReserve(d, true), isFalse);
+    expect(detailCanReserve(d, false), isTrue);
+  });
+
+  testWidgets('the card has "Detail" (secondary) and "Rezervovat" (the rank CTA) side by side', (t) async {
+    await _pump(t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq], profile: _profile));
+    await _toCard(t);
+    expect(t.widget(detailBtn()), isA<MgBtnGhostDark>());
+    expect(t.widget<MgBtnGhostDark>(detailBtn()).label, cs.tr('motoCardDetail'));
+    final cta = find.descendant(of: reserveBtn(), matching: find.byType(MgCta));
+    expect(t.widget<MgCta>(cta).label, cs.tr('v2CatCtaBook'));
+    expect(find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byType(MgCta)), findsOneWidget);
+    final d = t.getRect(detailBtn()), r = t.getRect(reserveBtn());
+    expect(d.right, lessThanOrEqualTo(r.left), reason: 'Detail left of Rezervovat');
+    expect((d.center.dy - r.center.dy).abs(), lessThan(1), reason: 'one row');
+    expect(r.width, greaterThan(d.width), reason: 'Rezervovat is the primary');
+    await _unmount(t);
+  });
+
+  testWidgets('dates set: "Detail" → the detail (no booking)', (t) async {
     final c = await _pump(t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq], profile: _profile));
     await _toCard(t);
-    final cta = find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byType(MgCta));
-    expect(t.widget<MgCta>(cta).label, cs.tr('motoCardDetail'));
-    await t.ensureVisible(cta);
-    await t.pump();
-    await t.tap(cta);
-    await _settle(t);
+    await tapBtn(t, detailBtn());
     expect(find.text('detail:m-bmw'), findsOneWidget);
     expect(find.byType(BookingDebugWrapper), findsNothing);
     expect(c.read(bookingDraftProvider).motoId, isNull);
     expect(c.read(filteredMotoIdsProvider), ['m-bmw', 'm-husq']);
+    expect(c.read(detailPickDatesRequestProvider), isNull);
+    await _unmount(t);
+  });
+
+  testWidgets('dates set: "Rezervovat" → the booking form with those dates (the detail\'s entry)', (t) async {
+    final c = await _pump(t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq], profile: _profile));
+    await _toCard(t);
+    await tapBtn(t, reserveBtn());
+    expect(find.byType(BookingDebugWrapper), findsOneWidget);
+    expect(find.text('detail:m-bmw'), findsNothing);
+    // Exactly what `startBookingFromSelection` writes for the detail.
+    final d = c.read(bookingDraftProvider);
+    expect(d.motoId, 'm-bmw');
+    expect(d.startDate, ws);
+    expect(d.endDate, we);
+    expect(d.helmetSize, 'L');
+    expect(d.glovesSize, 'M');
+    expect(d.bootsSize, isNull);
+    expect(c.read(bookingMotoProvider)?.id, 'm-bmw');
+    expect(c.read(detailPickDatesRequestProvider), isNull);
+    await _unmount(t);
+  });
+
+  testWidgets('dates set but this bike\'s loaded calendar is busy then → its detail at the date step', (t) async {
+    final busy = {
+      'm-bmw': [BookedDateRange(start: ws, end: we, status: 'reserved')],
+    };
+    final c = await _pump(
+        t, catalogOverrides(filter: dated, filtered: [kBmw, kHusq], profile: _profile, booked: busy));
+    // The calendar of this bike is loaded (as under an open detail) and so
+    // are the customer's bookings (the shell keeps them).
+    final sub = c.listen(bookedDatesProvider('m-bmw'), (_, __) {});
+    final own = c.listen(reservationsProvider, (_, __) {});
+    addTearDown(sub.close);
+    addTearDown(own.close);
+    await _settle(t);
+    await _toCard(t);
+    await tapBtn(t, reserveBtn());
+    expect(find.text('detail:m-bmw'), findsOneWidget);
+    expect(find.byType(BookingDebugWrapper), findsNothing);
+    expect(c.read(bookingDraftProvider).motoId, isNull);
+    expect(c.read(detailPickDatesRequestProvider), 'm-bmw');
     await _unmount(t);
   });
 
@@ -135,18 +212,26 @@ void main() {
     await _unmount(t);
   });
 
-  testWidgets('no dates: card CTA "Detail" → detail with the shown sibling ids', (t) async {
+  testWidgets('no dates: "Detail" → detail with the shown sibling ids', (t) async {
     final c = await _pump(t, catalogOverrides(filtered: [kBmw, kHusq, kKids]));
     await _toCard(t);
-    final cta = find.descendant(of: find.byType(MotoCardFullV2).first, matching: find.byType(MgCta));
-    expect(t.widget<MgCta>(cta).label, cs.tr('motoCardDetail'));
-    await t.ensureVisible(cta);
-    await t.pump();
-    await t.tap(cta);
-    await _settle(t);
+    await tapBtn(t, detailBtn());
     expect(find.text('detail:m-bmw'), findsOneWidget);
     expect(c.read(filteredMotoIdsProvider), ['m-bmw', 'm-husq', 'm-kid']);
     expect(c.read(bookingDraftProvider).motoId, isNull);
+    expect(c.read(detailPickDatesRequestProvider), isNull);
+    await _unmount(t);
+  });
+
+  testWidgets('no dates: "Rezervovat" → that bike\'s detail, asked to open on its date step', (t) async {
+    final c = await _pump(t, catalogOverrides(filtered: [kBmw, kHusq, kKids], profile: _profile));
+    await _toCard(t);
+    await tapBtn(t, reserveBtn());
+    expect(find.text('detail:m-bmw'), findsOneWidget);
+    expect(find.byType(BookingDebugWrapper), findsNothing);
+    expect(c.read(filteredMotoIdsProvider), ['m-bmw', 'm-husq', 'm-kid'], reason: 'the card\'s own open');
+    expect(c.read(bookingDraftProvider).motoId, isNull);
+    expect(c.read(detailPickDatesRequestProvider), 'm-bmw');
     await _unmount(t);
   });
 }
