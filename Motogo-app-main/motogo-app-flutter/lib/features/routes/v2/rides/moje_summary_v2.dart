@@ -1,33 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/i18n/i18n_provider.dart';
 import '../../../../core/v2/widgets/mg_word_fit.dart';
-import '../../../../core/v2/rank/mg_club_emblem.dart';
 import '../../../../core/v2/motion/mg_count_up.dart';
 import '../../../../core/v2/icons/mg_icon.dart';
 import '../../../../core/v2/motion/mg_anim.dart';
-import '../../../../core/v2/rank/rank_copy.dart';
-import '../../../../core/v2/rank/rank_provider.dart';
-import '../../../../core/v2/rank/rank_tokens.dart';
 import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../../core/v2/widgets/mg_buttons.dart';
 import '../../../../core/v2/widgets/mg_icon_tile.dart';
 import '../../../../core/v2/widgets/mg_surfaces.dart';
-import '../../../loyalty/loyalty_provider.dart';
-import '../../../loyalty/loyalty_ranks_screen.dart' show openLoyaltyRanks;
 import '../../ride_model.dart';
 import '../../ride_trip.dart' show groupRides;
 import '../rt_v2_text.dart' show rtThousands;
 import 'moje_tabs_v2.dart';
 
 /// White "Moje zážitky" summary (V22 §2.4 Zazitky): title, kilometres of
-/// the rides split S MotoGo / Soukromé, count tiles (→ sub-screen), compact
-/// rank row (→ ranks), "VYTVOŘIT NOVOU TRASU" (ink — the dock's record
-/// button is the primary). Logged out: the old login prompt. Every number
-/// comes from the providers the screen already reads.
-class MojeSummaryV2 extends ConsumerWidget {
+/// the rides split S MotoGo / Soukromé, count tiles (→ sub-screen),
+/// "VYTVOŘIT NOVOU TRASU" (ink — the dock's record button is the primary).
+/// Logged out: the old login prompt. Every number comes from the providers
+/// the screen already reads. No rank here (owner 2026-11-27, 5.0.3: the
+/// rank lives in Profil and behind the badge).
+class MojeSummaryV2 extends StatelessWidget {
   final bool loggedIn;
   final List<UserRide> rides;
   final int? savedCount;
@@ -52,7 +46,7 @@ class MojeSummaryV2 extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final tr = t(context);
     final head = Row(children: [
       const MgIconTileDark(MgIcons.bike, size: 44),
@@ -84,7 +78,6 @@ class MojeSummaryV2 extends ConsumerWidget {
     final mgKm = rides.where((r) => r.bookingId != null).fold<double>(0, (s, r) => s + r.distanceKm);
     final pvKm = rides.where((r) => r.bookingId == null).fold<double>(0, (s, r) => s + r.distanceKm);
     final total = mgKm + pvKm;
-    final status = ref.watch(loyaltyStatusProvider).valueOrNull;
 
     return MgCard(
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -127,10 +120,6 @@ class MojeSummaryV2 extends ConsumerWidget {
           _CountTile(icon: MgIcons.bookmark, value: savedCount, label: tr.tr('v2RideSubSaved'), onTap: () => onSub(MojeSub.saved)),
           _CountTile(icon: MgIcons.pin, value: placesCount, label: tr.tr('v2RideSubPlaces'), onTap: () => onSub(MojeSub.places)),
         ]),
-        if (status != null) ...[
-          const SizedBox(height: 10),
-          _RankRow(status: status, rank: ref.watch(rankTokensProvider)),
-        ],
         const SizedBox(height: 14),
         MgBtnInk(label: tr.tr('myExpCreateRoute'), icon: MgIcons.pinPlus, neonLabel: true, onTap: onCreateRoute),
         const SizedBox(height: 8),
@@ -301,53 +290,4 @@ class _SplitKey extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// Compact rank row (board Zazitky, F-17): the tier emblem (→ ranks),
-/// "Motorkář · Level 3 / 20", the tier progress (1 segment = 1 point, the
-/// same table as Domů's club card) — rank on light = emblem + bar only.
-class _RankRow extends StatelessWidget {
-  final LoyaltyStatus status;
-  final RankTokens rank;
-  const _RankRow({required this.status, required this.rank});
-
-  // Qualifying points where each league starts.
-  static const _tierStartPts = [0, 10, 18, 32, 38];
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = t(context);
-    final name = RankCopy.name(tr, status.level, status.rankName);
-    final tier = rank.tierIndex;
-    final from = _tierStartPts[tier];
-    final to = tier < 4 ? _tierStartPts[tier + 1] : from + 1;
-    final inTier = (status.qualifyingCount - from).clamp(0, to - from);
-    final aria = RankCopy.aria(tr, status.level, name, status.percent);
-    return Semantics(
-      button: true,
-      label: aria,
-      excludeSemantics: true,
-      child: MgPress(
-        scale: 0.98,
-        onTap: () => openLoyaltyRanks(context),
-        child: MgWell(
-          padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
-          child: Row(children: [
-            MgClubEmblem(rank: rank, label: aria, onTap: () => openLoyaltyRanks(context)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                MgWordFit(minScale: 0.75, child: Text(name, style: MgType.title.copyWith(color: MgColors.ink))),
-                Text(RankCopy.levelLine(tr, status.level, status.percent), style: MgType.tab(MgType.meta.copyWith(color: MgColors.lead))),
-                const SizedBox(height: 6),
-                MgClubTierBar(rank: rank, segments: to - from, filled: inTier, full: status.isMax),
-              ]),
-            ),
-            const SizedBox(width: 4),
-            const MgIcon(MgIcons.chevronRight, size: 20, color: MgColors.link),
-          ]),
-        ),
-      ),
-    );
-  }
 }
