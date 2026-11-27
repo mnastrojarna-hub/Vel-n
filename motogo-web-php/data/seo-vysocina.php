@@ -7,8 +7,8 @@
 
 return [
     'seo' => [
-        'title' => 'Motopůjčovna Vysočina, Pelhřimov a Jihlava – půjčovna motorek | MotoGo24',
-        'description' => 'Motopůjčovna na Vysočině: obslužná pobočka MotoGo24 v Mezné u Pelhřimova, zhruba 90 minut z Prahy. Osobní předání motorky nonstop, bez kauce, výbava v ceně až do 6XL, přistavení motorky na adresu.',
+        'title' => 'Motopůjčovna Vysočina – půjčovna motorek | MotoGo24',
+        'description' => 'Půjčovna motorek na Vysočině: Mezná u Pelhřimova, zhruba 90 minut z Prahy. Osobní předání nonstop, bez kauce, výbava v ceně, přistavení na adresu.',
         'keywords' => 'motopůjčovna Vysočina, půjčovna motorek Vysočina, motopůjčovna Pelhřimov, půjčovna motorek Pelhřimov, motopůjčovna Jihlava, půjčovna motorek Jihlava, motopůjčovna Humpolec, motopůjčovna Tábor, motopůjčovna Havlíčkův Brod, pronájem motorky Vysočina',
     ],
     'h1' => 'Motopůjčovna Vysočina – Pelhřimov a Jihlava',

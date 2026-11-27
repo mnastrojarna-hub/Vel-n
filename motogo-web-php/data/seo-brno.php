@@ -7,8 +7,8 @@
 
 return [
     'seo' => [
-        'title' => 'Motopůjčovna Brno a jižní Morava – půjčovna motorek nonstop | MotoGo24',
-        'description' => 'Motopůjčovna u Brna: samoobslužná půjčovna motorek MotoGo24 ve Velkých Němčicích, 20 minut od jižního okraje Brna. Převzetí nonstop 24/7 kódem z aplikace, bez kauce, výbava v ceně, parkování zdarma.',
+        'title' => 'Motopůjčovna Brno – půjčovna motorek nonstop | MotoGo24',
+        'description' => 'Samoobslužná půjčovna motorek ve Velkých Němčicích, 20 minut od jižního okraje Brna. Převzetí nonstop kódem z aplikace, bez kauce, výbava v ceně.',
         'keywords' => 'motopůjčovna Brno, půjčovna motorek Brno, pronájem motorky Brno, půjčení motorky Brno, motopůjčovna jižní Morava, půjčovna motorek jižní Morava, motopůjčovna Břeclav, motopůjčovna Hodonín, motopůjčovna Znojmo, samoobslužná půjčovna motorek',
     ],
     'h1' => 'Motopůjčovna Brno a jižní Morava',

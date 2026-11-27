@@ -10,11 +10,13 @@ require_once __DIR__ . '/layout-banner.php';
 // Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky.
 // `tc()` obalí text spanem `data-cms-key="web.layout.<key>"` jen pro adminy
 // (cookie mg_cms_admin) → inline edit přes overlay; běžní uživatelé dostanou plain text.
-// E-shop v menu jen při zapnutém flagu `eshop_visible` (chybějící řádek = skrytý).
+// E-shop na webu řídí flag `eshop_visible_web` (majitel 2026-11-27: zvlášť web a zvlášť appka —
+// appka čte dál `eshop_visible`). Dokud řádek `eshop_visible_web` neexistuje, platí `eshop_visible`
+// jako dřív; chybí-li oba = skrytý.
 function webShopVisible() {
     static $v = null;
     if ($v === null) {
-        try { $v = (new SupabaseClient())->fetchFeatureFlag('eshop_visible'); }
+        try { $v = (new SupabaseClient())->fetchFeatureFlagOr('eshop_visible_web', 'eshop_visible'); }
         catch (\Throwable $e) { $v = false; }
     }
     return $v;

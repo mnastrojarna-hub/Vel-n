@@ -31,11 +31,17 @@ const KNOWN_FLAGS = {
     on: 'Zákazník si u motorek ze samoobslužné pobočky může zvolit přistavení na adresu i odvoz (vyzvednutí) z adresy — stejně jako u obslužné pobočky.',
     off: 'Výchozí stav (rozhodnutí majitele 2026-09-28): motorky ze samoobslužné pobočky se přebírají i vracejí JEN na pobočce. Volby přistavení/odvozu jsou v appce i na webu vidět, ale zabalené a zablokované s vysvětlením; DB trigger takovou rezervaci odmítne.',
   },
+  eshop_visible_web: {
+    title: 'E-shop na webu',
+    controls: 'Web motogo24.cz — položka „E-shop" v hlavním menu a patičce a košík v hlavičce. Řádek flagu vzniká SQL migrací; dokud neexistuje, řídí web přepínač „E-shop v aplikaci".',
+    on: 'Položka „E-shop" a košík jsou na webu vidět.',
+    off: 'E-shop se na webu v menu NEZOBRAZUJE (stránky e-shopu dál fungují na přímý odkaz). Web změnu ukáže hned (Velín vyčistí cache webu). Appky se to netýká.',
+  },
   eshop_visible: {
-    title: 'E-shop v menu (web + aplikace)',
-    controls: 'Hlavní menu a patička webu motogo24.cz + menu v Profilu mobilní aplikace. Řádek flagu vzniká SQL migrací.',
-    on: 'Položka „E-shop" je v menu webu i appky vidět (vedle „Pobočky").',
-    off: 'Výchozí stav (zadání majitele 2026-10-01): e-shop se v menu NEZOBRAZUJE — místo něj je záložka „Pobočky". Stránky e-shopu dál fungují na přímý odkaz. Web změnu ukáže hned (Velín vyčistí cache webu), appka po znovuotevření menu.',
+    title: 'E-shop v aplikaci',
+    controls: 'Mobilní aplikace — položka „E-shop" v menu Profilu (všechny verze appky). Řádek flagu vzniká SQL migrací. Web má vlastní přepínač „E-shop na webu".',
+    on: 'Položka „E-shop" je v menu appky vidět.',
+    off: 'E-shop se v menu appky NEZOBRAZUJE. Appka změnu převezme po znovuotevření menu. Webu se to netýká.',
   },
   app_v2_ui: {
     title: 'Nový vzhled mobilní aplikace (v2) — nouzový vypínač',
