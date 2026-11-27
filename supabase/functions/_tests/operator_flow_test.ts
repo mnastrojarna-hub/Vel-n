@@ -8,6 +8,8 @@
 // Potřebují import mapu (serve zachytí handler, supabase-js = LooseDb):
 //   deno test --allow-all --no-check --import-map=supabase/functions/_tests/gear-flow-map.json supabase/functions/_tests/operator_flow_test.ts
 // Bez ní (běžné `deno test _tests/`) se přeskočí — spouští je operator_flow_runner_test.ts v podprocesu.
+// + send-invoice-email: doklad vyrenderovaný v prohlížeči (Velín) se nepošle, když nenese vystavitele
+//   uloženého u dokladu (záložka Velínu otevřená z doby před změnou provozovatele).
 // deno-lint-ignore-file no-explicit-any
 import { LooseDb, stubFetch } from './gear-fake.ts'
 import { NEW_INFO, OLD_INFO, OLD_SNAPSHOT } from './operator-fixtures.ts'
@@ -26,6 +28,7 @@ if (MAPPED) {
   Deno.env.set('SUPABASE_URL', 'https://fake.supabase.test')
   Deno.env.set('SUPABASE_SERVICE_ROLE_KEY', SVC)
   Deno.env.delete('PDFSHIFT_API_KEY') // doklady se ukládají jako HTML (čitelné v testu)
+  Deno.env.set('RESEND_API_KEY', 're_test') // send-invoice-email (odeslání zachytí stubFetch)
 }
 const g = globalThis as unknown as { __gearHandlers?: Handler[]; __gearFakeDb?: unknown }
 const handlers: Record<string, Handler> = {}
@@ -251,4 +254,51 @@ Deno.test({ name: 'provozovatel · QR platba: NOVÝ KÓD + STARÁ DB (jen bank_a
   // jen číslo nového účtu bez IBAN (ručně upravené nastavení) → IBAN dopočítán, QR i text souhlasí
   const half = await qr({ ...OLD_INFO, bank_account: '2303580494/2010' })
   eq([half.json.account, half.json.iban], ['2303580494/2010', 'CZ8320100000002303580494'])
+} })
+
+// ── send-invoice-email (pojistka vystavitele u dokladu vyrenderovaného v prohlížeči) ──────────────
+const clientDoc = (name: string, ico: string) => `<!DOCTYPE html><html lang="cs"><body><h1>FAKTURA ZF-2026-0007</h1><p>Dodavatel: ${name}, IČO: ${ico}</p></body></html>`
+async function sendInvoice(db: LooseDb, html: string) {
+  const f = stubFetch(() => new Response(JSON.stringify({ id: 'em_1' }), { status: 200 }))
+  try {
+    const r = await post('../send-invoice-email/index.ts', db, { invoice_id: 'inv-1', html_content: html, customer_email: 'jana@example.com', invoice_number: 'ZF-2026-0007', language: 'cs' })
+    return { ...r, sent: f.calls.filter((c) => c.url.includes('api.resend.com')).length }
+  } finally { f.restore() }
+}
+const mailDb = (o: { info?: Row; snapshot?: unknown } = {}) => {
+  const db = new LooseDb({ invoices: [storedInvoice(o.snapshot === undefined ? {} : { issuer_snapshot: o.snapshot })], app_settings: settings(o.info), sent_emails: [], message_log: [], debug_log: [] })
+  noIssuerColumn(db)
+  return db
+}
+
+Deno.test({ name: 'provozovatel · odeslání faktury z Velínu: náhled s JINÝM dodavatelem, než je uložen u dokladu, se NEPOŠLE (issuer_mismatch)', ignore: !MAPPED, fn: async () => {
+  // nový doklad (vystavila společnost) + stará záložka Velínu (dřívější provozovatel v náhledu)
+  const a = mailDb({ info: NEW_INFO, snapshot: NEW_INFO })
+  const r1 = await sendInvoice(a, clientDoc('Jan Novák', '12345678'))
+  eq([r1.status, r1.json?.success, r1.json?.code, r1.sent], [409, false, 'issuer_mismatch', 0], r1.txt)
+  ok(String(r1.json.error).includes('obnovte stránku Velínu'), r1.txt)
+  eq(a.rows('debug_log').map((d) => d.action), ['issuer_mismatch'])
+  eq(a.rows('sent_emails').length, 0)
+  // starý doklad + náhled s novým provozovatelem → také ne
+  const b = mailDb({ info: NEW_INFO, snapshot: OLD_SNAPSHOT })
+  const r2 = await sendInvoice(b, clientDoc('MotoGo24 s.r.o.', '29909864'))
+  eq([r2.status, r2.json?.code, r2.sent], [409, 'issuer_mismatch', 0], r2.txt)
+} })
+
+Deno.test({ name: 'provozovatel · odeslání faktury z Velínu: náhled se správným dodavatelem odejde (nový doklad, starý doklad, stará DB, doklad nenalezen)', ignore: !MAPPED, fn: async () => {
+  const cases: Array<[string, LooseDb, string]> = [
+    ['nový doklad + nový náhled', mailDb({ info: NEW_INFO, snapshot: NEW_INFO }), clientDoc('MotoGo24 s.r.o.', '29909864')],
+    ['starý doklad + původní dodavatel', mailDb({ info: NEW_INFO, snapshot: OLD_SNAPSHOT }), clientDoc('Jan Novák', '12345678')],
+    ['stará DB bez sloupce (aktuální = dosavadní provozovatel)', mailDb({ info: OLD_INFO }), clientDoc('Jan Novák', '12345678')],
+    ['bez snapshotu = aktuální provozovatel', mailDb({ info: NEW_INFO, snapshot: null }), clientDoc('MotoGo24 s.r.o.', '29909864')],
+  ]
+  for (const [label, db, html] of cases) {
+    const r = await sendInvoice(db, html)
+    eq([r.status, r.json?.success, r.sent], [200, true, 1], `${label}: ${r.txt}`)
+    eq(db.rows('sent_emails').map((m) => m.status), ['sent'], label)
+  }
+  // řádek dokladu nenalezen → bez kontroly (chování jako dosud)
+  const none = new LooseDb({ invoices: [], app_settings: settings(NEW_INFO), sent_emails: [], message_log: [], debug_log: [] })
+  const r = await sendInvoice(none, clientDoc('Kdokoli', '00000000'))
+  eq([r.status, r.json?.success, r.sent], [200, true, 1], r.txt)
 } })

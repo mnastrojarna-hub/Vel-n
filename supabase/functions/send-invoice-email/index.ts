@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normalizeLang, helpCardLabels, invoiceEmailSnippets, type Lang } from './i18n.ts'
 import { BRAND_TAGLINE, FOLLOW_US_LABELS, pickLang, resolveTemplateForLang as resolveTemplateShared } from '../_shared/email-translate.ts'
 // Patička e-mailu: provozovatel z app_settings.company_info (_shared/company.ts), nic natvrdo.
-import { emailFooterCompanyHtml, loadCompany } from '../_shared/company.ts'
+import { emailFooterCompanyHtml, issuerOf, loadCompany } from '../_shared/company.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -170,7 +170,7 @@ serve(async (req) => {
   if (!(await isTrustedCaller(req))) return jsonResponse({ success: false, error: 'forbidden' }, 403)
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-  await loadCompany(supabase) // patička mailu = aktuální provozovatel (nikdy nevyhodí)
+  const company = await loadCompany(supabase) // patička mailu = aktuální provozovatel (nikdy nevyhodí)
 
   try {
     const { invoice_id, html_content, customer_email, customer_name, invoice_number, language } = await req.json()
@@ -186,6 +186,18 @@ serve(async (req) => {
       const snip = invoiceEmailSnippets('issued', custLang, { invoice_number: invoice_number || '\u2014' })
       const subject = snip.subject
       const isFullDoc = /^\s*<!DOCTYPE/i.test(html_content) || /<html[\s>]/i.test(html_content)
+      // Pojistka vystavitele: celý doklad vyrenderovaný v prohlížeči musí nést vystavitele uloženého
+      // u dokladu (invoices.issuer_snapshot, jinak aktuální provozovatel). Záložka Velínu otevřená
+      // z doby před změnou provozovatele by jinak zákazníkovi poslala doklad s jiným dodavatelem.
+      if (isFullDoc) {
+        let row: unknown = null
+        try { row = (await supabase.from('invoices').select('*').eq('id', invoice_id).limit(1)).data?.[0] ?? null } catch { /* bez řádku se nekontroluje */ }
+        const issuerIco = row ? issuerOf(row, company).ico : ''
+        if (issuerIco && !String(html_content).includes(issuerIco)) {
+          try { await supabase.from('debug_log').insert({ source: 'send-invoice-email', action: 'issuer_mismatch', status: 'error', request_data: { invoice_id, invoice_number: invoice_number || null, expected_ico: issuerIco } }) } catch { /* jen log */ }
+          return jsonResponse({ success: false, code: 'issuer_mismatch', error: 'Náhled dokladu nenese vystavitele uloženého u dokladu – obnovte stránku Velínu (Ctrl+F5) a odešlete doklad znovu.' }, 409)
+        }
+      }
       const html = isFullDoc ? html_content : wrapInBrandedLayout(html_content, custLang)
       if (!RESEND_API_KEY) return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
       const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to: customer_email, subject, html })
