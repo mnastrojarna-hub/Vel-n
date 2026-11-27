@@ -25,7 +25,7 @@ class InvoiceIssuer {
   final String register;
   final String registerShort;
 
-  /// Soud v 1. pádě + spisová značka („C 36876") — odvozeno z [register].
+  /// Soud v 1. pádě + spisová značka („C N") — odvozeno z [register].
   final String registerCourt;
   final String registerFile;
   final String account;

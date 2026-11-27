@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/booking_address_carry.dart' show HandoverChoice;
 import '../../core/router.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import '../auth/auth_provider.dart' show profileProvider;
@@ -24,13 +25,20 @@ import 'v2/booking_carry_v2.dart';
 /// v2 vzhled (majitel 2026-10-22, „nic nevyplňovat dvakrát“): rozpracovaný
 /// draft se NEPŘEPISUJE — viz [carryBookingDraft] — pokud patří stejnému
 /// účtu ([bookingDraftOwnerProvider]). Starý vzhled beze změny.
+///
+/// [handover] (jen v2, majitel 2026-11-27) = místo předání zvolené
+/// v kalkulačce „Spočítat cenu“: způsob, adresy i cena/km obou stran se
+/// zapíšou do draftu a do providerů formuláře — formulář se otevře
+/// předvyplněný a všechno si znovu ověří sám (zámek samoobsluhy, +6 h,
+/// obsazenost). null = dosavadní chování.
 void startBookingFromSelection(
   BuildContext ctx,
   WidgetRef ref,
   Motorcycle moto,
   DateTime start,
-  DateTime end,
-) {
+  DateTime end, {
+  HandoverChoice? handover,
+}) {
   // Předvyplň velikosti výbavy z minulé rezervace
   // (profiles.gear_sizes.rider) — zákazník je nemusí lovit z paměti.
   final gs = ref.read(profileProvider).valueOrNull?['gear_sizes'];
@@ -68,19 +76,23 @@ void startBookingFromSelection(
     ctx.push(Routes.booking);
     return;
   }
-  final prev = ref.read(bookingDraftProvider);
-  final prevMoto = ref.read(bookingMotoProvider);
   final confirmed = ref.read(lastConfirmedBookingProvider);
-  // Zaplacená rezervace mezitím NEBO draft jiného účtu (odhlášení mimo
-  // profil — chyba platby, vypršelé přihlášení) → čerstvý draft.
-  final submitted = confirmed != ref.read(bookingDraftSeedMarkProvider) || foreign;
-  final next = carryBookingDraft(prev: prev, prevMoto: prevMoto, moto: moto, fresh: fresh, submitted: submitted);
+  final (carried, dropFees) = _entryCarry(ref.read, moto, fresh, foreign: foreign);
   // Nový / jinde předaný draft: ceny přistavení a odvozu z minulé adresy
   // by jinak naskočily ke zvolení „na adresu“ bez adresy.
-  if (identical(next, fresh) || carryDropsDelivery(prev, prevMoto, moto)) {
+  if (dropFees) {
     for (final p in [pickupDelivFeeProvider, pickupDistKmProvider, returnDelivFeeProvider, returnDistKmProvider]) {
       ref.read(p.notifier).state = 0;
     }
+  }
+  // Místo předání z kalkulačky = poslední výslovná volba zákazníka: platí
+  // pro obě strany i proti rozpracovanému draftu (i výslovné „na pobočce“).
+  final next = handover == null ? carried : handover.applyTo(carried);
+  if (handover != null) {
+    ref.read(pickupDelivFeeProvider.notifier).state = handover.pickupFee;
+    ref.read(pickupDistKmProvider.notifier).state = handover.pickupKm;
+    ref.read(returnDelivFeeProvider.notifier).state = handover.returnFee;
+    ref.read(returnDistKmProvider.notifier).state = handover.returnKm;
   }
   final f = ref.read(catalogFilterProvider);
   ref.read(bookingDraftSeedMarkProvider.notifier).state = confirmed;
@@ -88,4 +100,39 @@ void startBookingFromSelection(
   ref.read(bookingMotoProvider.notifier).state = moto;
   ref.read(bookingDraftProvider.notifier).state = next;
   ctx.push(Routes.booking);
+}
+
+/// Čtení providerů: `ref.read` (akce) nebo `ref.watch` (build).
+typedef BookingRead = T Function<T>(ProviderListenable<T> provider);
+
+/// v2 vstup: draft, který formulář pro [moto] dostane (rozpracovaný se
+/// nepřepisuje — [carryBookingDraft]), a zda se zahazují ceny přistavení a
+/// odvozu z minulé adresy. Zaplacená rezervace mezitím NEBO draft jiného účtu
+/// ([foreign]: odhlášení mimo profil — chyba platby, vypršelé přihlášení) →
+/// čerstvý draft.
+(BookingDraft, bool) _entryCarry(BookingRead read, Motorcycle moto, BookingDraft fresh, {required bool foreign}) {
+  final prev = read(bookingDraftProvider);
+  final prevMoto = read(bookingMotoProvider);
+  final submitted = read(lastConfirmedBookingProvider) != read(bookingDraftSeedMarkProvider) || foreign;
+  final next = carryBookingDraft(prev: prev, prevMoto: prevMoto, moto: moto, fresh: fresh, submitted: submitted);
+  return (next, identical(next, fresh) || carryDropsDelivery(prev, prevMoto, moto));
+}
+
+/// Místo předání, se kterým by formulář pro [moto] TEĎ otevřel bez nové
+/// volby — stejná pravidla jako [startBookingFromSelection] ve v2
+/// (rozpracovaná rezervace téhož účtu: stejná motorka, nebo jiná ze stejné
+/// pobočky). Kalkulačka ho ukazuje, dokud zákazník nezvolí jinak, takže
+/// nikdy neukáže jiné předání ani nižší cenu, než jaké pak ukáže formulář.
+/// Nic nezapisuje.
+HandoverChoice bookingEntryHandover(BookingRead read, Motorcycle moto) {
+  final (next, dropFees) =
+      _entryCarry(read, moto, BookingDraft(motoId: moto.id), foreign: bookingDraftForeignOf(read(bookingDraftOwnerProvider)));
+  double fee(StateProvider<double> p) => dropFees ? 0 : read(p);
+  return HandoverChoice(
+    draft: next,
+    pickupFee: fee(pickupDelivFeeProvider),
+    pickupKm: fee(pickupDistKmProvider),
+    returnFee: fee(returnDelivFeeProvider),
+    returnKm: fee(returnDistKmProvider),
+  );
 }

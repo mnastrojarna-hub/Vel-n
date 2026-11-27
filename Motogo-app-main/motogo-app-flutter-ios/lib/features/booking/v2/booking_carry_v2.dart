@@ -120,10 +120,10 @@ String? bookingSessionUid() {
 }
 
 /// true = draft založil jiný účet, než je teď přihlášený.
-bool bookingDraftForeign(WidgetRef ref) {
-  final owner = ref.read(bookingDraftOwnerProvider);
-  return owner != null && owner != bookingSessionUid();
-}
+bool bookingDraftForeign(WidgetRef ref) => bookingDraftForeignOf(ref.read(bookingDraftOwnerProvider));
+
+/// Totéž pro už přečteného vlastníka draftu ([bookingDraftOwnerProvider]).
+bool bookingDraftForeignOf(String? owner) => owner != null && owner != bookingSessionUid();
 
 /// Data katalogového filtru při posledním vstupu do formuláře. Detail
 /// motorky převezme termín z draftu (změněný ve formuláři „Změnit“) jen

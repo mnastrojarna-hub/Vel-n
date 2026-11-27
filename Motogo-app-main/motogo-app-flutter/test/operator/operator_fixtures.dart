@@ -4,15 +4,27 @@
 // `invoices_issuer_snapshot`). Testy na něm ověřují, že už vystavený doklad
 // drží původního vystavitele. Hlídá `operator_guard_test.dart`.
 
+const String oldName = 'Bc. Petra Semorádová';
+const String oldIco = '21874263';
+const String oldAddress = 'Mezná 9, 393 01 Pelhřimov';
+const String oldAccount = '670100-2225851630/6210';
+const String oldBank = 'mBank';
+
+/// Datová schránka dřívějšího provozovatele (v appce nikdy nebyla; hlídá se).
+const String oldDataBox = 'iuw3vnb';
+
+/// Kmen slova z identifikace fyzické osoby („… dle živnostenského zákona").
+const String oldTradeStem = 'živnostensk';
+
 /// Snapshot dokladu vystaveného dřívějším provozovatelem (tvar z živé DB).
 const Map<String, dynamic> oldIssuerSnapshot = {
-  'name': 'Bc. Petra Semorádová',
-  'ico': '21874263',
+  'name': oldName,
+  'ico': oldIco,
   'dic': null,
   'vat_payer': false,
-  'address': 'Mezná 9, 393 01 Pelhřimov',
-  'bank_account': '670100-2225851630/6210',
-  'bank_name': 'mBank',
+  'address': oldAddress,
+  'bank_account': oldAccount,
+  'bank_name': oldBank,
   'phone': '+420 774 256 271',
   'email': 'info@motogo24.cz',
   'web': 'https://motogo24.com',

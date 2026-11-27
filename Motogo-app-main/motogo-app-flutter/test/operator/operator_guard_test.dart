@@ -55,13 +55,13 @@ void main() {
   });
 
   final oldNeedles = <String>[
-    oldIssuerSnapshot['ico'] as String, // dřívější IČO
-    (oldIssuerSnapshot['name'] as String).split(' ').last.substring(0, 5), // příjmení (kmen)
-    (oldIssuerSnapshot['bank_account'] as String).split('-').last.split('/').first, // číslo účtu
-    oldIssuerSnapshot['bank_name'] as String, // banka
-    '/6210',
-    'iuw3vnb', // datová schránka dřívějšího provozovatele
-    'živnostensk',
+    oldIco,
+    oldName.split(' ').last.substring(0, 5), // příjmení (kmen)
+    oldAccount.split('-').last.split('/').first, // číslo účtu
+    oldAccount.substring(oldAccount.indexOf('/')), // kód banky
+    oldBank,
+    oldDataBox,
+    oldTradeStem,
   ];
 
   test('dřívější provozovatel není v lib/ nikde', () {

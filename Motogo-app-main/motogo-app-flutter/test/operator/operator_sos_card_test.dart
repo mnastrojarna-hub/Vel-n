@@ -21,7 +21,7 @@ void _expectCard(WidgetTester tester) {
   expect(ys[0] < ys[1] && ys[1] < ys[2], isTrue, reason: '$ys');
   // dřívější provozovatel ani adresa pobočky místo sídla
   final all = tester.widgetList<Text>(find.byType(Text)).map((w) => w.data ?? w.textSpan?.toPlainText() ?? '').join('\n');
-  for (final old in [oldIssuerSnapshot['name'] as String, oldIssuerSnapshot['ico'] as String, '393 01 Pelhřimov']) {
+  for (final old in [oldName, oldIco, '393 01 Pelhřimov']) {
     expect(all, isNot(contains(old)), reason: old);
   }
 }

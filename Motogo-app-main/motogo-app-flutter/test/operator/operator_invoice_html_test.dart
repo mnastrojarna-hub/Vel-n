@@ -85,8 +85,8 @@ void main() {
     $_sep<span style="color:#74FB71">www.motogo24.cz</span>
   </div>'''));
           // dřívější provozovatel se na novém dokladu neobjeví nikde
-          for (final old in [oldIssuerSnapshot['name'], oldIssuerSnapshot['ico'], oldIssuerSnapshot['bank_account'], oldIssuerSnapshot['bank_name'], 'Pelhřimov']) {
-            expect(html, isNot(contains(old as String)), reason: '$old');
+          for (final old in [oldName, oldIco, oldAccount, oldBank, 'Pelhřimov']) {
+            expect(html, isNot(contains(old)), reason: old);
           }
         });
       }
@@ -102,22 +102,22 @@ void main() {
             _supplier(html),
             endsWith('''
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:12px;line-height:1.7">
-            ${_row('Název', 'Bc. Petra Semorádová')}
-            ${_row('Adresa', 'Mezná 9, 393 01 Pelhřimov')}
-            ${_row('IČO', '21874263')}
+            ${_row('Název', oldName)}
+            ${_row('Adresa', oldAddress)}
+            ${_row('IČO', oldIco)}
             ${_row('E-mail', 'info@motogo24.cz')}
             ${_row('Telefon', '+420 774 256 271')}
           '''));
         final pay = _payment(html);
-        expect(pay, contains(_pay('Bankovní účet', '670100-2225851630/6210')));
+        expect(pay, contains(_pay('Bankovní účet', oldAccount)));
         expect(pay, isNot(contains('>Banka<')));
         expect(pay, isNot(contains('>IBAN<')));
         expect(
             _footer(html),
             contains('''
-    <strong style="color:#ffffff">Bc. Petra Semorádová</strong>
-    ${_sep}Mezná 9, 393 01 Pelhřimov
-    ${_sep}IČO: 21874263
+    <strong style="color:#ffffff">$oldName</strong>
+    $_sep$oldAddress
+    ${_sep}IČO: $oldIco
     $_sep<span style="color:#74FB71">+420 774 256 271</span>
     $_sep<span style="color:#74FB71">info@motogo24.cz</span>
     $_sep<span style="color:#74FB71">www.motogo24.cz</span>

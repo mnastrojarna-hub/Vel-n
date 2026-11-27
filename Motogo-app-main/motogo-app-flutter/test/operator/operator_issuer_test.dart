@@ -61,11 +61,11 @@ void main() {
   group('vystavitel dokladu', () {
     test('snapshot dřívějšího provozovatele → původní údaje, nic nového se nedoplní', () {
       final i = InvoiceIssuer.resolve(oldIssuerSnapshot);
-      expect(i.name, 'Bc. Petra Semorádová');
-      expect(i.ico, '21874263');
-      expect(i.address, 'Mezná 9, 393 01 Pelhřimov');
-      expect(i.account, '670100-2225851630/6210');
-      expect(i.bank, 'mBank');
+      expect(i.name, oldName);
+      expect(i.ico, oldIco);
+      expect(i.address, oldAddress);
+      expect(i.account, oldAccount);
+      expect(i.bank, oldBank);
       expect(i.vatPayer, isFalse);
       // nikdy cizí rejstřík, banka ani BIC
       expect(i.hasRegister, isFalse);
@@ -76,7 +76,9 @@ void main() {
       expect(i.registerInvoiceLine, isEmpty);
       expect(i.bic, isEmpty);
       expect(i.iban, isNot(OperatorInfo.iban));
-      expect(i.iban, InvoiceIssuer.czIban('670100-2225851630/6210'));
+      expect(i.iban, InvoiceIssuer.czIban(oldAccount));
+      expect(i.iban, startsWith('CZ'));
+      expect(i.iban, hasLength(24));
     });
 
     test('starý snapshot bez názvu banky a kontaktů: banka prázdná, kontakty beze změny', () {
@@ -86,7 +88,7 @@ void main() {
         ..remove('email')
         ..remove('address');
       final i = InvoiceIssuer.resolve(snap);
-      expect(i.name, 'Bc. Petra Semorádová');
+      expect(i.name, oldName);
       expect(i.bank, isEmpty);
       expect(i.address, isEmpty, reason: 'sídlo nové společnosti se cizímu subjektu nedoplňuje');
       expect(i.phone, OperatorInfo.phone);
@@ -152,7 +154,7 @@ void main() {
     });
 
     test('snapshot jako JSON text (dvojité zakódování) se přečte', () {
-      expect(InvoiceIssuer.resolve(jsonEncode(oldIssuerSnapshot)).ico, '21874263');
+      expect(InvoiceIssuer.resolve(jsonEncode(oldIssuerSnapshot)).ico, oldIco);
       expect(InvoiceIssuer.resolve(jsonEncode(newIssuerSnapshot)).ico, '29909864');
     });
 
@@ -167,7 +169,7 @@ void main() {
         true,
         const [1, 2, 3],
         const <String, dynamic>{},
-        const {'ico': '21874263'}, // bez názvu
+        const {'ico': oldIco}, // bez názvu
         const {'name': '   '},
         const {'name': 123.5},
         const {'name': ['a']},
@@ -185,16 +187,16 @@ void main() {
       }
       // podivné hodnoty u jinak platného snapshotu nesmí shodit ani přepsat vystavitele
       final odd = InvoiceIssuer.resolve({
-        'name': 'Bc. Petra Semorádová',
-        'ico': 21874263,
+        'name': oldName,
+        'ico': int.parse(oldIco),
         'address': null,
         'vat_payer': 'ano',
         'bank_account': {'x': 1},
         'register': ['x'],
         'phone': ['x'],
       });
-      expect(odd.name, 'Bc. Petra Semorádová');
-      expect(odd.ico, '21874263');
+      expect(odd.name, oldName);
+      expect(odd.ico, oldIco);
       expect(odd.vatPayer, isFalse);
       expect(odd.account, isEmpty);
       expect(odd.hasRegister, isFalse);

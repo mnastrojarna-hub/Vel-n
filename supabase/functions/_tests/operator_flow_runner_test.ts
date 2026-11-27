@@ -1,13 +1,15 @@
 // ===== _tests/operator_flow_runner_test.ts =====
 // Změna provozovatele (2026-11): flow testy celých handlerů potřebují import mapu
-//   • operator_flow_test.ts        (generate-invoice, generate-document, qr-payment, send-invoice-email) → gear-flow-map.json
+//   • operator_flow_test.ts        (generate-invoice, generate-document)  → gear-flow-map.json
+//   • operator_flow_pay_test.ts    (qr-payment, send-invoice-email)       → gear-flow-map.json
 //   • operator_refund_flow_test.ts (process-refund — dobropis)                      → storno-flow-map.json
 // Aby je pokrylo i běžné `deno test --allow-all --no-check supabase/functions/_tests/`, spustí je tenhle
 // test v PODPROCESECH s příslušnou mapou. Při běhu s import mapou nebo bez oprávnění `run` se přeskočí.
 const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/@supabase/supabase-js@2').startsWith('file:') } catch { return false } })()
 const CAN_RUN = (() => { try { return Deno.permissions.querySync({ name: 'run' }).state === 'granted' } catch { return false } })()
 const RUNS: Array<{ map: string; file: string; min: number }> = [
-  { map: './gear-flow-map.json', file: './operator_flow_test.ts', min: 13 },
+  { map: './gear-flow-map.json', file: './operator_flow_test.ts', min: 8 },
+  { map: './gear-flow-map.json', file: './operator_flow_pay_test.ts', min: 5 },
   { map: './storno-flow-map.json', file: './operator_refund_flow_test.ts', min: 4 },
 ]
 
