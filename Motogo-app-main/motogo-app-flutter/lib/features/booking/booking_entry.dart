@@ -128,11 +128,17 @@ HandoverChoice bookingEntryHandover(BookingRead read, Motorcycle moto) {
   final (next, dropFees) =
       _entryCarry(read, moto, BookingDraft(motoId: moto.id), foreign: bookingDraftForeignOf(read(bookingDraftOwnerProvider)));
   double fee(StateProvider<double> p) => dropFees ? 0 : read(p);
-  return HandoverChoice(
-    draft: next,
+  return HandoverChoice.of(
+    next,
     pickupFee: fee(pickupDelivFeeProvider),
     pickupKm: fee(pickupDistKmProvider),
     returnFee: fee(returnDelivFeeProvider),
     returnKm: fee(returnDistKmProvider),
   );
 }
+
+/// [bookingEntryHandover] pro `build`: přepočítá se s draftem formuláře, ale
+/// posluchače (kalkulačku pod otevřeným formulářem) budí jen změna místa
+/// předání nebo jeho ceny.
+final bookingEntryHandoverProvider = Provider.autoDispose
+    .family<HandoverChoice, Motorcycle>((ref, moto) => bookingEntryHandover(ref.watch, moto));

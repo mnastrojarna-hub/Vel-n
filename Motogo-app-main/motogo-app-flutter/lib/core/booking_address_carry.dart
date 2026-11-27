@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/booking/booking_models.dart';
@@ -101,6 +102,17 @@ class HandoverChoice {
   HandoverChoice({BookingDraft? draft, this.pickupFee = 0, this.pickupKm = 0, this.returnFee = 0, this.returnKm = 0})
       : draft = draft ?? BookingDraft();
 
+  /// Místo předání z [d] (jen pole `pickup*` / `return*`) s danými cenami.
+  factory HandoverChoice.of(BookingDraft d,
+          {double pickupFee = 0, double pickupKm = 0, double returnFee = 0, double returnKm = 0}) =>
+      HandoverChoice(
+        draft: HandoverChoice(draft: d).applyTo(BookingDraft()),
+        pickupFee: pickupFee,
+        pickupKm: pickupKm,
+        returnFee: returnFee,
+        returnKm: returnKm,
+      );
+
   /// Cena počítaná do celku — jako `priceBreakdownProvider`: jen u strany
   /// „na adresu“.
   double get pickupDue => draft.pickupMethod == 'delivery' ? pickupFee : 0;
@@ -134,6 +146,18 @@ class HandoverChoice {
         returnLat: () => draft.returnLat,
         returnLng: () => draft.returnLng,
       );
+
+  List<Object?> get _key => [
+        draft.pickupMethod, draft.pickupAddress, draft.pickupCity, draft.pickupZip, draft.pickupLat, draft.pickupLng,
+        draft.returnMethod, draft.returnAddress, draft.returnCity, draft.returnZip, draft.returnLat, draft.returnLng,
+        pickupFee, pickupKm, returnFee, returnKm,
+      ];
+
+  @override
+  bool operator ==(Object other) => other is HandoverChoice && listEquals(_key, other._key);
+
+  @override
+  int get hashCode => Object.hashAll(_key);
 }
 
 /// Přistavení na adresu ani odvoz z adresy se u [moto] nenabízí

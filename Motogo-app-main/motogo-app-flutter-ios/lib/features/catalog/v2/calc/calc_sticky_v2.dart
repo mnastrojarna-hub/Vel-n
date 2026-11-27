@@ -25,12 +25,17 @@ class CalcStickyData {
   final double total;
   final VoidCallback onBook;
 
+  /// Shown instead of the dates line — the booking form's dock hint
+  /// "delivery chosen, address missing" (step ④), or null.
+  final String? note;
+
   const CalcStickyData({
     required this.moto,
     required this.start,
     required this.end,
     required this.total,
     required this.onBook,
+    this.note,
   });
 
   @override
@@ -39,10 +44,11 @@ class CalcStickyData {
       other.moto.id == moto.id &&
       other.start == start &&
       other.end == end &&
-      other.total == total;
+      other.total == total &&
+      other.note == note;
 
   @override
-  int get hashCode => Object.hash(moto.id, start, end, total);
+  int get hashCode => Object.hash(moto.id, start, end, total, note);
 }
 
 /// Published by `CalcBodyV2` (null = no dock); `MotorkyScreenV2` mounts
@@ -131,7 +137,7 @@ class CalcStickyV2 extends StatelessWidget {
       child: MgDock(
         safeArea: !inShell,
         contextLine: Text(
-          '${catRange(tr, data.start, data.end)} · ${catDays(tr, days)}',
+          data.note ?? '${catRange(tr, data.start, data.end)} · ${catDays(tr, days)}',
           maxLines: 2,
         ),
         child: MgFabAvoid(

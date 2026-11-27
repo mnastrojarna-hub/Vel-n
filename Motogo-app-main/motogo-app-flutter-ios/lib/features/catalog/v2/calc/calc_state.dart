@@ -110,9 +110,24 @@ class CalcStateNotifier extends StateNotifier<CalcState> {
     state = state.copyWith(handover: () => CalcHandover(choice: fn(base), branchId: branchId, owner: owner));
   }
 
-  /// Handed over to the booking form / no longer valid for the bike.
+  /// Handed over to the booking form (which holds it from then on).
   void clearHandover() {
     if (state.handover != null) state = state.copyWith(handover: () => null);
+  }
+
+  /// The booking form's normalizations for the bike now chosen: a choice
+  /// made for another branch (or account) is dropped — the form's carry rule
+  /// for another bike; where delivery is not offered ([blocked]) both sides
+  /// go back to the branch — the form's self-service rule.
+  void normalizeHandover({required String? branchId, required String? owner, required bool blocked}) {
+    final cur = state.handover;
+    if (cur == null) return;
+    if (!cur.validFor(branchId, owner)) return clearHandover();
+    final d = cur.choice.draft;
+    if (blocked && (d.pickupMethod == 'delivery' || d.returnMethod == 'delivery')) {
+      final c = cur.choice.copyWith(draft: d.copyWith(pickupMethod: 'store', returnMethod: 'store'));
+      state = state.copyWith(handover: () => CalcHandover(choice: c, branchId: branchId, owner: owner));
+    }
   }
 }
 
