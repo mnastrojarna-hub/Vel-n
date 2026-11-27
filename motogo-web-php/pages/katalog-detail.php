@@ -736,7 +736,8 @@ $colorBlock = !empty($moto['color']) ? ',"color":' . json_encode((string)$moto['
 $skuVal = trim((string)($moto['id'] ?? ''));
 $skuBlock = $skuVal !== '' ? ',"sku":' . json_encode($skuVal) : '';
 
-$descForSchema = $motoDesc !== '' ? trim(strip_tags($motoDesc)) : ($moto['model'] ?? '');
+// popis bez HTML entit (&nbsp; z editoru Velínu se dřív dostalo do JSON-LD doslova)
+$descForSchema = $motoDesc !== '' ? trim(preg_replace('/[\s\x{00A0}]+/u', ' ', html_entity_decode(strip_tags($motoDesc), ENT_QUOTES | ENT_HTML5, 'UTF-8'))) : ($moto['model'] ?? '');
 
 $productSchema = '
   <script type="application/ld+json">

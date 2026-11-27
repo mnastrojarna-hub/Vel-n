@@ -24,7 +24,8 @@ return [
     'header.menuLabel' => 'Hlavní navigace',
     'header.menuToggle' => 'MENU ☰',
     'header.callUs' => 'Zavolejte nám',
-    'header.logoAlt' => 'Půjčovna motorek Vysočina Motogo24',
+    // alt loga = text odkazu na úvodní stránku z každé stránky webu (SEO 2026-11-28: bez „Vysočina“)
+    'header.logoAlt' => 'MotoGo24 – půjčovna motorek',
     'header.expandSubmenu' => 'Rozbalit podmenu',
     'header.app.label' => 'Stáhnout mobilní apku',
     'header.app.title' => 'Stáhnout mobilní aplikaci MotoGo24',
@@ -361,12 +362,12 @@ return [
     'cms.contract.description' => 'Vzor smlouvy o pronájmu motocyklu MotoGo24 — předmět nájmu, doba, cena, povinnosti nájemce a pronajímatele.',
 
     // ===== SEO meta defaults (per-jazyk) =====
-    'seo.default.description' => 'Motopůjčovna a půjčovna motorek na Vysočině – cestovní, naked, supermoto, choppery, skútry i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
+    'seo.default.description' => 'MotoGo24 – půjčovna motorek bez kauce: cestovní, naked, supermoto, choppery, skútry i dětské motorky. Výbava pro řidiče v ceně, rezervace online, pobočky u Pelhřimova a u Brna.',
     'seo.default.keywords' => 'motopůjčovna, půjčovna motorek, půjčovna motorek Vysočina, půjčovna motorek Pelhřimov, pronájem motorky, půjčit motorku, půjčení motocyklu, motorka na pronájem, půjčovna motocyklů, motorka bez kauce, nonstop půjčovna motorek, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro motorky, dětské motorky, motorkářská výbava, motorkářské doplňky, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
     // Strukturovaná data (layout.php JSON-LD)
-    'seo.org.description' => 'Motopůjčovna a půjčovna motorek na Vysočině — cestovní, naked, supermoto, choppery, skútry i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.',
+    'seo.org.description' => 'Půjčovna motorek MotoGo24 – motopůjčovna bez kauce se dvěma pobočkami (Mezná u Pelhřimova a Velké Němčice u Brna) a s přistavením motorky po celém Česku. Cestovní, naked, supermoto, choppery, skútry i dětské motorky, výbava pro řidiče v ceně.',
     'seo.org.slogan' => 'Půjč si motorku bez kauce. Nonstop. Online.',
-    'seo.service.description' => 'Motopůjčovna na Vysočině. Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, choppery, skútry i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.',
+    'seo.service.description' => 'Motopůjčovna se dvěma pobočkami – Mezná u Pelhřimova a Velké Němčice u Brna. Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, choppery, skútry i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.',
     'seo.home.description' => 'Motopůjčovna na Vysočině – půjčte si motorku bez kauce, s výbavou v ceně a nonstop provozem. Cestovní, naked, supermoto, choppery, skútry i dětské motorky. Online rezervace.',
     'seo.home.keywords' => 'motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, online rezervace motorky, cestovní motorky, naked motorky, supermoto, enduro, dětské motorky, motorka na víkend, motorkářská výbava v ceně, dárkový poukaz na motorku, motocyklové trasy Vysočina, MotoGo24',
 
@@ -1826,9 +1827,10 @@ return [
     'detail.h1Suffix' => 'k pronájmu',
     'detail.titleSuffix' => '| Půjčovna MotoGo24',
     'seo.altIcon' => 'ikona MotoGo24',
-    'ld.orgName' => 'MotoGo24 — půjčovna motorek Vysočina',
-    'ld.siteName' => 'Půjčovna motorek Vysočina MotoGo24',
-    'ld.serviceName' => 'Motopůjčovna MotoGo24 — půjčovna motorek Vysočina',
+    // Název firmy / webu ve strukturovaných datech = značka; fráze jsou v alternateName (layout.php). SEO 2026-11-28.
+    'ld.orgName' => 'MotoGo24',
+    'ld.siteName' => 'MotoGo24',
+    'ld.serviceName' => 'Půjčovna motorek MotoGo24',
     'ld.rentalName' => 'Pronájem motorek MotoGo24 — Vysočina',
     'ld.serviceType' => 'Pronájem motocyklů (motorcycle rental)',
     'ld.catalogName' => 'Katalog motorek k pronájmu',

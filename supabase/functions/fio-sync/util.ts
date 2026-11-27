@@ -37,7 +37,7 @@ export type Outcome = {
 
 /** Přechodná chyba — pohyb zůstane ve frontě a zkusí se znovu (nejdéle 30 minut). */
 export class RetryError extends Error {
-  constructor(msg: string, public bookingId: string | null = null) { super(msg) }
+  constructor(msg: string, public bookingId: string | null = null, public requestId: string | null = null) { super(msg) }
 }
 
 export type Env = { url: string; key: string; now?: () => number }
