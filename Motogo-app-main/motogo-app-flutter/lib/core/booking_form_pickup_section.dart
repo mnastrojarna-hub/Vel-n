@@ -21,6 +21,8 @@ class BookingFormPickupSection extends ConsumerWidget {
     required this.onUpd,
     this.branchLabel,
     this.deliveryBlocked = false,
+    this.fees,
+    this.bare = false,
   });
 
   final BookingDraft draft;
@@ -37,30 +39,38 @@ class BookingFormPickupSection extends ConsumerWidget {
   /// Applies a mutation to the current [BookingDraft].
   final void Function(BookingDraft Function(BookingDraft) fn) onUpd;
 
+  /// Kde se drží vzdálenost a cena — null = providery rezervačního formuláře
+  /// (dosavadní chování); kalkulačka dává vlastní stav ([HandoverFees]).
+  final HandoverFees? fees;
+
+  /// Jen v2: stejné volby bez rámu karty (uvnitř kroku kalkulačky).
+  final bool bare;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Obsluha sdílená starým i v2 vzhledem (těla beze změny, jen vytažená
     // z inline closur).
     void toStore() => onUpd((d) => d.copyWith(pickupMethod: 'store'));
     // Bez vlastní adresy převezme adresu druhé strany předání (2026-10-22).
-    void toDelivery() => handoverToDelivery(ref, onUpd, draft, pickup: true);
+    void toDelivery() => handoverToDelivery(ref, onUpd, draft, pickup: true, fees: fees);
     void openAddress() => showAddrBottomSheet(
         context,
         t(context).tr(MgV2.on(context) ? 'efoDelivAddrTitle' : 'pickupAddressLabel'),
         draft.pickupCity,
         draft.pickupAddress,
-        (city, addr) => handoverSaveAddress(ref, onUpd, draft, pickup: true, city: city, addr: addr),
+        (city, addr) => handoverSaveAddress(ref, onUpd, draft, pickup: true, city: city, addr: addr, fees: fees),
         quick: handoverQuickOptions(t(context).tr, draft,
             pickup: true, profile: ref.read(profileProvider).valueOrNull),
-        onDistCalc: (km, fee) {
-          ref.read(pickupDelivFeeProvider.notifier).state = fee;
-          ref.read(pickupDistKmProvider.notifier).state = km;
-        },
+        onDistCalc: (km, fee) => (fees ?? HandoverFees.form(ref)).setPickup(fee, km),
         onMapTap: (ctx) => launchMapPicker(ctx),
       );
+    final f = fees;
+    final distKm = f != null ? f.pickupKm() : ref.watch(pickupDistKmProvider);
+    final delivFee = f != null ? f.pickupFee() : ref.watch(pickupDelivFeeProvider);
     // v2 vzhled (kill-switch app_v2_ui): stejné volby, zámek i adresa.
     if (MgV2.on(context)) {
       return BookingHandoverV2(
+        bare: bare,
         title: t(context).tr('v2BkPickupTitle'),
         icon: MgIcons.moto,
         branchSub: branchLabel ?? 'Mezná 9, Pelhřimov',
@@ -81,8 +91,8 @@ class BookingFormPickupSection extends ConsumerWidget {
                 city: draft.pickupCity,
                 address: draft.pickupAddress,
                 onTap: openAddress,
-                distKm: ref.watch(pickupDistKmProvider),
-                delivFee: ref.watch(pickupDelivFeeProvider),
+                distKm: distKm,
+                delivFee: delivFee,
               )
             : null,
       );
@@ -121,8 +131,8 @@ class BookingFormPickupSection extends ConsumerWidget {
               draft.pickupCity,
               draft.pickupAddress,
               openAddress,
-              distKm: ref.watch(pickupDistKmProvider),
-              delivFee: ref.watch(pickupDelivFeeProvider),
+              distKm: distKm,
+              delivFee: delivFee,
               context: context,
             ),
           ],

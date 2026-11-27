@@ -13,6 +13,7 @@ import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/supabase_client.dart';
 import '../../core/offline_guard.dart';
+import '../../core/operator_info.dart';
 import '../../core/widgets/state_views.dart';
 import 'legal_doc_loader.dart';
 import 'booking_doc_viewer.dart';
@@ -25,14 +26,6 @@ import '../../core/booking_rules.dart';
 import '../../core/widgets/mg_nav_controls.dart';
 import '../../core/v2/flag/v2_scope.dart';
 import 'v2/contracts_view_v2.dart';
-
-/// Company constant — mirrors COMPANY from documents.js.
-const _company = (
-  name: 'Bc. Petra Semorádová',
-  ic: '21874263',
-  sidlo: 'Mezná 9, 393 01 Pelhřimov',
-  email: 'info@motogo24.cz',
-);
 
 /// Contracts & documents screen — mirrors s-contracts from templates-done-pages.js.
 /// Shows rental contracts, handover protocols, VOP.
@@ -277,14 +270,9 @@ class ContractsScreen extends ConsumerWidget {
     _ => type,
   };
 
-  /// Company-only vars (when no booking data).
-  Map<String, String> _companyVars() => {
-    'company_name': _company.name,
-    'company_address': _company.sidlo,
-    'company_ico': _company.ic,
-    'company_dic': '',
-    'company_email': _company.email,
-  };
+  /// Company-only vars (when no booking data) — provozovatel z
+  /// `core/operator_info.dart` (stejné názvy jako web a edge generate-document).
+  Map<String, String> _companyVars() => OperatorInfo.docVars();
 
   /// Build all placeholder vars from booking + moto + profile data.
   Map<String, String> _buildVars(Map<String, dynamic> b, AppTranslations tr) {

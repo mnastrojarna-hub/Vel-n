@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'booking_address_carry.dart' show handoverDeliveryBlocked;
 import 'booking_form_header_widget.dart';
 import 'widgets/moto_fx.dart';
 import 'widgets/state_views.dart';
@@ -13,7 +14,6 @@ import 'booking_form_extras_section.dart';
 import 'booking_form_price_section.dart';
 import 'booking_form_promo_section.dart';
 import 'booking_rules.dart';
-import 'feature_flags.dart';
 import 'i18n/i18n_provider.dart';
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
@@ -442,10 +442,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     // volby zůstávají v sekcích 4 a 5 vidět zabalené s vysvětlením, vybrat
     // nejdou. Draft z dříve vybrané obslužné motorky (nebo po zapnutí a
     // vypnutí flagu) se vrací na pobočku, aby insert nešel proti DB triggeru.
-    final deliveryBlocked = selfServiceDeliveryBlocked(
-        branchType: moto.branchType,
-        flagEnabled:
-            ref.watch(selfServiceDeliveryEnabledProvider).valueOrNull ?? false);
+    final deliveryBlocked = handoverDeliveryBlocked(ref, moto);
     if (deliveryBlocked &&
         (draft.pickupMethod == 'delivery' || draft.returnMethod == 'delivery')) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

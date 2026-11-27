@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/booking/booking_models.dart';
 import '../features/booking/booking_provider.dart';
+import '../features/catalog/moto_model.dart' show Motorcycle;
+import 'booking_rules.dart' show selfServiceDeliveryBlocked;
+import 'feature_flags.dart' show selfServiceDeliveryEnabledProvider;
 
 // ═══════════════════════════════════════════════════════════════════
 // ADRESA PŘISTAVENÍ ↔ ODVOZU — bez dvojího zadávání (majitel 2026-10-22:
@@ -46,23 +49,67 @@ BookingDraft _returnToPickup(BookingDraft d) => d.copyWith(
       pickupLng: () => d.returnLng,
     );
 
-void _copyFee(WidgetRef ref, {required bool toReturn}) {
+/// Kde sekce předání čtou a kam zapisují vzdálenost a cenu přistavení /
+/// odvozu. Rezervační formulář = jeho čtyři providery ([HandoverFees.form],
+/// výchozí); kalkulačka „Spočítat cenu“ (2026-11-27) = vlastní stav, aby
+/// před REZERVOVAT nikdy nezměnila cenu rozpracované rezervace.
+class HandoverFees {
+  final double Function() pickupFee;
+  final double Function() pickupKm;
+  final double Function() returnFee;
+  final double Function() returnKm;
+  final void Function(double fee, double km) setPickup;
+  final void Function(double fee, double km) setReturn;
+
+  const HandoverFees({
+    required this.pickupFee,
+    required this.pickupKm,
+    required this.returnFee,
+    required this.returnKm,
+    required this.setPickup,
+    required this.setReturn,
+  });
+
+  factory HandoverFees.form(WidgetRef ref) => HandoverFees(
+        pickupFee: () => ref.read(pickupDelivFeeProvider),
+        pickupKm: () => ref.read(pickupDistKmProvider),
+        returnFee: () => ref.read(returnDelivFeeProvider),
+        returnKm: () => ref.read(returnDistKmProvider),
+        setPickup: (fee, km) {
+          ref.read(pickupDelivFeeProvider.notifier).state = fee;
+          ref.read(pickupDistKmProvider.notifier).state = km;
+        },
+        setReturn: (fee, km) {
+          ref.read(returnDelivFeeProvider.notifier).state = fee;
+          ref.read(returnDistKmProvider.notifier).state = km;
+        },
+      );
+}
+
+/// Přistavení na adresu ani odvoz z adresy se u [moto] nenabízí
+/// (samoobslužná pobočka, flag `self_service_delivery` vypnutý) — JEDNO
+/// pravidlo pro rezervační formulář i kalkulačku. Volat z `build` (sleduje flag).
+bool handoverDeliveryBlocked(WidgetRef ref, Motorcycle moto) => selfServiceDeliveryBlocked(
+    branchType: moto.branchType,
+    flagEnabled: ref.watch(selfServiceDeliveryEnabledProvider).valueOrNull ?? false);
+
+void _copyFee(HandoverFees f, {required bool toReturn}) {
   if (toReturn) {
-    ref.read(returnDelivFeeProvider.notifier).state = ref.read(pickupDelivFeeProvider);
-    ref.read(returnDistKmProvider.notifier).state = ref.read(pickupDistKmProvider);
+    f.setReturn(f.pickupFee(), f.pickupKm());
   } else {
-    ref.read(pickupDelivFeeProvider.notifier).state = ref.read(returnDelivFeeProvider);
-    ref.read(pickupDistKmProvider.notifier).state = ref.read(returnDistKmProvider);
+    f.setPickup(f.returnFee(), f.returnKm());
   }
 }
 
 /// Volba „na adresu“ u přistavení ([pickup]) nebo odvozu: bez vlastní
-/// adresy převezme adresu druhé strany, je-li ta na adrese.
-void handoverToDelivery(WidgetRef ref, BookingDraftUpd onUpd, BookingDraft draft, {required bool pickup}) {
+/// adresy převezme adresu druhé strany, je-li ta na adrese. [fees] null =
+/// providery formuláře.
+void handoverToDelivery(WidgetRef ref, BookingDraftUpd onUpd, BookingDraft draft,
+    {required bool pickup, HandoverFees? fees}) {
   final copy = pickup
       ? !hasPickupAddress(draft) && draft.returnMethod == 'delivery' && hasReturnAddress(draft)
       : !hasReturnAddress(draft) && draft.pickupMethod == 'delivery' && hasPickupAddress(draft);
-  if (copy) _copyFee(ref, toReturn: !pickup);
+  if (copy) _copyFee(fees ?? HandoverFees.form(ref), toReturn: !pickup);
   onUpd((d) {
     final m = pickup ? d.copyWith(pickupMethod: 'delivery') : d.copyWith(returnMethod: 'delivery');
     if (!copy) return m;
@@ -76,11 +123,11 @@ void handoverToDelivery(WidgetRef ref, BookingDraftUpd onUpd, BookingDraft draft
 /// každá strana zapisuje jen svou adresu — přistavení a odvoz na dvě různé
 /// adresy musí jít zadat jako ve 4.1.3.
 void handoverSaveAddress(WidgetRef ref, BookingDraftUpd onUpd, BookingDraft draft,
-    {required bool pickup, required String city, required String addr}) {
+    {required bool pickup, required String city, required String addr, HandoverFees? fees}) {
   final otherDelivery = (pickup ? draft.returnMethod : draft.pickupMethod) == 'delivery';
   final otherCity = pickup ? draft.returnCity : draft.pickupCity;
   final follow = otherDelivery && !_filled(otherCity);
-  if (follow) _copyFee(ref, toReturn: pickup);
+  if (follow) _copyFee(fees ?? HandoverFees.form(ref), toReturn: pickup);
   onUpd((d) {
     final m = pickup
         ? d.copyWith(pickupCity: () => city, pickupAddress: () => addr)

@@ -9,6 +9,7 @@ import '../../core/router.dart';
 import '../../core/friendly_error.dart';
 import '../../core/widgets/error_feedback.dart';
 import '../../core/i18n/i18n_provider.dart';
+import '../../core/operator_info.dart';
 import '../auth/widgets/toast_helper.dart';
 import 'sos_location.dart';
 import 'sos_provider.dart';
@@ -248,9 +249,9 @@ class _SosServiceState extends ConsumerState<SosServiceScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${t(context).tr('invoiceDetails')}:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
         const SizedBox(height: 4),
-        const Text('Bc. Petra Semorádová', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.g600)),
-        const Text('IČO: 21874263 · neplátce DPH', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
-        const Text('Mezná 9, 393 01 Pelhřimov', style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+        const Text(OperatorInfo.name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: MotoGoColors.g600)),
+        const Text(OperatorInfo.icoVatLine, style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
+        const Text(OperatorInfo.seat, style: TextStyle(fontSize: 10, color: MotoGoColors.g400)),
       ]),
     );
   }

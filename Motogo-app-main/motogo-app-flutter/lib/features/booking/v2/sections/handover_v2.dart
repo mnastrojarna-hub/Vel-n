@@ -45,6 +45,10 @@ class BookingHandoverV2 extends StatelessWidget {
   /// Shown under the choices while delivery is selected.
   final BkAddress? address;
 
+  /// true = the same choices under a small label, without the card frame
+  /// (inside a step card of the price calculator).
+  final bool bare;
+
   const BookingHandoverV2({
     super.key,
     required this.title,
@@ -57,37 +61,41 @@ class BookingHandoverV2 extends StatelessWidget {
     required this.onDelivery,
     this.locked,
     this.address,
+    this.bare = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final tr = t(context);
-    return BkCard(
-      icon: icon,
-      title: title,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        BkOptionRow(
-          title: tr.tr('atBranch'),
-          sub: branchSub,
-          trailing: tr.free,
-          selected: storeSelected,
-          onTap: onStore,
-        ),
-        const SizedBox(height: 8),
-        locked ??
-            BkOptionRow(
-              title: deliveryTitle,
-              sub: tr.tr('deliveryPriceInfo'),
-              trailing: tr.tr('deliveryFrom'),
-              selected: deliverySelected,
-              onTap: onDelivery,
-            ),
-        if (address != null) ...[
-          const SizedBox(height: 10),
-          MgEnter(child: _AddressRow(a: address!)),
-        ],
-      ]),
-    );
+    final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      BkOptionRow(
+        title: tr.tr('atBranch'),
+        sub: branchSub,
+        trailing: tr.free,
+        selected: storeSelected,
+        onTap: onStore,
+      ),
+      const SizedBox(height: 8),
+      locked ??
+          BkOptionRow(
+            title: deliveryTitle,
+            sub: tr.tr('deliveryPriceInfo'),
+            trailing: tr.tr('deliveryFrom'),
+            selected: deliverySelected,
+            onTap: onDelivery,
+          ),
+      if (address != null) ...[
+        const SizedBox(height: 10),
+        MgEnter(child: _AddressRow(a: address!)),
+      ],
+    ]);
+    if (bare) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Semantics(header: true, child: BkLabel(title)),
+        body,
+      ]);
+    }
+    return BkCard(icon: icon, title: title, child: body);
   }
 }
 
