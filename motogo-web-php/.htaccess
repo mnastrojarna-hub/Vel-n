@@ -94,6 +94,8 @@ RewriteRule ^c[sz]/vseobecne-obchodni-podminky/?$        /dokumenty/obchodni-pod
 RewriteRule ^c[sz]/smlouva(?:-o-pronajmu)?/?$            /dokumenty/smlouva-o-pronajmu          [R=301,L]
 RewriteRule ^c[sz]/gdpr/?$                               /dokumenty/zasady-ochrany-osobnich-udaju [R=301,L]
 RewriteRule ^c[sz]/zasady-ochrany-osobnich-udaju/?$      /dokumenty/zasady-ochrany-osobnich-udaju [R=301,L]
+# Prejmenovany clanek (podporte- -> podpor-): primo na dnesni adresu, bez druheho hopu pres PHP
+RewriteRule ^c[sz]/blog/podporte-sen-sveho-maleho-motorkare/?$ /blog/podpor-sen-sveho-maleho-motorkare [R=301,L]
 RewriteRule ^c[sz]/blog(/.*)?$                           /blog$1                                 [R=301,L]
 RewriteRule ^c[sz]/katalog(/.*)?$                        /katalog$1                              [R=301,L]
 

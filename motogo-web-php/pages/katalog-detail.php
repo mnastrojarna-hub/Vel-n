@@ -26,6 +26,23 @@ foreach ($motos as $i => $m) {
 }
 
 if (!$moto) {
+    // Motorka vyřazená z nabídky (status retired / unavailable — v DB je, v katalogu ne): místo 404
+    // přesměrování na její kategorii (bez ?lang= / ?currency=). Search Console 11/2026: 11 adres 404
+    // jedné vyřazené motorky (…0005 Yamaha Niken GT, 413 zobrazení a odkazy z dřívějška). Vyřazená
+    // natrvalo = 301, dočasně nedostupná = 302 (může se vrátit). Neznámé ID zůstává 404.
+    if (preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/', (string)$motoId)) {
+        $gone = $sb->query('motorcycles', 'id,category,status', ['id=eq.' . $motoId]);
+        $gone = is_array($gone) && isset($gone[0]) && is_array($gone[0]) ? $gone[0] : null;
+        if ($gone && in_array((string)($gone['status'] ?? ''), ['retired', 'unavailable'], true)) {
+            $goneTo = '/katalog';
+            $goneCat = (string)($gone['category'] ?? '');
+            if (in_array($goneCat, KF_CATS, true)) {
+                foreach ($motos as $m) { if (katalogCategoryMatch($m, $goneCat)) { $goneTo = '/katalog/' . $goneCat; break; } }
+            }
+            header('Location: ' . BASE_URL . i18nLocalizePath($goneTo), true, $gone['status'] === 'retired' ? 301 : 302);
+            exit;
+        }
+    }
     // Vrat HTTP 404 + noindex — nesmazana motorka nesmi zustat v Google indexu
     // (jinak Google zobrazuje "Motorka nenalezena" jako titulek pro /katalog/{uuid}).
     http_response_code(404);
@@ -616,7 +633,7 @@ $motoOutroHtml = '<section class="moto-detail-outro">'
     . '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<article class="moto-detail ccontent' . ($kcV2 ? ' md' : '') . '" itemscope itemtype="https://schema.org/Product">' .
+    '<article class="moto-detail ccontent' . ($kcV2 ? ' md' : '') . '">' .
         ($kcV2
             ? '<header class="md-hero">' . $navHtml . $galleryHtml . $headerHtml . '</header>' . $mdGuarHtml . $mdRevHtml . $mdCalcHtml .
                 $pricesHtml . $infoHtml . $descSpecsHtml . $mdDescHtml
@@ -649,7 +666,7 @@ $priceSpecs = [];
 foreach ($dayMap as $short => $long) {
     $p = (float)($moto['price_' . $short] ?? 0);
     if ($p > 0) {
-        $priceSpecs[] = '{"@type":"UnitPriceSpecification","price":' . $p . ',"priceCurrency":"CZK","unitCode":"DAY","name":' . json_encode(t('ld.priceDay', ['day' => $long]), JSON_UNESCAPED_UNICODE) . ',"validFrom":null,"eligibleQuantity":{"@type":"QuantitativeValue","unitCode":"DAY","value":1}}';
+        $priceSpecs[] = '{"@type":"UnitPriceSpecification","price":' . $p . ',"priceCurrency":"CZK","unitCode":"DAY","name":' . json_encode(t('ld.priceDay', ['day' => $long]), JSON_UNESCAPED_UNICODE) . ',"eligibleQuantity":{"@type":"QuantitativeValue","unitCode":"DAY","value":1}}';
     }
 }
 
@@ -661,7 +678,7 @@ if (!empty($moto['mileage']))        $vehicleProps[] = '"mileageFromOdometer":{"
 if (!empty($moto['weight_kg']))      $vehicleProps[] = '"weight":{"@type":"QuantitativeValue","value":' . (float)$moto['weight_kg'] . ',"unitCode":"KGM"}';
 if (!empty($moto['fuel_tank_l']))    $vehicleProps[] = '"fuelCapacity":{"@type":"QuantitativeValue","value":' . (float)$moto['fuel_tank_l'] . ',"unitCode":"LTR"}';
 if (!empty($moto['seat_height_mm'])) $vehicleProps[] = '"height":{"@type":"QuantitativeValue","value":' . (float)$moto['seat_height_mm'] . ',"unitCode":"MMT","name":' . json_encode(t('ld.seatHeight'), JSON_UNESCAPED_UNICODE) . '}';
-if (!empty($moto['vin']))            $vehicleProps[] = '"vehicleIdentificationNumber":' . json_encode((string)$moto['vin']);
+// VIN ani SPZ do strukturovaných dat nepatří (údaj konkrétního vozidla bez přínosu pro vyhledávání) — 2026-11-28.
 
 // Engine — kombinace výkon + zdvih
 $engineParts = [];
@@ -673,13 +690,9 @@ if (!empty($engineParts)) {
     $vehicleProps[] = '"vehicleEngine":{"@type":"EngineSpecification",' . implode(',', $engineParts) . '}';
 }
 
-// Skupiny ŘP (license_groups, fallback license_required). Půjčujeme od 18 let; dětské motorky ('N')
-// řidičák nepotřebují a půjčuje je dospělý → bez audience (dřív natvrdo věk A=24 / A2=18 / jinak 16).
-$ldGroups = array_values(array_diff(motoLicenseGroups($moto), ['N']));
-if ($ldGroups) {
-    $vehicleProps[] = '"requiresSubscription":false';
-    $vehicleProps[] = '"audience":{"@type":"Audience","audienceType":' . json_encode(implode('/', $ldGroups) . ' driving license holders') . ',"requiredMinAge":18}';
-}
+// Bez `audience` a `requiresSubscription`: Google u produktu přijímá jen PeopleAudience s pevnými hodnotami
+// věku (0 / 0,25 / 1 / 5 / 13) — „Audience + requiredMinAge 18“ hlásil Search Console u 20 motorek jako
+// „Neplatný typ objektu v poli audience“; requiresSubscription k produktu nepatří. Skupina ŘP je v textu stránky.
 
 // Branch info → seller
 $sellerBlock = '';
@@ -690,20 +703,9 @@ if (is_array($branch) && !empty($branch['name'])) {
         . ',"addressCountry":"CZ"}}';
 }
 
-// AggregateRating — pokud máme ≥3 recenzí v cache (z home.php), použijeme je jako globální značku kvality
-$reviewAgg = '';
-$globalReviews = $sb->fetchPublicReviews(50);
-if (is_array($globalReviews) && count($globalReviews) >= 3) {
-    $sum = 0; $n = 0;
-    foreach ($globalReviews as $r) {
-        $rt = (int)($r['rating'] ?? 0);
-        if ($rt >= 1 && $rt <= 5) { $sum += $rt; $n++; }
-    }
-    if ($n >= 3) {
-        $avg = round($sum / $n, 2);
-        $reviewAgg = ',"aggregateRating":{"@type":"AggregateRating","ratingValue":' . $avg . ',"bestRating":5,"worstRating":1,"ratingCount":' . $n . ',"reviewCount":' . $n . '}';
-    }
-}
+// Bez aggregateRating: hodnocení na webu patří půjčovně jako celku (Google recenze firmy), ne konkrétní
+// motorce — pravidla Googlu pro hvězdičky u produktu chtějí recenze právě toho produktu. Dřív se sem
+// dávalo průměrné hodnocení firmy z tabulky reviews (≥ 3 recenze) ke každé motorce.
 
 $offerBlock = '{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($minPrice)
     . ',"availability":' . json_encode($availability)
@@ -729,11 +731,9 @@ if ($brandName === '') $brandName = 'MotoGo24';
 $brandBlock = ',"brand":{"@type":"Brand","name":' . json_encode($brandName, JSON_UNESCAPED_UNICODE) . '}';
 $catBlock = !empty($moto['category']) ? ',"category":' . json_encode((string)$moto['category'], JSON_UNESCAPED_UNICODE) : '';
 $colorBlock = !empty($moto['color']) ? ',"color":' . json_encode((string)$moto['color'], JSON_UNESCAPED_UNICODE) : '';
-// sku: SPZ trimujeme — prázdná / whitespace-only hodnota (demo motorky) dělala
-// "Neplatná hodnota v poli sku". Pokud po trimu nezbude validní SPZ, použijeme
-// stabilní interní ID (už je veřejné v URL) → sku je vždy neprázdné a validní.
-$skuVal = trim((string)($moto['spz'] ?? ''));
-if ($skuVal === '') $skuVal = trim((string)($moto['id'] ?? ''));
+// sku = stabilní interní ID motorky (je už v adrese stránky). SPZ se nezveřejňuje a u dětských motorek
+// bez SPZ dávala „Neplatná hodnota v poli sku“ (mezery) — Search Console 11/2026, 2 motorky.
+$skuVal = trim((string)($moto['id'] ?? ''));
 $skuBlock = $skuVal !== '' ? ',"sku":' . json_encode($skuVal) : '';
 
 $descForSchema = $motoDesc !== '' ? trim(strip_tags($motoDesc)) : ($moto['model'] ?? '');
@@ -747,7 +747,6 @@ $productSchema = '
   . $brandBlock . $catBlock . $colorBlock . $skuBlock
   . ',' . implode(',', $vehicleProps)
   . ',"offers":' . $offerBlock
-  . $reviewAgg
   . '}
   </script>';
 

@@ -481,18 +481,29 @@ switch (true) {
         require __DIR__ . '/pages/katalog-detail.php';
         break;
 
-    // Půjčovna
+    // Půjčovna. ČESKY 301 na úvodní stránku (SEO 2026-11-28): stránka měla ~80 % textu shodného
+    // s úvodní stránkou (stejná landing šablona) a odkaz „Půjčovna motorek“ z menu každé stránky
+    // vedl sem místo na úvod — pro „půjčovna motorek“ / „motopůjčovna“ má být JEDNA adresa (/).
+    // Cizí jazyky stránku dál mají (/motorcycle-rental, /motorradverleih…) beze změny.
+    // Vrátit zpět = smazat tuto podmínku a v mgRentalRoute() (layout.php) vracet vždy '/pujcovna-motorek'.
     case $path === '/pujcovna-motorek':
+        if (i18nDetectLanguage() === 'cs') {
+            header('Location: ' . BASE_URL . '/', true, 301);
+            exit;
+        }
         require __DIR__ . '/pages/pujcovna.php';
         break;
 
     // Oblasti (krajské stránky) zrušeny 2026-11-26 (majitel) — nahradily je SEO stránky
-    // poboček. Staré adresy (i lokalizované /areas, /regionen…) vedou 301 na nejbližší
-    // pobočku, jinak na přehled poboček (data/seo-pobocky.php).
+    // poboček. Staré adresy (i lokalizované /areas, /regionen…) vedou 301: kraj na nejbližší
+    // pobočku (data/seo-pobocky.php), neznámý kraj na přehled poboček. Přehled /oblasti česky
+    // na ÚVODNÍ stránku: v Search Console byl druhou adresou webu pro „půjčovna motorek“
+    // (668 zobrazení) i „motopůjčovna“ (173) — celostátní stránka „motopůjčovna v krajích a městech
+    // ČR“; její hodnotu má převzít úvodní stránka, ne přehled poboček (ten na ty fráze necílí).
     case $path === '/oblasti':
     case preg_match('#^/oblasti/([a-z0-9\-]+)$#', $path, $matches) === 1:
         require_once __DIR__ . '/data/seo-pobocky.php';
-        $seoTo = $path === '/oblasti' ? '/pobocky' : seoPobockyRegionTarget($matches[1]);
+        $seoTo = $path === '/oblasti' ? '/' : seoPobockyRegionTarget($matches[1]);
         // SEO stránky jsou jen česky → v cizím jazyce přehled poboček
         if (i18nDetectLanguage() !== 'cs') $seoTo = '/pobocky';
         header('Location: ' . BASE_URL . i18nLocalizePath($seoTo), true, 301);

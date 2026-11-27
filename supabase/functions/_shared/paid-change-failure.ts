@@ -120,6 +120,9 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
   stripe?: StripeRefundLike | null
   /** druh změny (e-mail zákazníkovi: výměna → odkaz na záložku Výměna) */
   kind?: 'swap' | 'edit' | null
+  /** doplatek přišel BANKOVNÍM PŘEVODEM (fio-sync, QR z webu) — nikdy automatická vratka; e-mail obsluze
+   *  říká „vraťte převodem“ (ne ve Stripe) a uvádí účet plátce */
+  bank?: { account?: string | null } | null
 }): Promise<FailureMode> {
   const url = Deno.env.get('SUPABASE_URL') ?? ''
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -193,8 +196,9 @@ export async function handlePaidChangeFailure(sb: Sb, a: {
     const kc = `${a.paidCzk.toLocaleString('cs-CZ')} Kč`
     const why = failureReasonCs(a.reason)
     const what = a.review && mode === 'staff'
-      ? `Platbu ${kc} nešlo zapsat automaticky. Zkontrolujte prosím, jestli je změna v rezervaci zapsaná; pokud ne, doplatek vraťte ručně ve Stripe (platba ${a.payRef}).`
+      ? `Platbu ${kc} nešlo zapsat automaticky. Zkontrolujte prosím, jestli je změna v rezervaci zapsaná; pokud ne, doplatek vraťte ručně ${a.bank ? 'převodem zpět' : 've Stripe'} (platba ${a.payRef}).`
       : mode === 'auto' ? `Doplatek ${kc} byl zákazníkovi automaticky vrácen na kartu (Stripe vratka ${refundId || '—'}; k nezapsané změně nevznikl doklad, proto ani dobropis).`
+      : mode === 'staff' && a.bank ? `Doplatek ${kc} přišel bankovním převodem (pohyb ${a.payRef}${a.bank.account ? `, z účtu ${a.bank.account}` : ''}) — vraťte ho prosím zákazníkovi převodem zpět (Velín → Finance → Banka).`
       : mode === 'staff' ? `Doplatek ${kc} se NEPODAŘILO vrátit automaticky — vraťte ho prosím ručně ve Stripe (platba ${a.payRef}).`
       : 'Nic se nestrhlo (doplatek do 1 Kč se neúčtuje).'
     const subject = TAKEN_REASONS.has(a.reason)

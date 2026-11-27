@@ -184,6 +184,8 @@ renderPage($C['seo']['title'], $content, '/pujcovna-motorek', ($lpV2 ? lpPageMet
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'schema' => $serviceSchema . $faqSchema,
+    // Česky stránka neexistuje (301 na úvodní stránku, index.php) → hreflang bez cs
+    'hreflang' => defined('I18N_SUPPORTED') ? array_values(array_diff(I18N_SUPPORTED, ['cs'])) : null,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
         ['name' => t('menu.rental'), 'url' => siteCanonicalUrl('/pujcovna-motorek')],

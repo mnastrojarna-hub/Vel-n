@@ -19,7 +19,12 @@ if (!$post) {
 
 // Přejmenované slugy článků (starý → nový): 301 jen když starý slug už v DB není (tj. až po přejmenování
 // ve Velínu / SQL), do té doby se článek dál zobrazuje pod starou adresou.
-$legacySlugs = ['p' => 'proc-je-motogo24-nejlepsi-motopujcovna-v-cr'];
+// „podporte-…“ = původní adresa článku o dětských motorkách (dnes „podpor-…“) — v Search Console
+// 11 adres 404 (článek + varianty ?lang= / ?currency= + /cz/blog/…), přesměrování je bez parametrů.
+$legacySlugs = [
+    'p' => 'proc-je-motogo24-nejlepsi-motopujcovna-v-cr',
+    'podporte-sen-sveho-maleho-motorkare' => 'podpor-sen-sveho-maleho-motorkare',
+];
 if (!$post && isset($legacySlugs[$slug]) && $sb->fetchCmsPage($legacySlugs[$slug])) {
     header('Location: ' . BASE_URL . (function_exists('i18nLocalizePath') ? i18nLocalizePath('/blog/' . $legacySlugs[$slug]) : '/blog/' . $legacySlugs[$slug]), true, 301);
     exit;

@@ -37,6 +37,11 @@ function menuBranchChildren() {
     return $items;
 }
 
+/** Cíl položky „Půjčovna motorek“: česky úvodní stránka (viz index.php), jinde stránka půjčovny. */
+function mgRentalRoute() {
+    return (function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') === 'cs' ? '/' : '/pujcovna-motorek';
+}
+
 function getMenuItems() {
     return array_merge([
         // "Vyber si stroj" = katalog. Menu-popisek `menu.catalogShort` je oddělený
@@ -55,7 +60,10 @@ function getMenuItems() {
             ['label' => tc('menu.howto.delivery'), 'route' => '/jak-pujcit/pristaveni'],
             ['label' => tc('menu.howto.documents'), 'route' => '/jak-pujcit/dokumenty'],
             ['label' => tc('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
-            ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
+            // Česky vede „Půjčovna motorek“ na ÚVODNÍ stránku (SEO 2026-11-28): /pujcovna-motorek se česky
+            // 301 přesměrovává na / (index.php) — odkaz s přesným zněním hlavní fráze z každé stránky má
+            // mířit na jedinou stránku, která na ni cílí. Cizí jazyky mají stránku dál.
+            ['label' => tc('menu.rental'), 'route' => mgRentalRoute()],
         ]],
         // Pobočky (majitel 2026-11-26: místo zrušených Oblastí) — podmenu s oběma
         // pobočkami a SEO stránkami „Motopůjčovna Brno / Vysočina“ (jen česky).
