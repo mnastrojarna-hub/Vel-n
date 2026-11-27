@@ -10,7 +10,7 @@ import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import { GOOGLE_REVIEW_URL_DEFAULT, googleOnlyReviewLinks } from '../../lib/reviewLinks'
 // Výpůjčka výbavy (rezervace bez motorky): metadata + ukázkové proměnné gear šablon
 import { GEAR_CATEGORY, gearTemplateMeta, sampleVarsFor } from './gearEmailTemplates'
-import { loadCompanyInfo, currentCompany, companyDocVars, formatIban, registerFooterLine } from '../../lib/company'
+import { loadCompanyInfo, currentIssuer, companyDocVars, formatIban, registerFooterLine } from '../../lib/company'
 
 const SAMPLE_VARS = {
   // Booking email vars
@@ -66,11 +66,11 @@ const SAMPLE_VARS = {
 // Firemní a platební údaje v náhledech = aktuální provozovatel (app_settings.company_info,
 // jinak OPERATOR) — jediný zdroj lib/company.js, žádné natvrdo psané údaje.
 function companySampleVars() {
-  const c = currentCompany()
+  const c = currentIssuer()
   return {
     ...companyDocVars(c), company_web: 'www.motogo24.cz',
-    qr_url: `https://api.qrgenerator.cz/spd?size=180&data=SPD*1.0*ACC:${c.bank_iban || ''}*AM:7800.00*CC:CZK*X-VS:20260001`,
-    account: c.bank_account || '', iban: formatIban(c.bank_iban), bank: c.bank_name || '',
+    qr_url: `https://api.qrgenerator.cz/spd?size=180&data=SPD*1.0*ACC:${c.iban}*AM:7800.00*CC:CZK*X-VS:20260001`,
+    account: c.account, iban: formatIban(c.iban), bank: c.bank,
   }
 }
 
@@ -236,7 +236,7 @@ function getTemplateMeta(slug) {
 function wrapPreview(bodyHtml) {
   // 1:1 layout s edge fn wrapInBrandedLayout (vertikální logo nahoře,
   // text pod ním, vše centrované). Reálné logo z motogo24.cz/gfx/logo-icon.png.
-  const co = currentCompany()
+  const co = currentIssuer()
   const regLine = registerFooterLine(co)
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
@@ -866,7 +866,7 @@ function renderAttachmentSample(att) {
     eshop_KF: 'KONEČNÁ FAKTURA — E-SHOP',
   }
   const title = labels[att] || att
-  const co = currentCompany()
+  const co = currentIssuer()
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,'Segoe UI',Arial,sans-serif">
   <div style="max-width:780px;margin:0 auto;background:#fff;min-height:100vh">
@@ -894,7 +894,7 @@ function renderAttachmentSample(att) {
       </table>
     </div>
     <div style="background:#000;padding:14px 32px;color:#fff;font-size:11px">
-      ${co.name} · IČO: ${co.ico} · ${co.address}${co.register_short ? ` · ${co.register_short}` : ''} · <span style="color:#74FB71">${co.phone}</span> · <span style="color:#74FB71">${co.email}</span> · <span style="color:#74FB71">motogo24.cz</span>
+      ${co.name} · IČO: ${co.ico} · ${co.address}${co.registerShort ? ` · ${co.registerShort}` : ''} · <span style="color:#74FB71">${co.phone}</span> · <span style="color:#74FB71">${co.email}</span> · <span style="color:#74FB71">motogo24.cz</span>
     </div>
   </div>
 </body></html>`

@@ -270,6 +270,7 @@ function RegenerateModal({ template, onClose }) {
       if (bErr) throw bErr
 
       // Fill template variables
+      await loadCompanyInfo()
       const vars = {
         customer_name: booking.profiles?.full_name || '',
         customer_email: booking.profiles?.email || '',
@@ -282,8 +283,7 @@ function RegenerateModal({ template, onClose }) {
         total_price: (booking.total_price || 0).toLocaleString('cs-CZ') + ' Kč',
         booking_number: booking.id?.slice(-8).toUpperCase() || '',
         contract_date: new Date().toLocaleDateString('cs-CZ'),
-        // provozovatel = aktuální app_settings.company_info, jinak OPERATOR (lib/company.js)
-        ...companyDocVars(await loadCompanyInfo()),
+        ...companyDocVars(), // provozovatel = aktuální app_settings.company_info, jinak OPERATOR
       }
 
       let filledHtml = template.content_html || ''

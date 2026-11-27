@@ -15,7 +15,7 @@ export interface Company {
   register: string
   /** „C N vedená u Krajského soudu v …“ (patičky dokumentů) */
   registerShort: string
-  /** soud v 1. pádě + spisová značka („C 36876“) — řádky faktur a e-mailů */
+  /** soud v 1. pádě + spisová značka („C 36876“) — řádky faktur a e-mailů; ODVOZENO z `register` */
   registerCourt: string; registerFile: string
   account: string; iban: string; bank: string; bic: string
   phone: string; email: string; web: string
@@ -37,6 +37,14 @@ export const COMPANY_DEFAULT: Company = Object.freeze({
 const str = (v: unknown): string => typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : ''
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))
 const bankCode = (account: string) => (account.match(/\/(\d{4})\s*$/) || [])[1] || ''
+
+/** „…vedeném Krajským soudem v X, oddíl C, vložka N“ → soud v 1. pádě + spisová značka „C N“
+ *  (stejné pravidlo jako Velín lib/company.js — v nastavení se udržuje jen jedna věta `register`). */
+export function parseRegister(register: string): { court: string; file: string } {
+  const m = String(register || '').match(/(Krajsk|Městsk)\S*\s+soud\S*\s+(.+?),\s*oddíl\s+(\S+?),\s*vložka\s+(\d+)/i)
+  if (!m) return { court: '', file: '' }
+  return { court: `${/^k/i.test(m[1]) ? 'Krajský' : 'Městský'} soud ${m[2].trim()}`, file: `${m[3]} ${m[4]}` }
+}
 
 /** Český IBAN z čísla účtu „[předčíslí-]číslo/kód banky“; nečitelný vstup = ''. */
 export function czIban(account: string): string {
@@ -60,11 +68,13 @@ export function companyFromInfo(info: unknown): Company | null {
   const pick = (key: string, d: string) => str(v[key]) || (same ? d : '')
   const account = pick('bank_account', D.account)
   const sameBank = !!bankCode(account) && bankCode(account) === bankCode(D.account)
+  const register = pick('register', D.register)
+  const reg = parseRegister(register)
   return {
     name, ico, address: pick('address', D.address),
     dic: str(v.dic) || null, vatPayer: v.vat_payer === true,
-    register: pick('register', D.register), registerShort: pick('register_short', D.registerShort),
-    registerCourt: pick('register_court', D.registerCourt), registerFile: pick('register_file', D.registerFile),
+    register, registerShort: pick('register_short', register === D.register ? D.registerShort : ''),
+    registerCourt: reg.court, registerFile: reg.file,
     account,
     iban: str(v.bank_iban).replace(/\s+/g, '').toUpperCase() || czIban(account) || (account === D.account ? D.iban : ''),
     bank: str(v.bank_name) || (sameBank ? D.bank : ''),

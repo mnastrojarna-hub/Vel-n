@@ -66,38 +66,66 @@ export async function loadCompanyInfo({ force = false } = {}) {
 
 export function setCompanyInfoCache(value) { _cache = asObject(value) }
 
-/** Synchronní pohled: naposledy načtené `company_info`, jinak OPERATOR. */
-export function currentCompany() { return _cache || OPERATOR }
-
 // ── Vystavitel dokladu ──
+const str = (v) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '')
+const bankCode = (account) => (String(account || '').match(/\/(\d{4})\s*$/) || [])[1] || ''
+
+/** České číslo účtu „[předčíslí-]číslo/kód banky" → části, jinak null. */
+export function parseCzAccount(account) {
+  const m = String(account || '').replace(/\s+/g, '').match(/^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/)
+  return m ? { prefix: m[1] || '', number: m[2], bankCode: m[3] } : null
+}
+
+/** Český IBAN z čísla účtu; nečitelný vstup = ''. */
+export function czIban(account) {
+  const a = parseCzAccount(account)
+  if (!a) return ''
+  const bban = a.bankCode + a.prefix.padStart(6, '0') + a.number.padStart(10, '0')
+  let rem = 0
+  for (const d of bban + '123500') rem = (rem * 10 + Number(d)) % 97 // „CZ00" = 123500
+  return 'CZ' + String(98 - rem).padStart(2, '0') + bban
+}
+
+// „zapsaná v obchodním rejstříku vedeném Krajským soudem v X, oddíl C, vložka N" → soud v 1. pádě + spisová značka
+function parseRegister(register) {
+  const m = String(register || '').match(/(Krajsk|Městsk)\S*\s+soud\S*\s+(.+?),\s*oddíl\s+(\S+?),\s*vložka\s+(\d+)/i)
+  if (!m) return null
+  return { court: `${/^k/i.test(m[1]) ? 'Krajský' : 'Městský'} soud ${m[2].trim()}`, file: `${m[3]} ${m[4]}` }
+}
+
 /**
- * `invoices.issuer_snapshot` / `company_info` → tvar, který tiskne šablona faktury.
- * Tolerantní k chybějícím klíčům (starší snapshoty nemají zápis v OR ani název banky).
- * Vrací null, když snapshot není použitelný (prázdný / bez názvu i IČO).
+ * `invoices.issuer_snapshot` / `company_info` → vystavitel ve tvaru, který tisknou šablony
+ * (1:1 s edge `_shared/company.ts` → companyFromInfo). Bez názvu = null.
+ * Chybějící klíče se z OPERATOR doplňují JEN témuž subjektu (stejné IČO) — doklad dřívějšího
+ * provozovatele nikdy nedostane cizí rejstřík, IBAN ani název banky.
  */
 export function issuerFromSnapshot(snapshot) {
   const s = asObject(snapshot)
-  if (!s || !(s.name || s.ico)) return null
+  const name = str(s?.name)
+  if (!name) return null
+  const ico = str(s.ico)
+  const same = !!ico && ico === OPERATOR.ico
+  const pick = (key) => str(s[key]) || (same ? OPERATOR[key] || '' : '')
+  const account = pick('bank_account')
+  const sameBank = !!bankCode(account) && bankCode(account) === bankCode(OPERATOR.bank_account)
+  const register = pick('register')
+  const reg = parseRegister(register)
   return {
-    name: s.name || '',
-    address: s.address || '',
-    ico: s.ico || '',
-    dic: s.dic || null,
-    vatPayer: s.vat_payer === true || s.vatPayer === true,
-    register: s.register || '',
-    registerShort: s.register_short || s.registerShort || '',
-    account: s.bank_account || s.account || '',
-    iban: s.bank_iban || s.iban || '',
-    bank: s.bank_name || s.bank || '',
-    phone: s.phone || OPERATOR.phone,
-    email: s.email || OPERATOR.email,
-    web: s.web || OPERATOR.web,
-    dataBox: s.data_box || s.dataBox || '',
-    validFrom: s.valid_from || s.validFrom || null,
+    name, ico, address: pick('address'),
+    dic: str(s.dic) || null, vatPayer: s.vat_payer === true,
+    register, registerShort: pick('register_short'),
+    registerCourt: str(s.register_court) || reg?.court || '', registerFile: str(s.register_file) || reg?.file || '',
+    account,
+    iban: str(s.bank_iban).replace(/\s+/g, '').toUpperCase() || czIban(account),
+    bank: str(s.bank_name) || (sameBank ? OPERATOR.bank_name : ''),
+    bic: str(s.bank_bic) || (sameBank ? OPERATOR.bank_bic : ''),
+    phone: str(s.phone) || OPERATOR.phone, email: str(s.email) || OPERATOR.email, web: str(s.web) || OPERATOR.web,
+    dataBox: pick('data_box'),
+    validFrom: str(s.valid_from) || null,
   }
 }
 
-/** Vystavitel podle dnešního nastavení (cache `company_info`), jinak OPERATOR. */
+/** Vystavitel podle dnešního nastavení (naposledy načtené `company_info`), jinak OPERATOR. Synchronní. */
 export function currentIssuer() {
   return issuerFromSnapshot(_cache) || issuerFromSnapshot(OPERATOR)
 }
@@ -113,50 +141,48 @@ export function resolveIssuer(data) {
   return issuerFromSnapshot(data && data.issuer_snapshot) || currentIssuer()
 }
 
-// ── Zápis v obchodním rejstříku: jedna věta → tvary pro fakturu a patičku e-mailu ──
-function parseRegister(register) {
-  const m = String(register || '').match(/(Krajsk|Městsk)\S*\s+soud\S*\s+(.+?),\s*oddíl\s+(\S+?),\s*vložka\s+(\d+)/i)
-  if (!m) return null
-  return { court: `${/^k/i.test(m[1]) ? 'Krajský' : 'Městský'} soud ${m[2].trim()}`, section: m[3], file: m[4] }
-}
+/** Má vystavitel zápis v obchodním rejstříku? (ne = doklad dřívějšího provozovatele → původní podoba) */
+export function hasRegister(issuer) { return !!(issuer && (issuer.registerFile || issuer.register)) }
 
 /** Řádek „Zápis" v bloku DODAVATEL: „obchodní rejstřík, Krajský soud v …, oddíl C, vložka N". */
-export function registerInvoiceLine(register) {
-  const r = parseRegister(register)
-  return r ? `obchodní rejstřík, ${r.court}, oddíl ${r.section}, vložka ${r.file}` : String(register || '').trim()
+export function registerInvoiceLine(issuer) {
+  const m = String(issuer?.registerFile || '').match(/^(\S+)\s+(\S+)$/)
+  if (m && issuer.registerCourt) return `obchodní rejstřík, ${issuer.registerCourt}, oddíl ${m[1]}, vložka ${m[2]}`
+  return issuer?.register || issuer?.registerShort || ''
 }
 
-/** Řádek v patičce e-mailu: „C 36876, Krajský soud v …". */
-export function registerFooterLine(company = currentCompany()) {
-  const r = parseRegister(company?.register)
-  return r ? `${r.section} ${r.file}, ${r.court}` : (company?.register_short || '')
+/** Patička e-mailu / faktury: „C 36876, Krajský soud v …". */
+export function registerFooterLine(issuer) {
+  return issuer?.registerFile && issuer?.registerCourt ? `${issuer.registerFile}, ${issuer.registerCourt}` : (issuer?.registerShort || '')
 }
-
-/** „https://www.motogo24.cz/" → „www.motogo24.cz" */
-export function webLabel(web) { return String(web || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '') }
 
 /** IBAN po čtveřicích (CZ83 2010 …). */
 export function formatIban(iban) { return String(iban || '').replace(/\s+/g, '').replace(/(.{4})(?=.)/g, '$1 ') }
 
-/** Firemní proměnné pro šablony smluv / VOP / protokolů (stejné názvy jako edge `generate-document`). */
-export function companyDocVars(company = currentCompany()) {
-  const c = company || OPERATOR
+/** Název banky pro platební údaje; neznámý název = kód banky (nikdy cizí název). */
+export function bankLabel(issuer) {
+  const code = bankCode(issuer?.account)
+  return issuer?.bank || (code ? `kód banky ${code}` : '')
+}
+
+/** Proměnné {{company_*}} pro šablony smluv / VOP / protokolů (stejné názvy jako edge `generate-document`). */
+export function companyDocVars(issuer = currentIssuer()) {
+  const c = issuer || currentIssuer()
   return {
-    company_name: c.name || '', company_address: c.address || '',
-    company_ico: c.ico || '', company_dic: c.dic || '',
-    company_register: c.register || '',
-    company_phone: c.phone || OPERATOR.phone, company_email: c.email || OPERATOR.email,
-    company_bank: c.bank_name || '', company_account: c.bank_account || '',
-    company_iban: formatIban(c.bank_iban),
+    company_name: c.name, company_address: c.address, company_ico: c.ico, company_dic: c.dic || '',
+    company_register: c.register, company_register_short: c.registerShort,
+    company_phone: c.phone, company_email: c.email,
+    company_bank: bankLabel(c), company_account: c.account, company_iban: formatIban(c.iban), company_bic: c.bic,
   }
 }
 
 /**
  * Vznikl dokument PŘED dnešním provozovatelem (`company_info.valid_from`)?
- * Bez `valid_from` (migrace ještě neproběhla / nastavení nejde načíst) vrací false.
+ * `company` = hodnota z loadCompanyInfo() nebo vystavitel z currentIssuer(). Bez `valid_from`
+ * (migrace ještě neproběhla / nastavení nejde načíst) vrací false.
  */
-export function issuedBeforeSwitch(createdAt, company = currentCompany()) {
-  const from = Date.parse(company?.valid_from || '')
+export function issuedBeforeSwitch(createdAt, company = currentIssuer()) {
+  const from = Date.parse(company?.valid_from || company?.validFrom || '')
   const at = Date.parse(createdAt || '')
   return Number.isFinite(from) && Number.isFinite(at) && at < from
 }
@@ -182,18 +208,12 @@ export function isValidIban(iban) {
   return rem === 1
 }
 
-/** České číslo účtu „[předčíslí-]číslo/kód banky" → části, jinak null. */
-export function parseCzAccount(account) {
-  const m = String(account || '').replace(/\s+/g, '').match(/^(?:(\d{1,6})-)?(\d{2,10})\/(\d{4})$/)
-  return m ? { prefix: m[1] || '', number: m[2], bankCode: m[3] } : null
-}
-
 /** Patří český IBAN k číslu účtu? (QR platba jde na IBAN, na dokladech je číslo účtu — musí být tentýž účet.) */
 export function ibanMatchesAccount(iban, account) {
   const s = String(iban || '').replace(/\s+/g, '').toUpperCase()
-  const a = parseCzAccount(account)
-  if (!a || !s.startsWith('CZ')) return true // zahraniční IBAN / jiný tvar účtu neumíme porovnat
-  return s.slice(4) === a.bankCode + a.prefix.padStart(6, '0') + a.number.padStart(10, '0')
+  const expected = czIban(account)
+  if (!expected || !s.startsWith('CZ')) return true // zahraniční IBAN / jiný tvar účtu neumíme porovnat
+  return s === expected
 }
 
 /**

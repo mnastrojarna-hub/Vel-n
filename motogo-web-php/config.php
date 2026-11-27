@@ -115,6 +115,7 @@ define('COMPANY_DATA_BOX', '2xfihrd');
 define('COMPANY_BANK_ACCOUNT', '2303580494/2010');
 define('COMPANY_BANK_NAME', 'Fio banka');
 define('COMPANY_IBAN', 'CZ8320100000002303580494');
+define('COMPANY_BIC', 'FIOBCZPPXXX');
 
 /**
  * Jednořádková identifikace provozovatele pro strojově čitelné výstupy (llms.txt, RSS, /partneri):

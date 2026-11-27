@@ -54,6 +54,8 @@ void main() {
     'days5': days,
     'noReservations': 'replaced by v2ResEmptyTitle (tykání)',
     'noReservationsDesc': 'replaced by v2ResEmptyBody (old text was formal)',
+    'noResBookCta': 'owner 2026-11-27 (DESIGN_V22 "5.0.3"): the empty block\'s REZERVOVAT became "Nová rezervace" '
+        '(resNewBooking) above the filter in EVERY state — same target (Motorky), one button instead of two',
   });
   _parity('detail', ['$_r/reservation_detail_screen.dart', '$_r/widgets/res_detail_tab_content.dart'], [
     '$_r/v2/',

@@ -380,6 +380,7 @@ function GenerateDocModal({ onClose, onGenerated }) {
       const booking = bookings.find(b => b.id === selectedBooking)
       if (!template || !booking) throw new Error('Šablona nebo rezervace nebyla nalezena.')
 
+      await loadCompanyInfo()
       const vars = {
         customer_name: booking.profiles?.full_name || '',
         customer_email: booking.profiles?.email || '',
@@ -392,8 +393,7 @@ function GenerateDocModal({ onClose, onGenerated }) {
         total_price: (booking.total_price || 0).toLocaleString('cs-CZ') + ' Kč',
         booking_number: booking.id?.slice(-8).toUpperCase() || '',
         contract_date: new Date().toLocaleDateString('cs-CZ'),
-        // provozovatel = aktuální app_settings.company_info, jinak OPERATOR (lib/company.js)
-        ...companyDocVars(await loadCompanyInfo()),
+        ...companyDocVars(), // provozovatel = aktuální app_settings.company_info, jinak OPERATOR
       }
 
       let filledHtml = template.content_html || ''
