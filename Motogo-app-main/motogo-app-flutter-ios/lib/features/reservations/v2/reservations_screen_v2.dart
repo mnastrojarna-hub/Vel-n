@@ -13,10 +13,11 @@ import '../../../core/v2/gestures/mg_swipe.dart';
 import '../../../core/v2/gestures/mg_swipe_switcher.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/motion/mg_anim.dart';
+import '../../../core/v2/shell/shell_nav_map.dart' show V2TabOrigin, v2SetTabOrigin;
 import '../../../core/v2/tokens/mg_colors.dart';
+import '../../../core/v2/tokens/mg_space.dart';
 import '../../../core/v2/tokens/mg_type.dart';
 import '../../../core/v2/widgets/mg_buttons.dart';
-import '../../../core/v2/widgets/mg_cta.dart';
 import '../../../core/v2/widgets/mg_surfaces.dart';
 import '../../../core/widgets/state_views.dart';
 import '../booking_restore.dart' show restoreAndPay;
@@ -29,6 +30,17 @@ import 'res_skeletons_v2.dart';
 import 'res_status_v2.dart';
 import 'reservation_card_v2.dart';
 
+/// "Nová rezervace" (owner 2026-11-27): Motorky opens the way every jump
+/// with context does — the tab shows "‹ Rezervace" and, under its title,
+/// "Vyber si motorku" until the customer switches tabs.
+void resOpenNewBooking(BuildContext context, WidgetRef ref) {
+  v2SetTabOrigin(
+      ref,
+      const V2TabOrigin(
+          tab: 1, route: Routes.reservations, labelKey: 'v2TabBookings', hintKey: 'resNewBookingHint'));
+  context.go(Routes.search);
+}
+
 /// Cards built eagerly inside the swiping body (≈ 2–3 screenfuls); the
 /// rest of the list is a lazy sliver.
 const kResSwipeHead = 10;
@@ -38,7 +50,9 @@ const kResSwipeHead = 10;
 /// `resFilterProvider` (same 5 filters, same horizontal swipe), refresh
 /// every 5 s unless offline, stale note when a refresh failed over loaded
 /// data, the same loading (never a bare spinner) / error views, card tap →
-/// `/reservations/:id`, Upravit → `/reservations/:id/edit`.
+/// `/reservations/:id`, Upravit → `/reservations/:id/edit`. 5.0.3 (owner
+/// 2026-11-27): "Nová rezervace" right under the header in EVERY state (it
+/// took the place of the empty block's REZERVOVAT) → [resOpenNewBooking].
 class ReservationsScreenV2 extends ConsumerStatefulWidget {
   const ReservationsScreenV2({super.key});
 
@@ -210,6 +224,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
     );
 
     final lazyTail = tail;
+    final compact = MediaQuery.sizeOf(context).height < 700;
     return V2PageSwipe(
       // Header, tabs, empty space and the lazy rest switch the filter too
       // (the page-wide swipe of before); the body below follows the finger.
@@ -220,8 +235,20 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
         header: const ResListHeaderV2(),
         onRefresh: _refresh,
         sections: [
+          // Compact on a short phone: the first card stays on the first screen.
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, compact ? 10 : 14, 16, 0),
+            child: MgBtnInk(
+              key: const ValueKey('res-new-booking'),
+              label: tr.tr('resNewBooking'),
+              icon: MgIcons.plus,
+              neonLabel: true,
+              height: compact ? MgSize.touch : MgSize.button,
+              onTap: () => resOpenNewBooking(context, ref),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(16, compact ? 10 : 14, 16, 0),
             child: ResFilterTabsV2(
               value: filter,
               // Labels only, as the old filter chips (no counts).
@@ -242,7 +269,8 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
 
 /// Empty list (no reservation at all, or none in the chosen filter — the
 /// old screen showed one block for both): the dark rank block with the old
-/// texts and the looping REZERVOVAT (→ Motorky, same target).
+/// texts. Its REZERVOVAT (→ Motorky) is the page's "Nová rezervace" above
+/// the filter since 5.0.3 — one booking button, in every state.
 class _EmptyAll extends StatelessWidget {
   /// Set when only the chosen filter is empty (other bookings exist).
   final VoidCallback? onShowAll;
@@ -277,8 +305,6 @@ class _EmptyAll extends StatelessWidget {
           const SizedBox(height: 16),
           MgBtnGhostDark(key: const ValueKey('ea-show-all'), label: tr.tr('eaShowAllRes'), onTap: onShowAll),
         ],
-        const SizedBox(height: 20),
-        MgCta(label: tr.tr('noResBookCta'), onTap: () => context.go(Routes.search), loop: true, arrow: true),
       ]),
     );
   }

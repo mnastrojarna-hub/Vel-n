@@ -4,6 +4,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motogo_app/core/cache_cleanup_service.dart';
 import 'package:motogo_app/features/loyalty/loyalty_levelup_baseline.dart';
 
 import 'loyalty_levelup_rig.dart';
@@ -54,6 +55,11 @@ void main() {
       expect(d(4, missing, legacy: 4).action, LevelUpAction.none);
       expect(d(4, missing, legacy: 3, marker: 4).action, LevelUpAction.none);
     });
+  });
+
+  test('the local marker survives the cache cleanup (start / pause / app update)', () {
+    expect(CacheCleanupService.keeps(markerKey('u1')), isTrue);
+    expect(CacheCleanupService.keeps(legacyKey('u1')), isTrue);
   });
 
   testWidgets('first observation of an account (server 0): seeded silently', (t) async {
