@@ -1,7 +1,8 @@
 <?php
 // ===== MotoGo24 Web PHP — SEO stránka pobočky (/motopujcovna-brno, /motopujcovna-vysocina) =====
 // $_GET['seo'] = id z seoPobockyPages() (data/seo-pobocky.php) nastaví index.php.
-// Obsah je klasická info stránka (H1 + úvod, karty, města, tipy, postup, FAQ, CTA, SEO text),
+// Obsah je klasická info stránka (H1 + úvod, karty výhod, města, postup, místní FAQ, CTA, SEO text;
+// tipy na výlety zrušeny a FAQ jen místní otázky bez duplicit s /jak-pujcit/faq — majitel 2026-11-27),
 // kterou ve v2 přestaví landing-info.php (lpInfoPage) — hero, karty, časová osa, akordeon FAQ,
 // pruh motorek pobočky a sbalený závěrečný text. Jen česky: v cizím jazyce 301 na detail pobočky.
 // Schema: FAQPage + LocalBusiness pobočky s areaServed (města z textu).
@@ -41,6 +42,8 @@ $html = '<section><h1 data-cms-key="' . $k . 'h1">' . sanitizeHtml((string)$C['h
 
 // Karty (výhody, tipy na výlety) a postup (klíče *.process.steps.* = časová osa ve v2)
 $boxes = function ($sec, $field, $grid) use ($C, $k, $list) {
+    // sekce bez položek (např. zrušené tipy na výlety) se nevykreslí vůbec
+    if (!array_filter($list($C[$sec][$field] ?? null), 'is_array')) return '';
     $out = '<section><h2 data-cms-key="' . $k . $sec . '.title">' . sanitizeHtml((string)($C[$sec]['title'] ?? '')) . '</h2><div class="' . $grid . '">';
     foreach ($list($C[$sec][$field] ?? null) as $i => $b) {
         if (!is_array($b)) continue;
