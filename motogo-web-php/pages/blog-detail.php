@@ -2,15 +2,8 @@
 // ===== MotoGo24 Web PHP — Blog detail =====
 // Odpovídá pages-blog.js (detail route)
 
-// Články vyřazené z indexu vyhledávačů (meta robots noindex,follow) — na blogu zůstávají pro čtenáře.
-// SEO revize 2026-11-27: ukončená soutěž (vyhlášení 27. 11. 2026) a krátké oznámení bez vyhledávacího záměru.
-// Při změně seznamu vyřadit / vrátit stejné slugy i v sitemap.php (výpis článků do sitemap.xml).
-if (!defined('BLOG_NOINDEX_SLUGS')) {
-    define('BLOG_NOINDEX_SLUGS', [
-        'vyhraj-motorku-rozjizdime-soutez-s-next1k',
-        'zalozili-jsme-motogo24-crew-nas-kanal-na-instagramu',
-    ]);
-}
+// Články vyřazené z indexu vyhledávačů (meta robots noindex,follow) — seznam sdílený se sitemap.php.
+if (!defined('BLOG_NOINDEX_SLUGS')) define('BLOG_NOINDEX_SLUGS', require __DIR__ . '/../data/blog-noindex.php');
 
 $sb = new SupabaseClient();
 $slug = $_GET['slug'] ?? '';

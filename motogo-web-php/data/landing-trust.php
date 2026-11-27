@@ -29,11 +29,11 @@ function lpTrustDefaults() {
         'reasons_more' => 'Zobrazit všech {n} výhod',
         'reasons_less' => 'Zobrazit méně',
         // 2026-10-22: flexibilita rezervace do popředí (majitel: „nic není závazné, zvlášť při nepřízni počasí“)
-        // 2026-11-27 (SEO revize): sliby, které stránka opakuje už v chipech, pruhu „Garance MotoGo24“ a v proužku nabídky
-        // (posun termínu, úpravy rezervace, bez kauce, 1. den za polovinu, storno zdarma), tu nejsou podruhé.
-        // Položky se číslují průběžně při vykreslení (renderLpReasons), překlady mají vlastní seznam (lang/v2/<jazyk>/landing.php).
         'reasons' => [
+            ['icon' => 'swap', 'title' => 'Termín posuneš kdykoliv zdarma', 'text' => 'Pokazí se počasí nebo plány? Přesuň rezervaci na jiné dny — bez poplatku, kdykoliv do začátku pronájmu.**'],
             ['icon' => 'resize', 'title' => 'Prodloužíš i zkrátíš', 'text' => 'Prodloužení kdykoliv bez poplatku za změnu (doplatíš jen dny navíc). Zkrácení víc než 7 dní před dnem převzetí zdarma, víc než 2 dny před ním ti vrátíme 50 % ceny odebraných dní.**'],
+            ['icon' => 'edit', 'title' => 'Rezervaci upravíš kdykoliv', 'text' => 'Až do začátku pronájmu přidáš výbavu nebo boty, změníš čas či místo převzetí — online i v aplikaci.'],
+            ['icon' => 'card', 'title' => 'Bez kauce', 'text' => 'Nic ti neblokujeme na kartě.'],
             ['icon' => 'shield', 'title' => '100% smluvní krytí škod', 'text' => 'Při nehodě je tvoje spoluúčast 0 Kč.*'],
             ['icon' => 'helmet', 'title' => 'Výbava v ceně', 'text' => 'Motooblečení, vesta, lékárnička a kotoučový zámek. V Mezné i nepromoky.'],
             ['icon' => 'infinity', 'title' => 'Neomezené km a cesty do zahraničí', 'text' => 'Jeď, kam a jak daleko chceš (v rámci zelené karty).'],
@@ -47,10 +47,12 @@ function lpTrustDefaults() {
             ['icon' => 'bot', 'title' => 'AI asistent 24/7', 'text' => 'Poradí kdykoli na webu i v aplikaci. Telefonicky jsme tu Po–Pá 8–17.'],
             ['icon' => 'percent', 'title' => 'Věrnostní program', 'text' => 'Sleva od první rezervace v aplikaci, až 20 %. Od ranku 3 výbava spolujezdce i boty zdarma.'],
             ['icon' => 'phone', 'title' => 'SOS v aplikaci', 'text' => 'Pomoc na cestách na pár klepnutí.'],
+            ['icon' => 'clock', 'title' => '1. den za polovinu', 'text' => 'Při vyzvednutí od 12:00 a výpůjčce na 2 a více dní.'],
             ['icon' => 'star', 'title' => 'I pro začátečníky', 'text' => 'Stačí 18 let a řidičák odpovídající skupiny. Praxi nevyžadujeme, zahraniční ŘP bereme.'],
             ['icon' => 'truck', 'title' => 'Přistavení na adresu', 'text' => 'Z Mezné ti motorku přivezeme kamkoli v ČR (za příplatek).'],
             ['icon' => 'pin', 'title' => 'Snadno k nám', 'text' => 'Mezná 90 min z Prahy, Velké Němčice 30 min z Brna a 35 min z brněnského letiště.'],
             ['icon' => 'helmet', 'title' => 'Velikosti až 6XL', 'text' => 'Bundy a kalhoty do 6XL v Mezné, do 4XL na samoobslužné pobočce.'],
+            ['icon' => 'check', 'title' => 'Storno zdarma', 'text' => 'Zrušení víc než 7 dní předem bez poplatku.**'],
         ],
         'reasons_note' => '* Při dodržení podmínek nájmu (VOP čl. 7); nevztahuje se na odcizení. ** Storno a zkrácení: víc než 7 dní před dnem převzetí vracíme 100 % (u zkrácení z ceny odebraných dní), víc než 2 dny před dnem převzetí 50 %, později vratku negarantujeme. Zkrácením na 1 den zaniká sleva „1. den za polovinu“. Po vrácení části platby (zkrácení) změnu termínu vyřídí obsluha. Po předchozím posunu začátku vracíme při stornu i zkrácení nejvýš 50 %, a pokud byl posun méně než 7 dní předem, nic.',
         // Pruh garancí hned pod hero (landing-guarantee.php). 'big' = velká dlaždice nahoře, 'pos' = pořadí
