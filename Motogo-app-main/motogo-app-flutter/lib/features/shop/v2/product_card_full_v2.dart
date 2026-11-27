@@ -115,7 +115,7 @@ class _ProductCardFullV2State extends State<ProductCardFullV2> {
 
     final text = Semantics(
       button: true,
-      label: [name, price.value, price.sub].join(', '),
+      label: [name, price.value, price.sub, if (p.needsSize) '${tr.tr('sizeLabel')}: ${p.sizes.join(', ')}'].join(', '),
       excludeSemantics: true,
       onTap: widget.onOpen,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
@@ -228,7 +228,7 @@ class _ProductCardFullV2State extends State<ProductCardFullV2> {
                               glyph: MgIcons.bag),
                         ),
                       ),
-                      ColoredBox(color: MgColors.nightA(0.62)),
+                      ColoredBox(color: MgColors.nightA(0.7)),
                     ]),
                   ),
                 ),

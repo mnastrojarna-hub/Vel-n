@@ -212,14 +212,19 @@ class Rig {
 }
 
 Future<Rig> boot(WidgetTester t,
-    {Size size = const Size(360, 780), List<Product>? products, int cart = 2, double top = 28, bool motion = false}) async {
+    {Size size = const Size(360, 780),
+    List<Product>? products,
+    int cart = 2,
+    double top = 28,
+    bool motion = false,
+    JourneyState state = JourneyState.ready}) async {
   await loadMontserrat();
   await _loadIcons();
   mockPathProvider();
   _mockPlugins();
   installShotImages();
   MgMotion.resetSession();
-  final data = journeyData(JourneyState.ready);
+  final data = journeyData(state);
   SharedPreferences.setMockInitialValues({'mg_intro_shown': true, 'mg_perms_shown': true});
   journeyBackendData = data;
   await initJourneyBackend();
@@ -311,7 +316,11 @@ void main() {
       await r.shot('c3_detail_soldout');
       r.router.pop();
       await r.settle();
-      // Motorky for comparison
+      await end(r);
+    });
+
+    testWidgets('v503 shots $tag: motorky card (comparison)', (t) async {
+      final r = await boot(t, size: size, state: JourneyState.fleet12, cart: 0);
       await r.go('/search');
       await r.settle(2500);
       final mz = r.zone();

@@ -477,10 +477,14 @@ class SupabaseClient {
 
         $prefix = 'web.' . $page . '.';
         // PostgREST: like.web.<page>.* — `*` je wildcard
+        // Řazení dle klíče je nutné: starý „plochý“ klíč (web.kontakt.seo) pak přijde PŘED vnořenými
+        // (web.kontakt.seo.title) a setNested ho přepíše polem. Bez řazení záleželo na pořadí řádků
+        // v DB — plochý klíč mohl vnořené hodnoty z Velínu zahodit a stránka spadla na výchozí texty.
         $rows = $this->query(
             'cms_variables',
             'key,value,translations',
-            ['key=like.' . $prefix . '*']
+            ['key=like.' . $prefix . '*'],
+            'key.asc'
         );
 
         $out = [];

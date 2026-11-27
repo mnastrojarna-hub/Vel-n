@@ -54,7 +54,9 @@ void main() {
     expect(find.byKey(const ValueKey('shop-v2-size-hint')), findsOneWidget);
     expect(_c(tester, ProductDetailScreen).read(cartProvider), isEmpty);
 
-    await tester.ensureVisible(find.text('L'));
+    // 5.0.3: the photo hero is taller — bring the chips up, clear of the dock.
+    await Scrollable.ensureVisible(tester.element(find.text('L')), alignment: 0.5);
+    await tester.pump();
     await tester.tap(find.text('L'));
     await tester.pump();
     expect(find.byKey(const ValueKey('shop-v2-size-hint')), findsNothing);

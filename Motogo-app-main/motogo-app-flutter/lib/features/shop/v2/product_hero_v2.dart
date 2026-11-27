@@ -12,10 +12,16 @@ import '../../../core/v2/widgets/mg_photo.dart';
 import '../shop_models.dart';
 import 'product_card_parts_v2.dart';
 
-/// Photo height of the v2 product page (without the status-bar inset):
-/// 44 % of the screen — the price and the size chips stay on the first
-/// screen of a 360 × 780 phone, above the dock.
-double productHeroHeight(BuildContext context) => (MediaQuery.sizeOf(context).height * 0.44).clamp(260.0, 440.0);
+/// Photo height of the v2 product page (without the status-bar inset): as
+/// tall as the screen is wide (+ the sheet's overlap), so a square product
+/// photo fills the width; at most 55 % of the screen — the name, the price
+/// and the dock stay on the first screen.
+double productHeroHeight(BuildContext context) {
+  final s = MediaQuery.sizeOf(context);
+  final h = s.width + ProductHeroV2.sheetOverlap;
+  final max = s.height * 0.55;
+  return (h > max ? max : h).clamp(260.0, 560.0);
+}
 
 /// Photo hero of the v2 product page (owner 2026-11-27, "jako detail
 /// motorky"): night, full width, under the status bar; the WHOLE photo
@@ -31,6 +37,9 @@ class ProductHeroV2 extends StatefulWidget {
   final ValueChanged<int> onPage;
   final VoidCallback onBack;
   final double height;
+
+  /// The white sheet's overlap (`MgPage.overlap`): the photo stays above it.
+  static const double sheetOverlap = 24;
 
   const ProductHeroV2({
     super.key,
@@ -48,9 +57,6 @@ class ProductHeroV2 extends StatefulWidget {
 
 class _ProductHeroV2State extends State<ProductHeroV2> {
   final MgSwipeAnchor _swipe = MgSwipeAnchor();
-
-  /// The sheet's overlap + its shadow: the photo stays above it.
-  static const double _sheet = 24;
 
   Widget _photo(String url) => MgPhoto(url: url, thumbWidth: 1000, fit: BoxFit.contain, dark: true, glyph: MgIcons.bag);
 
@@ -91,7 +97,7 @@ class _ProductHeroV2State extends State<ProductHeroV2> {
               ]),
             ),
             Padding(
-              padding: EdgeInsets.only(top: top, bottom: _sheet),
+              padding: EdgeInsets.only(top: top, bottom: ProductHeroV2.sheetOverlap),
               child: multi
                   ? MgSwipeAnchorListener(
                       anchor: _swipe,
@@ -124,7 +130,7 @@ class _ProductHeroV2State extends State<ProductHeroV2> {
             Positioned(
               left: 16,
               right: 16,
-              bottom: _sheet + 12,
+              bottom: ProductHeroV2.sheetOverlap + 12,
               child: Row(children: [
                 Flexible(
                   child: FittedBox(
@@ -132,7 +138,7 @@ class _ProductHeroV2State extends State<ProductHeroV2> {
                     alignment: AlignmentDirectional.centerStart,
                     child: w.product.inStock
                         ? ShopDarkPillV2(text: tr.tr('shopListInStock'), dot: true)
-                        : ShopDarkPillV2(text: tr.tr('soldOut'), icon: MgIcons.ban),
+                        : ShopDarkPillV2(text: tr.tr('soldOut'), icon: MgIcons.ban, iconColor: MgColors.errDark),
                   ),
                 ),
                 const SizedBox(width: 8),

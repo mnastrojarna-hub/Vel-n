@@ -31,6 +31,7 @@ class ShopPosPillV2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
+        container: true,
         label: t(context).trArgs('shopListPosAria', {'n': index + 1, 'total': total}),
         excludeSemantics: true,
         child: ShopDarkPillV2(text: '${index + 1} / $total'),
@@ -43,9 +44,11 @@ class ShopDarkPillV2 extends StatelessWidget {
   final String text;
   final String? icon;
 
+  final Color iconColor;
+
   /// A neon dot before the text (in stock).
   final bool dot;
-  const ShopDarkPillV2({super.key, required this.text, this.icon, this.dot = false});
+  const ShopDarkPillV2({super.key, required this.text, this.icon, this.iconColor = MgColors.neon, this.dot = false});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -61,7 +64,7 @@ class ShopDarkPillV2 extends StatelessWidget {
             Container(width: 8, height: 8, decoration: const BoxDecoration(color: MgColors.neon, shape: BoxShape.circle)),
             const SizedBox(width: 7),
           ],
-          if (icon != null) ...[MgIcon(icon!, size: 15, color: MgColors.neon), const SizedBox(width: 6)],
+          if (icon != null) ...[MgIcon(icon!, size: 15, color: iconColor), const SizedBox(width: 6)],
           Text(text,
               style: MgType.tab(MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.onDark, height: 1))),
         ]),
