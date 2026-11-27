@@ -142,7 +142,7 @@ void main() {
         expect(find.text('Masarykovo náměstí 1, Jihlava'), findsOneWidget);
         expect(_in(CalcStepHandoverV2, find.text('~32 km · ${Money.czk(kRouteFee)}')), findsOneWidget);
         expect(pickupLabel, 'Přistavení (32 km × 40 + 1 000)');
-        expect(_in(CalcReceiptV2, find.text(pickupLabel)), findsOneWidget);
+        expect(_in(CalcReceiptV2, find.text(bkNbAmounts(pickupLabel))), findsOneWidget);
         expect(_in(CalcReceiptV2, find.text('+${Money.czk(kRouteFee)}')), findsOneWidget);
         final q = quoteFor(kBmw, ws, we, loyalty: kLoyalty3, pickupDeliveryFee: kRouteFee);
         expect(q.total, base.total + kRouteFee, reason: 'the rank discount does not apply to delivery');
@@ -168,15 +168,15 @@ void main() {
         var h = c.read(calcStateProvider).handover!.choice;
         expect([h.draft.returnMethod, h.draft.returnCity, h.returnFee, h.returnKm], ['delivery', 'Jihlava', kRouteFee, kRouteKm]);
         expect(find.text(_cs('bkAddrSamePickup')), findsOneWidget);
-        expect(_in(CalcReceiptV2, find.text(pickupLabel)), findsOneWidget);
-        expect(_in(CalcReceiptV2, find.text(returnLabel)), findsOneWidget);
+        expect(_in(CalcReceiptV2, find.text(bkNbAmounts(pickupLabel))), findsOneWidget);
+        expect(_in(CalcReceiptV2, find.text(bkNbAmounts(returnLabel))), findsOneWidget);
         expect(_price(t, base.total + 2 * kRouteFee), isTrue);
         // Pickup back at the branch: only the collection is charged.
         await _tap(t, _opt(_cs('atBranch')).first);
         h = c.read(calcStateProvider).handover!.choice;
         expect([h.draft.pickupMethod, h.pickupDue, h.returnDue], ['store', 0, kRouteFee]);
-        expect(_in(CalcReceiptV2, find.text(pickupLabel)), findsNothing);
-        expect(_in(CalcReceiptV2, find.text(returnLabel)), findsOneWidget);
+        expect(_in(CalcReceiptV2, find.text(bkNbAmounts(pickupLabel))), findsNothing);
+        expect(_in(CalcReceiptV2, find.text(bkNbAmounts(returnLabel))), findsOneWidget);
         expect(_price(t, base.total + kRouteFee), isTrue);
         _expectFormUntouched(c);
         await _unmount(t);
@@ -191,7 +191,7 @@ void main() {
         final h = c.read(calcStateProvider).handover!.choice;
         expect([h.draft.pickupMethod, h.draft.returnMethod, h.draft.returnCity, h.pickupDue, h.returnDue],
             ['store', 'delivery', 'Jihlava', 0, kRouteFee]);
-        expect(_in(CalcReceiptV2, find.text(returnLabel)), findsOneWidget);
+        expect(_in(CalcReceiptV2, find.text(bkNbAmounts(returnLabel))), findsOneWidget);
         expect(_price(t, base.total + kRouteFee), isTrue);
         await _unmount(t);
       }));
@@ -224,7 +224,7 @@ void main() {
     final own = CalcHandover(choice: jihlavaHandover(ret: true), branchId: kBmw.branchId);
     final c = await _pumpCalc(t, CalcState(motoId: 'm-bmw', start: ws, end: we, handover: own));
     expect(_price(t, quoteFor(kBmw, ws, we, loyalty: kLoyalty3).total + 2 * kRouteFee), isTrue);
-    expect(_in(CalcReceiptV2, find.text(pickupLabel)), findsOneWidget);
+    expect(_in(CalcReceiptV2, find.text(bkNbAmounts(pickupLabel))), findsOneWidget);
 
     c.read(calcStateProvider.notifier).setMoto('m-husq');
     await _steps(t, 3);
@@ -249,7 +249,7 @@ void main() {
     c.read(calcStateProvider.notifier).setMoto('m-kid');
     await _steps(t, 3);
     expect(c.read(calcStateProvider).handover!.choice.pickupDue, kRouteFee);
-    expect(_in(CalcReceiptV2, find.text(pickupLabel)), findsOneWidget);
+    expect(_in(CalcReceiptV2, find.text(bkNbAmounts(pickupLabel))), findsOneWidget);
     expect(_price(t, quoteFor(kKids, ws, we, loyalty: kLoyalty3).total + kRouteFee), isTrue);
     await _unmount(t);
   });
@@ -300,7 +300,7 @@ void main() {
         await _tap(t, _opt(_cs('v2BkDeliveryTo')));
         await _enterProfileAddress(t);
         expect(c.read(calcStateProvider).handover!.choice.pickupDue, kRouteFee);
-        expect(_in(CalcReceiptV2, find.text(pickupLabel)), findsOneWidget);
+        expect(_in(CalcReceiptV2, find.text(bkNbAmounts(pickupLabel))), findsOneWidget);
         expect(t.takeException(), isNull);
         await _unmount(t);
       }));

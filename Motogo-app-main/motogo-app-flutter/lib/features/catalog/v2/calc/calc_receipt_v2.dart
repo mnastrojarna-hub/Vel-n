@@ -7,6 +7,7 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../booking/booking_models.dart';
+import '../../../booking/v2/booking_v2_parts.dart' show bkNbAmounts;
 import '../../../booking/v2/sections/price_v2.dart' show BookingPriceV2;
 import '../../moto_model.dart';
 import '../catalog_text.dart';
@@ -90,10 +91,8 @@ class CalcReceiptV2 extends StatelessWidget {
           ),
         const Divider(height: 16, color: MgColors.line),
         _row(tr.trArgs('v2DetBreakRent', {'days': catDays(tr, q.days)}), catMoney(q.basePrice), strong: true),
-        if (q.pickupDeliveryFee > 0)
-          _row(BookingPriceV2.deliveryLabel(tr.tr('deliveryFee'), q.pickupDeliveryFee), '+${catMoney(q.pickupDeliveryFee)}'),
-        if (q.returnDeliveryFee > 0)
-          _row(BookingPriceV2.deliveryLabel(tr.tr('returnFee'), q.returnDeliveryFee), '+${catMoney(q.returnDeliveryFee)}'),
+        if (q.pickupDeliveryFee > 0) _fee(tr.tr('deliveryFee'), q.pickupDeliveryFee),
+        if (q.returnDeliveryFee > 0) _fee(tr.tr('returnFee'), q.returnDeliveryFee),
         if (q.latePickupDiscount > 0) _row(tr.tr('v2CalcLateRow'), '−${catMoney(q.latePickupDiscount)}', minus: true),
         if (q.loyaltyDiscount > 0)
           _row(
@@ -110,6 +109,11 @@ class CalcReceiptV2 extends StatelessWidget {
       ]),
     );
   }
+
+  /// Delivery / collection row with the form's label "(N km × 40 + 1 000)";
+  /// the amount in it never splits across lines.
+  Widget _fee(String name, double fee) =>
+      _row(bkNbAmounts(BookingPriceV2.deliveryLabel(name, fee)), '+${catMoney(fee)}');
 
   Widget _row(String l, String v, {bool strong = false, bool minus = false, bool total = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),

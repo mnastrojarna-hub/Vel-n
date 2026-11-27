@@ -164,9 +164,11 @@ void main() {
     final own = jihlavaHandover(ret: true);
     final (_, c) = await _pump(t, calc('m-bmw', own));
     final q = quoteFor(kBmw, ws, we, loyalty: kLoyalty3, pickupDeliveryFee: kRouteFee, returnDeliveryFee: kRouteFee);
-    // The calculator's receipt and total.
+    // The calculator's receipt and total (the form's label; the receipt
+    // only keeps "1 000" on one line with a no-break space).
     for (final label in [pickupLabel, returnLabel]) {
-      expect(_in(CalcReceiptV2, find.text(label)), findsOneWidget);
+      expect(_in(CalcReceiptV2, find.text(bkNbAmounts(label))), findsOneWidget);
+      expect(bkNbAmounts(label).replaceAll('\u00A0', ' '), label);
     }
     expect(_in(CalcReceiptV2, find.text('+${Money.czk(kRouteFee)}')), findsNWidgets(2));
     expect(_in(CalcReceiptV2, find.text(Money.czk(q.total))), findsOneWidget);
@@ -234,7 +236,7 @@ void main() {
     final q = quoteFor(kBmw, ws, we, loyalty: kLoyalty3, pickupDeliveryFee: 1800);
     expect(c.read(calcStateProvider).handover, isNull);
     expect(_in(CalcStepHandoverV2, find.text('Karlovo nám. 2, Třebíč')), findsOneWidget);
-    expect(_in(CalcReceiptV2, find.text(BookingPriceV2.deliveryLabel(_cs('deliveryFee'), 1800))), findsOneWidget);
+    expect(_in(CalcReceiptV2, find.text(bkNbAmounts(BookingPriceV2.deliveryLabel(_cs('deliveryFee'), 1800)))), findsOneWidget);
     expect(t.widgetList<MgCta>(_in(CalcTotalV2, find.byType(MgCta))).single.price, Money.czk(q.total),
         reason: 'never a lower price than the form will show');
     await _book(t);
