@@ -7,14 +7,16 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../booking/booking_models.dart';
+import '../../../booking/v2/sections/price_v2.dart' show BookingPriceV2;
 import '../../moto_model.dart';
 import '../catalog_text.dart';
 
 /// White receipt of the calculator (board `.rc`): dates + days chip, one bar
-/// per day (≤ 31, labels ≤ 10 days), rows grouped by day price, the ½ row,
-/// the loyalty row and the total — every number from the given
-/// `PriceBreakdown` (`quoteFor`, same as `/booking`) and the bike's day
-/// prices. Display only.
+/// per day (≤ 31, labels ≤ 10 days), rows grouped by day price, the
+/// delivery / collection rows of step ④ (the booking form's own labels and
+/// order: after the rental, before the discounts), the ½ row, the loyalty
+/// row and the total — every number from the given `PriceBreakdown`
+/// (`quoteFor`, same as `/booking`) and the bike's day prices. Display only.
 class CalcReceiptV2 extends StatelessWidget {
   final Motorcycle moto;
   final DateTime start;
@@ -88,6 +90,10 @@ class CalcReceiptV2 extends StatelessWidget {
           ),
         const Divider(height: 16, color: MgColors.line),
         _row(tr.trArgs('v2DetBreakRent', {'days': catDays(tr, q.days)}), catMoney(q.basePrice), strong: true),
+        if (q.pickupDeliveryFee > 0)
+          _row(BookingPriceV2.deliveryLabel(tr.tr('deliveryFee'), q.pickupDeliveryFee), '+${catMoney(q.pickupDeliveryFee)}'),
+        if (q.returnDeliveryFee > 0)
+          _row(BookingPriceV2.deliveryLabel(tr.tr('returnFee'), q.returnDeliveryFee), '+${catMoney(q.returnDeliveryFee)}'),
         if (q.latePickupDiscount > 0) _row(tr.tr('v2CalcLateRow'), '−${catMoney(q.latePickupDiscount)}', minus: true),
         if (q.loyaltyDiscount > 0)
           _row(

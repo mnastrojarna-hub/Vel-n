@@ -14,11 +14,13 @@ import '../catalog_text.dart';
 import 'calc_parts_v2.dart' show CalcHalfInfo;
 
 /// Dark total block of the calculator (V22 §2.4: the one dark block below
-/// the steps): "TVOJE CENA · n dny" = the standard-pickup price, value
-/// 32/900 neon, average per day, rank savings, the ½ INFO card (owner
-/// 2026-10-22: no toggle — the concrete 12:00 saving, the time is chosen in
-/// the booking form) and the rank CTA REZERVOVAT · price. [onBook] null =
-/// disabled (availability not loaded / busy day / loyalty retry pending).
+/// the steps): "TVOJE CENA · n dny" = the standard-pickup price (with the
+/// delivery fees of step ④), value 32/900 neon, average per day (of the
+/// rental — delivery is a one-off, not a day price), rank savings, the ½
+/// INFO card (owner 2026-10-22: no toggle — the concrete 12:00 saving, the
+/// time is chosen in the booking form) and the rank CTA REZERVOVAT · price.
+/// [onBook] null = disabled (availability not loaded / busy day / loyalty
+/// retry pending).
 class CalcTotalV2 extends StatelessWidget {
   /// Standard pickup (the booking form's 09:00 default).
   final PriceBreakdown q;
@@ -30,6 +32,10 @@ class CalcTotalV2 extends StatelessWidget {
   final bool loyaltyFailed;
   final VoidCallback onRetryLoyalty;
   final String? blockedReason;
+
+  /// The booking form's hint "delivery chosen, address missing — the fee
+  /// will be added" (step ④), or null.
+  final String? note;
 
   /// Key of the CTA (the sticky dock shows while it is off-screen).
   final Key? ctaKey;
@@ -43,6 +49,7 @@ class CalcTotalV2 extends StatelessWidget {
     this.rankName,
     this.loyaltyFailed = false,
     this.blockedReason,
+    this.note,
     this.ctaKey,
   });
 
@@ -76,8 +83,17 @@ class CalcTotalV2 extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(tr.trArgs('v2AvgPerDay', {'amount': catMoney((q.total / days).roundToDouble())}),
+        Text(
+            tr.trArgs('v2AvgPerDay', {
+              'amount': catMoney(((q.total - q.pickupDeliveryFee - q.returnDeliveryFee) / days).roundToDouble())
+            }),
             style: MgType.tab(MgType.small.copyWith(color: MgColors.onDarkLead))),
+        if (note != null) ...[
+          const SizedBox(height: 8),
+          MgWordFit(
+            child: Text(note!, style: MgType.small.copyWith(fontWeight: FontWeight.w700, color: MgColors.warnDark)),
+          ),
+        ],
         if (saved) ...[
           const SizedBox(height: 10),
           Align(

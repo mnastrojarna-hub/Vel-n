@@ -153,11 +153,12 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> with CalcStickyTracker 
                   : null;
       final m = moto;
       final note = hv.missingAddressKey == null ? null : tr.tr(hv.missingAddressKey!);
-      // A place chosen here goes to the form with the bike and dates; from
-      // then on the booking draft holds it (the step shows the draft's).
+      // A place chosen here goes to the form with the bike and dates (read
+      // at the tap — the sticky dock keeps this handler); from then on the
+      // booking draft holds it and step ④ shows the draft's.
       void book() {
-        final own = st.handover;
-        startBookingFromSelection(context, ref, m, st.start!, st.end!, handover: own == null ? null : hv.shown);
+        final own = calcOwnHandover(ref.read(calcStateProvider), m);
+        startBookingFromSelection(context, ref, m, st.start!, st.end!, handover: own);
         n.clearHandover();
       }
 

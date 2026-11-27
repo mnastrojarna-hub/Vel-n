@@ -40,14 +40,18 @@ class CalcHandoverView {
       shown.pickupNoAddress ? 'efoNoAddrCtx' : (shown.returnNoAddress ? 'efoNoRetAddrCtx' : null);
 }
 
+/// The place chosen HERE for [moto] (its branch, this account), or null =
+/// not touched — REZERVOVAT then leaves the handover to the booking form.
+HandoverChoice? calcOwnHandover(CalcState st, Motorcycle moto) {
+  final own = st.handover;
+  return own != null && own.validFor(moto.branchId, bookingSessionUid()) ? own.choice : null;
+}
+
 /// [CalcHandoverView] for [moto]; call from `build` (watches the flag and
 /// the booking entry).
 CalcHandoverView calcHandoverView(WidgetRef ref, CalcState st, Motorcycle moto, String lang) {
   final blocked = handoverDeliveryBlocked(ref, moto);
-  final own = st.handover;
-  var shown = own != null && own.validFor(moto.branchId, bookingSessionUid())
-      ? own.choice
-      : ref.watch(bookingEntryHandoverProvider(moto));
+  var shown = calcOwnHandover(st, moto) ?? ref.watch(bookingEntryHandoverProvider(moto));
   final d = shown.draft;
   if (blocked && (d.pickupMethod == 'delivery' || d.returnMethod == 'delivery')) {
     shown = shown.copyWith(draft: d.copyWith(pickupMethod: 'store', returnMethod: 'store'));
@@ -98,10 +102,7 @@ class CalcStepHandoverV2 extends ConsumerWidget {
     // the price, then the address, and the other side may take both over.
     void change(HandoverChoice Function(HandoverChoice) fn) =>
         n.updateHandover(fn, seed: seed, branchId: m.branchId, owner: uid);
-    HandoverChoice cur() {
-      final own = ref.read(calcStateProvider).handover;
-      return own != null && own.validFor(m.branchId, uid) ? own.choice : seed;
-    }
+    HandoverChoice cur() => calcOwnHandover(ref.read(calcStateProvider), m) ?? seed;
 
     void upd(BookingDraft Function(BookingDraft) fn) => change((c) => c.copyWith(draft: fn(c.draft)));
     final fees = HandoverFees(
