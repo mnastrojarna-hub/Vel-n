@@ -86,18 +86,20 @@ export function companyFromInfo(info: unknown): Company | null {
 }
 
 let current: Company = COMPANY_DEFAULT
-/** Naposledy načtený provozovatel (bez dotazu) — pro synchronní skládání patiček. */
+/** Provozovatel z posledního loadCompany() (bez dotazu) — pro synchronní skládání patiček. */
 export const companyNow = (): Company => current
 
-/** Aktuální provozovatel z app_settings.company_info. Nikdy nevyhodí: chyba / chybějící řádek =
- *  naposledy načtená hodnota, jinak COMPANY_DEFAULT. */
+/** Aktuální provozovatel z app_settings.company_info. Nikdy nevyhodí. Chybějící řádek, řádek bez
+ *  názvu nebo chyba dotazu = COMPANY_DEFAULT — NIKDY dříve načtená hodnota (běžící instance si
+ *  nesmí po chybě dotazu podržet provozovatele / účet, který mezitím přestal platit). */
 export async function loadCompany(supabase: any): Promise<Company> {
+  let c: Company | null = null
   try {
     const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'company_info').limit(1)
-    const c = error ? null : companyFromInfo(Array.isArray(data) ? data[0]?.value : data?.value)
-    if (c) current = c
-    else if (error) console.warn('[company] company_info:', error.message)
+    if (error) console.warn('[company] company_info:', error.message)
+    else c = companyFromInfo(Array.isArray(data) ? data[0]?.value : data?.value)
   } catch (e) { console.warn('[company] company_info nedostupné:', (e as Error).message) }
+  current = c || COMPANY_DEFAULT
   return current
 }
 

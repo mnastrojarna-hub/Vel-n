@@ -77,14 +77,19 @@ Deno.test('loadCompany: plné / staré / chybějící nastavení a chyba dotazu 
   eq(companyNow().name, 'MotoGo24 s.r.o.')
   const old = await loadCompany(settingsDb(OLD_INFO))
   eq([old.name, old.iban, old.register], ['Jan Novák', 'CZ6508000000192000145399', ''], 'nový kód + stará DB = dosavadní provozovatel')
-  eq(companyNow().name, 'Jan Novák', 'synchronní pohled = naposledy načtené')
-  eq((await loadCompany(settingsDb(NEW_INFO))).name, 'MotoGo24 s.r.o.')
-  // chybějící řádek / řádek bez názvu / chyba / výjimka → naposledy načtená hodnota (zde nový provozovatel)
-  eq((await loadCompany(settingsDb())).ico, '29909864')
-  eq((await loadCompany(settingsDb({ bank_account: '1/0100' }))).ico, '29909864')
-  const failing = settingsDb(OLD_INFO); failing.failSelect = () => ({ code: '57014', message: 'timeout' })
-  eq((await loadCompany(failing)).ico, '29909864')
-  eq((await loadCompany({ from() { throw new Error('boom') } })).ico, '29909864')
+  eq(companyNow().name, 'Jan Novák', 'synchronní pohled = poslední načtení')
+  // chybějící řádek / řádek bez názvu / chyba dotazu / výjimka → VÝCHOZÍ provozovatel, nikdy dříve načtený
+  for (const [label, db] of [
+    ['chybí řádek', settingsDb()],
+    ['bez názvu', settingsDb({ bank_account: '1/0100' })],
+    ['chyba dotazu', (() => { const d = settingsDb(OLD_INFO); d.failSelect = () => ({ code: '57014', message: 'timeout' }); return d })()],
+    ['výjimka', { from() { throw new Error('boom') } }],
+  ] as Array<[string, any]>) {
+    await loadCompany(settingsDb(OLD_INFO))
+    const c = await loadCompany(db)
+    eq([c.name, c.ico, c.iban], ['MotoGo24 s.r.o.', '29909864', 'CZ8320100000002303580494'], label)
+    eq(companyNow().ico, '29909864', `${label}: ani patičky si nepodrží dřívějšího provozovatele`)
+  }
 })
 
 Deno.test('issuerOf: snapshot řádku má přednost; bez snapshotu / bez sloupce = aktuální provozovatel', () => {
@@ -188,7 +193,7 @@ Deno.test('dobropis: vystavitel = snapshot dobropisu → snapshot původního do
   ok(h.includes('>Jan Novák<') && h.includes('Dlouhá 1, 110 00 Praha') && h.includes('IČO: 12345678') && !h.includes('s.r.o.') && !h.includes('36876'), h)
   const n = creditNoteIssuerHtml(await creditNoteIssuer(db, { originalInvoiceId: 'new-dp' }))
   ok(n.includes('>MotoGo24 s.r.o.<') && n.includes('Mezná 9, 393 01 Mezná') && n.includes('IČO: 29909864') && n.includes('C 36876, Krajský soud v Českých Budějovicích'), n)
-  ok(creditNoteIssuerHtml(null).includes('MotoGo24 s.r.o.'), 'bez vystavitele = naposledy načtený / výchozí provozovatel')
+  ok(creditNoteIssuerHtml(null).includes('MotoGo24 s.r.o.'), 'bez vystavitele = provozovatel z posledního načtení')
 })
 
 Deno.test('verze dokumentů: jiný provozovatel nebo vznik před valid_from = zamraženo (nemazat)', () => {

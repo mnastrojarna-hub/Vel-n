@@ -137,12 +137,14 @@ Deno.test({ name: 'provozovatel · faktura: nastavení company_info chybí / dot
   const a = invoiceDb()
   const r1 = await post('../generate-invoice/index.ts', a, { type: 'proforma', booking_id: BID, send_email: false })
   has(await fileText(a, r1.json.pdf_path), NEW_MARKS, 'bez nastavení')
+  // dotaz na nastavení selže → výchozí provozovatel, i když předchozí požadavek načetl jiného
+  await post('../generate-invoice/index.ts', invoiceDb({ info: OLD_INFO }), { type: 'proforma', booking_id: BID, send_email: false })
   const b = invoiceDb({ info: OLD_INFO })
   b.failSelect = (t) => t === 'app_settings' ? { code: '57014', message: 'timeout' } : null
-  // modul si drží naposledy načteného provozovatele — předchozí volání načetlo výchozího (řádek chyběl)
   const r2 = await post('../generate-invoice/index.ts', b, { type: 'proforma', booking_id: BID, send_email: false })
   eq([r2.status, r2.json?.success], [200, true], r2.txt)
-  ok(!(await fileText(b, r2.json.pdf_path)).includes('Jan Novák'), 'chyba dotazu nesmí vrátit dřívějšího provozovatele z jiného zdroje')
+  const h2 = await fileText(b, r2.json.pdf_path)
+  has(h2, NEW_MARKS, 'chyba dotazu'); hasNot(h2, OLD_MARKS, 'chyba dotazu')
 } })
 
 // ── generate-document ────────────────────────────────────────────────────────
