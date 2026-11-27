@@ -80,14 +80,14 @@ return [
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Půjčovna motorek',
-    'footer.aboutText' => 'Vítej u Motogo24, tvojí&nbsp;<strong>půjčovny motorek v Pelhřimově a u Brna</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyber si z naší široké nabídky motorek a rezervuj online ve třech krocích. Objevuj s námi motorkářské trasy v ČR i v zahraničí!',
+    'footer.aboutText' => 'MotoGo24 – půjčovna motorek se dvěma pobočkami: obslužnou v <strong>Mezné u Pelhřimova</strong> a samoobslužnou ve <strong>Velkých Němčicích u Brna</strong>. Půjčujeme bez kauce, s výbavou pro řidiče v ceně a s rezervací online.',
     'footer.socialTitle' => 'Půjčovna motorek na sítích',
     'footer.helpTitle' => 'Potřebujete poradit?',
     'footer.callUs' => 'ZAVOLEJTE NÁM',
     'footer.companyLine1' => 'Půjčovna motorek Motogo24',
     'footer.openHours' => 'PO - NE 00:00 – 24:00 (výdej a příjem motorek dle rezervace) PO - PÁ 08:00 – 17:00 (technická podpora)',
     'footer.openHoursIcon' => 'Provozní doba',
-    'footer.copyright' => '© Půjčovna motorek Vysočina Motogo24 - všechna práva vyhrazena',
+    'footer.copyright' => '© MotoGo24 – půjčovna motorek. Všechna práva vyhrazena.',
     'footer.sitemap' => 'Mapa stránek',
     'footer.cookies' => 'Nastavení cookies',
     'footer.gdpr' => 'GDPR',
@@ -189,7 +189,7 @@ return [
     'doc.cardView' => 'Dokument · zobrazit',
 
     // Jazyk smluvního dokumentu (dokumenty-detail.php): závazná je vždy česká verze
-    'doc.h1Suffix' => '| MotoGo24 půjčovna motorek',
+    'doc.h1Suffix' => '| MotoGo24',
     'doc.metaDesc' => '{title} u půjčovny motorek MotoGo24 Pelhřimov — vzor pro půjčení motocyklu. Bez kauce, výbava v ceně, nonstop provoz na Vysočině.',
     'doc.czechBinding' => 'Závazná je česká verze; překlad připravujeme.',
     'doc.translationNote' => 'Překlad má informativní povahu, závazná je česká verze.',
