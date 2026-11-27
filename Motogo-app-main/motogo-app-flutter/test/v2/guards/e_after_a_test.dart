@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:motogo_app/core/i18n/i18n_provider.dart';
 import 'package:motogo_app/core/v2/motion/mg_motion.dart';
-import 'package:motogo_app/core/v2/widgets/mg_cta.dart';
 import 'package:motogo_app/features/reservations/booking_restore.dart';
 import 'package:motogo_app/features/reservations/reservation_provider.dart';
 import 'package:motogo_app/features/reservations/v2/reservations_screen_v2.dart';

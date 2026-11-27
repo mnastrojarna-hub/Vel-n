@@ -85,8 +85,9 @@ void main() {
         final b = t.getRect(_btn);
         expect(b.height, size.height < 700 ? 44 : 52, reason: 'compact on a short phone');
         final card = t.getRect(find.byType(ReservationCardV2).first);
-        // The card starts in the upper half and its head is on screen.
-        expect(card.top, lessThan(size.height * 0.5), reason: '$lang card top ${card.top}');
+        // The card's head (status, bike, number: its first 160 px) stays on
+        // the first screen, above the 64 px menu.
+        expect(card.top + 160, lessThanOrEqualTo(size.height - 64), reason: '$lang card top ${card.top}');
         expect(card.top, greaterThan(b.bottom));
         await t.pump(const Duration(seconds: 2));
       }

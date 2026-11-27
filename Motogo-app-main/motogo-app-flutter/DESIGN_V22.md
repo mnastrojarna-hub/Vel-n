@@ -24,6 +24,17 @@ Tabulka je převzatá beze změny (odkazy „§1“ … „§9“ míří do pů
 
 Původní `DESIGN_V22.md` (iterace 2.2, rozšíření `DESIGN_V21.md` → `DESIGN_V2.md` → `appdesign_spec.md`; ~150 kB, z repa odešel při úklidu) popisoval návrhové tabule a port do Flutteru: rampu 20 barev hodností (R1, SQL `20261016_loyalty_colors_ramp` dosud nenasazené), systém ploch „bílé sekce, tmavé hero“ a barevné tokeny (R5), jednotný zelený pás termínu v kalendářích (R4), tlačítko „Zaznamenat jízdu“ a nahrávání jízdy (R3), tabuli Stavy se ~290 stavy výsledků, poděkování a chyb s pravidlem „co · proč · jak opravit · funkční akce · nikdy se nezasekne“ (R2), standard tlačítka zpět/zavřít 44 px (R6), opravy detailů po tabulích, poznámky k portu, otevřené otázky majitele (§9) a kontrolní seznam. Oslava level-upu zůstává beze změny. Podrobnosti jsou v historii gitu (soubor existoval do úklidu repa).
 
+## 5.0.3 — rozhodnutí majitele 2026-11-27
+
+Majitel při zkoušení 5.0.2 výslovně požádal o tyto změny nového vzhledu (verze appky 5.0.3+121, Android i iOS). Jsou to **výslovné výjimky** z pravidla „v2 = jen upgrade vzhledu“; logika, ceny, košík, platby, cesty a starý vzhled se nemění.
+
+- **Karta ranku pryč z Trasy → Moje — výjimka** („v trasách je navíc můj rank … rank přece vidím v profilu a když kliknu na odznak“): souhrn „Moje zážitky“ končí počty (jízdy, uložené trasy, objevená místa) a tlačítkem „Vytvořit novou trasu“; rank zůstává v Profilu a pod odznakem v hlavičce.
+- **E-shop se prohlíží jako motorky — výjimka:** seznam = jeden produkt na obrazovku se stejným přichytáváním jako Motorky (celá fotka, víc fotek = listování do stran, název, první řádky popisu, velikosti, cena, „Skladem“ / „Vyprodáno“, pořadí „n / celkem“, tlačítko „Detail“, šipka nahoru); nahoře na kartě zůstává zpět a košík s počtem. Dárkový poukaz, košík, pokladna, prázdný a chybový stav i načítání fungují jako dřív.
+- **Detail produktu jako detail motorky — výjimka:** velká fotka nahoře (listování, zpět, „Skladem“ / „Vyprodáno“, počítadlo fotek) a pod ní bílý list s názvem, cenou, barvou a materiálem, popisem, velikostmi, množstvím a „Přidat do košíku“ — chování beze změny.
+- **Tlačítko „Nová rezervace“ v Rezervacích, vždy — výjimka** (i s aktivní nebo nadcházející rezervací, i v prázdném, chybovém a načítacím stavu): hned pod hlavičkou, na krátkém telefonu nižší; nahradilo „Rezervovat motorku“ v prázdném bloku, aby tlačítko nebylo dvakrát. Vede do Motorek, kde je čip „‹ Rezervace“ a pod nadpisem výzva **„Vyber si motorku“** (do přepnutí záložky).
+- **Tlačítko „Rezervovat“ na kartě motorky vedle „Detail“ — výjimka** (Motorky i seznam na Domů): „Detail“ = prohlédnout motorku, „Rezervovat“ = stejný vstup jako tlačítko v detailu (`detailReserve` → `startBookingFromSelection`). S vybraným termínem rovnou formulář rezervace s tímto termínem; bez termínu (nebo když je termín u té motorky obsazený) detail otevřený na kroku „Termín“ s kalendářem.
+- **Vybraný termín v kalendáři svítí celý stejně** — první, poslední i prostřední dny mají stejnou výplň i barvu čísla, jak říká legenda „Tvůj termín“. V novém vzhledu to sdílený kalendář (`TripCalendar`, R4) už splňoval; 5.0.3 přidává test, který hlídá vykreslené barvy. Web opravuje samostatná úprava.
+
 ## 5.0.2 — rozhodnutí majitele 2026-11-15 a 2026-11-19
 
 Majitel po vydání 5.0.1 nahlásil chyby a požádal o tyto změny (verze appky 5.0.2+120, Android i iOS). Body označené **výjimka** jsou výslovné výjimky z pravidla „v2 = jen upgrade vzhledu“.

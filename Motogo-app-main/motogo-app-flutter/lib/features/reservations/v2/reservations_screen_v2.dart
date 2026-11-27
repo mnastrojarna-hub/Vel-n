@@ -237,7 +237,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
         sections: [
           // Compact on a short phone: the first card stays on the first screen.
           Padding(
-            padding: EdgeInsets.fromLTRB(16, compact ? 10 : 14, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, compact ? 8 : 14, 16, 0),
             child: MgBtnInk(
               key: const ValueKey('res-new-booking'),
               label: tr.tr('resNewBooking'),
@@ -248,7 +248,7 @@ class _ReservationsScreenV2State extends ConsumerState<ReservationsScreenV2> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(16, compact ? 10 : 14, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, compact ? 8 : 14, 16, 0),
             child: ResFilterTabsV2(
               value: filter,
               // Labels only, as the old filter chips (no counts).
@@ -282,7 +282,8 @@ class _EmptyAll extends StatelessWidget {
     return MgDarkHero(
       rankAura: true,
       padding: const EdgeInsets.fromLTRB(20, 32, 20, 24),
-      child: Column(children: [
+      // Centred in the block (it is at least the swipe area tall).
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         MgPop(
           playOnMount: true,
           child: Container(
