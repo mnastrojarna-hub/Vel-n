@@ -102,6 +102,7 @@ import 'translations_ext_66_gear_order_b.dart';
 import 'translations_ext_66_gear_order_c.dart';
 import 'translations_ext_66_gear_order_d.dart';
 import 'translations_ext_66_gear_fix.dart';
+import 'translations_ext_67_v503_shop.dart';
 import 'translations_ext_62_guards_after.dart';
 import 'translations_ext_62_clarity_after.dart';
 import 'translations_ext_62_clarity_order.dart';
@@ -266,6 +267,7 @@ final translations = _mergeAll([
   translationsExt66GearOrderC,
   translationsExt66GearOrderD,
   translationsExt66GearFix,
+  translationsExt67V503Shop,
   translationsExt62GuardsAfter,
   translationsExt62ClarityAfter,
   translationsExt62ClarityOrder,
