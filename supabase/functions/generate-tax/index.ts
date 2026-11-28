@@ -10,6 +10,7 @@
 
 import { corsResponse, jsonResponse, errorResponse } from '../_shared/cors.ts';
 import { getAdminClient, getUserClient } from '../_shared/supabase-client.ts';
+import { loadCompany } from '../_shared/company.ts';
 import type { TaxRequest, TaxResponse, TaxType } from '../_shared/types.ts';
 
 interface DphData {
@@ -268,13 +269,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return errorResponse(`Invalid type. Valid types: ${validTypes.join(', ')}`);
     }
 
-    // Načti DIČ firmy
-    const { data: companyVar } = await admin
-      .from('cms_variables')
-      .select('value')
-      .eq('key', 'company_dic')
-      .single();
-    const dic = (companyVar?.value as string) ?? Deno.env.get('COMPANY_DIC') ?? '';
+    // DIČ firmy = app_settings.company_info.dic (jediný zdroj provozovatele, _shared/company.ts).
+    // Neplátce DPH DIČ nemá → prázdné. Dřívější cms_variables.company_dic / secret COMPANY_DIC se nečtou.
+    const dic = (await loadCompany(admin)).dic || '';
 
     let responseData: TaxResponse;
 

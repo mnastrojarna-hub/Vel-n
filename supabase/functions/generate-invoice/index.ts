@@ -1079,7 +1079,7 @@ serve(async (req) => {
         component: 'generate-invoice',
         status: 'success',
         request_data: { type: invoiceType, order_id: order_id || null, booking_id: booking_id || null, regenerate: !!reuseInvoice, locked_by_final: lockedByFinal },
-        response_data: { number, pdf_path: path, fn_version: 'v2-customer-2026-06-04', customer: { name: customer.full_name || null, company: customer.company || null, ico: customer.ico || null, dic: customer.dic || null, street: customer.street || null } },
+        response_data: { number, pdf_path: path, fn_version: 'v3-issuer-2026-11-29', issuer: (() => { const i = issuerOf(invoice?.issuer_snapshot ? invoice : (reuseInvoice || invoice), COMPANY); return { name: i.name, ico: i.ico, from_snapshot: !!(invoice?.issuer_snapshot || reuseInvoice?.issuer_snapshot) } })(), customer: { name: customer.full_name || null, company: customer.company || null, ico: customer.ico || null, dic: customer.dic || null, street: customer.street || null } },
       })
     } catch { /* ignore */ }
 

@@ -121,7 +121,9 @@ function renderTopBanner($banner = null) {
     $label = $labels[$lang] ?? $labels['cs'];
     $esc = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_HTML5, 'UTF-8'); };
 
-    return '<div class="mg-topbanner" role="region" aria-label="' . $esc($label) . '" style="'
+    // data-nosnippet (česky): oznámení typu „v zimě je motopůjčovna zavřená“ je první text každé stránky —
+    // vyhledávač ho nemá brát do popisku ve výsledcích hledání (lidé ho na webu vidí dál beze změny).
+    return '<div class="mg-topbanner"' . ($lang === 'cs' ? ' data-nosnippet' : '') . ' role="region" aria-label="' . $esc($label) . '" style="'
         . 'background:' . $bg . ';color:' . $fg . ';'
         . 'font-family:Montserrat,\'Segoe UI\',sans-serif;font-weight:700;'
         . 'font-size:clamp(.75rem,.68rem + .4vw,.875rem);line-height:1.35;letter-spacing:.01em;'

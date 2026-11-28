@@ -13,22 +13,25 @@ $reviews = $sb->fetchPublicReviews(6);
 
 $defaults = [
     'seo' => [
-        'title' => 'Motopůjčovna a půjčovna motorek na Vysočině | MotoGo24',
-        'description' => 'Motopůjčovna na Vysočině – půjčte si motorku bez kauce, s výbavou v ceně a nonstop provozem. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-        'keywords' => 'motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, půjčit motorku, pronájem motorky, půjčovna motocyklů, motorka bez kauce, nonstop motopůjčovna, online rezervace motorky, cestovní motorky, enduro motorky, dětské motorky, MotoGo24',
+        // SEO 2026-11-28 (data Search Console): úvodní stránka = JEDINÁ celostátní stránka pro „půjčovna motorek“
+        // i „motopůjčovna“ — bez zúžení na kraj (to patří /motopujcovna-vysocina a /motopujcovna-brno).
+        // Znění = Velín (cms_variables web.home.*, migrace 20261128g). Po nasazení 8–12 týdnů NEMĚNIT.
+        'title' => 'Půjčovna motorek bez kauce | Motopůjčovna MotoGo24',
+        'description' => 'Půjč si motorku bez kauce a s výbavou pro řidiče v ceně. Motopůjčovna MotoGo24: pobočky Mezná u Pelhřimova a Velké Němčice u Brna, přistavení po celé ČR.',
+        'keywords' => 'půjčovna motorek, motopůjčovna, půjčovna motorek bez kauce, pronájem motorek, půjčení motorky, půjčovna motocyklů, online rezervace motorky',
         // og_image necháme na default v renderPage() — ten použije aktuální doménu
         'og_image' => null,
     ],
     'hero' => [
         'image' => 'gfx/hero-banner.jpg',
-        'alt' => 'Motopůjčovna a půjčovna motorek Vysočina',
-        'eyebrow' => '<strong>Motopůjčovna</strong> a <strong>půjčovna motorek</strong> na Vysočině',
-        'body' => 'Půjč si motorku na Vysočině snadno online.<br>Vyber si z cestovních, sportovních i enduro modelů.<br>Rezervace s platbou kartou a rychlým převzetím.',
+        'alt' => 'Půjčovna motorek MotoGo24',
+        'eyebrow' => '<strong>Motopůjčovna nové generace</strong>',
+        'body' => 'Pobočky na Vysočině a u Brna',
         'cta_primary' => ['label' => 'VYBER SI MOTORKU', 'href' => '/katalog', 'cls' => 'btngreen'],
         'cta_secondary' => ['label' => 'REZERVACE', 'href' => '/rezervace', 'cls' => 'btndark'],
     ],
-    'h1' => 'Motopůjčovna Vysočina Motogo24 – půjčovna motorek bez kauce a nonstop',
-    'intro' => 'Vítejte v <strong>Motogo24</strong> – vaší <strong>motopůjčovně</strong> a půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.',
+    'h1' => 'Půjčovna motorek bez kauce a s výbavou v ceně',
+    'intro' => '<strong>Půjč si motorku bez kauce a starostí – na Vysočině, u Brna nebo s přistavením kamkoli v Česku.</strong> V MotoGo24 máme <strong>automatizované interní procesy</strong>. Věříme v jasná pravidla, rychlost a předvídatelnost pro zákazníka. Celý pronájem řídí náš vlastní informační systém, který zajišťuje jednotný průběh každé rezervace i každé mimořádné situace. Výsledkem je <strong>služba</strong>, která <strong>odpovídá standardu velkých profesionálních společností</strong> – <strong>s výhodou osobního přístupu rodinné motopůjčovny</strong>.<div><br></div><div><strong>Hlavní benefity MotoGo24:</strong></div><div><ul><li>Jsme jediná půjčovna motorek v Česku s <strong>vlastní vymazlenou aplikací</strong> a <strong>věrnostním programem</strong>.</li><li>Motorku půjčíme <strong>každému nad 18 let s platným ŘP a bez omezení zkušeností</strong>.</li><li><strong>Pracujeme s přátelskou firemní filozofií a 100% smluvním krytím škod.</strong></li><li>U nás vyřídíš <strong>vše online 24/7</strong> z pohodlí domova.</li><li><strong>Nevybíráme žádnou kauci.</strong></li><li>Půjčujeme motorky s <strong>výbavou pro řidiče v ceně</strong>.</li><li><strong>Pokud máš vlastní motorku, můžeš si u nás samostatně půjčit výbavu</strong> (pobočka Mezná).</li><li>Neomezujeme najeté km, cesty do zahraničí ani mimo EU (stačí se řídit platností ZK).</li><li>Jsme <strong>největší motopůjčovna na Vysočině</strong>.</li><li>Nabízíme <strong>široký výběr modelů</strong> i <strong>značek</strong>.</li><li>Pobočka v Mezné sídlí na <strong>strategickém místě mezi Prahou a Brnem</strong> – snadno dostupném ze všech směrů.</li><li>Pohodlné zázemí motopůjčovny s <strong>převlékací kabinkou, toaletou, wifi a parkováním zdarma</strong> (pobočka Mezná).</li></ul></div>',
     'signposts_title' => 'Rychlý rozcestník po Motogo24',
     'signposts' => [
         ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],

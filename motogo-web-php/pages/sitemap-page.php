@@ -70,7 +70,9 @@ $links = [
     ['href' => '/dokumenty/zasady-ochrany-osobnich-udaju', 'label' => t('sitemap.links.gdpr')],
     ['href' => '/dokumenty/smlouva-o-pronajmu', 'label' => t('sitemap.links.contract')],
 ];
-$links = array_values(array_filter($links, function ($l) use ($smHasMotos) { return $smHasMotos($l['href']); }));
+// česky je /pujcovna-motorek 301 na úvodní stránku (index.php) — odkaz na ni už je první položkou
+$smCs = (function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') === 'cs';
+$links = array_values(array_filter($links, function ($l) use ($smHasMotos, $smCs) { return $smHasMotos($l['href']) && !($smCs && $l['href'] === '/pujcovna-motorek'); }));
 if (function_exists('webShopVisible') && webShopVisible()) $links[] = ['href' => '/eshop', 'label' => t('menu.shop')];
 $links[] = ['href' => '/partneri', 'label' => t('footer.partners')];
 // SEO stránky poboček (Motopůjčovna Brno / Vysočina) — existují jen česky

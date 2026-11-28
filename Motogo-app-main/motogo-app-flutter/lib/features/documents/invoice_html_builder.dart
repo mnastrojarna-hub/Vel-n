@@ -1,21 +1,16 @@
 import 'document_models.dart';
+import 'invoice_issuer_html.dart';
 
 /// Builds invoice HTML from DB data — unified design (1:1 with
 /// supabase/functions/generate-invoice/template.ts and velin/src/lib/invoiceTemplate.js).
+///
+/// Dodavatel (vystavitel) se NIKDY nepíše natvrdo: bere se z `issuer_snapshot`
+/// řádku dokladu (doklad vystavený dřív si nese původního provozovatele),
+/// jinak z `core/operator_info.dart` — viz `invoice_issuer.dart`.
 class InvoiceHtmlBuilder {
   InvoiceHtmlBuilder._();
 
   static const _logoUrl = 'https://motogo24.cz/gfx/logo-icon.png';
-
-  // Supplier info (matches COMPANY object from app_settings.company_info)
-  static const _company = 'Bc. Petra Semorádová';
-  static const _ic = '21874263';
-  static const _address = 'Mezná 9, 393 01 Pelhřimov';
-  static const _email = 'info@motogo24.cz';
-  static const _phone = '+420 774 256 271';
-  static const _web = 'www.motogo24.cz';
-  static const _bank = 'mBank';
-  static const _account = '670100-2225851630/6210';
 
   static String build(
     UserInvoice inv, {
@@ -75,6 +70,7 @@ class InvoiceHtmlBuilder {
     final subtotal = inv.subtotal ?? inv.items.fold<double>(0, (s, it) => s + it.lineTotal);
     final total = inv.total ?? subtotal;
 
+    final issuer = inv.issuer;
     final itemsHtml = _buildItemsRows(inv.items);
     final paymentBlock = _buildPaymentBlock(statusText, total, inv);
     final docNote = _buildDocNote(isProforma: isProforma, isPaymentReceipt: isPaymentReceipt, isCreditNote: isCreditNote, isShopFinal: isShopFinal);
@@ -122,11 +118,7 @@ class InvoiceHtmlBuilder {
         <td style="vertical-align:top;width:50%">
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:10px">DODAVATEL</div>
           <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:12px;line-height:1.7">
-            <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Název</td><td style="color:#0f1a14;font-weight:700">$_company</td></tr>
-            <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Adresa</td><td style="color:#0f1a14;font-weight:700">$_address</td></tr>
-            <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">IČO</td><td style="color:#0f1a14;font-weight:700">$_ic</td></tr>
-            <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">E-mail</td><td style="color:#0f1a14;font-weight:700">$_email</td></tr>
-            <tr><td style="color:#16a34a;padding-right:18px;vertical-align:top">Telefon</td><td style="color:#0f1a14;font-weight:700">$_phone</td></tr>
+            ${issuer.supplierRowsHtml}
           </table>
         </td>
         <td style="vertical-align:top;width:50%">
@@ -206,12 +198,7 @@ class InvoiceHtmlBuilder {
 
   <!-- FOOTER -->
   <div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6">
-    <strong style="color:#ffffff">$_company</strong>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>$_address
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: $_ic
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">$_phone</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">$_email</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">$_web</span>
+${issuer.footerHtml}
   </div>
 
 </div>
@@ -268,10 +255,7 @@ class InvoiceHtmlBuilder {
       <span style="color:#16a34a;font-weight:600">Uhrazeno online</span>
       <span style="color:#0f1a14;font-weight:700;font-variant-numeric:tabular-nums">${_fmtAmount(total)}</span>
     </div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0">
-      <span style="color:#16a34a;font-weight:600">Bankovní účet</span>
-      <span style="color:#0f1a14;font-weight:700">$_account</span>
-    </div>
+${inv.issuer.bankRowsHtml}
     ''';
   }
 

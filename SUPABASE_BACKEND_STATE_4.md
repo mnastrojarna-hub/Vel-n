@@ -5,6 +5,13 @@
 
 ## 5. TRIGGERY
 
+### Změna provozovatele — vystavitel dokladu (2026-11-29, `20261129a_invoices_issuer_snapshot.sql`, APLIKUJE AUTO-DEPLOY po merge)
+**Pořadí BEFORE INSERT triggerů na `invoices` (podle jména):** `trg_cap_refund_to_paid` → `trg_invoices_stamp_issuer`. Na sebe nezávislé.
+
+| Trigger | Tabulka | Funkce |
+|---|---|---|
+| `trg_invoices_stamp_issuer` | invoices (BEFORE INSERT, FOR EACH ROW) | **NEW 2026-11-29** — `invoices_stamp_issuer()` (SECURITY DEFINER, `search_path=public`): uloží do `issuer_snapshot` vystavitele dokladu (aktuální `app_settings.company_info`; dobropis dědí vystavitele opravovaného dokladu — pravidla ve STATE_2 / STATE_3). Migrace před založením triggeru jednorázově doplnila všechny dosavadní vydané doklady dosavadním provozovatelem a ověřila, že žádný nezůstal bez vystavitele (jinak se neprovede). `20261129b` (přepnutí `company_info`) se bez sloupce, triggeru a doplněných dokladů zastaví s chybou. |
+
 ### Platby, obnovení rezervace, hodnocení jízd a zprávy (2026-11-12, `20261112a01`–`a07`, `20261112c01`–`c03`, APLIKUJE AUTO-DEPLOY po merge)
 **Pořadí BEFORE triggerů na `bookings` po merge (PostgreSQL je spouští podle jména):** `_trg_guard_customer_booking_pricing` → `_trg_guard_customer_booking_status` → `bookings_updated_at` → `trg_a_customer_restore_guard` → `trg_booking_inherit_language` → `trg_booking_payment_fill_seconds` → `trg_bookings_own_gear_normalize` → `trg_bookings_rating_guard` → `trg_check_*` → … → `trg_protect_booking_mileage` → `trg_protect_card_rounding` → `trg_protect_handover_columns` → `trg_reset_card_rounding_on_reprice` → `trg_set_booking_branch` → … → `trg_zz_gear_booking_guard` → `trg_zzz_gear_lines_days` → `trg_zzzz_booking_refund_pickup_time`. Řádek vrácený jedním BEFORE triggerem dostane další jako NEW (vrátí-li `_trg_guard_customer_booking_pricing` OLD, ostatní strážci vidí nezměněný řádek).
 

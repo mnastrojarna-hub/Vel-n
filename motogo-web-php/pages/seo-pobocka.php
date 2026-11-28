@@ -114,7 +114,8 @@ $zipCity = preg_match('/(\d{3}\s?\d{2})\s+(.+)$/u', $addr, $am) ? [$am[1], $am[2
 $biz = array_filter([
     '@type' => ['LocalBusiness', 'AutomotiveBusiness'],
     '@id' => siteCanonicalUrl($P['path']) . '#branch',
-    'name' => 'MotoGo24 — ' . $h1Plain,
+    // název = skutečná pobočka (pravidla Googlu pro LocalBusiness: skutečné jméno provozovny, ne klíčová fráze z H1)
+    'name' => 'MotoGo24 – pobočka ' . trim(strip_tags((string)($br['title'] ?? $h1Plain))),
     'url' => siteCanonicalUrl($P['path']),
     'telephone' => PHONE,
     'parentOrganization' => ['@id' => siteOrigin() . '/#organization'],

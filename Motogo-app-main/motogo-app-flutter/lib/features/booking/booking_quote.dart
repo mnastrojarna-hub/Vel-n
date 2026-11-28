@@ -9,20 +9,25 @@ import 'price_calculator.dart';
 /// bez přistavení, bez slev kromě věrnostní) — rezervační formulář pak ukáže
 /// stejnou částku. [pickupTime] null = výchozí návrh (bez slevy 1. dne),
 /// '12:00' = vyzvednutí od poledne (sleva 50 % na 1. den, ≥ 2 dny).
+/// [pickupDeliveryFee] / [returnDeliveryFee] = přistavení a odvoz zvolené
+/// v kalkulačce (2026-11-27) — stejná pole, která formulář dává ze svých
+/// providerů; výchozí 0 = dosavadní chování.
 PriceBreakdown quoteFor(
   Motorcycle moto,
   DateTime start,
   DateTime end, {
   String? pickupTime,
   LoyaltyStatus? loyalty,
+  double pickupDeliveryFee = 0,
+  double returnDeliveryFee = 0,
 }) =>
     PriceCalculator.calculate(
       prices: moto.prices,
       startDate: start,
       endDate: end,
       extras: const [],
-      pickupDeliveryFee: 0,
-      returnDeliveryFee: 0,
+      pickupDeliveryFee: pickupDeliveryFee,
+      returnDeliveryFee: returnDeliveryFee,
       discounts: const [],
       loyaltyPercent: loyalty?.percent ?? 0,
       loyaltyLevel: loyalty?.level ?? 0,

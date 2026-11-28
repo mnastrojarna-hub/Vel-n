@@ -25,20 +25,23 @@ import 'calc_parts_v2.dart';
 import 'calc_receipt_v2.dart';
 import 'calc_state.dart';
 import 'calc_step_dates_v2.dart';
+import 'calc_step_handover_v2.dart';
 import 'calc_step_moto_v2.dart';
 import 'calc_sticky_v2.dart';
 import 'calc_total_v2.dart';
 
 /// The v2 price calculator — Motorky tab, mode "Spočítat cenu" (PLAN
 /// §2.2.4, NEW, light steps + one dark total, V22 §2.4): ① pobočka,
-/// ② motorka, ③ termín, ④ předání (info only), receipt + total.
+/// ② motorka, ③ termín, ④ předání (place: branch / delivery to an address,
+/// owner 2026-11-27 — `calc_step_handover_v2.dart`), receipt + total.
 /// Prices = `quoteFor` (the booking form's own calculation for a fresh
-/// draft, standard pickup); the 12:00 half-day saving is information only
-/// (owner 2026-10-22: no time choice before the form). REZERVOVAT =
-/// `startBookingFromSelection` (PM-3) with the same bike and dates — the
-/// pickup time is chosen in the booking form. While that REZERVOVAT is
-/// enabled but scrolled away, the Motorky page shows it in a sticky dock
-/// (`calc_sticky_v2.dart`, the same handler).
+/// draft, standard pickup, plus the delivery fees of step ④); the 12:00
+/// half-day saving is information only (owner 2026-10-22: no time choice
+/// before the form). REZERVOVAT = `startBookingFromSelection` (PM-3) with
+/// the same bike, dates and handover — the pickup time is chosen in the
+/// booking form. While that REZERVOVAT is enabled but scrolled away, the
+/// Motorky page shows it in a sticky dock (`calc_sticky_v2.dart`, the same
+/// handler).
 class CalcBodyV2 extends ConsumerStatefulWidget {
   const CalcBodyV2({super.key});
 
@@ -128,13 +131,17 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> with CalcStickyTracker 
     }
 
     final hasPrices = moto != null && (moto.prices?.cheapest ?? 0) > 0;
+    // Step ④: the place of the handover and its fees (the form's rules).
+    final hv = moto == null ? null : calcHandoverView(ref, st, moto, tr.lang);
     CalcStickyData? sticky;
     Widget result;
     if (moto == null && st.hasRange) {
       result = CalcFreeListV2(st: st, onShowAll: () => _showFree(st));
-    } else if (moto != null && st.hasRange && hasPrices) {
-      final q = quoteFor(moto, st.start!, st.end!, loyalty: loyalty);
-      final q12 = quoteFor(moto, st.start!, st.end!, pickupTime: '12:00', loyalty: loyalty);
+    } else if (moto != null && hv != null && st.hasRange && hasPrices) {
+      final pf = hv.shown.pickupDue, rf = hv.shown.returnDue;
+      final q = quoteFor(moto, st.start!, st.end!, loyalty: loyalty, pickupDeliveryFee: pf, returnDeliveryFee: rf);
+      final q12 = quoteFor(moto, st.start!, st.end!,
+          pickupTime: '12:00', loyalty: loyalty, pickupDeliveryFee: pf, returnDeliveryFee: rf);
       final loading = booked != null && !booked.hasValue && !booked.hasError;
       final failed = booked != null && booked.hasError;
       final blocked = loading
@@ -145,8 +152,19 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> with CalcStickyTracker 
                   ? tr.tr('v2CalcRangeBusy')
                   : null;
       final m = moto;
-      void book() => startBookingFromSelection(context, ref, m, st.start!, st.end!);
-      if (blocked == null) sticky = CalcStickyData(moto: m, start: st.start!, end: st.end!, total: q.total, onBook: book);
+      final note = hv.missingAddressKey == null ? null : tr.tr(hv.missingAddressKey!);
+      // A place chosen here goes to the form with the bike and dates (read
+      // at the tap — the sticky dock keeps this handler); from then on the
+      // booking draft holds it and step ④ shows the draft's.
+      void book() {
+        final own = calcOwnHandover(ref.read(calcStateProvider), m);
+        startBookingFromSelection(context, ref, m, st.start!, st.end!, handover: own);
+        n.clearHandover();
+      }
+
+      if (blocked == null) {
+        sticky = CalcStickyData(moto: m, start: st.start!, end: st.end!, total: q.total, onBook: book, note: note);
+      }
       result = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         MgEnter(trigger: '${m.id}${st.start}${st.end}', child: CalcReceiptV2(moto: m, start: st.start!, end: st.end!, q: q)),
         const SizedBox(height: 12),
@@ -157,6 +175,7 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> with CalcStickyTracker 
           loyaltyFailed: loyaltyAsync.hasError,
           onRetryLoyalty: () => ref.invalidate(loyaltyStatusProvider),
           blockedReason: blocked,
+          note: note,
           ctaKey: stickyCtaKey,
           onBook: blocked != null ? null : book,
         ),
@@ -231,12 +250,13 @@ class _CalcBodyV2State extends ConsumerState<CalcBodyV2> with CalcStickyTracker 
         const SizedBox(height: 12),
         CalcStepCardV2(
           n: 4,
-          // Info only (owner 2026-10-22): the pickup time — and with it the
-          // 12:00 half-day saving — is chosen in the booking form; an "i"
-          // tile, never a step that looks done or pending.
-          info: true,
+          // The place is chosen here (owner 2026-11-27); "na pobočce" is a
+          // valid choice, delivery is done once it has its address. The
+          // pickup time — and with it the 12:00 half-day saving — stays in
+          // the booking form (owner 2026-10-22).
+          done: hv != null && hv.missingAddressKey == null,
           title: tr.tr('v2CalcStepHandover'),
-          child: CalcHint(tr.tr('v2LpCalcHandover')),
+          child: CalcStepHandoverV2(moto: moto, st: st, view: hv),
         ),
         const SizedBox(height: 16),
         result,

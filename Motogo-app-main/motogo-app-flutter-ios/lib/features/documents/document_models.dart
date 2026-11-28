@@ -1,3 +1,5 @@
+import 'invoice_issuer.dart';
+
 /// Document from Supabase documents table.
 /// DB columns: id, booking_id, user_id, type, file_path, file_name, file_size, created_at
 class UserDocument {
@@ -75,6 +77,10 @@ class UserInvoice {
   final DateTime createdAt;
   final List<InvoiceItem> items;
 
+  /// `invoices.issuer_snapshot` (jsonb) — vystavitel dokladu v okamžiku
+  /// vystavení, syrová hodnota z DB (null = sloupec chybí / nevyplněno).
+  final Object? issuerSnapshot;
+
   const UserInvoice({
     required this.id,
     this.number,
@@ -92,6 +98,7 @@ class UserInvoice {
     this.dueDate,
     required this.createdAt,
     this.items = const [],
+    this.issuerSnapshot,
   });
 
   factory UserInvoice.fromJson(Map<String, dynamic> json) {
@@ -121,8 +128,13 @@ class UserInvoice {
       dueDate: json['due_date'] != null ? DateTime.parse(json['due_date'] as String) : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       items: itemsList,
+      issuerSnapshot: json['issuer_snapshot'],
     );
   }
+
+  /// Kdo je na dokladu dodavatel: uložený vystavitel, jinak dnešní
+  /// provozovatel. Už vystavený doklad se tím nikdy „nepřepíše".
+  InvoiceIssuer get issuer => InvoiceIssuer.resolve(issuerSnapshot);
 
   /// i18n klíč typu dokladu (číslo dokladu má v UI přednost). Doklady samy
   /// zůstávají česky (daňové doklady), překládá se jen popisek v appce.

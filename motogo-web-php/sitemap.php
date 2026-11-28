@@ -30,6 +30,8 @@ function sitemapAlternates($path) {
     foreach (I18N_SUPPORTED as $code) {
         // SEO: hreflang odkazy jen na zive domeny — viz I18N_HREFLANG_LIVE.
         if (isset($live[$code]) && $live[$code] === false) continue;
+        // /pujcovna-motorek česky neexistuje (301 na úvodní stránku, index.php) → bez české alternativy
+        if ($code === 'cs' && $path === '/pujcovna-motorek') continue;
         $href = i18nUrlForLang($code, $path);
         $out .= '    <xhtml:link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '"/>' . "\n";
     }
@@ -113,6 +115,8 @@ echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
 
 // Statické stránky
 foreach ($static as $s) {
+    // česká doména: /pujcovna-motorek je 301 na úvodní stránku → do sitemapy nepatří
+    if ($primaryLang === 'cs' && $s['loc'] === '/pujcovna-motorek') continue;
     echo sitemapEntry($base, $s['loc'], $s['changefreq'], $s['priority'], $today);
 }
 

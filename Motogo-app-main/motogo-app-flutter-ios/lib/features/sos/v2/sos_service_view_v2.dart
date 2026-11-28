@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/i18n/i18n_provider.dart';
+import '../../../core/operator_info.dart';
 import '../../../core/v2/icons/mg_icon.dart';
 import '../../../core/v2/tokens/mg_colors.dart';
 import '../../../core/v2/tokens/mg_type.dart';
@@ -83,9 +84,9 @@ class SosServiceViewV2 extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${tr.tr('invoiceDetails')}:', style: MgType.micro.copyWith(fontSize: 12, color: MgColors.onDarkLead)),
                   const SizedBox(height: 2),
-                  Text('Bc. Petra Semorádová', style: MgType.title.copyWith(fontSize: 13.5, color: MgColors.onDark)),
-                  Text('IČO: 21874263 · neplátce DPH', style: meta),
-                  Text('Mezná 9, 393 01 Pelhřimov', style: meta),
+                  Text(OperatorInfo.name, style: MgType.title.copyWith(fontSize: 13.5, color: MgColors.onDark)),
+                  Text(OperatorInfo.icoVatLine, style: meta),
+                  Text(OperatorInfo.seat, style: meta),
                 ]),
               )),
           SosStepV2(tr.tr('v2UxAsmService4T'), icon: MgIcons.share, text: tr.tr('serviceStep4Desc'), action: upload),

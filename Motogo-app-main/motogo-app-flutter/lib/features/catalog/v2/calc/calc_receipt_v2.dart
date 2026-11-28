@@ -7,14 +7,17 @@ import '../../../../core/v2/tokens/mg_colors.dart';
 import '../../../../core/v2/tokens/mg_shadows.dart';
 import '../../../../core/v2/tokens/mg_type.dart';
 import '../../../booking/booking_models.dart';
+import '../../../booking/v2/booking_v2_parts.dart' show bkNb, bkNbAmounts;
+import '../../../booking/v2/sections/price_v2.dart' show BookingPriceV2;
 import '../../moto_model.dart';
 import '../catalog_text.dart';
 
 /// White receipt of the calculator (board `.rc`): dates + days chip, one bar
-/// per day (≤ 31, labels ≤ 10 days), rows grouped by day price, the ½ row,
-/// the loyalty row and the total — every number from the given
-/// `PriceBreakdown` (`quoteFor`, same as `/booking`) and the bike's day
-/// prices. Display only.
+/// per day (≤ 31, labels ≤ 10 days), rows grouped by day price, the
+/// delivery / collection rows of step ④ (the booking form's own labels and
+/// order: after the rental, before the discounts), the ½ row, the loyalty
+/// row and the total — every number from the given `PriceBreakdown`
+/// (`quoteFor`, same as `/booking`) and the bike's day prices. Display only.
 class CalcReceiptV2 extends StatelessWidget {
   final Motorcycle moto;
   final DateTime start;
@@ -63,9 +66,10 @@ class CalcReceiptV2 extends StatelessWidget {
         const SizedBox(height: 8),
         Text.rich(TextSpan(children: [
           TextSpan(text: '${tr.tr('v2CalPickup')} ', style: MgType.small.copyWith(color: MgColors.lead)),
-          TextSpan(text: tripShortDate(tr, start), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+          // A date never splits ("ne 6. | 12." on a 320 dp phone).
+          TextSpan(text: bkNb(tripShortDate(tr, start)), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
           TextSpan(text: '  →  ${tr.tr('v2CalReturn')} ', style: MgType.small.copyWith(color: MgColors.lead)),
-          TextSpan(text: tripShortDate(tr, end), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
+          TextSpan(text: bkNb(tripShortDate(tr, end)), style: MgType.small.copyWith(fontWeight: FontWeight.w800, color: MgColors.ink)),
         ])),
         if (days.length <= 31) ...[
           const SizedBox(height: 14),
@@ -88,10 +92,13 @@ class CalcReceiptV2 extends StatelessWidget {
           ),
         const Divider(height: 16, color: MgColors.line),
         _row(tr.trArgs('v2DetBreakRent', {'days': catDays(tr, q.days)}), catMoney(q.basePrice), strong: true),
+        if (q.pickupDeliveryFee > 0) _fee(tr.tr('deliveryFee'), q.pickupDeliveryFee),
+        if (q.returnDeliveryFee > 0) _fee(tr.tr('returnFee'), q.returnDeliveryFee),
         if (q.latePickupDiscount > 0) _row(tr.tr('v2CalcLateRow'), '−${catMoney(q.latePickupDiscount)}', minus: true),
         if (q.loyaltyDiscount > 0)
           _row(
-            tr.trArgs('v2DetBreakLoyalty', {'rank': q.loyaltyRankName ?? '', 'pct': q.loyaltyPercent}),
+            // "3 %" stays together.
+            tr.trArgs('v2DetBreakLoyalty', {'rank': q.loyaltyRankName ?? '', 'pct': q.loyaltyPercent}).replaceAll(' %', '\u00A0%'),
             '−${catMoney(q.loyaltyDiscount)}',
             minus: true,
           ),
@@ -104,6 +111,11 @@ class CalcReceiptV2 extends StatelessWidget {
       ]),
     );
   }
+
+  /// Delivery / collection row with the form's label "(N km × 40 + 1 000)";
+  /// the amount in it never splits across lines.
+  Widget _fee(String name, double fee) =>
+      _row(bkNbAmounts(BookingPriceV2.deliveryLabel(name, fee)), '+${catMoney(fee)}');
 
   Widget _row(String l, String v, {bool strong = false, bool minus = false, bool total = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),

@@ -37,6 +37,11 @@ function menuBranchChildren() {
     return $items;
 }
 
+/** Cíl položky „Půjčovna motorek“: česky úvodní stránka (viz index.php), jinde stránka půjčovny. */
+function mgRentalRoute() {
+    return (function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') === 'cs' ? '/' : '/pujcovna-motorek';
+}
+
 function getMenuItems() {
     return array_merge([
         // "Vyber si stroj" = katalog. Menu-popisek `menu.catalogShort` je oddělený
@@ -55,7 +60,10 @@ function getMenuItems() {
             ['label' => tc('menu.howto.delivery'), 'route' => '/jak-pujcit/pristaveni'],
             ['label' => tc('menu.howto.documents'), 'route' => '/jak-pujcit/dokumenty'],
             ['label' => tc('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
-            ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
+            // Česky vede „Půjčovna motorek“ na ÚVODNÍ stránku (SEO 2026-11-28): /pujcovna-motorek se česky
+            // 301 přesměrovává na / (index.php) — odkaz s přesným zněním hlavní fráze z každé stránky má
+            // mířit na jedinou stránku, která na ni cílí. Cizí jazyky mají stránku dál.
+            ['label' => tc('menu.rental'), 'route' => mgRentalRoute()],
         ]],
         // Pobočky (majitel 2026-11-26: místo zrušených Oblastí) — podmenu s oběma
         // pobočkami a SEO stránkami „Motopůjčovna Brno / Vysočina“ (jen česky).
@@ -622,7 +630,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "@type": ["LocalBusiness", "AutomotiveBusiness", "Organization"],
         "@id": "' . $siteOrigin . '/#organization",
         "name": ' . $ldStr(t('ld.orgName')) . ',
-        "alternateName": ["MotoGo24","Motogo24 Pelhřimov","Motopůjčovna MotoGo24","Motopůjčovna Vysočina","Motopůjčovna Pelhřimov","Půjčovna motorek Vysočina","MotoGo24 motorcycle rental"],
+        "alternateName": ' . ($lang === 'cs' ? '["Motopůjčovna MotoGo24","Půjčovna motorek MotoGo24","Motogo24","MotoGo24 motorcycle rental"]' : '["MotoGo24","Motogo24 Pelhřimov","Motopůjčovna MotoGo24","Motopůjčovna Vysočina","Motopůjčovna Pelhřimov","Půjčovna motorek Vysočina","MotoGo24 motorcycle rental"]') . ',
         "legalName": ' . $ld['legalName'] . ',
         "description": ' . $ldStr(t('seo.org.description')) . ',
         "slogan": ' . $ldStr(t('seo.org.slogan')) . ',
@@ -636,7 +644,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "currenciesAccepted": "CZK",
         "paymentAccepted": "Credit Card, Debit Card, Apple Pay, Google Pay, Bank Transfer",
         "knowsLanguage": ["cs","en","de","es","fr","nl","pl","uk"],
-        "keywords": ' . ($lang === 'cs' ? '"motopůjčovna, motopůjčovna Vysočina, motopůjčovna Pelhřimov, půjčovna motorek, půjčovna motorek Vysočina, pronájem motorek, půjčovna motocyklů, motorka bez kauce, MotoGo24"' : $ldStr(t('seo.default.keywords') . ', MotoGo24')) . ',
+        "keywords": ' . ($lang === 'cs' ? '"půjčovna motorek, motopůjčovna, pronájem motorek, půjčovna motocyklů, půjčení motorky, motorka bez kauce, motopůjčovna Vysočina, motopůjčovna Brno, MotoGo24"' : $ldStr(t('seo.default.keywords') . ', MotoGo24')) . ',
         "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
         "geo": {"@type":"GeoCoordinates","latitude":49.3464,"longitude":15.2119}' . $ld['department'] . ',
         "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
@@ -666,7 +674,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "@type": "WebSite",
         "@id": "' . $siteOrigin . '/#website",
         "url": "' . $siteOrigin . '",
-        "name": ' . $ldStr(t('ld.orgName')) . ',
+        "name": ' . $ldStr(t('ld.orgName')) . ',' . ($lang === 'cs' ? '
+        "alternateName": ["Motopůjčovna MotoGo24","Půjčovna motorek MotoGo24"],' : '') . '
         "inLanguage": "' . htmlspecialchars($htmlLang) . '",
         "publisher": {"@id":"' . $siteOrigin . '/#organization"},
         "potentialAction": {"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . $lp('/katalog') . '?q={search_term_string}"},"query-input":"required name=search_term_string"}

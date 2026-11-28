@@ -72,7 +72,8 @@ return [
         'paragraphs' => [
             'MotoGo24 je <strong>motopůjčovna pro Brno a celou jižní Moravu</strong>. Na samoobslužné pobočce ve Velkých Němčicích si půjčíš motorku bez kauce a bez čekání na obsluhu — rezervaci i platbu vyřídíš online a <strong>pronájem motorky</strong> začne ve chvíli, kterou si sám zvolíš.',
             '<strong>Půjčení motorky u Brna</strong> se hodí na den, na víkend i na delší cestu – kilometry neomezujeme a vyrazit můžeš i do zahraničí (v rámci zelené karty). Pobočka leží mezi Židlochovicemi a Hustopečemi, 20 minut od jižního okraje Brna.',
-            'Jedeš z Vysočiny nebo z Prahy? Vyzkoušej naši obslužnou pobočku — <a href="/motopujcovna-vysocina">motopůjčovna Vysočina v Mezné u Pelhřimova</a>, kde ti motorku předáme osobně.',
+            // + odkaz na úvodní stránku s hlavní frází v textu (SEO 2026-11-28: krajské stránky odkazují „nahoru“ na celostátní)
+            'Jedeš z Vysočiny nebo z Prahy? Vyzkoušej naši obslužnou pobočku — <a href="/motopujcovna-vysocina">motopůjčovna Vysočina v Mezné u Pelhřimova</a>, kde ti motorku předáme osobně. Přehled obou poboček, všech motorek a podmínek najdeš na úvodní stránce <a href="/">půjčovny motorek MotoGo24</a>.',
         ],
     ],
 ];

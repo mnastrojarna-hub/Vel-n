@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../../core/friendly_error.dart';
+import '../../core/operator_info.dart';
 import '../../core/widgets/error_feedback.dart' show openFixSettings;
 import '../auth/widgets/toast_helper.dart';
 import 'document_camera_screen.dart';
@@ -28,9 +29,9 @@ import 'v2/scan_choice_v2.dart';
 import 'v2/scan_choice_text_v2.dart';
 import 'v2/scan_states_v2.dart';
 
-// Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
-const String _kSupportPhone = '+420 774 256 271';
-const String _kSupportEmail = 'info@motogo24.cz';
+// Kontakt provozovatele — jediný zdroj core/operator_info.dart.
+const String _kSupportPhone = OperatorInfo.phone;
+const String _kSupportEmail = OperatorInfo.email;
 
 // Počet povolených neúspěšných pokusů na jedné straně dokladu.
 const int _kMaxAttemptsPerStep = 3;
