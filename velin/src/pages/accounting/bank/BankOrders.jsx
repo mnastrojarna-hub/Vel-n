@@ -9,7 +9,7 @@ import { fmtMoney, fmtDateTime, shortId } from './bankFormat'
 const STATE = {
   pending: { label: 'Čeká na odeslání', color: '#b45309', bg: '#fef3c7' },
   submitted: { label: 'Odesláno bance', color: '#1a8a18', bg: '#dcfce7' },
-  failed: { label: 'Selhalo — vraťte ručně', color: '#dc2626', bg: '#fee2e2' },
+  failed: { label: 'Selhalo', color: '#dc2626', bg: '#fee2e2' },
 }
 
 // Platební příkazy (vratky) — příkazy k úhradě podané bance automaticky při vratce (fio_payment_orders).
@@ -59,7 +59,7 @@ export default function BankOrders({ tick }) {
                 <TD>
                   <Badge label={st.label} color={st.color} bg={st.bg} />
                   {o.submitted_at && <div className="mt-1" style={{ fontSize: 12, color: '#4a6357' }}>odesláno {fmtDateTime(o.submitted_at)}</div>}
-                  {o.error && <div className="mt-1" style={{ fontSize: 12, color: '#dc2626', maxWidth: 260, overflowWrap: 'anywhere' }}>{o.error}</div>}
+                  {o.status === 'failed' && <div className="mt-1 max-lg:ml-auto" style={{ fontSize: 12, color: '#dc2626', maxWidth: 260, overflowWrap: 'anywhere' }}>{o.error ? o.error + ' — ' : ''}vratku pošlete ručně (viz detail rezervace).</div>}
                 </TD>
                 <TD mono>{o.fio_instruction_id || '—'}</TD>
                 <TD mono>{o.credit_note_number || '—'}</TD>

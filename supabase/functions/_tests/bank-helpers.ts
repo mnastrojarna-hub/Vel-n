@@ -9,7 +9,9 @@ import { LooseDb, stubFetch } from './gear-fake.ts'
 
 export type Row = Record<string, any>
 export const MAPPED = (() => { try { return import.meta.resolve('https://esm.sh/@supabase/supabase-js@2').startsWith('file:') } catch { return false } })()
-export const FN = new URL('../', import.meta.url).href
+/** Kořen testovaných funkcí; STORNO_FN_DIR=<…/supabase/functions> pustí tytéž testy proti jinému stromu. */
+const fnDir = Deno.env.get('STORNO_FN_DIR')
+export const FN = fnDir ? `file://${fnDir.replace(/\/$/, '')}/` : new URL('../', import.meta.url).href
 export const SB = 'https://fake.supabase.test'
 export const SVC = 'svc-bank-test'
 if (MAPPED) {

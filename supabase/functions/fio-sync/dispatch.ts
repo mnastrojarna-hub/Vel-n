@@ -112,8 +112,10 @@ export async function dispatch(ctx: Ctx, p: Tx): Promise<Outcome> {
   }
 
   // Drobné příchozí položky bez VS (úroky apod.) nespamují — mail jen
-  // když platba nese VS nebo je na „zákaznickou" částku.
-  if (vs || p.amount >= 50) {
+  // když platba nese VS nebo je na „zákaznickou" částku. S novým SQL navíc ne u pohybů starších
+  // 3 dnů (první stažení s novým tokenem / dohledání období nesmí zaplavit schránku; ve Velínu jsou vidět).
+  const stale = caps.state && Date.parse(String(p.tx_date)) < (env.now ? env.now() : Date.now()) - 3 * 86400_000
+  if ((vs || p.amount >= 50) && !stale) {
     await notifyUnmatched(env, p, caps.state
       ? 'Platbu se nepodařilo spárovat (chybí nebo nesedí variabilní symbol) — sama se NEpotvrdí. Ve Velíně (Finance → Banka) uvidíte návrh nejpravděpodobnější rezervace / objednávky a potvrdíte ji jedním kliknutím, nebo platbu vraťte.'
       : 'Platba se nepodařilo spárovat s žádnou rezervací — zkontrolujte a případně potvrďte/vraťte ručně.')

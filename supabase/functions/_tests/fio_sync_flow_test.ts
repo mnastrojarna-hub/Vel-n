@@ -176,6 +176,11 @@ T('bez VS / špatný VS / cizí měna: NIKDY se nepotvrdí — no_match s důvod
     eq(rpcs(w.db, 'confirm_payment').length, 0)
     eq(w.db.rows('bookings')[0].payment_status, 'unpaid')
     eq(w.n.mails.length, 3, 'e-mail za 550, 551, 553 — ne za 12,50 Kč bez VS')
+    // starý pohyb (první stažení s novým tokenem / dohledání období): zapíše se, ale schránku nezaplaví
+    clock.t += 60_000
+    give(w, [fioTx(554, 3000, { vs: '10000998', date: '2026-11-20+0100' })])
+    await sync(w.db)
+    eq([tx(w.db, 554).status, w.n.mails.length], ['no_match', 3])
   } finally { w.n.restore() }
 })
 

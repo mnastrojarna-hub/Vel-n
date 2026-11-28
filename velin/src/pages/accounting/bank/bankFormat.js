@@ -112,26 +112,29 @@ export const fmtDateTime = (iso) => (iso
   : '—')
 export const shortId = (id) => String(id || '').slice(-8).toUpperCase()
 
-function span(ms) {
+export function daysWord(n) { const a = Math.abs(n); return a === 1 ? 'den' : a >= 2 && a <= 4 ? 'dny' : 'dní' }
+// „za“ se pojí se 4. pádem (1 den, 2–4 dny, 5+ dní), „před“ se 7. pádem (1 dnem, 2+ dny)
+function span(ms, past) {
   const s = Math.max(0, Math.round(ms / 1000))
   if (s < 90) return `${s} s`
   const m = Math.round(s / 60)
   if (m < 90) return `${m} min`
   const h = Math.floor(m / 60)
   if (h < 48) return m % 60 && h < 6 ? `${h} h ${m % 60} min` : `${h} h`
-  return `${Math.round(h / 24)} dny`
+  const d = Math.round(h / 24)
+  return `${d} ${past ? (d === 1 ? 'dnem' : 'dny') : daysWord(d)}`
 }
 /** „před 40 s“ / „před 5 min“ / „před 3 h“ / „před 4 dny“. */
 export function fmtAgo(iso, now = Date.now()) {
   const t = Date.parse(iso || '')
   if (!Number.isFinite(t)) return '—'
-  return now - t < 5000 ? 'právě teď' : `před ${span(now - t)}`
+  return now - t < 5000 ? 'právě teď' : `před ${span(now - t, true)}`
 }
-/** „za 35 min“ / „za 3 h 20 min“ / „za 2 dny“; po lhůtě „vypršelo před …“. */
+/** „za 35 min“ / „za 3 h 20 min“ / „za 6 dní“; po lhůtě „vypršelo před …“. */
 export function fmtUntil(iso, now = Date.now()) {
   const t = Date.parse(iso || '')
   if (!Number.isFinite(t)) return '—'
-  return t >= now ? `za ${span(t - now)}` : `vypršelo před ${span(now - t)}`
+  return t >= now ? `za ${span(t - now, false)}` : `vypršelo před ${span(now - t, true)}`
 }
 /** Počet dní ode dneška do data (YYYY-MM-DD); záporné = po termínu, null = datum neznámé. */
 export function daysUntil(dateStr, now = new Date()) {
@@ -141,6 +144,5 @@ export function daysUntil(dateStr, now = new Date()) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   return Math.round((d - today) / 86400000)
 }
-export const daysWord = (n) => (Math.abs(n) === 1 ? 'den' : Math.abs(n) >= 2 && Math.abs(n) <= 4 ? 'dny' : 'dní')
 export const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 export const sameIban = (a, b) => String(a || '').replace(/\s+/g, '').toUpperCase() === String(b || '').replace(/\s+/g, '').toUpperCase()

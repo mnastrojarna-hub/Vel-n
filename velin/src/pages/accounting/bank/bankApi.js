@@ -75,7 +75,7 @@ async function normalizeOverview(o) {
   const state = o.state || {}
   let companyIban = o.company_iban || null
   let company = null
-  try { company = await loadCompanyInfo() } catch { /* záložní údaje řeší lib/company */ }
+  try { company = await loadCompanyInfo() } catch { /* loadCompanyInfo nevyhazuje; pojistka */ }
   if (!companyIban) companyIban = company?.bank_iban || null
   const match = typeof o.account_match === 'boolean' ? o.account_match
     : (state.account_iban && companyIban ? sameIban(state.account_iban, companyIban) : null)
