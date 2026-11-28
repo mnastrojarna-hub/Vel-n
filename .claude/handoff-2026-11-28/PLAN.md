@@ -10,7 +10,7 @@ Stav k 28. 11. 2026 ráno, větev `claude/moto-go-mobile-conversion-gqg5qo`. Tat
 ## Rozpracováno (priorita v tomto pořadí)
 
 ### 1. Appka 5.0.3 — dokončit a předat „k buildu“
-- Nový provozovatel v appce: kód hotový (`lib/core/operator_info.dart`, faktury ze `issuer_snapshot`, karta SOS), analyze 141 / 0 chyb. Ověřit celou sadu testů (Android + iOS kopie mimo repo).
+- Nový provozovatel v appce: kód hotový (`lib/core/operator_info.dart`, faktury ze `issuer_snapshot`, karta SOS), analyze 141 / 0 chyb; celá Android sada 28. 11. zelená (7589 prošlo, 0 chyb, vč. rozpracované kalkulačky). Zbývá iOS kopie mimo repo.
 - Kalkulačka s přistavením (Motorky → Spočítat cenu → krok ④): rozpracováno (`lib/features/catalog/v2/calc/calc_step_handover_v2.dart`, `core/booking_address_carry.dart`, `booking_quote.dart`, `booking_entry.dart`, `booking/v2/booking_carry_v2.dart`, `translations_ext_68_calc_delivery.dart`, test `test/v2/screens/calc_delivery_widget_test.dart`). Zadání: `calc/design.md` (APP sekce) + `calc/delivery_rules.md`. Rozhodnutí: pravidla 1:1 s rezervačním formulářem appky, ne na detailu motorky, při <6 h jen upozornění, přenos do rezervace přes `startBookingFromSelection`.
 - Pak: plná sada testů Android + iOS kopie, `diff -rq` = 20, snímky, DESIGN_V22.md 5.0.3 řádek ke kalkulačce, majiteli „k buildu“. Po vydání v obou obchodech zvednout povinnou verzi (starší verze ukazují starého provozovatele na nových fakturách).
 - Otázky majiteli k 5.0.3 (nezodpovězeno, výchozí = nechat): Rezervovat i na Domů; „Nová rezervace“ místo CTA v prázdném stavu; fotky e-shopu celé vs ořez; starý vzhled kalendáře. Úvodní animace při každém startu → jen poprvé? (`mg_intro_shown` do keep-listu v `cache_cleanup_service.dart`).
