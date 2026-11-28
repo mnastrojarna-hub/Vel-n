@@ -2,6 +2,11 @@
 
 Stav k 28. 11. 2026 ráno, větev `claude/moto-go-mobile-conversion-gqg5qo`. Tato složka je dočasná (předávka) — po dokončení smazat.
 
+## Stav nasazení 28. 11. 2026 ráno
+- Majitel sloučil větev (PR #2237 v 08:34, #2238 v 08:47 CET). SQL deploy zelený → naostro: skútry na ŘP B (`20261128f`), SEO úvodní stránka (`20261128g`), nový provozovatel (`20261129a–f`).
+- Deploy edge funkcí z #2237 SPADL (GitHub rate limit při stahování Supabase CLI, ne chyba kódu) → 28. 11. spuštěn znovu ručně (workflow_dispatch na main). Ověřit, že doběhl zeleně; kdyby padal opakovaně, zvážit pevnou verzi CLI v `deploy-functions.yml` místo `latest`.
+- Majitel nahrál 3 nová PDF e-shopu (28. 11.). Zbývá od něj: Ctrl+F5 Velín, přeložit VOP/smlouvu/GDPR/protokoly + dotčené texty/FAQ, nahrát web podle seznamu (poslán 28. 11.), Search Console „Požádat o indexování“ + „Ověřit opravu“.
+
 ## Hotovo a čeká jen na majitele
 - **Merge větve do main** (majitel): nasadí schválená SQL `20261128f` (skútry na ŘP B), `20261128g` (SEO úvodní stránka), `20261129a–f` (nový provozovatel MotoGo24 s.r.o.) + edge/Velín změny provozovatele. Po merge: Ctrl+F5 Velín, nahrát 3 PDF e-shopu (Dokumenty → Vlastní dokumenty) a přeložit, přeložit VOP/smlouvu/GDPR/protokoly a texty.
 - **Web nahrát** (ručně, Hosting90) — seznam souborů dostal majitel 28. 11. (porovnání s 9255ba70); po nahrání smazat `.cache/pages`. Web je hotový kromě QR plateb (níže).
