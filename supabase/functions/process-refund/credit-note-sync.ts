@@ -11,91 +11,104 @@
 //    základ, celkem, poznámka + účetní záznam) — se stejným stropem jako DB trigger
 //    _cap_refund_to_paid při vložení (zaplacené DP − ostatní dobropisy). Nikdy nesnižuje — snížení po selhané
 //    vratce dělá shrinkCreditNote (oprava i5).
-import { otherRefundableIntents, type BookingIntentsStripe } from '../_shared/booking-intents.ts'
-
-// deno-lint-ignore no-explicit-any
-type Sb = any
-
+import { otherRefundableIntents } from '../_shared/booking-intents.ts';
 /** Kolik se už vrátilo z OSTATNÍCH plateb rezervace jako zbytek k hlavní vratce `mainRefundId`
- *  (haléře). Chyba → 0 (dobropis jen z hlavní vratky; process-refund ho pak dorovná). */
-export async function remainderForMainHaleru(stripe: BookingIntentsStripe, sb: Sb, a: {
-  bookingId: string; mainPi: string | null; mainRefundId: string
-}): Promise<number> {
+ *  (haléře). Chyba → 0 (dobropis jen z hlavní vratky; process-refund ho pak dorovná). */ export async function remainderForMainHaleru(stripe, sb, a) {
   try {
-    const cands = await otherRefundableIntents(stripe, sb, a.bookingId, a.mainPi, a.mainRefundId)
-    return cands.reduce((s, c) => s + c.refundsForMain, 0)
+    const cands = await otherRefundableIntents(stripe, sb, a.bookingId, a.mainPi, a.mainRefundId);
+    return cands.reduce((s, c)=>s + c.refundsForMain, 0);
   } catch (e) {
-    console.warn('[process-refund] remainder for main refund failed:', (e as Error).message)
-    return 0
+    console.warn('[process-refund] remainder for main refund failed:', e.message);
+    return 0;
   }
 }
-
 /** Dorovná existující dobropis na skutečně vrácenou částku `targetCzk` (jen nahoru). Vrací novou
- *  částku (Kč, kladně), nebo null, když se nic neměnilo. */
-export async function reconcileCreditNote(sb: Sb, a: {
-  cnId: string; cnNumber: string; bookingId: string; currentTotal: number; targetCzk: number
-  /** položka dobropisu („Dobropis – Storno rezervace (model)") a důvod pro účetní záznam */
-  description: string; reasonText: string; notes: string; issueDate: string
-}): Promise<number | null> {
-  const curH = Math.round(Math.abs(Number(a.currentTotal) || 0) * 100)
-  let newH = Math.round(Math.abs(Number(a.targetCzk) || 0) * 100)
-  if (newH <= curH) return null
+ *  částku (Kč, kladně), nebo null, když se nic neměnilo. */ export async function reconcileCreditNote(sb, a) {
+  const curH = Math.round(Math.abs(Number(a.currentTotal) || 0) * 100);
+  let newH = Math.round(Math.abs(Number(a.targetCzk) || 0) * 100);
+  if (newH <= curH) return null;
   // Strop jako _cap_refund_to_paid (BEFORE INSERT — UPDATE ho nespouští).
-  const { data: dps } = await sb.from('invoices').select('id, total')
-    .eq('booking_id', a.bookingId).eq('type', 'payment_receipt').neq('status', 'cancelled')
-  const paidH = (dps || []).reduce((s: number, r: { total?: number }) => s + Math.round((Number(r.total) || 0) * 100), 0)
+  const { data: dps } = await sb.from('invoices').select('id, total').eq('booking_id', a.bookingId).eq('type', 'payment_receipt').neq('status', 'cancelled');
+  const paidH = (dps || []).reduce((s, r)=>s + Math.round((Number(r.total) || 0) * 100), 0);
   if (paidH > 0) {
-    const { data: cns } = await sb.from('invoices').select('id, total')
-      .eq('booking_id', a.bookingId).eq('type', 'credit_note').neq('status', 'cancelled')
-    const otherH = (cns || []).filter((r: { id: string }) => r.id !== a.cnId)
-      .reduce((s: number, r: { total?: number }) => s + Math.round(Math.abs(Number(r.total) || 0) * 100), 0)
-    newH = Math.min(newH, Math.max(0, paidH - otherH))
+    const { data: cns } = await sb.from('invoices').select('id, total').eq('booking_id', a.bookingId).eq('type', 'credit_note').neq('status', 'cancelled');
+    const otherH = (cns || []).filter((r)=>r.id !== a.cnId).reduce((s, r)=>s + Math.round(Math.abs(Number(r.total) || 0) * 100), 0);
+    newH = Math.min(newH, Math.max(0, paidH - otherH));
   }
-  if (newH <= curH) return null
-  const czk = newH / 100
+  if (newH <= curH) return null;
+  const czk = newH / 100;
   const { error } = await sb.from('invoices').update({
-    items: [{ description: a.description, qty: 1, unit_price: -czk }],
-    subtotal: -czk, total: -czk, notes: a.notes,
-  }).eq('id', a.cnId)
-  if (error) throw new Error(`credit note reconcile failed: ${error.message}`)
+    items: [
+      {
+        description: a.description,
+        qty: 1,
+        unit_price: -czk
+      }
+    ],
+    subtotal: -czk,
+    total: -czk,
+    notes: a.notes
+  }).eq('id', a.cnId);
+  if (error) throw new Error(`credit note reconcile failed: ${error.message}`);
   // Účetní záznam dobropisu: recovery ho váže přes invoice_id, process-refund přes popis „Dobropis <číslo> …".
-  const byInvoice = await sb.from('accounting_entries').update({ amount: -czk }).eq('invoice_id', a.cnId).select('id')
-  let done = Array.isArray(byInvoice?.data) && byInvoice.data.length > 0
+  const byInvoice = await sb.from('accounting_entries').update({
+    amount: -czk
+  }).eq('invoice_id', a.cnId).select('id');
+  let done = Array.isArray(byInvoice?.data) && byInvoice.data.length > 0;
   if (!done) {
-    const byDesc = await sb.from('accounting_entries').update({ amount: -czk })
-      .eq('booking_id', a.bookingId).eq('category', 'refund').like('description', `Dobropis ${a.cnNumber} %`).select('id')
-    done = Array.isArray(byDesc?.data) && byDesc.data.length > 0
+    const byDesc = await sb.from('accounting_entries').update({
+      amount: -czk
+    }).eq('booking_id', a.bookingId).eq('category', 'refund').like('description', `Dobropis ${a.cnNumber} %`).select('id');
+    done = Array.isArray(byDesc?.data) && byDesc.data.length > 0;
   }
   if (!done) {
     await sb.from('accounting_entries').insert({
-      type: 'expense', amount: -czk, description: `Dobropis ${a.cnNumber} – ${a.reasonText}`,
-      category: 'refund', date: a.issueDate, booking_id: a.bookingId, invoice_id: a.cnId,
-    }).then(() => {}, () => {})
+      type: 'expense',
+      amount: -czk,
+      description: `Dobropis ${a.cnNumber} – ${a.reasonText}`,
+      category: 'refund',
+      date: a.issueDate,
+      booking_id: a.bookingId,
+      invoice_id: a.cnId
+    }).then(()=>{}, ()=>{});
   }
-  return czk
+  return czk;
 }
-
 /** Oprava i5 (2026-11-07, verify:refunds V2/V9): dobropis k vratce, jejíž část (nebo celá) ve Stripe SELHALA
  *  (webhook refund-updated.ts) → dorovnat DOLŮ na skutečně živou částku `targetCzk` (hlavní vratka + živé zbytky);
  *  0 → dobropis zrušit (status 'cancelled'). Účetní záznam stejně jako reconcileCreditNote. PDF se přegeneruje
- *  (pdf_path null → ensureCreditNotePdf). Vrací novou částku (Kč, kladně; 0 = zrušen), nebo null beze změny. */
-export async function shrinkCreditNote(sb: Sb, a: {
-  cnId: string; cnNumber: string; bookingId: string; currentTotal: number; targetCzk: number; description: string; note: string
-}): Promise<number | null> {
-  const curH = Math.round(Math.abs(Number(a.currentTotal) || 0) * 100)
-  const newH = Math.max(0, Math.round(Math.abs(Number(a.targetCzk) || 0) * 100))
-  if (newH >= curH) return null
-  const czk = newH / 100
-  const { data: old } = await sb.from('invoices').select('notes').eq('id', a.cnId).maybeSingle()
-  const notes = `${old?.notes || ''} ${a.note}`.trim()
-  const patch = newH === 0 ? { status: 'cancelled', notes }
-    : { items: [{ description: a.description, qty: 1, unit_price: -czk }], subtotal: -czk, total: -czk, notes, pdf_path: null }
-  const { error } = await sb.from('invoices').update(patch).eq('id', a.cnId).neq('status', 'cancelled')
-  if (error) throw new Error(`credit note shrink failed: ${error.message}`)
-  const byInvoice = await sb.from('accounting_entries').update({ amount: -czk }).eq('invoice_id', a.cnId).select('id')
+ *  (pdf_path null → ensureCreditNotePdf). Vrací novou částku (Kč, kladně; 0 = zrušen), nebo null beze změny. */ export async function shrinkCreditNote(sb, a) {
+  const curH = Math.round(Math.abs(Number(a.currentTotal) || 0) * 100);
+  const newH = Math.max(0, Math.round(Math.abs(Number(a.targetCzk) || 0) * 100));
+  if (newH >= curH) return null;
+  const czk = newH / 100;
+  const { data: old } = await sb.from('invoices').select('notes').eq('id', a.cnId).maybeSingle();
+  const notes = `${old?.notes || ''} ${a.note}`.trim();
+  const patch = newH === 0 ? {
+    status: 'cancelled',
+    notes
+  } : {
+    items: [
+      {
+        description: a.description,
+        qty: 1,
+        unit_price: -czk
+      }
+    ],
+    subtotal: -czk,
+    total: -czk,
+    notes,
+    pdf_path: null
+  };
+  const { error } = await sb.from('invoices').update(patch).eq('id', a.cnId).neq('status', 'cancelled');
+  if (error) throw new Error(`credit note shrink failed: ${error.message}`);
+  const byInvoice = await sb.from('accounting_entries').update({
+    amount: -czk
+  }).eq('invoice_id', a.cnId).select('id');
   if (!(Array.isArray(byInvoice?.data) && byInvoice.data.length > 0)) {
-    await sb.from('accounting_entries').update({ amount: -czk })
-      .eq('booking_id', a.bookingId).eq('category', 'refund').like('description', `Dobropis ${a.cnNumber} %`)
+    await sb.from('accounting_entries').update({
+      amount: -czk
+    }).eq('booking_id', a.bookingId).eq('category', 'refund').like('description', `Dobropis ${a.cnNumber} %`);
   }
-  return czk
+  return czk;
 }

@@ -8,11 +8,8 @@
 // živě nástrojem `get_gear_rental_offer` (./gear-offer.ts, ceník Velín → Flotila →
 // Půjčení oblečení). Pravidlo rozsahu velikostí samoobsluhy = zrcadlo
 // motogo-web-php/js/gear-ss-cap.js a submit-handover-protocol/gear.ts.
-
-import { BRANCH_GATE_TITLE } from './branch-gate.ts'
-
-export const GEAR_RENTAL_TITLE = 'VÝPŮJČKA VÝBAVY BEZ MOTORKY'
-
+import { BRANCH_GATE_TITLE } from './branch-gate.ts';
+export const GEAR_RENTAL_TITLE = 'VÝPŮJČKA VÝBAVY BEZ MOTORKY';
 export const GEAR_RENTAL_RULES_CS = `${GEAR_RENTAL_TITLE} (rezervace „jen výbava“) — FAKTA A POSTUP (má PŘEDNOST před staršími texty FAQ / znalostní báze, které tvrdí, že výbava bez motorky jde jen v Mezné nebo že samoobslužná pobočka vydává výbavu jen k motorce — to už NEPLATÍ):
 - CO TO JE: samostatná výpůjčka motorkářské výbavy (helma, bunda, kalhoty, rukavice, boty — jednotlivě nebo komplet) BEZ motorky. Je to normální REZERVACE: číslo #XXXXXXXX, stejné stavy (čeká na platbu → potvrzená → probíhá → dokončená / zrušená), vidí ji obsluha mezi rezervacemi. V kontextu a v toolech ji poznáš podle \`booking_kind='gear'\` / \`gear_only=true\` / „Výpůjčka výbavy“ — u takové rezervace NIKDY nemluv o motorce, kóji, km, tankování, mytí, SOS ani diagnostice (\`suggest_sos\` je vždy false).
 - KDE OBJEDNAT: na webu (stránka Půjčení výbavy — odkaz \`order_url\` z \`get_gear_rental_offer\`, v jazyce zákazníka). APLIKACE MotoGo24 podle \`app_available\` z \`get_gear_rental_offer\`: \`true\` → výpůjčku výbavy lze objednat a spravovat i v appce (Rezervace); \`false\` (nebo hodnotu neznáš) → objednává se zatím na webu a řekni, že výpůjčka výbavy bude brzy i v aplikaci MotoGo24 („brzy i v aplikaci“) — NIKDY netvrď, že ji v appce už jde OBJEDNAT (že ji appka aspoň zobrazuje, smíš říct jen podle pokynu appky, máš-li ho). V chatu výpůjčku výbavy NEZAKLÁDÁŠ — máš-li nástroje \`create_booking_request\` / \`redirect_to_booking\`, ty jsou jen pro motorky; pošli odkaz \`order_url\` (s předvyplněnou pobočkou/termínem) a pomoz s výběrem kusů a velikostí.
@@ -26,19 +23,46 @@ export const GEAR_RENTAL_RULES_CS = `${GEAR_RENTAL_TITLE} (rezervace „jen výb
 - DOKUMENTY A E-MAILY: smlouva o nájmu výbavy + VOP + předávací protokol + platební doklady (ZF, DP, konečná faktura). E-maily jdou ve stejných fázích jako u motorky (nedokončená, potvrzení platby s výzvou k nahrání dokladu totožnosti, připomínka dokladu, potvrzení + kódy, úprava, storno, ukončení) — jen s texty o výbavě.
 - ZMĚNY: web Upravit rezervaci (a appka, když výpůjčku výbavy umí): posun termínu (stejná délka zdarma), prodloužení (doplatek dle ceny výbavy za den), zkrácení, změna velikostí (zdarma, stejné kusy, do začátku výpůjčky), odebrání kusu, storno. PŘIDAT kus do ZAPLACENÉ výpůjčky sám nejde — pošli na kontakt firmy (přidá obsluha). Máš-li nástroje úprav rezervace (preview/apply_booking_change), smíš u výpůjčky výbavy měnit jen TERMÍN stejným postupem jako u motorky (cenu počítá server z ceny výbavy za den); motorku k výpůjčce výbavy přidat ani „vyměnit“ nejde (\`gear_no_moto\`), velikosti a kusy jen v Upravit rezervaci.
 - VRATKA PŘI ZKRÁCENÍ / ODEBRÁNÍ KUSU (stejně jako u motorek): procento se počítá od TEĎ do PŮVODNÍHO začátku rezervace (čas vyzvednutí, Praha) — ≥ 7 dní (168 h) = 100 %, ≥ 2 dny (48 h) = 50 %, jinak 0 % z ceny odebraných dní / kusů; po dřívějším posunu začátku platí strop jako u motorek (max. 50 %, resp. 0 %). Částku vždy z náhledu serveru, nikdy z hlavy.
-- STARŠÍ OBJEDNÁVKY VÝBAVY s číslem „OBJ-…“ (původní e-shopová verze) → stav přes \`get_order_status\`, máš-li ten nástroj; jinak ho nevymýšlej a odkaž na kontakt firmy.`
-
+- STARŠÍ OBJEDNÁVKY VÝBAVY s číslem „OBJ-…“ (původní e-shopová verze) → stav přes \`get_order_status\`, máš-li ten nástroj; jinak ho nevymýšlej a odkaž na kontakt firmy.`;
 // Rozsah velikostí na SAMOOBSLUŽNÉ pobočce (zrcadlo gear-ss-cap.js): helma S–3XL,
 // bunda/kalhoty/rukavice nejvýš 4XL; neznámé hodnoty (boty = čísla) projdou.
-const RANK: Record<string, number> = { XXS: 0, XS: 1, S: 2, M: 3, L: 4, XL: 5, '2XL': 6, XXL: 6, '3XL': 7, XXXL: 7, '4XL': 8, XXXXL: 8, '5XL': 9, '6XL': 10 }
-const CAP: Record<string, [number | null, number | null]> = {
-  helmet: [RANK.S, RANK['3XL']], jacket: [null, RANK['4XL']], pants: [null, RANK['4XL']], gloves: [null, RANK['4XL']],
-}
-
-/** Je velikost v rozsahu samoobslužné pobočky? (neznámý typ / hodnota = ano) */
-export function ssSizeOk(key: string, size: unknown): boolean {
-  const c = CAP[key]
-  const r = RANK[String(size ?? '').trim().toUpperCase()]
-  if (!c || r === undefined) return true
-  return !(c[0] !== null && r < c[0]) && !(c[1] !== null && r > c[1])
+const RANK = {
+  XXS: 0,
+  XS: 1,
+  S: 2,
+  M: 3,
+  L: 4,
+  XL: 5,
+  '2XL': 6,
+  XXL: 6,
+  '3XL': 7,
+  XXXL: 7,
+  '4XL': 8,
+  XXXXL: 8,
+  '5XL': 9,
+  '6XL': 10
+};
+const CAP = {
+  helmet: [
+    RANK.S,
+    RANK['3XL']
+  ],
+  jacket: [
+    null,
+    RANK['4XL']
+  ],
+  pants: [
+    null,
+    RANK['4XL']
+  ],
+  gloves: [
+    null,
+    RANK['4XL']
+  ]
+};
+/** Je velikost v rozsahu samoobslužné pobočky? (neznámý typ / hodnota = ano) */ export function ssSizeOk(key, size) {
+  const c = CAP[key];
+  const r = RANK[String(size ?? '').trim().toUpperCase()];
+  if (!c || r === undefined) return true;
+  return !(c[0] !== null && r < c[0]) && !(c[1] !== null && r > c[1]);
 }
